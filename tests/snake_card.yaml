@@ -1,0 +1,148 @@
+# Card: 工业化贪吃蛇 — 全自主多轮开发流程
+# LLM 自主调工具、委派 Scout、多轮迭代、工业规范
+
+card:
+  id: "snake-001"
+  intent: "Write a production-grade Snake game in Python with tkinter.
+           Must follow PEP 8, include type hints, docstrings, unit tests,
+           and a README. Use multiple rounds of self-review and scout verification."
+  domain: "."
+  mode: PARALLEL_ALL
+
+phases:
+
+  # ─── Phase 1: 侦察 — 了解项目结构 ───
+  - name: recon
+    mode: PARALLEL
+    steps:
+      - action: scout
+        target: "List the current directory structure. What files exist? What's the project layout?"
+        agent: scout
+
+      - action: scout
+        target: "Check if tkinter is available. Search for existing Python game code in this project."
+        agent: scout
+
+  # ─── Phase 2: 计划 — LLM 自主设计架构 ───
+  - name: design
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        target: "Design the Snake game architecture"
+        agent: reader
+        params:
+          prompt: |
+            Based on the scout findings, design a Snake game with:
+            - SnakeGame class (main controller)
+            - Snake class (movement, collision, growth)
+            - Food class (random spawning)
+            - ScoreBoard class (score tracking)
+            - Game loop with configurable FPS
+            - Keyboard controls (arrow keys)
+            - Game over detection (wall & self collision)
+            - Unit tests with pytest
+            - README with install/run instructions
+
+            Output a detailed file-by-file implementation plan.
+
+      - action: think
+        target: "Review plan for industrial standards"
+        agent: reviewer
+        params:
+          prompt: |
+            Review the Snake game design plan for:
+            1. PEP 8 compliance
+            2. Type hints coverage
+            3. Error handling
+            4. Test coverage
+            5. Documentation
+            6. Separation of concerns
+
+            Flag any issues and suggest improvements.
+
+  # ─── Phase 3: 实现 — 自主写代码 ───
+  - name: implement
+    mode: PARALLEL
+    steps:
+      - action: think
+        target: "Write snake_game.py — main game class"
+        agent: writer
+        params:
+          prompt: |
+            Write the main Snake game module. Include:
+            - SnakeGame class with game loop
+            - Snake class with direction, movement, growth
+            - Food class with random placement
+            - Score tracking
+            - Keyboard bindings
+            - Game over conditions
+            - PEP 8, type hints, docstrings
+
+            Output ONLY the complete Python code.
+
+      - action: think
+        target: "Write test_snake.py — unit tests"
+        agent: writer
+        params:
+          prompt: |
+            Write comprehensive pytest tests for the Snake game:
+            - Test Snake initialization and movement
+            - Test collision detection
+            - Test food consumption and growth
+            - Test game over scenarios
+            - Test score tracking
+            - Mock tkinter for CI compatibility
+
+            Output ONLY the complete test code.
+
+      - action: think
+        target: "Write README.md"
+        agent: reader
+        params:
+          prompt: |
+            Write a README.md for the Snake game project:
+            - Title and description
+            - Installation instructions
+            - How to play (controls)
+            - Project structure
+            - Testing instructions
+            - License
+
+  # ─── Phase 4: 验证 — Scout 审查代码质量 ───
+  - name: verify
+    mode: PARALLEL
+    steps:
+      - action: scout
+        target: "Read snake_game.py and check: PEP 8 compliance, type hints presence, 
+                 docstring coverage, error handling. Report violations by line number."
+        agent: scout
+        verify:
+          template: scout
+          scope:
+            pattern: "^def |class |# TODO|: int|: str|: bool|: list"
+            path: "."
+
+      - action: scout
+        target: "Run a static analysis on the Snake game code. 
+                 Check for: potential bugs, missing edge cases, 
+                 thread safety, input validation."
+        agent: scout
+
+  # ─── Phase 5: 迭代改进 — 根据审查结果修改 ───
+  - name: iterate
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        target: "Fix all issues found by scout review"
+        agent: writer
+        params:
+          prompt: |
+            The scout review found these issues:
+            {context:verify}
+
+            Fix each issue in snake_game.py. Output the complete corrected file.
+
+      - action: scout
+        target: "Verify that all previously reported issues have been fixed.
+                 Read the corrected snake_game.py and confirm each fix."
+        agent: scout

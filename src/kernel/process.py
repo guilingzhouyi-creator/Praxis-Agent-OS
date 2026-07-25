@@ -1,0 +1,263 @@
+"""Process table and Process Control Block (PCB) for Agent OS.
+
+Each AgentTerminal registers itself as a process in the kernel process table.
+The PCB holds identity, state, resource usage, parent/child relationships,
+and lifecycle timestamps.
+
+Architecture:
+  ProcessTable (singleton)
+  ├── PCB for agent-http (PID 1)
+  │   ├── state: IDLE/RUNNING/BLOCKED/ZOMBIE
+  │   ├── resources: tokens, workers, scouts
+  │   ├── children: [PID 4, PID 5]  (scout sub-processes)
+  │   └── parent: PID 0 (init)
+  ├── PCB for agent-business (PID 2)
+  └── PCB for scout-1 (PID 4)
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any
+
+from .params import PROCESS_AUDIT_MAX, PROCESS_INIT_NAME, PROCESS_INIT_ROLE, PROCESS_INIT_RING, PROCESS_DEFAULT_RING, PROCESS_AUDIT_LOG_LIMIT, ZOMBIE_REAPER_INTERVAL
+
+logger = logging.getLogger(__name__)
+
+
+class ProcessState(Enum):
+    READY = auto()
+    RUNNING = auto()
+    BLOCKED = auto()
+    ZOMBIE = auto()
+    STOPPED = auto()
+
+
+@dataclass
+class ResourceUsage:
+    tokens_allocated: int = 0
+    tokens_used: int = 0
+    workers_active: int = 0
+    scouts_active: int = 0
+    memory_entries: int = 0
+    cards_processed: int = 0
+    cpu_time: float = 0.0
+
+
+class PCB:
+    """Process Control Block — one per agent or scout."""
+
+    def __init__(self, pid: int, name: str, role: str = "",
+                 parent_pid: int = 0, ring: int = PROCESS_DEFAULT_RING):
+        self.pid = pid
+        self.name = name
+        self.role = role
+        self.parent_pid = parent_pid
+        self.ring = ring
+        self.state = ProcessState.READY
+        self.resources = ResourceUsage()
+        self.created_at = time.time()
+        self.last_active = time.time()
+        self.exit_code: int | None = None
+        self.exit_reason: str = ""
+        self.identity_verified: bool = False  # Ed25519 keypair generated (#P5)
+
+    def touch(self) -> None:
+        self.last_active = time.time()
+
+    def record_tokens(self, allocated: int, used: int) -> None:
+        self.resources.tokens_allocated += allocated
+        self.resources.tokens_used += used
+        self.touch()
+
+    def record_card(self) -> None:
+        self.resources.cards_processed += 1
+        self.touch()
+
+    def record_cpu(self, seconds: float) -> None:
+        self.resources.cpu_time += seconds
+        self.touch()
+
+    def record_alloc(self, tokens: int = 0) -> None:
+        self.resources.tokens_allocated += tokens
+
+    def record_use(self, tokens: int = 0, cpu_ms: float = 0) -> None:
+        self.resources.tokens_used += tokens
+        self.resources.cpu_time += cpu_ms
+        self.touch()
+
+    def record_scout(self, delta: int = 1) -> None:
+        self.resources.scouts_active = max(0, self.resources.scouts_active + delta)
+
+    def snapshot(self) -> dict:
+        return {
+            "pid": self.pid,
+            "name": self.name,
+            "role": self.role,
+            "state": self.state.name,
+            "ring": self.ring,
+            "parent_pid": self.parent_pid,
+            "uptime": round(time.time() - self.created_at, 1),
+            "idle": round(time.time() - self.last_active, 1),
+            **self.resources.__dict__,
+        }
+
+
+class ProcessTable:
+    """Kernel process table — singleton, thread-safe.
+
+    All processes (agents, scouts) must register here.
+    PID 0 is the init process (kernel itself).
+    """
+
+    def __init__(self, gc_interval: float = 60.0):
+        self._lock = threading.Lock()
+        self._processes: dict[int, PCB] = {}
+        self._name_index: dict[str, int] = {}
+        self._next_pid = 1
+        self._audit_log: list[dict] = []
+        self._audit_max = PROCESS_AUDIT_MAX
+
+        # PID 0: kernel init
+        init = PCB(pid=0, name=PROCESS_INIT_NAME, role=PROCESS_INIT_ROLE, ring=PROCESS_INIT_RING)
+        init.state = ProcessState.RUNNING
+        self._processes[0] = init
+
+        # Background zombie reaper (daemon thread)
+        self._gc_running = True
+        threading.Thread(target=self._gc_loop, daemon=True,
+                         name="zombie-reaper").start()
+
+    def _gc_loop(self) -> None:
+        """Background zombie reaper: reap zombies older than 300s, cap total processes."""
+        while self._gc_running:
+            time.sleep(ZOMBIE_REAPER_INTERVAL)
+            try:
+                with self._lock:
+                    now = time.time()
+                    zombies = [(pid, pcb) for pid, pcb in self._processes.items()
+                               if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > 300]
+                    for pid, _ in zombies:
+                        self._processes.pop(pid, None)
+                        self._name_index = {n: p for n, p in self._name_index.items() if p != pid}
+                    # Cap: if > 500 processes, reap oldest STOPPED/ZOMBIE
+                    if len(self._processes) > 500:
+                        oldest = sorted(
+                            [(pid, pcb) for pid, pcb in self._processes.items()
+                             if pcb.state in (ProcessState.ZOMBIE, ProcessState.STOPPED)],
+                            key=lambda x: x[1].last_active
+                        )
+                        for pid, _ in oldest[:len(self._processes) - 500]:
+                            self._processes.pop(pid, None)
+                            self._name_index = {n: p for n, p in self._name_index.items() if p != pid}
+            except Exception as e:
+                logger.warning("process gc: %s", e)
+
+    def spawn(self, name: str, role: str = "", parent_pid: int = 0,
+              ring: int = PROCESS_DEFAULT_RING) -> PCB:
+        with self._lock:
+            pid = self._next_pid
+            self._next_pid += 1
+            pcb = PCB(pid=pid, name=name, role=role,
+                      parent_pid=parent_pid, ring=ring)
+            self._processes[pid] = pcb
+            self._name_index[name] = pid
+            self._audit("spawn", pid, name, role)
+            return pcb
+
+    def get(self, pid: int) -> PCB | None:
+        with self._lock:
+            return self._processes.get(pid)
+
+    def get_by_name(self, name: str) -> PCB | None:
+        with self._lock:
+            pid = self._name_index.get(name)
+            return self._processes.get(pid) if pid else None
+
+    def set_state(self, pid: int, state: ProcessState) -> bool:
+        with self._lock:
+            pcb = self._processes.get(pid)
+            if not pcb:
+                return False
+            pcb.state = state
+            pcb.touch()
+            return True
+
+    def mark_identity_verified(self, name: str) -> bool:
+        """Mark an agent as having Ed25519 identity proof (called by IdentityService)."""
+        with self._lock:
+            pid = self._name_index.get(name)
+            pcb = self._processes.get(pid) if pid else None
+            if not pcb:
+                return False
+            pcb.identity_verified = True
+            pcb.touch()
+            return True
+
+    def exit(self, pid: int, exit_code: int = 0, reason: str = "") -> bool:
+        with self._lock:
+            pcb = self._processes.get(pid)
+            if not pcb:
+                return False
+            pcb.state = ProcessState.ZOMBIE
+            pcb.exit_code = exit_code
+            pcb.exit_reason = reason
+            self._audit("exit", pid, pcb.name, reason or f"exit({exit_code})")
+            return True
+
+    def reap(self, pid: int) -> dict | None:
+        """Remove a zombie process. Returns snapshot or None."""
+        with self._lock:
+            pcb = self._processes.pop(pid, None)
+            if not pcb:
+                return None
+            self._name_index.pop(pcb.name, None)
+            self._audit("reap", pid, pcb.name, "")
+            return pcb.snapshot()
+
+    def list(self, state: ProcessState | None = None) -> list[dict]:
+        with self._lock:
+            result = [p.snapshot() for p in self._processes.values()
+                      if state is None or p.state == state]
+            return sorted(result, key=lambda x: x["pid"])
+
+    def resource_summary(self) -> dict:
+        with self._lock:
+            total = {"tokens": 0, "workers": 0, "scouts": 0, "cards": 0}
+            for p in self._processes.values():
+                total["tokens"] += p.resources.tokens_allocated
+                total["workers"] += p.resources.workers_active
+                total["scouts"] += p.resources.scouts_active
+                total["cards"] += p.resources.cards_processed
+            return total
+
+    def _audit(self, op: str, pid: int, name: str, detail: str) -> None:
+        self._audit_log.append({
+            "op": op, "pid": pid, "name": name, "detail": detail,
+            "timestamp": time.time(),
+        })
+        if len(self._audit_log) > self._audit_max:
+            self._audit_log = self._audit_log[-self._audit_max:]
+
+    def audit_log(self, limit: int = PROCESS_AUDIT_LOG_LIMIT) -> list[dict]:
+        with self._lock:
+            return list(self._audit_log[-limit:])
+
+
+_table: ProcessTable | None = None
+
+
+def get_table() -> ProcessTable:
+    global _table
+    if _table is None:
+        _table = ProcessTable()
+    return _table
+
+
+def reset_table() -> None:
+    global _table
+    _table = None

@@ -1,0 +1,85 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+*.coverage
+*.pytest_cache/
+
+# ── Virtual environment ──
+.env
+.venv/
+venv/
+env/
+Pipfile.lock
+poetry.lock
+
+# ── IDE / Editor ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Project runtime state ──
+*.db
+*.sqlite3
+.praxis_state.json
+.praxis_events.db
+.praxis_settings.json
+*.praxis_settings.json
+.praxis_settings.json.bak
+*.log
+logs/
+
+# ── Sandbox (generated at runtime) ──
+.praxis/sandbox/
+praxis/sandbox/
+
+# ── Generated chain / proof files ──
+.chain_key
+*.chain_key
+Code/.chain_key
+
+# ── Memory system (LLM agent runtime state, sessions, archives) ──
+memories/
+
+# ── Runtime-generated state files (all .praxis_* patterns) ──
+.praxis_*.json
+!praxis.yaml
+.praxis_state.db
+
+
+
+# ── Timing / profiling data ──
+.workspace-timing-data/
+
+# ── OS generated ──
+*.spec
+*.manifest
+*.dll
+*.so
+*.dylib
+
+# ── AtomCode automation configs ──
+.atomcode/settings.json
+.mcp.json
+
+# ── Node (opencode skills + node_modules) ──
+node_modules/
+.opencode/
+
+# ── Skill system (generated artifacts) ──
+.skill_cache/
+skills/__pycache__/
+
+# ── Mystery / untracked binaries ──
+Code/_

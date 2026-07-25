@@ -1,0 +1,246 @@
+# NOMOS Praxis Agent OS — project configuration
+# Copy to your project root and edit.
+# Environment variables: ${VAR_NAME} is supported in string values.
+
+# ── Kernel ──
+kernel:
+  allocator:
+    tokens: 4096               # Default token budget per agent
+    ring1: 32                   # Working memory slots
+    ring2: 200                  # Short-term memory slots
+    ring3: 1000                 # Long-term memory slots
+  swapper:
+    interval: 30                # Background pressure check (seconds)
+  process:
+    max_pid: 500                # Max processes before GC reaps oldest
+    audit_max: 1000             # Process audit log entries
+  syscall:
+    audit_max: 5000             # Syscall audit trail max entries
+
+# ── Cell ──
+cell:
+  terminal:
+    workers: 4                  # Agent worker pool size
+    poll: 0.05                  # Card poll interval
+  scout:
+    max_total: 16               # Global scout pool size
+    max_per_agent: 4            # Max scouts per agent
+    cache_ttl: 30               # Scout result cache TTL (s)
+    session_timeout: 300        # Multi-turn scout session timeout
+  card:
+    timeout: 30                 # Card wait timeout (s)
+
+# ── Internationalization ──
+language: en                      # Display language: en | zh-CN | ja | de (see locales/)
+
+# ── LLM ──
+llm:
+  provider: ollama              # mock | ollama | openai | anthropic
+  model: qwen2.5-coder:7b
+  api_url: http://localhost:11434
+  api_key: ${DEEPSEEK_API_KEY}  # or set env var directly
+  max_tokens: 1024
+  temperature: 0.1
+  rate_limit: 10                # LLM API calls per second
+  cache:                        # Per-provider prefix cache strategy
+    defaults:
+      optimize_prompt: true
+      forward_user_id: false
+      anthropic_format: false
+    openai:
+      optimize_prompt: true
+      forward_user_id: true
+    deepseek:
+      optimize_prompt: true
+      forward_user_id: true
+    anthropic:
+      optimize_prompt: false
+      forward_user_id: true
+      anthropic_format: true
+    ollama:
+      optimize_prompt: false
+
+# ── Devices ──
+devices:
+  - name: llm
+    type: LLM
+    rate_limit: 10
+    description: LLM backend
+  - name: filesystem
+    type: STORAGE
+    rate_limit: 100
+    description: Local filesystem
+
+# ── Constitution (action sets) ──
+# These define which actions trigger territory checks, sandbox, gatechain, etc.
+# Empty = enforcement disabled for that category.
+constitution:
+  file_actions: [read, read_file, grep, grep_search, list, list_dir, search, find, stat]
+  modify_actions: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format, run, run_in_terminal]
+  gate_actions: [run_in_terminal, deploy, db_migrate, user_delete, delete_user, destroy]
+  scout_blocked: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format]
+
+# ── GateChain ──
+gatechain:
+  danger_levels:
+    deploy: 5
+    db_migrate: 4
+    user_delete: 5
+    destroy: 5
+    rollback: 4
+    run_in_terminal: 3
+    exec: 4
+    delete: 3
+    write: 2
+    replace: 2
+  escalation_danger: 4          # Tools with danger >= this trigger L3 notification
+  risk_warn_threshold: 6        # G3 risk score threshold for WARN
+  repeat_threshold: 5           # G5: N recent calls triggers REPORT
+  high_freq_threshold: 3        # G5: same-tool count threshold
+  history_limit: 10             # G5: recent calls to consider
+
+# ── Tool rates (calls/minute) ──
+tool_rates:
+  ring_1: 60                    # Read-only tools: 60 calls/min
+  ring_2_5: 20                  # Write tools: 20 calls/min
+  ring_3: 5                     # Destructive tools: 5 calls/min
+
+# ── HTN planner ──
+htn:
+  domain_prefix: app
+  tools:
+    analyze: analyze_code
+    scout: scout_delegate
+    read: read_file
+    write: write_file
+    create: create_file
+    replace: replace_string_in_file
+    extract: extract_method
+    build: build_project
+    test: test_project
+    lint: lint
+    review: review_code
+    doc: generate_doc
+
+# ── Cache ──
+cache:
+  max_entries: 500              # File cache entries
+  max_size_mb: 10               # File cache size limit
+  ttl: 60                       # File cache TTL (s)
+  context_max: 200              # Context register entries
+
+# ── Content trust policies (provenance + trust scoring) ──
+# Controls how content from different sources is trusted.
+# Content below min_trust_for_recall won't appear in memory recall results.
+# content_trust:
+#   strict:
+#     initial_scores:
+#       tool: 0.9
+#       agent: 0.7
+#       human: 1.0
+#       external: 0.1
+#     decay_per_hour: 0.1
+#     min_trust_for_recall: 0.5
+#     deny_if_unverified: true
+
+# ── Card types (defines available card natures) ──
+# Users can define custom card types via API or YAML.
+# Each type has: display name, phases, review policy, metadata schema.
+# register_card_type() also available via CentralPlugin.
+card_types:
+  execution:
+    display: "Execution Card"
+    has_review: true
+    phases: ["plan", "implement", "review"]
+  review:
+    display: "Review Card"
+    has_review: true
+    phases: ["review"]
+  issue:
+    display: "Issue Card"
+    has_review: false
+    phases: ["discuss", "converge"]
+  inspection:
+    display: "Inspection Card"
+    has_review: false
+    phases: ["inspect"]
+
+# ── MCP servers (auto-imported at boot) ──
+mcp:
+  servers: []
+    # - name: filesystem
+    #   endpoint: http://localhost:3500/mcp/v1
+    #   api_key: ""
+    # - name: database
+    #   endpoint: http://localhost:3501/mcp/v1
+
+# ── Persistence ──
+persist:
+  enabled: true
+  interval: 30                  # Auto-save interval (s)
+
+# ── Network mesh ──
+network:
+  discovery_port: 42069         # UDP broadcast port
+  mesh_port: 42070              # TCP message port
+  broadcast_interval: 15        # Announcement interval (s)
+  peer_timeout: 60              # Peer dead after N seconds silent
+
+# ── API gateway ──
+api:
+  host: 127.0.0.1
+  port: 8080
+  auth_token: ${PRAXIS_API_TOKEN}  # Bearer token (empty = no auth)
+
+# ── Territory → role mapping ──
+territories:
+  reader:
+    - src/web
+    - src/config
+  writer:
+    - src/api
+    - src/services
+  reviewer:
+    - src/security
+
+# ── Clearance (role → ring) ──
+clearance:
+  reader: 1
+  writer: 2
+  reviewer: 3
+  scout: 1
+  l3: 3
+
+# ── Prompt templates (optional overrides) ──
+# Keys correspond to kernel/prompts.py built-in defaults.
+# Uncomment to override; format variables depend on the key.
+# prompts:
+#   agent_loop.system: "You are an agent in NOMOS Praxis. Task: {task}"
+#   agent_loop.system.reader: "You are the reader agent. Read files and report."
+#   scout.system: "You are a scout. Investigate: {task}"
+#   convention.system: "Custom convention prompt..."
+
+# ── Shell commands (optional overrides) ──
+# Keys correspond to kernel/commands.py built-in defaults.
+# Uncomment to override help text, aliases, or argument schemas.
+# commands:
+#   mode:
+#     help: "切换模式"
+#     aliases: ["m"]
+#   connect:
+#     args:
+#       - name: agent_id
+#         description: "Target agent"
+#         optional: false
+
+# ── Agent defaults ──
+agents:
+  reader:
+    max_scouts: 3
+    ring: 1
+  writer:
+    max_scouts: 3
+    ring: 2
+  reviewer:
+    max_scouts: 1
+    ring: 3

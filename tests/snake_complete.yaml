@@ -1,0 +1,144 @@
+# Card: 工业化贪吃蛇 v2 — 类型/文档/测试/Scout回检/Cell验证
+# 由 L3A 解析人类意图生成
+card:
+  id: "snake-v2"
+  intent: "Write a complete, production-grade Snake game in Python tkinter.
+           Must include: type hints everywhere, docstrings on every public method,
+           PEP 8 compliance, unit tests with pytest, integration test with Cell,
+           and scout code review loop."
+  domain: "."
+  mode: EXECUTE
+
+phases:
+
+  # ── Phase 1: 设计规范 ──
+  - name: design
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: reader
+        target: "Write snake_game.py with these specifications:
+          - SnakeGame(tk.Tk) — main controller with game loop
+          - Snake(start_x, start_y, length) — movement, collision, growth
+          - Food(grid_width, grid_height) — random spawn, position validation
+          - ScoreBoard(canvas) — score display, game over screen
+          - Every public method: type hints + docstrings
+          - Constants: GRID_SIZE, CELL_SIZE, TICK_MS, INITIAL_LENGTH
+          - Error handling: try/except on tkinter import, graceful exit
+          - Keyboard: arrows for direction, space to pause/resume, r to restart
+          - Wall collision → game over
+          - Self collision → game over
+          - Score tracking with high score (session)
+          - Pause/resume with space
+          - Food avoids snake body
+          - Snake speeds up every 5 food eaten
+          Output ONLY the complete code."
+
+  # ── Phase 2: 实现 ──
+  - name: implement
+    mode: PARALLEL
+    steps:
+      - action: scout
+        agent: scout
+        target: "Read the current directory structure. List files. Report what build tools and test frameworks are available."
+      - action: think
+        agent: writer
+        params:
+          prompt: "Write test_snake.py with pytest. Include:
+          - test_snake_initialization()
+          - test_snake_movement()
+          - test_snake_growth()
+          - test_snake_wall_collision()
+          - test_snake_self_collision()
+          - test_food_spawn()
+          - test_score_tracking()
+          - Mock tkinter.Canvas for CI compatibility
+          - Use pytest fixtures
+          - Coverage target: >85%
+          Output ONLY the code."
+        target: "Write test_snake.py"
+
+  # ── Phase 3: Scout 代码审查 ──
+  - name: review
+    mode: PARALLEL
+    steps:
+      - action: scout
+        agent: scout
+        target: "Read snake_game.py. Check:
+          1. Are ALL public methods annotated with type hints?
+          2. Are ALL public methods documented with docstrings?
+          3. Is PEP 8 followed? (indentation, spacing, naming)
+          4. Are there any bare except clauses?
+          5. Are tkinter resources properly cleaned up?
+          Report each violation with line number."
+      - action: scout
+        agent: scout
+        target: "Read test_snake.py. Check:
+          1. Are tests using pytest fixtures?
+          2. Is tkinter properly mocked?
+          3. Are edge cases tested? (empty grid, max score boundary)
+          4. Are test names descriptive?
+          Report issues."
+
+  # ── Phase 4: 修复 ──
+  - name: fix
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: writer
+        params:
+          prompt: |
+            The code review found issues. Fix them in snake_game.py:
+            - Add missing type hints to all methods
+            - Add docstrings to all public methods
+            - Fix any PEP 8 violations
+            - Remove bare except clauses
+            - Add cleanup on game close
+            Output the COMPLETE corrected file.
+        target: "Apply all scout fixes to snake_game.py"
+
+  # ── Phase 5: Cell 集成测试 ──
+  - name: cell-test
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: reviewer
+        params:
+          prompt: |
+            The Cell architecture will test:
+            1. Kernel boot with configuration
+            2. Process table creation
+            3. Agent terminal lifecycle
+            4. Scout pool delegation
+            5. Tool pipeline execution
+            Verify that all Cell components are properly initialized.
+            Report pass/fail for each component.
+        target: "Verify Cell architecture integration"
+
+      - action: scout
+        agent: scout
+        params:
+          prompt: "Run a static analysis on snake_game.py:
+          - Check for any potential runtime errors
+          - Verify tkinter.Canvas method calls match actual API
+          - Check for unbound variables
+          - Check for any import errors
+          Report findings."
+        target: "Static analysis of snake_game.py"
+
+  # ── Phase 6: 文档 ──
+  - name: document
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: reader
+        params:
+          prompt: "Write README.md for the Snake game:
+          - Title and description
+          - Installation: pip install tk (or apt-get)
+          - How to play with controls table
+          - Architecture overview (classes and their responsibilities)
+          - Testing: pytest test_snake.py -v
+          - License: MIT
+          Use Markdown."
+        target: "Write README.md"

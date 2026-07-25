@@ -1,0 +1,108 @@
+# Card: Praxis 真实自举 — 读 -> 改 -> 写 -> 编译验证
+card:
+  id: "self-host-write"
+  intent: "Read kernel/__init__.py, verify __all__ exports all 17 kernel modules,
+           write the corrected file, compile-verify it passes."
+  domain: "."
+  mode: EXECUTE
+
+phases:
+
+  - name: inspect
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: reader
+        target: "Audit __all__ completeness"
+        params:
+          prompt: |
+            Read src/kernel/__init__.py.
+            List all modules imported at the top of the file.
+            List all names in the __all__ list at the bottom.
+            List all .py files in src/kernel/ directory.
+            Cross-reference: which imported names are NOT in __all__?
+            Which kernel .py files are completely missing from both imports and __all__?
+            Output the complete analysis with specific missing names.
+
+  - name: fix
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: writer
+        target: "Generate corrected __all__"
+        params:
+          prompt: |
+            Based on the audit, generate the corrected __all__ list for src/kernel/__init__.py.
+            Rules:
+            - Every imported name must be in __all__
+            - Every kernel module (.py file) must be exported
+            - Sort alphabetically within __all__
+            - Use proper comma placement
+            Output ONLY the corrected __all__ block.
+            Include these that may be missing: get_allocator, get_constitution, get_gatechain,
+            get_table, register_process, ProcessState, health, get_interrupt_table, fire,
+            InterruptType, Interrupt, get_device_manager, DeviceType, DeviceHealth,
+            get_skill_manager, get_vfs, get_tool_chain, get_lock_bus.
+
+      - action: think
+        agent: writer
+        target: "Write corrected file and verify"
+        params:
+          prompt: |
+            Step 1: First read the current src/kernel/__init__.py using read_file.
+            Step 2: Read src/kernel/params.py to check what constants are imported.
+            Step 3: Generate the corrected __all__ list that includes ALL kernel modules.
+            Step 4: Use write_file to save as src/kernel/__init__.py (this overwrites the original).
+            Step 5: Verify by using read_file to confirm the write succeeded.
+            
+            Rules:
+            - Keep ALL existing imports, code, and logic exactly as-is.
+            - Only modify the __all__ list at the very end of the file.
+            - Every kernel module (.py file in src/kernel/) must be exported.
+            - Sort names alphabetically in __all__.
+            - Include: DeviceHealth, DeviceType, Interrupt, InterruptType, ProcessState,
+              get_allocator, get_constitution, get_device_manager, get_gatechain,
+              get_interrupt_table, get_lock_bus, get_skill_manager, get_table,
+              get_tool_chain, get_vfs, health, register_process, fire.
+            
+            Report the path you wrote to and the number of lines written.
+
+  - action: scout
+    agent: scout
+    target: "Verify the proposed __all__ change"
+    params:
+      prompt: "Read src/kernel/__init__.py and src/kernel/__init__.py.fixed.
+               Compare their __all__ sections.
+               Check: is every kernel module exported? Verify: skill, vfs, process, 
+               interrupt, device, tool_chain, ipc modules are all present.
+               Report pass/fail for each module."
+
+  - name: verify-compile
+    mode: SEQUENTIAL
+    steps:
+      - action: scout
+        agent: scout
+        target: "Compile-check the updated __init__.py"
+        params:
+          prompt: |
+            First read the updated src/kernel/__init__.py to verify it was written correctly.
+            Then run a Python syntax check by reading the file and checking for:
+            - Balanced parentheses, brackets, and braces
+            - Valid __all__ list syntax
+            - All imports are present
+            Report: does the file appear valid?
+            If yes: the bootstrap is complete.
+            If no: report the specific issues found.
+
+      - action: think
+        agent: reviewer
+        target: "Final bootstrap report"
+        params:
+          prompt: |
+            Summarize the bootstrap process:
+            1. Was kernel/__init__.py read? ✓/✗
+            2. Was __all__ found incomplete? ✓/✗
+            3. Was __all__.___fixed written? ✓/✗
+            4. Does the fixed file compile? ✓/✗
+            5. Is the fix ready to apply? ✓/✗
+            Output a one-paragraph bootstrap status report.

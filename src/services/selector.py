@@ -1,0 +1,252 @@
+"""Selector — identity selection + pre-connect verification for Direct Mode.
+
+Flow:
+  1. PreSelector: scan all Cells → collect agent rosters (PID, role, status)
+  2. Selector: route by agent_id / role / territory → (cell_id, agent_id)
+  3. PreConnect: verify liveness + prompt injection check → allow/deny
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+from kernel.params import DIRECT_SESSION_TIMEOUT, INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
+
+logger = logging.getLogger(__name__)
+
+# ── Known injection patterns (rule-based, expand over time) ──
+
+# ── External LLM reviewer callback ──
+# Set via set_llm_reviewer(callable). Called when preconnect detects
+# medium-risk messages (0.3 < score < 0.7) for a second opinion.
+_llm_reviewer: Any = None
+
+
+def set_llm_reviewer(callback: Any) -> None:
+    """Register an external LLM reviewer for prompt injection.
+
+    The callback receives (message: str) and should return
+    {"safe": bool, "reason": str, "confidence": float}.
+    Called by preconnect() when rule-based score is inconclusive.
+    """
+    global _llm_reviewer
+    _llm_reviewer = callback
+    logger.info("llm_reviewer registered")
+
+
+_INJECTION_PATTERNS: list[re.Pattern] = [
+    re.compile(r"ignore\s+(all\s+)?(previous|above|system)\s+(instructions|prompts)", re.I),
+    re.compile(r"forget\s+(all\s+)?(previous|above|system)", re.I),
+    re.compile(INJECTION_PATTERN_ZH1, re.I),
+    re.compile(r"disregard\s+(all\s+)?(previous|above)", re.I),
+    re.compile(INJECTION_PATTERN_ZH2, re.I),
+    re.compile(r"new\s+instructions?:?\s*$", re.I),
+    re.compile(r"system\s+(prompt|message):", re.I),
+    re.compile(r"<\s*system\s*>", re.I),
+    re.compile(r"role\s*:\s*system", re.I),
+]
+
+
+# ── Agent identity ──
+
+@dataclass
+class AgentIdentity:
+    """Identifies a Peer Agent across Cells."""
+    cell_id: str = ""
+    agent_id: str = ""
+    role: str = ""
+    pid: int = 0
+    ring: int = 1
+    territory: list[str] = field(default_factory=list)
+    status: str = ""
+    reachable: bool = False
+
+
+# ── PreSelector: scan all Cells ──
+
+def preselect() -> dict:
+    """Scan all registered Cells, collect agent rosters with status.
+
+    Returns:
+        {"agents": [AgentIdentity, ...], "cells": [cell_id, ...], "total": int}
+    """
+    agents: list[dict] = []
+    cell_ids: list[str] = []
+
+    try:
+        from .cell import get_cells
+        cells = get_cells()
+    except Exception:
+        return {"agents": [], "cells": [], "total": 0, "error": "cell service unavailable"}
+
+    for cell_id, cell in cells.items():
+        cell_ids.append(cell_id)
+        try:
+            liveness = cell.liveness()
+            for aid, ainfo in liveness.get("agents", {}).items():
+                agents.append({
+                    "cell_id": cell_id,
+                    "agent_id": aid,
+                    "role": ainfo.get("role", ainfo.get("status", "?")),
+                    "status": ainfo.get("status", "unknown"),
+                    "alive": ainfo.get("alive", False),
+                    "territory": liveness.get("territory", []),
+                })
+        except Exception as e:
+            logger.warning("preselect cell %s: %s", cell_id, e)
+
+    return {"agents": agents, "cells": cell_ids, "total": len(agents)}
+
+
+# ── Selector: route to specific agent ──
+
+def select(cell_id: str = "", agent_id: str = "",
+           role: str = "", domain: str = "") -> dict:
+    """Select a specific agent by cell_id + agent_id, or by role/domain.
+
+    Returns:
+        {"success": bool, "cell_id": str, "agent_id": str,
+         "identity": AgentIdentity, "error": str}
+    """
+    if agent_id:
+        return _select_by_id(agent_id)
+
+    if cell_id:
+        return _select_by_role(cell_id, role, domain)
+
+    # Scan all cells for best match
+    result = _select_best(role, domain)
+    if result.get("success"):
+        return result
+
+    return {"success": False, "error": "no matching agent found"}
+
+
+# ── PreConnect verification ──
+
+def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
+    """Verify connection is healthy and message is safe before routing.
+
+    Checks:
+      1. Cell liveness
+      2. Agent reachability
+      3. Prompt injection (if message provided)
+
+    Returns:
+        {"allowed": bool, "reason": str, "injection_risk": float}
+    """
+    reasons = []
+    injection_risk = 0.0
+
+    # 1. Cell liveness
+    try:
+        from .cell import get_cell
+        cell = get_cell(cell_id)
+        liveness = cell.liveness()
+        if liveness.get("overall") == "unreachable":
+            return {"allowed": False, "reason": "cell_unreachable", "injection_risk": 0.0}
+    except Exception as e:
+        return {"allowed": False, "reason": f"cell_error: {e}", "injection_risk": 0.0}
+
+    # 2. Agent reachability
+    try:
+        reachable = cell.agent_reachable(agent_id)
+        if not reachable.get("reachable"):
+            reasons.append(reachable.get("reason", "unreachable"))
+    except Exception as e:
+        reasons.append(f"agent_check: {e}")
+
+    # 3. Prompt injection scan
+    if message:
+        injection_risk = _scan_injection(message)
+        if injection_risk > 0.7:
+            reasons.append("prompt_injection_suspected")
+        elif injection_risk > 0.3 and _llm_reviewer:
+            # Medium risk: call external LLM reviewer for second opinion
+            try:
+                review = _llm_reviewer(message)
+                if not review.get("safe", False):
+                    reasons.append(f"llm_review: {review.get('reason', 'unsafe')}")
+                    injection_risk = min(1.0, injection_risk + 0.3)
+                else:
+                    injection_risk = max(0.0, injection_risk - 0.2)
+            except Exception as e:
+                logger.warning("llm_review failed: %s", e)
+
+    return {
+        "allowed": len(reasons) == 0,
+        "reason": "; ".join(reasons) if reasons else "ok",
+        "injection_risk": round(injection_risk, 2),
+    }
+
+
+# ── Internal ──
+
+def _select_by_id(agent_id: str) -> dict:
+    from .cell import get_cells
+    for cell_id, cell in get_cells().items():
+        try:
+            r = cell.agent_reachable(agent_id)
+            if r.get("reachable") or r.get("reason") == "in_session":
+                return {
+                    "success": True, "cell_id": cell_id, "agent_id": agent_id,
+                }
+        except Exception:
+            continue
+    return {"success": False, "error": f"agent {agent_id} not found or unreachable"}
+
+
+def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
+    from .cell import get_cell
+    try:
+        cell = get_cell(cell_id)
+        liveness = cell.liveness()
+        for aid, info in liveness.get("agents", {}).items():
+            if info.get("role", info.get("status", "")).lower() == role.lower():
+                return {"success": True, "cell_id": cell_id, "agent_id": aid}
+    except Exception:
+        pass
+    return {"success": False, "error": f"no agent with role {role} in {cell_id}"}
+
+
+def _select_best(role: str, domain: str) -> dict:
+    from .cell import get_cells
+    best = None
+    best_score = -1
+    for cell_id, cell in get_cells().items():
+        for aid in cell._agents:
+            score = 0
+            info = cell._agents[aid]
+            if role and info.role.lower() == role.lower():
+                score += 2
+            if domain:
+                for t in info.territory:
+                    if domain.startswith(t):
+                        score += 1
+            if score > best_score:
+                best_score = score
+                best = (cell_id, aid)
+    if best:
+        return {"success": True, "cell_id": best[0], "agent_id": best[1]}
+    return {"success": False, "error": "no matching agent"}
+
+
+def _scan_injection(message: str) -> float:
+    """Scan message for prompt injection patterns. Returns risk score 0.0-1.0."""
+    if not message:
+        return 0.0
+    score = 0.0
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.search(message):
+            score += 0.3
+    # Length heuristic: very long messages with injection-like patterns
+    if len(message) > 2000 and score > 0:
+        score = min(1.0, score + 0.2)
+    return min(1.0, score)
+
+
+

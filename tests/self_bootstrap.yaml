@@ -1,0 +1,48 @@
+# Card: 最终自举 — Agent 读自己 → 写文件 → 编译验证
+card:
+  id: "bootstrap-final"
+  intent: "Read kernel/__init__.py, compare __all__ against actual kernel modules,
+           write the corrected file, verify compilation."
+  domain: "."
+  mode: EXECUTE
+
+phases:
+
+  - name: read-and-fix
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: writer
+        target: "自举修正 __all__"
+        params:
+          prompt: |
+            DO NOT ask me for the file content. USE THE TOOLS AVAILABLE TO YOU.
+            
+            Step 1: Use read_file to read src/kernel/__init__.py.
+            Step 2: Use list_dir to list all .py files in src/kernel/.
+            Step 3: Compare. Find which imported modules are NOT in __all__.
+            Step 4: Use write_file to write the corrected src/kernel/__init__.py.
+            Step 5: Only change the __all__ list. Keep everything else identical.
+            Step 6: Report the exact changes you made.
+
+            Required exports that must be in __all__:
+            DeviceHealth, DeviceType, Interrupt, InterruptType, ProcessState,
+            get_allocator, get_constitution, get_device_manager, get_gatechain,
+            get_interrupt_table, get_lock_bus, get_skill_manager, get_table,
+            get_tool_chain, get_vfs, health, register_process, fire.
+
+  - name: verify
+    mode: SEQUENTIAL
+    steps:
+      - action: scout
+        agent: scout
+        target: "Verify the modified file compiles"
+        params:
+          prompt: |
+            Read the file src/kernel/__init__.py.
+            Check that it has valid Python syntax:
+            - Balanced brackets
+            - Proper __all__ list format
+            - All imports present
+            - No truncated lines
+            Report pass/fail for each check.

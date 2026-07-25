@@ -1,0 +1,20 @@
+"""Subscriptions + Notifications tests — event subscription, multi-channel delivery."""
+from __future__ import annotations
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+
+class TestNotifications:
+    def test_notify_create(self):
+        from services.notify import NotifyService
+        svc = NotifyService()
+        assert svc is not None
+
+    def test_notify_log(self):
+        from services.notify import NotifyService
+        svc = NotifyService()
+        r = svc.send("log", "system", "test notification", "body")
+        assert r.get("success")

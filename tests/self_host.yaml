@@ -1,0 +1,90 @@
+# Card: Praxis 自举 — 读取自己内核，应用规则，修改自身
+# L3A 解析: "检查 kernel/__init__.py 的 __all__ 是否完整，补全缺失导出"
+card:
+  id: "self-host-001"
+  intent: "Bootstrap: Read Praxis kernel __init__.py, check __all__ completeness 
+           against actual kernel modules, add any missing exports, verify compilation."
+  domain: "."
+  mode: EXECUTE
+
+phases:
+
+  # ── Phase 1: 加载技能 + 侦察 ──
+  - name: learn
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: reader
+        target: "Load self-knowledge"
+        params:
+          prompt: |
+            Load the praxis-self skill from /skills/praxis-self.
+            Extract the relevant rules for modifying kernel code.
+            Output the rules you will follow.
+
+  # ── Phase 2: 读自己代码 ──
+  - name: read-self
+    mode: PARALLEL
+    steps:
+      - action: think
+        agent: reader
+        target: "Read kernel/__init__.py"
+        params:
+          prompt: |
+            Read the file src/kernel/__init__.py.
+            Identify:
+            1. The __all__ list at the end of the file
+            2. All import statements at the top
+            3. Any kernel module that is imported but NOT in __all__
+            4. Any kernel module file that exists but is NOT imported at all
+            Output the current __all__ list and your findings.
+
+      - action: think
+        agent: writer
+        target: "List kernel modules"
+        params:
+          prompt: |
+            List all .py files in the src/kernel/ directory.
+            Report which modules exist but are not in __all__.
+            Cross-reference with the praxis-self skill rules.
+
+  # ── Phase 3: 自主修改 ──
+  - name: modify
+    mode: SEQUENTIAL
+    steps:
+      - action: think
+        agent: writer
+        target: "Write updated __all__"
+        params:
+          prompt: |
+            Based on the findings, write the updated __all__ list for kernel/__init__.py.
+            Rules from praxis-self skill:
+            - Every kernel module must be exported in __all__
+            - New constants from params.py used in __init__.py must be imported
+            Output ONLY the updated __all__ list with all modules included.
+            Verify: process, interrupt, device, tool_chain modules must be in __all__.
+
+  # ── Phase 4: 验证 ──
+  - name: verify
+    mode: SEQUENTIAL
+    steps:
+      - action: scout
+        agent: scout
+        target: "Verify the proposed __all__ changes against the praxis-self skill rules. 
+                 Check: are all 17 kernel modules exported? Is the format correct?"
+        params:
+          prompt: "Read src/kernel/__init__.py and check if __all__ is complete. 
+                   List all kernel .py files and cross-reference with __all__ exports.
+                   Report any missing modules."
+
+      - action: think
+        agent: reviewer
+        target: "Final verification"
+        params:
+          prompt: |
+            Verify the bootstrap process:
+            1. Skill was loaded: ✓/✗
+            2. Kernel code was read: ✓/✗
+            3. Issues were identified: ✓/✗
+            4. Fix was proposed: ✓/✗
+            Output a structured bootstrap report.
