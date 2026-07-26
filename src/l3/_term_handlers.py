@@ -7,7 +7,9 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT
-from l1.kernel.params.system import POLL_INTERVAL_HANDLER, OUTPUT_MAX_LINES, OUTPUT_MAX_CHARS
+from l1.kernel.params.system import POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS
+from l1.kernel.params.tool import TOOL_GREP_TIMEOUT
+from l1.kernel.params.api import SHELL_CMD_TIMEOUT
 from l1.kernel.platform import SHELL_PATH
 
 logger = logging.getLogger(__name__)
@@ -111,7 +113,7 @@ def handle_shell(term, card, phases):
                 sm.write(session_id, command + "\n")
                 _time.sleep(POLL_INTERVAL_HANDLER)
                 out = sm.get_output(session_id)
-                output = "\n".join(out[-OUTPUT_MAX_LINES:])[:OUTPUT_MAX_CHARS]
+                output = "\n".join(out[-TERMINAL_OUTPUT_MAX_LINES:])[:TERMINAL_OUTPUT_MAX_CHARS]
                 return f"{prompt_str}{command}\n{output}", [], True
         except Exception as e:
             return f"session error: {e}", [], False
@@ -154,10 +156,10 @@ def _handle_grep(args, agent):
     """Inline grep tool."""
     import subprocess as _sp
     cmd = _sp.run(["rg", "-rn", args.get("pattern", ""), args.get("path", ".")],
-                   capture_output=True, text=True, timeout=15)
+                   capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT)
     if cmd.returncode != 0:
         cmd = _sp.run(["grep", "-rn", args.get("pattern", ""), args.get("path", ".")],
-                       capture_output=True, text=True, timeout=15, shell=True, executable=SHELL_PATH)
+                       capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT, shell=True, executable=SHELL_PATH)
     out = cmd.stdout[:4000] or "no matches"
     return {"success": True, "data": out}
 
@@ -169,7 +171,7 @@ def _handle_shell(args, agent):
     if not cmd:
         return {"success": False, "error": "command required"}
     try:
-        r = _sp.run(cmd, shell=True, capture_output=True, text=True, timeout=30, executable=SHELL_PATH)
+        r = _sp.run(cmd, shell=True, capture_output=True, text=True, timeout=SHELL_CMD_TIMEOUT, executable=SHELL_PATH)
         return {"success": r.returncode == 0, "stdout": r.stdout[:3000], "stderr": r.stderr[:1000], "exit_code": r.returncode}
     except _sp.TimeoutExpired:
         return {"success": False, "error": "timeout"}
@@ -230,7 +232,7 @@ def handle_think(term, card, phases):
 
         human_user = card.params.get("user_id", "")
         loop = AgentLoop(task=task, agent_id=term.agent_id, system=system_prompt,
-                         user_id=human_user or term.agent_id)
+                         user_id=human_user or term.agent_id, cell_id=term.cell_id)
         from l3.tool_spec import is_muted as _is_muted
 
         _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".."))

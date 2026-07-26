@@ -387,7 +387,7 @@ class LspManager:
                 # 尝试 pyright
                 r = subprocess.run(
                     ["pyright", str(path)],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True, text=True, timeout=LSP_MANAGER_TIMEOUT,
                 )
                 stdout = r.stdout or r.stderr
                 diags = self._parse_pyright_output(stdout, str(path))

@@ -121,7 +121,7 @@ class ObservabilityBus:
 
         try:
             from l1.kernel import get_audit_log
-            result["audit"] = len(get_audit_log(limit=100))
+            result["audit"] = len(get_audit_log(limit=OBS_AUDIT_LIMIT))
         except Exception:
             result["audit"] = 0
 

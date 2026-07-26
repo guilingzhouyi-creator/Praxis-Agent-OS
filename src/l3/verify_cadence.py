@@ -29,6 +29,15 @@ class VerifyCadence:
         self._edited: set[str] = set()
         self._nudged: set[str] = set()
         self._evidence: list[dict] = []
+        self._enabled = self._read_enabled()
+
+    @staticmethod
+    def _read_enabled() -> bool:
+        try:
+            from l3.settings_center import get_center
+            return bool(get_center().get("loop.verify_cadence", True))
+        except Exception:
+            return True
 
     def record_edit(self, path: str) -> None:
         if path:
@@ -39,6 +48,8 @@ class VerifyCadence:
             self._edited.clear()
 
     def nudge(self) -> str | None:
+        if not self._enabled:
+            return None
         unverified = [p for p in self._edited if p not in self._nudged]
         if not unverified:
             return None

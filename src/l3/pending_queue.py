@@ -26,6 +26,7 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.system import PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE
 from l3._persistable import PersistableMixin
+from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +240,7 @@ class PendingQueue(PersistableMixin):
             return {
                 "total": len(self._items),
                 "by_status": counts,
-                "pending": counts.get("PENDING", 0),
+                "pending": counts.get(WitnessStatus.PENDING, 0),
             }
 
     def set_priority(self, msg_id: str, priority: int) -> dict:

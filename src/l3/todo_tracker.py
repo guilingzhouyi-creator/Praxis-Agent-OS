@@ -33,11 +33,22 @@ class TodoTracker:
     def __init__(self, state_path: str = ""):
         self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE", ".praxis_todo_state.json")
         self._items: list[dict] = []
-        self._max_attempts: int = 3
-        self._max_iterations: int = 50
+        self._read_cfg()
         self._iteration: int = 0
         self._status: str = "open"
         self._restore()
+
+    def _read_cfg(self) -> None:
+        try:
+            from l3.settings_center import get_center
+            center = get_center()
+            self._max_iterations = center.get_int("loop.max_iterations", 50)
+            self._max_attempts = center.get_int("loop.max_attempts", 3)
+            self._continuation_nudge = center.get("loop.continuation_nudge", True)
+        except Exception:
+            self._max_iterations = 50
+            self._max_attempts = 3
+            self._continuation_nudge = True
 
     def _persist(self) -> None:
         try:

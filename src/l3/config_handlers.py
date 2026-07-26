@@ -303,3 +303,30 @@ def cfg_think(cfg: dict, s: Any, results: dict) -> None:
     if "profiles" in cfg and isinstance(cfg["profiles"], dict):
         center.set("think.profiles", cfg["profiles"])
     results["think"] = True
+
+
+def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
+    """Load loop control parameters from praxis.yaml loop_control: section."""
+    from l3.settings_center import get_center
+    center = get_center()
+    mapping = {
+        "max_steps": "loop.max_steps",
+        "timeout": "loop.timeout",
+        "max_iterations": "loop.max_iterations",
+        "max_attempts": "loop.max_attempts",
+        "continuation_nudge": "loop.continuation_nudge",
+        "tool_repeat_warn": "loop.tool_repeat_warn",
+        "tool_repeat_stop": "loop.tool_repeat_stop",
+        "coarse_repeat_nudge": "loop.coarse_repeat_nudge",
+        "coarse_repeat_stop": "loop.coarse_repeat_stop",
+        "verify_cadence": "loop.verify_cadence",
+    }
+    for cfg_key, center_key in mapping.items():
+        if cfg_key in cfg:
+            center.set(center_key, cfg[cfg_key])
+
+    if "scope" in cfg:
+        center.set("loop.scope", cfg["scope"])
+    if "enabled" in cfg:
+        center.set("loop.enabled", bool(cfg["enabled"]))
+    results["loop_control"] = True

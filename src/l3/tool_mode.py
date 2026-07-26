@@ -20,6 +20,7 @@ import threading
 from typing import Any
 
 from l1.kernel.params.system import PRAXIS_MODE_STATE
+from l1.kernel.params.kernel import RING_2_5, RING_3
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ _MODE_PATH: str = ""
 _MODE_LOCK = threading.Lock()
 _MODE: str = "write"  # default: full access
 
-_WRITE_RINGS = ("ring_2_5", "ring_3")
+_WRITE_RINGS = (RING_2_5, RING_3)
 
 
 def _mode_path() -> str:

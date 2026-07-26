@@ -43,13 +43,15 @@ class AgentLoop:
     """
 
     def __init__(self, task: str, agent_id: str = "", system: str = "",
-                 user_id: str = "", role: str = "", prompt_key: str = ""):
+                 user_id: str = "", role: str = "", prompt_key: str = "",
+                 cell_id: str = ""):
         self.task = task
         self.agent_id = agent_id
         self._system = system
         self._role = role
         self._prompt_key = prompt_key
         self._user_id = user_id or agent_id
+        self._cell_id = cell_id
         self._tools: list[ToolSpec] = []
         self._loop_detector = ToolLoopDetector()
         self._repeat_detector = CoarseRepeatDetector()
@@ -161,6 +163,7 @@ class AgentLoop:
 
         Called EXACTLY ONCE by every return path in run().
         Guarantees counter recording, cadence cleanup, and logging.
+        Also injects a summary into the Cell's L2 cache for cross-agent sharing.
         """
         elapsed = time.time() - t0
         try:
@@ -175,6 +178,27 @@ class AgentLoop:
             logger.warning("services/agent_loop: %s", e)
         self._todo._persist()
         self._cadence.reset()
+
+        # ── Cell L2 cache injection ──
+        if self._cell_id and result.get("success"):
+            try:
+                from .cell import get_cell as _get_cell
+                cell = _get_cell(self._cell_id)
+                answer = result.get("answer", "")
+                if answer:
+                    summary = answer.strip()[:200]
+                    key = f"agent:{self.agent_id}:{self.task[:40]}"
+                    cell.cache.inject(
+                        key=key,
+                        value=answer,
+                        summary=summary,
+                        agent_id=self.agent_id,
+                        entry_type="decision",
+                        importance=0.6,
+                    )
+            except Exception as e:
+                logger.debug("cell cache inject: %s", e)
+
         result["total_elapsed"] = round(elapsed, 2)
         result["total_steps"] = turns + corrections
         return result
@@ -377,7 +401,7 @@ class AgentLoop:
             processed_results.append(step_result)
 
         # ── Continuation nudges ──
-        if self._todo.has_open_items() and processed_results:
+        if self._todo._continuation_nudge and self._todo.has_open_items() and processed_results:
             continuation_nudge = get_prompt("agent_loop.continuation_nudge", "")
         elif continuation_nudge is None and self._cadence.nudge():
             continuation_nudge = self._cadence.nudge()

@@ -51,11 +51,11 @@ RWLOCK_POLL_INTERVAL: Final[float] = 0.05
 
 # ── Event ──
 
-HEARTBEAT_INTERVAL: Final[float] = 15.0
 
 # ── Event bus ──
 EVENT_MAX_HISTORY: Final[int] = 200
 EVENT_QUERY_LIMIT: Final[int] = 20
+HEARTBEAT_INTERVAL: Final[float] = 15.0
 
 # ── Interrupt table ──
 INTERRUPT_MAX_HISTORY: Final[int] = 200
@@ -132,11 +132,6 @@ RESOURCE_PRIORITY: Final[str] = "priority"
 EVENT_STORE_SENDER: Final[str] = "event_store"
 EVENT_HEARTBEAT_SENDER: Final[str] = "system"
 
-# ── EventBridge ──
-BRIDGE_KERNEL_CHANNEL: Final[str] = "bridge:kernel"
-BRIDGE_IPC_CHANNEL: Final[str] = "bridge:ipc"
-BRIDGE_DEFAULT_SENDER: Final[str] = "ipc_bridge"
-
 # ── IPC extras ──
 IPC_DEFAULT_PRIORITY: Final[float] = 5.0
 IPC_MSG_ID_LENGTH: Final[int] = 12
@@ -154,12 +149,6 @@ PROCESS_AUDIT_LOG_LIMIT: Final[int] = 100
 RESOURCE_FALLBACK_AGENT: Final[str] = "default"
 RESOURCE_KEYS: Final[tuple[str, ...]] = ("workers", "scouts", "memory", "tokens")
 RESOURCE_DEFAULT_COST: Final[int] = 1
-
-# ── Swapper extras ──
-SWAPPER_PAGER_NOTIFY_COUNT: Final[int] = 5
-SWAPPER_COMPACT_CONTENT_PREVIEW: Final[int] = 200
-SWAPPER_COMPACT_SUMMARY_COUNT: Final[int] = 3
-SWAPPER_COMPACT_SUMMARY_MAXLEN: Final[int] = 500
 
 # ── Mutex extras ──
 MUTEX_BOOST_THRESHOLD: Final[float] = 0.5

@@ -14,7 +14,7 @@ Usage:
     from l4.adapters.worker_thread import ThreadPoolWorker
     from l4.adapters.channel_ring import RingChannel
 
-    adapter = TcpAdapter(worker_pool=ThreadPoolWorker(), msg_channel=RingChannel(1024))
+    adapter = TcpAdapter(worker_pool=ThreadPoolWorker(), msg_channel=RingChannel(CHANNEL_RING_CAPACITY))
     adapter.start("node-1", TransportConfig(port=42070))
 """
 

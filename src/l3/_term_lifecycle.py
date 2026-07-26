@@ -21,7 +21,7 @@ def run_cache_keepalive(term: Any) -> None:
     Skip entirely when LLM is in mock mode (testing).
     """
     from l4.llm import get_engine
-    from .llm_base import list_providers
+    from l4.llm_base import list_providers
     providers = list_providers()
     if "mock" in providers and len(providers) == 1:
         return  # mock mode — no keepalive needed

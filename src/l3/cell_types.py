@@ -98,3 +98,60 @@ class CellMessage:
     payload: Any = None
     timestamp: float = field(default_factory=time.time)
     reply_to: str = ""
+
+
+# ── Cell L2 Cache types ──
+
+
+class CacheLocation(Enum):
+    """Where a cached entry's full value currently resides."""
+    HOT = auto()      # CellCache Hot Ring (fastest)
+    KV = auto()       # CellCache KV Cache
+    L3 = auto()       # MemoryManager R2/R3 (demoted)
+    R4 = auto()       # R4 archive (cold)
+
+
+@dataclass
+class CellCacheEntry:
+    """A value entry in the Cell L2 cache.
+
+    Written by a Peer Agent via inject() and immediately visible
+    to all other agents in the same Cell via lookup().
+    """
+    key: str
+    value: Any
+    summary: str                     # ≤200 chars, low-token preview
+    agent_id: str                    # source agent
+    entry_type: str                  # "decision" | "observation" | "scout_result" | ...
+    cell_id: str
+    tokens: int = 0
+    importance: float = 0.5
+    ttl: float = 300.0               # default 5 min
+    timestamp: float = field(default_factory=time.time)
+
+    def expired(self, now: float | None = None) -> bool:
+        if self.ttl <= 0:
+            return False
+        return (now or time.time()) - self.timestamp > self.ttl
+
+
+@dataclass
+class IndexEntry:
+    """Lightweight index chain entry — summary only, no full value.
+
+    Survives even after the full value is demoted to L3/R4.
+    Enables low-token-cost pre-check before fetching full data.
+    """
+    key: str
+    summary: str                     # ≤200 chars
+    agent_id: str
+    entry_type: str
+    importance: float = 0.5
+    timestamp: float = field(default_factory=time.time)
+    location: str = "hot"            # "hot" | "kv" | "l3" | "r4"
+    ttl: float = 900.0               # index survives longer (15 min)
+
+    def expired(self, now: float | None = None) -> bool:
+        if self.ttl <= 0:
+            return False
+        return (now or time.time()) - self.timestamp > self.ttl

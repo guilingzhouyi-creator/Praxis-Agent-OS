@@ -6,7 +6,7 @@ overwrite-oldest mode.
 
 Usage:
     from l4.adapters.channel_ring import RingChannel
-    ch = RingChannel(capacity=1024)
+    ch = RingChannel(capacity=CHANNEL_RING_CAPACITY)
     ch.put({"type": "ping"})
     msg = ch.get(timeout=5.0)
 """
@@ -18,6 +18,7 @@ import time
 from typing import Any
 
 from l1.kernel.ports import ChannelPort
+from l1.kernel.params.api import CHANNEL_RING_CAPACITY
 
 
 class RingChannel(ChannelPort):

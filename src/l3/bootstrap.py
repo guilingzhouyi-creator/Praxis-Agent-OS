@@ -34,8 +34,9 @@ def default_config() -> dict:
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     from l1.kernel.params.kernel import ALLOCATOR_DEFAULTS, SWAPPER_DEFAULT_INTERVAL
     from l1.kernel.params.system import (
-        SCOUT_MAX_PER_AGENT,
+        SCOUT_POOL_MAX_PER_AGENT,
         SCOUT_CACHE_TTL,
+        SCOUT_POOL_MAX,
         MEMORY_RING_WORKING_BUDGET,
         MEMORY_RING_SHORT_BUDGET,
         MEMORY_RING_LONG_BUDGET,
@@ -43,11 +44,10 @@ def default_config() -> dict:
         MEMORY_RING_SHORT_TTL,
         MEMORY_RING_LONG_TTL,
     )
-    from l1.kernel.params.tool import SCOUT_POOL_MAX
     return {
         "cell": {
             "terminal": {"workers": TERMINAL_MAX_WORKERS, "poll": 0.05},
-            "scout": {"max_total": SCOUT_POOL_MAX, "max_per_agent": SCOUT_MAX_PER_AGENT, "cache_ttl": SCOUT_CACHE_TTL},
+            "scout": {"max_total": SCOUT_POOL_MAX, "max_per_agent": SCOUT_POOL_MAX_PER_AGENT, "cache_ttl": SCOUT_CACHE_TTL},
             "card": {"timeout": CARD_TIMEOUT},
         },
         "kernel": {

@@ -21,7 +21,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Default ring size — keeps the last 1000 events across all Cells
-_DEFAULT_RING_SIZE = 1000
+from l1.kernel.params.agent import CELL_MONITOR_RING_SIZE
+
+_DEFAULT_RING_SIZE = CELL_MONITOR_RING_SIZE
 
 
 @dataclass

@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, SCOUT_LOOP_STEPS
-from l1.kernel.params.tool import MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX
+from l1.kernel.params.system import MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX
 
 logger = logging.getLogger(__name__)
 

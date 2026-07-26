@@ -26,6 +26,7 @@ from l1.kernel.params.api import (
     API_GATEWAY_PORT,
     API_GATEWAY_HOST,
     API_MAX_BODY_BYTES,
+    API_GATEWAY_QUEUE_TIMEOUT,
 )
 from .api_handlers import ApiHandlers
 from .api_middleware import (
@@ -272,7 +273,7 @@ class ApiGateway(ApiHandlers):
                     q = client["queue"]
                     while True:
                         try:
-                            event = q.get(timeout=30)
+                            event = q.get(timeout=API_GATEWAY_QUEUE_TIMEOUT)
                             if event is None:
                                 break
                             line = f"data: {json.dumps(event, default=str)}\n\n"

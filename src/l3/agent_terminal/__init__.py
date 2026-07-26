@@ -482,6 +482,7 @@ class AgentTerminal:
             system=_get_prompt("agent_terminal.direct").format(
                 agent_id=self.agent_id, role=self.role,
             ),
+            cell_id=self.cell_id,
         )
         result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
         answer = result.get("answer", "")

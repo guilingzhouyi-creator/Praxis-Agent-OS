@@ -306,18 +306,6 @@ col.stats()
 | `TOKEN_CELL_QUOTA` | 5,000,000 per Cell |
 | `TOKEN_GLOBAL_QUOTA` | 50,000,000 total |
 
-### 10. CentralPlugin (`l3/central_plugin.py`)
-
-Plugin lifecycle — install, list, remove tool plugins:
-
-```python
-from l3.central_plugin import get_center as _plug
-plug = _plug()
-plug.install_tool_plugin("my-plugin", tools=[tool_spec_1, tool_spec_2])
-plug.list_plugins()  # → ["my-plugin", ...]
-plug.remove_tool_plugin("my-plugin")
-```
-
 ## Bus Interconnections
 
 ```mermaid

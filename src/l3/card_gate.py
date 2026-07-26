@@ -24,6 +24,7 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.system import CARD_GATE_PATH, CARD_GATE_AUTO_SAVE
 from l3._persistable import PersistableMixin
+from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,7 @@ class CardGate(PersistableMixin):
         # Delegate to PendingQueue
         from .pending_queue import get_queue
         pq = get_queue()
-        items = pq.list(status="PENDING")
+        items = pq.list(status=WitnessStatus.PENDING)
         for item in items:
             if item["card_id"] == card_id:
                 if decision:
@@ -192,7 +193,7 @@ class CardGate(PersistableMixin):
 
     def list_pending(self) -> list[dict]:
         from .pending_queue import get_queue
-        return get_queue().list(status="PENDING")
+        return get_queue().list(status=WitnessStatus.PENDING)
 
     def list_history(self, limit: int = 50) -> list[dict]:
         with self._lock:

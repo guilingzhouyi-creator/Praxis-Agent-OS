@@ -15,6 +15,7 @@ from l1.kernel.constitution import get_constitution
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1, RING_NUM_MAP
 from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
+from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT
 from l1.kernel.tool_chain import get_tool_chain
 
 from .scheduler_rate import agent_can_access, get_rate_scheduler
@@ -135,7 +136,7 @@ class ToolPipeline:
                 from .approval_gate import get_gate as _gg
                 ar = _gg().request(tool_name, agent_id, args or {}, reason="policy requires approval")
                 result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
-                status = ar.wait(timeout=60)
+                status = ar.wait(timeout=APPROVAL_GATE_WAIT_TIMEOUT)
                 if status != "approved":
                     return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
                             "steps": result["steps"]}

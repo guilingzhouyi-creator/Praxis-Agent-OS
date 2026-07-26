@@ -17,6 +17,7 @@ from typing import Any
 
 from .l3a import L3A, TaskCard
 from .l3b import L3B
+from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ class CentralController:
 
         with self._lock:
             self._intents[cid] = {
-                "card": card, "card_id": cid, "status": "PENDING",
+                "card": card, "card_id": cid, "status": WitnessStatus.PENDING,
                 "created_at": time.time(), "result": None,
             }
 

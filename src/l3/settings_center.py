@@ -81,6 +81,18 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── CronScheduler ──
     "cron.check_interval": 60,
     "cron.max_entries": 50,
+
+    # ── Loop control (AgentLoop self-correction) ──
+    "loop.max_steps": 10,
+    "loop.timeout": 120.0,
+    "loop.max_iterations": 50,
+    "loop.max_attempts": 3,
+    "loop.continuation_nudge": True,
+    "loop.tool_repeat_warn": 3,
+    "loop.tool_repeat_stop": 4,
+    "loop.coarse_repeat_nudge": 3,
+    "loop.coarse_repeat_stop": 6,
+    "loop.verify_cadence": True,
 }
 
 

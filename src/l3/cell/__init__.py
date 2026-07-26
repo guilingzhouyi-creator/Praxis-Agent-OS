@@ -38,6 +38,7 @@ from ..cell_decompose import decompose_card as _decompose_card, auto_agent_map a
 from ..execution_plan import ExecutionPlan
 from ..think_registry import get_think_registry
 from ..cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
+from ..cell_cache import CellCache
 
 logger = logging.getLogger(__name__)
 from ..issue import IssueCard as _IssueCard
@@ -98,6 +99,9 @@ class Cell:
             on_evict=lambda item: self._archive_item("card_history", item),
         )
         self._card_snapshots: dict[str, dict] = {}  # card_id → file snapshot (capped below)
+
+        # Cell L2 shared cache — agents in this Cell share hot data here
+        self._cache: CellCache = CellCache(cell_id)
 
         # Register with ThinkQuotaRegistry
         if think_quota:
@@ -976,7 +980,18 @@ class Cell:
                         "elapsed": result.elapsed, "phases": result.phase}
         return None
 
-    # 鈹€鈹€ Scout result cache 鈹€鈹€
+    # ── Cell L2 shared cache ──
+
+    @property
+    def cache(self):
+        """Access the Cell L2 shared cache (CellCache).
+
+        Agents in the same Cell share hot data here via
+        inject/lookup/search — low-token-cost cross-agent sharing.
+        """
+        return self._cache
+
+    # ── Scout result cache ──
 
     def reuse_scout_result(self, template: str, scope: dict | None = None,
                            ttl: float = 0) -> dict | None:

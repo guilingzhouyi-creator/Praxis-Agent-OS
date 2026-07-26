@@ -148,8 +148,15 @@ class MemoryManager:
 
     def recall(self, agent_id: str | None = None, entry_type: str | None = None,
                tag: str | None = None, rings: list[int] | None = None,
-               limit: int = 20, cell_id: str | None = None) -> list[MemEntry]:
-        """Query across rings."""
+               limit: int = 20, cell_id: str | None = None,
+               promote_to_cell: str = "") -> list[MemEntry]:
+        """Query across rings.
+
+        Args:
+            promote_to_cell: If set, promotes important entries (importance ≥ 0.6)
+                             back to the given Cell's L2 cache so other agents
+                             in the same Cell can find them via cell.cache.search().
+        """
         rings = rings or [1, 2, 3]
         results: list[MemEntry] = []
         for r in rings:
@@ -157,7 +164,26 @@ class MemoryManager:
         if cell_id:
             results = [e for e in results if e.cell_id == cell_id]
         results.sort(key=lambda e: e.timestamp, reverse=True)
-        return results[:limit]
+        results = results[:limit]
+
+        # Auto-promote important results to Cell L2 cache
+        if promote_to_cell and results:
+            try:
+                from .cell import get_cell as _get_cell
+                cell = _get_cell(promote_to_cell)
+                for e in results:
+                    if e.importance >= 0.6 and e.content:
+                        cell.cache.promote(
+                            key=f"mem:{e.agent_id}:{e.entry_type}:{e.id[-12:]}",
+                            summary=e.content[:200],
+                            value=e.content,
+                            location="l3",
+                            importance=e.importance,
+                        )
+            except Exception:
+                pass  # promote is best-effort
+
+        return results
 
     def build_context(self, agent_id: str, max_tokens: int = 4096) -> str:
         """Build an LLM context string from all rings, token-budgeted.

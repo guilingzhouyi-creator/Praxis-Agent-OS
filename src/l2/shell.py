@@ -177,7 +177,7 @@ def _handle_system_command(cmd: str) -> None:
                 print(f"  [stderr] {line}")
         print(f"  [Exit] {proc.returncode}")
     except subprocess.TimeoutExpired:
-        print(f"  [Error] Command timed out after 30s")
+        print(f"  [Error] Command timed out after {SHELL_CMD_TIMEOUT}s")
     except FileNotFoundError:
         print(f"  [Error] Shell not found")
     except Exception as e:

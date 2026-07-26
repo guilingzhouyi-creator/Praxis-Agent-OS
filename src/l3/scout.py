@@ -27,10 +27,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT
+from l1.kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT, SCOUT_FINDING_TRUNC, SCOUT_RESULT_TRUNC, SCOUT_FILE_READ_TRUNC
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
-from l1.kernel.params.system import SCOUT_MONITOR_INTERVAL, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES
-from l1.kernel.params.tool import MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX
+from l1.kernel.params.system import SCOUT_MONITOR_INTERVAL, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES, MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX
 
 from l3.tool_spec import ToolRing, execute_tool_spec, get_tool
 
@@ -99,7 +98,7 @@ class ScoutSession:
         # Extract answer
         answer = result.get("answer", "")
         if answer:
-            findings.append({"type": "conclusion", "content": answer[:500]})
+            findings.append({"type": "conclusion", "content": answer[:SCOUT_FINDING_TRUNC]})
 
         # Extract tool call results
         for step in result.get("steps", []):
@@ -108,7 +107,7 @@ class ScoutSession:
                 findings.append({
                     "type": action,
                     "args": step.get("args", {}),
-                    "result": str(step.get("result", ""))[:300],
+                    "result": str(step.get("result", ""))[:SCOUT_RESULT_TRUNC],
                     "elapsed": step.get("elapsed", 0),
                 })
 
@@ -123,7 +122,7 @@ class ScoutSession:
         try:
             with open(path, encoding="utf-8", errors="replace") as f:
                 content = f.read()
-            return {"success": True, "data": content[:4000], "size": len(content)}
+            return {"success": True, "data": content[:SCOUT_FILE_READ_TRUNC], "size": len(content)}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -136,7 +135,7 @@ class ScoutSession:
                 ["rg", "-rn", pattern, path, "-m", "20"],
                 capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT,
             )
-            out = (r.stdout or "")[:4000]
+            out = (r.stdout or "")[:SCOUT_FILE_READ_TRUNC]
             return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
         except FileNotFoundError:
             try:
@@ -144,7 +143,7 @@ class ScoutSession:
                     ["grep", "-rn", pattern, path],
                     capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT, shell=True, executable=SHELL_PATH,
                 )
-                out = (r.stdout or "")[:4000]
+                out = (r.stdout or "")[:SCOUT_FILE_READ_TRUNC]
                 return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
             except Exception as e:
                 return {"success": False, "error": f"grep unavailable: {e}"}
@@ -156,7 +155,7 @@ class ScoutSession:
         path = args.get("path", ".")
         try:
             entries = _os.listdir(path)
-            return {"success": True, "data": entries[:100], "count": len(entries)}
+            return {"success": True, "data": entries[:SCOUT_FILE_READ_TRUNC // 40], "count": len(entries)}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -206,11 +205,16 @@ class ScoutPool(BaseService):
         self._running = False
         return {"success": True}
 
-    def commission(self, agent_id: str, task: str) -> dict:
+    def commission(self, agent_id: str, task: str, scope: dict | None = None,
+                   cell_id: str = "") -> dict:
         """Commission a scout with a natural language investigation task.
 
         The scout gets its own LLM session, investigates using Ring 1 tools,
         and returns a report.
+
+        Args:
+            cell_id: If set, successful findings are also injected into the
+                     Cell's L2 cache for cross-agent sharing.
         """
         # Check cache
         cache_key = hashlib.md5(f"{agent_id}:{task}".encode()).hexdigest()
@@ -256,6 +260,24 @@ class ScoutPool(BaseService):
 
         # Cache result
         self._set_cached(cache_key, result)
+
+        # Inject findings into Cell L2 cache if cell_id provided
+        if cell_id and result.get("success") and result.get("findings"):
+            try:
+                from .cell import get_cell as _get_cell
+                cell = _get_cell(cell_id)
+                findings_text = str(result["findings"])[:SCOUT_FINDING_TRUNC]
+                cell.cache.inject(
+                    key=f"scout:{agent_id}:{task[:40]}",
+                    value=result["findings"],
+                    summary=f"Scout [{agent_id}]: {len(result['findings'])} findings — {findings_text[:150]}",
+                    agent_id=agent_id,
+                    entry_type="scout_result",
+                    importance=0.5,
+                )
+            except Exception:
+                pass  # best-effort
+
         return result
 
     def _run_scout(self, scout_id: str) -> None:

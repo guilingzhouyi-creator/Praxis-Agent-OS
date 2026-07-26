@@ -27,6 +27,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT, SUBAGENT_JOIN_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════
@@ -76,7 +78,7 @@ BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = {
         system_prompt=_gps("subagent.debug_specialist", "You are a debugging specialist. Analyze stack traces."),
         allowed_tools=["read_file", "grep_search", "stack_trace", "run_in_terminal"],
         max_steps=10,
-        timeout=120.0,
+        timeout=SUBAGENT_RUN_TIMEOUT,
         tags=["debug", "troubleshoot"],
     ),
     "code-reviewer": SubAgentSpec(
@@ -92,7 +94,7 @@ BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = {
         system_prompt=_gps("subagent.scout", "You are a scout. Explore the codebase."),
         allowed_tools=["read_file", "grep_search", "list_directory", "search_symbol"],
         max_steps=3,
-        timeout=30.0,
+        timeout=SUBAGENT_JOIN_TIMEOUT,
         tags=["explore", "research"],
     ),
 }

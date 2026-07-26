@@ -32,6 +32,7 @@ from .config_handlers import (
     cfg_tool_rates, cfg_htn, cfg_cache, cfg_persist, cfg_network,
     cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,
     cfg_devices, cfg_territories, cfg_clearance, cfg_agents, cfg_think,
+    cfg_loop_control,
 )
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,7 @@ _builtin_handlers = [
     ("devices", cfg_devices), ("territories", cfg_territories),
     ("clearance", cfg_clearance), ("agents", cfg_agents),
     ("think", cfg_think),
+    ("loop_control", cfg_loop_control),
 ]
 for _name, _fn in _builtin_handlers:
     register_config_handler(_name, _fn, override=True)

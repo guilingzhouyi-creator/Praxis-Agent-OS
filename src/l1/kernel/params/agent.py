@@ -173,7 +173,6 @@ CACHE_KEEPALIVE_PROMPT: Final[str] = "keepalive"
 TERMINAL_MAX_CONCURRENT_LOOPS: Final[int] = 3
 TERMINAL_SCOUT_FINDINGS_LIMIT: Final[int] = 5
 TERMINAL_CONTEXT_RECENT: Final[int] = 20
-TERMINAL_COLLECT_SCOUT_TIMEOUT: Final[float] = 310.0
 TERMINAL_MODE_VALID: Final[tuple[str, ...]] = ("assembly", "direct")
 TERMINAL_MODE_DEFAULT: Final[str] = "assembly"
 TERMINAL_STATE_DEFAULT: Final[str] = "idle"
@@ -259,6 +258,11 @@ CELL_SNAPSHOT_MAX: Final[int] = 50
 CELL_MAILBOX_MAX_PER_AGENT: Final[int] = 100
 CELL_MAILBOX_TTL: Final[float] = 3600.0
 
+# ── Monitor / observability ring buffer sizes ──
+MONITOR_RING_SIZE: Final[int] = 2000
+CELL_MONITOR_RING_SIZE: Final[int] = 1000
+OBS_AUDIT_LIMIT: Final[int] = 100             # default limit for observability audit queries
+
 # ── Agent / Loop defaults ──
 AGENT_LOOP_DEFAULT_STEPS: Final[int] = 10
 AGENT_LOOP_DEFAULT_TIMEOUT: Final[float] = 120.0
@@ -268,6 +272,15 @@ SUBAGENT_LOOP_TIMEOUT: Final[float] = 30.0
 # ── Feedback loop / Verifier ──
 MAX_SELF_HEAL: Final[int] = 3
 REVIEW_MAX_ROUNDS: Final[int] = 2
+# Loop control defaults (may be overridden via praxis.yaml loop_control:)
+LOOP_MAX_ITERATIONS: Final[int] = 50
+LOOP_MAX_ATTEMPTS: Final[int] = 3
+LOOP_CONTINUATION_NUDGE: Final[bool] = True
+LOOP_TOOL_REPEAT_WARN: Final[int] = 3
+LOOP_TOOL_REPEAT_STOP: Final[int] = 4
+LOOP_COARSE_REPEAT_NUDGE: Final[int] = 3
+LOOP_COARSE_REPEAT_STOP: Final[int] = 6
+LOOP_VERIFY_CADENCE: Final[bool] = True
 
 # ── Scout defaults ──
 SCOUT_LOOP_STEPS: Final[int] = 10

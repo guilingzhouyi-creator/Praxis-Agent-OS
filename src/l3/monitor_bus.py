@@ -23,7 +23,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_RING_SIZE = 2000
+from l1.kernel.params.agent import MONITOR_RING_SIZE
+
+_DEFAULT_RING_SIZE = MONITOR_RING_SIZE
 _DEFAULT_PERSIST_PATH = ""  # set at boot from kernel.params
 
 

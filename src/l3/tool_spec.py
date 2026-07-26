@@ -173,7 +173,7 @@ def tool(name: str = "", description: str = "", category: str = "",
     Usage::
 
         @tool(name="file_stat", description="Query file metadata",
-              category="files", ring="RING_1", danger=0,
+              category="files", ring=RING_1, danger=0,
               params=[ParamSpec("path", "string", required=True)])
         def _cmd_file_stat(args: dict, agent_id: str) -> dict:
             ...
@@ -473,7 +473,7 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     from .tool_config import ToolConfig as _TC
     _rs = _get_rs()
     is_write = tool_name in _TC.write_tool_names()
-    if not is_write and spec.ring == "RING_1":
+    if not is_write and spec.ring == RING_1:
         _fp = _rs.fingerprint(tool_name, args)
         _cached = _rs.get(_fp)
         if _cached is not None:

@@ -79,3 +79,65 @@ class L3B:
             "cells": {c.id: {"load": c.load, "agents": c.agents, "status": c.status}
                       for c in self._cells.values()},
         }
+
+    # ── Cross-cell L2 cache routing matrix ──
+
+    def cache_search(self, query: str, limit: int = 5) -> list[dict]:
+        """Search ALL registered Cells' L2 caches for a query.
+
+        Returns entries with their source cell_id so the caller can
+        route to the right Cell for the full value.
+        """
+        results: list[dict] = []
+        for cell_id in list(self._cells.keys()):
+            try:
+                from .cell import get_cell as _get_cell
+                cell = _get_cell(cell_id)
+                hits = cell.cache.search(query, limit=limit)
+                for entry in hits:
+                    results.append({
+                        "key": entry.key,
+                        "summary": entry.summary,
+                        "cell_id": cell_id,
+                        "agent_id": entry.agent_id,
+                        "entry_type": entry.entry_type,
+                        "importance": entry.importance,
+                        "location": entry.location,
+                    })
+            except Exception:
+                pass  # best-effort per Cell
+        results.sort(key=lambda r: r["importance"], reverse=True)
+        return results[:limit]
+
+    def cache_lookup(self, key: str, cell_id: str) -> dict:
+        """Look up a full cached value from a specific Cell's L2 cache."""
+        try:
+            from .cell import get_cell as _get_cell
+            cell = _get_cell(cell_id)
+            entry = cell.cache.lookup(key)
+            if entry:
+                return {"success": True, "value": entry.value, "cell_id": cell_id}
+            return {"success": False, "error": "not found"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def cache_stats(self) -> dict:
+        """Aggregate L2 cache stats across all Cells."""
+        total = {"hot": 0, "index": 0, "kv": 0, "hits": 0, "misses": 0}
+        per_cell = {}
+        for cell_id in list(self._cells.keys()):
+            try:
+                from .cell import get_cell as _get_cell
+                cell = _get_cell(cell_id)
+                s = cell.cache.stats()
+                per_cell[cell_id] = s
+                total["hot"] += s["hot_size"]
+                total["index"] += s["index_size"]
+                total["kv"] += s["kv_size"]
+                total["hits"] += s["hits"]
+                total["misses"] += s["misses"]
+            except Exception:
+                pass
+        total["per_cell"] = per_cell
+        total["cell_count"] = len(self._cells)
+        return total

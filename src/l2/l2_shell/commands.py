@@ -10,13 +10,14 @@ from l1.kernel.commands import (
     get_command, get_handler, list_commands as _list_defs,
     resolve_scope, resolve_agents,
 )
+from l1.kernel.params.agent import DEFAULT_CELL_ID
 
 logger = logging.getLogger(__name__)
 
 
 def preconnect_enhanced(cell_id: str, agent_id: str,
                         message: str = "") -> dict:
-    from .selector import preconnect as _preconnect
+    from l2.selector import preconnect as _preconnect
     checks = {}
     basic = _preconnect(cell_id, agent_id, message)
     checks["preconnect"] = basic
@@ -24,7 +25,7 @@ def preconnect_enhanced(cell_id: str, agent_id: str,
         return {"allowed": False, "checks": checks,
                 "reason": basic.get("reason", "preconnect_failed")}
     try:
-        from .llm import get_engine
+        from l4.llm import get_engine
         engine = get_engine()
         provider_status = engine.provider_status() if hasattr(engine, 'provider_status') else {}
         checks["llm_provider"] = provider_status
@@ -105,7 +106,7 @@ def _cmd_help(args: list[str]) -> dict:
 
 
 def _cmd_agents(args: list[str]) -> dict:
-    from .selector import preselect
+    from l2.selector import preselect
     return preselect()
 
 
@@ -117,7 +118,7 @@ def _cmd_connect(args: list[str]) -> dict:
     state = get_state()
     cell_id = state.cell_id
     try:
-        from .central_security import get_center as _get_sec
+        from l3.central_security import get_center as _get_sec
         sec = _get_sec().check_all(
             action="direct_session", agent_id=agent_id, target=cell_id,
             tool_name="direct_message",
@@ -132,7 +133,7 @@ def _cmd_connect(args: list[str]) -> dict:
         return {"success": False, "error": f"connect failed: {check.get('reason')}",
                 "checks": check.get("checks", {})}
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(cell_id)
         r = cell.send_direct_message(agent_id, "Hello")
         if r.get("success"):
@@ -154,7 +155,7 @@ def _cmd_disconnect(args: list[str]) -> dict:
     if not state.is_direct():
         return {"success": False, "error": "no active direct session"}
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(state.cell_id)
         r = cell.close_direct_session(state.agent_id)
         state.switch_to_l3a()
@@ -171,7 +172,7 @@ def _cmd_mode(args: list[str]) -> dict:
     tool_mode = state.mode
     result = {"mode": tool_mode, "agent_id": state.agent_id or "-", "cell_id": state.cell_id}
     if args:
-        from .tool_mode import set_mode, get_mode
+        from l3.tool_mode import set_mode, get_mode
         if args[0] == "tool":
             sub = args[1] if len(args) > 1 else "toggle"
             sr = set_mode(sub)
@@ -180,7 +181,7 @@ def _cmd_mode(args: list[str]) -> dict:
         else:
             result["error"] = "usage: /mode [tool [read|write|toggle]]"
     else:
-        from .tool_mode import get_mode
+        from l3.tool_mode import get_mode
         result["current_tool_mode"] = get_mode()
     return result
 
@@ -193,7 +194,7 @@ def _cmd_status(args: list[str]) -> dict:
         result["agent_id"] = state.agent_id
         result["session_id"] = state.session_id
         try:
-            from .cell import get_cell
+            from l3.cell import get_cell
             cell = get_cell(state.cell_id)
             result["liveness"] = cell.liveness()
         except Exception as e:
@@ -202,14 +203,14 @@ def _cmd_status(args: list[str]) -> dict:
 
 
 def _cmd_intents(args: list[str]) -> dict:
-    from .l3 import get_coordinator
+    from l3.l3 import get_coordinator
     coord = get_coordinator()
     status = args[0] if args else ""
     return {"success": True, "intents": coord.list_intents(status=status)}
 
 
 def _cmd_scheduler(args: list[str]) -> dict:
-    from .scheduler import get_scheduler as _gs
+    from l3.scheduler import get_scheduler as _gs
     sched = _gs()
     if hasattr(sched, 'stats'):
         return {"success": True, "stats": sched.stats()}
@@ -217,14 +218,14 @@ def _cmd_scheduler(args: list[str]) -> dict:
 
 
 def _cmd_observe(args: list[str]) -> dict:
-    from .observability_bus import get_obs_bus as _go
+    from l3.observability_bus import get_obs_bus as _go
     bus = _go()
     kind = args[0] if args else "health"
     return bus.observe(kind, "shell", {})
 
 
 def _cmd_skills(args: list[str]) -> dict:
-    from .r4_agent import get_r4_agent
+    from l3.r4_agent import get_r4_agent
     r4 = get_r4_agent()
     sub = args[0] if args else "list"
     if sub == "lean":
@@ -240,7 +241,7 @@ def _cmd_skills(args: list[str]) -> dict:
 
 
 def _cmd_cells(args: list[str]) -> dict:
-    from .cell_monitor import get_cell_monitor
+    from l3.cell_monitor import get_cell_monitor
     cm = get_cell_monitor()
     sub = args[0] if args else "list"
     if sub == "list":
@@ -249,13 +250,13 @@ def _cmd_cells(args: list[str]) -> dict:
 
 
 def _cmd_cross(args: list[str]) -> dict:
-    from .l3 import get_coordinator
+    from l3.l3 import get_coordinator
     coord = get_coordinator()
     return {"success": True, "cross_cell": getattr(coord, 'status', lambda: {})()}
 
 
 def _cmd_security(args: list[str]) -> dict:
-    from .central_security import get_center as _sec
+    from l3.central_security import get_center as _sec
     sec = _sec()
     sub = args[0] if args else "stats"
     if sub == "stats":
@@ -268,8 +269,8 @@ def _cmd_security(args: list[str]) -> dict:
 
 
 def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
-    from .memory import get_memory
-    from .central_memory import get_center as _mem
+    from l3.memory import get_memory
+    from l3.central_memory import get_center as _mem
     mem = _mem()
     mm = get_memory()
     if op == "stats":
@@ -307,10 +308,10 @@ def _cmd_memory(args: list[str]) -> dict:
     op = rest[0] if rest else "stats"
     op_args = rest[1:]
     if op == "stats" and scope == "global":
-        from .central_memory import get_center as _mem
+        from l3.central_memory import get_center as _mem
         return {"success": True, "stats": _mem().stats(), "scope": "global"}
     if op == "recall" and scope == "global":
-        from .central_memory import get_center as _mem
+        from l3.central_memory import get_center as _mem
         query = " ".join(op_args)
         results = _mem().recall(query=query, limit=10)
         return {"success": True, "results": results, "count": len(results), "scope": "global"}
@@ -326,7 +327,7 @@ def _cmd_memory(args: list[str]) -> dict:
 
 
 def _cmd_plugins(args: list[str]) -> dict:
-    from .central_plugin import get_center as _plug
+    from l3.central_plugin import get_center as _plug
     plug = _plug()
     sub = args[0] if args else "list"
     if sub == "list":
@@ -335,7 +336,7 @@ def _cmd_plugins(args: list[str]) -> dict:
 
 
 def _cmd_mcp(args: list[str]) -> dict:
-    from .mcp_bridge import get_bridge, McpClient
+    from l4.mcp_bridge import get_bridge, McpClient
     bridge = get_bridge()
     sub = args[0].lower() if args else "status"
     if sub in ("status", "list"):
@@ -446,7 +447,7 @@ def _cmd_spawn(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /spawn <role> [agent_id] [--cell <cell_id>]"}
     role = args[0]
     agent_id = ""
-    cell_id = "cell-1"
+    cell_id = DEFAULT_CELL_ID
     i = 1
     while i < len(args):
         if args[i] == "--cell" and i + 1 < len(args):
@@ -456,7 +457,7 @@ def _cmd_spawn(args: list[str]) -> dict:
             agent_id = args[i]
             i += 1
     try:
-        from .cell import get_cell, reset_cells
+        from l3.cell import get_cell
         cell = get_cell(cell_id)
         aid = agent_id or f"auto-{int(time.time())}"
         cell.add_agent(aid, role=role, territory=["."], auto_boot=True)
@@ -470,8 +471,8 @@ def _cmd_kill(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /kill <agent_id>"}
     agent_id = args[0]
     try:
-        from .cell import get_cell
-        cell_id = "cell-1"
+        from l3.cell import get_cell
+        cell_id = DEFAULT_CELL_ID
         cell = get_cell(cell_id)
         cell.remove_agent(agent_id)
         return {"success": True, "message": f"Agent '{agent_id}' terminated"}
@@ -484,7 +485,7 @@ def _cmd_destroy(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /destroy <cell_id>"}
     cell_id = args[0]
     try:
-        from .cell import reset_cells
+        from l3.cell import reset_cells
         reset_cells()
         return {"success": True, "message": f"Cell '{cell_id}' destroyed (all cells reset)"}
     except Exception as e:
@@ -494,7 +495,7 @@ def _cmd_destroy(args: list[str]) -> dict:
 def _cmd_emergency(args: list[str]) -> dict:
     cell_id = args[0] if args else "cell-1"
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(cell_id)
         r = cell.emergency_stop()
         return {"success": True, "message": f"Emergency stop triggered for {cell_id}", "result": r}
@@ -504,8 +505,8 @@ def _cmd_emergency(args: list[str]) -> dict:
 
 def _cmd_cluster(args: list[str]) -> dict:
     try:
-        from .cell import get_cell
-        from .cell_monitor import get_cell_monitor
+        from l3.cell import get_cell
+        from l3.cell_monitor import get_cell_monitor
         cm = get_cell_monitor()
         cells = getattr(cm, 'list_cells', lambda: [])()
         agents = {}
@@ -550,7 +551,7 @@ def _cmd_devices(args: list[str]) -> dict:
 
 def _cmd_tools(args: list[str]) -> dict:
     try:
-        from .tool_spec import list_tools
+        from l3.tool_spec import list_tools
         from l2.i18n import get_locale
         category = args[0] if args else None
         locale = get_locale()
@@ -566,7 +567,7 @@ def _cmd_config(args: list[str]) -> dict:
     sub = args[0].lower() if args else "show"
     if sub == "reload":
         try:
-            from .config_loader import load as load_config
+            from l3.config_loader import load as load_config
             cfg = load_config()
             from l1.kernel.commands import load_command_overrides
             load_command_overrides(cfg.get("commands", {}))
@@ -576,7 +577,7 @@ def _cmd_config(args: list[str]) -> dict:
         except Exception as e:
             return {"success": False, "error": str(e)}
     try:
-        from .config_loader import load as load_config
+        from l3.config_loader import load as load_config
         cfg = load_config()
         return {"success": True, "config": {k: v for k, v in cfg.items() if k in ("kernel", "cell", "llm", "language")}}
     except Exception as e:
@@ -584,7 +585,7 @@ def _cmd_config(args: list[str]) -> dict:
 
 
 def _cmd_cron(args: list[str]) -> dict:
-    from .cron_scheduler import get_scheduler
+    from l4.cron_scheduler import get_scheduler as _get_cron
     s = get_scheduler()
     sub = args[0].lower() if args else "list"
     if sub == "list":
@@ -611,7 +612,7 @@ def _cmd_cell_create(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /cell create <territory>"}
     territory = args[0].strip("/")
     try:
-        from .boot import _create_cell as _boot_create_cell
+        from l3.boot import _create_cell as _boot_create_cell
         agent_config = [
             (f"agent-{int(time.time())}-r", "reader", [territory]),
             (f"agent-{int(time.time())}-w", "writer", [territory]),
@@ -625,7 +626,7 @@ def _cmd_cell_create(args: list[str]) -> dict:
 
 
 def _cmd_buffer(args: list[str]) -> dict:
-    from .resource_buffer.manager import get_manager as _bm
+    from l3.resource_buffer.manager import get_manager as _bm
     mgr = _bm()
     sub = args[0] if args else "status"
     try:
@@ -643,7 +644,7 @@ def _cmd_buffer(args: list[str]) -> dict:
 
 
 def _cmd_card(args: list[str]) -> dict:
-    from .card_pool import get_pool as _cp
+    from l3.card_pool import get_pool as _cp
     pool = _cp()
     sub = args[0] if args else "list"
     try:
@@ -670,7 +671,7 @@ def _cmd_agent_refresh(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /agent refresh <agent_id>"}
     agent_id = args[0]
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell()
         return cell.reset_agent_context(agent_id)
     except Exception as e:
@@ -678,7 +679,7 @@ def _cmd_agent_refresh(args: list[str]) -> dict:
 
 
 def _cmd_tokens(args: list[str]) -> dict:
-    from .context_pool import all_cell_totals, cell_total, token_usage
+    from l3.context_pool import all_cell_totals, cell_total, token_usage
     scope, scope_id, rest = resolve_scope(args)
     sub = rest[0] if rest else "global"
     try:

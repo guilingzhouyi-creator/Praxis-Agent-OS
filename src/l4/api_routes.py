@@ -224,6 +224,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/buffer/diff",    "services.resource_buffer.api.handle_buffer_diff",    "Show pending diff"),
     ("POST", "/api/buffer/discard", "services.resource_buffer.api.handle_buffer_discard", "Discard pending changes"),
 
+    # Loop control (standalone handlers from api_handlers_loop.py)
+    ("GET",  "/api/loop/config",   ".loop_config_get", "Get loop control config"),
+    ("POST", "/api/loop/config",   ".loop_config_set", "Set loop control config"),
+
     # Monitor (standalone functions from api_handlers_monitor.py)
     ("GET",  "/api/monitor/events",    "services.api_handlers_monitor.handle_monitor_events",     "Query monitor events"),
     ("GET",  "/api/monitor/stats",     "services.api_handlers_monitor.handle_monitor_stats",      "Monitor event statistics"),

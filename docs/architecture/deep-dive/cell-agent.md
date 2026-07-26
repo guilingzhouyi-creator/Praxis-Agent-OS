@@ -39,7 +39,7 @@ flowchart TB
         direction TB
         STDIN["stdin: deque[TerminalCard]\nmax=200"]
         STDOUT["stdout: deque[CardResult]\nmax=500"]
-        STDERR["stderr: list[str]\nmax=200"]
+        STDERR["stderr: deque[str]\nmax=200"]
         WORKER["Worker Thread Pool\n_max_workers=4"]
         FC["file_cache: IsolatedCache\n(per-cell_id)"]
         CR["context: ContextRegister\n(per-cell_id)"]
@@ -219,7 +219,7 @@ reset_cells()                       # Clear registry
 AgentTerminal = Execution Unit
 ├── stdin: deque[TerminalCard]          # max=200
 ├── stdout: deque[CardResult]           # max=500  
-├── stderr: list[str]                   # max=200
+├── stderr: deque[str]                   # max=200
 ├── workers: list[thread] (max=4)
 ├── file_cache: IsolatedCache (per-cell)
 ├── context: ContextRegister (per-cell)

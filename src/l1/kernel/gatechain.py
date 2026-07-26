@@ -44,7 +44,7 @@ from .params.kernel import (
     GATECHAIN_FREQ_WEIGHT,
     GATECHAIN_G1_INDEX,
     GATECHAIN_G3_INDEX,
-    GATECHAIN_PATTERN_TEMPLATE,
+    GATECHAIN_PATTERN_TEMPLATE, GateStatus,
 )
 
 logger = logging.getLogger(__name__)

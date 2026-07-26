@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
-from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
+from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -421,7 +421,7 @@ class MCPBridge:
                     wk = _req.urlopen(
                         _req.Request(f"{client.endpoint}/.well-known/oauth-authorization-server",
                                      method="GET"),
-                        timeout=10,
+                        timeout=MCP_BRIDGE_TIMEOUT,
                     )
                     wk_data = json.loads(wk.read())
                     token_url = wk_data.get("token_endpoint", "")
@@ -443,7 +443,7 @@ class MCPBridge:
                 _req.Request(token_url, data=body,
                              headers={"Content-Type": "application/json"},
                              method="POST"),
-                timeout=30,
+                timeout=MCP_BRIDGE_TIMEOUT,
             )
             token_data = json.loads(r.read())
         except Exception as e:

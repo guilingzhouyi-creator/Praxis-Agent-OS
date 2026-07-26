@@ -686,3 +686,29 @@ class ApiHandlers:
             return {"success": True, "locales": get_available_locales(), "current": get_locale()}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def _loop_config_get(self, body: dict | None = None) -> dict:
+        try:
+            from l3.settings_center import get_center
+            center = get_center()
+            keys = [
+                "loop.max_steps", "loop.timeout", "loop.max_iterations", "loop.max_attempts",
+                "loop.continuation_nudge", "loop.tool_repeat_warn", "loop.tool_repeat_stop",
+                "loop.coarse_repeat_nudge", "loop.coarse_repeat_stop", "loop.verify_cadence",
+            ]
+            return {"success": True, "config": {k: center.get(k) for k in keys}}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _loop_config_set(self, body: dict) -> dict:
+        try:
+            from l3.settings_center import get_center
+            center = get_center()
+            config = body or {}
+            applied = []
+            for key in config:
+                center.set(f"loop.{key}", config[key])
+                applied.append(key)
+            return {"success": True, "applied": applied}
+        except Exception as e:
+            return {"success": False, "error": str(e)}

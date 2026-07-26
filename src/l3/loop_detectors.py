@@ -14,18 +14,26 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _read_cfg(key: str, default: int) -> int:
+    """Read an integer from settings center, falling back to default."""
+    try:
+        from l3.settings_center import get_center
+        return get_center().get_int(key, default)
+    except Exception:
+        return default
+
+
 class ToolLoopDetector:
     """Fingerprint-based exact tool loop detection.
 
     AtomCode-style: tracks consecutive identical (tool_name + args + result) calls.
-    warn_threshold: log warning (default 3)
-    stop_threshold: stop execution (default 4)
+    Thresholds read from settings center (configurable via praxis.yaml or API).
     """
 
-    def __init__(self, warn_threshold: int = 3, stop_threshold: int = 4):
+    def __init__(self, warn_threshold: int | None = None, stop_threshold: int | None = None):
         self._fingerprints: list[str] = []
-        self._warn = warn_threshold
-        self._stop = stop_threshold
+        self._warn = warn_threshold if warn_threshold is not None else _read_cfg("loop.tool_repeat_warn", 3)
+        self._stop = stop_threshold if stop_threshold is not None else _read_cfg("loop.tool_repeat_stop", 4)
 
     def check(self, tool_name: str, args: dict, result: Any) -> str:
         """Check a tool call result. Returns 'continue', 'warn', or 'stop'."""
@@ -62,9 +70,9 @@ class CoarseRepeatDetector:
     Fires when the same tool_name appears consecutively.
     """
 
-    def __init__(self, nudge_at: int = 3, stop_at: int = 6):
-        self._nudge_at = nudge_at
-        self._stop_at = stop_at
+    def __init__(self, nudge_at: int | None = None, stop_at: int | None = None):
+        self._nudge_at = nudge_at if nudge_at is not None else _read_cfg("loop.coarse_repeat_nudge", 3)
+        self._stop_at = stop_at if stop_at is not None else _read_cfg("loop.coarse_repeat_stop", 6)
         self._names: list[str] = []
 
     def check(self, tool_name: str) -> str:

@@ -23,8 +23,6 @@ from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_
 
 logger = logging.getLogger(__name__)
 
-MAX_REGISTER_TOKENS = 4096
-
 
 _ROLE_TOOL = "tool"
 _ROLE_ASSISTANT = "assistant"

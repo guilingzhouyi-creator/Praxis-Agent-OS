@@ -20,12 +20,15 @@ CONTEXT_REGISTER_MAX_ENTRIES: Final[int] = 200
 
 SCOUT_POOL_MIN_IDLE: Final[int] = 2
 SCOUT_POOL_MAX_TOTAL: Final[int] = 16
-SCOUT_MAX_PER_AGENT: Final[int] = 4
+SCOUT_POOL_MAX: Final[int] = 16                 # alias for SCOUT_POOL_MAX_TOTAL
 SCOUT_POOL_MAX_PER_AGENT: Final[int] = 4
+MAX_SCOUTS_PER_AGENT: Final[int] = 4            # alias for SCOUT_POOL_MAX_PER_AGENT
 SCOUT_POOL_IDLE_TIMEOUT: Final[float] = 60.0
 SCOUT_CACHE_TTL: Final[float] = 30.0
 SCOUT_CACHE_MAX_ENTRIES: Final[int] = 200
-SCOUT_SESSION_TIMEOUT: Final[float] = 300.0
+SCOUT_TIMEOUT: Final[float] = 300.0
+TOOL_SCOUT_RUN_TIMEOUT: Final[int] = 180
+TOOL_SCOUT_MAX_STEPS: Final[int] = 10
 
 
 # ── ResultStore (tool result cache) ──
@@ -77,6 +80,14 @@ CRASH_TIMEOUT: Final[float] = 30.0
 NET_PEER_TIMEOUT: Final[float] = 60.0
 CI_DEFAULT_TIMEOUT: Final[float] = 300.0
 CACHE_DEFAULT_TTL: Final[float] = 60.0
+
+# ── CellCache (L2) — per-Cell shared cache sizes ──
+CELL_CACHE_HOT_SIZE: Final[int] = 50        # Hot Ring: latest summaries
+CELL_CACHE_INDEX_SIZE: Final[int] = 200     # Index Chain: key → summary
+CELL_CACHE_KV_SIZE: Final[int] = 100        # KV Cache: full values
+CELL_CACHE_HOT_TTL: Final[float] = 300.0    # 5 min
+CELL_CACHE_INDEX_TTL: Final[float] = 900.0  # 15 min
+CELL_CACHE_KV_TTL: Final[float] = 1800.0    # 30 min
 CONTEXT_MAX_REGISTER_TOKENS: Final[int] = 4096
 MEMORY_MIN_CONTENT_LEN: Final[int] = 30
 
@@ -105,8 +116,8 @@ REQUEST_POOL_CAPACITY: Final[int] = 8
 MAX_WORKING_SET_SIZE: Final[int] = 8
 
 # ── Shell/terminal output limits ──
-OUTPUT_MAX_LINES: Final[int] = 50
-OUTPUT_MAX_CHARS: Final[int] = 4000
+TERMINAL_OUTPUT_MAX_LINES: Final[int] = 50
+TERMINAL_OUTPUT_MAX_CHARS: Final[int] = 4000
 
 # ── Log service ──
 LOG_MAX_MEMORY_ENTRIES: Final[int] = 5000
@@ -119,9 +130,6 @@ ERROR_BUS_BUFFER: Final[int] = 5000
 ERROR_BUS_DEDUP_WINDOW: Final[int] = 300
 ERROR_BUS_EXPORT_LIMIT: Final[int] = 10000
 
-
-# ── Context register ──
-MAX_REGISTER_TOKENS: Final[int] = 4096
 
 # ── Shell buffer ──
 BUFFER_MAX: Final[int] = 2000

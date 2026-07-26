@@ -47,6 +47,28 @@ ALLOWLIST = {
     ("l2/l2_shell/commands.py", "l3.cell"),
     # L1→L4 model_registry
     ("l1/kernel/model_registry.py", "l4.llm_base"),
+    # L2->L3 commands (inline imports in command handlers)
+    ("l2/l2_shell/commands.py", "l3.l3"),
+    ("l2/l2_shell/commands.py", "l3.scheduler"),
+    ("l2/l2_shell/commands.py", "l3.observability_bus"),
+    ("l2/l2_shell/commands.py", "l3.r4_agent"),
+    ("l2/l2_shell/commands.py", "l3.cell_monitor"),
+    ("l2/l2_shell/commands.py", "l3.central_security"),
+    ("l2/l2_shell/commands.py", "l3.memory"),
+    ("l2/l2_shell/commands.py", "l3.central_memory"),
+    ("l2/l2_shell/commands.py", "l3.central_plugin"),
+    ("l2/l2_shell/commands.py", "l4.mcp_bridge"),
+    ("l2/l2_shell/commands.py", "l4.cron_scheduler"),
+    ("l2/l2_shell/commands.py", "l3.resource_buffer.manager"),
+    ("l2/l2_shell/commands.py", "l3.card_pool"),
+    ("l2/l2_shell/commands.py", "l3.context_pool"),
+    ("l2/l2_shell/commands.py", "l4.llm"),
+    ("l2/l2_shell/commands.py", "l3.tool_mode"),
+    ("l2/l2_shell/commands.py", "l3.tool_spec"),
+    ("l2/l2_shell/commands.py", "l3.config_loader"),
+    ("l2/l2_shell/commands.py", "l3.boot"),
+    # L3->L4 LLM base
+    ("l3/_term_lifecycle.py", "l4.llm_base"),
 }
 
 
