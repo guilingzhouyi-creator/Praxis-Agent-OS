@@ -58,7 +58,12 @@ memories/
 # ── Runtime-generated state files (all .praxis_* patterns) ──
 .praxis_*.json
 !praxis.yaml
+.praxis_*.jsonl
+.praxis_*.db
 .praxis_state.db
+
+# ── Temp scripts ──
+_scan_*.py
 
 
 

@@ -2,50 +2,66 @@
 
 > NOMOS Praxis v0.3.0 codename "Aether"  
 > Based on `src/` (commit: current working tree).  
-> All references are to `src/main.py`, `src/kernel/`, `src/services/`, `src/tools/`, `src/tool_ring.py`, etc.
+> All references are to `src/l1/`, `src/l2/`, `src/l3/`, `src/l4/`, `src/l5/`.
 
 ---
 
 ## 0. Architecture Overview
 
-Praxis Agent OS maps to traditional computer architecture:
+Praxis Agent OS maps to traditional computer architecture across five layers:
 
 ```mermaid
-flowchart LR
-    subgraph App["Application Layer"]
-        L2["L2 Shell / API Gateway"]
-        L3A["L3A Intent Parser"]
+flowchart TB
+    subgraph L5["L5 — User Layer (src/l5/)"]
+        CLI["cli.py\nREPL interface"]
+        AR["agent_runtime.py\nRuntime loop"]
     end
-    subgraph Centers["10 Central Control Systems"]
-        CC["CentralController"]
-        CS["CentralScheduler"]
-        OB["ObservabilityBus"]
-        R4["R4Agent"]
-        CM["CellMonitor"]
-        L3B["L3B"]
-        CSEC["CentralSecurity"]
-        CMEM["CentralMemory"]
-        CPLUG["CentralPlugin"]
-        CCOL["CentralCollector"]
+
+    subgraph L4["L4 — Bridge Layer (src/l4/)"]
+        API["api_gateway.py\nHTTP/WS API"]
+        APIH["api_handlers/\nREST handlers"]
+        LLM["llm.py\nLLM Engine"]
+        MCP["mcp_bridge.py\nMCP protocol"]
+        SANDBOX["sandbox/\nProcess isolation"]
+        RPC["rpc/\nInter-process"]
+        ADAPT["adapters/\nPort impls"]
     end
-    subgraph Cell["Cell = CPU Core"]
-        CQ["Card Queue"]
-        AT["AgentTerminal xN"]
-        AL["AgentLoop"]
-        MB["Mailbox"]
+
+    subgraph L3["L3 — Cell Layer (src/l3/)"]
+        CELL["cell/\nAgent collaboration"]
+        AGENT["agent_terminal/\nWorker threads"]
+        MEMORY["memory.py\n3-ring memory"]
+        CARDS["card*.py\nCard lifecycle"]
+        TOOLS["tools/\n35+ tool impls"]
+        PLANNER["htn_planner.py\nIntent decomposer"]
+        MONITOR["monitor_bus.py\nEvent monitoring"]
+        ERROR["error_bus/\nError logging"]
+        BOOT["boot.py\nSystem bootstrap"]
     end
-    subgraph Kernel["Kernel Layer"]
-        KERN["25 modules\nsync / process / allocator\nevent / gatechain / vfs\nconstitution / ipc / net..."]
+
+    subgraph L2["L2 — Shell Layer (src/l2/)"]
+        SHELL["l2_shell/\nCommand dispatch"]
+        I18N["i18n.py\nInternationalization"]
+        SEL["selector.py\nAgent selection"]
     end
-    subgraph Tools["Tool Layer"]
-        T37["37 tool modules"]
-        TREG["ToolSpec Registry"]
-        TP["ToolPipeline (7 gates)"]
+
+    subgraph L1["L1 — Kernel Layer (src/l1/kernel/)"]
+        PARAMS["params/\nConstants"]
+        SYNC["sync.py\nMutex/Semaphore/Barrier"]
+        PROCESS["process.py\nProcessTable"]
+        ALLOC["allocator.py\nToken allocator"]
+        GATE["gatechain.py\nG1-G5 gates"]
+        CONST["constitution.py\nRules engine"]
+        EVENT["event.py\nEventBus"]
+        VFS["vfs.py\nVirtual FS"]
+        NET["net.py\nNetwork mesh"]
+        SWAP["swapper.py\nRing swapper"]
     end
-    App --> Centers
-    Centers --> Cell
-    Cell --> Kernel
-    Cell --> Tools
+
+    L5 --> L4
+    L4 --> L3
+    L3 --> L2
+    L2 --> L1
 ```
 
 | Computer Concept | Praxis Equivalent |
@@ -66,62 +82,57 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph Entry["Entry Layer"]
-        CLI["main.py\nCLI REPL"]
-        L2SH["l2_shell.py\nL2 Shell (/commands)"]
-        GW["api_gateway.py\nHTTP Gateway\n129 routes"]
+    subgraph L5["L5 — User Layer"]
+        CLI["l5/cli.py\nCLI REPL"]
+        AR["l5/agent_runtime.py\nRuntime loop"]
     end
 
-    subgraph Centers["10 Central Control Systems"]
-        CTRL["CentralController\nl3.py\nIntent lifecycle"]
-        SCHED["CentralScheduler\nscheduler.py\n5D scheduling"]
-        OBS["ObservabilityBus\nobservability_bus.py\nAlert/Health/Metric"]
-        R4A["R4Agent\nr4_agent.py\nArchive + Skills"]
-        CMON["CellMonitor\ncell_monitor.py\nHealth events"]
-        CB["L3B\nl3b.py\nCross-cell routing"]
-        CSEC["CentralSecurity\ncentral_security.py\n6-gate check"]
-        CMEM["CentralMemory\ncentral_memory.py\nR1-R4 coordinator"]
-        CPLUG["CentralPlugin\ncentral_plugin.py\nPlugin lifecycle"]
-        CCOL["CentralCollector\ncentral_collector.py\nToken aggregation"]
+    subgraph L4["L4 — Bridge Layer (external interfaces)"]
+        GW["l4/api_gateway.py\nHTTP Gateway\n149 routes"]
+        APIH["l4/api_handlers/\nMixin handlers"]
+        ROUTES["l4/api_routes.py\nRoute table"]
+        LLM["l4/llm.py\nLLM Engine"]
+        MCP["l4/mcp_bridge.py\nMCP adapter"]
+        SANDBOX["l4/sandbox/\nCOW isolation"]
+        RPC["l4/rpc/\nProcess RPC"]
+        ADAPT["l4/adapters/\nPort implementations"]
     end
 
-    subgraph Cell["Cell = CPU Core (services/cell.py)"]
-        CQ["Card Queue\npriority-sorted"]
-        AGT["AgentTerminal xN\nworker threads"]
-        AL["AgentLoop\nLLM tool calling"]
-        MB["Mailbox\nCellMessage"]
-        SCT["ScoutPool\nread-only"]
+    subgraph L3["L3 — Cell Layer (agent execution)"]
+        CELL["l3/cell/\nAgent orchestration"]
+        TERM["l3/agent_terminal/\nWorker threads"]
+        MEM["l3/memory.py\n3-ring memory"]
+        AL["l3/agent_loop.py\nLLM tool loop"]
+        TOOLS["l3/tools/\n35+ tool handlers"]
+        CARD["l3/card*.py\nCard lifecycle"]
+        ERROR["l3/error_bus/\nError logging"]
+        MON["l3/monitor_bus.py\nEvent bus"]
+        BOOT["l3/boot.py\nSystem init"]
+        SCOUT["l3/scout.py\nRead-only pool"]
+        PLANNER["l3/htn_planner.py\nIntent -> Plan"]
     end
 
-    subgraph Kernel["Kernel Layer (src/kernel/)"]
-        SYNC["sync.py\nMutex/Semaphore/Barrier/Condition/RWLock"]
-        PROC["process.py\nProcessTable"]
-        ALLOC["allocator.py\nToken allocator"]
-        GATE["gatechain.py\nG1-G5"]
-        CONST["constitution.py\nRules engine"]
-        EVT["event.py\nEventBus"]
-        VFS["vfs.py\nVirtual FS"]
-        IPC["ipc.py\nLockChannel"]
-        DEV["device.py\nDevice manager"]
-        NET["net.py\nTCP/UDP mesh"]
-        SWAP["swapper.py\nRing swapper"]
-        REP["reputation.py\nAgent scores"]
+    subgraph L2["L2 — Shell Layer (human interface)"]
+        SH["l2/l2_shell/\nCommand dispatch + 39 handlers"]
+        I18N["l2/i18n.py\nLocalization"]
+        SEL["l2/selector.py\nAgent selection"]
+        SS["l2/shell_session.py\nSession mgmt"]
     end
 
-    subgraph Tools["Tool Layer (src/tools/)"]
-        BASE["base/\n15 modules"]
-        ADV["advanced/\n15 modules"]
-        CELLT["cell/\n4 modules"]
-        SPEC["special/\n3 modules"]
+    subgraph L1["L1 — Kernel Layer"]
+        KERN["l1/kernel/\n25 modules\nsync / allocator / gatechain\nconstitution / vfs / net / ..."]
     end
 
-    Entry --> Centers
-    Centers --> Cell
-    Cell --> AgentLoop
-    AL -->|"engine.tool_use()"| LLM["LLM Engine"]
-    AL -->|"pipeline.execute()"| TP["ToolPipeline\n7 gates"]
-    TP --> Tools
-    Cell --> Kernel
+    L5 --> L4
+    L5 --> L3
+    L5 --> L2
+    L5 --> L1
+    L4 --> L3
+    L4 --> L2
+    L4 --> L1
+    L3 --> L2
+    L3 --> L1
+    L2 --> L1
 ```
 
 ---
@@ -130,16 +141,16 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant CLI as main.py
-    participant OS as kernel/os.py:OS
-    participant BOOT as services/boot.py
-    participant CFG as config_loader.py
+    participant CLI as cli.py
+    participant OS as l1/kernel/os.py:OS
+    participant BOOT as l3/boot.py
+    participant CFG as l3/config_loader.py
     participant K as Kernel Modules
-    participant CELL as services/cell.py
+    participant CELL as l3/cell/
     participant REG as CardRegistry
-    participant CTRL as CentralController
+    participant CTRL as L3 Coordinator
 
-    CLI->>OS: python main.py boot
+    CLI->>OS: python cli.py boot
     OS->>BOOT: OS.boot(agent_config)
 
     BOOT->>BOOT: 1. load_constitution()
@@ -163,7 +174,7 @@ sequenceDiagram
     CELL->>CELL: ScoutPool init
     CELL->>REG: register_cell() + start_dispatcher()
 
-    BOOT->>CTRL: 7. CentralController init
+    BOOT->>CTRL: 7. L3 Coordinator init
     CTRL->>REG: Cell registered, dispatcher polling
     Note over REG: Background thread polls every 1s<br/>routes cards via Card Gate
 
@@ -213,7 +224,7 @@ flowchart LR
     C8 --> C9
     C9 --> RESULT
 ```
-### 3b. AgentLoop Multi-Turn (`services/agent_loop.py`)
+### 3b. AgentLoop Multi-Turn (`l3/agent_loop.py`)
 
 The AgentLoop wraps `LLMEngine.tool_use()` with four self-correction and verification mechanisms:
 
@@ -283,7 +294,7 @@ Do NOT stop while ANY item is still pending or in_progress.
 
 Model manages this list via the built-in `todowrite` tool.
 
-#### Provider Retry Layers (`services/llm.py:_call_api`)
+#### Provider Retry Layers (`l4/llm.py:_call_api`)
 
 | Layer | Detection | Backoff | Max |
 |-------|-----------|---------|-----|
@@ -531,7 +542,7 @@ flowchart TB
         CARD_IN["execute_card(intent, domain)"]
     end
 
-    subgraph Cell["Cell = CPU Core (services/cell.py)\ncard queue + agent map + mailbox"]
+    subgraph Cell["Cell = CPU Core (l3/cell/)\ncard queue + agent map + mailbox"]
         direction TB
         AQ["Agent Queue:\n_terminal_id → AgentTerminal\n(agent_map from Card)"]
         MB["Mailbox:\nCellMessage[]\nagent-to-agent messaging"]
@@ -540,7 +551,7 @@ flowchart TB
         SNAP["Snapshot/Rollback\n(pre-exec file snapshots)"]
     end
 
-    subgraph AgentTerminal["AgentTerminal = Execution Unit\n(services/agent_terminal.py)"]
+    subgraph AgentTerminal["AgentTerminal = Execution Unit\n(l3/agent_terminal/)"]
         direction TB
         STDIN["stdin: deque[TerminalCard]"]
         STDOUT["stdout: deque[CardResult]"]
@@ -548,7 +559,7 @@ flowchart TB
         CACHE["FileCache + ContextRegister"]
     end
 
-    subgraph AgentLoop["AgentLoop = Microcode Sequencer\n(services/agent_loop.py)"]
+    subgraph AgentLoop["AgentLoop = Microcode Sequencer\n(l3/agent_loop.py)"]
         direction TB
         MAIN["run() → engine.tool_use()\nLLM multi-turn"]
         DETECT["ToolLoopDetector\nCoarseRepeatDetector"]
@@ -658,29 +669,25 @@ flowchart TB
 
     subgraph Pending["PendingQueue (pending_queue.py)"]
         ENQUEUE["enqueue(card_id, size)"]
-        APPROVE["approve(card_id)\n→ callback restore_card()"]
-        REJECT["reject(card_id)\n→ remove from _queue"]
-        ESCALATE["escalate(card_id)\n→ convene convention"]
-        EXPIRY["TTL check\nescalate stale >1h"]
+        ENQUEUE -.->|"approve"| APPROVE["approve(card_id)\n→ callback restore_card()"]
+        ENQUEUE -.->|"reject"| REJECT["reject(card_id)\n→ remove from _queue"]
+        ENQUEUE -.->|"escalate"| ESCALATE["escalate(card_id)\n→ convene convention"]
+        ESCALATE -.-> EXPIRY["TTL check\nescalate stale >1h"]
     end
 
     subgraph Dispatch["Background Dispatcher"]
         DISPATCH["_dispatcher_loop()\nevery 1s"]
-        DISPATCH --> POP["pop next pending card"]
-        POP --> {"held?"}
-        POP -->|"yes"| WAIT["wait for approval"]
-        POP -->|"no"| SEND["cell.execute_card()"]
+        DISPATCH --> POP{"pop next pending card\nheld?"}
+        POP -->|yes| WAIT["wait for approval"]
+        POP -->|no| SEND["cell.execute_card()"]
     end
 
     SUBMIT --> CLASSIFY
     AUTO --> DISPATCH
     AUTO2 --> DISPATCH
     HOLD --> ENQUEUE
-    ENQUEUE --> APPROVE
     APPROVE --> DISPATCH
-    ENQUEUE --> REJECT
-    ENQUEUE --> ESCALATE
-    APPROVE --> DISPATCH
+    REJECT -->|"remove"| SUBMIT
 ```
 
 **Stateful Approval Trail** on each `CardRecord`:
@@ -777,7 +784,7 @@ flowchart TB
         direction TB
         TR1["Ring 1 Private\nToolCallRecord deque\nRead-only tools\nrecord() → gate_stats()"]
         TR25["Ring 2.5 RequestPool\nReputation-weighted\nrep×40% + pri×35% + wait×25%\nLowest-score evicted"]
-        TR3["Ring 3 Witness\nIPC cross-review\nHuman approval via\nservices/ipc.py bus"]
+        TR3["Ring 3 Witness\nIPC cross-review\nHuman approval via\nl1/kernel/ipc.py bus"]
     end
 
     subgraph MemoryRing["Memory Ring (memory storage)"]
@@ -818,52 +825,74 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph KernelDeps["kernel Module Dependencies"]
-        PARAMS["params.py"] --> SYNC["sync.py"]
-        PARAMS --> ALLOC["allocator.py"]
-        PARAMS --> CONST["constitution.py"]
-        PARAMS --> GATE["gatechain.py"]
-        PARAMS --> PROCESS["process.py"]
-        PARAMS --> IPC["ipc.py"]
-        PARAMS --> VFS["vfs.py"]
+    subgraph L1["L1: l1/kernel/"]
+        P["params/"] --> SYNC["sync.py"]
+        P --> ALLOC["allocator.py"]
+        P --> CONST["constitution.py"]
+        P --> GATE["gatechain.py"]
+        P --> PROC["process.py"]
 
-        SYNC --> IPC
-        ALLOC --> PROCESS
-        ALLOC --> INTERRUPT["interrupt.py"]
-        GATE --> EVENT["event.py"]
-        GATE --> PROCESS
+        SYNC --> IPC["ipc.py"]
+        ALLOC --> PROC
+        ALLOC --> INT["interrupt.py"]
+        GATE --> EV["event.py"]
+        GATE --> PROC
         GATE --> REP["reputation.py"]
     end
 
-    subgraph ServiceDeps["service → kernel Dependencies"]
-        BOOT["boot.py"] --> PARAMS
+    subgraph L2["L2: l2/"]
+        L2SH["l2_shell/"] --> P
+        L2SH --> CMDS["kernel/commands.py"]
+    end
+
+    subgraph L3["L3: l3/"]
+        BOOT["boot.py"] --> P
         BOOT --> CONST
-        BOOT --> VFS
+        BOOT --> VFS["kernel/vfs.py"]
         BOOT --> DEV["kernel/device.py"]
         BOOT --> NET["kernel/net.py"]
-        BOOT --> SKILL["kernel/skill.py"]
         BOOT --> GATE
 
-        CELL["cell.py"] --> EVENT
+        CELL["cell/"] --> EV
         CELL --> SYNC
-        CELL --> PARAMS
-        CELL --> SCOUT["services/scout.py"]
-        CELL --> TERM["services/agent_terminal.py"]
+        CELL --> P
+        CELL --> SCT["scout.py"]
+        CELL --> TERM["agent_terminal/"]
+
+        PL["tool_pipeline.py"] --> P
+        PL --> GATE
+        PL --> ALLOC
+    end
+
+    subgraph L4["L4: l4/"]
+        GW["api_gateway.py"] --> P
+        GW --> CELL
+        LLM["llm.py"] --> P
+        LLM --> AL["l3/agent_loop.py"]
+        SANDB["sandbox/"] --> P
     end
 ```
 
 ---
 
-## 13. Key Constants (from `src/kernel/params.py`)
+## 13. Key Constants (from `src/l1/kernel/params/`)
 
-| Category | Examples |
-|----------|----------|
-| **Allocator** | `ALLOCATOR_DEFAULTS.{tokens=4096, ring1=32, ring2=200, ring3=1000}` |
-| **Mutex** | `MUTEX_DEFAULT_TIMEOUT=30.0`, `MUTEX_DEFAULT_PRIORITY=5.0` |
-| **Semaphore** | `SEMAPHORE_DEFAULT_MAX=3`, `SEMAPHORE_DEFAULT_TIMEOUT=30.0` |
-| **Scout** | `MAX_SCOUTS_PER_AGENT=3`, `SCOUT_TIMEOUT=300.0`, `SCOUT_CACHE_TTL=30.0` |
-| **Tool Timeouts** | `TOOL_TERMINAL_TIMEOUT=30.0`, `TOOL_GREP_TIMEOUT=15.0` |
-| **Tool Rates** | `TOOL_RATE_RING_1=60/min`, `RING_2_5=20/min`, `RING_3=5/min` |
+| Category | Sub-module | Examples |
+|----------|-----------|----------|
+| **Allocator** | `params/kernel.py` | `ALLOCATOR_DEFAULTS.{tokens=4096, ring1=32, ring2=200, ring3=1000}` |
+| **Mutex** | `params/kernel.py` | `MUTEX_DEFAULT_TIMEOUT=30.0`, `MUTEX_DEFAULT_PRIORITY=5.0` |
+| **Semaphore** | `params/kernel.py` | `SEMAPHORE_DEFAULT_MAX=3`, `SEMAPHORE_DEFAULT_TIMEOUT=30.0` |
+| **Scout** | `params/agent.py` | `MAX_SCOUTS_PER_AGENT=3`, `SCOUT_TIMEOUT=300.0` |
+| **Tool Timeouts** | `params/tool.py` | `TOOL_TERMINAL_TIMEOUT=30.0`, `TOOL_GREP_TIMEOUT=15.0` |
+| **Tool Rates** | `params/tool.py` | `TOOL_RATE_RING_1=60/min`, `RING_2_5=20/min`, `RING_3=5/min` |
+| **GateChain** | `params/kernel.py` | `GATECHAIN_RISK_WARN_THRESHOLD=6.0`, `GATECHAIN_REPEAT_THRESHOLD=5` |
+| **Process** | `params/kernel.py` | `PROCESS_AUDIT_MAX=1000`, `PROCESS_INIT_RING=3` |
+| **Network** | `params/api.py` | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0` |
+| **Cell ID** | `params/agent.py` | `DEFAULT_CELL_ID="cell-1"` |
+| **Config Dir** | `params/system.py` | `PRAXIS_CONFIG_DIR=".config/nomos-praxis"` |
+| **LLM URLs** | `params/api.py` | `ANTHROPIC_DEFAULT_URL="https://api.anthropic.com/v1/messages"` |
+| **Memory Budget** | `params/system.py` | `working=8192, short=32768, long=131072` |
+| **Memory Pressure** | `params/kernel.py` | `PRESSURE_HIGH=0.80, PRESSURE_MEDIUM=0.60` |
 | **GateChain** | `GATECHAIN_RISK_WARN_THRESHOLD=6.0`, `GATECHAIN_REPEAT_THRESHOLD=5` |
 | **Process** | `PROCESS_AUDIT_MAX=1000`, `PROCESS_INIT_RING=3` |
 | **Network** | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0` |
@@ -879,167 +908,258 @@ flowchart TB
 
 ```
 praxis/
-├── pyproject.toml              # Project config, entry: praxis=main:main
-├── praxis.yaml                  # System config (constitution, gatechain, LLM, etc.)
-├── .nomos-rules.md              # Constitution rules file
-├── .praxis_settings.json        # Runtime settings (auto-generated)
+├── pyproject.toml              # Project config
+├── praxis.yaml                  # System config
+├── .nomos-rules.md              # Constitution rules
 ├── .gitignore
+├── commands.yaml                # L2 Shell command definitions
+├── tools.yaml                   # Tool metadata registry
 │
 ├── src/
-│   ├── main.py                  # CLI entry point + REPL
-│   ├── cli.py                   # Typer-based CLI (hermes-like commands)
-│   ├── tui.py                   # Curses TUI
-│   ├── server.py                # pywebview IDE bridge
-│   ├── constants.py             # Re-export bridge → kernel/params.py
-│   ├── tool_ring.py             # Ring 1 + Ring 2.5 ToolRing/RequestPool
-│   ├── tool_approval.py         # Ring 3 IPC witness
+│   ├── __init__.py              # Package root (exports KERNEL_VERSION)
 │   │
-│   ├── kernel/                  # 25 modules — OS primitives + prompt/command registries
-│   │   ├── __init__.py          # syscall dispatcher + audit trail
-│   │   ├── params.py            # Single source of truth for all constants
-│   │   ├── platform.py          # Cross-platform OS detection (IS_WINDOWS, SHELL, etc.)
-│   │   ├── sync.py              # Mutex, Semaphore, Barrier, Condition, RWLock
-│   │   ├── process.py           # ProcessTable + PCB
-│   │   ├── allocator.py         # Token allocator, GC, OOM
-│   │   ├── event.py             # EventBus publish/subscribe
-│   │   ├── gatechain.py         # G1-G5 authorization
-│   │   ├── constitution.py      # Constitution engine
-│   │   ├── vfs.py               # Virtual file system
-│   │   ├── ipc.py               # LockChannel + LockBus
-│   │   ├── device.py            # Device manager
-│   │   ├── persist.py           # SQLite event store
-│   │   ├── reputation.py        # Agent reputation
-│   │   ├── tool_chain.py        # HMAC-SHA256 fingerprint chain
-│   │   ├── swapper.py           # Memory ring swapper
-│   │   ├── settings.py          # Key-value config store
-│   │   ├── skill.py             # Skill manager
-│   │   ├── interrupt.py         # Interrupt table
-│   │   ├── net.py               # Network kernel (UDP/TCP mesh)
-│   │   ├── registry.py          # Central system registry
-│   │   ├── health.py            # Kernel health check
-│   │   ├── resource.py          # Resource limiter
-│   │   ├── prompts.py           # YAML-driven prompt template registry
-│   │   ├── commands.py          # YAML-driven command definition registry
-│   │   └── os.py                # OS lifecycle coordinator
+│   ├── l1/                      # === KERNEL LAYER ===
+│   │   └── kernel/              # OS primitives (35 files)
+│   │       ├── __init__.py      # Syscall dispatcher + audit trail
+│   │       ├── params/          # Constants package (5 sub-modules)
+│   │       │   ├── __init__.py   # Docs only — no re-exports
+│   │       │   ├── kernel.py    # Allocator, Mutex, GateChain, Process, VFS...
+│   │       │   ├── agent.py     # Agent configs, roles, terminal, card, convention
+│   │       │   ├── tool.py      # Tool timeouts, rates, danger, HTN
+│   │       │   ├── api.py       # API, LLM, network, IPC constants
+│   │       │   └── system.py    # Cache, persistence, data paths, sandbox
+│   │       ├── sync.py          # Mutex, Semaphore, Barrier, RWLock
+│   │       ├── process.py       # ProcessTable
+│   │       ├── allocator.py     # Token allocator + OOM
+│   │       ├── event.py         # EventBus publish/subscribe
+│   │       ├── gatechain.py     # G1-G5 authorization
+│   │       ├── constitution.py  # Constitutional rules engine
+│   │       ├── vfs.py           # Virtual file system
+│   │       ├── ipc.py           # LockChannel + LockBus
+│   │       ├── device.py        # Device manager + rate limiting
+│   │       ├── persist.py       # SQLite event store
+│   │       ├── reputation.py    # Agent reputation scoring
+│   │       ├── tool_chain.py    # HMAC-SHA256 fingerprint chain
+│   │       ├── swapper.py       # Memory ring swapper
+│   │       ├── settings.py      # Key-value config store
+│   │       ├── skill.py         # Skill manager
+│   │       ├── interrupt.py     # Interrupt table
+│   │       ├── net.py           # Network mesh (UDP/TCP)
+│   │       ├── net_transport.py # Transport layer + TLS
+│   │       ├── ports.py         # Port interfaces (adapter pattern)
+│   │       ├── registry.py      # Central system registry
+│   │       ├── health.py        # Kernel health check
+│   │       ├── resource.py      # Resource limiter
+│   │       ├── prompts.py       # YAML-driven prompt registry
+│   │       ├── commands.py      # YAML-driven command registry
+│   │       ├── os.py            # OS lifecycle coordinator
+│   │       ├── rule_descriptor.py  # Constitution rule format
+│   │       ├── errors.py        # Error codes + catalog
+│   │       └── platform.py      # Cross-platform detection
 │   │
-│   ├── services/                # 67 modules — higher-level services
-│   │   ├── boot.py              # Boot sequence
-│   │   ├── cell.py              # Agent collaboration unit (N agents + ScoutPool)
-│   │   ├── cell_decompose.py    # Card decomposition by territory
-│   │   ├── cell_types.py        # AgentInfo, CellMessage, MessageType, AgentRole
-│   │   ├── agent_terminal.py    # Agent process + worker pool
+│   ├── l2/                      # === SHELL LAYER ===
+│   │   ├── l2_shell/            # Command dispatch package
+│   │   │   ├── __init__.py      # dispatch(), _direct_message()
+│   │   │   ├── state.py         # ShellState singleton
+│   │   │   ├── commands.py      # 39 _cmd_* handlers + _pipeline
+│   │   │   ├── completer.py     # autocomplete
+│   │   │   └── output_guard.py  # guard_output
+│   │   ├── i18n.py              # Internationalization
+│   │   ├── selector.py          # Agent preselect
+│   │   ├── shell.py             # Shell entry
+│   │   ├── shell_session.py     # Session lifecycle
+│   │   └── shell_completer.py   # Tab completion
+│   │
+│   ├── l3/                      # === CELL LAYER ===
+│   │   ├── cell/                # Cell orchestration package
+│   │   │   └── __init__.py      # Cell class + factory
+│   │   ├── agent_terminal/      # AgentTerminal package
+│   │   │   └── __init__.py      # AgentTerminal + worker loop
+│   │   ├── error_bus/           # ErrorBus package
+│   │   │   ├── __init__.py      # ErrorBus, error_boundary, capture
+│   │   │   └── api.py           # API handlers for error queries
+│   │   ├── resource_buffer/     # Ring file buffer
+│   │   │   ├── __init__.py
+│   │   │   ├── ring.py          # RingBuffer
+│   │   │   ├── manager.py       # ResourceBufferManager
+│   │   │   └── api.py           # /api/buffer/* handlers
+│   │   ├── tools/               # Tool implementations (35+ handlers)
+│   │   │   ├── _files.py        # File ops (via buffer)
+│   │   │   ├── _code.py         # Code review
+│   │   │   ├── _search.py       # Search tools
+│   │   │   ├── _build.py        # Build tools
+│   │   │   ├── _git.py          # Git tools
+│   │   │   ├── _comm.py         # Communication
+│   │   │   └── ... (35+ files)
+│   │   ├── boot.py              # System bootstrap
+│   │   ├── agent_loop.py        # LLM tool-calling loop
+│   │   ├── memory.py            # 3-ring memory
+│   │   ├── memory_init.py       # Memory lifecycle
+│   │   ├── central_memory.py    # R1-R4 coordinator
+│   │   ├── memory_quality.py    # Quality scoring
+│   │   ├── memory_ring.py       # RingLayer implementation
 │   │   ├── card.py              # Card data model
+│   │   ├── card_unified.py      # Unified card types
 │   │   ├── card_registry.py     # Card queue + status
-│   │   ├── card_builder.py      # Intent → Card compiler
+│   │   ├── card_builder.py      # Intent→Card compiler
+│   │   ├── card_gate.py         # Human approval gate
+│   │   ├── card_state.py        # Card state machine
 │   │   ├── card_yaml.py         # YAML card loader
-│   │   ├── l3.py                # L3 coordinator
-│   │   ├── l3a.py               # L3A: Human → Card
-│   │   ├── l3b.py               # L3B: Cross-cell routing
-│   │   ├── llm.py               # LLM engine + tool_use() multi-turn loop
-│   │   ├── llm_base.py          # LLMProvider ABC, LLMConfig, ToolSearch
-│   │   ├── llm_providers.py     # Mock/OpenAI/Anthropic/Ollama providers
-│   │   ├── counter.py           # Cell-level token/tool/loop counters
-│   │   ├── settings_center.py   # Three-layer config (L1 params > L2 yaml > L3 json)
-│   │   ├── approval_gate.py     # Human approval gate for dangerous tools
-│   │   ├── mcp_bridge.py        # MCP protocol ↔ ToolSpec bidirectional adapter
-│   │   ├── agent_loop.py        # AgentLoop — LLM tool-calling loop
-│   │   ├── agent_terminal.py    # AgentTerminal — persistent worker process
-│   │   ├── scout.py             # Scout pool (async investigation)
-│   │   ├── ipc.py               # IPC protocol (20+ message types)
-│   │   ├── tool_spec.py         # ToolSpec registry
-│   │   ├── tool_pipeline.py     # Ring-gated tool execution
-│   │   ├── scheduler.py         # Unified scheduler (L3Router + RequestPool + TimeScheduler)
-│   │   ├── scheduler_router.py  # L3Router: intent → best agent routing
-│   │   ├── scheduler_time.py    # TimeScheduler: preemptive time-slice scheduler
-│   │   ├── scheduler_types.py   # Task, AgentInfo, TimeSlice dataclasses
-│   │   ├── statecharts.py       # 5-region state machine
-│   │   ├── htn_planner.py       # HTN planner
-│   │   ├── memory.py            # Agent memory (3 rings)
-│   │   ├── memory_init.py       # Boot/shutdown memory lifecycle
-│   │   ├── sandbox.py           # Copy-on-write isolation
-│   │   ├── shell.py             # Terminal service (session management)
-│   │   ├── shell_completer.py   # Tab completion for shell
-│   │   ├── shell_session.py     # Shell session lifecycle (create/attach/kill)
-│   │   ├── cache.py             # Multi-level cache
-│   │   ├── identity.py          # Ed25519 keys + proofs
-│   │   ├── api_gateway.py       # HTTP/WS API gateway
-│   │   ├── ops_console.py       # Central monitoring
-│   │   ├── config_loader.py     # praxis.yaml loader
-│   │   ├── config_handlers.py   # Config validation + migration helpers
-│   │   ├── execution_engine.py  # Step execution engine
-│   │   ├── execution_plan.py    # Card→Plan compiler
-│   │   ├── decomposer.py        # Card decomposer
-│   │   ├── fault_tolerance.py   # Checkpoints + recovery
+│   │   ├── card_pool.py         # Remote card registry
+│   │   ├── card_registry_protocol.py  # Net protocol
+│   │   ├── scout.py             # Scout pool
 │   │   ├── context.py           # Context register
-│   │   ├── pager.py             # Context paging
-│   │   ├── pager_bridge.py      # Swapper↔Pager bridge
-│   │   ├── pal_router.py        # LLM cost router
-│   │   ├── stagnation.py        # Deadlock/loop detection
-│   │   ├── acb.py               # Agent Control Block
-│   │   ├── assembly.py          # Assembly mode
-│   │   ├── service_manager.py   # Service lifecycle (systemctl analog)
-│   │   ├── tool_registry_setup.py # Tool auto-discovery
-│   │   ├── auth.py              # Auth service
-│   │   ├── ci.py                # CI pipeline
-│   │   ├── git.py               # Git operations
-│   │   ├── fs.py                # Filesystem ops
+│   │   ├── context_pool.py      # Context manager pool
+│   │   ├── cell_token_merger.py # Token accumulator
+│   │   ├── monitor_bus.py       # Unified event bus
+│   │   ├── message_gate.py      # Message policy engine
+│   │   ├── tool_spec.py         # ToolSpec registry
+│   │   ├── tool_pipeline.py     # Ring-gated execution
+│   │   ├── tool_config.py       # Tool config from YAML
+│   │   ├── tool_policy.py       # Tool policy rules
+│   │   ├── tool_mode.py         # Global read/write mode
+│   │   ├── htn_planner.py       # HTN planner
+│   │   ├── execution_plan.py    # Card→Plan compiler
+│   │   ├── execution_engine.py  # Step execution
+│   │   ├── execution_verify.py  # Verification chain
+│   │   ├── l3a.py               # L3A: Human→Card
+│   │   ├── l3.py                # L3 coordinator
+│   │   ├── l3b.py               # L3B: Cross-cell routing
+│   │   ├── central_security.py  # 6-gate unified check
+│   │   ├── central_plugin.py    # Plugin lifecycle
+│   │   ├── central_collector.py # Token aggregation
+│   │   ├── scheduler.py         # Unified scheduler
+│   │   ├── scheduler_rate.py    # Rate scheduler
+│   │   ├── scheduler_scope.py   # Scope scheduling
+│   │   ├── scheduler_time.py    # Time-slice scheduler
+│   │   ├── scheduler_router.py  # Intent routing
+│   │   ├── scheduler_types.py   # Dataclasses
+│   │   ├── convention.py        # Convention meetings
+│   │   ├── convergence.py       # Convergence detection
+│   │   ├── faulty_tolerance.py  # Checkpoint + recovery
+│   │   ├── dialouge_session.py  # Dialogue persistence
+│   │   ├── session_export.py    # Session export
+│   │   ├── session_snapshot.py  # Snapshot lifecycle
+│   │   ├── approval_gate.py     # Human approval
+│   │   ├── pending_queue.py     # Approval queue
+│   │   ├── reference_channel.py # Event capture
 │   │   ├── log.py               # Log service
-│   │   ├── lsp.py               # LSP integration
-│   │   ├── network.py           # HTTP client
-│   │   ├── notify.py            # Notifications
-│   │   ├── package_manager.py   # Package management
+│   │   ├── config_loader.py     # praxis.yaml loader
+│   │   ├── config_handlers.py   # Config migration
+│   │   ├── settings_center.py   # 3-layer settings
+│   │   ├── identity.py          # Ed25519 keys + proofs
+│   │   ├── wiring.py            # Port→adapter wiring
+│   │   ├── service_manager.py   # Service lifecycle
+│   │   ├── acb.py               # Agent Control Block
+│   │   ├── r4_agent.py          # R4 archivist
+│   │   ├── subagent.py          # Lightweight sub-agent
+│   │   ├── subagent_framework.py # Subagent framework
+│   │   ├── pager.py             # Context paging
+│   │   ├── pal_router.py        # LLM cost router
+│   │   ├── stagnation.py        # Deadlock detection
+│   │   ├── stagnation_detectors.py # Loop detection
+│   │   ├── counter.py           # Token/tool/turn counters
+│   │   ├── cache.py             # Multi-level cache
+│   │   ├── cache_doc.py         # Meeting doc cache
+│   │   ├── cache_strategy.py    # LLM prefix cache
+│   │   ├── result_store.py      # Tool result cache
+│   │   ├── sequence_monitor.py  # Anomaly detection
+│   │   ├── file_editor.py       # Semantic file editing
+│   │   ├── archive_orchestrator.py  # Archive
 │   │   ├── process.py           # Process manager
-│   │   ├── search.py            # Text search
-│   │   ├── template.py          # Jinja2 templates
+│   │   ├── task_bus.py          # Task dispatch
 │   │   ├── todo.py              # Task queue
-│   │   ├── subagent.py          # Lightweight synchronous quick-check agent
-│   │   ├── transaction_area.py  # Card queue for L3A↔Cell
-│   │   ├── user_session.py      # Login/session
-│   │   ├── vspace.py            # Virtual project space
+│   │   ├── todo_tracker.py      # Todo state machine
+│   │   ├── issue.py             # Issue tracking
+│   │   ├── transaction_area.py  # Card staging
+│   │   ├── verifier.py          # Result verification
+│   │   ├── verify_cadence.py    # Check cadence
+│   │   ├── review.py            # Peer review
+│   │   ├── vspace.py            # Virtual space
 │   │   ├── workspace.py         # Workspace manager
-│   │   ├── result_store.py      # Deterministic tool result cache (SHA256+LRU)
-│   │   ├── cache_strategy.py    # Per-provider LLM prefix cache strategy
-│   │   ├── tool_mode.py         # Global read/write mode switch
-│   │   ├── central_security.py  # CentralSecurity — 6-gate unified check
-│   │   ├── central_memory.py    # CentralMemory — R1-R4 lifecycle coordinator
-│   │   ├── central_plugin.py    # CentralPlugin — plugin lifecycle manager
-│   │   ├── cell_monitor.py      # CellMonitor — cell health event log
-│   │   ├── observability_bus.py # ObservabilityBus — unified alert/health/metric/audit
-│   │   ├── l2_shell.py          # L2 Shell command dispatch + auto-complete
-│   │   ├── shell_completer.py   # Shell auto-completion engine
-│   │   ├── _base.py             # Base service
+│   │   ├── statecharts.py       # 5-region state machine
+│   │   ├── observability_bus.py # Alert/health/metric
+│   │   ├── assembly.py          # Constitutional assembly
+│   │   ├── prompt_engine.py     # Prompt building
+│   │   ├── template.py          # Jinja2 templates
+│   │   ├── package_manager.py   # Package management
+│   │   ├── fs.py                # Filesystem ops
+│   │   ├── network.py           # HTTP client
+│   │   ├── _base.py             # BaseService
 │   │   ├── _pool.py             # Worker pool
 │   │   ├── _term_types.py       # Terminal data types
-│   │   └── _term_handlers.py    # Terminal action handlers
+│   │   ├── _term_handlers.py    # Terminal action handlers
+│   │   ├── _term_convention.py  # Terminal convention
+│   │   ├── _term_lifecycle.py   # Terminal lifecycle
+│   │   └── _persistable.py      # Persistable mixin
 │   │
-│   │── REMOVED: dispatch.py     # Replaced by CardRegistry
-│   │── REMOVED: event_bridge.py # Merged into kernel EventBus (string API)
-│   │── REMOVED: events.py       # Merged into kernel EventBus
+│   ├── l4/                      # === BRIDGE LAYER ===
+│   │   ├── api_handlers/        # API handler mixin
+│   │   │   └── __init__.py      # ApiHandlers class
+│   │   ├── sandbox/             # Process isolation
+│   │   │   ├── __init__.py
+│   │   │   ├── manager.py       # SandboxManager
+│   │   │   └── server.py        # Sandbox server
+│   │   ├── rpc/                 # Inter-process RPC
+│   │   │   ├── __init__.py
+│   │   │   ├── protocol.py      # RpcMessage type
+│   │   │   └── transport.py     # RpcTransport
+│   │   ├── adapters/            # Port implementations
+│   │   │   ├── bus_memory.py    # MemoryBusAdapter
+│   │   │   ├── monitor_bus.py   # MonitorBusAdapter
+│   │   │   ├── card_registry.py # CardRegistryAdapter
+│   │   │   ├── channel_ring.py  # RingChannel
+│   │   │   ├── i18n_yaml.py     # YamlI18nAdapter
+│   │   │   └── worker_thread.py # ThreadPoolWorker
+│   │   ├── llm_worker/          # LLM worker process
+│   │   │   ├── __init__.py
+│   │   │   └── server.py        # LLMWorkerServer
+│   │   ├── api_gateway.py       # HTTP/WS API gateway
+│   │   ├── api_routes.py        # 149 route definitions
+│   │   ├── api_middleware.py     # Middleware chain
+│   │   ├── api_handlers_cards.py # Card API handlers
+│   │   ├── api_handlers_monitor.py # Monitor API handlers
+│   │   ├── api_handlers_agent.py # Agent API handlers
+│   │   ├── api_handlers_config.py # Config API handlers
+│   │   ├── llm.py               # LLM Engine + tool_use()
+│   │   ├── llm_base.py          # LLMProvider ABC
+│   │   ├── llm_providers.py     # Mock/OpenAI/Anthropic
+│   │   ├── mcp_bridge.py        # MCP protocol adapter
+│   │   ├── lsp_manager.py       # LSP integration
+│   │   ├── lsp.py               # LSP client
+│   │   ├── sse_bridge.py        # SSE event stream
+│   │   ├── sandbox.py           # Sandbox interface
+│   │   ├── supervisor.py        # Process supervisor
+│   │   ├── cron_scheduler.py    # Cron scheduling
+│   │   ├── notify.py            # Webhooks/notifications
+│   │   ├── auth.py              # Authentication
+│   │   ├── user_session.py      # User sessions
+│   │   ├── credential_vault.py  # AES-256 credential store
+│   │   ├── net_client.py        # HTTP client
+│   │   ├── ops_console.py       # Operations dashboard
+│   │   ├── search.py            # Text search
+│   │   ├── search_engine.py     # Full-text search
+│   │   ├── git.py               # Git operations
+│   │   └── ci.py                # CI pipeline
 │   │
-│   ├── tools/                   # Tool implementations (~50+ files)
-│   │   ├── base/                # Core tools (16 files)
-│   │   ├── advanced/            # Extended tools (16 files)
-│   │   ├── cell/                # Agent coordination (5 files)
-│   │   └── special/             # L3 + Archive (4 files)
+│   ├── l5/                      # === USER LAYER ===
+│   │   ├── cli.py               # Typer-based CLI
+│   │   └── agent_runtime.py     # Runtime loop
 │   │
-│   └── services/__init__.py     # Namespace marker
+│   └── services/                # (empty — all files migrated to l2/l3/l4/
+│       └── __pycache__/
 │
-├── tests/                       # pytest test suite
+├── tests/                       # pytest suite
 │   ├── test_params_integrity.py # 17 tests — constant integrity
 │   ├── test_kernel.py           # 26 tests — all kernel modules
-│   ├── test_kernel_extended.py  # 21 tests — reputation, lock, registry, skill, swapper
-│   ├── test_identity.py         # 13 tests — Ed25519 keygen, proof, trust chain
-│   ├── test_memory_sandbox.py   # 14 tests — memory rings, sandbox isolation
-│   ├── test_integration.py      # 5 tests — syscall, registry, VFS, emit_signal
-│   ├── test_services.py         # 13 tests — service layer (needs mock fix)
-│   ├── test_praxis_conventions.py  # 1 test — hardcoded constant audit
-│   └── ... (total ~95 passing)
+│   ├── test_services_core.py    # 21 tests — core services
+│   ├── test_api_routes.py       # 19 tests — route matching
+│   ├── test_layer_imports.py    # 1 test — layer constraint enforcement
+│   └── ... (total ~73+ passing)
 │
-├── docs/
-│   └── design/
-│       └── praxis-architecture-actual.md  # This document
-│
-└── .github/workflows/ci.yml     # CI: ruff → mypy → pytest × 3 Python versions → build
+└── docs/
+    └── design/
+        └── praxis-architecture-actual.md  # This document
 ```
 
 ---
@@ -1048,7 +1168,7 @@ praxis/
 
 ```mermaid
 flowchart TB
-    subgraph CP["Checkpoint System (services/fault_tolerance.py)"]
+    subgraph CP["Checkpoint System (l3/fault_tolerance.py)"]
         SAVE["save_checkpoint()\nbefore each step\n→ JSON to disk\n→ in-memory dict"]
         RESTORE["restore_checkpoint()\non crash recovery\n→ load from disk\n→ resume from last step"]
         DONE["mark_done()\nphase complete\n→ delete checkpoint"]
@@ -1129,8 +1249,8 @@ Rollback restores from `fault_tolerance` checkpoint and discards `pending/staged
 
 ```mermaid
 flowchart TB
-    subgraph Center["Settings Center (services/settings_center.py)"]
-        L1["L1 — Default\nkernel/params.py\n(read-only factory defaults)"]
+    subgraph Center["Settings Center (l3/settings_center.py)"]
+        L1["L1 — Default\nl1/kernel/params/\n(read-only factory defaults)"]
         L2["L2 — Config\npraxis.yaml\n(boot-time, loaded via load_l2())"]
         L3["L3 — Runtime\n.praxis_settings.json\n(API-written, persisted)"]
         MERGE["get(key): L3 > L2 > L1\nset(key, val): writes L3 only"]
@@ -1201,14 +1321,14 @@ curl -X POST http://localhost:8080/api/settings \
 
 ```mermaid
 flowchart TB
-    subgraph Hooks["LLM Lifecycle Hooks (services/llm.py)"]
+    subgraph Hooks["LLM Lifecycle Hooks (l4/llm.py)"]
         PRE["@on_llm_call('pre')\nbefore generate()\nlogging, audit, prompt injection"]
         POST["@on_llm_call('post')\nafter generate()\ntoken counting, cost tracking"]
         LLM["LLMEngine.generate()"]
         PRE --> LLM --> POST
     end
 
-    subgraph Counter["Cell Counter (services/counter.py)"]
+    subgraph Counter["Cell Counter (l3/counter.py)"]
         TOKENS["record_token()\ninput/output/cache_hit/cache_miss\nper-agent, with timestamps"]
         TOOLS["record_tool()\ntool name + success/failure\nper-agent"]
         LOOPS["record_loop()\nturns + steps + elapsed\nper AgentLoop run"]
@@ -1609,7 +1729,7 @@ flowchart LR
         PP["kernel/prompts.py\n_DEFAULTS + _overrides"]
         PC["kernel/commands.py\n_DEFAULTS + _overrides"]
 
-        PS["services/cache_strategy.py\nload_cache_config(cfg)\n→ ConfigCacheStrategy"]
+        PS["l3/cache_strategy.py\nload_cache_config(cfg)\n→ ConfigCacheStrategy"]
     end
 
     subgraph Resolution["Resolution Order"]
@@ -1704,7 +1824,7 @@ flowchart LR
 | Write-invalidation | `invalidate_for_tool()` clears entries matching write tool path |
 | Integration | Wired into `execute_tool_spec()` — automatic for all tools |
 
-### Cache Strategy Per-Provider (`services/cache_strategy.py`)
+### Cache Strategy Per-Provider (`l3/cache_strategy.py`)
 
 Single `ConfigCacheStrategy` class driven by YAML config, not an ABC hierarchy:
 
