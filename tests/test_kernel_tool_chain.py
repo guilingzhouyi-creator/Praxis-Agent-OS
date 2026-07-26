@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 def _make_chain(max_calls: int = 5000) -> "ToolChain":
     """Return a fresh ToolChain for test isolation."""
-    from kernel.tool_chain import ToolChain
+    from l1.kernel.tool_chain import ToolChain
     tc = ToolChain()
     tc._max_calls = max_calls
     return tc
@@ -26,7 +26,7 @@ def _make_chain(max_calls: int = 5000) -> "ToolChain":
 
 class TestToolChainStart:
     def test_start_returns_call_id(self):
-        from kernel.tool_chain import ToolChain
+        from l1.kernel.tool_chain import ToolChain
         tc = ToolChain()
         cid = tc.start("read_file", "agent_a")
         assert cid.startswith("call-")
@@ -524,13 +524,13 @@ class TestToolChainThreadSafety:
 
 class TestToolChainSingleton:
     def test_get_tool_chain_returns_same_instance(self):
-        from kernel.tool_chain import get_tool_chain
+        from l1.kernel.tool_chain import get_tool_chain
         tc1 = get_tool_chain()
         tc2 = get_tool_chain()
         assert tc1 is tc2
 
     def test_reset_tool_chain_clears(self):
-        from kernel.tool_chain import get_tool_chain, reset_tool_chain
+        from l1.kernel.tool_chain import get_tool_chain, reset_tool_chain
         tc1 = get_tool_chain()
         tc1.start("test", "agent")
         assert tc1.stats()["total_calls"] >= 1

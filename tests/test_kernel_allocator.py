@@ -13,14 +13,14 @@ class TestAllocatorBasics:
     """Allocator creation and core alloc/free/usage."""
 
     def test_get_allocator_singleton(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a1 = get_allocator()
         a2 = get_allocator()
         assert a1 is a2
 
     def test_reset_allocator(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         assert a is not None
@@ -29,7 +29,7 @@ class TestAllocatorBasics:
         assert a is not b
 
     def test_alloc_success_defaults(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         result = a.alloc("agent_a", "tokens")
@@ -38,7 +38,7 @@ class TestAllocatorBasics:
         assert result["remaining"] >= 0
 
     def test_alloc_returns_remaining(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("agent_b", "tokens", 50)
@@ -50,7 +50,7 @@ class TestAllocatorBasics:
         assert r2["remaining"] == 30
 
     def test_free_returns_freed_amount(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         # free() removes complete Allocation objects; if the only allocation
@@ -61,7 +61,7 @@ class TestAllocatorBasics:
         assert r["freed"] == 10  # whole allocation removed
 
     def test_free_exact_amount(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.alloc("agent_d", "tokens", 7)
@@ -69,7 +69,7 @@ class TestAllocatorBasics:
         assert r["freed"] == 7
 
     def test_free_nonexistent_agent(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         r = a.free("no_such_agent", "tokens", 5)
@@ -77,8 +77,8 @@ class TestAllocatorBasics:
         assert r["freed"] == 0
 
     def test_usage_returns_all_resources(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params.kernel import (
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.params.kernel import (
             RESOURCE_TOKENS,
             RESOURCE_RING1,
             RESOURCE_RING2,
@@ -97,7 +97,7 @@ class TestAllocatorBasics:
         assert RESOURCE_PRIORITY in u
 
     def test_usage_shows_pct(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("agent_f", "tokens", 100)
@@ -108,7 +108,7 @@ class TestAllocatorBasics:
         assert u["tokens"]["pct"] == 25.0
 
     def test_summary_lists_all_agents(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.alloc("sum_agent_1", "tokens", 5)
@@ -123,14 +123,14 @@ class TestAllocatorLimits:
     """set_limit and enforcement."""
 
     def test_set_limit_returns_success(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         r = a.set_limit("limit_agent", "tokens", 200)
         assert r == {"success": True}
 
     def test_set_limit_overrides_default(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("limit_agent_b", "tokens", 50)
@@ -139,7 +139,7 @@ class TestAllocatorLimits:
         assert u["tokens"]["limit"] == 50
 
     def test_set_limit_multiple_resources(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("multi_agent", "tokens", 100)
@@ -149,7 +149,7 @@ class TestAllocatorLimits:
         assert u["ring1"]["limit"] == 10
 
     def test_alloc_fails_when_exceeding_limit(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("small_agent", "tokens", 10)
@@ -161,7 +161,7 @@ class TestAllocatorLimits:
         assert r.get("oom") is True
 
     def test_reclaim_expired_allocations(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("exp_agent", "tokens", 50)
@@ -177,7 +177,7 @@ class TestAllocatorLimits:
         assert u["tokens"]["used"] == 30  # expired ones were reclaimed
 
     def test_reclaim_observe_purpose(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("obs_agent", "tokens", 50)
@@ -194,7 +194,7 @@ class TestOOMKiller:
     """OOM killer: victim selection, interrupt firing, process exit."""
 
     def test_oom_kill_reclaims_resources(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         # Two agents: one with low priority, one requesting
@@ -214,8 +214,8 @@ class TestOOMKiller:
         assert u["tokens"]["used"] == 0
 
     def test_oom_fires_interrupt(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.interrupt import get_table, InterruptType
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.interrupt import get_table, InterruptType
         reset_allocator()
         int_table = get_table()
         # Reset counts for clean test
@@ -236,7 +236,7 @@ class TestOOMKiller:
         assert after > before, "OOM_KILL interrupt should have been fired"
 
     def test_oom_selects_lowest_priority_victim(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
 
@@ -263,7 +263,7 @@ class TestOOMKiller:
         assert usage_after["tokens"]["used"] < 30
 
     def test_oom_no_candidate_returns_zero(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("solo", "tokens", 5)
@@ -273,8 +273,8 @@ class TestOOMKiller:
         assert r.get("oom") is True
 
     def test_oom_resource_exhaustion_interrupt(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.interrupt import get_table, InterruptType
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.interrupt import get_table, InterruptType
         reset_allocator()
         int_table = get_table()
         before = int_table.counts().get("RESOURCE_EXHAUSTION", 0)
@@ -292,7 +292,7 @@ class TestPressureDetection:
     """Pressure threshold detection."""
 
     def test_no_pressure_when_below_threshold(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("low_usage", "tokens", 100)
@@ -302,7 +302,7 @@ class TestPressureDetection:
         assert p["count"] == 0
 
     def test_pressure_when_above_threshold(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("high_usage", "tokens", 100)
@@ -313,7 +313,7 @@ class TestPressureDetection:
         assert p["count"] >= 1
 
     def test_pressure_custom_threshold(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("custom_thresh", "tokens", 100)
@@ -326,7 +326,7 @@ class TestPressureDetection:
         assert p20["under_pressure"] is True
 
     def test_pressure_reports_agent_and_resource(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("pressure_agent", "ring1", 10)
@@ -340,7 +340,7 @@ class TestPressureDetection:
         assert found, "pressure_agent/ring1 should be in pressure report"
 
     def test_pressure_multiple_agents(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("p1", "tokens", 10)
@@ -355,7 +355,7 @@ class TestSwapOut:
     """swap_out: move allocations between resources."""
 
     def test_swap_out_ring1_to_ring2(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("swap_agent", "ring1", 100)
@@ -372,7 +372,7 @@ class TestSwapOut:
         assert u["ring2"]["used"] == 10
 
     def test_swap_out_ring2_to_ring3(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("swap_agent2", "ring2", 100)
@@ -389,8 +389,8 @@ class TestSwapOut:
         assert u["ring3"]["used"] == 7
 
     def test_swap_out_to_disk_removes_allocation(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params.kernel import ALLOCATOR_DISK_RESOURCE
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.params.kernel import ALLOCATOR_DISK_RESOURCE
         reset_allocator()
         a = get_allocator()
         a.set_limit("swap_disk", "ring3", 100)
@@ -404,7 +404,7 @@ class TestSwapOut:
         assert u["ring3"]["used"] == 0
 
     def test_swap_out_empty_source_noop(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         r = a.swap_out("nonexistent", resource="ring1", target_resource="ring2")
@@ -412,7 +412,7 @@ class TestSwapOut:
         assert r["moved"] == 0
 
     def test_swap_out_respects_count_param(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("swap_count", "ring1", 100)
@@ -427,7 +427,7 @@ class TestCancellationAndEdgeCases:
     """Edge cases: concurrent calls, invalid amounts, ttl expiry."""
 
     def test_alloc_with_ttl_expiry(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("ttl_agent", "tokens", 50)
@@ -438,15 +438,15 @@ class TestCancellationAndEdgeCases:
         assert r["success"] is True
 
     def test_alloc_with_purpose(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         r = a.alloc("purpose_agent", "tokens", 5, purpose="test.purpose")
         assert r["success"] is True
 
     def test_alloc_zero_amount(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params.kernel import ALLOCATOR_DEFAULT_AMOUNT
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.params.kernel import ALLOCATOR_DEFAULT_AMOUNT
         reset_allocator()
         a = get_allocator()
         r = a.alloc("zero_agent", "tokens", 0)
@@ -455,7 +455,7 @@ class TestCancellationAndEdgeCases:
 
     def test_thread_safety(self):
         import threading
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("thread_agent", "tokens", 1000)
@@ -478,7 +478,7 @@ class TestCancellationAndEdgeCases:
         assert len(errors) == 0, f"Thread safety errors: {errors}"
 
     def test_multiple_frees(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("multi_free", "tokens", 100)
@@ -491,7 +491,7 @@ class TestCancellationAndEdgeCases:
         assert u["tokens"]["used"] == 0
 
     def test_usage_empty_agent_returns_defaults(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         u = a.usage("never_allocated")
@@ -499,8 +499,8 @@ class TestCancellationAndEdgeCases:
         assert u["tokens"]["limit"] > 0
 
     def test_fallback_limit_used_when_no_limit_set(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params.kernel import ALLOCATOR_FALLBACK_LIMIT
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.params.kernel import ALLOCATOR_FALLBACK_LIMIT
         reset_allocator()
         a = get_allocator()
         # "cpu" is not in DEFAULTS, so the fallback limit (100) is used.
@@ -513,7 +513,7 @@ class TestAllocatorIntegration:
     """Integration-style tests combining multiple operations."""
 
     def test_alloc_free_reuse(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("cycle", "tokens", 100)
@@ -525,7 +525,7 @@ class TestAllocatorIntegration:
         assert u["tokens"]["used"] == 30
 
     def test_pressure_relief_after_free(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("relief", "tokens", 100)
@@ -535,7 +535,7 @@ class TestAllocatorIntegration:
         assert a.pressure()["under_pressure"] is False
 
     def test_oom_then_free_then_alloc(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.set_limit("oom_recover", "tokens", 20)
@@ -550,7 +550,7 @@ class TestAllocatorIntegration:
         assert r2["success"] is True
 
     def test_summary_includes_all_agents(self):
-        from kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
         a.alloc("s1", "tokens", 1)
@@ -562,8 +562,8 @@ class TestAllocatorIntegration:
             assert agent in s
 
     def test_different_resource_types(self):
-        from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params.kernel import (
+        from l1.kernel.allocator import get_allocator, reset_allocator
+        from l1.kernel.params.kernel import (
             RESOURCE_TOKENS,
             RESOURCE_RING1,
             RESOURCE_RING2,

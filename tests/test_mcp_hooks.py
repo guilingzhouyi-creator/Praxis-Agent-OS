@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestMCPStateMachine:
     def test_status_constants(self):
-        from services.mcp_bridge import (
+        from l4.mcp_bridge import (
             MCP_STATUS_CONNECTED, MCP_STATUS_DISABLED, MCP_STATUS_FAILED,
             MCP_STATUS_NEEDS_AUTH, MCP_STATUS_NEEDS_REGISTRATION,
         )
@@ -21,14 +21,14 @@ class TestMCPStateMachine:
         assert MCP_STATUS_NEEDS_REGISTRATION == "needs_client_registration"
 
     def test_bridge_init_empty(self):
-        from services.mcp_bridge import MCPBridge
+        from l4.mcp_bridge import MCPBridge
         bridge = MCPBridge()
         s = bridge.status()
         assert s["servers"] == {}
         assert s["count"] == 0
 
     def test_set_disabled_and_enabled(self):
-        from services.mcp_bridge import MCPBridge
+        from l4.mcp_bridge import MCPBridge
         bridge = MCPBridge()
         r = bridge.set_disabled("test-server")
         assert r["success"]
@@ -42,17 +42,17 @@ class TestMCPStateMachine:
         assert status2["status"] == "unknown"  # cleared
 
     def test_import_server_fails_on_disabled(self):
-        from services.mcp_bridge import MCPBridge
+        from l4.mcp_bridge import MCPBridge
         bridge = MCPBridge()
         bridge.set_disabled("blocked-server")
-        from services.mcp_bridge import McpClient
+        from l4.mcp_bridge import McpClient
         client = McpClient("http://localhost:1")
         r = bridge.import_server("blocked-server", client)
         assert not r["success"]
         assert "disabled" in r.get("error", "")
 
     def test_get_status_all(self):
-        from services.mcp_bridge import MCPBridge
+        from l4.mcp_bridge import MCPBridge
         bridge = MCPBridge()
         bridge.set_disabled("srv-a")
         all_status = bridge.get_status()
@@ -62,12 +62,12 @@ class TestMCPStateMachine:
 
 class TestMCPStatePersistence:
     def test_save_and_load_state(self, tmp_path):
-        from services.mcp_bridge import (
+        from l4.mcp_bridge import (
             _save_mcp_state, _load_mcp_state,
             _mcp_state_path, MCP_STATUS_DISABLED,
         )
         # Temporarily override state path
-        import services.mcp_bridge as mb
+        import l4.mcp_bridge as mb
         original_path = mb.MCP_STATE_PATH
         try:
             test_path = os.path.join(str(tmp_path), "mcp_state.json")
@@ -87,7 +87,7 @@ class TestMCPStatePersistence:
 
 class TestMCPCommand:
     def test_mcp_status_via_dispatch(self):
-        from services.l2_shell import dispatch, reset_state
+        from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/mcp")
         assert r.get("success")
@@ -95,20 +95,20 @@ class TestMCPCommand:
         assert "servers" in r["data"]
 
     def test_mcp_status_long(self):
-        from services.l2_shell import dispatch, reset_state
+        from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/mcp status")
         assert r.get("success")
         assert "servers" in r["data"]
 
     def test_mcp_add_missing_args(self):
-        from services.l2_shell import dispatch, reset_state
+        from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/mcp add")
         assert not r.get("success")
 
     def test_mcp_disable_unknown(self):
-        from services.mcp_bridge import get_bridge, reset_bridge
+        from l4.mcp_bridge import get_bridge, reset_bridge
         reset_bridge()
         bridge = get_bridge()
         r = bridge.set_disabled("ghost-server")
@@ -122,7 +122,7 @@ class TestMCPCommand:
 
 class TestToolPipelineHooks:
     def test_register_post_execute_hook(self):
-        from services.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
         called = []
@@ -136,7 +136,7 @@ class TestToolPipelineHooks:
         assert pipeline._post_execute_hooks[0] is my_hook
 
     def test_run_post_execute_hooks(self):
-        from services.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -155,7 +155,7 @@ class TestToolPipelineHooks:
         assert result["h2"]
 
     def test_register_tool_definition_hook(self):
-        from services.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -166,7 +166,7 @@ class TestToolPipelineHooks:
         assert len(pipeline._tool_definition_hooks) == 1
 
     def test_post_execute_hook_exception_isolation(self):
-        from services.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -184,7 +184,7 @@ class TestToolPipelineHooks:
         assert result.get("from_good")
 
     def test_hook_deduplication(self):
-        from services.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -202,7 +202,7 @@ class TestToolPipelineHooks:
 
 class TestAgentLoopChatParamsHook:
     def test_register_hook(self):
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
 
         def my_hook(task, agent, kwargs):
@@ -213,7 +213,7 @@ class TestAgentLoopChatParamsHook:
         assert len(loop._chat_params_hooks) == 1
 
     def test_hook_deduplication(self):
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         loop = AgentLoop(task="test")
 
         def h(task, agent, kwargs):
@@ -224,7 +224,7 @@ class TestAgentLoopChatParamsHook:
         assert len(loop._chat_params_hooks) == 1
 
     def test_import_does_not_crash(self):
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
         # Just verify the run() method can be called without LLM
         assert loop is not None
@@ -236,7 +236,7 @@ class TestAgentLoopChatParamsHook:
 
 class TestMCPBridgePromptsResources:
     def test_list_prompts_no_server(self):
-        from services.mcp_bridge import get_bridge, reset_bridge
+        from l4.mcp_bridge import get_bridge, reset_bridge
         reset_bridge()
         bridge = get_bridge()
         r = bridge.list_prompts("nonexistent")
@@ -244,7 +244,7 @@ class TestMCPBridgePromptsResources:
         assert "not imported" in r["error"]
 
     def test_list_resources_no_server(self):
-        from services.mcp_bridge import get_bridge, reset_bridge
+        from l4.mcp_bridge import get_bridge, reset_bridge
         reset_bridge()
         bridge = get_bridge()
         r = bridge.list_resources("nonexistent")

@@ -302,3 +302,19 @@ generic:
   done: "完成"
   yes: "是"
   no: "否"
+
+# ── Think 配额 (ThinkQuotaRegistry 命令) ──
+
+shell:
+  command:
+    think: "管理 Think 配额 (config/cell/stats)"
+
+think:
+  config_show: "Think 配置层级"
+  config_set: "全局 Think 配置已更新: {config}"
+  cell_set: "Cell {cell_id} Think 配置已更新: {config}"
+  agent_set: "Cell {cell_id} 中 Agent {agent_id} Think 配置已更新: {config}"
+  stats: "Think 配额统计"
+  distribution: "分配模式: {mode}"
+  budget: "思考预算: {budget}"
+  effort: "推理力度: {effort}"

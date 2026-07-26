@@ -5,5 +5,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 def test_init_services_import():
-    from services.boot_init import init_services
+    from l3.boot_init import init_services
     assert callable(init_services)

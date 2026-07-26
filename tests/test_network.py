@@ -11,7 +11,7 @@ import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from kernel.ports import TransportPort, Endpoint, Result as PortResult
+from l1.kernel.ports import TransportPort, Endpoint, Result as PortResult
 
 
 # ── Mock transport (TransportPort implementation) ──
@@ -45,18 +45,18 @@ class MockTransport(TransportPort):
 
 class TestNetKernel:
     def test_create_default_transport(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel()
         assert nk._transport.name == "tcp"
 
     def test_create_with_mock(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         assert nk._transport is mock
 
     def test_start_stop_with_mock(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         r = nk.start(node_id="test-node", port=9999)
         assert r.get("success") if isinstance(r, dict) else r.success
@@ -64,7 +64,7 @@ class TestNetKernel:
         nk.stop()
 
     def test_register_handler(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         calls = []
         def handler(msg): calls.append(msg)
@@ -74,14 +74,14 @@ class TestNetKernel:
         assert calls[0]["x"] == 1
 
     def test_send_remote_no_peer(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         r = nk.send_remote("unknown-peer", {"type": "test"})
         assert not r.get("success")
         assert "not found" in r.get("error", "")
 
     def test_send_remote_with_peer(self):
-        from kernel.net import NetKernel, Peer
+        from l1.kernel.net import NetKernel, Peer
         import time
         mock = MockTransport()
         nk = NetKernel(transport=mock)
@@ -103,7 +103,7 @@ class TestNetKernel:
         assert msg["payload"]["intent"] == "fix bug"
 
     def test_broadcast_remote_pings_alive_peers(self):
-        from kernel.net import NetKernel, Peer
+        from l1.kernel.net import NetKernel, Peer
         import time
         mock = MockTransport()
         nk = NetKernel(transport=mock)
@@ -116,14 +116,14 @@ class TestNetKernel:
         assert all(r.get("success") for r in results)
 
     def test_health_empty(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         h = nk.health()
         assert h["status"] == "lonely"
         assert h["peers_total"] == 0
 
     def test_health_with_alive_peer(self):
-        from kernel.net import NetKernel, Peer
+        from l1.kernel.net import NetKernel, Peer
         import time
         nk = NetKernel(transport=MockTransport())
         nk._peers["p1"] = Peer(id="p1", host="10.0.0.2", port=8888, last_seen=time.time())
@@ -132,7 +132,7 @@ class TestNetKernel:
         assert h["peers_alive"] >= 1
 
     def test_list_peers(self):
-        from kernel.net import NetKernel, Peer
+        from l1.kernel.net import NetKernel, Peer
         import time
         nk = NetKernel(transport=MockTransport())
         now = time.time()
@@ -142,7 +142,7 @@ class TestNetKernel:
         assert len(peers) == 2
 
     def test_peer_on_announce_new_peer(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         nk._node_id = "self-node"
         nk._on_peer_announce({
@@ -160,7 +160,7 @@ class TestNetKernel:
         assert p.version == "1.0"
 
     def test_peer_on_announce_ignores_self(self):
-        from kernel.net import NetKernel
+        from l1.kernel.net import NetKernel
         nk = NetKernel(transport=MockTransport())
         nk._node_id = "self-node"
         nk._peers.clear()
@@ -170,12 +170,12 @@ class TestNetKernel:
 
 class TestNetworkService:
     def test_service_create(self):
-        from services.network import NetworkService
+        from l4.network import NetworkService
         svc = NetworkService()
         assert svc is not None
 
     def test_start_stop(self):
-        from services.network import NetworkService
+        from l4.network import NetworkService
         svc = NetworkService()
         r = svc.start()
         assert r.get("success")
@@ -183,7 +183,7 @@ class TestNetworkService:
         assert r2.get("success")
 
     def test_register_service(self):
-        from services.network import NetworkService
+        from l4.network import NetworkService
         svc = NetworkService()
         r = svc.register_service("test-api", "localhost", 8080)
         assert r is None or r.get("success", True)

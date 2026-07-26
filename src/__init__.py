@@ -1,2 +1,2 @@
 """NOMOS Praxis — Agent OS (headless core)."""
-from kernel.params.system import KERNEL_VERSION as __version__
+from l1.kernel.params.system import KERNEL_VERSION as __version__

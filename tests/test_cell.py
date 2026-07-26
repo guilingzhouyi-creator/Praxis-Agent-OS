@@ -8,14 +8,14 @@ class TestCellInit:
     """Cell Initialization"""
 
     def test_basic_init(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("test-cell-1", territory=["src", "docs"])
         assert cell.cell_id == "test-cell-1"
         assert "src" in cell.territory
         assert len(cell.territory) == 2
 
     def test_init_empty_territory(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("empty-cell")
         assert cell.territory == []
 
@@ -24,27 +24,27 @@ class TestAddAgent:
     """Agent Addition"""
 
     def test_add_agent_basic(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("cell-a")
         r = cell.add_agent("agent-1", role="reader", territory=["."],
                            ring=1, auto_boot=False)
         assert r["success"]
 
     def test_add_agent_duplicate(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("cell-b")
         cell.add_agent("agent-x", role="reader")
         r = cell.add_agent("agent-x", role="writer")
         assert not r["success"]
 
     def test_add_agent_with_defaults(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("cell-c")
         r = cell.add_agent("agent-y", role="reader")
         assert r["success"]
 
     def test_multiple_agents(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("cell-d")
         cell.add_agent("a1", role="reader")
         cell.add_agent("a2", role="writer")
@@ -56,10 +56,10 @@ class TestAgentStatus:
     """Agent Status"""
 
     def test_status_before_boot(self):
-        from services.cell import Cell
+        from l3.cell import Cell
         cell = Cell("cell-s")
         cell.add_agent("agent-s1", role="reader")
-        from services.cell_types import AgentStatus
+        from l3.cell_types import AgentStatus
         info = cell._agents.get("agent-s1")
         assert info is not None
         assert info.status == AgentStatus.IDLE
@@ -69,7 +69,7 @@ class TestLiveness:
     """Liveness Detection"""
 
     def test_liveness_empty_cell(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("live-cell")
         r = cell.liveness()
@@ -77,7 +77,7 @@ class TestLiveness:
         assert "overall" in r
 
     def test_liveness_with_agents(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("live-cell-2")
         cell.add_agent("live-a", role="reader")
@@ -89,8 +89,8 @@ class TestBootAndShutdown:
     """Boot/Shutdown"""
 
     def test_boot_all(self):
-        from services.cell import Cell, reset_cells
-        from services.agent_terminal import reset_terminals
+        from l3.cell import Cell, reset_cells
+        from l3.agent_terminal import reset_terminals
         reset_cells()
         reset_terminals()
         cell = Cell("boot-cell")
@@ -100,7 +100,7 @@ class TestBootAndShutdown:
         assert "agents" in r
 
     def test_shutdown_all(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("shutdown-cell")
         cell.add_agent("shut-a", role="reader")
@@ -108,7 +108,7 @@ class TestBootAndShutdown:
         assert r["success"]
 
     def test_shutdown_empty(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("empty-shut")
         r = cell.shutdown_all()
@@ -119,7 +119,7 @@ class TestEmergencyStop:
     """Emergency Stop"""
 
     def test_emergency_stop(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("emerg-cell")
         cell.add_agent("emerg-a", role="reader")
@@ -128,7 +128,7 @@ class TestEmergencyStop:
         assert cell._emergency is True
 
     def test_resume(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("resume-cell")
         cell.add_agent("resume-a", role="reader")
@@ -138,7 +138,7 @@ class TestEmergencyStop:
         assert cell._emergency is False
 
     def test_double_stop(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("dbl-stop")
         cell.emergency_stop()
@@ -146,7 +146,7 @@ class TestEmergencyStop:
         assert r2["success"]
 
     def test_execute_after_stop(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("stop-exec")
         cell.add_agent("exec-a", role="reader")
@@ -160,27 +160,27 @@ class TestMessaging:
     """Inter-Agent Messages"""
 
     def test_send_message_unknown_target(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("msg-cell")
         cell.add_agent("sender", role="reader")
-        from services.cell_types import MessageType
+        from l3.cell_types import MessageType
         r = cell.send_message("sender", "unknown-target",
                               MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]
 
     def test_send_message_unknown_sender(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("msg-cell-2")
         cell.add_agent("target", role="reader")
-        from services.cell_types import MessageType
+        from l3.cell_types import MessageType
         r = cell.send_message("unknown-sender", "target",
                               MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]
 
     def test_read_messages_empty(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("read-cell")
         cell.add_agent("reader-agent", role="reader")
@@ -192,7 +192,7 @@ class TestStats:
     """Cell Statistics"""
 
     def test_stats_basic(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("stat-cell")
         s = cell.stats()
@@ -200,7 +200,7 @@ class TestStats:
         assert "agents" in s
 
     def test_stats_with_agents(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         reset_cells()
         cell = Cell("stat-cell-2")
         cell.add_agent("stat-a", role="reader")
@@ -213,7 +213,7 @@ class TestSaveRestoreState:
     """Cell State Save/Restore"""
 
     def test_save_state(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         import tempfile, json
         reset_cells()
         cell = Cell("save-cell")
@@ -229,7 +229,7 @@ class TestSaveRestoreState:
             os.unlink(path)
 
     def test_restore_state(self):
-        from services.cell import Cell, reset_cells
+        from l3.cell import Cell, reset_cells
         import tempfile, json
         reset_cells()
         cell = Cell("rest-cell")

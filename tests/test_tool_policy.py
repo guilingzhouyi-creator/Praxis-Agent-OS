@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 
-from services.tool_policy import (
+from l3.tool_policy import (
     PolicyAction,
     PolicyRule,
     PolicyScope,

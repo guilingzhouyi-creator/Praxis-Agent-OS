@@ -11,13 +11,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestReputationSystem:
     def test_default_reputation(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         assert rs.get("unknown-agent") == 0.85
         assert rs.all() == {}
 
     def test_set_and_get(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.set("agent-a", 0.95)
         assert rs.get("agent-a") == 0.95
@@ -27,7 +27,7 @@ class TestReputationSystem:
         assert rs.get("agent-a") == 0.0
 
     def test_adjust(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.adjust("agent-a", 0.1)
         assert rs.get("agent-a") == 0.95
@@ -35,7 +35,7 @@ class TestReputationSystem:
         assert rs.get("agent-a") == 0.75
 
     def test_record_task(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.set("agent-a", 0.5)
         rs.record_task("agent-a", success=True)
@@ -44,28 +44,28 @@ class TestReputationSystem:
         assert rs.get("agent-a") < 0.55
 
     def test_record_review_approved(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.set("agent-a", 0.5)
         rs.record_review("agent-a", approved=True)
         assert rs.get("agent-a") == 0.51
 
     def test_record_dispute(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.set("agent-a", 0.5)
         rs.record_dispute("agent-a", upheld=True)
         assert rs.get("agent-a") == 0.53
 
     def test_all_returns_copy(self):
-        from kernel.reputation import ReputationSystem
+        from l1.kernel.reputation import ReputationSystem
         rs = ReputationSystem()
         rs.set("agent-a", 0.9)
         rs.set("agent-b", 0.8)
         assert rs.all() == {"agent-a": 0.9, "agent-b": 0.8}
 
     def test_get_reputation_singleton(self):
-        from kernel.reputation import get_reputation, reset_reputation
+        from l1.kernel.reputation import get_reputation, reset_reputation
         reset_reputation()
         r1 = get_reputation()
         r2 = get_reputation()
@@ -74,7 +74,7 @@ class TestReputationSystem:
 
 class TestLockChannel:
     def test_send_and_handler(self):
-        from kernel.ipc import LockChannel, LockMessage, LockOp
+        from l1.kernel.ipc import LockChannel, LockMessage, LockOp
         ch = LockChannel("test-ch")
         captured = []
         ch.register_handler(lambda m: captured.append(m.agent_id))
@@ -84,7 +84,7 @@ class TestLockChannel:
         assert captured[0] == "agent-a"
 
     def test_respond_request(self):
-        from kernel.ipc import LockChannel, LockMessage, LockOp
+        from l1.kernel.ipc import LockChannel, LockMessage, LockOp
         ch = LockChannel("req-ch")
         results = {}
         def waiter():
@@ -99,7 +99,7 @@ class TestLockChannel:
         t.join(1)
 
     def test_pending_count(self):
-        from kernel.ipc import LockChannel, LockMessage, LockOp
+        from l1.kernel.ipc import LockChannel, LockMessage, LockOp
         ch = LockChannel("count-ch")
         assert ch.pending_count() >= 0
         ch.send(LockMessage(op=LockOp.ACQUIRE, lock_name="lk", agent_id="a"))
@@ -108,7 +108,7 @@ class TestLockChannel:
 
 class TestLockBus:
     def test_get_channel(self):
-        from kernel.ipc import LockBus
+        from l1.kernel.ipc import LockBus
         bus = LockBus()
         ch = bus.get_channel("chan-1")
         assert ch.name == "chan-1"
@@ -116,14 +116,14 @@ class TestLockBus:
         assert ch2 is ch
 
     def test_channel_exists(self):
-        from kernel.ipc import LockBus
+        from l1.kernel.ipc import LockBus
         bus = LockBus()
         assert not bus.channel_exists("ghost")
         bus.get_channel("real")
         assert bus.channel_exists("real")
 
     def test_stats(self):
-        from kernel.ipc import LockBus
+        from l1.kernel.ipc import LockBus
         bus = LockBus()
         bus.get_channel("a")
         bus.get_channel("b")
@@ -132,7 +132,7 @@ class TestLockBus:
         assert "b" in stats
 
     def test_get_lock_bus_singleton(self):
-        from kernel.ipc import get_lock_bus, reset_lock_bus
+        from l1.kernel.ipc import get_lock_bus, reset_lock_bus
         reset_lock_bus()
         b1 = get_lock_bus()
         b2 = get_lock_bus()
@@ -141,14 +141,14 @@ class TestLockBus:
 
 class TestRegistry:
     def test_syscalls_list(self):
-        from kernel.registry import Registry
+        from l1.kernel.registry import Registry
         reg = Registry()
         sc = reg.syscalls()
         assert len(sc) >= 22
         assert "mutex.acquire" in sc
 
     def test_summary_structure(self):
-        from kernel.registry import Registry
+        from l1.kernel.registry import Registry
         reg = Registry()
         s = reg.summary()
         assert "modules" in s
@@ -156,13 +156,13 @@ class TestRegistry:
         assert "syscalls" in s
 
     def test_interrupts(self):
-        from kernel.registry import Registry
+        from l1.kernel.registry import Registry
         reg = Registry()
         intr = reg.interrupts()
         assert "counts" in intr
 
     def test_get_registry_singleton(self):
-        from kernel.registry import get_registry
+        from l1.kernel.registry import get_registry
         r1 = get_registry()
         r2 = get_registry()
         assert r1 is r2
@@ -170,13 +170,13 @@ class TestRegistry:
 
 class TestSkillManager:
     def test_list_empty(self):
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         sm = SkillManager()
         skills = sm.list()
         assert isinstance(skills, list)
 
     def test_load_dir(self):
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         import tempfile
         sm = SkillManager()
         td = tempfile.mkdtemp()
@@ -190,13 +190,13 @@ class TestSkillManager:
         shutil.rmtree(td, ignore_errors=True)
 
     def test_get_unknown(self):
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         sm = SkillManager()
         s = sm.get("nonexistent")
         assert s is None
 
     def test_get_skill_manager_singleton(self):
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         s1 = get_skill_manager()
         s2 = get_skill_manager()
@@ -205,14 +205,14 @@ class TestSkillManager:
 
 class TestSwapper:
     def test_swapper_construction(self):
-        from kernel.swapper import Swapper
+        from l1.kernel.swapper import Swapper
         s = Swapper(interval=9999, memory_service=None)
         assert s.interval == 9999
         assert s._running is True
         s._running = False
 
     def test_swapper_stats(self):
-        from kernel.swapper import Swapper
+        from l1.kernel.swapper import Swapper
         s = Swapper(interval=9999, memory_service=None)
         assert hasattr(s, "stats")
         s._running = False

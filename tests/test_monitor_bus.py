@@ -8,10 +8,10 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from services.monitor_bus import MonitorBus, MonitorEvent, _match_type
+from l4.monitor_bus import MonitorBus, MonitorEvent, _match_type
 
 
-def _ev(type_: str = "kernel.test", severity: str = "info", **kw) -> MonitorEvent:
+def _ev(type_: str = "l1.kernel.test", severity: str = "info", **kw) -> MonitorEvent:
     return MonitorEvent(type=type_, source="t", severity=severity, **kw)
 
 
@@ -21,7 +21,7 @@ class TestRingBuffer:
     def test_ring_evicts_oldest_when_full(self):
         bus = MonitorBus(ring_size=3)
         for i in range(5):
-            bus.emit(_ev(type_="kernel.test"))
+            bus.emit(_ev(type_="l1.kernel.test"))
         assert len(bus._ring) == 3
         # Oldest two evicted, ring keeps last three
         assert bus._count == 5
@@ -51,7 +51,7 @@ class TestQuery:
     def test_query_type_prefix_glob(self):
         bus = MonitorBus(ring_size=10)
         bus.emit(_ev(type_="network.peer.join"))
-        bus.emit(_ev(type_="kernel.interrupt"))
+        bus.emit(_ev(type_="l1.kernel.interrupt"))
         net = bus.query(type_prefix="network.*")
         assert len(net) == 1
         assert net[0]["type"] == "network.peer.join"
@@ -69,13 +69,13 @@ class TestMatchType:
     """_match_type helper — supports exact and '.*' glob."""
 
     def test_exact_match(self):
-        assert _match_type("kernel.interrupt", "kernel.interrupt")
+        assert _match_type("l1.kernel.interrupt", "l1.kernel.interrupt")
 
     def test_glob_match_prefix(self):
         assert _match_type("network.peer.join", "network.*")
 
     def test_glob_does_not_match_other_prefix(self):
-        assert not _match_type("kernel.interrupt", "network.*")
+        assert not _match_type("l1.kernel.interrupt", "network.*")
 
     def test_glob_matches_bare_prefix(self):
         """'network.*' should also match bare 'network'."""
@@ -100,7 +100,7 @@ class TestStatsM2B:
         """
         bus = MonitorBus(ring_size=3)
         for _ in range(5):
-            bus.emit(_ev(type_="kernel.test"))
+            bus.emit(_ev(type_="l1.kernel.test"))
         s = bus.stats()
         assert s["ring_total"] == 3
         assert s["emitted_total"] == 5
@@ -124,7 +124,7 @@ class TestPersistence:
             log = os.path.join(d, "bus.jsonl")
             # First instance: emit + persist
             bus1 = MonitorBus(ring_size=10, persist_path=log)
-            bus1.emit(_ev(type_="kernel.test", message="hello"))
+            bus1.emit(_ev(type_="l1.kernel.test", message="hello"))
             bus1.emit(_ev(type_="network.peer.join", message="world"))
             assert os.path.exists(log)
 
@@ -133,13 +133,13 @@ class TestPersistence:
             assert len(bus2._ring) == 2
             assert bus2._count == 2
             types = {ev.type for ev in bus2._ring}
-            assert types == {"kernel.test", "network.peer.join"}
+            assert types == {"l1.kernel.test", "network.peer.join"}
 
     def test_rehydrate_skips_corrupt_lines(self):
         with tempfile.TemporaryDirectory() as d:
             log = os.path.join(d, "bus.jsonl")
             with open(log, "w", encoding="utf-8") as f:
-                f.write('{"type":"kernel.test","source":"t","severity":"info"}\n')
+                f.write('{"type":"l1.kernel.test","source":"t","severity":"info"}\n')
                 f.write("THIS IS NOT JSON\n")
                 f.write('{"type":"network.peer.join","source":"t","severity":"info"}\n')
             bus = MonitorBus(ring_size=10, persist_path=log)

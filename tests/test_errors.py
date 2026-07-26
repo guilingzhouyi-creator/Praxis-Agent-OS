@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, r'C:\CODE_game-development\praxis\src')
 
-from kernel.errors import (
+from l1.kernel.errors import (
     PraxisError, error, catalog, set_locale, get_locale,
     E_TIMEOUT, E_INTERNAL, register_error,
 )
@@ -39,7 +39,7 @@ def test_i18n():
     print("  i18n en: OK")
 
 def test_default_message():
-    from kernel.errors import _default_message
+    from l1.kernel.errors import _default_message
     msg = _default_message(E_TIMEOUT)
     assert msg == "Operation timed out"
     print("  default message: OK")

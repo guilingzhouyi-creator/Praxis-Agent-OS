@@ -10,14 +10,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestOpsConsole:
     def test_get_ops_singleton(self):
-        from services.ops_console import get_ops, reset_ops
+        from l4.ops_console import get_ops, reset_ops
         reset_ops()
         o1 = get_ops()
         o2 = get_ops()
         assert o1 is o2
 
     def test_summary_structure(self):
-        from services.ops_console import get_ops, reset_ops
+        from l4.ops_console import get_ops, reset_ops
         reset_ops()
         ops = get_ops()
         s = ops.summary()
@@ -25,7 +25,7 @@ class TestOpsConsole:
         assert "cells" in s
 
     def test_recent_alerts(self):
-        from services.ops_console import get_ops, reset_ops
+        from l4.ops_console import get_ops, reset_ops
         reset_ops()
         ops = get_ops()
         alerts = ops.recent_alerts(limit=10)
@@ -33,7 +33,7 @@ class TestOpsConsole:
         assert len(alerts) >= 0
 
     def test_register_and_deregister_cell(self):
-        from services.ops_console import get_ops, reset_ops
+        from l4.ops_console import get_ops, reset_ops
         reset_ops()
         ops = get_ops()
         ops.register_cell("test-cell", {"agent-a": "reader"})
@@ -43,18 +43,18 @@ class TestOpsConsole:
 
 class TestMCPBridge:
     def test_get_bridge(self):
-        from services.mcp_bridge import get_bridge
+        from l4.mcp_bridge import get_bridge
         bridge = get_bridge()
         assert bridge is not None
 
     def test_bridge_import_export(self):
-        from services.mcp_bridge import MCPBridge
+        from l4.mcp_bridge import MCPBridge
         bridge = MCPBridge()
         r = bridge.export_tools(categories=["generic"])
         assert isinstance(r, (dict, list))
 
     def test_mcp_tool_dataclass(self):
-        from services.mcp_bridge import McpTool
+        from l4.mcp_bridge import McpTool
         tool = McpTool(name="test_tool", description="test", input_schema={})
         assert tool.name == "test_tool"
         assert tool.description == "test"
@@ -62,6 +62,6 @@ class TestMCPBridge:
 
 class TestConvergence:
     def test_rule_converge(self):
-        from services.convergence import _rule_converge_from_text
+        from l3.convergence import _rule_converge_from_text
         r = _rule_converge_from_text("* completed task A\n* fixed bug B")
         assert "Rule-based convergence" in r or "unavailable" in r

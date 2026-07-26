@@ -9,13 +9,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestSignalType:
     def test_builtin_signals(self):
-        from kernel.event import SignalType
+        from l1.kernel.event import SignalType
         assert SignalType.TASK_ASSIGN.name == "TASK_ASSIGN"
         assert SignalType.TOKEN_USAGE.name == "TOKEN_USAGE"
         assert SignalType.SCOUT_DONE.name == "SCOUT_DONE"
 
     def test_register_signal_type(self):
-        from kernel.event import register_signal_type, SignalType
+        from l1.kernel.event import register_signal_type, SignalType
         name = "TEST_CUSTOM"
         st = register_signal_type(name)
         assert st.name == name
@@ -23,12 +23,12 @@ class TestSignalType:
 
 class TestEventBus:
     def test_get_event_bus(self):
-        from kernel import get_event_bus
+        from l1.kernel import get_event_bus
         bus = get_event_bus()
         assert bus is not None
 
     def test_on_and_emit(self):
-        from kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import get_event_bus, SignalType, Signal
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.TASK_ASSIGN, lambda s: captured.append(s.sender))
@@ -37,7 +37,7 @@ class TestEventBus:
         assert "test-a" in captured
 
     def test_off(self):
-        from kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import get_event_bus, SignalType, Signal
         bus = get_event_bus()
         captured = []
         def handler(s): captured.append(s.sender)
@@ -50,7 +50,7 @@ class TestEventBus:
         assert len(captured) == 0
 
     def test_wildcard_listener(self):
-        from kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import get_event_bus, SignalType, Signal
         bus = get_event_bus()
         caught = []
         bus.on_any(lambda s: caught.append(s.type.name))
@@ -58,13 +58,13 @@ class TestEventBus:
         assert "STATE_CHANGE" in caught
 
     def test_history(self):
-        from kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import get_event_bus, SignalType, Signal
         bus = get_event_bus()
         bus.emit(Signal(type=SignalType.TERRITORY_QUERY, sender="h", target="cell"))
         history = bus.history(limit=5)
         assert len(history) >= 1
 
     def test_repr(self):
-        from kernel.event import SignalType
+        from l1.kernel.event import SignalType
         r = repr(SignalType.TASK_ASSIGN)
         assert "TASK_ASSIGN" in r

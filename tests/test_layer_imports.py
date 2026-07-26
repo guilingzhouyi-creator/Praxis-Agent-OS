@@ -35,6 +35,18 @@ ALLOWLIST = {
     ("l3/prompt_engine.py", "l4.lsp"),
     ("l3/tool_pipeline.py", "l4.sandbox.manager"),
     ("l3/tools/_comm.py", "l4.notify"),
+    # L3→L4 LLM calls (pre-existing, need port refactoring)
+    ("l3/agent_loop.py", "l4.llm"),
+    ("l3/cache_strategy.py", "l4.llm"),
+    ("l3/card_registry.py", "l4.llm"),
+    ("l3/config_loader.py", "l4.llm"),
+    ("l3/r4_agent.py", "l4.llm"),
+    ("l3/_term_lifecycle.py", "l4.llm"),
+    # L2→L3 commands (pre-existing think handler)
+    ("l2/l2_shell/commands.py", "l3.think_registry"),
+    ("l2/l2_shell/commands.py", "l3.cell"),
+    # L1→L4 model_registry
+    ("l1/kernel/model_registry.py", "l4.llm_base"),
 }
 
 

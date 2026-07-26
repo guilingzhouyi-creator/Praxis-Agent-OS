@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from kernel.params.agent import (
+from l1.kernel.params.agent import (
     CONSTITUTION_FILE_ACTIONS,
     CONSTITUTION_MODIFY_ACTIONS,
     CONSTITUTION_GATE_ACTIONS,
@@ -15,8 +15,8 @@ from kernel.params.agent import (
     AGENT_CLEARANCE,
     DEFAULT_AGENT_CONFIGS,
 )
-from kernel.params.api import ANTHROPIC_DEFAULT_URL, BROADCAST_INTERVAL, PEER_TIMEOUT
-from kernel.params.kernel import (
+from l1.kernel.params.api import ANTHROPIC_DEFAULT_URL, BROADCAST_INTERVAL, PEER_TIMEOUT
+from l1.kernel.params.kernel import (
     ALLOCATOR_DEFAULTS,
     ALLOCATOR_FALLBACK_LIMIT,
     ALLOCATOR_PRESSURE_THRESHOLD,
@@ -49,14 +49,14 @@ from kernel.params.kernel import (
     RequestPoolConfig,
     WitnessStatus,
 )
-from kernel.params.system import (
+from l1.kernel.params.system import (
     PROOF_TTL,
     KERNEL_VERSION,
     DEFAULT_TOKEN_BUDGET,
     PRAXIS_CONFIG_DIR,
     SESSION_TIMEOUT,
 )
-from kernel.params.tool import (
+from l1.kernel.params.tool import (
     TOOL_TERMINAL_TIMEOUT,
     TOOL_GREP_TIMEOUT,
     TOOL_RATE_RING_1,

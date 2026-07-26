@@ -9,12 +9,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestCellCardExecution:
     def test_raw_string_card(self):
-        from services.cell import get_cell, reset_cells
-        from services.agent_terminal import reset_terminals
-        from services.scout import reset_pool
+        from l3.cell import get_cell, reset_cells
+        from l3.agent_terminal import reset_terminals
+        from l3.scout import reset_pool
 
         # Ensure LLM mock mode + reset state
-        from services.llm import reset_engine, get_engine
+        from l4.llm import reset_engine, get_engine
         reset_engine()
         get_engine()
 
@@ -32,14 +32,14 @@ class TestCellCardExecution:
 
 class TestSyscallIntegration:
     def test_process_list(self):
-        from kernel import syscall
+        from l1.kernel import syscall
         r = syscall("process.list", agent_id="test")
         assert r.get("success"), "process.list via syscall"
         if r.get("success"):
             assert isinstance(r.get("processes", []), list)
 
     def test_registry_aggregates(self):
-        from kernel.registry import get_registry
+        from l1.kernel.registry import get_registry
         reg = get_registry()
         summary = reg.summary()
         assert summary.get("modules", {}).get("total", 0) >= 9
@@ -48,7 +48,7 @@ class TestSyscallIntegration:
         assert len(syscalls) >= 20
 
     def test_vfs_proc(self):
-        from kernel.vfs import get_vfs
+        from l1.kernel.vfs import get_vfs
         vfs = get_vfs()
         r = vfs.read("/proc")
         assert r.get("success"), "/proc should be readable"
@@ -56,7 +56,7 @@ class TestSyscallIntegration:
             assert len(r.get("content", "")) > 50
 
     def test_emit_signal(self):
-        from kernel import emit_signal, get_event_bus, SignalType
+        from l1.kernel import emit_signal, get_event_bus, SignalType
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.SCOUT_DONE, lambda s: captured.append(s.sender))

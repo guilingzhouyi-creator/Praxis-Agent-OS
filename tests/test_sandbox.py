@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 def _clear_sandbox_state() -> None:
     """Remove the persisted sandbox state file so each test starts clean."""
     try:
-        from kernel.params.system import SANDBOX_STATE_PATH
+        from l1.kernel.params.system import SANDBOX_STATE_PATH
         if os.path.exists(SANDBOX_STATE_PATH):
             os.remove(SANDBOX_STATE_PATH)
     except Exception:
@@ -18,19 +18,19 @@ class TestCellSandbox:
     """Cell sandbox"""
 
     def setup_method(self):
-        from services.sandbox import reset_manager
+        from l4.sandbox import reset_manager
         _clear_sandbox_state()
         reset_manager()
 
     def test_create_cell(self):
-        from services.sandbox import SandboxManager
+        from l4.sandbox import SandboxManager
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
             sb = mgr.create_cell("sand-cell-1", project_root=d)
             assert sb is not None
 
     def test_get_cell(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -39,7 +39,7 @@ class TestCellSandbox:
             assert sb is not None
 
     def test_get_nonexistent_cell(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         sb = mgr.get_cell("no-such-cell")
@@ -50,7 +50,7 @@ class TestSandboxOps:
     """Sandbox read/write operations"""
 
     def test_write_and_read(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -64,7 +64,7 @@ class TestSandboxOps:
             assert "hello sandbox" in r.get("content", "")
 
     def test_write_and_stage(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -79,7 +79,7 @@ class TestSandboxOps:
             assert st["staged"] >= 1
 
     def test_flush(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -95,7 +95,7 @@ class TestSandboxOps:
             assert s["staged"] == 0, f"staged={s['staged']}, flushed={s['flushed']}, entries={s['entries']}"
 
     def test_discard(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -110,7 +110,7 @@ class TestSandboxOps:
             assert not rd.get("success")
 
     def test_read_nonexistent(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -125,12 +125,12 @@ class TestAgentRegistration:
     """Agent 注册"""
 
     def setup_method(self):
-        from services.sandbox import reset_manager
+        from l4.sandbox import reset_manager
         _clear_sandbox_state()
         reset_manager()
 
     def test_register_agent(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -140,7 +140,7 @@ class TestAgentRegistration:
             assert r is not None
 
     def test_register_duplicate(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -151,7 +151,7 @@ class TestAgentRegistration:
             assert r is not None  # duplicate is fine, no-op
 
     def test_register_multiple(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -166,12 +166,12 @@ class TestStatus:
     """沙箱状态"""
 
     def setup_method(self):
-        from services.sandbox import reset_manager
+        from l4.sandbox import reset_manager
         _clear_sandbox_state()
         reset_manager()
 
     def test_status_empty(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -183,7 +183,7 @@ class TestStatus:
             assert s["flushed"] == 0
 
     def test_status_after_write(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -196,7 +196,7 @@ class TestStatus:
             assert s["pending"] >= 2
 
     def test_cleanup(self):
-        from services.sandbox import SandboxManager, reset_manager
+        from l4.sandbox import SandboxManager, reset_manager
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:

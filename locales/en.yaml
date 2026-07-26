@@ -317,3 +317,19 @@ generic:
   yes: "Yes"
   no: "No"
 
+# ── Think quota (ThinkQuotaRegistry commands) ──
+
+shell:
+  command:
+    think: "Manage think quota (config/cell/stats)"
+
+think:
+  config_show: "Think config hierarchy"
+  config_set: "Global think config updated: {config}"
+  cell_set: "Cell {cell_id} think config updated: {config}"
+  agent_set: "Agent {agent_id} in cell {cell_id} think config updated: {config}"
+  stats: "Think quota statistics"
+  distribution: "Distribution mode: {mode}"
+  budget: "Thinking budget: {budget}"
+  effort: "Reasoning effort: {effort}"
+

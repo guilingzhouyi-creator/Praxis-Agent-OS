@@ -8,25 +8,25 @@ class TestRemember:
     """Memory storage"""
 
     def test_remember_returns_id(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         eid = mem.remember("agent-a", "test", "hello world", ring=1)
         assert eid.startswith("mem-")
 
     def test_remember_ring2(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         eid = mem.remember("agent-b", "note", "important data", ring=2)
         assert eid.startswith("mem-")
 
     def test_remember_ring3(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         eid = mem.remember("agent-c", "knowledge", "long term knowledge", ring=3)
         assert eid.startswith("mem-")
 
     def test_remember_rejects_short(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         r = mem.remember("agent-a", "test", "ab", ring=1)
         assert "REJECTED" in r
@@ -36,13 +36,13 @@ class TestRecall:
     """Memory query"""
 
     def test_recall_empty(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         results = mem.recall(agent_id="no-data", limit=10)
         assert isinstance(results, list)
 
     def test_recall_recent(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-x", "chat", "msg1", ring=1)
         mem.remember("agent-x", "chat", "msg2", ring=1)
@@ -50,7 +50,7 @@ class TestRecall:
         assert len(results) >= 1
 
     def test_recall_by_type(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-y", "code", "def foo(): pass", ring=1)
         mem.remember("agent-y", "note", "note text", ring=1)
@@ -63,13 +63,13 @@ class TestBuildContext:
     """上下文构建"""
 
     def test_build_context_empty(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         ctx = mem.build_context("no-agent", max_tokens=100)
         assert "WATERMARK" in ctx
 
     def test_build_context_with_data(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-z", "chat", "some context data", ring=1)
         ctx = mem.build_context("agent-z", max_tokens=4096)
@@ -80,14 +80,14 @@ class TestPressure:
     """内存压力检测"""
 
     def test_pressure_low(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         p = mem.pressure()
         assert "level" in p
         assert p["level"] == "low"
 
     def test_pressure_keys(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         p = mem.pressure()
         assert "working_pct" in p
@@ -99,7 +99,7 @@ class TestStats:
     """统计信息"""
 
     def test_stats_keys(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         s = mem.stats()
         assert "working" in s
@@ -107,7 +107,7 @@ class TestStats:
         assert "long" in s
 
     def test_stats_after_store(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-s", "test", "data", ring=1)
         s = mem.stats()
@@ -118,14 +118,14 @@ class TestCompact:
     """紧缩操作"""
 
     def test_compact_empty(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         r = mem.compact(dry_run=True)
         assert "merged" in r
         assert "saved_tokens" in r
 
     def test_stub_compact_empty(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         r = mem.stub_compact()
         assert "stubbed" in r
@@ -136,13 +136,13 @@ class TestQuality:
     """质量报告"""
 
     def test_quality_report_empty(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         q = mem.quality_report(agent_id="no-data")
         assert q["total"] == 0
 
     def test_quality_report_keys(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         q = mem.quality_report()
         assert "total" in q
@@ -155,7 +155,7 @@ class TestForget:
     """遗忘"""
 
     def test_forget_agent(self):
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-f", "test", "forget me", ring=1)
         r = mem.forget_agent("agent-f")
@@ -169,7 +169,7 @@ class TestPersistence:
 
     def test_set_persist_dir(self):
         import tempfile
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         with tempfile.TemporaryDirectory() as d:
             mem.set_persist_dir(d)
@@ -177,7 +177,7 @@ class TestPersistence:
 
     def test_persist_roundtrip(self):
         import tempfile
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-p", "test", "persist data", ring=2)
         with tempfile.TemporaryDirectory() as d:
@@ -187,7 +187,7 @@ class TestPersistence:
 
     def test_search_long_term_empty(self):
         import tempfile
-        from services.memory import MemoryManager
+        from l3.memory import MemoryManager
         mem = MemoryManager()
         r = mem.search_long_term("test")
         assert isinstance(r, list)
@@ -197,17 +197,17 @@ class TestRingLayer:
     """RingLayer 基础功能"""
 
     def test_ring_layer_push(self):
-        from services.memory_ring import RingLayer
+        from l3.memory_ring import RingLayer
         layer = RingLayer("test", max_tokens=1000, ttl=60)
-        from services.memory import MemEntry
+        from l3.memory import MemEntry
         e = MemEntry(id="e1", agent_id="a", entry_type="t", content="x", tokens=1)
         layer.push(e)
         assert layer.count() == 1
 
     def test_ring_layer_clear_agent(self):
-        from services.memory_ring import RingLayer
+        from l3.memory_ring import RingLayer
         layer = RingLayer("test", max_tokens=1000)
-        from services.memory import MemEntry
+        from l3.memory import MemEntry
         layer.push(MemEntry(id="e1", agent_id="a", entry_type="t", content="x"))
         layer.push(MemEntry(id="e2", agent_id="b", entry_type="t", content="y"))
         n = layer.clear_agent("a")

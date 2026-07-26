@@ -30,7 +30,7 @@ class TestBuildTimeoutConstant:
     """TOOL_BUILD_TIMEOUT is read from kernel.params and passed to subprocess."""
 
     def test_constant_value(self):
-        from kernel.params.tool import TOOL_BUILD_TIMEOUT
+        from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
         assert TOOL_BUILD_TIMEOUT == 300
 
     def test_timeout_passed_to_subprocess(self):
@@ -44,7 +44,7 @@ class TestBuildTimeoutConstant:
         _call = mock.call_args
         assert _call is not None
         assert "timeout" in _call[1]
-        from kernel.params.tool import TOOL_BUILD_TIMEOUT
+        from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
         assert _call[1]["timeout"] == TOOL_BUILD_TIMEOUT
 
     def test_timeout_passed_on_test(self):
@@ -56,7 +56,7 @@ class TestBuildTimeoutConstant:
             test_project({"path": "."}, "agent-a")
         _call = mock.call_args
         assert _call is not None
-        from kernel.params.tool import TOOL_BUILD_TIMEOUT
+        from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
         assert _call[1]["timeout"] == TOOL_BUILD_TIMEOUT
 
 

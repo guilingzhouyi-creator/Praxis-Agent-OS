@@ -8,7 +8,7 @@ class TestErrorLogEntry:
     """Error log entry"""
 
     def test_fingerprint(self):
-        from services.error_bus import ErrorLogEntry, _compute_fingerprint
+        from l3.error_bus import ErrorLogEntry, _compute_fingerprint
         fp = _compute_fingerprint("ERROR", "E_INTERNAL", "test.py:1", "test error")
         assert len(fp) == 16
 
@@ -21,7 +21,7 @@ class TestErrorLogEntry:
         assert fp != fp3
 
     def test_to_dict(self):
-        from services.error_bus import ErrorLogEntry
+        from l3.error_bus import ErrorLogEntry
         entry = ErrorLogEntry(
             level="ERROR", service="test", message="msg",
             error_code="E_TEST", component="kernel",
@@ -32,7 +32,7 @@ class TestErrorLogEntry:
         assert len(d["id"]) == 12
 
     def test_auto_fingerprint(self):
-        from services.error_bus import ErrorLogEntry
+        from l3.error_bus import ErrorLogEntry
         e1 = ErrorLogEntry(level="ERROR", service="s", message="same")
         e2 = ErrorLogEntry(level="ERROR", service="s", message="same")
         assert e1.fingerprint == e2.fingerprint
@@ -42,11 +42,11 @@ class TestErrorBus:
     """错误总线"""
 
     def setUp(self):
-        from services.error_bus import reset_bus
+        from l3.error_bus import reset_bus
         reset_bus()
 
     def _get_bus(self):
-        from services.error_bus import get_bus, reset_bus
+        from l3.error_bus import get_bus, reset_bus
         reset_bus()
         return get_bus()
 
@@ -154,7 +154,7 @@ class TestCaptureHelper:
     """capture 快捷入口"""
 
     def test_capture(self):
-        from services.error_bus import capture, reset_bus
+        from l3.error_bus import capture, reset_bus
         reset_bus()
         try:
             raise RuntimeError("oops")
@@ -164,7 +164,7 @@ class TestCaptureHelper:
         assert "RuntimeError" in r["entry"].get("stack_trace", "")
 
     def test_capture_exception(self):
-        from services.error_bus import capture_exception, reset_bus
+        from l3.error_bus import capture_exception, reset_bus
         reset_bus()
         try:
             raise ValueError("bad value")
@@ -179,7 +179,7 @@ class TestGetByFingerprint:
     """按指纹查询"""
 
     def test_found(self):
-        from services.error_bus import get_bus, reset_bus
+        from l3.error_bus import get_bus, reset_bus
         reset_bus()
         bus = get_bus()
         # The 'id' in to_dict() is fingerprint[:12]; query by error_code instead
@@ -196,7 +196,7 @@ class TestGetByFingerprint:
                 break
 
     def test_not_found(self):
-        from services.error_bus import get_bus, reset_bus
+        from l3.error_bus import get_bus, reset_bus
         reset_bus()
         bus = get_bus()
         result = bus.get_by_fingerprint("nonexistent")
@@ -207,17 +207,17 @@ class TestApiHandlers:
     """API Handler 函数级测试"""
 
     def setUp(self):
-        from services.error_bus import reset_bus
+        from l3.error_bus import reset_bus
         reset_bus()
 
     def test_handle_log_errors_empty(self):
-        from services.error_bus import handle_log_errors
+        from l3.error_bus import handle_log_errors
         r = handle_log_errors({})
         assert r["success"]
         assert isinstance(r["entries"], list)
 
     def test_handle_log_errors_with_data(self):
-        from services.error_bus import handle_log_errors, get_bus, reset_bus
+        from l3.error_bus import handle_log_errors, get_bus, reset_bus
         reset_bus()
         bus = get_bus()
         bus.error("api test", error_code="E_API", source="api_test.py")
@@ -226,33 +226,33 @@ class TestApiHandlers:
         assert r["total"] >= 1
 
     def test_handle_log_errors_stats(self):
-        from services.error_bus import handle_log_errors_stats
+        from l3.error_bus import handle_log_errors_stats
         r = handle_log_errors_stats()
         assert r["success"]
         assert "by_level" in r
 
     def test_handle_log_errors_trend(self):
-        from services.error_bus import handle_log_errors_trend
+        from l3.error_bus import handle_log_errors_trend
         r = handle_log_errors_trend({"window": 60, "bucket": 10})
         assert r["success"]
         assert "buckets" in r
 
     def test_handle_log_errors_clear(self):
-        from services.error_bus import handle_log_errors_clear
+        from l3.error_bus import handle_log_errors_clear
         r = handle_log_errors_clear({})
         assert r["success"]
 
     def test_handle_log_errors_detail_not_found(self):
-        from services.error_bus import handle_log_errors_detail
+        from l3.error_bus import handle_log_errors_detail
         r = handle_log_errors_detail({"fingerprint": "nonexistent"})
         assert not r["success"]
 
     def test_handle_log_errors_detail_missing(self):
-        from services.error_bus import handle_log_errors_detail
+        from l3.error_bus import handle_log_errors_detail
         r = handle_log_errors_detail({})
         assert not r["success"]
 
     def test_handle_log_errors_export(self):
-        from services.error_bus import handle_log_errors_export
+        from l3.error_bus import handle_log_errors_export
         r = handle_log_errors_export({})
         assert r["success"]

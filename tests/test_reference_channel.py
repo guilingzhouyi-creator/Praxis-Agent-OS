@@ -9,7 +9,7 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
-from kernel.params.system import RC_EXPORT_LIMIT
+from l1.kernel.params.system import RC_EXPORT_LIMIT
 
 
 # ── Helpers ──
@@ -38,7 +38,7 @@ def rc_path() -> str:
 @pytest.fixture
 def rc(rc_path: str):
     """Create a fresh ReferenceChannel with a temp path and small buffer for testing."""
-    from services.reference_channel import ReferenceChannel
+    from l3.reference_channel import ReferenceChannel
 
     ch = ReferenceChannel(path=rc_path, flush_interval=60.0, max_events=10)
     yield ch
@@ -49,7 +49,7 @@ def rc(rc_path: str):
 @pytest.fixture(autouse=True)
 def _reset_rc_global():
     """Reset the global RC singleton before each test to avoid cross-test pollution."""
-    from services.reference_channel import reset_rc
+    from l3.reference_channel import reset_rc
 
     reset_rc()
 
@@ -86,7 +86,7 @@ class TestReferenceChannelEvent:
         assert records[0]["sha256"] == expected_hash
 
     def test_event_auto_flush_on_buffer_full(self, rc_path: str):
-        from services.reference_channel import ReferenceChannel
+        from l3.reference_channel import ReferenceChannel
 
         ch = ReferenceChannel(path=rc_path, flush_interval=9999.0, max_events=3)
         ch.event("a", {})
@@ -100,7 +100,7 @@ class TestReferenceChannelEvent:
     def test_event_auto_flush_on_interval(self, rc, rc_path: str):
         import time
         # Use a very short interval and small buffer so we don't hit buffer flush first
-        from services.reference_channel import ReferenceChannel
+        from l3.reference_channel import ReferenceChannel
 
         ch = ReferenceChannel(path=rc_path, flush_interval=0.01, max_events=100)
         ch.event("x", {})
@@ -147,7 +147,7 @@ class TestReferenceChannelCardLifecycle:
 
 class TestReferenceChannelExport:
     def test_export_empty_when_no_file(self):
-        from services.reference_channel import ReferenceChannel
+        from l3.reference_channel import ReferenceChannel
 
         ch = ReferenceChannel(path="/nonexistent/path.jsonl")
         assert ch.export() == []
@@ -206,7 +206,7 @@ class TestReferenceChannelCount:
     def test_count_uses_rc_export_limit(self, rc):
         """count() passes RC_EXPORT_LIMIT to export() for filtered counts."""
         # Make sure the constant is used as the limit
-        from services.reference_channel import ReferenceChannel
+        from l3.reference_channel import ReferenceChannel
 
         original_export = ReferenceChannel.export
 
@@ -269,7 +269,7 @@ class TestReferenceChannelFlush:
 
 class TestReferenceChannelSingleton:
     def test_get_rc_returns_same_instance(self):
-        from services.reference_channel import get_rc, reset_rc
+        from l3.reference_channel import get_rc, reset_rc
 
         reset_rc()
         a = get_rc()
@@ -277,7 +277,7 @@ class TestReferenceChannelSingleton:
         assert a is b
 
     def test_reset_rc_flushes_and_replaces(self):
-        from services.reference_channel import get_rc, reset_rc
+        from l3.reference_channel import get_rc, reset_rc
 
         reset_rc()
         rc1 = get_rc()

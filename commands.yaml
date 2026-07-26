@@ -1,198 +1,350 @@
 # commands.yaml — L2 Shell command definitions
-# Handler name maps to _cmd_{name} function in services/l2_shell.py
+# Category: session|control|memory|system|agent|audit|ext
 
 help:
+  category: session
   help: "Show available commands"
+  examples:
+    - "/help              — list all commands"
+    - "/help memory       — show memory command details"
+    - "/help tokens       — show token command details"
 
 agents:
+  category: session
   help: "List all agents"
   aliases: ["ls"]
+  examples:
+    - "/agents            — list all agents across cells"
 
 connect:
+  category: session
   help: "Connect to an agent (direct mode)"
   args:
     - {name: agent_id, completer: agent, description: "Target agent ID"}
-    - {name: --role, completer: role, optional: true, description: "Filter by role"}
+    - {name: "--role", completer: role, optional: true, description: "Filter by role"}
+  examples:
+    - "/connect agent-writer          — connect to an agent"
+    - "/connect agent-reader --role reader — connect filtered by role"
 
 disconnect:
+  category: session
   help: "Disconnect and return to L3A"
   aliases: ["dc"]
+  examples:
+    - "/disconnect         — end direct session"
 
 mode:
+  category: session
   help: "Show/switch mode (L3A/Direct, tool read/write)"
   args:
     - {name: sub, optional: true, description: "'tool' for tool mode"}
     - {name: tool_mode, optional: true, description: "read|write|toggle"}
+  examples:
+    - "/mode               — show current mode"
+    - "/mode tool toggle   — toggle tool mode"
 
 status:
+  category: session
   help: "Show Cell, agent, and session status"
   args:
     - {name: cell_id, optional: true, completer: agent, description: "Cell ID"}
+  examples:
+    - "/status             — show current session status"
 
 intents:
+  category: control
   help: "List recent intents (CentralController)"
   args:
     - {name: status, optional: true, description: "Filter by status"}
+  examples:
+    - "/intents            — list all intents"
+    - "/intents pending    — filter by status"
 
 scheduler:
+  category: control
   help: "Show 5D scheduling status (CentralScheduler)"
+  examples:
+    - "/scheduler          — show scheduler stats"
 
 observe:
+  category: control
   help: "Observability: alerts/health/metrics"
   args:
     - {name: kind, optional: true, description: "alert|health|metric|audit"}
+  examples:
+    - "/observe            — show health (default)"
+    - "/observe metric     — show metrics"
 
 skills:
+  category: control
   help: "List/view/evolve R4Agent skills"
   args:
     - {name: sub, optional: true, description: "list|lean|evolve <intent>"}
+  examples:
+    - "/skills             — list skills"
+    - "/skills evolve add input validation — evolve a skill"
 
 cells:
+  category: control
   help: "List cells or show cell health (CellMonitor)"
   args:
     - {name: cell_id, optional: true, description: "Cell ID or 'list'"}
+  examples:
+    - "/cells              — list all cells"
+    - "/cells cell-1       — show cell events"
 
 cross:
+  category: control
   help: "Cross-cell coordination status (L3B)"
+  examples:
+    - "/cross              — show cross-cell routing status"
 
 security:
+  category: control
   help: "Security stats or run a check"
   args:
     - {name: sub, optional: true, description: "stats|check <action> <agent>"}
+  examples:
+    - "/security           — show security stats"
+    - "/security check read_file agent-writer — run a security check"
 
 memory:
+  category: memory
   help: "Memory operations across agents/cells/global"
   aliases: ["mem"]
   args:
-    - {name: --cell, optional: true, completer: cell, description: "Cell ID scope"}
-    - {name: --agent, optional: true, completer: agent, description: "Agent ID scope"}
-    - {name: op, optional: true, description: "stats|recall <query>|store <ring> <content>|compact|stub_compact|archive|forget|ring <N>"}
+    - {name: "--cell", optional: true, completer: cell, description: "Cell ID scope"}
+    - {name: "--agent", optional: true, completer: agent, description: "Agent ID scope"}
+    - {name: op, optional: true, description: "stats|recall|store|compact|archive|forget|ring"}
+  examples:
+    - "/memory                        — global memory stats"
+    - "/memory --agent agent-writer stats — per-agent stats"
+    - "/memory --cell cell-1 compact   — compact all agents in a cell"
+    - "/memory recall 'port config'   — search memory"
+    - '/memory store 3 "use port 2222 for SSH" — store to Ring 3'
+    - "/status | /memory --agent {scope_id} stats — pipeline: status → memory"
 
 plugins:
+  category: control
   help: "List installed plugins (CentralPlugin)"
   args:
     - {name: sub, optional: true, description: "list|stats"}
+  examples:
+    - "/plugins            — list plugins"
 
 mcp:
+  category: control
   help: "Manage MCP server connections"
   args:
-    - {name: sub, optional: true, description: "status|list|add|remove|disable|enable"}
+    - {name: sub, optional: true, description: "status|add|remove|disable|enable"}
+  examples:
+    - "/mcp                — MCP server status"
+    - '/mcp add my-server http://localhost:3500/mcp/v1 — add server'
 
 process:
+  category: system
   help: "List running processes"
   aliases: ["ps"]
   args:
     - {name: pid, optional: true, description: "Filter by PID"}
+  examples:
+    - "/process            — list all processes"
+    - "/process 3          — show PID 3 details"
 
 vfs:
+  category: system
   help: "Virtual filesystem navigation (VFS)"
   args:
     - {name: path, optional: true, description: "Path (default: /)"}
-    - {name: --mounts, optional: true, description: "List mount points"}
+    - {name: "--mounts", optional: true, description: "List mount points"}
+  examples:
+    - "/vfs                — list VFS root"
+    - "/vfs /proc          — list /proc"
+    - "/vfs --mounts       — list mount points"
 
 cache:
+  category: system
   help: "Show cache statistics"
   args:
     - {name: sub, optional: true, description: "stats|clear"}
+  examples:
+    - "/cache              — show cache stats"
+    - "/cache clear        — clear all caches"
 
 sysinfo:
+  category: system
   help: "System information summary"
   aliases: ["info"]
+  examples:
+    - "/sysinfo            — show system summary"
 
 clear:
+  category: system
   help: "Clear the terminal screen"
   aliases: ["clr"]
+  examples:
+    - "/clear              — clear screen"
 
 history:
+  category: system
   help: "Show shell command history"
   aliases: ["hist"]
   args:
     - {name: limit, optional: true, description: "Number of entries (default: 20)"}
+  examples:
+    - "/history            — show last 20 commands"
+    - "/history 50         — show last 50"
 
 lang:
+  category: system
   help: "Show or switch display language"
   args:
     - {name: locale, optional: true, description: "en, zh-CN, etc. Omit to show current"}
+  examples:
+    - "/lang               — show current language"
+    - "/lang zh-CN         — switch to Chinese"
 
 spawn:
+  category: agent
   help: "Create a new agent in a Cell"
   args:
     - {name: role, completer: role, description: "writer|reader|security|scout"}
     - {name: agent_id, optional: true, description: "Agent ID (auto if omitted)"}
-    - {name: --cell, optional: true, description: "Target Cell ID"}
+    - {name: "--cell", optional: true, description: "Target Cell ID"}
+  examples:
+    - "/spawn writer       — spawn a writer agent"
+    - '/spawn scout my-scout-1 --cell cell-2 — spawn in specific cell'
 
 kill:
+  category: agent
   help: "Terminate an agent in a Cell"
   args:
     - {name: agent_id, completer: agent, description: "Agent ID"}
+  examples:
+    - "/kill agent-writer  — terminate agent-writer"
 
 destroy:
+  category: agent
   help: "Remove an entire Cell and all its agents"
   args:
     - {name: cell_id, description: "Cell ID"}
+  examples:
+    - "/destroy cell-1     — destroy cell-1 and all agents"
 
 emergency:
+  category: agent
   help: "Emergency stop — halt all operations"
   aliases: ["halt"]
   args:
     - {name: cell_id, optional: true, description: "Cell ID (default: cell-1)"}
+  examples:
+    - "/emergency          — emergency stop cell-1"
 
 cluster:
+  category: agent
   help: "Show cluster topology and Cell health"
+  examples:
+    - "/cluster            — show cluster topology"
 
 audit:
+  category: audit
   help: "View syscall audit trail"
   args:
     - {name: limit, optional: true, description: "Number of entries (default: 20)"}
+  examples:
+    - "/audit              — show last 20 audit entries"
+    - "/audit 100          — show last 100"
 
 settings:
+  category: audit
   help: "View runtime system settings"
+  examples:
+    - "/settings           — show system settings"
 
 devices:
+  category: audit
   help: "List registered kernel devices"
+  examples:
+    - "/devices            — list kernel devices"
 
 tools:
+  category: audit
   help: "List all registered tools"
   args:
     - {name: category, optional: true, description: "Filter by category"}
+  examples:
+    - "/tools              — list all tools"
+    - "/tools file         — list file tools"
 
 config:
+  category: audit
   help: "View or reload system configuration"
   args:
     - {name: sub, optional: true, description: "show|reload"}
+  examples:
+    - "/config             — show current config"
+    - "/config reload      — reload config from praxis.yaml"
 
 cron:
+  category: ext
   help: "Manage cron schedules"
   args:
     - {name: sub, optional: true, description: "list|add|remove"}
+  examples:
+    - "/cron               — list schedules"
+    - '/cron add nightly "0 3 * * *" run_backup — add cron job'
+    - "/cron remove nightly — remove cron job"
 
 buffer:
+  category: ext
   help: "Resource buffer management (stage/commit/diff/discard)"
   aliases: ["bf"]
   args:
     - {name: sub, description: "status|commit <path>|diff <path>|discard <path>"}
+  examples:
+    - "/buffer             — show buffer status"
+    - "/buffer commit src/main.py — commit buffered changes"
+    - "/buffer diff src/main.py   — show pending diff"
+    - "/buffer discard src/main.py — discard buffered changes"
 
 card:
+  category: ext
   help: "Manage card pool: install, list, search, export, remove"
   aliases: ["c"]
   args:
     - {name: sub, description: "list|install <url>|install-file <path>|search <q>|export <name>|remove <name>"}
+  examples:
+    - "/card               — list installed cards"
+    - '/card install https://example.com/cards/deploy.yaml — install from URL'
+    - '/card search deploy  — search remote registries'
 
 cell_create:
+  category: agent
   help: "Create a new Cell with 3 Peer Agents"
   aliases: ["cc"]
   args:
     - {name: territory, description: "Territory path"}
+  examples:
+    - "/cell_create /home/projects — create cell for territory"
 
 agent_refresh:
+  category: agent
   help: "Reset an agent's context (clear pollution)"
   args:
     - {name: agent_id, description: "Agent ID"}
+  examples:
+    - "/agent_refresh agent-writer — reset agent context"
 
 tokens:
+  category: audit
   help: "Query token usage (global/cell/agent)"
   aliases: ["tk"]
   args:
-    - {name: --cell, optional: true, completer: cell, description: "Cell ID"}
-    - {name: --agent, optional: true, completer: agent, description: "Agent ID"}
+    - {name: "--cell", optional: true, completer: cell, description: "Cell ID"}
+    - {name: "--agent", optional: true, completer: agent, description: "Agent ID"}
     - {name: sub, optional: true, description: "global|cells"}
+  examples:
+    - "/tokens                  — global token usage"
+    - "/tokens --cell cell-1    — per-cell"
+    - "/tokens --agent agent-w  — per-agent"
+    - "/status | /tokens --agent {scope_id} — pipeline"

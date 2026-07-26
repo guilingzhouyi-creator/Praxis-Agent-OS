@@ -9,12 +9,12 @@ with open(os.path.join(os.path.dirname(__file__),"..","portal",".env"), encoding
             k, v = line.split("=", 1)
             os.environ[k.strip()] = v.strip().strip("\"'")
 
-from kernel.settings import get_settings
+from l1.kernel.settings import get_settings
 s = get_settings()
 s.set_many({"llm.provider":"openai","llm.model":"deepseek-v4-flash",
             "llm.api_url":"https://api.deepseek.com/v1/chat/completions","llm.max_tokens":4096})
 
-from services.llm import reset_engine, get_engine, ToolDef
+from l4.llm import reset_engine, get_engine, ToolDef
 reset_engine()
 engine = get_engine()
 

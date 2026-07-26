@@ -38,9 +38,9 @@ class TestEvolveSkillLLMFullFlow:
 
     def test_full_flow_with_mocked_llm(self, mocker):
         """Mock LLM → evolve_skill → SkillManager → SKILL.md 完整链路."""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
-        from kernel.params.system import SKILL_EVOLVED_DIR
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.params.system import SKILL_EVOLVED_DIR
 
         # 清理
         reset_skill_manager()
@@ -80,8 +80,8 @@ class TestEvolveSkillLLMFullFlow:
 
     def test_llm_response_with_markdown_fences(self, mocker):
         """LLM 返回带 ```json  fences 的响应也能正确解析。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
 
         reset_skill_manager()
 
@@ -98,8 +98,8 @@ class TestEvolveSkillLLMFullFlow:
 
     def test_llm_response_trailing_newlines(self, mocker):
         """LLM 响应尾部有多余空行也能正确解析。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
 
         reset_skill_manager()
 
@@ -114,8 +114,8 @@ class TestEvolveSkillLLMFullFlow:
 
     def test_evolve_then_lean_is_separate(self, mocker):
         """evolve_skill 创建的技能不应污染 lean cases。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
 
         reset_skill_manager()
         sm = get_skill_manager()
@@ -146,7 +146,7 @@ class TestSkillPersistenceRoundtrip:
 
     def test_skill_manager_loads_evolved_dir(self, mocker):
         """load_builtin() 应加载 SKILL_EVOLVED_DIR 下的 SKILL.md。"""
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         import tempfile
 
         with tempfile.TemporaryDirectory() as td:
@@ -173,7 +173,7 @@ You are a test agent for verification.
 
     def test_multiple_evolved_skills_loaded(self):
         """多个 evolved SKILL.md 文件应全部加载。"""
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         import tempfile
 
         with tempfile.TemporaryDirectory() as td:
@@ -199,9 +199,9 @@ Prompt for {name}.""")
 
     def test_evolve_skill_creates_valid_yaml_frontmatter(self, mocker):
         """evolve_skill 生成的 SKILL.md 必须有合法的 YAML frontmatter。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
-        from kernel.params.system import SKILL_EVOLVED_DIR
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.params.system import SKILL_EVOLVED_DIR
         import yaml
 
         reset_skill_manager()
@@ -243,21 +243,21 @@ class TestAgentLoopEvolvedInjection:
 
     def test_get_evolved_skills_returns_registered(self):
         """get_evolved_skills 应返回 SkillManager 中所有 evolved 标签的技能。"""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
         sm.create(name="evolved-one", prompt="prompt one", tags=["evolved", "db"])
         sm.create(name="evolved-two", prompt="prompt two", tags=["evolved", "api"])
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=5)
         assert len(evolved) >= 2
 
     def test_evolved_skills_injected_via_r4(self, mocker):
         """通过 R4Agent.get_evolved_skills 返回的技能应能被 AgentLoop 消费。"""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -268,7 +268,7 @@ class TestAgentLoopEvolvedInjection:
             tags=["evolved", "test"],
         )
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=3)
         assert len(evolved) >= 1
@@ -277,24 +277,24 @@ class TestAgentLoopEvolvedInjection:
 
     def test_agentloop_run_imports_evolved_block(self):
         """AgentLoop.run() 的代码中应有 evolved skill 注入块。"""
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         import inspect
         source = inspect.getsource(AgentLoop.run)
         assert "Evolved Skills" in source or "evolved" in source.lower()
 
     def test_no_evolved_skills_no_injection(self, mocker):
         """没有 evolved skills 时，get_evolved_skills 应返回空列表，不崩溃。"""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         assert evolved == []
 
     def test_concurrent_evolve_and_inject(self, mocker):
         """并发注册 evolved skills 后注入应正确读取。"""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         import threading
 
         reset_skill_manager()
@@ -314,7 +314,7 @@ class TestAgentLoopEvolvedInjection:
         for t in threads:
             t.join()
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=10)
         assert len(evolved) >= 5
@@ -329,8 +329,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_llm_returns_empty_content(self, mocker):
         """LLM 返回空内容 → JSON decode error → 友好降级。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -343,8 +343,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_llm_returns_invalid_json(self, mocker):
         """LLM 返回非 JSON 文本 → JSON decode error → 友好降级。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -359,8 +359,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_llm_returns_partial_json(self, mocker):
         """LLM 返回不完整 JSON → JSON decode error → 友好降级。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -374,8 +374,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_llm_engine_raises_exception(self, mocker):
         """LLM 引擎本身抛出异常 → evolve_skill 捕获并返回友好错误。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -388,8 +388,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_llm_returns_json_with_missing_fields(self, mocker):
         """LLM 返回的 JSON 缺少关键字段时，使用默认值。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -410,8 +410,8 @@ class TestEvolveSkillErrorHandling:
 
     def test_engine_generate_missing_content_key(self, mocker):
         """LLM 返回 dict 没有 content 字段 → 降级。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
 
         mock_engine = mocker.patch("services.llm.get_engine")
@@ -431,8 +431,8 @@ class TestEvolveCleanup:
 
     def test_repeated_evolve_same_name(self, mocker):
         """相同 intent 多次 evolve 不应崩溃（name 由 LLM 生成，可能重复）。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
 
         reset_skill_manager()
 
@@ -463,8 +463,8 @@ class TestEvolveCleanup:
 
     def test_evolve_skill_does_not_crash_when_skill_dir_not_writable(self, mocker):
         """SKILL_EVOLVED_DIR 不可写时不应崩溃（SKILL.md 写入失败应有容错）。"""
-        from services.r4_agent import R4Agent
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l3.r4_agent import R4Agent
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         import stat
 
         reset_skill_manager()

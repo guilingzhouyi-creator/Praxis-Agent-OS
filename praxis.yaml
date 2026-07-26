@@ -255,3 +255,13 @@ agents:
   reviewer:
     max_scouts: 1
     ring: 3
+
+# ── Think quota 上限配置档 ──
+think:
+  max_budget: 32768               # 全局思考预算硬上限 (tokens)
+  max_reasoning: "high"            # 允许的最高 reasoning_effort
+  profiles:                        # 按 role 分档 (可选)
+    default:  {max_budget: 4096}
+    reader:   {max_budget: 2048}
+    writer:   {max_budget: 8192}
+    reviewer: {max_budget: 16384}

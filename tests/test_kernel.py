@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestKernelHealth:
     def test_health_pass(self):
-        from kernel import health
+        from l1.kernel import health
         h = health()
         assert h["status"] == "PASS"
         assert h["module_count"] >= 9
@@ -18,13 +18,13 @@ class TestKernelHealth:
 
 class TestProcessTable:
     def test_pid0_exists(self):
-        from kernel.process import get_table, ProcessState
+        from l1.kernel.process import get_table, ProcessState
         pt = get_table()
         assert pt.get(0) is not None
         assert pt.get(0).name == "kernel"
 
     def test_spawn_and_lifecycle(self):
-        from kernel.process import get_table, ProcessState
+        from l1.kernel.process import get_table, ProcessState
         pt = get_table()
         p1 = pt.spawn("test-agent", "http", ring=2)
         assert p1.pid > 0
@@ -40,22 +40,22 @@ class TestProcessTable:
 
 class TestSyscall:
     def test_mutex_acquire(self):
-        from kernel import syscall
+        from l1.kernel import syscall
         r = syscall("mutex.acquire", mutex="t1", agent_id="probe")
         assert r.get("success")
 
     def test_alloc_usage(self):
-        from kernel import syscall
+        from l1.kernel import syscall
         r = syscall("alloc.usage", agent_id="probe")
         assert r.get("success")
 
     def test_process_list(self):
-        from kernel import syscall
+        from l1.kernel import syscall
         r = syscall("process.list", agent_id="probe")
         assert r.get("success")
 
     def test_audit_trail(self):
-        from kernel import get_audit_log, record_audit
+        from l1.kernel import get_audit_log, record_audit
         log = get_audit_log(limit=5)
         assert len(log) >= 3
         record_audit("custom.event", "probe", True, detail="test")
@@ -65,7 +65,7 @@ class TestSyscall:
 
 class TestMutex:
     def test_priority_inheritance(self):
-        from kernel.sync import get_mutex
+        from l1.kernel.sync import get_mutex
         m = get_mutex("pi-test")
         r1 = m.acquire("low-prio", priority=5.0)
         assert r1["success"]
@@ -84,7 +84,7 @@ class TestMutex:
         assert result.get("val", {}).get("success")
 
     def test_deadlock_detection(self):
-        from kernel.sync import get_mutex
+        from l1.kernel.sync import get_mutex
         m_a = get_mutex("dl-a", timeout=2.0)
         m_b = get_mutex("dl-b", timeout=2.0)
         m_a.acquire("agent-x", priority=5.0)
@@ -109,7 +109,7 @@ class TestMutex:
 
 class TestSemaphore:
     def test_semaphore(self):
-        from kernel.sync import get_semaphore
+        from l1.kernel.sync import get_semaphore
         s = get_semaphore("sem-test", max_count=2)
         assert s.acquire("a")["success"]
         assert s.acquire("b")["success"]
@@ -120,7 +120,7 @@ class TestSemaphore:
 
 class TestBarrier:
     def test_barrier(self):
-        from kernel.sync import get_barrier
+        from l1.kernel.sync import get_barrier
         b = get_barrier("bar-test", count=2)
         results = []
         def b_waiter():
@@ -138,7 +138,7 @@ class TestBarrier:
 
 class TestCondition:
     def test_condition_signal(self):
-        from kernel.sync import get_condition
+        from l1.kernel.sync import get_condition
         cv = get_condition("cv-test")
         cv_results = []
         def cv_waiter():
@@ -154,7 +154,7 @@ class TestCondition:
 
 class TestEventBus:
     def test_emit(self):
-        from kernel import get_event_bus, Signal, SignalType
+        from l1.kernel import get_event_bus, Signal, SignalType
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.TASK_ASSIGN, lambda s: captured.append(s.data))
@@ -164,8 +164,8 @@ class TestEventBus:
 
 class TestGateChain:
     def test_g1_whitelist(self):
-        from kernel.gatechain import get_gatechain
-        from kernel.process import get_table
+        from l1.kernel.gatechain import get_gatechain
+        from l1.kernel.process import get_table
         pt = get_table()
         pt.spawn("gc-agent", "security", ring=3)
         gc = get_gatechain()
@@ -175,7 +175,7 @@ class TestGateChain:
         assert steps.get("G1", {}).get("result") == "PASS", "registered tool should pass G1"
 
     def test_g2_blocks_unknown(self):
-        from kernel.gatechain import get_gatechain
+        from l1.kernel.gatechain import get_gatechain
         gc = get_gatechain()
         r2 = gc.check("deploy", "unknown")
         steps2 = {s["gate"]: s for s in r2.get("steps", [])}
@@ -185,7 +185,7 @@ class TestGateChain:
 
 class TestVFS:
     def test_proc_readable(self):
-        from kernel.vfs import get_vfs, MountType
+        from l1.kernel.vfs import get_vfs, MountType
         vfs = get_vfs()
         vfs.mount("/proc", MountType.SYSTEM, min_ring=1, read_only=True)
         r = vfs.read("/proc")
@@ -193,13 +193,13 @@ class TestVFS:
         assert "PID" in r.get("content", "")
 
     def test_unknown_path_enoent(self):
-        from kernel.vfs import get_vfs
+        from l1.kernel.vfs import get_vfs
         vfs = get_vfs()
         r = vfs.read("/nonexistent", agent_ring=1)
         assert r.get("error_code") == "ENOENT"
 
     def test_ring_check_eacces(self):
-        from kernel.vfs import get_vfs, MountType
+        from l1.kernel.vfs import get_vfs, MountType
         vfs = get_vfs()
         vfs.mount("/test", MountType.VIRTUAL, min_ring=2, read_only=False)
         r = vfs.read("/test/x", agent_ring=1)
@@ -208,7 +208,7 @@ class TestVFS:
 
 class TestDeviceManager:
     def test_rate_limiting(self):
-        from kernel.device import get_device_manager, DeviceType, DeviceHealth
+        from l1.kernel.device import get_device_manager, DeviceType, DeviceHealth
         dm = get_device_manager()
         dm.register("test-llm", DeviceType.LLM, rate_limit=3)
         assert dm.check_rate("test-llm").get("allowed")
@@ -218,7 +218,7 @@ class TestDeviceManager:
         assert not dm.check_rate("test-llm").get("allowed"), "rate limit should block"
 
     def test_health_change(self):
-        from kernel.device import get_device_manager, DeviceType, DeviceHealth
+        from l1.kernel.device import get_device_manager, DeviceType, DeviceHealth
         dm = get_device_manager()
         dm.register("test-dev", DeviceType.LLM, rate_limit=10)
         dm.set_health("test-dev", DeviceHealth.DEGRADED)
@@ -229,7 +229,7 @@ class TestDeviceManager:
 
 class TestToolChain:
     def test_fingerprint_chain(self):
-        from kernel.tool_chain import get_tool_chain
+        from l1.kernel.tool_chain import get_tool_chain
         tc = get_tool_chain()
         pid = tc.start("composite", "agent-x", ring=2)
         cid = tc.child("atomic", "agent-y", ring=1, parent=pid)
@@ -244,7 +244,7 @@ class TestToolChain:
 
 class TestAllocator:
     def test_oom_trigger(self):
-        from kernel.allocator import get_allocator
+        from l1.kernel.allocator import get_allocator
         a = get_allocator()
         a.set_limit("hog", "tokens", 100)
         r1 = a.alloc("hog", "tokens", 80)
@@ -256,7 +256,7 @@ class TestAllocator:
 
 class TestInterrupt:
     def test_fire(self):
-        from kernel.interrupt import get_table as int_table, fire, InterruptType
+        from l1.kernel.interrupt import get_table as int_table, fire, InterruptType
         it = int_table()
         before = it.counts().get("AGENT_CRASH", 0)
         fire(InterruptType.AGENT_CRASH, agent_id="crash-test", reason="unit test")
@@ -266,7 +266,7 @@ class TestInterrupt:
 
 class TestSettings:
     def test_defaults(self):
-        from kernel.settings import get_settings, reset_settings
+        from l1.kernel.settings import get_settings, reset_settings
         s = get_settings()
         all_s = s.all()
         assert len(all_s) >= 20
@@ -283,59 +283,59 @@ class TestSettings:
 
 class TestConstitution:
     def test_has_rules(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         rules = cc.rules_list()
         assert len(rules) >= 10
 
     def test_allows_unknown_action(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         r = cc.is_allowed("unknown_action", "anyone", "/tmp/test")
         assert r.get("allowed", True)
 
     def test_rule_descriptors_loaded(self):
         """Verify builtin rules use RuleDescriptor with ids and tags."""
-        from kernel.constitution import get_constitution
-        from kernel.rule_descriptor import RuleDescriptor
+        from l1.kernel.constitution import get_constitution
+        from l1.kernel.rule_descriptor import RuleDescriptor
         cc = get_constitution()
         for rule in cc._rules:
             assert isinstance(rule, RuleDescriptor)
             assert rule.id, f"rule missing id: {rule.description}"
 
     def test_rules_have_unique_ids(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         ids = [r.id for r in cc._rules]
         assert len(ids) == len(set(ids)), f"duplicate rule ids: {ids}"
 
     def test_blocks_constitution_file_write(self):
-        from kernel.constitution import get_constitution, reset_constitution
+        from l1.kernel.constitution import get_constitution, reset_constitution
         reset_constitution()
         cc = get_constitution()
         r = cc.is_allowed("write_file", "agent-a", ".nomos-rules.md")
         assert not r.get("allowed")
 
     def test_blocks_constitution_keyword_path(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         r = cc.is_allowed("write_file", "agent-a", "src/constitution.py")
         assert not r.get("allowed")
 
     def test_blocks_scout_write(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         r = cc.is_allowed("write_file", "scout", "/tmp/test")
         assert not r.get("allowed")
 
     def test_allows_scout_read(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         r = cc.is_allowed("read_file", "scout", "/tmp/test")
         assert r.get("allowed")
 
     def test_territory_block(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         # read_file IS in CONSTITUTION_FILE_ACTIONS, so territory check applies
         r = cc.is_allowed("read_file", "agent-a", "/forbidden",
@@ -343,14 +343,14 @@ class TestConstitution:
         assert not r.get("allowed")
 
     def test_territory_allowed(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         r = cc.is_allowed("read_file", "agent-a", "/allowed/src/main.py",
                           territory=["/allowed"])
         assert r.get("allowed")
 
     def test_rules_list_includes_all_builtins(self):
-        from kernel.constitution import get_constitution
+        from l1.kernel.constitution import get_constitution
         cc = get_constitution()
         rules = cc.rules_list()
         descriptions = [r["description"] for r in rules]
@@ -361,7 +361,7 @@ class TestConstitution:
         assert len(rules) == 15  # 15 built-in rules
 
     def test_load_custom_rules(self):
-        from kernel.constitution import get_constitution, reset_constitution
+        from l1.kernel.constitution import get_constitution, reset_constitution
         import tempfile, os
         reset_constitution()
         content = """# Custom Rules

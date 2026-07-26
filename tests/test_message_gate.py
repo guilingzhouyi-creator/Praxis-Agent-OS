@@ -9,13 +9,13 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from services.message_gate import (
+from l3.message_gate import (
     MessageGateEngine,
     MessageGateRule,
     get_gate,
     reset_gate,
 )
-from services.monitor_bus import MonitorEvent
+from l4.monitor_bus import MonitorEvent
 
 
 def _make_engine(tmp_obj) -> MessageGateEngine:
@@ -47,7 +47,7 @@ class TestRuleMatching:
             id="r1", pattern={"type": "network.*"}, action="block",
         )
         assert rule.matches(_ev(type_="network.peer.loss"))
-        assert not rule.matches(_ev(type_="kernel.interrupt"))
+        assert not rule.matches(_ev(type_="l1.kernel.interrupt"))
 
     def test_severity_exact_match(self):
         rule = MessageGateRule(
@@ -147,7 +147,7 @@ class TestDependencyChain:
                 action="block", priority=10, depends_on=["A"],
             ))
             # Trigger A
-            gate.evaluate(_ev(type_="kernel.interrupt"))
+            gate.evaluate(_ev(type_="l1.kernel.interrupt"))
             assert "A" in gate._triggered
             # Now B's dependency is met
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "block"
@@ -164,7 +164,7 @@ class TestDependencyChain:
                 id="B", pattern={"type": "network.*"},
                 action="block", priority=10, depends_on=["A"],
             ))
-            gate.evaluate(_ev(type_="kernel.interrupt"))
+            gate.evaluate(_ev(type_="l1.kernel.interrupt"))
             time.sleep(0.05)  # exceed hold_timeout
             # A's triggered record is stale → B dep not met → allow
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "allow"

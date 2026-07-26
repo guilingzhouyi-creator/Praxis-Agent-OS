@@ -13,8 +13,8 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
-from kernel.net_transport import TransportConfig, TcpAdapter
-from kernel.ports import TransportPort, Endpoint
+from l1.kernel.net_transport import TransportConfig, TcpAdapter
+from l1.kernel.ports import TransportPort, Endpoint
 
 
 class TestTransportConfig:
@@ -37,8 +37,8 @@ class TestTransportConfig:
 
 class TestTcpAdapterConstruction:
     def test_is_transport_port(self):
-        from services.adapters.channel_ring import RingChannel
-        from services.adapters.worker_thread import ThreadPoolWorker
+        from l4.adapters.channel_ring import RingChannel
+        from l4.adapters.worker_thread import ThreadPoolWorker
         t = TcpAdapter(worker_pool=ThreadPoolWorker(min_workers=2, max_workers=4),
                        msg_channel=RingChannel(capacity=64))
         assert isinstance(t, TransportPort)

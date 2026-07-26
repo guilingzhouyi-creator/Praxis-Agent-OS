@@ -31,7 +31,7 @@ def repl():
     print("NOMOS Praxis Agent OS  —  type 'help' for commands, 'exit' to quit")
 
     try:
-        from services.memory_init import register_shutdown_handler
+        from l3.memory_init import register_shutdown_handler
         register_shutdown_handler()
     except Exception:
             pass
@@ -50,7 +50,7 @@ def repl():
         if cmd in ("exit", "quit", "q"):
             print("\n⏻ Shutting down...")
             try:
-                from services.memory_init import shutdown_to_memories
+                from l3.memory_init import shutdown_to_memories
                 r = shutdown_to_memories()
                 if r.get("success"):
                     for k, v in r.get("results", {}).items():

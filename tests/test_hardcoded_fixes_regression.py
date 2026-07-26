@@ -14,11 +14,11 @@ class TestRCExportLimit:
     """reference_channel.py: RC_EXPORT_LIMIT replaces 999999 magic number."""
 
     def test_constant_exists(self):
-        from kernel.params.system import RC_EXPORT_LIMIT
+        from l1.kernel.params.system import RC_EXPORT_LIMIT
         assert RC_EXPORT_LIMIT == 999999
 
     def test_used_in_count(self):
-        from services.reference_channel import ReferenceChannel
+        from l3.reference_channel import ReferenceChannel
         import tempfile, os as _os
         tmp = _os.path.join(tempfile.gettempdir(), "_test_rc_count.jsonl")
         rc = ReferenceChannel(path=tmp)
@@ -37,7 +37,7 @@ class TestLogExportLimit:
     """log.py: LOG_EXPORT_LIMIT replaces 10000 magic number."""
 
     def test_constant_defined(self):
-        from kernel.params.system import LOG_EXPORT_LIMIT
+        from l1.kernel.params.system import LOG_EXPORT_LIMIT
         assert LOG_EXPORT_LIMIT == 10000
 
 
@@ -45,11 +45,11 @@ class TestToolBuildTimeout:
     """tools/_build.py: TOOL_BUILD_TIMEOUT replaces timeout=120."""
 
     def test_constant_defined(self):
-        from kernel.params.tool import TOOL_BUILD_TIMEOUT
+        from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
         assert TOOL_BUILD_TIMEOUT == 300
 
     def test_imported_in_build_module(self):
-        from tools._build import build_project
+        from l3.tools._build import build_project
         assert callable(build_project)
 
 
@@ -57,7 +57,7 @@ class TestAgentPriority:
     """boot.py: AGENT_PRIORITY config map replaces if/else priority."""
 
     def test_priority_map_defined(self):
-        from kernel.params.agent import AGENT_PRIORITY
+        from l1.kernel.params.agent import AGENT_PRIORITY
         assert isinstance(AGENT_PRIORITY, dict)
         assert "default" in AGENT_PRIORITY
         assert "reviewer" in AGENT_PRIORITY
@@ -67,7 +67,7 @@ class TestAgentPriority:
         assert AGENT_PRIORITY["reader"] == 5
 
     def test_unknown_role_falls_back(self):
-        from kernel.params.agent import AGENT_PRIORITY
+        from l1.kernel.params.agent import AGENT_PRIORITY
         # get with default should match boot.py behavior
         fallback = AGENT_PRIORITY.get("nonexistent_role", 5)
         assert fallback == 5
@@ -77,7 +77,7 @@ class TestContextRoleConstants:
     """context.py: _ROLE_TOOL / _ROLE_ASSISTANT replace hardcoded strings."""
 
     def test_constants_defined(self):
-        from services.context import ContextManager
+        from l3.context import ContextManager
         assert callable(ContextManager)
 
 
@@ -85,11 +85,11 @@ class TestAgentRuntimeActionConstants:
     """agent_runtime.py: _ACTION_* constants replace hardcoded type strings."""
 
     def test_constants_importable(self):
-        import agent_runtime
-        assert hasattr(agent_runtime, "tick") or callable(agent_runtime.AgentRuntime)
+        from l5.agent_runtime import AgentRuntime
+        assert callable(AgentRuntime)
 
     def test_runtime_imports(self):
-        from agent_runtime import AgentRuntime
+        from l5.agent_runtime import AgentRuntime
         assert callable(AgentRuntime)
 
 
@@ -99,7 +99,7 @@ class TestErrorBusEnglish:
     def test_no_chinese_in_docstrings(self):
         """Verify error_bus.py has no remaining Chinese text."""
         import re
-        path = os.path.join(os.path.dirname(__file__), "..", "src", "services", "error_bus.py")
+        path = os.path.join(os.path.dirname(__file__), "..", "src", "l3", "error_bus", "__init__.py")
         with open(path, encoding="utf-8") as f:
             content = f.read()
         chinese = re.findall(r"[\u4e00-\u9fff]{2,}", content)

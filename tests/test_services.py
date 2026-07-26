@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestFileCache:
     def test_agent_isolation(self):
-        from services.cache import get_file_cache
+        from l3.cache import get_file_cache
         c = get_file_cache("test-cell")
         c.clear()
         c.set("/project/a.py", "content-a", scope="agent", agent_id="agent_a", ring=1)
@@ -22,7 +22,7 @@ class TestFileCache:
         assert ba is None, "agent A should miss B cache"
 
     def test_cell_scope_sharing(self):
-        from services.cache import get_file_cache
+        from l3.cache import get_file_cache
         c = get_file_cache("test-cell")
         c.clear()
         c.set("/project/shared.py", "shared", scope="cell")
@@ -32,7 +32,7 @@ class TestFileCache:
         assert sb is not None, "cell scope should be visible to B"
 
     def test_invalidation(self):
-        from services.cache import get_file_cache
+        from l3.cache import get_file_cache
         c = get_file_cache("test-cell")
         c.clear()
         c.set("/project/a.py", "content-a", scope="agent", agent_id="agent_a", ring=1)
@@ -41,7 +41,7 @@ class TestFileCache:
         assert ai is None, "invalidate should remove entry"
 
     def test_tag_invalidation(self):
-        from services.cache import get_file_cache
+        from l3.cache import get_file_cache
         c = get_file_cache("test-cell")
         c.clear()
         c.set("/project/b.py", "content-b", scope="agent", agent_id="agent_b", ring=2)
@@ -50,7 +50,7 @@ class TestFileCache:
         assert bi is None, "tag invalidation should remove entry"
 
     def test_stats_hit_rate(self):
-        from services.cache import get_file_cache
+        from l3.cache import get_file_cache
         c = get_file_cache("test-cell")
         c.clear()
         stats = c.stats()
@@ -59,7 +59,7 @@ class TestFileCache:
 
 class TestContextRegister:
     def test_store_and_get(self):
-        from services.cache import get_context_register
+        from l3.cache import get_context_register
         ctx = get_context_register("test-cell")
         ctx.clear()
         ctx.store("analysis", {"count": 42}, agent_id="agent_a", entry_type="thought")
@@ -67,7 +67,7 @@ class TestContextRegister:
         assert val is not None and val["count"] == 42
 
     def test_recent(self):
-        from services.cache import get_context_register
+        from l3.cache import get_context_register
         ctx = get_context_register("test-cell")
         ctx.clear()
         ctx.store("k1", "v1", agent_id="a", entry_type="thought")
@@ -75,7 +75,7 @@ class TestContextRegister:
         assert len(recent) >= 1
 
     def test_clear(self):
-        from services.cache import get_context_register
+        from l3.cache import get_context_register
         ctx = get_context_register("test-cell")
         ctx.clear()
         assert len(ctx.recent(5)) == 0
@@ -83,8 +83,8 @@ class TestContextRegister:
 
 class TestLLMEngine:
     def test_mock_generate(self):
-        from services.llm import LLMConfig, reset_engine, get_engine
-        from kernel.settings import get_settings
+        from l4.llm import LLMConfig, reset_engine, get_engine
+        from l1.kernel.settings import get_settings
         get_settings().set("llm.provider", "mock")
         cfg = LLMConfig(provider="mock")
         reset_engine()
@@ -96,7 +96,7 @@ class TestLLMEngine:
 
 class TestAgentLoop:
     def test_run(self):
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         calls = []
         def tool_fn(args, agent):
             calls.append(args)
@@ -110,7 +110,7 @@ class TestAgentLoop:
 
 class TestCardBuilder:
     def test_build_card(self):
-        from services.card_builder import build_card
+        from l3.card_builder import build_card
         card = build_card("c-001", "build the project", "src/core", priority=5)
         assert card is not None
         assert len(card.phases) >= 1
@@ -119,7 +119,7 @@ class TestCardBuilder:
         assert total_tasks >= 1
 
     def test_fix_card_detected(self):
-        from services.card_builder import build_card
+        from l3.card_builder import build_card
         card = build_card("c-002", "fix bug in login", "src/api")
         assert "investigate" in [p.name for p in card.phases]
 
@@ -145,7 +145,7 @@ phases:
         tmp = os.path.join(os.path.dirname(__file__), "_test_card.yaml")
         with open(tmp, "w") as f:
             f.write(yaml_content)
-        from services.card_yaml import load_card
+        from l3.card_yaml import load_card
         lr = load_card(tmp)
         os.remove(tmp)
         assert lr.get("success"), "yaml card should load"
@@ -157,13 +157,13 @@ phases:
 
 class TestScoutPool:
     def test_stats(self):
-        from services.scout import get_pool, reset_pool
+        from l3.scout import get_pool, reset_pool
         pool = get_pool()
         stats = pool.stats()
         assert stats.get("max_total", 0) > 0
 
     def test_commission(self):
-        from services.scout import get_pool
+        from l3.scout import get_pool
         pool = get_pool()
         r = pool.commission("test-agent", "say hello")
         assert r.get("success") or r.get("error"), "scout should return or error"
@@ -173,16 +173,16 @@ class TestAgentTerminal:
     def test_boot_and_process(self):
         import time
         # Ensure LLM mock mode so keepalive thread won't block
-        from kernel.settings import get_settings
+        from l1.kernel.settings import get_settings
         s = get_settings()
         s.set("llm.provider", "mock")
         s.set("llm.model", "test")
-        from services.llm import reset_engine, LLMConfig, get_engine
+        from l4.llm import reset_engine, LLMConfig, get_engine
         reset_engine()
         # Force-create engine with mock config
         _ = get_engine()
-        from services.agent_terminal import get_terminal, TerminalCard, reset_terminals
-        from kernel.process import get_table as _pt
+        from l3.agent_terminal import get_terminal, TerminalCard, reset_terminals
+        from l1.kernel.process import get_table as _pt
         pcb = _pt().spawn("test-agent-term", role="test", ring=1)
         pcb.identity_verified = True
         term = get_terminal("test-agent-term", role="test", territory=[".", ".."], cell_id="test")

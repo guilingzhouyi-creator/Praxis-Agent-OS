@@ -8,18 +8,18 @@ class TestProcessTable:
     """Process table basics"""
 
     def setup_method(self):
-        from kernel.process import reset_table
+        from l1.kernel.process import reset_table
         reset_table()
 
     def test_init_has_pid0(self):
-        from kernel.process import get_table
+        from l1.kernel.process import get_table
         t = get_table()
         p0 = t.get(0)
         assert p0 is not None
         assert p0.name == "kernel"
 
     def test_get_nonexistent(self):
-        from kernel.process import get_table
+        from l1.kernel.process import get_table
         t = get_table()
         p = t.get(99999)
         assert p is None
@@ -29,7 +29,7 @@ class TestSpawn:
     """Process creation"""
 
     def test_spawn_basic(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         pcb = t.spawn("agent-a", role="reader", ring=1)
@@ -38,7 +38,7 @@ class TestSpawn:
         assert pcb.role == "reader"
 
     def test_spawn_multiple(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         p1 = t.spawn("a1")
@@ -46,7 +46,7 @@ class TestSpawn:
         assert p1.pid != p2.pid
 
     def test_spawn_with_parent(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         child = t.spawn("child-agent", parent_pid=0)
@@ -57,7 +57,7 @@ class TestGetByName:
     """Lookup by name"""
 
     def test_get_by_name(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         t.spawn("find-me")
@@ -66,7 +66,7 @@ class TestGetByName:
         assert pcb.name == "find-me"
 
     def test_get_by_name_nonexistent(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         pcb = t.get_by_name("no-such-process")
@@ -77,7 +77,7 @@ class TestSetState:
     """State setting"""
 
     def test_set_state(self):
-        from kernel.process import get_table, reset_table, ProcessState
+        from l1.kernel.process import get_table, reset_table, ProcessState
         reset_table()
         t = get_table()
         pcb = t.spawn("state-test")
@@ -86,14 +86,14 @@ class TestSetState:
         assert pcb.state == ProcessState.RUNNING
 
     def test_set_state_nonexistent(self):
-        from kernel.process import get_table, reset_table, ProcessState
+        from l1.kernel.process import get_table, reset_table, ProcessState
         reset_table()
         t = get_table()
         r = t.set_state(99999, ProcessState.RUNNING)
         assert r is False
 
     def test_zombie_state(self):
-        from kernel.process import get_table, reset_table, ProcessState
+        from l1.kernel.process import get_table, reset_table, ProcessState
         reset_table()
         t = get_table()
         pcb = t.spawn("zombie-test")
@@ -105,7 +105,7 @@ class TestExit:
     """Process exit"""
 
     def test_exit_basic(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         pcb = t.spawn("exit-test")
@@ -113,7 +113,7 @@ class TestExit:
         assert r is True
 
     def test_exit_sets_state(self):
-        from kernel.process import get_table, reset_table, ProcessState
+        from l1.kernel.process import get_table, reset_table, ProcessState
         reset_table()
         t = get_table()
         pcb = t.spawn("exit-state")
@@ -121,7 +121,7 @@ class TestExit:
         assert pcb.state == ProcessState.ZOMBIE
 
     def test_exit_nonexistent(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         r = t.exit(99999)
@@ -132,7 +132,7 @@ class TestReap:
     """Process reaping"""
 
     def test_reap_basic(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         pcb = t.spawn("reap-me")
@@ -142,7 +142,7 @@ class TestReap:
         assert snap["name"] == "reap-me"
 
     def test_reap_nonexistent(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         snap = t.reap(99999)
@@ -153,7 +153,7 @@ class TestList:
     """Process listing"""
 
     def test_list_all(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         t.spawn("list-a")
@@ -162,7 +162,7 @@ class TestList:
         assert len(procs) >= 2
 
     def test_list_by_state(self):
-        from kernel.process import get_table, reset_table, ProcessState
+        from l1.kernel.process import get_table, reset_table, ProcessState
         reset_table()
         t = get_table()
         t.spawn("running-1")
@@ -171,7 +171,7 @@ class TestList:
         assert len(running) >= 1
 
     def test_list_sorted(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         p1 = t.spawn("z-first")
@@ -184,7 +184,7 @@ class TestIdentity:
     """Identity verification mark"""
 
     def test_mark_identity(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         t.spawn("id-test")
@@ -192,7 +192,7 @@ class TestIdentity:
         assert r is True
 
     def test_mark_identity_nonexistent(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         r = t.mark_identity_verified("no-such-agent")
@@ -203,7 +203,7 @@ class TestAudit:
     """Audit log"""
 
     def test_audit_log_basic(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         t.spawn("audit-me")
@@ -212,7 +212,7 @@ class TestAudit:
         assert any(l["name"] == "audit-me" for l in logs)
 
     def test_audit_log_limit(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         t.spawn("a1")
@@ -225,7 +225,7 @@ class TestResourceSummary:
     """Resource summary"""
 
     def test_resource_summary(self):
-        from kernel.process import get_table, reset_table
+        from l1.kernel.process import get_table, reset_table
         reset_table()
         t = get_table()
         s = t.resource_summary()
@@ -239,14 +239,14 @@ class TestPCB:
     """PCB data class"""
 
     def test_pcb_create(self):
-        from kernel.process import PCB, ProcessState
+        from l1.kernel.process import PCB, ProcessState
         pcb = PCB(pid=1, name="test-pcb", role="reader", ring=1)
         assert pcb.pid == 1
         assert pcb.name == "test-pcb"
         assert pcb.role == "reader"
 
     def test_pcb_snapshot(self):
-        from kernel.process import PCB
+        from l1.kernel.process import PCB
         pcb = PCB(pid=2, name="snap-test")
         s = pcb.snapshot()
         assert s["pid"] == 2
@@ -258,7 +258,7 @@ class TestPCB:
         assert "cards_processed" in s
 
     def test_pcb_touch(self):
-        from kernel.process import PCB
+        from l1.kernel.process import PCB
         import time
         pcb = PCB(pid=3, name="touch-test")
         t1 = pcb.last_active

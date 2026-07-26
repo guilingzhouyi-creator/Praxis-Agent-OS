@@ -21,14 +21,14 @@ class TestEvolveSkillValidation:
     """Input validation — no LLM needed."""
 
     def test_evolve_empty_intent(self):
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         r = r4.evolve_skill("")
         assert not r.get("success")
         assert "usage" in r.get("error", "").lower()
 
     def test_evolve_whitespace_intent(self):
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         r = r4.evolve_skill("   ")
         assert not r.get("success")
@@ -39,17 +39,17 @@ class TestEvolveSkillRegistration:
     """Test that evolve_skill registers skills via SkillManager."""
 
     def test_get_evolved_skills_empty_initially(self):
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         assert evolved == []
 
     def test_register_skill_directly_then_retrieve(self):
         """Simulate what evolve_skill does: register via SkillManager with 'evolved' tag."""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -62,7 +62,7 @@ class TestEvolveSkillRegistration:
             procedures=[{"step": "1", "action": "analyze", "description": "Analyze schema changes"}],
         )
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=5)
         assert len(evolved) >= 1
@@ -70,7 +70,7 @@ class TestEvolveSkillRegistration:
         assert "test-migration-helper" in names
 
     def test_get_evolved_skills_limit(self):
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -82,21 +82,21 @@ class TestEvolveSkillRegistration:
                 tags=["evolved"],
             )
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=2)
         assert len(evolved) <= 2  # limit respected
 
     def test_evolved_skills_exclude_lean_cases(self):
         """Evolved skills and lean cases should be separate."""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
         sm.create(name="evolved-one", prompt="evolved prompt", tags=["evolved", "test"])
         sm.create(name="lean-one", prompt="lean prompt", tags=["lean_case", "failure"])
 
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         lean = r4.get_lean_cases()
@@ -111,7 +111,7 @@ class TestSkillManagerPersistence:
 
     def test_skill_manager_create_roundtrip(self):
         """Programmatic create → list roundtrip."""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -132,7 +132,7 @@ class TestSkillManagerPersistence:
 
     def test_skill_list_all_without_tags(self):
         """sm.list() without tags returns all skills."""
-        from kernel.skill import get_skill_manager, reset_skill_manager
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -147,21 +147,21 @@ class TestAgentLoopInjectionIntegration:
     """Verify the injection infrastructure is wired correctly."""
 
     def test_evolved_skills_method_exists(self):
-        from services.r4_agent import R4Agent
+        from l3.r4_agent import R4Agent
         r4 = R4Agent()
         assert hasattr(r4, 'get_evolved_skills')
         assert callable(r4.get_evolved_skills)
 
     def test_agent_loop_imports_r4(self):
         """AgentLoop should be able to import and call get_evolved_skills."""
-        from services.agent_loop import AgentLoop
+        from l3.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
         # The injection is in the run() method, but we just verify the import works
         assert loop is not None
 
     def test_skill_manager_loaded_builtin_adds_evolved_dir(self):
         """Verify load_builtin tries to load from SKILL_EVOLVED_DIR."""
-        from kernel.skill import SkillManager
+        from l1.kernel.skill import SkillManager
         sm = SkillManager()
         count = sm.load_builtin()
         # Should not crash; evolved dir may not exist yet

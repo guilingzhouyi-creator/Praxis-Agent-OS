@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 def test_calc_step_budget():
-    from services.scheduler_scope import ScopeScheduler
+    from l3.scheduler_scope import ScopeScheduler
     ss = ScopeScheduler()
     budget = ss.calc_step_budget(num_phases=2, total_steps=4)
     assert 10 <= budget <= 30
@@ -13,21 +13,21 @@ def test_calc_step_budget():
 
 
 def test_calc_step_budget_capped():
-    from services.scheduler_scope import ScopeScheduler
+    from l3.scheduler_scope import ScopeScheduler
     ss = ScopeScheduler()
     budget = ss.calc_step_budget(num_phases=10, total_steps=50)
     assert budget == 30
 
 
 def test_check_scout_quota():
-    from services.scheduler_scope import ScopeScheduler
+    from l3.scheduler_scope import ScopeScheduler
     ss = ScopeScheduler()
     r = ss.check_scout_quota("test-agent")
     assert r.get("allowed")
 
 
 def test_acquire_release_scout():
-    from services.scheduler_scope import ScopeScheduler
+    from l3.scheduler_scope import ScopeScheduler
     ss = ScopeScheduler()
     ss.acquire_scout("busy-agent")
     r = ss.check_scout_quota("busy-agent")
@@ -38,14 +38,14 @@ def test_acquire_release_scout():
 
 
 def test_stats():
-    from services.scheduler_scope import ScopeScheduler
+    from l3.scheduler_scope import ScopeScheduler
     ss = ScopeScheduler()
     s = ss.stats()
     assert "active_scouts" in s
 
 
 def test_get_scheduler():
-    from services.scheduler_scope import get_scope_scheduler, reset_scope_scheduler
+    from l3.scheduler_scope import get_scope_scheduler, reset_scope_scheduler
     reset_scope_scheduler()
     s1 = get_scope_scheduler()
     s2 = get_scope_scheduler()

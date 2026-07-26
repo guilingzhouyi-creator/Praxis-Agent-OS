@@ -16,7 +16,7 @@ from __future__ import annotations
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from kernel.rule_descriptor import (
+from l1.kernel.rule_descriptor import (
     RuleDescriptor,
     RuleSeverity,
     CheckResult,
