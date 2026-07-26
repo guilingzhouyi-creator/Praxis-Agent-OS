@@ -6,7 +6,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kernel.params import POLL_INTERVAL_HANDLER, OUTPUT_MAX_LINES, OUTPUT_MAX_CHARS, AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT
+from kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT
+from kernel.params.system import POLL_INTERVAL_HANDLER, OUTPUT_MAX_LINES, OUTPUT_MAX_CHARS
 from kernel.platform import SHELL_PATH
 
 logger = logging.getLogger(__name__)

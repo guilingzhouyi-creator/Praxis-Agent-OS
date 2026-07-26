@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import IO
 
-from kernel.params import BUFFER_MAX, POLL_INTERVAL_SLOW
+from kernel.params.system import BUFFER_MAX, POLL_INTERVAL_SLOW
 from kernel.platform import IS_WINDOWS, create_interactive_shell, set_nonblocking
 
 logger = logging.getLogger(__name__)

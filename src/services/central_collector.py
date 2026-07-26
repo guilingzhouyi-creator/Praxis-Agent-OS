@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 from kernel import get_event_bus, SignalType
-from kernel.params import TOKEN_CELL_QUOTA, TOKEN_GLOBAL_QUOTA
+from kernel.params.system import TOKEN_CELL_QUOTA, TOKEN_GLOBAL_QUOTA
 
 logger = logging.getLogger(__name__)
 

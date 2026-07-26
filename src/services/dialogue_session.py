@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import DIALOGUE_SESSION_PATH, DIALOGUE_SESSION_AUTO_SAVE, DIALOGUE_IDLE_TIMEOUT
+from kernel.params.system import DIALOGUE_SESSION_PATH, DIALOGUE_SESSION_AUTO_SAVE, DIALOGUE_IDLE_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

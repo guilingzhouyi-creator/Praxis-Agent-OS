@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from kernel.params import GIT_TIMEOUT
+from kernel.params.api import GIT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

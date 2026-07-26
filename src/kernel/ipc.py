@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from .params import IPC_DEFAULT_PRIORITY, IPC_MSG_ID_LENGTH, IPC_REQUEST_TIMEOUT
+from .params.kernel import IPC_DEFAULT_PRIORITY, IPC_MSG_ID_LENGTH, IPC_REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

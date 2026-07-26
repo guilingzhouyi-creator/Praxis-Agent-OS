@@ -11,17 +11,22 @@ import logging
 import threading
 import time as _time
 
-from kernel.params import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
+from kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
 
 logger = logging.getLogger(__name__)
 
-from kernel.params import RING_NUM_MAP as _RNM, RING_1 as _R1, RING_2_5 as _R25, RING_3 as _R3
+from kernel.params.kernel import (
+    RING_NUM_MAP as _RNM,
+    RING_1 as _R1,
+    RING_2_5 as _R25,
+    RING_3 as _R3,
+)
 _RING_ORDER = _RNM
 _RING_RATE = {_R1: TOOL_RATE_RING_1, _R25: TOOL_RATE_RING_2_5, _R3: TOOL_RATE_RING_3}
 
 
 def agent_can_access(agent_id: str, tool_ring: str) -> bool:
-    from kernel.params import AGENT_CLEARANCE
+    from kernel.params.agent import AGENT_CLEARANCE
     level = AGENT_CLEARANCE.get(agent_id, 1)
     return level >= _RING_ORDER.get(tool_ring, 0)
 

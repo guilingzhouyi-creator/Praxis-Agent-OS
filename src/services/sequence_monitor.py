@@ -26,7 +26,12 @@ import time
 from collections import defaultdict
 from typing import Any
 
-from kernel.params import SEQ_MONITOR_PATH, SEQ_MONITOR_NGRAM, SEQ_MONITOR_MIN_SAMPLES, SEQ_MONITOR_ANOMALY_THRESHOLD
+from kernel.params.system import (
+    SEQ_MONITOR_PATH,
+    SEQ_MONITOR_NGRAM,
+    SEQ_MONITOR_MIN_SAMPLES,
+    SEQ_MONITOR_ANOMALY_THRESHOLD,
+)
 
 logger = logging.getLogger(__name__)
 

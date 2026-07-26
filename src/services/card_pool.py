@@ -29,7 +29,7 @@ class CardPool:
     def _load_registries_from_config(self) -> None:
         """Load remote registry URLs from praxis.yaml card_pool.registries."""
         try:
-            from kernel.params import PRAXIS_CONFIG_DIR
+            from kernel.params.system import PRAXIS_CONFIG_DIR
             import yaml
             cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "praxis.yaml")
             if os.path.exists(cfg_path):

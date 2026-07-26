@@ -105,7 +105,7 @@ class CentralSecurity:
 
         # 4. Identity / clearance
         try:
-            from kernel.params import AGENT_CLEARANCE
+            from kernel.params.agent import AGENT_CLEARANCE
             ring = AGENT_CLEARANCE.get(agent_id, 1)
             verdict.add_gate("clearance", ring >= 1, detail=f"agent_ring={ring}", score=0.1 if ring < 1 else 0)
         except Exception as e:
@@ -126,7 +126,7 @@ class CentralSecurity:
         try:
             from .tool_pipeline import get_pipeline as _gp
             pipe = _gp()
-            from kernel.params import RING_NUM_MAP as _RNM
+            from kernel.params.kernel import RING_NUM_MAP as _RNM
             from .tool_config import ToolConfig as _TC
             tool_ring = _RNM.get("RING_2_5" if action in _TC.write_tool_names() else "RING_1", 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)

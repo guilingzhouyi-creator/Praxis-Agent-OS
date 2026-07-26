@@ -27,7 +27,12 @@ import threading
 import time
 from typing import Any
 
-from kernel.params import RC_PATH, RC_FLUSH_INTERVAL, RC_MAX_EVENTS, RC_EXPORT_LIMIT
+from kernel.params.system import (
+    RC_PATH,
+    RC_FLUSH_INTERVAL,
+    RC_MAX_EVENTS,
+    RC_EXPORT_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 

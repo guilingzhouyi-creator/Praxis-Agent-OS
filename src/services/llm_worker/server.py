@@ -88,7 +88,7 @@ def main() -> None:
     if not socket_path and len(sys.argv) > 2 and sys.argv[1] == "--socket":
         socket_path = sys.argv[2]
     if not socket_path:
-        from kernel.params import IPC_LLM_SOCKET
+        from kernel.params.api import IPC_LLM_SOCKET
         socket_path = IPC_LLM_SOCKET
 
     logging.basicConfig(level=logging.INFO)

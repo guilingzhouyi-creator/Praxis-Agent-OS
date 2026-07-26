@@ -26,9 +26,8 @@ import time
 from typing import Any
 
 from kernel import emit_signal
-from kernel.params import (
-    ARCHIVE_CHECK_INTERVAL, R4_AGENT_ID, R4_ROLE, R4_TERRITORY,
-)
+from kernel.params.agent import R4_AGENT_ID, R4_ROLE, R4_TERRITORY
+from kernel.params.system import ARCHIVE_CHECK_INTERVAL
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +148,7 @@ class R4Agent:
             total_issues = len(stale) + len(contradictions)
             if total_issues > 0:
                 self._total_alerts += total_issues
-                from kernel.params import EVENT_ARCHIVE_ALERT
+                from kernel.params.agent import EVENT_ARCHIVE_ALERT
                 emit_signal(EVENT_ARCHIVE_ALERT, sender="r4-agent", target="l3",
                             data={"issues": total_issues, "stale": len(stale),
                                   "contradictions": len(contradictions)})
@@ -249,7 +248,8 @@ class R4Agent:
                        args: dict, error: str, turn_log: list[dict]) -> None:
         """Record a tool call failure for later analysis and lean case generation."""
         try:
-            from kernel.params import SKILL_LEAN_DIR, SKILL_LEAN_CASE_TEMPLATE
+            from kernel.params.system import SKILL_LEAN_DIR
+            from kernel.params.system import SKILL_LEAN_CASE_TEMPLATE
             import json, os
             entry = {
                 "agent_id": agent_id, "tool": tool_name, "args": args,
@@ -268,7 +268,7 @@ class R4Agent:
     def _process_failure_traces(self) -> int:
         """Scan pending failure traces and generate lean case Skill entries."""
         import json, os
-        from kernel.params import SKILL_LEAN_DIR
+        from kernel.params.system import SKILL_LEAN_DIR
         from kernel.skill import get_skill_manager
 
         processed = 0
@@ -352,7 +352,7 @@ class R4Agent:
             from kernel.prompts import get_prompt
             from kernel.skill import get_skill_manager
             import json, os
-            from kernel.params import SKILL_EVOLVED_DIR
+            from kernel.params.system import SKILL_EVOLVED_DIR
 
             system = get_prompt("r4_agent.skill_architect", "")
             prompt = f"Create a skill for: {intent.strip()}"

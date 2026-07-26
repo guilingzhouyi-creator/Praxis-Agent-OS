@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .params import (
+from .params.agent import (
     CONSTITUTION_ACTION_LEN_THRESHOLD,
     CONSTITUTION_CUSTOM_SECTION,
     CONSTITUTION_DEFAULT_PATH,

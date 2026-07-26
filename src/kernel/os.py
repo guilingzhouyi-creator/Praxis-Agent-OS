@@ -25,7 +25,12 @@ import time
 from enum import Enum, auto
 from typing import Any
 
-from .params import WATCHDOG_INTERVAL, WATCHDOG_ZOMBIE_LIMIT, WATCHDOG_IDLE_LIMIT, WATCHDOG_INTERRUPT_LIMIT
+from .params.kernel import (
+    WATCHDOG_INTERVAL,
+    WATCHDOG_ZOMBIE_LIMIT,
+    WATCHDOG_IDLE_LIMIT,
+    WATCHDOG_INTERRUPT_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 

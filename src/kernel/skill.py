@@ -94,7 +94,7 @@ class SkillManager:
                 count += self.load_dir(path2)
         # Also load evolved skills from data directory
         try:
-            from kernel.params import SKILL_EVOLVED_DIR
+            from kernel.params.system import SKILL_EVOLVED_DIR
             if os.path.isdir(SKILL_EVOLVED_DIR):
                 count += self.load_dir(SKILL_EVOLVED_DIR)
         except Exception:

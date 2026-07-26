@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from kernel import EVENT_TASK_ASSIGN, emit_signal
-from kernel.params import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
+from kernel.params.agent import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
 from services.cell_types import CellProtocol, MessageType
 from services.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
 

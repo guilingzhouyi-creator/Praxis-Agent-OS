@@ -24,7 +24,15 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from .params import PROCESS_AUDIT_MAX, PROCESS_INIT_NAME, PROCESS_INIT_ROLE, PROCESS_INIT_RING, PROCESS_DEFAULT_RING, PROCESS_AUDIT_LOG_LIMIT, ZOMBIE_REAPER_INTERVAL
+from .params.kernel import (
+    PROCESS_AUDIT_MAX,
+    PROCESS_INIT_NAME,
+    PROCESS_INIT_ROLE,
+    PROCESS_INIT_RING,
+    PROCESS_DEFAULT_RING,
+    PROCESS_AUDIT_LOG_LIMIT,
+    ZOMBIE_REAPER_INTERVAL,
+)
 
 logger = logging.getLogger(__name__)
 

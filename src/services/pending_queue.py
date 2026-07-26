@@ -24,7 +24,7 @@ from enum import Enum, auto
 from typing import Any
 
 from kernel import EVENT_TASK_ASSIGN, emit_signal
-from kernel.params import PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE
+from kernel.params.system import PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE
 from services._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

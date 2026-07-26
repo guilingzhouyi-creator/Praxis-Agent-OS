@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from .params import (
+from .params.kernel import (
     DEVICE_HEALTH_INTERVAL,
     DEVICE_DEGRADED_THRESHOLD,
     DEVICE_DOWN_THRESHOLD,

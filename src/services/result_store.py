@@ -25,7 +25,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from kernel.params import RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL
+from kernel.params.system import RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL
 
 logger = logging.getLogger(__name__)
 

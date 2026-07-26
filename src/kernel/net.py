@@ -25,7 +25,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from .params import NET_PEER_TIMEOUT, PRAXIS_PORT_DEFAULT, ENV_PRAXIS_PORT
+from .params.api import PRAXIS_PORT_DEFAULT, ENV_PRAXIS_PORT
+from .params.system import NET_PEER_TIMEOUT
 from .net_transport import TransportConfig, TcpAdapter
 from .ports import (
     TransportPort, EventBusPort, I18nPort, CardRegistryPort,

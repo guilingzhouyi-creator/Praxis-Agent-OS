@@ -14,7 +14,7 @@ class TestRCExportLimit:
     """reference_channel.py: RC_EXPORT_LIMIT replaces 999999 magic number."""
 
     def test_constant_exists(self):
-        from kernel.params import RC_EXPORT_LIMIT
+        from kernel.params.system import RC_EXPORT_LIMIT
         assert RC_EXPORT_LIMIT == 999999
 
     def test_used_in_count(self):
@@ -37,7 +37,7 @@ class TestLogExportLimit:
     """log.py: LOG_EXPORT_LIMIT replaces 10000 magic number."""
 
     def test_constant_defined(self):
-        from kernel.params import LOG_EXPORT_LIMIT
+        from kernel.params.system import LOG_EXPORT_LIMIT
         assert LOG_EXPORT_LIMIT == 10000
 
 
@@ -45,7 +45,7 @@ class TestToolBuildTimeout:
     """tools/_build.py: TOOL_BUILD_TIMEOUT replaces timeout=120."""
 
     def test_constant_defined(self):
-        from kernel.params import TOOL_BUILD_TIMEOUT
+        from kernel.params.tool import TOOL_BUILD_TIMEOUT
         assert TOOL_BUILD_TIMEOUT == 300
 
     def test_imported_in_build_module(self):
@@ -57,7 +57,7 @@ class TestAgentPriority:
     """boot.py: AGENT_PRIORITY config map replaces if/else priority."""
 
     def test_priority_map_defined(self):
-        from kernel.params import AGENT_PRIORITY
+        from kernel.params.agent import AGENT_PRIORITY
         assert isinstance(AGENT_PRIORITY, dict)
         assert "default" in AGENT_PRIORITY
         assert "reviewer" in AGENT_PRIORITY
@@ -67,7 +67,7 @@ class TestAgentPriority:
         assert AGENT_PRIORITY["reader"] == 5
 
     def test_unknown_role_falls_back(self):
-        from kernel.params import AGENT_PRIORITY
+        from kernel.params.agent import AGENT_PRIORITY
         # get with default should match boot.py behavior
         fallback = AGENT_PRIORITY.get("nonexistent_role", 5)
         assert fallback == 5

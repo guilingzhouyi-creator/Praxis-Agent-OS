@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kernel.params import ARCHIVE_IMPORTANCE_THRESHOLD, ARCHIVE_RESTORE_LIMIT
+from kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, ARCHIVE_RESTORE_LIMIT
 
 logger = logging.getLogger(__name__)
 

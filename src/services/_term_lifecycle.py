@@ -7,7 +7,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from kernel.params import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT, KEEPALIVE_CACHE_HIT_MIN, KEEPALIVE_MAX_TOKENS
+from kernel.params.agent import (
+    CACHE_KEEPALIVE_INTERVAL,
+    CACHE_KEEPALIVE_PROMPT,
+    KEEPALIVE_CACHE_HIT_MIN,
+    KEEPALIVE_MAX_TOKENS,
+)
 
 
 def run_cache_keepalive(term: Any) -> None:
@@ -25,7 +30,7 @@ def run_cache_keepalive(term: Any) -> None:
         if not term._running:
             break
         with term._lock:
-            from kernel.params import AGENT_STATUS_IDLE
+            from kernel.params.agent import AGENT_STATUS_IDLE
             if term.status.name != AGENT_STATUS_IDLE:
                 continue
         try:

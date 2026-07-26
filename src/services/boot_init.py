@@ -93,7 +93,7 @@ def init_services() -> dict:
         load_prompt_overrides(prompt_cfg)
         results["prompts"] = "ok"
 
-    from kernel.params import KERNEL_VERSION
+    from kernel.params.system import KERNEL_VERSION
     results["version"] = KERNEL_VERSION
 
     # Start R4Agent background archive loop

@@ -283,7 +283,7 @@ def test_dialogue_session_json_persist_nonexistent():
 # ── Memory restore truncation tests ──
 
 def test_memory_restore_limits_default_to_unlimited():
-    from kernel.params import MEMORY_RING2_RESTORE_LIMIT, MEMORY_RING3_RESTORE_LIMIT
+    from kernel.params.system import MEMORY_RING2_RESTORE_LIMIT, MEMORY_RING3_RESTORE_LIMIT
     assert MEMORY_RING2_RESTORE_LIMIT == 0
     assert MEMORY_RING3_RESTORE_LIMIT == 0
 
@@ -301,9 +301,13 @@ def test_persist_wal_mode():
 # ── Configurable paths test ──
 
 def test_params_persistence_paths():
-    from kernel.params import (
-        CARD_REGISTRY_PATH, TODO_TABLE_PATH, TRANSACTION_AREA_PATH,
-        STATECHARTS_PATH, EXECUTION_RESULTS_PATH, DIALOGUE_SESSION_PATH,
+    from kernel.params.system import (
+        CARD_REGISTRY_PATH,
+        TODO_TABLE_PATH,
+        TRANSACTION_AREA_PATH,
+        STATECHARTS_PATH,
+        EXECUTION_RESULTS_PATH,
+        DIALOGUE_SESSION_PATH,
     )
     assert CARD_REGISTRY_PATH.endswith(".json")
     assert TODO_TABLE_PATH.endswith(".json")

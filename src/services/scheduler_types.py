@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import SCHEDULER_BACKGROUND_PRIORITY, DEFAULT_QUANTUM, MAX_PREEMPT
+from kernel.params.system import SCHEDULER_BACKGROUND_PRIORITY, DEFAULT_QUANTUM, MAX_PREEMPT
 
 
 class TaskPriority(Enum):

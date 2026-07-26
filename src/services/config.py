@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from kernel.params import API_GATEWAY_PORT, API_GATEWAY_HOST
+from kernel.params.api import API_GATEWAY_PORT, API_GATEWAY_HOST
 
 from services._base import BaseService
 

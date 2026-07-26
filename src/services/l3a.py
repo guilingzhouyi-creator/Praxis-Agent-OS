@@ -17,10 +17,10 @@ from enum import Enum, auto
 from typing import Any
 
 from kernel.prompts import get_prompt
-from kernel.params import L3A_MAX_STEPS, L3A_TIMEOUT
+from kernel.params.agent import L3A_MAX_STEPS, L3A_TIMEOUT
 from .card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
 
-from kernel.params import DEFAULT_CELL_ID
+from kernel.params.agent import DEFAULT_CELL_ID
 
 logger = logging.getLogger(__name__)
 

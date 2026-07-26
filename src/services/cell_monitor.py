@@ -99,7 +99,7 @@ class CellMonitor:
         with self._lock:
             snap = self._snapshots.get(cell_id)
             if snap:
-                from kernel.params import AGENT_STATUS_CRASHED
+                from kernel.params.agent import AGENT_STATUS_CRASHED
                 snap.agent_status[agent_id] = AGENT_STATUS_CRASHED
                 snap.cell_healthy = False
         return {"success": True}

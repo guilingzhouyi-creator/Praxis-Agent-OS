@@ -34,7 +34,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from kernel.params import LSP_MANAGER_TIMEOUT
+from kernel.params.api import LSP_MANAGER_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

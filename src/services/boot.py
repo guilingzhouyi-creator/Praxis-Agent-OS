@@ -25,7 +25,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from kernel.params import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION, DEFAULT_CELL_ID, LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
+from kernel.params.agent import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, DEFAULT_CELL_ID
+from kernel.params.api import LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
+from kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +262,7 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
 def _load_constitution() -> dict:
     """Load constitution from .nomos-rules.md into both territory and rule engine."""
     from pathlib import Path
-    from kernel.params import CONSTITUTION_DEFAULT_PATH, CONSTITUTION_ENV_VAR
+    from kernel.params.agent import CONSTITUTION_DEFAULT_PATH, CONSTITUTION_ENV_VAR
     from kernel.constitution import load_territory, TerritoryConstitution, get_constitution
     path = Path(os.environ.get(CONSTITUTION_ENV_VAR, CONSTITUTION_DEFAULT_PATH))
     try:
@@ -307,7 +309,7 @@ def _init_kernel_and_vfs() -> dict:
     from kernel.gatechain import get_gatechain
     from kernel.vfs import get_vfs, MountType
     from kernel.device import get_device_manager, DeviceType
-    from kernel.params import KERNEL_VERSION
+    from kernel.params.system import KERNEL_VERSION
 
     results = {}
     for name, fn in [

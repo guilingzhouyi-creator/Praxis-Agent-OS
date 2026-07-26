@@ -23,7 +23,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from kernel.platform import get_config_dir
-from kernel.params import SNAPSHOT_PATH_TEMPLATE
+from kernel.params.system import SNAPSHOT_PATH_TEMPLATE
 
 _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 

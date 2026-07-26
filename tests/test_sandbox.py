@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 def _clear_sandbox_state() -> None:
     """Remove the persisted sandbox state file so each test starts clean."""
     try:
-        from kernel.params import SANDBOX_STATE_PATH
+        from kernel.params.system import SANDBOX_STATE_PATH
         if os.path.exists(SANDBOX_STATE_PATH):
             os.remove(SANDBOX_STATE_PATH)
     except Exception:

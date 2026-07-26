@@ -19,11 +19,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import (
-    AGENT_LOOP_DEFAULT_STEPS,
-    KERNEL_VERSION,
-    PRAXIS_CODENAME,
-)
+from kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
+from kernel.params.system import KERNEL_VERSION, PRAXIS_CODENAME
 
 logger = logging.getLogger(__name__)
 

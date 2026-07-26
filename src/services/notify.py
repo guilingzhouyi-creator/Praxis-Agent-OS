@@ -12,7 +12,7 @@ import urllib.request
 from typing import Any
 
 from services._base import BaseService
-from kernel.params import NOTIFY_WEBHOOK_TIMEOUT, HTTP_USER_AGENT
+from kernel.params.api import NOTIFY_WEBHOOK_TIMEOUT, HTTP_USER_AGENT
 
 logger = logging.getLogger(__name__)
 

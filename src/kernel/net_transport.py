@@ -29,12 +29,17 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .params import (
-    ENV_DISCOVERY_PORT, ENV_PRAXIS_PORT,
-    DISCOVERY_PORT_DEFAULT, PRAXIS_PORT_DEFAULT,
-    NET_PEER_TIMEOUT, BROADCAST_INTERVAL,
-    NET_TLS_ENABLED, NET_TLS_CERT_PATH, NET_TLS_KEY_PATH,
+from .params.api import (
+    ENV_DISCOVERY_PORT,
+    ENV_PRAXIS_PORT,
+    DISCOVERY_PORT_DEFAULT,
+    PRAXIS_PORT_DEFAULT,
+    BROADCAST_INTERVAL,
+    NET_TLS_ENABLED,
+    NET_TLS_CERT_PATH,
+    NET_TLS_KEY_PATH,
 )
+from .params.system import NET_PEER_TIMEOUT
 from .ports import (
     TransportPort, WorkerPort, ChannelPort,
     Endpoint, Result as PortResult, Message,

@@ -28,7 +28,15 @@ import threading
 import time
 from typing import Any
 
-from .params import PERSIST_PATH, PERSIST_AUTO, PERSIST_INTERVAL, PERSIST_QUERY_LIMIT, PERSIST_EXPORT_LIMIT, PERSIST_EXPORT_INTERRUPT_LIMIT, PRAXIS_EVENTS_DB
+from .params.system import (
+    PERSIST_PATH,
+    PERSIST_AUTO,
+    PERSIST_INTERVAL,
+    PERSIST_QUERY_LIMIT,
+    PERSIST_EXPORT_LIMIT,
+    PERSIST_EXPORT_INTERRUPT_LIMIT,
+    PRAXIS_EVENTS_DB,
+)
 
 logger = logging.getLogger(__name__)
 

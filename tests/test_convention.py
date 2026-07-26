@@ -35,9 +35,9 @@ class TestConventionData:
         assert len(r.transcripts) == 1
 
     def test_max_rounds_constant(self):
-        from kernel.params import CONVENTION_MAX_ROUNDS
+        from kernel.params.agent import CONVENTION_MAX_ROUNDS
         assert CONVENTION_MAX_ROUNDS >= 1
 
     def test_max_agents_constant(self):
-        from kernel.params import CONVENTION_MAX_AGENTS
+        from kernel.params.agent import CONVENTION_MAX_AGENTS
         assert CONVENTION_MAX_AGENTS >= 3

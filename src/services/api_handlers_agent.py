@@ -1,7 +1,7 @@
 """Agent API handlers — extracted from api_handlers.py."""
 from __future__ import annotations
 from typing import Any
-from kernel.params import DEFAULT_CELL_ID
+from kernel.params.agent import DEFAULT_CELL_ID
 
 
 def agent_list(body: dict | None = None) -> dict:

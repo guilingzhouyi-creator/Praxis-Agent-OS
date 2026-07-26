@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from typing import IO, Any
 
-from kernel.params import PROCESS_WAIT_TIMEOUT
+from kernel.params.kernel import PROCESS_WAIT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

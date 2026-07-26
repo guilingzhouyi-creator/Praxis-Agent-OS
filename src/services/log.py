@@ -23,11 +23,16 @@ from pathlib import Path
 from typing import Any
 
 from services._base import BaseService
-from kernel.params import LOG_MAX_MEMORY_ENTRIES, LOG_MAX_FILE_SIZE, LOG_MAX_FILES, LOG_EXPORT_LIMIT
+from kernel.params.system import (
+    LOG_MAX_MEMORY_ENTRIES,
+    LOG_MAX_FILE_SIZE,
+    LOG_MAX_FILES,
+    LOG_EXPORT_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 
-from kernel.params import PRAXIS_CONFIG_DIR
+from kernel.params.system import PRAXIS_CONFIG_DIR
 from kernel.platform import get_config_dir
 _LOG_DIR = Path(get_config_dir()) / "logs"
 

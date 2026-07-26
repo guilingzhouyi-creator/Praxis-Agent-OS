@@ -27,11 +27,13 @@ from .device import get_device_manager, DeviceType, DeviceHealth
 from .vfs import get_vfs
 from .skill import get_skill_manager
 from .tool_chain import get_tool_chain
-from .params import (
+from .params.kernel import (
     SYSCALL_AUDIT_MAX, SYSCALL_AUDIT_DETAIL_MAXLEN, SYSCALL_AUDIT_QUERY_LIMIT,
     SYSCALL_DEFAULT_FALLBACK, SYSCALL_DEFAULT_SIGNAL_TYPE, SYSCALL_DEFAULT_COST,
     SYSCALL_DEFAULT_RING, SYSCALL_DEFAULT_RESOURCE, SYSCALL_REGISTER_DEFAULT_AGENT,
     BARRIER_DEFAULT_COUNT,
+)
+from .params.agent import (
     EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED, EVENT_TOKEN_USAGE,
     EVENT_CROSS_REVIEW, EVENT_AGENT_BOOT, EVENT_ARCHIVE_ALERT,
 )
@@ -227,7 +229,7 @@ def emit_signal(signal_type: str, sender: str = "system", target: str = "",
 
 def push_event(event_type: str, data: dict | None = None) -> None:
     """Push an event to the kernel event bus (migrated from server.py)."""
-    from .params import EVENT_TASK_ASSIGN
+    from .params.agent import EVENT_TASK_ASSIGN
     emit_signal(EVENT_TASK_ASSIGN, sender="kernel.push_event", target="cell",
                 data={"type": event_type, **(data or {})})
 

@@ -9,7 +9,7 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
-from kernel.params import RC_EXPORT_LIMIT
+from kernel.params.system import RC_EXPORT_LIMIT
 
 
 # ── Helpers ──

@@ -31,11 +31,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 from services._base import BaseService
-from kernel.params import (
-    ERROR_BUS_BUFFER,
-    ERROR_BUS_DEDUP_WINDOW,
-    ERROR_BUS_EXPORT_LIMIT,
-)
+from kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT
 from kernel.platform import get_config_dir
 
 logger = logging.getLogger(__name__)
@@ -720,92 +716,10 @@ def capture_exception(
 # These handlers are mixed into the ApiHandlers class in api_handlers.py
 
 
-def _parse_float(body: dict, key: str) -> float | None:
-    v = body.get(key)
-    if v is not None:
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            pass
-    return None
+# ── Re-export API handlers from sub-module ──
 
-
-def _parse_int(body: dict, key: str, default: int = 0) -> int:
-    v = body.get(key)
-    if v is not None:
-        try:
-            return int(v)
-        except (ValueError, TypeError):
-            pass
-    return default
-
-
-# ── /api/logs/errors ──
-
-
-def handle_log_errors(body: dict | None = None) -> dict:
-    """GET /api/logs/errors — Paginated error list (frontend error list page)"""
-    b = body or {}
-    bus = get_bus()
-    return bus.query(
-        level=b.get("level"),
-        error_code=b.get("error_code"),
-        component=b.get("component"),
-        service=b.get("service"),
-        agent_id=b.get("agent_id"),
-        since=_parse_float(b, "since"),
-        until=_parse_float(b, "until"),
-        offset=_parse_int(b, "offset", 0),
-        limit=_parse_int(b, "limit", 50),
-    )
-
-
-def handle_log_errors_detail(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/detail — Lookup single error detail by fingerprint"""
-    b = body or {}
-    fingerprint = b.get("fingerprint", "")
-    if not fingerprint:
-        return {"success": False, "error": "fingerprint is required"}
-    entry = get_bus().get_by_fingerprint(fingerprint)
-    if entry is None:
-        return {"success": False, "error": "not found"}
-    return {"success": True, "entry": entry}
-
-
-def handle_log_errors_stats(body: dict | None = None) -> dict:
-    """GET /api/logs/errors/stats — Error statistics overview (frontend dashboard)"""
-    return get_bus().stats()
-
-
-def handle_log_errors_trend(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/trend — Error trend (frontend trend chart)"""
-    b = body or {}
-    window = _parse_int(b, "window", 60)
-    bucket = _parse_int(b, "bucket", 10)
-    return get_bus().trend(window_minutes=window, bucket_minutes=bucket)
-
-
-def handle_log_errors_clear(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/clear — Clear errors (maintenance operation)"""
-    b = body or {}
-    before = _parse_float(b, "before")
-    return get_bus().clear(before=before)
-
-
-def handle_log_errors_export(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/export — Export error logs to JSON"""
-    b = body or {}
-    path = b.get("path", "")
-    return get_bus().export(path=path)
-
-
-# ── Register with API Gateway ──
-
-LOG_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/logs/errors", handle_log_errors, "Query error logs (paginated)"),
-    ("POST", "/api/logs/errors/detail", handle_log_errors_detail, "Error detail by fingerprint"),
-    ("GET", "/api/logs/errors/stats", handle_log_errors_stats, "Error statistics overview"),
-    ("POST", "/api/logs/errors/trend", handle_log_errors_trend, "Error trend (time buckets)"),
-    ("POST", "/api/logs/errors/clear", handle_log_errors_clear, "Clear error buffer"),
-    ("POST", "/api/logs/errors/export", handle_log_errors_export, "Export errors to JSON"),
-]
+from .api import (  # noqa: F401
+    handle_log_errors, handle_log_errors_detail,
+    handle_log_errors_stats, handle_log_errors_trend,
+    handle_log_errors_clear, handle_log_errors_export,
+)

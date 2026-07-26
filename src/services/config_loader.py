@@ -14,13 +14,18 @@ import re
 from pathlib import Path
 from typing import Any, Callable
 
-from kernel.params import (
-    TERRITORY_MAP, TERRITORY_PATHS, SHARED_PATHS,
-    DEFAULT_AGENT_CONFIGS, AGENT_CLEARANCE,
-    ALLOCATOR_DEFAULTS, SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT,
-    SCOUT_CACHE_TTL, TERMINAL_MAX_WORKERS, TERMINAL_POLL_INTERVAL,
+from kernel.params.agent import (
+    TERRITORY_MAP,
+    TERRITORY_PATHS,
+    SHARED_PATHS,
+    DEFAULT_AGENT_CONFIGS,
+    AGENT_CLEARANCE,
+    TERMINAL_MAX_WORKERS,
+    TERMINAL_POLL_INTERVAL,
     CARD_WAIT_TIMEOUT,
 )
+from kernel.params.kernel import ALLOCATOR_DEFAULTS
+from kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
 from kernel.device import get_device_manager, DeviceType
 from .config_handlers import (
     cfg_kernel, cfg_cell, cfg_llm, cfg_constitution, cfg_gatechain,

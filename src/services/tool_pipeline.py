@@ -12,7 +12,9 @@ from typing import Any, Callable
 from kernel import Signal, SignalType, get_event_bus, get_rwlock, get_semaphore
 from kernel.allocator import get_allocator
 from kernel.constitution import get_constitution
-from kernel.params import RING_1 as _RING_1, RING_NUM_MAP, TOOL_EXEC_TOKEN_BUDGET, SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
+from kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
+from kernel.params.kernel import RING_1 as _RING_1, RING_NUM_MAP
+from kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
 from kernel.tool_chain import get_tool_chain
 
 from .scheduler_rate import agent_can_access, get_rate_scheduler

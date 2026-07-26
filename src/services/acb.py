@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from services._base import BaseService
-from kernel.params import DEFAULT_TOKEN_BUDGET
+from kernel.params.system import DEFAULT_TOKEN_BUDGET
 
 logger = logging.getLogger(__name__)
 

@@ -19,9 +19,12 @@ import time
 from typing import Any, Callable
 
 from kernel.ports import WorkerPort, Result
-from kernel.params import (
-    WORKER_POOL_MIN, WORKER_POOL_MAX, WORKER_POOL_QUEUE_SIZE,
-    WORKER_POOL_IDLE_TIMEOUT, WORKER_POOL_TASK_TIMEOUT,
+from kernel.params.api import (
+    WORKER_POOL_MIN,
+    WORKER_POOL_MAX,
+    WORKER_POOL_QUEUE_SIZE,
+    WORKER_POOL_IDLE_TIMEOUT,
+    WORKER_POOL_TASK_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)

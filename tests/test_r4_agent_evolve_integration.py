@@ -40,7 +40,7 @@ class TestEvolveSkillLLMFullFlow:
         """Mock LLM → evolve_skill → SkillManager → SKILL.md 完整链路."""
         from services.r4_agent import R4Agent
         from kernel.skill import get_skill_manager, reset_skill_manager
-        from kernel.params import SKILL_EVOLVED_DIR
+        from kernel.params.system import SKILL_EVOLVED_DIR
 
         # 清理
         reset_skill_manager()
@@ -201,7 +201,7 @@ Prompt for {name}.""")
         """evolve_skill 生成的 SKILL.md 必须有合法的 YAML frontmatter。"""
         from services.r4_agent import R4Agent
         from kernel.skill import get_skill_manager, reset_skill_manager
-        from kernel.params import SKILL_EVOLVED_DIR
+        from kernel.params.system import SKILL_EVOLVED_DIR
         import yaml
 
         reset_skill_manager()

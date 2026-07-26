@@ -16,7 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from kernel.params import CI_SHELL_TIMEOUT, CI_DEFAULT_TIMEOUT, CI_PIPELINE_CACHE_TTL
+from kernel.params.api import CI_SHELL_TIMEOUT
+from kernel.params.system import CI_DEFAULT_TIMEOUT, CI_PIPELINE_CACHE_TTL
 from kernel.platform import SHELL_PATH
 from services._base import BaseService
 

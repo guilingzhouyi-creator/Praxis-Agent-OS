@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from kernel.params import POLL_INTERVAL_DEFAULT
+from kernel.params.system import POLL_INTERVAL_DEFAULT
 
 logger = logging.getLogger(__name__)
 

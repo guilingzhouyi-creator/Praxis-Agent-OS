@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from kernel.constitution import get_constitution
-from kernel.params import TERRITORY_MAP as PARAMS_TERRITORY, TERRITORY_PATHS as PARAMS_PATHS, SHARED_PATHS as PARAMS_SHARED
+from kernel.params.agent import TERRITORY_MAP as PARAMS_TERRITORY, TERRITORY_PATHS as PARAMS_PATHS, SHARED_PATHS as PARAMS_SHARED
 
 logger = logging.getLogger(__name__)
 

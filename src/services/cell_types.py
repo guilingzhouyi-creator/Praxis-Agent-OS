@@ -59,7 +59,7 @@ class MessageType(Enum):
     CONVENE_CLOSE = auto()    # Close assembly (Convention → All)
 
 
-from kernel.params import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX
+from kernel.params.agent import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX
 
 
 def is_peer(agent_id: str) -> bool:

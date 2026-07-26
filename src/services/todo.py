@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import TODO_TABLE_PATH, TODO_TABLE_AUTO_SAVE
+from kernel.params.system import TODO_TABLE_PATH, TODO_TABLE_AUTO_SAVE
 from services._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

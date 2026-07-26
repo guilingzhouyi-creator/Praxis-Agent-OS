@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services._base import BaseService
-from kernel.params import CHUNK_SIZE_TOKENS, PAGER_RECALL_LIMIT, MAX_WORKING_SET_SIZE
+from kernel.params.system import CHUNK_SIZE_TOKENS, PAGER_RECALL_LIMIT, MAX_WORKING_SET_SIZE
 
 logger = logging.getLogger(__name__)
 

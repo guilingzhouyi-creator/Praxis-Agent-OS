@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from kernel.params import POLL_INTERVAL_PAUSED
+from kernel.params.system import POLL_INTERVAL_PAUSED
 from services._base import BaseService, get_registry
 
 logger = logging.getLogger(__name__)

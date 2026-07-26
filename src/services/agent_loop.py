@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
-from kernel.params import (
+from kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
     AGENT_LOOP_FUTURE_TIMEOUT,

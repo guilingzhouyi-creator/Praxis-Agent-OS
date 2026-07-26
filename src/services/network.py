@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services._base import BaseService
-from kernel.params import NETWORK_DEFAULT_TIMEOUT, NETWORK_FETCH_MAX_CHARS, HTTP_USER_AGENT
+from kernel.params.api import NETWORK_DEFAULT_TIMEOUT, NETWORK_FETCH_MAX_CHARS, HTTP_USER_AGENT
 
 logger = logging.getLogger(__name__)
 

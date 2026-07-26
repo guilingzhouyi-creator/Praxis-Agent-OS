@@ -39,6 +39,6 @@ def test_get_scheduler():
 
 def test_agent_can_access():
     from services.scheduler_rate import agent_can_access
-    from kernel.params import AGENT_CLEARANCE
+    from kernel.params.agent import AGENT_CLEARANCE
     result = agent_can_access("agent-writer", "RING_3")
     assert isinstance(result, bool)

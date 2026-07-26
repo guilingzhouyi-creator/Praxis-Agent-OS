@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import CACHE_DOC_MAX_ENTRIES, CACHE_DOC_TTL
+from kernel.params.agent import CACHE_DOC_MAX_ENTRIES, CACHE_DOC_TTL
 
 logger = logging.getLogger(__name__)
 

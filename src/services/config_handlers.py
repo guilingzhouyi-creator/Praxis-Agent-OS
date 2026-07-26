@@ -8,13 +8,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from kernel.params import (
-    TERRITORY_MAP, TERRITORY_PATHS, SHARED_PATHS,
-    DEFAULT_AGENT_CONFIGS, AGENT_CLEARANCE,
-    ALLOCATOR_DEFAULTS, SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT,
-    SCOUT_CACHE_TTL, TERMINAL_MAX_WORKERS, TERMINAL_POLL_INTERVAL,
+from kernel.params.agent import (
+    TERRITORY_MAP,
+    TERRITORY_PATHS,
+    SHARED_PATHS,
+    DEFAULT_AGENT_CONFIGS,
+    AGENT_CLEARANCE,
+    TERMINAL_MAX_WORKERS,
+    TERMINAL_POLL_INTERVAL,
     CARD_WAIT_TIMEOUT,
 )
+from kernel.params.kernel import ALLOCATOR_DEFAULTS
+from kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
 from kernel.device import get_device_manager, DeviceType
 
 
@@ -62,8 +67,12 @@ def cfg_llm(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import (CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS,
-                                CONSTITUTION_GATE_ACTIONS, CONSTITUTION_SCOUT_BLOCKED)
+    from kernel.params.agent import (
+        CONSTITUTION_FILE_ACTIONS,
+        CONSTITUTION_MODIFY_ACTIONS,
+        CONSTITUTION_GATE_ACTIONS,
+        CONSTITUTION_SCOUT_BLOCKED,
+    )
     if "file_actions" in cfg:
         CONSTITUTION_FILE_ACTIONS = frozenset(cfg["file_actions"])
     if "modify_actions" in cfg:
@@ -76,9 +85,14 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import (GATECHAIN_DANGER_LEVELS, GATECHAIN_ESCALATION_DANGER,
-                                GATECHAIN_RISK_WARN_THRESHOLD, GATECHAIN_REPEAT_THRESHOLD,
-                                GATECHAIN_HIGH_FREQ_THRESHOLD, GATECHAIN_G5_HISTORY_LIMIT)
+    from kernel.params.kernel import (
+        GATECHAIN_DANGER_LEVELS,
+        GATECHAIN_ESCALATION_DANGER,
+        GATECHAIN_RISK_WARN_THRESHOLD,
+        GATECHAIN_REPEAT_THRESHOLD,
+        GATECHAIN_HIGH_FREQ_THRESHOLD,
+        GATECHAIN_G5_HISTORY_LIMIT,
+    )
     if "danger_levels" in cfg:
         GATECHAIN_DANGER_LEVELS.clear(); GATECHAIN_DANGER_LEVELS.update(cfg["danger_levels"])
     if "escalation_danger" in cfg: GATECHAIN_ESCALATION_DANGER = int(cfg["escalation_danger"])
@@ -90,7 +104,7 @@ def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_tool_rates(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
+    from kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
     if "ring_1" in cfg: TOOL_RATE_RING_1 = int(cfg["ring_1"])
     if "ring_2_5" in cfg: TOOL_RATE_RING_2_5 = int(cfg["ring_2_5"])
     if "ring_3" in cfg: TOOL_RATE_RING_3 = int(cfg["ring_3"])
@@ -98,14 +112,19 @@ def cfg_tool_rates(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_htn(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
+    from kernel.params.tool import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
     if "domain_prefix" in cfg: HTN_DOMAIN_PREFIX = cfg["domain_prefix"]
     if "tools" in cfg: HTN_DEFAULT_TOOLS.clear(); HTN_DEFAULT_TOOLS.update(cfg["tools"])
     results["htn"] = True
 
 
 def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_MAX_SIZE, FILE_CACHE_TTL, CONTEXT_REGISTER_MAX_ENTRIES
+    from kernel.params.system import (
+        FILE_CACHE_MAX_ENTRIES,
+        FILE_CACHE_MAX_SIZE,
+        FILE_CACHE_TTL,
+        CONTEXT_REGISTER_MAX_ENTRIES,
+    )
     if "max_entries" in cfg: FILE_CACHE_MAX_ENTRIES = int(cfg["max_entries"])
     if "max_size_mb" in cfg: FILE_CACHE_MAX_SIZE = int(cfg["max_size_mb"]) * 1024 * 1024
     if "ttl" in cfg: FILE_CACHE_TTL = float(cfg["ttl"])
@@ -114,7 +133,7 @@ def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_persist(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import PERSIST_AUTO, PERSIST_INTERVAL
+    from kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL
     if "enabled" in cfg: PERSIST_AUTO = bool(cfg["enabled"])
     if "interval" in cfg: PERSIST_INTERVAL = float(cfg["interval"])
     results["persist"] = True
@@ -129,7 +148,7 @@ def cfg_network(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_api(cfg: dict, s: Any, results: dict) -> None:
     from services.api_gateway import start_api
-    from kernel.params import API_GATEWAY_HOST, API_GATEWAY_PORT
+    from kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     host = cfg.get("host", API_GATEWAY_HOST)
     port = int(cfg.get("port", API_GATEWAY_PORT))
     token = cfg.get("auth_token", "")
@@ -260,7 +279,7 @@ def cfg_clearance(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_agents(cfg: dict, s: Any, results: dict) -> None:
-    from kernel.params import AgentDefaults
+    from kernel.params.agent import AgentDefaults
     for role, cdict in cfg.items():
         mc = cdict.get("model_config", None)
         spk = cdict.get("system_prompt_key", "")

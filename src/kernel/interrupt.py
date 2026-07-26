@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import logging
 
-from .params import INTERRUPT_MAX_HISTORY, INTERRUPT_QUERY_LIMIT
+from .params.kernel import INTERRUPT_MAX_HISTORY, INTERRUPT_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 

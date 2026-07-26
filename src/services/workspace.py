@@ -10,7 +10,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from kernel.params import PRAXIS_CONFIG_DIR
+from kernel.params.system import PRAXIS_CONFIG_DIR
 from kernel.platform import get_config_dir
 CONFIG_DIR = Path(get_config_dir())
 CONFIG_FILE = CONFIG_DIR / "workspaces.json"

@@ -17,9 +17,11 @@ import time
 from typing import Any
 
 from .allocator import get_allocator
-from .params import (
-    SWAPPER_DEFAULT_INTERVAL, SWAPPER_SWAP_COUNT,
-    SWAPPER_PRESSURE_LOW, SWAPPER_PRESSURE_HIGH,
+from .params.kernel import (
+    SWAPPER_DEFAULT_INTERVAL,
+    SWAPPER_SWAP_COUNT,
+    SWAPPER_PRESSURE_LOW,
+    SWAPPER_PRESSURE_HIGH,
 )
 
 logger = logging.getLogger(__name__)

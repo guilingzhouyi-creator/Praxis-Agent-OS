@@ -1,16 +1,15 @@
-"""Cell — Agent collaboration unit.
+"""Cell 鈥?Agent collaboration unit.
 
 Architecture:
-  L3A (an Agent) reads human natural language → produces a Card.
+  L3A (an Agent) reads human natural language 鈫?produces a Card.
   The Card defines work scope and target agent role.
   Cell holds N agents + shared ScoutPool.
 
-  L3A → Cell → Agents (N peer agents, roles from Card)
-              ├── each can delegate to ScoutPool (Ring 1 investigation)
-              ├── each can spawn SubAgent (inline quick-check)
-              └── auto cross-review on write/delete (CROSS_REVIEW_REQ)
-              ↓
-           ScoutPool (Ring 1 only, shared across Cell)
+  L3A 鈫?Cell 鈫?Agents (N peer agents, roles from Card)
+              鈹溾攢鈹€ each can delegate to ScoutPool (Ring 1 investigation)
+              鈹溾攢鈹€ each can spawn SubAgent (inline quick-check)
+              鈹斺攢鈹€ auto cross-review on write/delete (CROSS_REVIEW_REQ)
+              鈫?           ScoutPool (Ring 1 only, shared across Cell)
 """
 
 from __future__ import annotations
@@ -24,26 +23,32 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal, Signal, SignalType
-from kernel.params import DEFAULT_AGENT_CONFIGS, CELL_ROLLBACK_RING_SIZE, CELL_HISTORY_RING_SIZE, CELL_SNAPSHOT_MAX, CELL_L3_SENDER
-from .agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
-from .cell_agent import add_agent, _boot_agent
-from .scout import get_pool as get_scout_pool
-from .cell_buffer import CircularBuffer
-from .cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
-from .execution_plan import ExecutionPlan
-from .cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
+from kernel.params.agent import (
+    DEFAULT_AGENT_CONFIGS,
+    CELL_ROLLBACK_RING_SIZE,
+    CELL_HISTORY_RING_SIZE,
+    CELL_SNAPSHOT_MAX,
+    CELL_L3_SENDER,
+)
+from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
+from ..cell_agent import add_agent, _boot_agent
+from ..scout import get_pool as get_scout_pool
+from ..cell_buffer import CircularBuffer
+from ..cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
+from ..execution_plan import ExecutionPlan
+from ..cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
 
 logger = logging.getLogger(__name__)
-from .issue import IssueCard as _IssueCard
+from ..issue import IssueCard as _IssueCard
 
 
 
 class Cell:
-    """Agent collaboration unit — N agents + ScoutPool.
+    """Agent collaboration unit 鈥?N agents + ScoutPool.
 
     Agents are NOT hardcoded by role.  When a Card arrives, its steps
     declare which agent (by role string) should execute each step.
-    The Cell auto-maps role → available agent_id at dispatch time.
+    The Cell auto-maps role 鈫?available agent_id at dispatch time.
 
     Usage:
       cell = Cell("cell-1", territory=["src", "docs"])
@@ -60,7 +65,7 @@ class Cell:
 
         self._agents: dict[str, AgentInfo] = {}
         self._mailbox: dict[str, list[CellMessage]] = {}
-        # RLock: add_agent → boot_agent → _boot_agent re-enters the same lock;
+        # RLock: add_agent 鈫?boot_agent 鈫?_boot_agent re-enters the same lock;
         # Lock() would deadlock on a second acquire from the same thread.
         self._lock = threading.RLock()
         self._bus = get_event_bus()
@@ -68,17 +73,17 @@ class Cell:
         self._current_user_id: str = ""
         self._emergency: bool = False
         self._conventions: dict[str, Any] = {}
-        # Lifecycle hooks — explicit interception points for Cell boot,
+        # Lifecycle hooks 鈥?explicit interception points for Cell boot,
         # shutdown, agent spawn (add) and agent kill (remove). Each is a
         # list of callables invoked in registration order; a hook may
         # veto spawn/kill by returning {"success": False, "error": ...}.
-        # Previously Cell had no explicit lifecycle hooks — callers had
+        # Previously Cell had no explicit lifecycle hooks 鈥?callers had
         # to subscribe to SignalType on the event bus instead.
         self._boot_hooks: list[Callable] = []
         self._shutdown_hooks: list[Callable] = []
         self._spawn_hooks: list[Callable] = []
         self._kill_hooks: list[Callable] = []
-        # Ring buffers for temp cache — evicted items go to R4 Archive
+        # Ring buffers for temp cache 鈥?evicted items go to R4 Archive
         self._rollback_ring = CircularBuffer(
             CELL_ROLLBACK_RING_SIZE,
             on_evict=lambda item: self._archive_item("rollback", item),
@@ -87,7 +92,7 @@ class Cell:
             CELL_HISTORY_RING_SIZE,
             on_evict=lambda item: self._archive_item("card_history", item),
         )
-        self._card_snapshots: dict[str, dict] = {}  # card_id → file snapshot (capped below) 
+        self._card_snapshots: dict[str, dict] = {}  # card_id 鈫?file snapshot (capped below) 
 
     def add_agent(self, agent_id: str, role: str = "",
                    territory: list[str] | None = None,
@@ -98,7 +103,7 @@ class Cell:
         info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else 1),
                          territory=territory or [],
                          max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else 3))
-        # Spawn hooks — may veto by returning {"success": False, ...}.
+        # Spawn hooks 鈥?may veto by returning {"success": False, ...}.
         for hook in self._spawn_hooks:
             try:
                 vr = hook(agent_id, role, territory, ring)
@@ -123,7 +128,7 @@ class Cell:
         Shuts down the agent terminal, unregisters from mailbox and process table.
         Used by CentralController._process_admin_card (kill_agent).
         """
-        # Kill hooks — may veto by returning {"success": False, ...}.
+        # Kill hooks 鈥?may veto by returning {"success": False, ...}.
         for hook in self._kill_hooks:
             try:
                 vr = hook(agent_id)
@@ -133,7 +138,7 @@ class Cell:
                             "hook_error": vr}
             except Exception as e:
                 logger.warning("kill hook %s raised: %s", hook, e)
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         with self._lock:
             if agent_id not in self._agents:
                 return {"success": False, "error": f"agent {agent_id} not found"}
@@ -147,11 +152,11 @@ class Cell:
             pass
         return {"success": True, "agent_id": agent_id, "action": "removed"}
 
-    # ── Cell state persistence ──
+    # 鈹€鈹€ Cell state persistence 鈹€鈹€
 
     def save_state(self, path: str = "") -> dict:
         """Save Cell state (agents, conventions, snapshots) to JSON."""
-        from kernel.params import PRAXIS_CELL_STATE_TEMPLATE
+        from kernel.params.system import PRAXIS_CELL_STATE_TEMPLATE
         path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
         state = {
             "cell_id": self.cell_id, "territory": self.territory,
@@ -178,7 +183,7 @@ class Cell:
 
     def restore_state(self, path: str = "") -> dict:
         """Restore Cell state from JSON."""
-        from kernel.params import PRAXIS_CELL_STATE_TEMPLATE
+        from kernel.params.system import PRAXIS_CELL_STATE_TEMPLATE
         path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
         if not os.path.exists(path):
             return {"success": False, "error": "no state file"}
@@ -190,8 +195,8 @@ class Cell:
             with self._lock:
                 for aid, d in state.get("agents", {}).items():
                     if aid not in self._agents:
-                        from .cell_types import AgentStatus
-                        from kernel.params import DEFAULT_AGENT_CONFIGS
+                        from ..cell_types import AgentStatus
+                        from kernel.params.agent import DEFAULT_AGENT_CONFIGS
                         cfg = DEFAULT_AGENT_CONFIGS.get(d.get("role", ""))
                         info = AgentInfo(
                             role=d.get("role", ""),
@@ -207,7 +212,7 @@ class Cell:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    # ── Agent-to-Agent Messaging ──
+    # 鈹€鈹€ Agent-to-Agent Messaging 鈹€鈹€
 
     _CONVENTION_TYPES = frozenset({
         MessageType.CONVENE, MessageType.CROSS_EXAMINE,
@@ -223,7 +228,7 @@ class Cell:
             if sender not in self._agents:
                 return {"success": False, "error": f"unknown sender: {sender}"}
             # TTL cleanup: discard expired messages
-            from kernel.params import CELL_MAILBOX_MAX_PER_AGENT, CELL_MAILBOX_TTL as _ttl
+            from kernel.params.agent import CELL_MAILBOX_MAX_PER_AGENT
             now = time.time()
             inbox = self._mailbox.setdefault(target, [])
             inbox[:] = [m for m in inbox if now - m.timestamp < _ttl]
@@ -233,15 +238,15 @@ class Cell:
             inbox.append(msg)
             self._bus.emit(Signal(type=SignalType.TASK_ASSIGN, sender=sender,
                                   target=target, data={"cell": self.cell_id, "msg_type": msg_type.name}))
-        from .comm_monitor import get_monitor
+        from ..comm_monitor import get_monitor
         get_monitor().record_message(channel="cell_mailbox", msg_type="send",
                                       direction="out", agent_id=sender, target=target)
         # Convention messages also dispatch a TerminalCard to the agent's execution loop
         if msg_type in self._CONVENTION_TYPES:
             try:
-                from .agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
+                from ..agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
                 term = get_terminal(target)
-                from kernel.params import AGENT_STATUS_CRASHED
+                from kernel.params.agent import AGENT_STATUS_CRASHED
                 if term.status.name not in (AGENT_STATUS_CRASHED,):
                     tcard = TerminalCard(
                         mode=TermCardMode.EXECUTE,
@@ -268,7 +273,7 @@ class Cell:
 
     def agent_reachable(self, agent_id: str) -> dict:
         """Check if a specific agent can accept a direct message."""
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"reachable": False, "reason": "no_terminal", "agent_id": agent_id}
@@ -276,7 +281,7 @@ class Cell:
 
     def send_direct_message(self, agent_id: str, text: str) -> dict:
         """Send a direct message to an agent via its stdin queue."""
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"success": False, "error": f"unknown agent: {agent_id}"}
@@ -291,7 +296,7 @@ class Cell:
         Used by Shell (L2) Direct Mode to verify target reachability.
         Returns aggregate status: healthy / degraded / unreachable.
         """
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         terms = get_terminals()
         agent_results = {}
         healthy_count = 0
@@ -304,7 +309,12 @@ class Cell:
             if term is None:
                 agent_results[aid] = {"status": "no_terminal", "alive": False}
                 continue
-            from kernel.params import AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING
+            from kernel.params.agent import (
+                AGENT_STATUS_IDLE,
+                AGENT_STATUS_PROCESSING,
+                AGENT_STATUS_WAITING_SCOUT,
+                AGENT_STATUS_BOOTING,
+            )
             if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
                 agent_results[aid] = {"status": term.status.name.lower(), "alive": True}
             elif term.status.name in (AGENT_STATUS_BOOTING,):
@@ -332,7 +342,7 @@ class Cell:
     def agent_status(self, agent_id: str) -> dict:
         return _agent_status(self, agent_id)
 
-    # ── Boot / Shutdown ──
+    # 鈹€鈹€ Boot / Shutdown 鈹€鈹€
 
     def on_boot(self, hook: Callable) -> None:
         """Register a boot hook invoked before each agent boots.
@@ -371,7 +381,7 @@ class Cell:
             self._kill_hooks.append(hook)
 
     def boot_agent(self, agent_id: str) -> dict:
-        # Boot hooks — observe boot (no veto; boot is system-controlled).
+        # Boot hooks 鈥?observe boot (no veto; boot is system-controlled).
         for hook in self._boot_hooks:
             try:
                 hook(agent_id)
@@ -389,26 +399,26 @@ class Cell:
                 "agents": results}
 
     def shutdown_all(self) -> dict:
-        # Shutdown hooks — observe shutdown (no veto).
+        # Shutdown hooks 鈥?observe shutdown (no veto).
         for hook in self._shutdown_hooks:
             try:
                 hook()
             except Exception as e:
                 logger.warning("shutdown hook %s raised: %s", hook, e)
-        from .agent_terminal import reset_terminals
+        from ..agent_terminal import reset_terminals
         reset_terminals()
         with self._lock:
             for info in self._agents.values():
                 info.status = AgentStatus.IDLE
         return {"success": True}
 
-    # ── Emergency stop & rollback ──
+    # 鈹€鈹€ Emergency stop & rollback 鈹€鈹€
 
     def emergency_stop(self) -> dict:
         with self._lock:
             self._emergency = True
             agent_ids = list(self._agents.keys())
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         all_terms = get_terminals()
         paused = 0
         for aid in agent_ids:
@@ -426,7 +436,7 @@ class Cell:
         with self._lock:
             self._emergency = False
             agent_ids = list(self._agents.keys())
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         all_terms = get_terminals()
         resumed = 0
         for aid in agent_ids:
@@ -446,13 +456,13 @@ class Cell:
         Workflow:
           1. Pause the agent terminal (stop processing new cards)
           2. Compact low-value memory entries
-          3. Clear Ring 1 (working memory) — the context pollution
+          3. Clear Ring 1 (working memory) 鈥?the context pollution
           4. Reload Ring 2 (cached session memory) for continuity
           5. Resume the agent terminal
 
         Used by CentralController._process_admin_card (refresh_agent).
         """
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"success": False, "error": f"agent {agent_id} not found"}
@@ -461,7 +471,7 @@ class Cell:
         except Exception as e:
             logger.warning("reset_agent_context pause failed: %s", e)
         try:
-            from .memory import get_memory
+            from ..memory import get_memory
             mem = get_memory()
             mem.compact(agent_id)
             mem.forget_agent(agent_id)
@@ -475,7 +485,7 @@ class Cell:
         logger.info("Cell %s reset context for agent %s", self.cell_id, agent_id)
         return {"success": True, "cell_id": self.cell_id, "agent_id": agent_id, "action": "context_reset"}
 
-    # ── Card Dispatch ──
+    # 鈹€鈹€ Card Dispatch 鈹€鈹€
 
     def dispatch_card(self, target_agent: str, action: str,
                       target: str = "", params: dict | None = None,
@@ -494,9 +504,9 @@ class Cell:
         emit_signal(EVENT_TASK_ASSIGN, sender=sender, target=target_agent,
                     data={"card_id": card_id, "action": action, "mode": mode.name})
 
-        # ── Blocking cross-review gate for write operations ──
+        # 鈹€鈹€ Blocking cross-review gate for write operations 鈹€鈹€
         try:
-            from .tool_config import ToolConfig as _TC
+            from ..tool_config import ToolConfig as _TC
             _is_write = action in _TC.write_tool_names()
         except Exception:
             _is_write = False
@@ -510,33 +520,33 @@ class Cell:
         return {"success": True, "card_id": card_id}
 
     def convene(self, issue_card: Any, agent_map: dict[str, str] | None = None) -> dict:
-        from .cell_convention import convene as _convene
+        from ..cell_convention import convene as _convene
         return _convene(self, issue_card)
 
     def close_convention(self, issue_card_id: str) -> dict:
-        from .cell_convention import close_convention as _close
+        from ..cell_convention import close_convention as _close
         return _close(self, issue_card_id)
 
     def handle_convention_message(self, agent_id: str, msg_type: MessageType,
                                   payload: dict) -> dict:
-        from .cell_convention import handle_convention_message as _handle
+        from ..cell_convention import handle_convention_message as _handle
         return _handle(self, agent_id, msg_type, payload)
 
 
-    # ── Card conversion helpers (extracted from execute_card) ──
+    # 鈹€鈹€ Card conversion helpers (extracted from execute_card) 鈹€鈹€
 
     def _raw_to_card(self, raw_intent: str, domain: str) -> Card:
         """Convert raw intent string to a structured Card via HTN or CardBuilder."""
         raw_domain = domain or (self.territory[0] if self.territory else "")
         try:
-            from .htn_planner import get_service as get_htn
+            from ..htn_planner import get_service as get_htn
             htn = get_htn()
             htn_task = htn.decompose(raw_intent, raw_domain)
             if htn_task.sub_tasks:
                 return htn.to_card(htn_task, domain=raw_domain)
         except Exception as e:
             logger.warning('HTN decompose failed: %s', e)
-        from .card_builder import build_card as _build_structured_card
+        from ..card_builder import build_card as _build_structured_card
         return _build_structured_card(
             task_id=f'auto-{uuid.uuid4().hex[:8]}',
             intent=raw_intent, domain=raw_domain,
@@ -574,7 +584,7 @@ class Cell:
         rollback_ring = self._rollback_ring
         if rollback_ring.all():
             try:
-                from .context import get_context as get_ctx_reg
+                from ..context import get_context as get_ctx_reg
                 ctx_reg = get_ctx_reg(self.cell_id)
                 ctx_reg.store(key='rollback_context', value=rollback_ring.all()[-1],
                               agent_id='system', entry_type='rollback')
@@ -587,22 +597,22 @@ class Cell:
 
         Accepts both structured Card and raw intent string.
         Raw strings are auto-converted via CardBuilder (L3A).
-        Cards with a domain are decomposed by territory — steps go
+        Cards with a domain are decomposed by territory 鈥?steps go
         to the owning agent.  Results are aggregated.
 
         Args:
             card:       structured Card with phases and steps, or raw intent string
-            agent_map:  optional override (role → agent_id).
+            agent_map:  optional override (role 鈫?agent_id).
                         If omitted, auto-generated from Card steps + territory.
             domain:     domain/project path (used when card is a raw string)
             user_id:    human user ID for LLM KV cache isolation.
-                        Passed through to AgentLoop → LLM API as user_id parameter.
+                        Passed through to AgentLoop 鈫?LLM API as user_id parameter.
 
         Returns aggregated plan result with per-step details.
         """
-        # Detect IssueCard → route to convention protocol
+        # Detect IssueCard 鈫?route to convention protocol
         try:
-            from .issue import IssueCard as _IssueCard
+            from ..issue import IssueCard as _IssueCard
         except ImportError:
             _IssueCard = None
         if isinstance(card, _IssueCard):
@@ -610,7 +620,7 @@ class Cell:
 
         self._current_user_id = user_id
         try:
-            from .scheduler import get_scheduler as get_sched
+            from ..scheduler import get_scheduler as get_sched
             sched = get_sched()
             for aid, info in self._agents.items():
                 sched.router.register(aid, self.territory, info.ring / 3.0)
@@ -668,7 +678,7 @@ class Cell:
         result["agent_map"] = agent_map
         return result
 
-    # ── Snapshot / Rollback ──
+    # 鈹€鈹€ Snapshot / Rollback 鈹€鈹€
 
     @staticmethod
     def _take_snapshot(card: Any) -> dict:
@@ -734,8 +744,8 @@ class Cell:
 
         After rollback, stores info in _rollback_context for the next card.
         """
-        from .fault_tolerance import get_service as get_ft
-        from .sandbox import get_cell_sandbox
+        from ..fault_tolerance import get_service as get_ft
+        from ..sandbox import get_cell_sandbox
         ft = get_ft()
         results = {}
 
@@ -775,7 +785,7 @@ class Cell:
             results["sandbox_discard"] = {"error": str(e)}
 
         # 4. Reset terminals to IDLE
-        from .agent_terminal import get_terminals
+        from ..agent_terminal import get_terminals
         terms = get_terminals()
         for aid in terms:
             try:
@@ -799,13 +809,13 @@ class Cell:
         return {"success": True, "cell_id": self.cell_id, "results": results,
                 "rollback_context": rollback_msg}
 
-    # ── Card decomposition engine (delegates to cell_decompose.py) ──
+    # 鈹€鈹€ Card decomposition engine (delegates to cell_decompose.py) 鈹€鈹€
 
     def decompose_card(self, card: Card, domain: str = "") -> list[dict]:
         return _decompose_card(domain, card, self.cell_id,
                                ensure_terminal_fn=self._ensure_terminal)
 
-    # ── Cross-review dispatch ──
+    # 鈹€鈹€ Cross-review dispatch 鈹€鈹€
 
     def _auto_cross_review(self, completed_agent: str, action: str,
                            target: str, card_id: str,
@@ -865,7 +875,7 @@ class Cell:
                 "from": completed_agent,
                 "msg": f"Please review changes to {target} made by {completed_agent}.",
             })
-            logger.info("cross-review: %s → %s for %s (blocking)", completed_agent, peer, target)
+            logger.info("cross-review: %s 鈫?%s for %s (blocking)", completed_agent, peer, target)
 
         # Block until all peers respond or timeout
         approved = True
@@ -931,14 +941,14 @@ class Cell:
                         "elapsed": result.elapsed, "phases": result.phase}
         return None
 
-    # ── Scout result cache ──
+    # 鈹€鈹€ Scout result cache 鈹€鈹€
 
     def reuse_scout_result(self, template: str, scope: dict | None = None,
                            ttl: float = 0) -> dict | None:
         cached = scout_cache_get(template, scope, ttl or self.max_scout_cache_ttl)
         return cached
 
-    # ── Stats ──
+    # 鈹€鈹€ Stats 鈹€鈹€
 
     def stats(self) -> dict:
         with self._lock:

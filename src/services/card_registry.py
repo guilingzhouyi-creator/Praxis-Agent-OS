@@ -21,7 +21,12 @@ import uuid
 from typing import Any, Callable
 
 from kernel import EVENT_TASK_ASSIGN, emit_signal
-from kernel.params import CARD_REGISTRY_PATH, CARD_REGISTRY_AUTO_SAVE, CARD_DISPATCH_INTERVAL, CARD_QUEUE_PENDING_MAX
+from kernel.params.system import (
+    CARD_REGISTRY_PATH,
+    CARD_REGISTRY_AUTO_SAVE,
+    CARD_DISPATCH_INTERVAL,
+    CARD_QUEUE_PENDING_MAX,
+)
 from services._persistable import PersistableMixin
 from .card_unified import CardUnified, CardLifecycle, CardSummary
 

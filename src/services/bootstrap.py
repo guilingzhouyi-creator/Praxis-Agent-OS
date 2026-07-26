@@ -18,7 +18,8 @@ from typing import Any
 
 import yaml
 
-from kernel.params import API_GATEWAY_HOST, API_GATEWAY_PORT, CENTRAL_DEFAULT_ROLES
+from kernel.params.agent import CENTRAL_DEFAULT_ROLES
+from kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,20 @@ _BACKUP_SUFFIX = ".bak"
 
 def default_config() -> dict:
     """Return the default configuration dict from kernel/params.py constants."""
-    from kernel.params import (
-        ALLOCATOR_DEFAULTS, SWAPPER_DEFAULT_INTERVAL,
-        TERMINAL_MAX_WORKERS, SCOUT_POOL_MAX, SCOUT_MAX_PER_AGENT, SCOUT_CACHE_TTL,
-        CARD_TIMEOUT, API_GATEWAY_HOST, API_GATEWAY_PORT,
-        MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET,
-        MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
+    from kernel.params.agent import TERMINAL_MAX_WORKERS, CARD_TIMEOUT
+    from kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
+    from kernel.params.kernel import ALLOCATOR_DEFAULTS, SWAPPER_DEFAULT_INTERVAL
+    from kernel.params.system import (
+        SCOUT_MAX_PER_AGENT,
+        SCOUT_CACHE_TTL,
+        MEMORY_RING_WORKING_BUDGET,
+        MEMORY_RING_SHORT_BUDGET,
+        MEMORY_RING_LONG_BUDGET,
+        MEMORY_RING_WORKING_TTL,
+        MEMORY_RING_SHORT_TTL,
+        MEMORY_RING_LONG_TTL,
     )
+    from kernel.params.tool import SCOUT_POOL_MAX
     return {
         "cell": {
             "terminal": {"workers": TERMINAL_MAX_WORKERS, "poll": 0.05},
@@ -70,9 +78,13 @@ def needs_bootstrap() -> bool:
 
 def get_defaults() -> dict:
     """Return default config values for TUI to pre-fill forms."""
-    from kernel.params import (
-        MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET,
-        MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
+    from kernel.params.system import (
+        MEMORY_RING_WORKING_BUDGET,
+        MEMORY_RING_SHORT_BUDGET,
+        MEMORY_RING_LONG_BUDGET,
+        MEMORY_RING_WORKING_TTL,
+        MEMORY_RING_SHORT_TTL,
+        MEMORY_RING_LONG_TTL,
     )
     cfg = default_config()
     return {

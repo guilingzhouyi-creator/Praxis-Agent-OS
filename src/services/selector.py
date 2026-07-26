@@ -14,7 +14,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import DIRECT_SESSION_TIMEOUT, INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
+from kernel.params.agent import INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
+from kernel.params.system import DIRECT_SESSION_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

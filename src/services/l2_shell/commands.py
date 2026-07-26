@@ -1,24 +1,6 @@
-"""Shell (L2) — human interface layer with command dispatch, mode switching,
-output guard, and auto-completion.
-
-Commands:
-  /help            List available commands
-  /agents          List all agents across Cells (preselect)
-  /connect <id>    Select agent and start direct session
-  /disconnect      End current direct session
-  /mode            Show current mode (L3A / Direct)
-  /status          Show session status
-
-Flow:
-  Human types "/" → auto-complete hints → select agent
-    → preconnect check (Cell + Agent + LLM provider)
-    → switch to Direct window → dialogue with output guard
-"""
-
-from __future__ import annotations
+"""L2 Shell command handlers."""
 
 import logging
-import shlex
 import time
 from typing import Any
 
@@ -26,182 +8,21 @@ from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.commands import (
     register_command as _register_handler,
     get_command, get_handler, list_commands as _list_defs,
-    ARG_AGENT, ARG_ROLE,
+    resolve_scope, resolve_agents,
 )
-from kernel.params import DEFAULT_CELL_ID, CENTRAL_ROLES
 
 logger = logging.getLogger(__name__)
 
 
-def autocomplete(line: str) -> list[dict]:
-    """Hierarchical auto-completion based on current input line.
-
-    Empty → all commands
-    /con  → complete command name
-    /connect <part> → complete first arg (agent list)
-    /connect id <part> → complete optional flags
-    """
-    results = []
-    stripped = line.lstrip()
-    cmds = _list_defs()
-
-    if not stripped or stripped == "/":
-        for c in cmds:
-            results.append({
-                "type": "command", "value": f"/{c['name']}",
-                "help": c["help"], "args": len(c.get("args", [])),
-            })
-        return results[:15]
-
-    if stripped.startswith("/"):
-        parts = stripped[1:].split()
-    else:
-        parts = stripped.split()
-
-    if len(parts) == 0:
-        for c in cmds:
-            results.append({
-                "type": "command", "value": f"/{c['name']}",
-                "help": c["help"],
-            })
-        return results[:15]
-
-    cmd_name = parts[0].lower()
-    cmd_info = get_command(cmd_name)
-
-    if not cmd_info:
-        for c in cmds:
-            if c["name"].startswith(cmd_name):
-                results.append({
-                    "type": "command", "value": f"/{c['name']}",
-                    "help": c["help"],
-                })
-        return results[:10]
-
-    args_so_far = parts[1:]
-    arg_schema = cmd_info.get("args", [])
-    completing_new = stripped.endswith(" ")
-
-    if completing_new:
-        arg_idx = len(args_so_far)
-    else:
-        arg_idx = len(args_so_far) - 1 if args_so_far else 0
-        current_part = args_so_far[-1].lower() if args_so_far and not completing_new else ""
-
-    if arg_idx >= len(arg_schema):
-        return []
-
-    arg = arg_schema[arg_idx]
-    completer = arg.get("completer", "")
-    arg_name = arg.get("name", "")
-    partial = current_part if not completing_new else ""
-
-    if completer == ARG_AGENT:
-        results = _complete_agent(partial, cmd_name)
-    elif completer == ARG_ROLE:
-        results = _complete_role(partial)
-    else:
-        results.append({
-            "type": "arg_hint", "value": arg_name,
-            "help": arg.get("description", ""),
-        })
-
-    return results[:10]
-
-
-def _complete_agent(partial: str, cmd_name: str = "") -> list[dict]:
-    """Complete agent IDs from preselect."""
-    results = []
-    try:
-        from .selector import preselect
-        roster = preselect()
-        for agent in roster.get("agents", []):
-            aid = agent.get("agent_id", "")
-            role = agent.get("role", "?")
-            status = agent.get("status", "?")
-            if not partial or partial in aid.lower():
-                results.append({
-                    "type": "agent", "value": f"{aid}",
-                    "help": f"{aid} ({role}) [{status}]",
-                })
-    except Exception:
-        pass
-    return results
-
-
-def _complete_role(partial: str) -> list[dict]:
-    """Complete from known roles."""
-    known = set(CENTRAL_ROLES)
-    results = []
-    partial = partial.lower()
-    for role in known:
-        if not partial or role.startswith(partial):
-            results.append({"type": "role", "value": role, "help": ""})
-    return results
-
-
-# ── Shell state ──
-
-class ShellState:
-    """Maintains the current Shell session state."""
-
-    def __init__(self):
-        self.mode: str = "L3A"        # L3A | DIRECT
-        self.cell_id: str = DEFAULT_CELL_ID
-        self.agent_id: str = ""
-        self.session_id: str = ""
-        self._preconnect_cache: dict = {}
-
-    def is_direct(self) -> bool:
-        return self.mode == "DIRECT" and bool(self.agent_id)
-
-    def switch_to_direct(self, cell_id: str, agent_id: str,
-                         session_id: str = "") -> None:
-        self.mode = "DIRECT"
-        self.cell_id = cell_id
-        self.agent_id = agent_id
-        self.session_id = session_id
-
-    def switch_to_l3a(self) -> None:
-        self.mode = "L3A"
-        self.agent_id = ""
-        self.session_id = ""
-
-
-_shell_state = ShellState()
-
-
-def get_state() -> ShellState:
-    return _shell_state
-
-
-def reset_state() -> None:
-    """Reset ShellState to defaults (for test isolation)."""
-    global _shell_state
-    _shell_state = ShellState()
-
-
-# ── PreConnect enhanced — Cell + Agent + LLM provider ──
-
 def preconnect_enhanced(cell_id: str, agent_id: str,
                         message: str = "") -> dict:
-    """Three-layer connectivity check before establishing direct session.
-
-    1. Cell liveness
-    2. Agent reachability
-    3. LLM provider connectivity (can this agent actually call LLM?)
-    """
     from .selector import preconnect as _preconnect
     checks = {}
-
-    # Basic preconnect (cell + agent + injection)
     basic = _preconnect(cell_id, agent_id, message)
     checks["preconnect"] = basic
     if not basic.get("allowed"):
         return {"allowed": False, "checks": checks,
                 "reason": basic.get("reason", "preconnect_failed")}
-
-    # LLM provider check
     try:
         from .llm import get_engine
         engine = get_engine()
@@ -219,51 +40,10 @@ def preconnect_enhanced(cell_id: str, agent_id: str,
     except Exception as e:
         checks["llm_provider"] = {"status": "error", "error": str(e)}
         return {"allowed": False, "checks": checks, "reason": f'llm_unavailable: {e}'}
-
     return {"allowed": True, "checks": checks}
 
 
-# ── Output guard — intercept dangerous responses ──
-
-_output_guard_callback: Any = None
-
-
-def set_output_guard(callback: Any) -> None:
-    """Register an output guard callback.
-
-    Called after every direct session response.
-    Receives (agent_id: str, response: str) and should return
-    {"safe": bool, "reason": str, "replacement": str}.
-    """
-    global _output_guard_callback
-    _output_guard_callback = callback
-
-
-def guard_output(agent_id: str, response: str) -> dict:
-    """Run output guard on agent response. Returns filtered response."""
-    if not _output_guard_callback:
-        return {"safe": True, "output": response}
-
-    try:
-        review = _output_guard_callback(agent_id, response)
-        if review.get("safe", True):
-            return {"safe": True, "output": response}
-        replacement = review.get("replacement", "")
-        logger.warning("output guard blocked response from %s: %s",
-                       agent_id, review.get("reason", ""))
-        return {"safe": False, "output": replacement or response[:100],
-                "reason": review.get("reason", "")}
-    except Exception as e:
-        # fail-closed: block response on guard exception to prevent dangerous content
-        logger.warning("output guard failed: %s", e)
-        return {"safe": False, "output": "[blocked: output guard error]",
-                "reason": f"guard_error: {e}"}
-
-
-# ── Command handlers ──
-
 def list_commands() -> list[dict]:
-    """Format command list for display (wrapper around kernel.commands)."""
     try:
         from services.i18n import t as _t
     except Exception:
@@ -290,38 +70,27 @@ def _cmd_agents(args: list[str]) -> dict:
 
 
 def _cmd_connect(args: list[str]) -> dict:
+    from .state import get_state
     if not args:
         return {"success": False, "error": "usage: /connect <agent_id>"}
-
     agent_id = args[0]
     state = get_state()
     cell_id = state.cell_id
-
-    # Security gate: run through CentralSecurity — fail-closed:
-    # Security service exception blocks connect to avoid bypassing the security gate.
     try:
         from .central_security import get_center as _get_sec
         sec = _get_sec().check_all(
-            action="direct_session",
-            agent_id=agent_id,
-            target=cell_id,
+            action="direct_session", agent_id=agent_id, target=cell_id,
             tool_name="direct_message",
         )
         if not sec.get("allowed"):
-            return {"success": False, "error": "connect blocked by security",
-                    "security": sec}
+            return {"success": False, "error": "connect blocked by security", "security": sec}
     except Exception as e:
         logger.warning("security check unavailable: %s", e)
-        return {"success": False,
-                "error": f"security check required but unavailable: {e}"}
-
-    # PreConnect enhanced check
+        return {"success": False, "error": f"security check required but unavailable: {e}"}
     check = preconnect_enhanced(cell_id, agent_id)
     if not check.get("allowed"):
         return {"success": False, "error": f"connect failed: {check.get('reason')}",
                 "checks": check.get("checks", {})}
-
-    # Send first direct message via stdin queue
     try:
         from .cell import get_cell
         cell = get_cell(cell_id)
@@ -340,6 +109,7 @@ def _cmd_connect(args: list[str]) -> dict:
 
 
 def _cmd_disconnect(args: list[str]) -> dict:
+    from .state import get_state
     state = get_state()
     if not state.is_direct():
         return {"success": False, "error": "no active direct session"}
@@ -356,10 +126,10 @@ def _cmd_disconnect(args: list[str]) -> dict:
 
 
 def _cmd_mode(args: list[str]) -> dict:
+    from .state import get_state
     state = get_state()
-    tool_mode = state.mode  # L3A/Direct
-    result = {"mode": tool_mode, "agent_id": state.agent_id or "-",
-              "cell_id": state.cell_id}
+    tool_mode = state.mode
+    result = {"mode": tool_mode, "agent_id": state.agent_id or "-", "cell_id": state.cell_id}
     if args:
         from .tool_mode import set_mode, get_mode
         if args[0] == "tool":
@@ -376,6 +146,7 @@ def _cmd_mode(args: list[str]) -> dict:
 
 
 def _cmd_status(args: list[str]) -> dict:
+    from .state import get_state
     state = get_state()
     result = {"mode": state.mode, "cell_id": state.cell_id}
     if state.is_direct():
@@ -390,10 +161,7 @@ def _cmd_status(args: list[str]) -> dict:
     return result
 
 
-# ── 9 central control system commands ──
-
 def _cmd_intents(args: list[str]) -> dict:
-    """CentralController: list/recent intents."""
     from .l3 import get_coordinator
     coord = get_coordinator()
     status = args[0] if args else ""
@@ -401,7 +169,6 @@ def _cmd_intents(args: list[str]) -> dict:
 
 
 def _cmd_scheduler(args: list[str]) -> dict:
-    """CentralScheduler: show 5D scheduling status."""
     from .scheduler import get_scheduler as _gs
     sched = _gs()
     if hasattr(sched, 'stats'):
@@ -410,7 +177,6 @@ def _cmd_scheduler(args: list[str]) -> dict:
 
 
 def _cmd_observe(args: list[str]) -> dict:
-    """ObservabilityBus: alerts/health/metrics."""
     from .observability_bus import get_obs_bus as _go
     bus = _go()
     kind = args[0] if args else "health"
@@ -418,7 +184,6 @@ def _cmd_observe(args: list[str]) -> dict:
 
 
 def _cmd_skills(args: list[str]) -> dict:
-    """R4Agent: list evolved skills or lean cases."""
     from .r4_agent import get_r4_agent
     r4 = get_r4_agent()
     sub = args[0] if args else "list"
@@ -435,7 +200,6 @@ def _cmd_skills(args: list[str]) -> dict:
 
 
 def _cmd_cells(args: list[str]) -> dict:
-    """CellMonitor: list cells or show cell health."""
     from .cell_monitor import get_cell_monitor
     cm = get_cell_monitor()
     sub = args[0] if args else "list"
@@ -445,14 +209,12 @@ def _cmd_cells(args: list[str]) -> dict:
 
 
 def _cmd_cross(args: list[str]) -> dict:
-    """L3B: cross-cell coordination status."""
     from .l3 import get_coordinator
     coord = get_coordinator()
     return {"success": True, "cross_cell": getattr(coord, 'status', lambda: {})()}
 
 
 def _cmd_security(args: list[str]) -> dict:
-    """CentralSecurity: stats or run a check."""
     from .central_security import get_center as _sec
     sec = _sec()
     sub = args[0] if args else "stats"
@@ -466,12 +228,10 @@ def _cmd_security(args: list[str]) -> dict:
 
 
 def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
-    """Execute memory operations for a single agent."""
     from .memory import get_memory
     from .central_memory import get_center as _mem
     mem = _mem()
     mm = get_memory()
-
     if op == "stats":
         return {"agent": agent_id, "stats": mem.stats()}
     if op == "recall":
@@ -503,33 +263,17 @@ def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
 
 
 def _cmd_memory(args: list[str]) -> dict:
-    """Control memory at three scopes: global / --cell / --agent.
-    
-    Usage:
-      /memory stats                            → global stats
-      /memory recall <query>                   → global search
-      /memory --cell cell-1 stats              → stats for all agents in cell
-      /memory --cell cell-1 compact            → compact all agents in cell
-      /memory --cell cell-1 archive            → archive cell
-      /memory --agent agent-writer compact     → compact specified agent
-      /memory --agent agent-writer forget      → clear memory
-      /memory --agent agent-writer ring 1      → inspect specified ring
-    """
-    from kernel.commands import resolve_scope, resolve_agents
     scope, scope_id, rest = resolve_scope(args)
     op = rest[0] if rest else "stats"
     op_args = rest[1:]
-
     if op == "stats" and scope == "global":
         from .central_memory import get_center as _mem
         return {"success": True, "stats": _mem().stats(), "scope": "global"}
-
     if op == "recall" and scope == "global":
         from .central_memory import get_center as _mem
         query = " ".join(op_args)
         results = _mem().recall(query=query, limit=10)
         return {"success": True, "results": results, "count": len(results), "scope": "global"}
-
     agents = resolve_agents(scope, scope_id)
     results = {}
     for agent_id in agents:
@@ -537,13 +281,11 @@ def _cmd_memory(args: list[str]) -> dict:
             results[agent_id] = _execute_memory_op(agent_id, op, op_args)
         except Exception as e:
             results[agent_id] = {"error": str(e)}
-
     return {"success": True, "scope": scope, "scope_id": scope_id,
             "agents": len(results), "results": results}
 
 
 def _cmd_plugins(args: list[str]) -> dict:
-    """CentralPlugin: list plugins."""
     from .central_plugin import get_center as _plug
     plug = _plug()
     sub = args[0] if args else "list"
@@ -553,44 +295,23 @@ def _cmd_plugins(args: list[str]) -> dict:
 
 
 def _cmd_mcp(args: list[str]) -> dict:
-    """MCPBridge: manage MCP server connections.
-
-    Subcommands:
-      status                  — list all servers with state
-      add <name> <endpoint>   — import an MCP server
-      remove <name>           — remove an MCP server
-      disable <name>          — disable a server
-      enable <name>           — re-enable a disabled server
-      prompts <name>          — list prompts from an MCP server
-      resources <name>        — list resources from an MCP server
-    """
     from .mcp_bridge import get_bridge, McpClient
     bridge = get_bridge()
     sub = args[0].lower() if args else "status"
-
-    if sub == "status" or sub == "list":
+    if sub in ("status", "list"):
         return {"success": True, "data": bridge.status()}
-
     if sub == "add" and len(args) >= 3:
-        name = args[1]
-        endpoint = args[2]
-        client = McpClient(endpoint)
-        return bridge.import_server(name, client)
-
+        return bridge.import_server(args[1], McpClient(args[2]))
     if sub == "remove" and len(args) >= 2:
         return bridge.remove_server(args[1])
-
     if sub == "disable" and len(args) >= 2:
         return bridge.set_disabled(args[1])
-
     if sub == "enable" and len(args) >= 2:
         return bridge.set_enabled(args[1])
-
     return {"success": False, "error": "usage: /mcp [status|add <name> <endpoint>|remove <name>|disable <name>|enable <name>]"}
 
 
 def _cmd_process(args: list[str]) -> dict:
-    """ProcessTable: list running processes."""
     try:
         from kernel.registry import get_registry
         reg = get_registry()
@@ -604,7 +325,6 @@ def _cmd_process(args: list[str]) -> dict:
 
 
 def _cmd_vfs(args: list[str]) -> dict:
-    """VFS: list directory or mount points."""
     try:
         from kernel.vfs import get_vfs
         vfs = get_vfs()
@@ -615,7 +335,6 @@ def _cmd_vfs(args: list[str]) -> dict:
         if r.get("success"):
             return {"success": True, "path": path, "entries": r.get("entries", []),
                     "count": len(r.get("entries", []))}
-        # Fallback: try reading as file
         r2 = vfs.read(path)
         if r2.get("success"):
             return {"success": True, "path": path, "content": r2.get("content", "")[:2000]}
@@ -625,7 +344,6 @@ def _cmd_vfs(args: list[str]) -> dict:
 
 
 def _cmd_cache(args: list[str]) -> dict:
-    """Cache: show cache stats or clear."""
     try:
         from services.cache import get_llm_cache_stats, reset_caches
         sub = args[0].lower() if args else "stats"
@@ -639,7 +357,6 @@ def _cmd_cache(args: list[str]) -> dict:
 
 
 def _cmd_sysinfo(args: list[str]) -> dict:
-    """System information summary."""
     try:
         from kernel.registry import get_registry
         reg = get_registry()
@@ -649,12 +366,10 @@ def _cmd_sysinfo(args: list[str]) -> dict:
 
 
 def _cmd_clear(args: list[str]) -> dict:
-    """Clear the terminal screen."""
     return {"success": True, "clear": True}
 
 
 def _cmd_history(args: list[str]) -> dict:
-    """Show shell command history."""
     limit = 20
     if args and args[0].isdigit():
         limit = min(int(args[0]), 200)
@@ -668,7 +383,6 @@ def _cmd_history(args: list[str]) -> dict:
 
 
 def _cmd_lang(args: list[str]) -> dict:
-    """Show or switch display language."""
     from services.i18n import get_locale, set_locale, get_available_locales, t as _t
     if not args:
         current = get_locale()
@@ -679,7 +393,6 @@ def _cmd_lang(args: list[str]) -> dict:
     if target not in available:
         return {"success": False, "error": _t("shell.error.lang_usage", locales=", ".join(available))}
     set_locale(target)
-    # Also update kernel.errors locale
     try:
         from kernel.errors import set_locale as _ke_set
         _ke_set(target)
@@ -689,7 +402,6 @@ def _cmd_lang(args: list[str]) -> dict:
 
 
 def _cmd_spawn(args: list[str]) -> dict:
-    """Create a new agent in a Cell."""
     if not args:
         return {"success": False, "error": "usage: /spawn <role> [agent_id] [--cell <cell_id>]"}
     role = args[0]
@@ -714,14 +426,12 @@ def _cmd_spawn(args: list[str]) -> dict:
 
 
 def _cmd_kill(args: list[str]) -> dict:
-    """Terminate an agent."""
     if not args:
         return {"success": False, "error": "usage: /kill <agent_id>"}
     agent_id = args[0]
     try:
         from .cell import get_cell
-        from .cell_types import is_peer
-        cell_id = "cell-1"  # could be enhanced to search all cells
+        cell_id = "cell-1"
         cell = get_cell(cell_id)
         cell.remove_agent(agent_id)
         return {"success": True, "message": f"Agent '{agent_id}' terminated"}
@@ -730,7 +440,6 @@ def _cmd_kill(args: list[str]) -> dict:
 
 
 def _cmd_destroy(args: list[str]) -> dict:
-    """Remove an entire Cell."""
     if not args:
         return {"success": False, "error": "usage: /destroy <cell_id>"}
     cell_id = args[0]
@@ -743,7 +452,6 @@ def _cmd_destroy(args: list[str]) -> dict:
 
 
 def _cmd_emergency(args: list[str]) -> dict:
-    """Emergency stop a Cell."""
     cell_id = args[0] if args else "cell-1"
     try:
         from .cell import get_cell
@@ -755,7 +463,6 @@ def _cmd_emergency(args: list[str]) -> dict:
 
 
 def _cmd_cluster(args: list[str]) -> dict:
-    """Show cluster topology and Cell health."""
     try:
         from .cell import get_cell
         from .cell_monitor import get_cell_monitor
@@ -774,7 +481,6 @@ def _cmd_cluster(args: list[str]) -> dict:
 
 
 def _cmd_audit(args: list[str]) -> dict:
-    """View syscall audit trail."""
     try:
         from kernel.registry import get_registry
         reg = get_registry()
@@ -785,7 +491,6 @@ def _cmd_audit(args: list[str]) -> dict:
 
 
 def _cmd_settings(args: list[str]) -> dict:
-    """View runtime system settings."""
     try:
         from kernel.registry import get_registry
         reg = get_registry()
@@ -795,7 +500,6 @@ def _cmd_settings(args: list[str]) -> dict:
 
 
 def _cmd_devices(args: list[str]) -> dict:
-    """List registered kernel devices."""
     try:
         from kernel.registry import get_registry
         reg = get_registry()
@@ -805,7 +509,6 @@ def _cmd_devices(args: list[str]) -> dict:
 
 
 def _cmd_tools(args: list[str]) -> dict:
-    """List all registered tools."""
     try:
         from .tool_spec import list_tools
         from services.i18n import get_locale
@@ -820,7 +523,6 @@ def _cmd_tools(args: list[str]) -> dict:
 
 
 def _cmd_config(args: list[str]) -> dict:
-    """View or reload system configuration."""
     sub = args[0].lower() if args else "show"
     if sub == "reload":
         try:
@@ -833,7 +535,6 @@ def _cmd_config(args: list[str]) -> dict:
             return {"success": True, "message": "configuration reloaded"}
         except Exception as e:
             return {"success": False, "error": str(e)}
-    # show
     try:
         from .config_loader import load as load_config
         cfg = load_config()
@@ -843,7 +544,6 @@ def _cmd_config(args: list[str]) -> dict:
 
 
 def _cmd_cron(args: list[str]) -> dict:
-    """Manage cron schedules."""
     from .cron_scheduler import get_scheduler
     s = get_scheduler()
     sub = args[0].lower() if args else "list"
@@ -867,33 +567,24 @@ def _cmd_cron(args: list[str]) -> dict:
 
 
 def _cmd_cell_create(args: list[str]) -> dict:
-    """Create a new Cell with 3 Peer Agents (reader, writer, governor).
-    /cell create <territory>
-    """
     if not args:
         return {"success": False, "error": "usage: /cell create <territory>"}
     territory = args[0].strip("/")
     try:
         from .boot import _create_cell as _boot_create_cell
-        import time
         agent_config = [
             (f"agent-{int(time.time())}-r", "reader", [territory]),
             (f"agent-{int(time.time())}-w", "writer", [territory]),
             (f"agent-{int(time.time())}-g", "governor", [territory]),
         ]
         r = _boot_create_cell(agent_config)
-        return {"success": True, "action": "create_cell", "agents": agent_config, "cell_id": r.get("cell_id", "default")}
+        return {"success": True, "action": "create_cell", "agents": agent_config,
+                "cell_id": r.get("cell_id", "default")}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_buffer(args: list[str]) -> dict:
-    """Resource buffer management.
-    /buffer status            → show pending buffer status
-    /buffer commit [path]     → commit pending to disk
-    /buffer diff <path>       → show pending vs checkpoint diff
-    /buffer discard <path>    → discard pending changes
-    """
     from .resource_buffer.manager import get_manager as _bm
     mgr = _bm()
     sub = args[0] if args else "status"
@@ -912,14 +603,6 @@ def _cmd_buffer(args: list[str]) -> dict:
 
 
 def _cmd_card(args: list[str]) -> dict:
-    """Manage card pool: install, search, export, list.
-    /card install <url>           → install from URL
-    /card install-file <path>     → install from local file
-    /card search <query>          → search remote registries
-    /card export <name> [path]    → export to file
-    /card list [category]         → list installed card types
-    /card remove <name>           → remove card type
-    """
     from .card_pool import get_pool as _cp
     pool = _cp()
     sub = args[0] if args else "list"
@@ -943,29 +626,18 @@ def _cmd_card(args: list[str]) -> dict:
 
 
 def _cmd_agent_refresh(args: list[str]) -> dict:
-    """Reset an agent's context (clear pollution + reload cached memory).
-    /agent refresh <agent_id>
-    """
     if not args:
         return {"success": False, "error": "usage: /agent refresh <agent_id>"}
     agent_id = args[0]
     try:
         from .cell import get_cell
-        from .cell_monitor import get_cell_monitor
         cell = get_cell()
-        result = cell.reset_agent_context(agent_id)
-        return result
+        return cell.reset_agent_context(agent_id)
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_tokens(args: list[str]) -> dict:
-    """Query token usage with scope: global / --cell / --agent.
-    /tokens                  → global summary
-    /tokens --cell cell-1    → single Cell
-    /tokens --agent agent-a  → single agent
-    """
-    from kernel.commands import resolve_scope, resolve_agents
     from .context_pool import all_cell_totals, cell_total, token_usage
     scope, scope_id, rest = resolve_scope(args)
     sub = rest[0] if rest else "global"
@@ -986,6 +658,72 @@ def _cmd_tokens(args: list[str]) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def _pipeline(segments: list[str]) -> dict:
+    from kernel.commands import get_handler as _gh
+    import shlex
+    parts = [shlex.split(s.strip()) for s in segments]
+
+    def _subst(args: list[str], ctx: dict) -> list[str]:
+        out = []
+        for a in args:
+            if not isinstance(a, str) or "{" not in a:
+                out.append(a)
+                continue
+            import re
+            a = re.sub(r"\{\.(\w+)\}", lambda m: str(ctx.get(m.group(1), m.group(0))), a)
+            a = a.format(**ctx)
+            out.append(a)
+        return out
+
+    def _build_ctx(result: dict) -> dict:
+        ctx = {"scope": result.get("scope", ""), "scope_id": result.get("scope_id", ""),
+               "count": str(result.get("agents", result.get("count", 0)))}
+        ctx.update({k: str(v) for k, v in result.items()
+                   if isinstance(v, (str, int, float, bool))})
+        return ctx
+
+    ctx = {}
+    last_result = None
+    for seg_idx, seg_parts in enumerate(parts):
+        if not seg_parts:
+            continue
+        cmd = seg_parts[0][1:] if seg_parts[0].startswith("/") else seg_parts[0]
+        cmd_args = seg_parts[1:]
+        handler = _gh(cmd)
+        if not handler:
+            return {"success": False, "error": f"pipeline: unknown '{cmd}'", "segment": seg_idx}
+        if last_result and isinstance(last_result, dict):
+            results_dict = last_result.get("results")
+            if isinstance(results_dict, dict) and seg_idx > 0:
+                aggregated = {}
+                for item_key, item_val in results_dict.items():
+                    ictx = dict(ctx, key=str(item_key), value=str(item_val)
+                                if not isinstance(item_val, (dict, list)) else str(item_key))
+                    nargs = _subst(cmd_args, ictx)
+                    r = handler(nargs)
+                    aggregated[item_key] = r
+                return {"success": True, "pipeline": True,
+                        "segments": len(parts), "results": aggregated}
+            results_list = last_result.get("results")
+            if isinstance(results_list, (list, tuple)) and seg_idx > 0:
+                aggregated = {}
+                for i, item in enumerate(results_list):
+                    item_str = str(item) if not isinstance(item, (dict, list)) else str(i)
+                    ictx = dict(ctx, key=item_str, value=item_str, index=str(i))
+                    nargs = _subst(cmd_args, ictx)
+                    r = handler(nargs)
+                    aggregated[str(i) if not isinstance(item, str) else item] = r
+                return {"success": True, "pipeline": True,
+                        "segments": len(parts), "results": aggregated}
+        cmd_args = _subst(cmd_args, ctx)
+        result = handler(cmd_args)
+        if not result.get("success", True):
+            return result
+        last_result = result
+        ctx.update(_build_ctx(result))
+    return last_result or {"success": True, "result": ""}
+
+
 # Load command definitions from commands.yaml
 try:
     from kernel.commands import load_command_defs
@@ -1004,209 +742,3 @@ for _name in ("help", "agents", "connect", "disconnect", "mode", "status",
     _handler = locals().get(f"_cmd_{_name}")
     if _handler:
         _register_handler(_name, _handler)
-
-
-# ── Message dispatch ──
-
-def _pipeline(segments: list[str]) -> dict:
-    """Execute a generic command pipeline.
-
-    Three pipeline modes, auto-selected by previous command's output shape:
-
-    Mode 1 — Map (results is a dict of {key: value}):
-      /memory compact | /tokens --agent {key}
-      → Iterates over result keys, substitutes {key} and {value}
-
-    Mode 2 — Chain (results is a list):
-      /status | /tokens --agent {key}
-      → Iterates over list items
-
-    Mode 3 — Passthrough (any other result):
-      /status | /memory --agent {scope_id} stats
-      → Passes scope/scope_id/agents as variables
-
-    Available variables from previous command output:
-      {key}       — iteration key (from results dict keys)
-      {value}     — iteration value (from results dict values)
-      {scope}     — result["scope"]
-      {scope_id}  — result["scope_id"]
-      {count}     — result["agents"] or len(results)
-      {.field}    — any top-level field from result (e.g. {.success})
-    """
-    from kernel.commands import get_handler as _gh
-    import shlex
-
-    parts = [shlex.split(s.strip()) for s in segments]
-
-    def _subst(args: list[str], ctx: dict) -> list[str]:
-        """Substitute {key}, {value}, {scope}, {scope_id}, {.field} in args."""
-        out = []
-        for a in args:
-            if not isinstance(a, str) or "{" not in a:
-                out.append(a)
-                continue
-            # Replace {.field} with result["field"]
-            import re
-            a = re.sub(r"\{\.(\w+)\}", lambda m: str(ctx.get(m.group(1), m.group(0))), a)
-            # Replace {key}, {value}, {scope}, {scope_id}, {count}
-            a = a.format(**ctx)
-            out.append(a)
-        return out
-
-    def _build_ctx(result: dict) -> dict:
-        """Extract context variables from a command result."""
-        ctx = {"scope": result.get("scope", ""), "scope_id": result.get("scope_id", ""),
-               "count": str(result.get("agents", result.get("count", 0)))}
-        ctx.update({k: str(v) for k, v in result.items()
-                   if isinstance(v, (str, int, float, bool))})
-        return ctx
-
-    ctx = {}
-    last_result = None
-
-    for seg_idx, seg_parts in enumerate(parts):
-        if not seg_parts:
-            continue
-        cmd = seg_parts[0][1:] if seg_parts[0].startswith("/") else seg_parts[0]
-        cmd_args = seg_parts[1:]
-
-        handler = _gh(cmd)
-        if not handler:
-            return {"success": False, "error": f"pipeline: unknown '{cmd}'", "segment": seg_idx}
-
-        # Map mode: previous command returned results dict → iterate
-        if last_result and isinstance(last_result, dict):
-            results_dict = last_result.get("results")
-            if isinstance(results_dict, dict) and seg_idx > 0:
-                aggregated = {}
-                for item_key, item_val in results_dict.items():
-                    ictx = dict(ctx, key=str(item_key), value=str(item_val)
-                                if not isinstance(item_val, (dict, list)) else str(item_key))
-                    nargs = _subst(cmd_args, ictx)
-                    r = handler(nargs)
-                    aggregated[item_key] = r
-                return {"success": True, "pipeline": True,
-                        "segments": len(parts), "results": aggregated}
-
-            # Chain mode: results is a list
-            results_list = last_result.get("results")
-            if isinstance(results_list, (list, tuple)) and seg_idx > 0:
-                aggregated = {}
-                for i, item in enumerate(results_list):
-                    item_str = str(item) if not isinstance(item, (dict, list)) else str(i)
-                    ictx = dict(ctx, key=item_str, value=item_str, index=str(i))
-                    nargs = _subst(cmd_args, ictx)
-                    r = handler(nargs)
-                    aggregated[str(i) if not isinstance(item, str) else item] = r
-                return {"success": True, "pipeline": True,
-                        "segments": len(parts), "results": aggregated}
-
-        # Passthrough: execute normally, update context
-        cmd_args = _subst(cmd_args, ctx)
-        result = handler(cmd_args)
-        if not result.get("success", True):
-            return result
-
-        last_result = result
-        ctx.update(_build_ctx(result))
-
-    return last_result or {"success": True, "result": ""}
-
-
-def dispatch(text: str) -> dict:
-    """Main entry: route user input through Shell.
-
-    /command → execute command
-    cmd1 | cmd2 → pipeline (output of cmd1 feeds into cmd2)
-    else     → L3A mode (parse intent) or Direct mode (message agent)
-    """
-    # Pipeline detection
-    if "|" in text:
-        segments = [s.strip() for s in text.split("|")]
-        if len(segments) >= 2:
-            return _pipeline(segments)
-
-    state = get_state()
-
-    if text.startswith("/"):
-        parts = shlex.split(text)
-        cmd = parts[0][1:]
-        args = parts[1:]
-        # Match command or alias
-        info = get_command(cmd)
-        if info:
-            handler = get_handler(cmd)
-            if handler:
-                return handler(args)
-        # Check aliases
-        for c in _list_defs():
-            if cmd in c.get("aliases", []):
-                handler = get_handler(c["name"])
-                if handler:
-                    return handler(args)
-                break
-        try:
-            from services.i18n import t as _t
-            err = _t("shell.error.unknown_command", cmd=cmd)
-        except Exception:
-            err = f"unknown command: /{cmd}"
-        return {"success": False, "error": err,
-                "suggestions": [c["name"] for c in _list_defs()]}
-
-    if state.is_direct():
-        return _direct_message(state, text)
-
-    return _l3a_intent(text)
-
-
-def _direct_message(state: ShellState, text: str) -> dict:
-    """Send a message in Direct mode via stdin queue.
-
-    On persistent failure (cell/agent unreachable), auto-fallback to L3A
-    so the user doesn't get stuck in a broken Direct session.
-    """
-    try:
-        from .cell import get_cell
-        cell = get_cell(state.cell_id)
-        r = cell.send_direct_message(state.agent_id, text)
-
-        if not r.get("success"):
-            _auto_disconnect(state, r.get("error", "send_failed"))
-            return r
-
-        response = r.get("output", r.get("answer", ""))
-        guarded = guard_output(state.agent_id, response)
-        r["raw_answer"] = response
-        r["answer"] = guarded["output"]
-        r["output_guarded"] = not guarded["safe"]
-        return r
-    except Exception as e:
-        _auto_disconnect(state, str(e))
-        return {"success": False, "error": str(e)}
-
-
-def _auto_disconnect(state: ShellState, reason: str) -> None:
-    """Auto-fallback from Direct to L3A when connection is broken."""
-    if not state.is_direct():
-        return
-    logger.warning("auto-disconnect from %s: %s", state.agent_id, reason)
-    try:
-        from .cell import get_cell
-        cell = get_cell(state.cell_id)
-        cell.close_direct_session(state.agent_id)
-    except Exception:
-        pass
-    state.switch_to_l3a()
-    emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
-                 data={"event": "l3a_mode_restored_auto",
-                       "reason": reason})
-
-
-def _l3a_intent(text: str) -> dict:
-    """Parse intent and submit to CardRegistry in L3A mode."""
-    try:
-        from .l3 import get_coordinator
-        coord = get_coordinator()
-        return coord.process_intent(text)
-    except Exception as e:
-        return {"success": False, "error": str(e)}

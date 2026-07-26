@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from services._base import BaseService
-from kernel.params import PRAXIS_CONFIG_DIR
+from kernel.params.system import PRAXIS_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,12 @@ from kernel.platform import get_config_dir
 CHECKPOINT_DIR = Path(get_config_dir()) / "checkpoints"
 
 # Import configurable constants from kernel params
-from kernel.params import HEARTBEAT_TIMEOUT, CRASH_TIMEOUT, FAULT_CHECK_INTERVAL, FAULT_RETRY_INTERVAL
+from kernel.params.system import (
+    HEARTBEAT_TIMEOUT,
+    CRASH_TIMEOUT,
+    FAULT_CHECK_INTERVAL,
+    FAULT_RETRY_INTERVAL,
+)
 AUTONOMOUS_RECONNECT_INTERVAL = 5.0  # Autonomous mode reconnect interval
 
 

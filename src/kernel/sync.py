@@ -13,7 +13,7 @@ from enum import Enum, auto
 from typing import Any, Callable
 
 from .ipc import LockMessage, LockOp, get_lock_bus
-from .params import (
+from .params.kernel import (
     BARRIER_DEFAULT_COUNT,
     BARRIER_DEFAULT_TIMEOUT,
     MUTEX_BOOST_THRESHOLD,

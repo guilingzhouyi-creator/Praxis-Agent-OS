@@ -202,7 +202,7 @@ def get_bus() -> MonitorBus:
     global _bus
     if _bus is None:
         try:
-            from kernel.params import PRAXIS_MONITOR_BUS_LOG
+            from kernel.params.system import PRAXIS_MONITOR_BUS_LOG
             persist = PRAXIS_MONITOR_BUS_LOG
         except Exception:
             persist = ""

@@ -14,7 +14,7 @@ import time
 from typing import Any
 
 from kernel.prompts import get_prompt
-from kernel.params import MAX_SELF_HEAL
+from kernel.params.agent import MAX_SELF_HEAL
 
 logger = logging.getLogger(__name__)
 

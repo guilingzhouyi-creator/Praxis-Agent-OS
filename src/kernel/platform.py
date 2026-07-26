@@ -18,7 +18,7 @@ import tempfile as _tempfile
 from pathlib import Path as _Path
 from typing import Any
 
-from .params import SUBPROCESS_SHORT_TIMEOUT
+from .params.api import SUBPROCESS_SHORT_TIMEOUT
 
 
 # ── OS family detection ──

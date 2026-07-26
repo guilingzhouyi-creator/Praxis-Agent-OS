@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services._base import BaseService
-from kernel.params import SESSION_TIMEOUT
+from kernel.params.system import SESSION_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

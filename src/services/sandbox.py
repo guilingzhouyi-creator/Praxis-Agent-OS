@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from kernel import get_rwlock
-from kernel.params import SANDBOX_STATE_PATH, SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
+from kernel.params.system import SANDBOX_STATE_PATH, SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
 
 logger = logging.getLogger(__name__)
 

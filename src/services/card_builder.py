@@ -17,7 +17,7 @@ import uuid
 from typing import Any, Callable
 
 from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
-from kernel.params import CARD_BUILDER_MODES
+from kernel.params.agent import CARD_BUILDER_MODES
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ import sys
 
 def cmd_boot(args):
     from kernel.os import get_os
-    from kernel.params import TERRITORY_PATHS, TERRITORY_MAP
+    from kernel.params.agent import TERRITORY_PATHS, TERRITORY_MAP
     agent_config = []
     for role, paths in TERRITORY_PATHS.items():
         agent_config.append((f"agent-{role}", role, paths))
@@ -99,7 +99,7 @@ def cmd_tools(args):
 
 def cmd_audit(args):
     from kernel import get_audit_log
-    from kernel.params import SYSCALL_AUDIT_CLI_LIMIT
+    from kernel.params.kernel import SYSCALL_AUDIT_CLI_LIMIT
     agent_filter = args[0] if args else ""
     logs = get_audit_log(limit=SYSCALL_AUDIT_CLI_LIMIT, agent_id=agent_filter)
     if not logs:
@@ -188,7 +188,7 @@ def cmd_status(args):
         print(f"  Alerts: {al.get('total', 0)} (crit={al.get('crit', 0)}, warn={al.get('warn', 0)})")
     except Exception:
             pass
-    from kernel.params import SYSCALL_AUDIT_MAX
+    from kernel.params.kernel import SYSCALL_AUDIT_MAX
     print(f"\nSummary:")
     print(f"  Kernel: {cmd_health([])['status']}")
     print(f"  Processes: {len(get_table().list())}")

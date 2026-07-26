@@ -34,7 +34,7 @@ from services._base import BaseService
 
 logger = logging.getLogger(__name__)
 
-from kernel.params import DEFAULT_CELL_ID
+from kernel.params.agent import DEFAULT_CELL_ID
 
 
 class MessageType(Enum):

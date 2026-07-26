@@ -20,7 +20,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
-from .params import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_MAX_SIZE, FILE_CACHE_TTL, VFS_DEFAULT_MIN_RING, VFS_PROC_PATH
+from .params.kernel import VFS_DEFAULT_MIN_RING, VFS_PROC_PATH
+from .params.system import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_MAX_SIZE, FILE_CACHE_TTL
 
 logger = logging.getLogger(__name__)
 

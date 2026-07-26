@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from kernel.params import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_PATH, EXECUTION_RESULTS_AUTO_SAVE
+from kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_PATH, EXECUTION_RESULTS_AUTO_SAVE
 from services._base import BaseService
 from services._persistable import PersistableMixin
 

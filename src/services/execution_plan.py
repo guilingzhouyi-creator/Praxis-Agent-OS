@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import AGENT_LOOP_DEFAULT_TIMEOUT
+from kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
 from kernel import EVENT_TASK_ASSIGN, emit_signal
 from .card import Card, CardMode, PhaseMode, Step
 from .agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode

@@ -18,7 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services.tool_spec import ToolRing
-from kernel.params import RUN_SUBPROCESS_TIMEOUT, SUBAGENT_LOOP_TIMEOUT, SUBAGENT_LOOP_STEPS, MOCK_DELAY
+from kernel.params.agent import SUBAGENT_LOOP_TIMEOUT, SUBAGENT_LOOP_STEPS
+from kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
+from kernel.params.system import MOCK_DELAY
 from kernel.platform import SHELL_PATH
 
 logger = logging.getLogger(__name__)

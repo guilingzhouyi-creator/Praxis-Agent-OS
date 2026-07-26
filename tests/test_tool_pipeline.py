@@ -52,7 +52,7 @@ class TestAgentCanAccess:
     def test_ring3_blocked(self):
         from services.tool_pipeline import agent_can_access
         # default agent has ring 1 clearance
-        from kernel.params import AGENT_CLEARANCE
+        from kernel.params.agent import AGENT_CLEARANCE
         assert AGENT_CLEARANCE.get("default", 1) == 1
         assert not agent_can_access("default", "RING_3")
 

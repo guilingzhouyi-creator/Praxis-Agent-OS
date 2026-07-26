@@ -6,7 +6,8 @@ import logging
 import os
 import time
 
-from kernel.params import MOCK_DELAY, LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS
+from kernel.params.api import LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS
+from kernel.params.system import MOCK_DELAY
 from kernel.prompts import get_prompt as _gp
 
 logger = logging.getLogger(__name__)

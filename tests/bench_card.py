@@ -9,10 +9,8 @@ from services.cell import get_cell, reset_cells
 from services.card import Card, CardMode, Phase, PhaseMode, Step
 from services.agent_terminal import reset_terminals
 from services.scout import get_pool
-from kernel.params import (
-    SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT,
-    TERMINAL_MAX_WORKERS,
-)
+from kernel.params.agent import TERMINAL_MAX_WORKERS
+from kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT
 
 cell = get_cell("bench", ["/project"])
 cell.add_agent("agent_a", role="http",     territory=["/project"], ring=1, max_scouts=4, auto_boot=True)

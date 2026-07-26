@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kernel.params import DEFAULT_AGENT_CONFIGS
+from kernel.params.agent import DEFAULT_AGENT_CONFIGS
 from .cell_types import AgentStatus, AgentInfo
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,12 @@ def liveness(self) -> dict:
         term = terms.get(aid)
         if term is None:
             agent_results[aid] = {"status": "no_terminal", "alive": False}
-        from kernel.params import AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING
+        from kernel.params.agent import (
+            AGENT_STATUS_IDLE,
+            AGENT_STATUS_PROCESSING,
+            AGENT_STATUS_WAITING_SCOUT,
+            AGENT_STATUS_BOOTING,
+        )
         if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
             agent_results[aid] = {"status": term.status.name, "alive": True}
             healthy_count += 1

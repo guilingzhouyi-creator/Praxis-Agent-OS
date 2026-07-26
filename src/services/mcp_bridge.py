@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
-from kernel.params import LLM_HTTP_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
+from kernel.params.api import LLM_HTTP_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ def _mcp_state_path() -> str:
     global MCP_STATE_PATH
     if not MCP_STATE_PATH:
         try:
-            from kernel.params import PRAXIS_DATA_DIR
+            from kernel.params.system import PRAXIS_DATA_DIR
             MCP_STATE_PATH = os.path.join(PRAXIS_DATA_DIR, "mcp_state.json")
         except Exception:
             MCP_STATE_PATH = os.environ.get("PRAXIS_MCP_STATE", "mcp_state.json")

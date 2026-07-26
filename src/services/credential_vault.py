@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import PRAXIS_DATA_DIR
+from kernel.params.system import PRAXIS_DATA_DIR
 
 logger = logging.getLogger(__name__)
 

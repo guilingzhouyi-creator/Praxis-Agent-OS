@@ -17,21 +17,36 @@ from typing import Any
 from kernel import get_event_bus, emit_signal
 from kernel.constitution import get_constitution
 from kernel.allocator import get_allocator
-from kernel.params import DEFAULT_AGENT_CONFIGS, AGENT_CLEARANCE, AGENT_TERMINAL_MAX_SCOUTS, AGENT_TERMINAL_WORKER_JOIN_TIMEOUT, AGENT_TERMINAL_STDIN_MAX, AGENT_TERMINAL_STDOUT_MAX, AGENT_TERMINAL_STDERR_MAX, AGENT_TERMINAL_RESULTS_MAX, TERMINAL_MAX_WORKERS, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED, AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED
-from .cache import get_file_cache, get_context_register
-from .scout import get_pool as get_scout_pool
-from ._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
-from ._term_handlers import get_action_handler
-from ._term_lifecycle import run_cache_keepalive
-from .tool_pipeline import get_pipeline
-from .context import get_context as get_context_manager
+from kernel.params.agent import (
+    DEFAULT_AGENT_CONFIGS,
+    AGENT_CLEARANCE,
+    AGENT_TERMINAL_MAX_SCOUTS,
+    AGENT_TERMINAL_WORKER_JOIN_TIMEOUT,
+    AGENT_TERMINAL_STDIN_MAX,
+    AGENT_TERMINAL_STDOUT_MAX,
+    AGENT_TERMINAL_STDERR_MAX,
+    AGENT_TERMINAL_RESULTS_MAX,
+    TERMINAL_MAX_WORKERS,
+    AGENT_LOOP_DEFAULT_STEPS,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+    EVENT_TASK_ASSIGN,
+    EVENT_REVIEW_REQUESTED,
+)
+from kernel.params.system import POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED
+from ..cache import get_file_cache, get_context_register
+from ..scout import get_pool as get_scout_pool
+from .._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
+from .._term_handlers import get_action_handler
+from .._term_lifecycle import run_cache_keepalive
+from ..tool_pipeline import get_pipeline
+from ..context import get_context as get_context_manager
 
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), ".."))
 
 # ── Cache keepalive ──
-from kernel.params import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT
+from kernel.params.agent import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT
 
 
 class AgentTerminal:
@@ -77,17 +92,17 @@ class AgentTerminal:
         self._async_scout_events: dict[str, threading.Event] = {}
         self._async_scout_count = 0
         self._tool_registry: dict[str, Any] | None = None
-        from kernel.params import TERMINAL_MODE_DEFAULT, TERMINAL_STATE_DEFAULT
+        from kernel.params.agent import TERMINAL_MODE_DEFAULT, TERMINAL_STATE_DEFAULT
         self._loop_mode: str = TERMINAL_MODE_DEFAULT
         self._loop_state: str = TERMINAL_STATE_DEFAULT
         self._paused: bool = False
         self._current_card: str = ""
         self._cards_since_pressure_check: int = 0
         # ── AgentLoop instance budget (reserved, not yet enforced) ──
-        from kernel.params import TERMINAL_MAX_CONCURRENT_LOOPS
+        from kernel.params.agent import TERMINAL_MAX_CONCURRENT_LOOPS
         self._max_concurrent_loops: int = TERMINAL_MAX_CONCURRENT_LOOPS
         self._active_loops: int = 0
-        from .todo import TodoTable
+        from ..todo import TodoTable
         self.todo = TodoTable(agent_id)
 
     def set_tool_registry(self, registry: dict[str, Any]) -> None:
@@ -96,7 +111,6 @@ class AgentTerminal:
     def list_tools(self) -> list[dict]:
         if not self._tool_registry:
             return []
-        from kernel.params import RING_NUM_MAP as _RNM
         from services.tool_spec import is_muted as _is_muted
         tools = []
         for name, spec in self._tool_registry.items():
@@ -136,7 +150,7 @@ class AgentTerminal:
                     d = getattr(s, 'description', '')[:120]
                     p = getattr(s, 'prompt', '')[:300]
                     parts.append(f"[{n}] {d}\n{p}")
-                from .context import get_context as _gc
+                from ..context import get_context as _gc
                 _gc().store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
                             agent_id=self.agent_id, entry_type="manual")
                 phases.append({"phase": "manual_loaded", "count": len(all_s)})
@@ -144,7 +158,7 @@ class AgentTerminal:
         except Exception as e:
             phases.append({"phase": "manual_loaded", "error": str(e)})
 
-        from kernel.params import EVENT_TASK_ASSIGN
+        from kernel.params.agent import EVENT_TASK_ASSIGN
         emit_signal(EVENT_TASK_ASSIGN, sender=self.agent_id, target="cell",
                      data={"event": "agent_boot", "role": self.role, "ring": self.ring})
         self._running = True
@@ -186,7 +200,7 @@ class AgentTerminal:
             if result is None:
                 result = CardResult(card_id=card.card_id, action=card.action, success=False, error="unknown")
             with self._lock:
-                from kernel.params import TERMINAL_STATE_DEFAULT
+                from kernel.params.agent import TERMINAL_STATE_DEFAULT
                 self._loop_state = TERMINAL_STATE_DEFAULT
                 self._current_card = ""
             result.elapsed = time.time() - card.timestamp
@@ -211,7 +225,7 @@ class AgentTerminal:
                 if self._cards_since_pressure_check >= 10 and card.action != "think":
                     self._cards_since_pressure_check = 0
                     try:
-                        from .memory import get_memory
+                        from ..memory import get_memory
                         p = get_memory().pressure(self.agent_id)
                         if p.get("level") == "high":
                             get_memory().stub_compact(self.agent_id)
@@ -263,7 +277,7 @@ class AgentTerminal:
                 result_findings = findings or []
                 # Inject scout findings into context register
                 if findings:
-                    from kernel.params import TERMINAL_SCOUT_FINDINGS_LIMIT
+                    from kernel.params.agent import TERMINAL_SCOUT_FINDINGS_LIMIT
                     for f in findings[:TERMINAL_SCOUT_FINDINGS_LIMIT]:
                         ctx.push("observation", str(f)[:500], source="scout")
                 return {"success": ok, "output": result_output, "findings": result_findings}
@@ -329,7 +343,7 @@ class AgentTerminal:
             if card.action == "think":
                 p = mem.pressure(self.agent_id)
                 if p["level"] == "high":
-                    from kernel.params import TERMINAL_CONTEXT_RECENT
+                    from kernel.params.agent import TERMINAL_CONTEXT_RECENT
                     snapshot = list(self.context.recent(TERMINAL_CONTEXT_RECENT))
                     compact_r = mem.compact(self.agent_id)
                     for item in snapshot:
@@ -387,7 +401,7 @@ class AgentTerminal:
         return tid
 
     def list_todos(self, status: str = "", limit: int = 20) -> list[dict]:
-        from .todo import TodoStatus
+        from ..todo import TodoStatus
         st = TodoStatus[status.upper()] if status else None
         return self.todo.list(st, limit)
 
@@ -434,14 +448,14 @@ class AgentTerminal:
     # ── Convention handler (persistent AgentLoop per convention) ──
 
     def _convention_handler(self, card: TerminalCard) -> CardResult:
-        from ._term_convention import convention_handler as _ch
+        from .._term_convention import convention_handler as _ch
         return _ch(self, card)
 
     # ── Direct message handler ──
 
     def _handle_direct(self, card: TerminalCard) -> CardResult:
         """Handle direct message via stdin queue. Runs AgentLoop, writes to Memory R2."""
-        from .agent_loop import AgentLoop
+        from ..agent_loop import AgentLoop
         text = card.params.get("text", "")
         sender = card.params.get("sender", "shell")
         from kernel.prompts import get_prompt as _get_prompt
@@ -454,7 +468,7 @@ class AgentTerminal:
         result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
         answer = result.get("answer", "")
         try:
-            from .memory import get_memory
+            from ..memory import get_memory
             get_memory().remember(
                 agent_id=self.agent_id, entry_type="direct_message",
                 content=f"{sender}: {text[:200]}\nAgent: {answer[:500]}",
@@ -513,7 +527,7 @@ class AgentTerminal:
             return results
 
     def set_mode(self, mode: str) -> dict:
-        from kernel.params import TERMINAL_MODE_VALID
+        from kernel.params.agent import TERMINAL_MODE_VALID
         valid = TERMINAL_MODE_VALID
         if mode not in valid:
             return {"success": False, "error": f"mode must be one of {valid}"}
@@ -558,7 +572,7 @@ class AgentTerminal:
 
     def send_direct_message(self, text: str, sender: str = "shell") -> dict:
         """Queue a direct message as a TerminalCard via stdin."""
-        from ._term_types import TerminalCard, CardMode as TermCardMode
+        from .._term_types import TerminalCard, CardMode as TermCardMode
         card = TerminalCard(
             mode=TermCardMode.EXECUTE,
             action="direct_message",

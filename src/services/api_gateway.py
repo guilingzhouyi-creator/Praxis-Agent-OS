@@ -17,10 +17,15 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from kernel.params import (
-    ENV_API_TOKEN, API_GATEWAY_DEFAULT_PORT,
-    API_CORS_ORIGIN, API_CORS_ALLOW_METHODS, API_CORS_ALLOW_HEADERS,
-    API_GATEWAY_PORT, API_GATEWAY_HOST, API_MAX_BODY_BYTES,
+from kernel.params.api import (
+    ENV_API_TOKEN,
+    API_GATEWAY_DEFAULT_PORT,
+    API_CORS_ORIGIN,
+    API_CORS_ALLOW_METHODS,
+    API_CORS_ALLOW_HEADERS,
+    API_GATEWAY_PORT,
+    API_GATEWAY_HOST,
+    API_MAX_BODY_BYTES,
 )
 from .api_handlers import ApiHandlers
 from .api_middleware import (

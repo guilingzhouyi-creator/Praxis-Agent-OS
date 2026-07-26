@@ -35,7 +35,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from kernel.params import MEMORY_INIT_TIMEOUT, PRAXIS_DATA_DIR, MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
+from kernel.params.api import MEMORY_INIT_TIMEOUT
+from kernel.params.system import PRAXIS_DATA_DIR, MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
 
 logger = logging.getLogger(__name__)
 

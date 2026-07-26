@@ -2,7 +2,7 @@
 
 import subprocess
 
-from kernel.params import TOOL_BUILD_TIMEOUT
+from kernel.params.tool import TOOL_BUILD_TIMEOUT
 
 
 def build_project(args: dict, agent_id: str) -> dict:

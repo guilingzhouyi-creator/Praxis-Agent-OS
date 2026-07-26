@@ -11,7 +11,7 @@ except ImportError:
     HAS_ARCHIVE = False
 
 
-from kernel.params import PRAXIS_ARCHIVE_DB as _ADB
+from kernel.params.system import PRAXIS_ARCHIVE_DB as _ADB
 _ARCHIVE_DB = os.environ.get("PRAXIS_ARCHIVE_DB", _ADB)
 
 

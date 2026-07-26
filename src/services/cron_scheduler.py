@@ -30,7 +30,7 @@ import threading
 import time
 from typing import Any
 
-from kernel.params import CRON_CHECK_INTERVAL
+from kernel.params.system import CRON_CHECK_INTERVAL
 
 logger = logging.getLogger(__name__)
 

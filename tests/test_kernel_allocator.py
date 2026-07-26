@@ -78,9 +78,13 @@ class TestAllocatorBasics:
 
     def test_usage_returns_all_resources(self):
         from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params import (
-            RESOURCE_TOKENS, RESOURCE_RING1, RESOURCE_RING2,
-            RESOURCE_RING3, RESOURCE_SANDBOX_KB, RESOURCE_PRIORITY,
+        from kernel.params.kernel import (
+            RESOURCE_TOKENS,
+            RESOURCE_RING1,
+            RESOURCE_RING2,
+            RESOURCE_RING3,
+            RESOURCE_SANDBOX_KB,
+            RESOURCE_PRIORITY,
         )
         reset_allocator()
         a = get_allocator()
@@ -386,7 +390,7 @@ class TestSwapOut:
 
     def test_swap_out_to_disk_removes_allocation(self):
         from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params import ALLOCATOR_DISK_RESOURCE
+        from kernel.params.kernel import ALLOCATOR_DISK_RESOURCE
         reset_allocator()
         a = get_allocator()
         a.set_limit("swap_disk", "ring3", 100)
@@ -442,7 +446,7 @@ class TestCancellationAndEdgeCases:
 
     def test_alloc_zero_amount(self):
         from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params import ALLOCATOR_DEFAULT_AMOUNT
+        from kernel.params.kernel import ALLOCATOR_DEFAULT_AMOUNT
         reset_allocator()
         a = get_allocator()
         r = a.alloc("zero_agent", "tokens", 0)
@@ -496,7 +500,7 @@ class TestCancellationAndEdgeCases:
 
     def test_fallback_limit_used_when_no_limit_set(self):
         from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params import ALLOCATOR_FALLBACK_LIMIT
+        from kernel.params.kernel import ALLOCATOR_FALLBACK_LIMIT
         reset_allocator()
         a = get_allocator()
         # "cpu" is not in DEFAULTS, so the fallback limit (100) is used.
@@ -559,9 +563,12 @@ class TestAllocatorIntegration:
 
     def test_different_resource_types(self):
         from kernel.allocator import get_allocator, reset_allocator
-        from kernel.params import (
-            RESOURCE_TOKENS, RESOURCE_RING1, RESOURCE_RING2,
-            RESOURCE_RING3, RESOURCE_SANDBOX_KB,
+        from kernel.params.kernel import (
+            RESOURCE_TOKENS,
+            RESOURCE_RING1,
+            RESOURCE_RING2,
+            RESOURCE_RING3,
+            RESOURCE_SANDBOX_KB,
         )
         reset_allocator()
         a = get_allocator()

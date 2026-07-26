@@ -160,7 +160,7 @@ class SubAgentTask:
             result = engine.generate(
                 prompt=self.prompt,
                 system=system,
-                from kernel.params import SUBAGENT_MAX_TOKENS
+                from kernel.params.agent import SUBAGENT_MAX_TOKENS
                 max_tokens=SUBAGENT_MAX_TOKENS,
                 user_id=self.parent_agent_id or self.id,
             )

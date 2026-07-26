@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services.memory import get_memory
-from kernel.params import CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS
+from kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS
 
 logger = logging.getLogger(__name__)
 

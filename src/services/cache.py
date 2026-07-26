@@ -21,7 +21,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from kernel.params import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_TTL, CACHE_DEFAULT_TTL
+from kernel.params.system import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_TTL, CACHE_DEFAULT_TTL
 
 logger = logging.getLogger(__name__)
 

@@ -19,7 +19,7 @@ import threading
 from typing import Any
 
 from kernel.ports import I18nPort
-from kernel.params import I18N_DEFAULT_LOCALE, I18N_FALLBACK_TO_KEY
+from kernel.params.api import I18N_DEFAULT_LOCALE, I18N_FALLBACK_TO_KEY
 
 logger = logging.getLogger(__name__)
 

@@ -17,7 +17,7 @@ import logging
 import time
 from typing import Any
 
-from .params import REGISTRY_QUERY_LIMIT
+from .params.kernel import REGISTRY_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 

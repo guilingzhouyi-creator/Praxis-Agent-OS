@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import ISSUE_TABLE_PATH, ISSUE_TABLE_AUTO_SAVE
+from kernel.params.system import ISSUE_TABLE_PATH, ISSUE_TABLE_AUTO_SAVE
 from services._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

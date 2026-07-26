@@ -27,10 +27,14 @@ from kernel.ports import (
     TransportPort, ChannelPort, EventBusPort,
     WorkerPort, I18nPort, CardRegistryPort, MonitorBusPort,
 )
-from kernel.params import (
-    I18N_DEFAULT_LOCALE, I18N_LOCALE_DIR,
-    CHANNEL_RING_CAPACITY, CHANNEL_RING_OVERWRITE,
-    WORKER_POOL_MIN, WORKER_POOL_MAX, WORKER_POOL_QUEUE_SIZE,
+from kernel.params.api import (
+    I18N_DEFAULT_LOCALE,
+    I18N_LOCALE_DIR,
+    CHANNEL_RING_CAPACITY,
+    CHANNEL_RING_OVERWRITE,
+    WORKER_POOL_MIN,
+    WORKER_POOL_MAX,
+    WORKER_POOL_QUEUE_SIZE,
 )
 
 logger = logging.getLogger(__name__)

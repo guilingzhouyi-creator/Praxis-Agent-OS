@@ -77,9 +77,15 @@ class MemoryManager:
     """Agent memory manager — context window + ring tiers."""
 
     def __init__(self, working_budget: int = 8192, short_budget: int = 32768, long_budget: int = 131072):
-        from kernel.params import (MEMORY_RECALL_LIMIT, MEMORY_RECALL_LIMIT_LARGE, MEMORY_BUILD_CONTEXT_ENTRIES,
-                                   MEMORY_PAGER_RECALL_LIMIT, MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL,
-                                   MEMORY_RING_LONG_TTL)
+        from kernel.params.system import (
+            MEMORY_RECALL_LIMIT,
+            MEMORY_RECALL_LIMIT_LARGE,
+            MEMORY_BUILD_CONTEXT_ENTRIES,
+            MEMORY_PAGER_RECALL_LIMIT,
+            MEMORY_RING_WORKING_TTL,
+            MEMORY_RING_SHORT_TTL,
+            MEMORY_RING_LONG_TTL,
+        )
         self.working = RingLayer("working", working_budget, ttl=MEMORY_RING_WORKING_TTL)
         self.short = RingLayer("short", short_budget, ttl=MEMORY_RING_SHORT_TTL)
         self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL if MEMORY_RING_LONG_TTL else None)
@@ -186,7 +192,7 @@ class MemoryManager:
                 remaining -= tok
 
         # Finally long-term (tag-matched)
-        from kernel.params import MEMORY_BUILD_CONTEXT_LIMIT
+        from kernel.params.system import MEMORY_BUILD_CONTEXT_LIMIT
         l_entries = self.long.query(agent_id=agent_id, limit=MEMORY_BUILD_CONTEXT_LIMIT)
         if l_entries:
             l_text = "\n".join(f"[{e.entry_type}] {e.content[:300]}" for e in l_entries)
@@ -220,7 +226,7 @@ class MemoryManager:
         Finds groups of 3+ related entries (same agent + overlapping tags)
         and replaces them with a single summary entry in Ring 2.
         """
-        from kernel.params import SCOUT_RECALL_LIMIT
+        from kernel.params.agent import SCOUT_RECALL_LIMIT
         entries = self.recall(agent_id=agent_id, rings=[1, 2], limit=SCOUT_RECALL_LIMIT)
         candidates = _suggest_compact(entries)
         merged = 0
@@ -266,7 +272,7 @@ class MemoryManager:
           - Most recent `keep_recent_turns` turns are kept full
           - Old tool results are replaced with a one-line summary
         """
-        from kernel.params import SCOUT_RECALL_LIMIT
+        from kernel.params.agent import SCOUT_RECALL_LIMIT
         entries = self.recall(agent_id=agent_id, rings=[1, 2, 3], limit=SCOUT_RECALL_LIMIT)
         # Find most recent turn timestamps to protect
         recent_ts: set[str] = set()
@@ -339,11 +345,11 @@ class MemoryManager:
     #   Ring 1 → in-memory only (ephemeral)
 
     def _jsonl_path(self) -> Path:
-        from kernel.params import MEMORY_PERSIST_FILE_RING2, PRAXIS_DATA_DIR
+        from kernel.params.system import MEMORY_PERSIST_FILE_RING2, PRAXIS_DATA_DIR
         return (self._persist_dir or Path(PRAXIS_DATA_DIR)) / MEMORY_PERSIST_FILE_RING2
 
     def _db_path(self) -> Path:
-        from kernel.params import MEMORY_PERSIST_FILE_RING3, PRAXIS_DATA_DIR
+        from kernel.params.system import MEMORY_PERSIST_FILE_RING3, PRAXIS_DATA_DIR
         return (self._persist_dir or Path(PRAXIS_DATA_DIR)) / MEMORY_PERSIST_FILE_RING3
 
     def _ensure_ring3_db(self) -> None:

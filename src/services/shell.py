@@ -13,7 +13,8 @@ from __future__ import annotations
 import subprocess
 import time
 
-from kernel.params import SHELL_CMD_TIMEOUT, DEFAULT_CELL_ID
+from kernel.params.agent import DEFAULT_CELL_ID
+from kernel.params.api import SHELL_CMD_TIMEOUT
 from kernel.platform import IS_WINDOWS, run_shell
 from .shell_session import TerminalSession, TerminalManager, get_manager, reset_manager
 from .shell_completer import _COMMANDS, _ALIASES, _COMMAND_HELP, TerminalCompleter, get_tool_names

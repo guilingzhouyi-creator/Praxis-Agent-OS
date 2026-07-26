@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from services._base import BaseService
-from kernel.params import PROOF_TTL, NONCE_CLEANUP_AGE, PRAXIS_CONFIG_DIR
+from kernel.params.system import PROOF_TTL, NONCE_CLEANUP_AGE, PRAXIS_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 

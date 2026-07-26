@@ -208,7 +208,7 @@ class TestAgentLoopMultistepChain:
         """Tests the _trim re-root logic I fixed: construct max+1 chains to trigger trim,
         orphan child node's parent_id is cleared, prev_fp→GENESIS, verify should not misjudge."""
         from kernel.tool_chain import ToolChain
-        from kernel.params import TOOLCHAIN_MAX_CALLS
+        from kernel.params.kernel import TOOLCHAIN_MAX_CALLS
 
         # Use ToolChain directly, bypass AgentLoop.run, focus on _trim behavior
         small = ToolChain()

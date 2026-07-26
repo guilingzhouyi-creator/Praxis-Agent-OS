@@ -49,7 +49,7 @@ class SandboxManager:
     """
 
     def __init__(self, sandbox_root: str = ""):
-        from kernel.params import SANDBOX_TMP_ROOT
+        from kernel.params.system import SANDBOX_TMP_ROOT
         self._sandbox_root = Path(sandbox_root or SANDBOX_TMP_ROOT)
         self._sandbox_root.mkdir(parents=True, exist_ok=True)
 
@@ -146,7 +146,7 @@ class SandboxManager:
         return ["sh", "-c", command]
 
     def _truncate(self, data: bytes) -> str:
-        from kernel.params import SANDBOX_MAX_OUTPUT
+        from kernel.params.system import SANDBOX_MAX_OUTPUT
         text = data.decode("utf-8", errors="replace")
         return text[:SANDBOX_MAX_OUTPUT]
 

@@ -6,10 +6,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kernel.params import (
-    AGENT_LOOP_DEFAULT_STEPS, SCOUT_LOOP_STEPS,
-    MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX,
-)
+from kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, SCOUT_LOOP_STEPS
+from kernel.params.tool import MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX
 
 logger = logging.getLogger(__name__)
 

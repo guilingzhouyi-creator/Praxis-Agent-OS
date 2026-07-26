@@ -10,7 +10,14 @@ import logging
 from typing import Any
 
 from services._term_types import TerminalCard, CardResult
-from kernel.params import CONVENTION_MAX_ROUNDS, AGENT_LOOP_DEFAULT_TIMEOUT, CONVENTION_SESSION_MAX_STEPS, CONVENTION_SESSION_TIMEOUT, CONVENTION_SUB_MAX_STEPS, CONVENTION_SUB_TIMEOUT
+from kernel.params.agent import (
+    CONVENTION_MAX_ROUNDS,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+    CONVENTION_SESSION_MAX_STEPS,
+    CONVENTION_SESSION_TIMEOUT,
+    CONVENTION_SUB_MAX_STEPS,
+    CONVENTION_SUB_TIMEOUT,
+)
 
 logger = logging.getLogger(__name__)
 

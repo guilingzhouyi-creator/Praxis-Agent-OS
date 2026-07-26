@@ -34,7 +34,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from .params import GATECHAIN_PATTERN_TEMPLATE, TOOLCHAIN_MAX_CALLS, TOOLCHAIN_QUERY_LIMIT, CHAIN_KEY_ENV_VAR, PRAXIS_CHAIN_KEY
+from .params.kernel import (
+    GATECHAIN_PATTERN_TEMPLATE,
+    TOOLCHAIN_MAX_CALLS,
+    TOOLCHAIN_QUERY_LIMIT,
+    CHAIN_KEY_ENV_VAR,
+)
+from .params.system import PRAXIS_CHAIN_KEY
 
 logger = logging.getLogger(__name__)
 

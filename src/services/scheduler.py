@@ -14,7 +14,7 @@ import threading
 import time
 from typing import Any, Callable
 
-from kernel.params import DEFAULT_QUANTUM, MAX_PREEMPT
+from kernel.params.system import DEFAULT_QUANTUM, MAX_PREEMPT
 from .scheduler_types import TaskPriority, Task, AgentInfo, TimeSlice
 from .scheduler_router import L3Router, RequestPool
 from .scheduler_time import TimeScheduler, get_time_scheduler, reset_time_scheduler

@@ -10,7 +10,7 @@ import threading
 import time
 from typing import Any
 
-from kernel.params import DEFAULT_QUANTUM, MAX_PREEMPT
+from kernel.params.system import DEFAULT_QUANTUM, MAX_PREEMPT
 from .scheduler_types import TimeSlice
 
 logger = logging.getLogger(__name__)

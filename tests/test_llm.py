@@ -153,13 +153,13 @@ class TestRetryConfig:
     """重试配置"""
 
     def test_rate_limit_wait(self):
-        from kernel.params import LLM_RATE_LIMIT_WAIT
+        from kernel.params.api import LLM_RATE_LIMIT_WAIT
         assert LLM_RATE_LIMIT_WAIT == 60
 
     def test_backoff_base(self):
-        from kernel.params import LLM_TRANSIENT_BACKOFF_BASE
+        from kernel.params.api import LLM_TRANSIENT_BACKOFF_BASE
         assert LLM_TRANSIENT_BACKOFF_BASE == 3
 
     def test_empty_response_waits(self):
-        from kernel.params import LLM_EMPTY_RESPONSE_WAITS
+        from kernel.params.api import LLM_EMPTY_RESPONSE_WAITS
         assert len(LLM_EMPTY_RESPONSE_WAITS) == 5

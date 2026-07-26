@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel.params import TRANSACTION_AREA_PATH, TRANSACTION_AREA_AUTO_SAVE
+from kernel.params.system import TRANSACTION_AREA_PATH, TRANSACTION_AREA_AUTO_SAVE
 from services._base import BaseService
 from services._persistable import PersistableMixin
 

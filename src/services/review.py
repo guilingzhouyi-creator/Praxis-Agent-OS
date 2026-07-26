@@ -16,7 +16,7 @@ from typing import Any
 
 from kernel import emit_signal
 from kernel.prompts import get_prompt
-from kernel.params import REVIEW_MAX_ROUNDS
+from kernel.params.agent import REVIEW_MAX_ROUNDS
 
 logger = logging.getLogger(__name__)
 

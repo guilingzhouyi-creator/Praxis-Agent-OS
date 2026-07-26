@@ -21,7 +21,13 @@ import time
 from typing import Any
 
 from kernel.device import get_device_manager
-from kernel.params import (
+from kernel.params.agent import (
+    LLM_CACHE_RETENTION_THRESHOLD,
+    LLM_CACHE_RETENTION_STRING,
+    LLM_THINKING_BUFFER,
+    LOOP_TURN_WARNING_THRESHOLD,
+)
+from kernel.params.api import (
     DEFAULT_REASONING_EFFORT,
     DEFAULT_THINKING_BUDGET,
     FALLBACK_LLM_API_URL,
@@ -34,12 +40,8 @@ from kernel.params import (
     LLM_MAX_TRANSIENT_RETRIES,
     LLM_RATE_LIMIT_WAIT,
     LLM_TRANSIENT_BACKOFF_BASE,
-    LLM_CACHE_RETENTION_THRESHOLD,
-    LLM_CACHE_RETENTION_STRING,
-    LLM_THINKING_BUFFER,
-    LOOP_TURN_WARNING_THRESHOLD,
-    TOOL_HANDLER_TIMEOUT,
 )
+from kernel.params.tool import TOOL_HANDLER_TIMEOUT
 
 # Base types extracted to llm_base.py
 from .llm_base import (
@@ -516,7 +518,7 @@ def _counter_hook(result, prompt="", system="", max_tokens=0, user_id="", **kwar
         # Also emit TOKEN_USAGE event for CentralCollector cross-Cell aggregation
         from kernel import emit_signal
         provider = kwargs.get("provider", "")
-        from kernel.params import EVENT_TOKEN_USAGE
+        from kernel.params.agent import EVENT_TOKEN_USAGE
         emit_signal(EVENT_TOKEN_USAGE, sender=user_id or "unknown", target="central_collector",
                     data={"agent_id": user_id or "unknown", "cell_id": kwargs.get("cell_id", "default"),
                           "input_tokens": inp, "output_tokens": out,

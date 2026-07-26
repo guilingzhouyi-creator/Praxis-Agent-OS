@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import APPROVAL_GATE_PATH, APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT
+from kernel.params.system import APPROVAL_GATE_PATH, APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT
 from services._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

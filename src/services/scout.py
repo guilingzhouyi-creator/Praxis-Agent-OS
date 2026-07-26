@@ -27,7 +27,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel.params import SCOUT_MONITOR_INTERVAL, MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES, SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT, RUN_SUBPROCESS_TIMEOUT
+from kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT
+from kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
+from kernel.params.system import SCOUT_MONITOR_INTERVAL, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES
+from kernel.params.tool import MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX
 
 from services.tool_spec import ToolRing, execute_tool_spec, get_tool
 

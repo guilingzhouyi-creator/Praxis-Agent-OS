@@ -9,7 +9,7 @@ from typing import Any, Callable
 import logging
 import time as _time
 
-from .params import EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
+from .params.kernel import EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 

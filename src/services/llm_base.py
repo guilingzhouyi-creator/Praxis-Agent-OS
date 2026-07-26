@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from kernel.params import DEFAULT_REASONING_EFFORT, DEFAULT_THINKING_BUDGET
+from kernel.params.api import DEFAULT_REASONING_EFFORT, DEFAULT_THINKING_BUDGET
 
 logger = logging.getLogger(__name__)
 

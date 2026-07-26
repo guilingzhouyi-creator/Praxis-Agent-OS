@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, TOOL_REGISTRY, ToolRing
-from kernel.params import RING_NAME_MAP, RING_NUM_MAP
+from kernel.params.kernel import RING_NAME_MAP, RING_NUM_MAP
 
 logger = logging.getLogger(__name__)
 

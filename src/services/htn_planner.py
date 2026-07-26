@@ -107,7 +107,7 @@ class HTNPlanner(BaseService):
     def _default_methods(self) -> None:
         """Register built-in decomposition methods."""
         try:
-            from kernel.params import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
+            from kernel.params.tool import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
             self._tools = dict(HTN_DEFAULT_TOOLS)
             domain = HTN_DOMAIN_PREFIX
         except Exception:

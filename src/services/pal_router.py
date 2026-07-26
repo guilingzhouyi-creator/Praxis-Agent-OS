@@ -19,10 +19,15 @@ import threading
 import time
 from typing import Any
 
-from kernel.params import (
-    PAL_FRUGAL_COST, PAL_STANDARD_COST, PAL_FRONTIER_COST,
-    PAL_FRUGAL_THRESHOLD, PAL_STANDARD_THRESHOLD,
-    PAL_ESCALATE_AFTER, PAL_DOWNGRADE_AFTER, PAL_DEFAULT_TIER,
+from kernel.params.api import (
+    PAL_FRUGAL_COST,
+    PAL_STANDARD_COST,
+    PAL_FRONTIER_COST,
+    PAL_FRUGAL_THRESHOLD,
+    PAL_STANDARD_THRESHOLD,
+    PAL_ESCALATE_AFTER,
+    PAL_DOWNGRADE_AFTER,
+    PAL_DEFAULT_TIER,
 )
 
 logger = logging.getLogger(__name__)

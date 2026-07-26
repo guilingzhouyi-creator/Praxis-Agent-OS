@@ -18,7 +18,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
-from kernel.params import PRAXIS_MUTE_STATE
+from kernel.params.system import PRAXIS_MUTE_STATE
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class ToolRing:
     """Canonical tool ring constants — single source in kernel.params."""
     # Re-export from kernel.params so callers importing from tool_spec still
     # work, but there is ONE source of truth (kernel.params.RING_*).
-    from kernel.params import RING_1, RING_2_5, RING_3  # noqa: F401
+    from kernel.params.kernel import RING_1, RING_2_5, RING_3
 
 RING_GATE_MAP: dict[str, list[str]] = {
     ToolRing.RING_1: ["G1", "G2"],
