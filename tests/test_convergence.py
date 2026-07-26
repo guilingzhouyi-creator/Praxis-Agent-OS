@@ -20,4 +20,5 @@ class TestConvergence:
         issue = IssueCard(intent="test intent", domain="app/routes", agent_ids=["a"])
         card = to_execution_card(issue, summary="test convergence")
         assert card is not None
-        assert card.intent.startswith("test")
+        # CardUnified: intent is in summary.title
+        assert card.summary.title.startswith("test")

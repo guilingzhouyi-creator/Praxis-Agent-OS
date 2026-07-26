@@ -121,6 +121,17 @@ htn:
     lint: lint
     review: review_code
     doc: generate_doc
+    fix: create_file
+    plan: create_file
+
+# ── Card pool (external registries for card type distribution) ──
+card_pool:
+  registries:
+    - name: "community"
+      url: "https://community.praxis.dev/api/v1"
+      priority: 1
+  auto_sync: false
+  sync_interval: 3600
 
 # ── Cache ──
 cache:

@@ -277,6 +277,63 @@ class CardUnified:
         self.timestamps.completed_at = time.time()
         self.error = error
 
+    # ── Old-model bridge ──
+
+    def to_old_card(self):
+        """Convert CardUnified → old Card (card.py) for backward compat.
+
+        Used during the Phase 1→2 migration so that existing
+        ExecutionPlan / cell.execute_card() can consume CardUnified
+        without being rewritten all at once.
+        """
+        from .card import Card as OldCard, CardMode as OldCardMode
+        from .card import Phase as OldPhase, PhaseMode as OldPhaseMode
+        from .card import Step as OldStep
+
+        # Map nature → CardMode
+        mode_map = {
+            "execution": OldCardMode.EXECUTE,
+            "issue": OldCardMode.ISSUE,
+            "parallel_all": OldCardMode.PARALLEL_ALL,
+        }
+        old_mode = mode_map.get(self.nature, OldCardMode.EXECUTE)
+
+        # Map PhaseMode
+        phase_mode_map = {
+            PhaseMode.SINGLE: OldPhaseMode.SEQUENTIAL,
+            PhaseMode.MULTI: OldPhaseMode.PARALLEL,
+        }
+
+        old_phases = []
+        for phase in self.phases:
+            old_steps = []
+            for task in phase.tasks:
+                old_steps.append(OldStep(
+                    action=task.action,
+                    target=task.target,
+                    params=dict(task.params),
+                    agent=task.agent,
+                ))
+            old_mode_phase = phase_mode_map.get(phase.mode, OldPhaseMode.SEQUENTIAL)
+            old_phases.append(OldPhase(
+                name=phase.name,
+                steps=old_steps,
+                mode=old_mode_phase,
+            ))
+
+        domain = self.summary.columns.get("domain", self.nature)
+        cell_id = self.summary.columns.get("cell_id", "")
+        return OldCard(
+            id=self.id,
+            intent=self.summary.title,
+            domain=domain,
+            mode=old_mode,
+            phases=old_phases,
+            priority=self.priority,
+            sender="l3",
+            cell_id=cell_id,
+        )
+
     # ── Phase management ──
 
     def add_phase(self, name: str, mode: PhaseMode = PhaseMode.SINGLE,

@@ -1,4 +1,4 @@
-"""Centralized error system — structured error codes, i18n-ready messages.
+"""Centralized error system — structured error codes, i18n via I18nPort.
 
 Three-layer architecture:
   1. Error definition: PraxisError class with code + message + optional cause
@@ -6,9 +6,9 @@ Three-layer architecture:
   3. Error response: to_dict() → {"success": false, "error": str, "error_code": str}
 
 i18n:
-  Messages are stored in English by default.  A locale dict can override
-  any message at runtime via set_locale().  TUI/API can pass Accept-Language
-  to get localized messages.
+  All localized messages are served by the registered ``I18nPort`` adapter.
+  Built-in zh-CN translations are registered into the port at module load.
+  The old private ``_translations`` dict is removed — no dual state.
 
 Usage:
   from kernel.errors import (
@@ -21,12 +21,6 @@ Usage:
 
   # Raise (for exceptional conditions)
   raise PraxisError("E_RESOURCE_EXHAUSTED", "Out of memory")
-
-  # Check and wrap
-  try:
-      ...
-  except Exception as e:
-      return error("E_INTERNAL", cause=e)
 """
 
 from __future__ import annotations
@@ -36,41 +30,31 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# ── Locale registry (delegates to services.i18n) ──
 
-_locale: str = "en"
-_translations: dict[str, dict[str, str]] = {}
+# ── Locale helpers (delegate to I18nPort, backward-compatible) ──
 
 
 def set_locale(locale: str) -> None:
-    """Set the active locale for error messages.
-
-    Delegates to services.i18n when available.
-    """
-    global _locale
-    _locale = locale
+    """Set the active locale. Delegates to registered I18nPort."""
     try:
-        from services.i18n import set_locale as _i18n_set
-        _i18n_set(locale)
+        from kernel.ports import get_port as _gp
+        adapter = _gp("i18n")
+        adapter.set_locale(locale)
     except Exception:
         pass
 
 
 def get_locale() -> str:
-    return _locale
-
-
-def register_translations(locale: str, messages: dict[str, str]) -> None:
-    """Register translations for a locale.
-
-    Args:
-        locale: e.g. "zh-CN", "ja", "de"
-        messages: {error_code: localized_message, ...}
-    """
-    _translations.setdefault(locale, {}).update(messages)
+    """Return the current locale code."""
+    try:
+        from kernel.ports import get_port as _gp
+        return _gp("i18n").get_locale()
+    except Exception:
+        return "en"
 
 
 # ── Error definition ──
+
 
 class PraxisError(Exception):
     """Structured error with error_code for programmatic handling.
@@ -93,12 +77,18 @@ class PraxisError(Exception):
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.
 
-        If locale is set and translations exist, uses localized message.
+        If locale is set and I18nPort has a translation, uses localized message.
         """
         msg = self.message
-        loc = locale or _locale
-        if loc != "en" and self.code in _translations.get(loc, {}):
-            msg = _translations[loc][self.code]
+        loc = locale or get_locale()
+        if loc != "en":
+            try:
+                from kernel.ports import get_port as _gp
+                localized = _gp("i18n").t(f"error.{self.code}")
+                if localized != f"error.{self.code}":
+                    msg = localized
+            except Exception:
+                pass
         result: dict = {"success": False, "error": msg, "error_code": self.code}
         if self.context:
             result["context"] = self.context
@@ -187,27 +177,32 @@ for _code, _msg in [
 ]:
     register_error(_code, _msg)
 
-# ── Built-in translations (zh-CN) ──
+# ── Register zh-CN translations into I18nPort (not a private dict) ──
 
-register_translations("zh-CN", {
-    E_INTERNAL: "内部错误",
-    E_TIMEOUT: "操作超时",
-    E_INVALID_PARAMS: "参数错误",
-    E_NOT_FOUND: "资源不存在",
-    E_CONSTITUTION_BLOCKED: "被Constitution阻止",
-    E_GATECHAIN_BLOCKED: "被Gate链阻止",
-    E_TOOL_MUTED: "工具已被禁用",
-    E_TOOL_NOT_FOUND: "工具未注册",
-    E_RESOURCE_EXHAUSTED: "资源耗尽",
-    E_PERMISSION_DENIED: "权限不足",
-    E_CELL_EMERGENCY: "Cell 处于紧急停止状态",
-    E_CHECKPOINT_RESTORE: "还原点恢复失败",
-    E_AGENT_CRASHED: "Agent 已崩溃",
-    E_HUMAN_REJECTED: "已被人类拒绝",
-    E_APPROVAL_TIMEOUT: "审批超时",
-    E_MCP_FAILED: "MCP 调用失败",
-    E_UNKNOWN_TOOL: "未知工具",
-    E_HANDLER_ERROR: "工具处理器错误",
-    E_MEMORY_REJECTED: "memory rejected by quality filter",
-    E_SANDBOX_ERROR: "Sandbox操作失败",
-})
+try:
+    from kernel.ports import get_port as _gp_err
+    _i18n = _gp_err("i18n")
+    _i18n.register("zh-CN", {
+        f"error.{E_INTERNAL}": "内部错误",
+        f"error.{E_TIMEOUT}": "操作超时",
+        f"error.{E_INVALID_PARAMS}": "参数错误",
+        f"error.{E_NOT_FOUND}": "资源不存在",
+        f"error.{E_CONSTITUTION_BLOCKED}": "被Constitution阻止",
+        f"error.{E_GATECHAIN_BLOCKED}": "被Gate链阻止",
+        f"error.{E_TOOL_MUTED}": "工具已被禁用",
+        f"error.{E_TOOL_NOT_FOUND}": "工具未注册",
+        f"error.{E_RESOURCE_EXHAUSTED}": "资源耗尽",
+        f"error.{E_PERMISSION_DENIED}": "权限不足",
+        f"error.{E_CELL_EMERGENCY}": "Cell 处于紧急停止状态",
+        f"error.{E_CHECKPOINT_RESTORE}": "还原点恢复失败",
+        f"error.{E_AGENT_CRASHED}": "Agent 已崩溃",
+        f"error.{E_HUMAN_REJECTED}": "已被人类拒绝",
+        f"error.{E_APPROVAL_TIMEOUT}": "审批超时",
+        f"error.{E_MCP_FAILED}": "MCP 调用失败",
+        f"error.{E_UNKNOWN_TOOL}": "未知工具",
+        f"error.{E_HANDLER_ERROR}": "工具处理器错误",
+        f"error.{E_MEMORY_REJECTED}": "memory rejected by quality filter",
+        f"error.{E_SANDBOX_ERROR}": "Sandbox操作失败",
+    })
+except Exception:
+    pass  # I18nPort may not be registered yet — translations loaded later

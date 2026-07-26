@@ -12,6 +12,7 @@ from typing import Any, Callable
 from kernel import Signal, SignalType, get_event_bus, get_rwlock, get_semaphore
 from kernel.allocator import get_allocator
 from kernel.constitution import get_constitution
+from kernel.params import RING_1 as _RING_1, RING_NUM_MAP, TOOL_EXEC_TOKEN_BUDGET, SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from kernel.tool_chain import get_tool_chain
 
 from .scheduler_rate import agent_can_access, get_rate_scheduler
@@ -100,10 +101,10 @@ class ToolPipeline:
         from .tool_spec import ToolSpec as _ToolSpec
         _start = _time.time()
         chain = get_tool_chain()
-        ring_map = {"RING_1": 1, "RING_2_5": 2, "RING_3": 3}
+        ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
         spec_raw = (_registry or {}).get(tool_name) if _registry else None
         spec = spec_raw if isinstance(spec_raw, _ToolSpec) else None
-        tool_ring_str = spec.ring if spec else "RING_1"
+        tool_ring_str = spec.ring if spec else _RING_1
         tool_ring_num = ring_map.get(tool_ring_str, 1)
 
         tool_danger = spec.danger if spec else 0
@@ -121,15 +122,30 @@ class ToolPipeline:
         if not agent_can_access(agent_id, tool_ring_str):
             return {"success": False, "error": f"no clearance for {tool_ring_str}"}
 
-        # 3. Scout restriction
-        if agent_id == "scout" and tool_ring_str != "RING_1":
+        # 3. Scout restriction (single source: kernel.params.SCOUT_*)
+        if agent_id == SCOUT_AGENT_NAME and tool_ring_str != SCOUT_RING_LIMIT:
             return {"success": False, "error": "scout: Ring 1 only"}
+
+        # 3b. ToolPolicy approval check
+        try:
+            from .tool_policy import ToolPolicy as _TP
+            if _TP.requires_approval(agent_id, tool_name):
+                from .approval_gate import get_gate as _gg
+                ar = _gg().request(tool_name, agent_id, args or {}, reason="policy requires approval")
+                result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
+                status = ar.wait(timeout=60)
+                if status != "approved":
+                    return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
+                            "steps": result["steps"]}
+                result["steps"].append({"phase": "approval", "request_id": ar.id, "status": status})
+        except Exception as e:
+            logger.warning("approval check failed: %s", e)
 
         # 4. Rate limit (Ring 3 slowest, Ring 1 fastest)
         rr = self._rate_scheduler.check(agent_id, tool_ring_str)
         result["steps"].append({"phase": "rate", **rr})
         if not rr["allowed"]:
-            self.allocator.free(agent_id, "tokens", 100)
+            self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
             return {"success": False, "error": f"rate limited ({tool_ring_str})",
                     "rate": rr, "steps": result["steps"]}
 
@@ -159,8 +175,43 @@ class ToolPipeline:
             result["steps"].append({"phase": "gatechain", "decision": "BLOCK", "error": str(e)})
             return {"success": False, "error": f"gatechain unavailable: {e}", "steps": result["steps"]}
 
+        # 5c. Sandbox gate (for terminal/process tools with sandbox_profile)
+        try:
+            _sb_profile = spec.sandbox_profile if spec else None
+            if _sb_profile:
+                from services.sandbox.manager import SandboxManager, SandboxProfile
+                _sb = SandboxManager()
+                _sb_cmd = (args or {}).get("command", "")
+                _sb_to = (args or {}).get("timeout", 30)
+                _sb_r = _sb.run_sync(_sb_cmd, SandboxProfile(_sb_profile), _sb_to, agent_id, tool_name)
+                result["steps"].append({"phase": "sandbox", "sandbox_id": _sb_r.sandbox_id,
+                                        "success": _sb_r.success, "elapsed": _sb_r.elapsed})
+                if not _sb_r.success:
+                    return {"success": False, "error": f"sandbox: {_sb_r.stderr[:200]}",
+                            "sandbox": _sb_r.to_dict(), "steps": result["steps"]}
+                # Sandbox succeeded: record result and skip execute step
+                result["result"] = _sb_r.to_dict()
+                result["success"] = True
+                for _hook in self._post_execute_hooks:
+                    try:
+                        _hook(tool_name, agent_id, args or {}, result)
+                    except Exception:
+                        pass
+                # Release and signal
+                if lock_name:
+                    get_rwlock(lock_name).unlock(agent_id)
+                if tool_ring_str == "RING_2_5":
+                    get_semaphore(f"pool:{tool_name}").release(agent_id)
+                self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
+                duration = _time.time() - _start
+                chain.complete(call_id, success=True, duration=duration)
+                result["call_id"] = call_id
+                return result
+        except Exception as e:
+            logger.warning("sandbox gate failed: %s", e)
+
         # 6. Alloc
-        ar = self.allocator.alloc(agent_id, "tokens", 100, tool_name)
+        ar = self.allocator.alloc(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET, tool_name)
         result["steps"].append({"phase": "alloc", **ar})
         if not ar["success"]:
             return {"success": False, "error": ar["error"], "steps": result["steps"]}
@@ -170,7 +221,7 @@ class ToolPipeline:
             sr = get_semaphore(f"pool:{tool_name}", 2).acquire(agent_id)
             result["steps"].append({"phase": "pool", **sr})
             if not sr["success"]:
-                self.allocator.free(agent_id, "tokens", 100)
+                self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
                 return {"success": False, "error": "pool busy", "steps": result["steps"]}
 
         # 8. File lock
@@ -184,24 +235,22 @@ class ToolPipeline:
         spec = self.apply_tool_definition_hooks(tool_name, spec)
 
         # 9. Execute (default: execute_tool_spec for middleware/result store/counter)
-        try:
+        from services.error_bus import error_boundary
+        with error_boundary("tool execute failed", component="services", agent_id=agent_id):
             if _executor:
                 exec_r = _executor(tool_name, args or {}, agent_id=agent_id)
             else:
                 from .tool_spec import execute_tool_spec as _ets
                 exec_r = _ets(tool_name, args or {}, agent_id=agent_id)
-            result["result"] = exec_r
-            result["success"] = exec_r.get("success", True)
-        except Exception as e:
-            result["success"] = False
-            result["error"] = str(e)
+            result["result"] = exec_r or {}
+            result["success"] = (exec_r or {}).get("success", True)
 
         # 10. Release
         if lock_name:
             get_rwlock(lock_name).unlock(agent_id)
         if tool_ring_str == "RING_2_5":
             get_semaphore(f"pool:{tool_name}").release(agent_id)
-        self.allocator.free(agent_id, "tokens", 100)
+        self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
 
         # 10b. Post-execute hooks (transform result)
         result = self._run_post_execute_hooks(tool_name, agent_id, args or {}, result)
@@ -221,7 +270,7 @@ class ToolPipeline:
 
         # 11. Signal
         agent_key = agent_id.replace("agent_", "") if agent_id.startswith("agent_") else agent_id
-        sig_type = SignalType.SCOUT_DONE if agent_key == "scout" else SignalType.TASK_ASSIGN
+        sig_type = SignalType.SCOUT_DONE if agent_key == SCOUT_AGENT_NAME else SignalType.TASK_ASSIGN
         self.bus.emit(Signal(type=sig_type, sender=agent_id, target="cell",
                               data={"tool": tool_name, "call_id": call_id,
                                     "success": result["success"]}))

@@ -11,13 +11,13 @@ import os as _os
 import threading
 import time
 import uuid
-from collections import deque
+from collections import OrderedDict, deque
 from typing import Any
 
 from kernel import get_event_bus, emit_signal
 from kernel.constitution import get_constitution
 from kernel.allocator import get_allocator
-from kernel.params import DEFAULT_AGENT_CONFIGS, AGENT_CLEARANCE, AGENT_TERMINAL_MAX_SCOUTS, AGENT_TERMINAL_WORKER_JOIN_TIMEOUT, AGENT_TERMINAL_STDIN_MAX, AGENT_TERMINAL_STDOUT_MAX, AGENT_TERMINAL_STDERR_MAX, TERMINAL_MAX_WORKERS, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED, AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT
+from kernel.params import DEFAULT_AGENT_CONFIGS, AGENT_CLEARANCE, AGENT_TERMINAL_MAX_SCOUTS, AGENT_TERMINAL_WORKER_JOIN_TIMEOUT, AGENT_TERMINAL_STDIN_MAX, AGENT_TERMINAL_STDOUT_MAX, AGENT_TERMINAL_STDERR_MAX, AGENT_TERMINAL_RESULTS_MAX, TERMINAL_MAX_WORKERS, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED, AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED
 from .cache import get_file_cache, get_context_register
 from .scout import get_pool as get_scout_pool
 from ._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
@@ -31,8 +31,7 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), ".."))
 
 # ── Cache keepalive ──
-CACHE_KEEPALIVE_INTERVAL: float = 240.0
-CACHE_KEEPALIVE_PROMPT: str = "keepalive"
+from kernel.params import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT
 
 
 class AgentTerminal:
@@ -64,7 +63,7 @@ class AgentTerminal:
         self.stdout: deque[CardResult] = deque(maxlen=AGENT_TERMINAL_STDOUT_MAX)
         self.stderr: deque[str] = deque(maxlen=AGENT_TERMINAL_STDERR_MAX)
         self._pending: dict[str, threading.Event] = {}
-        self._results: dict[str, CardResult] = {}
+        self._results: OrderedDict[str, CardResult] = OrderedDict()
         self._lock = threading.RLock()
         self._running = False
         self._workers: list[threading.Thread] = []
@@ -78,12 +77,15 @@ class AgentTerminal:
         self._async_scout_events: dict[str, threading.Event] = {}
         self._async_scout_count = 0
         self._tool_registry: dict[str, Any] | None = None
-        self._loop_mode: str = "assembly"
-        self._loop_state: str = "idle"
+        from kernel.params import TERMINAL_MODE_DEFAULT, TERMINAL_STATE_DEFAULT
+        self._loop_mode: str = TERMINAL_MODE_DEFAULT
+        self._loop_state: str = TERMINAL_STATE_DEFAULT
         self._paused: bool = False
         self._current_card: str = ""
+        self._cards_since_pressure_check: int = 0
         # ── AgentLoop instance budget (reserved, not yet enforced) ──
-        self._max_concurrent_loops: int = 3  # max AgentLoop instances per terminal
+        from kernel.params import TERMINAL_MAX_CONCURRENT_LOOPS
+        self._max_concurrent_loops: int = TERMINAL_MAX_CONCURRENT_LOOPS
         self._active_loops: int = 0
         from .todo import TodoTable
         self.todo = TodoTable(agent_id)
@@ -142,7 +144,8 @@ class AgentTerminal:
         except Exception as e:
             phases.append({"phase": "manual_loaded", "error": str(e)})
 
-        emit_signal("task_assign", sender=self.agent_id, target="cell",
+        from kernel.params import EVENT_TASK_ASSIGN
+        emit_signal(EVENT_TASK_ASSIGN, sender=self.agent_id, target="cell",
                      data={"event": "agent_boot", "role": self.role, "ring": self.ring})
         self._running = True
         for i in range(self._max_workers):
@@ -177,13 +180,14 @@ class AgentTerminal:
                 self.status = TerminalStatus.PROCESSING if self._active_cards > 0 else TerminalStatus.IDLE
                 self._current_card = card.card_id
                 self._loop_state = f"processing {card.action} on {card.target[:40]}"
-            try:
+            from services.error_bus import error_boundary, capture
+            with error_boundary("worker card failed", component="services", agent_id=self.agent_id):
                 result = self._process_card(card)
-            except Exception as e:
-                logger.error("worker %s card failed: %s", self.agent_id, e)
-                result = CardResult(card_id=card.card_id, action=card.action, success=False, error=str(e))
+            if result is None:
+                result = CardResult(card_id=card.card_id, action=card.action, success=False, error="unknown")
             with self._lock:
-                self._loop_state = "idle"
+                from kernel.params import TERMINAL_STATE_DEFAULT
+                self._loop_state = TERMINAL_STATE_DEFAULT
                 self._current_card = ""
             result.elapsed = time.time() - card.timestamp
             try:
@@ -195,9 +199,26 @@ class AgentTerminal:
                 logger.warning("services/agent_terminal: %s", e)
             with self._lock:
                 self._cards_processed += 1
+                self._cards_since_pressure_check += 1
                 self._active_cards -= 1
                 self.stdout.append(result)
                 self._results[card.card_id] = result
+                # LRU eviction: keep newest results, discard oldest
+                self._results.move_to_end(card.card_id)
+                while len(self._results) > AGENT_TERMINAL_RESULTS_MAX:
+                    self._results.popitem(last=False)
+                # Periodic memory pressure check (every 10 cards, non-think actions)
+                if self._cards_since_pressure_check >= 10 and card.action != "think":
+                    self._cards_since_pressure_check = 0
+                    try:
+                        from .memory import get_memory
+                        p = get_memory().pressure(self.agent_id)
+                        if p.get("level") == "high":
+                            get_memory().stub_compact(self.agent_id)
+                            logger.info("periodic compact for %s: pressure=%s",
+                                        self.agent_id, p.get("level"))
+                    except Exception:
+                        pass
                 ev = self._pending.pop(card.card_id, None)
                 if ev:
                     ev.set()
@@ -242,7 +263,8 @@ class AgentTerminal:
                 result_findings = findings or []
                 # Inject scout findings into context register
                 if findings:
-                    for f in findings[:5]:
+                    from kernel.params import TERMINAL_SCOUT_FINDINGS_LIMIT
+                    for f in findings[:TERMINAL_SCOUT_FINDINGS_LIMIT]:
                         ctx.push("observation", str(f)[:500], source="scout")
                 return {"success": ok, "output": result_output, "findings": result_findings}
             phases.append(f"execute:{tool_name}")
@@ -307,7 +329,8 @@ class AgentTerminal:
             if card.action == "think":
                 p = mem.pressure(self.agent_id)
                 if p["level"] == "high":
-                    snapshot = list(self.context.recent(20))
+                    from kernel.params import TERMINAL_CONTEXT_RECENT
+                    snapshot = list(self.context.recent(TERMINAL_CONTEXT_RECENT))
                     compact_r = mem.compact(self.agent_id)
                     for item in snapshot:
                         self.context.store(
@@ -331,7 +354,7 @@ class AgentTerminal:
 
         if card.action in ("write_file",) and result_output:
             try:
-                emit_signal("review_requested", sender=self.agent_id,
+                emit_signal(EVENT_REVIEW_REQUESTED, sender=self.agent_id,
                             target=self.cell_id or "cell",
                             data={"type": "cross_review", "action": card.action,
                                   "target": card.target, "created_by": self.agent_id,
@@ -347,7 +370,7 @@ class AgentTerminal:
                           success=True, output=result_output, findings=result_findings, phase=phases)
 
     def _issue_card(self, card: TerminalCard) -> CardResult:
-        emit_signal("review_requested", sender=self.agent_id, target="cell",
+        emit_signal(EVENT_REVIEW_REQUESTED, sender=self.agent_id, target="cell",
                      data={"type": "issue", "action": card.action, "target": card.target,
                            "params": card.params, "card_id": card.card_id, "proposed_by": self.agent_id})
         return CardResult(card_id=card.card_id, action=card.action,
@@ -490,7 +513,8 @@ class AgentTerminal:
             return results
 
     def set_mode(self, mode: str) -> dict:
-        valid = ("assembly", "direct")
+        from kernel.params import TERMINAL_MODE_VALID
+        valid = TERMINAL_MODE_VALID
         if mode not in valid:
             return {"success": False, "error": f"mode must be one of {valid}"}
         self._loop_mode = mode
@@ -510,6 +534,16 @@ class AgentTerminal:
         self._running = False
         for w in self._workers:
             w.join(timeout=AGENT_TERMINAL_WORKER_JOIN_TIMEOUT)
+        # Clean up any orphaned convention loops
+        for conv_id, session in list(self._convention_loops.items()):
+            loop_obj = session.get("loop")
+            if loop_obj:
+                try:
+                    loop_obj.task = "Convention closed by agent shutdown."
+                except Exception:
+                    pass
+        self._convention_loops.clear()
+        self._results.clear()
         self.status = TerminalStatus.STOPPED
         return {"success": True, "agent_id": self.agent_id, "cards_processed": self._cards_processed}
 

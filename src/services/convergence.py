@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any
 
-from services.card import Card, CardMode, Phase, Step
+from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 from services.cache_doc import get_store
 from services.issue import IssueCardStatus
 
@@ -39,7 +39,7 @@ def converge(card_id: str, llm_call: callable | None = None) -> dict:
     if issue_card.status != IssueCardStatus.CONVERGED:
         return {"success": False, "error": f"card not converged: {issue_card.status.name}"}
 
-    # 从 CacheDocument 读讨论文档
+    # Read discussion document from CacheDocument
     doc_text = ""
     store = get_store()
     if issue_card.cache_ref:
@@ -65,47 +65,50 @@ def converge(card_id: str, llm_call: callable | None = None) -> dict:
     }
 
 
-def to_execution_card(issue_card: IssueCard, summary: str) -> Card:
-    """Convergence report → execution card.
+def to_execution_card(issue_card: IssueCard, summary: str) -> CardUnified:
+    """Convergence report → execution card (CardUnified).
 
-    Convert issue_card items to Card phases/steps:
+    Convert issue_card items to CardUnified phases/tasks:
       - Each resolved issue → one Phase
-      - Each Phase contains corresponding steps
+      - Each Phase contains corresponding tasks
     """
-    phases = []
+    phases: list[CardPhase] = []
 
     # Issue execution phase
-    work_steps = []
+    work_tasks: list[CardTask] = []
     for it in issue_card.items:
         if it.answer:
             action = "think" if it.assigned_to == "thinker" else "write_file"
-            work_steps.append(Step(
+            work_tasks.append(CardTask(
                 action=action,
                 target=it.domain or it.question,
                 params={"question": it.question, "answer": it.answer[:500]},
                 agent=it.assigned_to or "default",
             ))
 
-    if work_steps:
-        phases.append(Phase(name="execute_issues", steps=work_steps))
+    if work_tasks:
+        phases.append(CardPhase(name="execute_issues", mode=PhaseMode.MULTI,
+                                 tasks=work_tasks))
 
     # Gap-filling phase
-    phases.append(Phase(name="verify", steps=[
-        Step(action="scout", target=issue_card.domain, agent="scout"),
+    phases.append(CardPhase(name="verify", tasks=[
+        CardTask(action="scout", target=issue_card.domain, agent="scout"),
     ]))
 
     if not phases:
-        phases.append(Phase(name="default", steps=[
-            Step(action="think", target=issue_card.intent, params={}),
+        phases.append(CardPhase(name="default", tasks=[
+            CardTask(action="think", target=issue_card.intent, params={}),
         ]))
 
-    return Card(
+    card = CardUnified(
         id=f"exec-{issue_card.id}",
-        intent=issue_card.intent,
-        domain=issue_card.domain,
-        mode=CardMode.EXECUTE,
+        priority=5,
+        nature="execution",
         phases=phases,
     )
+    card.summary = CardSummary(title=issue_card.intent, description="",
+                               columns={"domain": issue_card.domain or "."})
+    return card
 
 
 def _llm_converge(doc_text: str, llm_call: callable) -> str:

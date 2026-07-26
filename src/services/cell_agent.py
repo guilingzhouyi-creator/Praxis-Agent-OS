@@ -110,10 +110,11 @@ def liveness(self) -> dict:
         term = terms.get(aid)
         if term is None:
             agent_results[aid] = {"status": "no_terminal", "alive": False}
-        elif term.status.name in ("IDLE", "PROCESSING", "WAITING_SCOUT"):
+        from kernel.params import AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING
+        if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
             agent_results[aid] = {"status": term.status.name, "alive": True}
             healthy_count += 1
-        elif term.status.name in ("BOOTING",):
+        elif term.status.name in (AGENT_STATUS_BOOTING,):
             agent_results[aid] = {"status": "booting", "alive": True}
             healthy_count += 1
         else:

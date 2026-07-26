@@ -1,11 +1,11 @@
-"""Session Export — Session 导出/导入/快照管理
+"""Session Export — Session Export/Import/Snapshot Management
 
 API:
-  POST /api/session/export      — 导出 session 为 JSON
-  POST /api/session/import      — 导入 session
-  GET  /api/session/snapshots   — 列出快照
-  POST /api/session/snapshot    — 创建快照
-  POST /api/session/snapshot/restore — 从快照恢复
+  POST /api/session/export      — Export session as JSON
+  POST /api/session/import      — Import session
+  GET  /api/session/snapshots   — List snapshots
+  POST /api/session/snapshot    — Create snapshot
+  POST /api/session/snapshot/restore — Restore from snapshot
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from kernel.platform import get_config_dir
+from kernel.params import SNAPSHOT_PATH_TEMPLATE
 
 _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 
@@ -111,7 +112,7 @@ class Snapshot:
 
     @classmethod
     def load(cls, snapshot_id: str) -> Snapshot | None:
-        path = _SNAPSHOT_DIR / f"{snapshot_id}.snapshot.json"
+        path = _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=snapshot_id)
         if not path.exists():
             return None
         try:
@@ -240,7 +241,7 @@ class SessionExportManager:
 
     def delete_snapshot(self, snapshot_id: str) -> dict:
         """删除快照。"""
-        path = _SNAPSHOT_DIR / f"{snapshot_id}.snapshot.json"
+        path = _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=snapshot_id)
         if not path.exists():
             return {"success": False, "error": "snapshot not found"}
         try:

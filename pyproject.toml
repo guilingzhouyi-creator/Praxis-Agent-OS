@@ -18,6 +18,11 @@ test = [
 
 [project.scripts]
 praxis = "main:main"
+praxis-kernel = "services.supervisor:start_kernel"
+praxis-api = "services.supervisor:start_api"
+praxis-sandbox = "services.sandbox.server:main"
+praxis-llm = "services.llm_worker.server:main"
+praxis-supervisor = "services.supervisor:main"
 
 [build-system]
 requires = ["setuptools>=75"]

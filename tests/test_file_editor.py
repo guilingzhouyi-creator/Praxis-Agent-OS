@@ -1,4 +1,4 @@
-"""File Editor 集成测试 — Diff编辑 + 原子批量 + Patch系统 + Undo/Redo + API端点"""
+"""File Editor integration test — Diff edit + atomic batch + Patch system + Undo/Redo + API endpoints"""
 
 import sys, os, json, tempfile, threading
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class TestDiffEdit:
-    """Diff 语义编辑核心功能"""
+    """Diff semantic editing core functionality"""
 
     def test_simple_replace(self):
         from services.file_editor import EditEngine, DiffEdit
@@ -83,7 +83,7 @@ class TestDiffEdit:
 
 
 class TestBatchEdit:
-    """原子批量编辑"""
+    """Atomic batch editing"""
 
     def test_batch_success(self):
         from services.file_editor import EditEngine, DiffEdit

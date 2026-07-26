@@ -173,8 +173,7 @@ def replay() -> dict:
             pt = proc.get_table()
             p = pt.get(payload.get("pid", 0))
             if p:
-                from kernel.process import ProcessState
-                pt.set_state(payload["pid"], ProcessState.ZOMBIE)
+                pt.exit(payload["pid"], exit_code=-1, reason="restored: process.exit")
         elif event == "audit.record":
             kinit.record_audit(
                 payload.get("op", ""), payload.get("agent_id", ""),

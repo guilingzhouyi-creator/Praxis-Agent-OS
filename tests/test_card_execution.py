@@ -1,11 +1,11 @@
-"""Card + Execution 测试 — 卡牌模型/构建/关卡/注册/执行引擎"""
+"""Card + Execution tests — card model/build/gate/registry/execution engine"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestCardModel:
-    """Card 数据模型"""
+    """Card data model"""
 
     def test_card_create(self):
         from services.card import Card, Phase, Step
@@ -35,8 +35,8 @@ class TestCardBuilder:
         from services.card_builder import build_card
         card = build_card(task_id="t1", intent="implement login", domain="src/auth")
         assert card is not None
-        assert hasattr(card, 'intent')
-        assert "login" in card.intent
+        # CardUnified uses summary.title instead of .intent
+        assert "login" in card.summary.title
 
     def test_build_with_priority(self):
         from services.card_builder import build_card
@@ -110,12 +110,13 @@ class TestCardUnified:
             "metadata_schema": {},
         })
         types = list_card_types()
-        assert "custom_test" in types
+        # list_card_types returns a list of dicts with "name" key
+        assert any(t.get("name") == "custom_test" for t in types)
 
     def test_list_card_types(self):
         from services.card_unified import list_card_types
         types = list_card_types()
-        assert isinstance(types, dict)
+        assert isinstance(types, list)
         assert len(types) >= 3
 
 
@@ -141,7 +142,7 @@ class TestExecutionPlan:
 
 
 class TestExecutionVerify:
-    """执行验证"""
+    """Execution verification"""
 
     def test_verify_basic(self):
         from services.execution_verify import Verifier
@@ -165,11 +166,11 @@ class TestExecutionEngine:
         assert engine is not None
 
     def test_engine_execute_plan(self):
-        from services.execution_engine import ExecutionEngine
+        from services.execution_engine import ExecutionEngine, ExecutionResult
         from services.execution_plan import ExecutionPlan
         from services.card import Card
         engine = ExecutionEngine()
         card = Card(intent="engine test", domain=".", phases=[])
         plan = ExecutionPlan(card, {"reader": "agent-a"})
         r = engine.execute(plan)
-        assert isinstance(r, dict)
+        assert isinstance(r, ExecutionResult)

@@ -114,8 +114,9 @@ class TestCardBuilder:
         card = build_card("c-001", "build the project", "src/core", priority=5)
         assert card is not None
         assert len(card.phases) >= 1
-        all_steps = card.all_steps()
-        assert len(all_steps) >= 1
+        # CardUnified: count tasks across all phases
+        total_tasks = sum(len(p.tasks) for p in card.phases)
+        assert total_tasks >= 1
 
     def test_fix_card_detected(self):
         from services.card_builder import build_card
@@ -149,7 +150,9 @@ phases:
         os.remove(tmp)
         assert lr.get("success"), "yaml card should load"
         if lr.get("success"):
-            assert lr["card"].step_count() >= 1
+            # CardUnified: count tasks across all phases
+            total = sum(len(p.tasks) for p in lr["card"].phases)
+            assert total >= 1
 
 
 class TestScoutPool:

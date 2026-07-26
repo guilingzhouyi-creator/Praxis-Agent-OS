@@ -1,15 +1,15 @@
-"""Search Engine — 语义搜索 + 符号搜索 + API 文档搜索
+"""Search Engine — Semantic Search + Symbol Search + API Documentation Search
 
-三层搜索:
-  1. SemanticSearch  — 关键词 + TF-IDF 排序（轻量，无需外部依赖）
-  2. SymbolSearch    — AST 级代码符号查询（跨项目类/函数/变量）
-  3. DocSearch       — API 文档索引 + 搜索
+Three-layer search:
+  1. SemanticSearch  — keyword + TF-IDF ranking (lightweight, no external dependencies)
+  2. SymbolSearch    — AST-level code symbol query (cross-project classes/functions/variables)
+  3. DocSearch       — API documentation indexing + search
 
 API:
-  POST /api/search/semantic — 语义搜索代码
-  POST /api/search/symbol   — 搜索代码符号
-  POST /api/search/docs     — 搜索 API 文档
-  POST /api/search          — 统一搜索入口（自动选择最佳方式）
+  POST /api/search/semantic — semantic code search
+  POST /api/search/symbol   — search code symbols
+  POST /api/search/docs     — search API documentation
+  POST /api/search          — unified search entry (automatically picks the best approach)
 """
 
 from __future__ import annotations

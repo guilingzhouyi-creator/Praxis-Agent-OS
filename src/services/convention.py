@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.params import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
 from services.cell_types import CellProtocol, MessageType
 from services.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
@@ -95,7 +95,7 @@ class ConventionProtocol:
 
         self._current_round = ConventionRound(round_num=1)
         self._rounds.append(self._current_round)
-        emit_signal("task_assign", sender="convention", target="cell",
+        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target="cell",
                      data={"card_id": card.id, "event": "convene"})
         logger.info("convention started: %s — %d agents, %d items",
                     card.id, len(self.agent_ids), len(card.items))
@@ -117,7 +117,7 @@ class ConventionProtocol:
         if not iid:
             return {"success": False, "error": "card not found"}
         self._add_transcript(agent_id, "", "propose", f"proposes new issue: {question[:200]}")
-        emit_signal("task_assign", sender=agent_id, target="cell",
+        emit_signal(EVENT_TASK_ASSIGN, sender=agent_id, target="cell",
                      data={"card_id": card.id, "event": "propose_issue", "item_id": iid})
         return {"success": True, "item_id": iid}
 
@@ -162,7 +162,7 @@ class ConventionProtocol:
             return True
 
     def close(self) -> dict:
-        """Phase 5: Close convention → Save to CacheDocument → 归档。"""
+        """Phase 5: Close convention → Save to CacheDocument → archive."""
         card = self.issue_card
         doc = self._build_document()
 
@@ -178,7 +178,7 @@ class ConventionProtocol:
 
         # Archive to Ring 4
         try:
-            from tools.special.tools_archive import archive_store
+            from tools._archive import archive_store
             arch = archive_store(
                 fonds=f"CONVENTION:{card.id}",
                 series="deliberation",
@@ -197,7 +197,7 @@ class ConventionProtocol:
         self._completed_at = time.time()
         self._table.set_status(card.id, IssueCardStatus.CONVERGED)
 
-        emit_signal("task_assign", sender="convention", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target="l3",
                      data={"card_id": card.id, "event": "converged",
                            "cache_ref": self._cache_ref,
                            "archive_ref": self._archive_ref})

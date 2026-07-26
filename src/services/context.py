@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 MAX_REGISTER_TOKENS = 4096
 
 
+_ROLE_TOOL = "tool"
+_ROLE_ASSISTANT = "assistant"
+
+
 @dataclass
 class RegisterEntry:
     role: str        # system | user | assistant | tool | memory
@@ -86,8 +90,8 @@ class ContextManager:
         """End an inference cycle: save register summary to memory."""
         mem = self._mem
         # Summarize what happened
-        tool_calls = [e for e in self._register if e.role == "tool"]
-        decisions = [e for e in self._register if e.role == "assistant"]
+        tool_calls = [e for e in self._register if e.role == _ROLE_TOOL]
+        decisions = [e for e in self._register if e.role == _ROLE_ASSISTANT]
 
         # Store tool calls in Ring 1
         for tc in tool_calls[-10:]:
@@ -146,17 +150,21 @@ class ContextManager:
     def _evict(self, needed: int) -> None:
         """Evict oldest memory entries to make room."""
         while self._token_count + needed > self.max_tokens and self._register:
-            # Remove oldest non-tool entry first
             for i, e in enumerate(self._register):
                 if e.role != "tool":
                     self._token_count -= e.tokens
                     self._register.pop(i)
                     break
             else:
-                # Only tool entries left, remove oldest
                 removed = self._register.pop(0)
                 self._token_count -= removed.tokens
 
+    def token_count(self) -> int:
+        """Return current register token count (for Cell merger)."""
+        return self._token_count
+
+
+# ── Legacy singleton (obsoleted by ContextPool) ──
 
 _context: ContextManager | None = None
 

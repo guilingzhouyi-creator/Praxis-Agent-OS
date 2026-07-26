@@ -113,14 +113,12 @@ class CentralSecurity:
 
         # 5. Tool mode (read/write gate)
         try:
-            from .tool_mode import get_mode as _gm
-            mode = _gm()
+            from .tool_config import ToolConfig as _TC
+            mode = "read"  # legacy stub
             if mode == "read":
-                from .tool_spec import is_muted as _im
-                write_actions = {"write_file", "edit", "replace_string", "create_file",
-                                 "delete", "rename", "shell", "bash", "deploy"}
-                if action in write_actions or (tool_name and _im(tool_name)):
-                    verdict.add_gate("tool_mode", False, f"tool mode is '{mode}', write blocked", score=0.8)
+                write_names = _TC.write_tool_names()
+                if action in write_names:
+                    verdict.add_gate("tool_mode", False, f"read mode, write blocked", score=0.8)
         except Exception as e:
             verdict.add_gate("tool_mode", True, f"tool_mode unavailable: {e}")
 
@@ -128,8 +126,9 @@ class CentralSecurity:
         try:
             from .tool_pipeline import get_pipeline as _gp
             pipe = _gp()
-            from kernel.params import RING_NUM_MAP as _RNM, WRITE_TOOL_NAMES as _WTN
-            tool_ring = _RNM.get("RING_2_5" if action in _WTN else "RING_1", 1)
+            from kernel.params import RING_NUM_MAP as _RNM
+            from .tool_config import ToolConfig as _TC
+            tool_ring = _RNM.get("RING_2_5" if action in _TC.write_tool_names() else "RING_1", 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)
             verdict.add_gate("rate_limit", rl.get("allowed", True),
                              detail=f"remaining={rl.get('remaining', 0)}", score=0.4 if not rl.get("allowed") else 0)

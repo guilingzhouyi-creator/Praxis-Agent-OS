@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from kernel import get_rwlock
-from kernel.params import SANDBOX_STATE_PATH, SANDBOX_STATE_AUTO_SAVE
+from kernel.params import SANDBOX_STATE_PATH, SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ class SandboxManager:
                 return {"success": False, "error": "cell already exists"}
             # Give each cell its own state file so cells don't load
             # each other's entries via the shared SANDBOX_STATE_PATH.
-            state_path = str(self._sandbox_root / f"{cell_id}.state.json")
+            state_path = str(self._sandbox_root / SANDBOX_STATE_TEMPLATE.format(cell_id=cell_id))
             sb = CellSandbox(cell_id, project_root, str(self._sandbox_root),
                              state_path=state_path)
             self._cells[cell_id] = sb

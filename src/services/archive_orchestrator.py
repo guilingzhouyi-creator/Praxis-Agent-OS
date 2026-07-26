@@ -28,7 +28,7 @@ def archive_ring3(mem: Any) -> int:
     Returns:
         Number of entries archived.
     """
-    from tools.special.tools_archive import _cmd_archive_store
+    from tools._archive import _cmd_archive_store
 
     entries = mem.long.to_dict()
     count = 0
@@ -59,7 +59,7 @@ def ring3_from_archive(mem: Any) -> int:
     Returns:
         Number of entries restored.
     """
-    from tools.special.tools_archive import _get_db
+    from tools._archive import _get_db
 
     count = 0
     try:

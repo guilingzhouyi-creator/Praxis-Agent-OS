@@ -1,6 +1,6 @@
-"""Card Builder — converts raw intent into structured Card with phases, steps, and verify chains.
+"""Card Builder — converts raw intent into structured Card with phases, tasks.
 
-L3A parses a TaskCard → CardBuilder → structured Card (Phase/Step/verify)
+L3A parses a TaskCard → CardBuilder → structured CardUnified (Phase/Task)
 
 Auto-generates the appropriate workflow based on intent and domain:
 
@@ -16,18 +16,34 @@ import logging
 import uuid
 from typing import Any, Callable
 
-from .card import Card, CardMode, Phase, PhaseMode, Step
+from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 from kernel.params import CARD_BUILDER_MODES
 
 logger = logging.getLogger(__name__)
 
-def _get_builder_mode(name: str) -> CardMode:
-    """Get CardMode for a builder function from config (CARD_BUILDER_MODES)."""
+
+# ── Helpers ──
+
+def _phase_mode(name: str) -> PhaseMode:
+    """Map CARD_BUILDER_MODES config flag to PhaseMode.
+
+    Config values 'SEQUENTIAL' or absent → PhaseMode.SINGLE
+    Config values 'PARALLEL' → PhaseMode.MULTI
+    """
     mode_str = CARD_BUILDER_MODES.get(name, 'EXECUTE')
-    return getattr(CardMode, mode_str, CardMode.EXECUTE)
+    return PhaseMode.MULTI if mode_str in ('PARALLEL', 'PARALLEL_ALL') else PhaseMode.SINGLE
 
 
+def _build_card_unified(card_id: str, intent: str, domain: str,
+                        priority: int, phases: list[CardPhase]) -> CardUnified:
+    card = CardUnified(id=card_id, priority=priority, nature="execution",
+                       phases=phases)
+    card.summary = CardSummary(title=intent, description="",
+                               columns={"domain": domain or "."})
+    return card
 
+
+# ── Detector registry ──
 
 def register_detector(name: str, patterns: list[str],
                        builder: Callable) -> None:
@@ -48,8 +64,8 @@ def register_detectors_from_config(config: list[dict]) -> None:
 
 
 def build_card(task_id: str, intent: str, domain: str = "",
-               priority: int = 5) -> Card:
-    """Convert a TaskCard intent into a structured Card.
+               priority: int = 5) -> CardUnified:
+    """Convert a TaskCard intent into a structured CardUnified.
 
     Uses registered detectors in order. First match wins.
     Extensible: call register_detector() to add custom card types.
@@ -86,164 +102,125 @@ def _init_detectors() -> None:
             register_detector(name, cfg["patterns"], fn)
 
 
-def _build_build_card(card_id: str, intent: str, domain: str,
-                      priority: int) -> Card:
-    """Build card: lint → test → build → verify.
+def _step(action: str, target: str = "", agent: str = "default",
+          params: dict | None = None) -> CardTask:
+    """Shorthand for CardTask construction."""
+    return CardTask(action=action, target=target, agent=agent,
+                    params=params or {})
 
-    Engineering conventions enforced at every phase.
-    """
+
+def _phase(name: str, tasks: list[CardTask],
+           mode: PhaseMode = PhaseMode.SINGLE) -> CardPhase:
+    """Shorthand for CardPhase construction."""
+    return CardPhase(name=name, mode=mode, tasks=tasks)
+
+
+# ── Builder functions ──
+
+
+def _build_build_card(card_id: str, intent: str, domain: str,
+                      priority: int) -> CardUnified:
+    """Build card: lint → test → build → verify."""
     path = domain or "."
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_audit"),
-        priority=priority,
-        phases=[
-            Phase(name="lint", mode=PhaseMode.SEQUENTIAL, steps=[
-                Step(action="scout", target="grep",
-                     params={"template": "grep",
-                             "pattern": "TODO|FIXME|HACK|XXX",
-                             "path": path},
-                     agent="scout",
-                     verify={"template": "grep",
-                             "scope": {"pattern": "TODO|FIXME", "path": path}}),
-            ]),
-            Phase(name="build", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="think", target=f"build {path}", agent="default"),
-                Step(action="think", target=f"verify build {path}", agent="default",
-                     verify={"template": "grep",
-                             "scope": {"pattern": "error|failed", "path": path}}),
-            ]),
-        ],
-    )
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("lint", [
+            _step("scout", "grep", agent="scout",
+                  params={"template": "grep",
+                          "pattern": "TODO|FIXME|HACK|XXX",
+                          "path": path}),
+        ]),
+        _phase("build", [
+            _step("think", f"build {path}"),
+            _step("think", f"verify build {path}"),
+        ], mode=PhaseMode.MULTI),
+    ])
 
 
 def _build_fix_card(card_id: str, intent: str, domain: str,
-                    priority: int) -> Card:
+                    priority: int) -> CardUnified:
     """Fix card: scout → diagnose → fix → verify."""
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_document"),
-        priority=priority,
-        phases=[
-            Phase(name="investigate", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="scout", target="grep",
-                     params={"template": "grep",
-                             "pattern": "error|fail|exception",
-                             "path": domain or "."},
-                     agent="scout"),
-                Step(action="scout", target="structure",
-                     params={"template": "structure", "path": domain or "."},
-                     agent="scout"),
-            ]),
-            Phase(name="diagnose", mode=PhaseMode.SEQUENTIAL, steps=[
-                Step(action="think", target=f"diagnose {intent[:40]}", agent="default"),
-            ]),
-            Phase(name="fix", mode=PhaseMode.SEQUENTIAL, steps=[
-                Step(action="think", target=f"fix {domain}", agent="default",
-                     verify={"template": "grep",
-                             "scope": {"pattern": "error|fail|exception",
-                                       "path": domain or "."}}),
-            ]),
-        ],
-    )
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("investigate", [
+            _step("scout", "grep", agent="scout",
+                  params={"template": "grep",
+                          "pattern": "error|fail|exception",
+                          "path": domain or "."}),
+            _step("scout", "structure", agent="scout",
+                  params={"template": "structure", "path": domain or "."}),
+        ], mode=PhaseMode.MULTI),
+        _phase("diagnose", [
+            _step("think", f"diagnose {intent[:40]}"),
+        ]),
+        _phase("fix", [
+            _step("think", f"fix {domain}"),
+        ]),
+    ])
 
 
 def _build_refactor_card(card_id: str, intent: str, domain: str,
-                         priority: int) -> Card:
+                         priority: int) -> CardUnified:
     """Refactor card: scout → plan → modify → verify."""
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_redesign"),
-        priority=priority,
-        phases=[
-            Phase(name="investigate", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="scout", target="grep",
-                     params={"template": "grep",
-                             "pattern": "magic.number|hardcode|TODO",
-                             "path": domain or "."},
-                     agent="scout"),
-                Step(action="scout", target="summary",
-                     params={"template": "summary", "path": domain or "."},
-                     agent="scout"),
-            ]),
-            Phase(name="plan", mode=PhaseMode.SEQUENTIAL, steps=[
-                Step(action="think", target=f"refactor plan for {domain}", agent="default"),
-            ]),
-            Phase(name="modify", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="think", target=f"apply refactor {domain}", agent="default"),
-                Step(action="think", target=f"verify refactor {domain}", agent="default",
-                     verify={"template": "grep",
-                             "scope": {"pattern": "magic.number|hardcode",
-                                       "path": domain or "."}}),
-            ]),
-        ],
-    )
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("investigate", [
+            _step("scout", "grep", agent="scout",
+                  params={"template": "grep",
+                          "pattern": "magic.number|hardcode|TODO",
+                          "path": domain or "."}),
+            _step("scout", "summary", agent="scout",
+                  params={"template": "summary", "path": domain or "."}),
+        ], mode=PhaseMode.MULTI),
+        _phase("plan", [
+            _step("think", f"refactor plan for {domain}"),
+        ]),
+        _phase("modify", [
+            _step("think", f"apply refactor {domain}"),
+            _step("think", f"verify refactor {domain}"),
+        ], mode=PhaseMode.MULTI),
+    ])
 
 
 def _build_feature_card(card_id: str, intent: str, domain: str,
-                        priority: int) -> Card:
+                        priority: int) -> CardUnified:
     """Feature card: scout → design → implement → test → verify."""
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_refactor"),
-        priority=priority,
-        phases=[
-            Phase(name="scout", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="scout", target="structure",
-                     params={"template": "structure", "path": domain or "."},
-                     agent="scout"),
-                Step(action="scout", target="read",
-                     params={"template": "read", "path": f"{domain or '.'}/"},
-                     agent="scout"),
-            ]),
-            Phase(name="implement", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="think", target=f"implement {intent[:40]}", agent="default"),
-                Step(action="think", target=f"review {domain}", agent="default",
-                     verify={"template": "grep",
-                             "scope": {"pattern": "TODO|FIXME",
-                                       "path": domain or "."}}),
-            ]),
-        ],
-    )
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("scout", [
+            _step("scout", "structure", agent="scout",
+                  params={"template": "structure", "path": domain or "."}),
+            _step("scout", "read", agent="scout",
+                  params={"template": "read", "path": f"{domain or '.'}/"}),
+        ], mode=PhaseMode.MULTI),
+        _phase("implement", [
+            _step("think", f"implement {intent[:40]}"),
+            _step("think", f"review {domain}"),
+        ], mode=PhaseMode.MULTI),
+    ])
 
 
 def _build_review_card(card_id: str, intent: str, domain: str,
-                       priority: int) -> Card:
+                       priority: int) -> CardUnified:
     """Review card: scout security → scout style → review → report."""
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_subtask"),
-        priority=priority,
-        phases=[
-            Phase(name="scan", mode=PhaseMode.PARALLEL, steps=[
-                Step(action="scout", target="grep",
-                     params={"template": "grep",
-                             "pattern": "password|secret|key|token",
-                             "path": domain or "."},
-                     agent="scout"),
-                Step(action="scout", target="summary",
-                     params={"template": "summary", "path": domain or "."},
-                     agent="scout"),
-            ]),
-            Phase(name="report", mode=PhaseMode.SEQUENTIAL, steps=[
-                Step(action="think", target=f"review report for {domain}", agent="default"),
-            ]),
-        ],
-    )
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("scan", [
+            _step("scout", "grep", agent="scout",
+                  params={"template": "grep",
+                          "pattern": "password|secret|key|token",
+                          "path": domain or "."}),
+            _step("scout", "summary", agent="scout",
+                  params={"template": "summary", "path": domain or "."}),
+        ], mode=PhaseMode.MULTI),
+        _phase("report", [
+            _step("think", f"review report for {domain}"),
+        ]),
+    ])
 
 
 def _build_default_card(card_id: str, intent: str, domain: str,
-                        priority: int) -> Card:
-    return Card(
-        id=card_id, intent=intent, domain=domain,
-        mode=_get_builder_mode("build_repair"),
-        priority=priority,
-        phases=[
-            Phase(name="execute", steps=[
-                Step(action="think", target=intent[:80], agent="default"),
-            ]),
-        ],
-    )
+                        priority: int) -> CardUnified:
+    return _build_card_unified(card_id, intent, domain, priority, [
+        _phase("execute", [
+            _step("think", intent[:80]),
+        ]),
+    ])
 
 
 # Initialize detector registry (after all builder functions are defined)

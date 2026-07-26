@@ -356,35 +356,32 @@ class HTNPlanner(BaseService):
             task_id: Optional card ID. Auto-generated if empty.
             domain: Optional domain override.
 
-        Returns a Card ready for ExecutionPlan.
+        Returns a CardUnified ready for ExecutionPlan.
         """
         # Late import to avoid circular dependency at module level
-        from .card import Card, CardMode, Phase, Step
+        from .card_unified import CardUnified, CardPhase, CardTask, CardSummary
 
         cid = task_id or f"htn-{uuid.uuid4().hex[:8]}"
         intent = root.name
         dom = domain or root.domain
 
         primitives = self.flatten(root)
-        built_steps: dict[str, list] = {}  # phase_name → [Step, ...]
-        step_references: dict[str, str] = {}  # primitive_task_id → step_target
+        built_tasks: dict[str, list] = {}  # phase_name → [CardTask, ...]
 
         for pt in primitives:
             # Deduce phase from the compound parent chain by scanning root
             phase_name = self._infer_phase(root, pt)
-            if phase_name not in built_steps:
-                built_steps[phase_name] = []
+            if phase_name not in built_tasks:
+                built_tasks[phase_name] = []
 
             target = pt.params.get("path", pt.params.get("target", pt.name))
-            step = Step(
+            task = CardTask(
                 action=pt.tool or "think",
                 target=target,
                 params=pt.params,
                 agent=self._infer_agent(pt),
-                depends_on=[step_references.get(d) for d in pt.depends_on if d in step_references],
             )
-            step_references[pt.id] = f"{phase_name}-step-{len(built_steps[phase_name])}"
-            built_steps[phase_name].append(step)
+            built_tasks[phase_name].append(task)
 
         phases = []
         seen = set()
@@ -393,19 +390,19 @@ class HTNPlanner(BaseService):
             if pn in seen:
                 continue
             seen.add(pn)
-            steps = built_steps.get(pn, [])
-            phases.append(Phase(name=pn, steps=steps, mode="sequential"))
+            tasks = built_tasks.get(pn, [])
+            phases.append(CardPhase(name=pn, tasks=tasks))
 
         if not phases:
-            phases.append(Phase(
+            phases.append(CardPhase(
                 name="execute",
-                steps=[Step(action="think", target=intent, params={})],
+                tasks=[CardTask(action="think", target=intent, params={})],
             ))
 
-        return Card(
-            id=cid, intent=intent, domain=dom,
-            mode=CardMode.EXECUTE, phases=phases,
-        )
+        card = CardUnified(id=cid, priority=5, nature="execution", phases=phases)
+        card.summary = CardSummary(title=intent, description="",
+                                   columns={"domain": dom or "."})
+        return card
 
     @staticmethod
     def _infer_phase(root: Task, primitive: Task) -> str:
@@ -421,18 +418,16 @@ class HTNPlanner(BaseService):
 
     @staticmethod
     def _infer_agent(task: Task) -> str:
-        """Map tool name to agent role."""
+        """Map tool name to agent role via ToolConfig ring."""
         tool = task.tool or ""
-        if tool in ("read_file", "grep_search", "list_dir"):
-            return "reader"
-        if tool in ("write_file", "create_file", "replace_string", "delete", "rename"):
-            return "writer"
-        if tool in ("build_project", "test_project", "lint"):
-            return "builder"
-        if tool == "scout_delegate":
-            return "scout"
-        if tool in ("think",):
-            return "thinker"
+        try:
+            from .tool_config import ToolConfig as _TC
+            spec = _TC.get(tool)
+            if spec:
+                ring_to_role = {"RING_1": "reader", "RING_2_5": "writer", "RING_3": "reviewer"}
+                return ring_to_role.get(spec.ring, "default")
+        except Exception:
+            pass
         return "default"
 
     def stats(self) -> dict:

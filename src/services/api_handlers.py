@@ -467,6 +467,46 @@ class ApiHandlers:
         except Exception as e:
             return {"error": str(e)}
 
+    def _tool_policy_set(self, body: dict) -> dict:
+        try:
+            from .tool_policy import ToolPolicy, PolicyRule, PolicyScope, PolicyAction
+            scope_str = body.get("scope", "global")
+            scope_parts = scope_str.split(":", 1)
+            scope = PolicyScope(scope_parts[0])
+            scope_id = scope_parts[1] if len(scope_parts) > 1 else ""
+            rule = PolicyRule(
+                scope=scope, scope_id=scope_id,
+                tool=body.get("tool", "*"),
+                action=PolicyAction(body.get("action", "disable")),
+                reason=body.get("reason", ""),
+            )
+            ToolPolicy.add(rule)
+            return {"success": True, "rule": rule.key()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _tool_policy_list(self, body: dict | None = None) -> dict:
+        try:
+            from .tool_policy import ToolPolicy
+            return {"success": True, "policies": ToolPolicy.to_dict()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _tool_policy_remove(self, body: dict) -> dict:
+        try:
+            from .tool_policy import ToolPolicy, PolicyScope
+            scope_str = body.get("scope", "global")
+            scope_parts = scope_str.split(":", 1)
+            scope = PolicyScope(scope_parts[0])
+            scope_id = scope_parts[1] if len(scope_parts) > 1 else ""
+            ok = ToolPolicy.remove(
+                tool=body.get("tool", "*"),
+                scope=scope, scope_id=scope_id,
+            )
+            return {"success": ok}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def _loop_stats(self, body: dict | None = None) -> dict:
         return loop_stats(body)
 

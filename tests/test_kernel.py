@@ -293,3 +293,90 @@ class TestConstitution:
         cc = get_constitution()
         r = cc.is_allowed("unknown_action", "anyone", "/tmp/test")
         assert r.get("allowed", True)
+
+    def test_rule_descriptors_loaded(self):
+        """Verify builtin rules use RuleDescriptor with ids and tags."""
+        from kernel.constitution import get_constitution
+        from kernel.rule_descriptor import RuleDescriptor
+        cc = get_constitution()
+        for rule in cc._rules:
+            assert isinstance(rule, RuleDescriptor)
+            assert rule.id, f"rule missing id: {rule.description}"
+
+    def test_rules_have_unique_ids(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        ids = [r.id for r in cc._rules]
+        assert len(ids) == len(set(ids)), f"duplicate rule ids: {ids}"
+
+    def test_blocks_constitution_file_write(self):
+        from kernel.constitution import get_constitution, reset_constitution
+        reset_constitution()
+        cc = get_constitution()
+        r = cc.is_allowed("write_file", "agent-a", ".nomos-rules.md")
+        assert not r.get("allowed")
+
+    def test_blocks_constitution_keyword_path(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        r = cc.is_allowed("write_file", "agent-a", "src/constitution.py")
+        assert not r.get("allowed")
+
+    def test_blocks_scout_write(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        r = cc.is_allowed("write_file", "scout", "/tmp/test")
+        assert not r.get("allowed")
+
+    def test_allows_scout_read(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        r = cc.is_allowed("read_file", "scout", "/tmp/test")
+        assert r.get("allowed")
+
+    def test_territory_block(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        # read_file IS in CONSTITUTION_FILE_ACTIONS, so territory check applies
+        r = cc.is_allowed("read_file", "agent-a", "/forbidden",
+                          territory=["/allowed"])
+        assert not r.get("allowed")
+
+    def test_territory_allowed(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        r = cc.is_allowed("read_file", "agent-a", "/allowed/src/main.py",
+                          territory=["/allowed"])
+        assert r.get("allowed")
+
+    def test_rules_list_includes_all_builtins(self):
+        from kernel.constitution import get_constitution
+        cc = get_constitution()
+        rules = cc.rules_list()
+        descriptions = [r["description"] for r in rules]
+        assert any("territory" in d.lower() for d in descriptions)
+        assert any("GateChain" in d for d in descriptions)
+        assert any("sandbox" in d.lower() for d in descriptions)
+        assert any("scout" in d.lower() for d in descriptions)
+        assert len(rules) == 15  # 15 built-in rules
+
+    def test_load_custom_rules(self):
+        from kernel.constitution import get_constitution, reset_constitution
+        import tempfile, os
+        reset_constitution()
+        content = """# Custom Rules
+## §custom
+[MUST] Custom rule one
+[SHOULD] Custom rule two
+"""
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8")
+        tmp.write(content)
+        tmp.close()
+        try:
+            cc = get_constitution()
+            r = cc.load(tmp.name)
+            assert r.get("success")
+            assert r.get("custom", 0) == 2
+            assert len(cc._rules) == 15 + 2  # 15 builtins + 2 custom
+        finally:
+            os.unlink(tmp.name)

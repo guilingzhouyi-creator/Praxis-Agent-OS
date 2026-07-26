@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.params import PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE
 from services._persistable import PersistableMixin
 
@@ -114,7 +114,7 @@ class PendingQueue(PersistableMixin):
         with self._lock:
             self._items[mid] = msg
             self._persist()
-        emit_signal("task_assign", sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
                      data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
         logger.info("pending enqueued: %s — %s (%s)", mid, intent[:60], size)
         return mid
@@ -164,7 +164,7 @@ class PendingQueue(PersistableMixin):
             except Exception as e:
                 logger.warning("pending_queue on_approve callback failed: %s", e)
 
-        emit_signal("task_assign", sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
                      data={"card_id": card_id, "msg_id": msg_id, "event": "approved"})
         return {"success": True, "card_id": card_id,
                 "intent": msg.intent[:60] if msg else "", "size": msg.size if msg else ""}
@@ -181,7 +181,7 @@ class PendingQueue(PersistableMixin):
             msg.resolved_at = time.time()
             msg.response = response[:200]
             self._persist()
-        emit_signal("task_assign", sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
                      data={"card_id": msg.card_id, "msg_id": msg_id, "event": "rejected"})
         return {"success": True, "card_id": msg.card_id}
 
@@ -196,7 +196,7 @@ class PendingQueue(PersistableMixin):
             msg.status = PendingStatus.ESCALATED
             msg.resolved_at = time.time()
             self._persist()
-        emit_signal("task_assign", sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
                      data={"card_id": msg.card_id, "msg_id": msg_id, "event": "escalated"})
         return {"success": True, "card_id": msg.card_id, "action": "convention"}
 

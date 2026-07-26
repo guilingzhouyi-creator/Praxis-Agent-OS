@@ -1,11 +1,11 @@
-"""Process 进程表测试 — spawn/get/set_state/exit/reap/list/audit"""
+"""Process table tests — spawn/get/set_state/exit/reap/list/audit"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestProcessTable:
-    """进程表基础"""
+    """Process table basics"""
 
     def setup_method(self):
         from kernel.process import reset_table
@@ -26,7 +26,7 @@ class TestProcessTable:
 
 
 class TestSpawn:
-    """进程创建"""
+    """Process creation"""
 
     def test_spawn_basic(self):
         from kernel.process import get_table, reset_table
@@ -54,7 +54,7 @@ class TestSpawn:
 
 
 class TestGetByName:
-    """通过名称查找"""
+    """Lookup by name"""
 
     def test_get_by_name(self):
         from kernel.process import get_table, reset_table
@@ -74,7 +74,7 @@ class TestGetByName:
 
 
 class TestSetState:
-    """状态设置"""
+    """State setting"""
 
     def test_set_state(self):
         from kernel.process import get_table, reset_table, ProcessState
@@ -102,7 +102,7 @@ class TestSetState:
 
 
 class TestExit:
-    """进程退出"""
+    """Process exit"""
 
     def test_exit_basic(self):
         from kernel.process import get_table, reset_table
@@ -129,7 +129,7 @@ class TestExit:
 
 
 class TestReap:
-    """进程收割"""
+    """Process reaping"""
 
     def test_reap_basic(self):
         from kernel.process import get_table, reset_table
@@ -150,7 +150,7 @@ class TestReap:
 
 
 class TestList:
-    """进程列表"""
+    """Process listing"""
 
     def test_list_all(self):
         from kernel.process import get_table, reset_table
@@ -181,7 +181,7 @@ class TestList:
 
 
 class TestIdentity:
-    """身份验证标记"""
+    """Identity verification mark"""
 
     def test_mark_identity(self):
         from kernel.process import get_table, reset_table
@@ -200,7 +200,7 @@ class TestIdentity:
 
 
 class TestAudit:
-    """审计日志"""
+    """Audit log"""
 
     def test_audit_log_basic(self):
         from kernel.process import get_table, reset_table
@@ -222,7 +222,7 @@ class TestAudit:
 
 
 class TestResourceSummary:
-    """资源汇总"""
+    """Resource summary"""
 
     def test_resource_summary(self):
         from kernel.process import get_table, reset_table
@@ -236,7 +236,7 @@ class TestResourceSummary:
 
 
 class TestPCB:
-    """PCB 数据类"""
+    """PCB data class"""
 
     def test_pcb_create(self):
         from kernel.process import PCB, ProcessState
@@ -252,7 +252,10 @@ class TestPCB:
         assert s["pid"] == 2
         assert s["name"] == "snap-test"
         assert "state" in s
-        assert "resources" in s
+        # Resource fields are spread into the flat dict via **self.resources.__dict__
+        assert "tokens_allocated" in s
+        assert "cpu_time" in s
+        assert "cards_processed" in s
 
     def test_pcb_touch(self):
         from kernel.process import PCB

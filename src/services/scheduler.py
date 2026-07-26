@@ -88,7 +88,7 @@ class CentralScheduler:
             self._tasks[tid] = task
 
         pool_result = self.pool.enqueue(task)
-        if not pool_result["success"]:
+        if not pool_result.get("success"):
             return pool_result
 
         self.router.update_load(agent_id, 0.1)

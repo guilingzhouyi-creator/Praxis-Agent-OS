@@ -35,7 +35,17 @@ def register_func_handler(action: str, handler_fn: Any) -> None:
 
 
 def get_action_handler(term, action: str):
-    """Resolve action → handler, checking function registry first, then method registry, then _HANDLER_MAP."""
+    """Resolve action → handler via ToolConfig first, then legacy registries."""
+    try:
+        from .tool_config import ToolConfig as _TC
+        from .tool_policy import ToolPolicy as _TP
+        if not _TP.is_allowed(term.agent_id, action):
+            return None
+        handler = _TC.resolve_handler(action)
+        if handler:
+            return lambda t, c, p: (handler(c.params or {}, t.agent_id), [], handler(c.params or {}, t.agent_id).get("success", True))
+    except Exception:
+        pass
     direct_fn = _FUNC_HANDLERS.get(action)
     if direct_fn:
         return direct_fn
@@ -214,7 +224,8 @@ def handle_think(term, card, phases):
         )
         system_prompt = base_prompt
         if memory_context:
-            system_prompt += f"\n--- Memory Context ---\n{memory_context}\n---"
+            from kernel.prompts import get_prompt as _gp
+            system_prompt += _gp("agent_terminal.memory_context", "").format(memory_context=memory_context)
 
         human_user = card.params.get("user_id", "")
         loop = AgentLoop(task=task, agent_id=term.agent_id, system=system_prompt,

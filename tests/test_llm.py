@@ -1,11 +1,11 @@
-"""LLM 推理引擎测试 — 调用/重试/分析/工具使用/日志钩子"""
+"""LLM inference engine test — invoke/retry/analyze/tool-use/log hooks"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestThink:
-    """think 便利函数"""
+    """think convenience function"""
 
     def test_think_returns_dict(self):
         from services.llm import think
@@ -20,7 +20,7 @@ class TestThink:
 
 
 class TestAnalyze:
-    """analyze 便利函数"""
+    """analyze convenience function"""
 
     def test_analyze_basic(self):
         from services.llm import analyze

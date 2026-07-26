@@ -23,6 +23,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+# ── Action type constants ──
+_ACTION_THINK = "think"
+_ACTION_TOOL_CALL = "tool_call"
+_ACTION_DECISION = "decision"
+
 from kernel import (
     get_event_bus, Signal, SignalType,
     get_limiter,
@@ -88,7 +93,7 @@ class AgentRuntime:
         result = {"action": action.type, "target": action.target, "ticks": []}
 
         # ─── 1. Memory refeed (auto-load context before inference) ───
-        if action.type in ("think", "tool_call"):
+        if action.type in (_ACTION_THINK, _ACTION_TOOL_CALL):
             self._inference_id += 1
             ctx = _get_mem().build_context(self.agent_id, max_tokens=2048)
             if ctx:
@@ -131,10 +136,10 @@ class AgentRuntime:
                     "ticks": result["ticks"]}
 
         # ─── 4. Memory store (auto-store after inference) ───
-        if action.type in ("tool_call", "think", "decision"):
+        if action.type in (_ACTION_TOOL_CALL, _ACTION_THINK, _ACTION_DECISION):
             _get_mem().remember(
                 agent_id=self.agent_id,
-                entry_type="tool_call" if action.type == "tool_call" else "observation",
+                entry_type="tool_call" if action.type == _ACTION_TOOL_CALL else "observation",
                 content=f"{action.type} {action.target}: {action.params.get('summary', '')}",
                 tags=[action.type, action.target.split('/')[0] if '/' in action.target else action.target],
                 ring=1,

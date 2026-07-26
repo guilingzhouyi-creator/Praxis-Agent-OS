@@ -1,11 +1,11 @@
-"""SubAgent Framework 集成测试 — @mention 解析 + 调度 + 结果归并 + API"""
+"""SubAgent Framework integration test — @mention parsing + dispatch + result merge + API"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestMentionParsing:
-    """@mention 解析"""
+    """@mention parsing"""
 
     def test_parse_known_agent(self):
         from services.subagent_framework import SubAgentDispatcher
@@ -47,7 +47,7 @@ class TestMentionParsing:
 
 
 class TestSubAgentSpec:
-    """子代理规格"""
+    """Sub-agent spec"""
 
     def test_builtin_specs(self):
         from services.subagent_framework import BUILTIN_SUBAGENTS

@@ -254,11 +254,32 @@ class ToolChain:
         for c in sorted_calls[:to_remove]:
             removed_ids.add(c.call_id)
             self._calls.pop(c.call_id, None)
-        # Re-root orphaned children so the chain verifies cleanly
+        # Re-root orphaned children so the chain verifies cleanly.
+        # Must cascade: when an orphan's fingerprint changes, all of its
+        # descendants' fingerprints (computed from prev_fingerprint) go
+        # stale too, so walk each affected subtree and recompute each node.
+        affected_roots: list[str] = []
         for c in list(self._calls.values()):
             if c.parent_id and c.parent_id in removed_ids:
                 c.parent_id = ""
-                c.prev_fp = "GENESIS"
+                c.prev_fingerprint = "GENESIS"
+                affected_roots.append(c.call_id)
+
+        for root_id in affected_roots:
+            # BFS down the subtree, recomputing each node's fingerprint
+            # against its (possibly already-recomputed) parent's fingerprint
+            queue = [self._calls[root_id]]
+            while queue:
+                node = queue.pop(0)
+                call_data = f"{node.tool_name}:{node.agent_id}:{node.ring}:{node.call_id}:{node.parent_id}:{node.depth}"
+                node.fingerprint = self._compute_fp(call_data, node.prev_fingerprint)
+                # Propagate this node's new fingerprint to each child's
+                # prev_fingerprint, then queue the child for its own recompute
+                for child_id in node.children:
+                    child = self._calls.get(child_id)
+                    if child:
+                        child.prev_fingerprint = node.fingerprint
+                        queue.append(child)
 
 
 _chain: ToolChain | None = None

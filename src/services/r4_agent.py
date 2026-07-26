@@ -149,7 +149,8 @@ class R4Agent:
             total_issues = len(stale) + len(contradictions)
             if total_issues > 0:
                 self._total_alerts += total_issues
-                emit_signal("archive_alert", sender="r4-agent", target="l3",
+                from kernel.params import EVENT_ARCHIVE_ALERT
+                emit_signal(EVENT_ARCHIVE_ALERT, sender="r4-agent", target="l3",
                             data={"issues": total_issues, "stale": len(stale),
                                   "contradictions": len(contradictions)})
                 results["alerts"] = total_issues
@@ -188,7 +189,7 @@ class R4Agent:
 
     def _detect_stale(self) -> list[dict]:
         """Find archive entries with expired TTL or no recent references."""
-        from tools.special.tools_archive import _get_db
+        from tools._archive import _get_db
         stale = []
         try:
             conn = _get_db()
@@ -220,7 +221,7 @@ class R4Agent:
 
     def _check_consistency(self) -> list[dict]:
         """Detect cross-fonds contradictions in Archive."""
-        from tools.special.tools_archive import _get_db
+        from tools._archive import _get_db
         contradictions = []
         try:
             conn = _get_db()
@@ -248,7 +249,7 @@ class R4Agent:
                        args: dict, error: str, turn_log: list[dict]) -> None:
         """Record a tool call failure for later analysis and lean case generation."""
         try:
-            from kernel.params import SKILL_LEAN_DIR
+            from kernel.params import SKILL_LEAN_DIR, SKILL_LEAN_CASE_TEMPLATE
             import json, os
             entry = {
                 "agent_id": agent_id, "tool": tool_name, "args": args,
@@ -257,7 +258,8 @@ class R4Agent:
                 "resolved": False,
             }
             os.makedirs(SKILL_LEAN_DIR, exist_ok=True)
-            fp = os.path.join(SKILL_LEAN_DIR, f"{agent_id}_{tool_name}_{int(time.time())}.json")
+            fp = os.path.join(SKILL_LEAN_DIR, SKILL_LEAN_CASE_TEMPLATE.format(
+                agent_id=agent_id, tool_name=tool_name, ts=int(time.time())))
             with open(fp, "w", encoding="utf-8") as f:
                 json.dump(entry, f, indent=2)
         except Exception as e:

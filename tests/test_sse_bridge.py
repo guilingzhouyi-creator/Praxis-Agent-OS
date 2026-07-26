@@ -1,11 +1,11 @@
-"""SSE Bridge 集成测试 — 事件广播 + 订阅 + API"""
+"""SSE Bridge integration test — event broadcast + subscription + API"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestSseBridgeCore:
-    """SSE 桥接核心功能"""
+    """SSE bridge core functionality"""
 
     def test_subscribe_unsubscribe(self):
         from services.sse_bridge import subscribe, unsubscribe
@@ -13,7 +13,7 @@ class TestSseBridgeCore:
         assert "client_id" in client
         assert "queue" in client
         cid = client["client_id"]
-        # 不应报错
+        # Should not raise
         unsubscribe(cid)
         # 重复取消也不应报错
         unsubscribe(cid)

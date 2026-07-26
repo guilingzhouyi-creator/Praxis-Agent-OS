@@ -1,4 +1,4 @@
-"""LSP Manager 集成测试 — 诊断 + 反馈 + API"""
+"""LSP Manager integration test — diagnostics + feedback + API"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -7,7 +7,7 @@ import tempfile
 
 
 class TestDiagnosticCache:
-    """诊断缓存"""
+    """Diagnostic cache"""
 
     def test_cache_miss(self):
         from services.lsp_manager import DiagnosticCache
@@ -79,7 +79,7 @@ class TestDiagnosticCache:
 
 
 class TestAstDiagnostics:
-    """AST 回退诊断"""
+    """AST fallback diagnostics"""
 
     def test_syntax_error(self):
         from services.lsp_manager import LspManager

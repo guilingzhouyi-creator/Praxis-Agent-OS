@@ -37,7 +37,9 @@ class ToolHandler(Protocol):
 
 class ToolRing:
     """Canonical tool ring constants — single source in kernel.params."""
-    RING_1 = "RING_1"; RING_2_5 = "RING_2_5"; RING_3 = "RING_3"
+    # Re-export from kernel.params so callers importing from tool_spec still
+    # work, but there is ONE source of truth (kernel.params.RING_*).
+    from kernel.params import RING_1, RING_2_5, RING_3  # noqa: F401
 
 RING_GATE_MAP: dict[str, list[str]] = {
     ToolRing.RING_1: ["G1", "G2"],
@@ -95,8 +97,9 @@ class ToolSpec:
     parameters: list[ParamSpec] = field(default_factory=list)
     returns: ReturnSpec = field(default_factory=ReturnSpec)
     handler: Callable | None = None
-    parallel_safe: bool = False  # True = read-only, can run concurrently
-    metadata: dict = field(default_factory=dict)  # extensible metadata
+    parallel_safe: bool = False
+    sandbox_profile: str | None = None  # "DANGER_0".."DANGER_4", None = no sandbox
+    metadata: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.gates:
@@ -150,6 +153,7 @@ class ToolSpec:
             ],
             "returns": self.returns.__dict__,
             "parallel_safe": self.parallel_safe,
+            "sandbox_profile": self.sandbox_profile,
             "metadata": self.metadata,
         }
 
@@ -436,45 +440,12 @@ def tool_registry_to_json() -> str:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Auto-discovery
+# Auto-discovery (deprecated — use ToolConfig.load() instead)
 # ═════════════════════════════════════════════════════════════════════════════
 
 def auto_discover(package_path: str = "") -> int:
-    """Auto-discover and register all tools_*.py files in the given path.
-
-    Each module should implement a `register_tools()` function.
-    Supports nested directory structure (e.g. tools/base/, tools/cell/).
-    Returns the number of modules discovered.
-    """
-    count = 0
-    search_paths = [package_path] if package_path else [os.path.dirname(os.path.abspath(__file__))]
-
-    for path in search_paths:
-        if not os.path.isdir(path):
-            continue
-        parent = os.path.dirname(path)
-        if parent not in sys.path:
-            sys.path.insert(0, parent)
-
-        for f in sorted(os.listdir(path)):
-            if (f.startswith("tools_") and f.endswith(".py") and f != "tools_os_shared.py") or f == "tools.py":
-                module_name = f[:-3]
-                # If the module is inside a subdirectory (e.g. tools/base/tools_foo.py),
-                # build the dotted import path from the relative path
-                try:
-                    rel_path = os.path.relpath(path, parent)
-                    if rel_path == ".":
-                        full_module = module_name
-                    else:
-                        # Convert OS path to dotted module path
-                        full_module = rel_path.replace(os.sep, ".") + "." + module_name
-                    module = importlib.import_module(full_module)
-                    if hasattr(module, "register_tools"):
-                        module.register_tools()
-                        count += 1
-                except Exception as e:
-                    logger.debug("auto-discover failed for %s: %s", full_module, e)
-    return count
+    """Deprecated: use ToolConfig.load(). Kept for backward compat."""
+    return 0
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -497,10 +468,10 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
         return {"success": False, "error": "; ".join(errors)}
 
     # ── ResultStore: try cache hit for read-only tools ──
-    from .result_store import _WRITE_TOOLS
     from .result_store import get_result_store as _get_rs
+    from .tool_config import ToolConfig as _TC
     _rs = _get_rs()
-    is_write = tool_name in _WRITE_TOOLS
+    is_write = tool_name in _TC.write_tool_names()
     if not is_write and spec.ring == "RING_1":
         _fp = _rs.fingerprint(tool_name, args)
         _cached = _rs.get(_fp)

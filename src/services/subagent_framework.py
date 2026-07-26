@@ -1,11 +1,11 @@
-"""SubAgent Framework — @mention 调度 + 隔离执行 + 结果归并
+"""SubAgent Framework — @mention scheduling + isolated execution + result merging
 
-架构:
+Architecture:
   SubAgentFramework (services/subagent_framework.py)
-  ├── SubAgentSpec         — 子代理定义（角色/工具集/模型/超时）
-  ├── SubAgentTask         — 子代理任务实例（独立 session + context）
-  ├── SubAgentDispatcher   — @mention 解析 + 任务调度 + 生命周期
-  ├── ResultMerger         — 多子代理结果冲突检测 + 合并
+  ├── SubAgentSpec         — Sub-agent definition (role/tool set/model/timeout)
+  ├── SubAgentTask         — Sub-agent task instance (independent session + context)
+  ├── SubAgentDispatcher   — @mention parsing + task scheduling + lifecycle
+  ├── ResultMerger         — Multi sub-agent result conflict detection + merging
   └── API Handlers
 
 API:
@@ -61,18 +61,19 @@ class SubAgentSpec:
 
 
 # 内置子代理规格
+from kernel.prompts import get_prompt as _gps
 BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = {
     "security-auditor": SubAgentSpec(
         name="security-auditor",
         description="Audit code for security vulnerabilities (XSS, injection, secrets)",
-        system_prompt="You are a security expert. Review code for vulnerabilities. Report findings with CVE references.",
+        system_prompt=_gps("subagent.security_auditor", "You are a security expert. Review code for vulnerabilities."),
         allowed_tools=["read_file", "grep_search", "search_symbol"],
         tags=["security", "audit"],
     ),
     "debugger": SubAgentSpec(
         name="debugger",
         description="Debug errors and trace root causes",
-        system_prompt="You are a debugging specialist. Analyze stack traces, find root causes, suggest fixes.",
+        system_prompt=_gps("subagent.debug_specialist", "You are a debugging specialist. Analyze stack traces."),
         allowed_tools=["read_file", "grep_search", "stack_trace", "run_in_terminal"],
         max_steps=10,
         timeout=120.0,
@@ -81,14 +82,14 @@ BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = {
     "code-reviewer": SubAgentSpec(
         name="code-reviewer",
         description="Review code quality and suggest improvements",
-        system_prompt="You are a senior code reviewer. Focus on logic errors, edge cases, and maintainability.",
+        system_prompt=_gps("subagent.code_reviewer", "You are a senior code reviewer."),
         allowed_tools=["read_file", "grep_search", "search_symbol"],
         tags=["review", "quality"],
     ),
     "scout": SubAgentSpec(
         name="scout",
         description="Explore codebase and gather information",
-        system_prompt="You are a scout. Explore the codebase and summarize findings concisely.",
+        system_prompt=_gps("subagent.scout", "You are a scout. Explore the codebase."),
         allowed_tools=["read_file", "grep_search", "list_directory", "search_symbol"],
         max_steps=3,
         timeout=30.0,
@@ -137,9 +138,10 @@ class SubAgentTask:
             engine = get_engine()
 
             # 构建简单的 system prompt
-            system = self.spec.system_prompt or (
-                f"You are {self.spec.name}. {self.spec.description}"
-            )
+            from kernel.prompts import get_prompt as _gpr
+            system = self.spec.system_prompt or _gpr(
+                "subagent.fallback", "You are {name}. {description}"
+            ).format(name=self.spec.name, description=self.spec.description)
 
             # 限制工具列表
             available_tools = None
@@ -153,12 +155,13 @@ class SubAgentTask:
                 pass
 
             if self.spec.read_only:
-                system += "\n\nYou are in READ-ONLY mode. Do NOT modify any files."
+                system += _gpr("subagent.read_only", "")
 
             result = engine.generate(
                 prompt=self.prompt,
                 system=system,
-                max_tokens=4096,
+                from kernel.params import SUBAGENT_MAX_TOKENS
+                max_tokens=SUBAGENT_MAX_TOKENS,
                 user_id=self.parent_agent_id or self.id,
             )
 

@@ -206,7 +206,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
             self._executions.clear()
         return {"success": True}
 
-    def execute(self, plan: ExecutionPlan, tool_executor: Callable) -> ExecutionResult:
+    def execute(self, plan: ExecutionPlan, tool_executor: Callable | None = None) -> ExecutionResult:
         """Execute a plan: topological sort → run steps → collect results."""
         started_at = time.time()
         result = ExecutionResult(plan_id=plan.plan_id, success=True, total=len(plan.steps))

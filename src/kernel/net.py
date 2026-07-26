@@ -6,8 +6,12 @@ Allows Cells on different machines to:
   - Query remote Cell status
   - Forward L3B routing across machines
 
-Protocol: JSON over TCP (lightweight, no framework dependency).
-Discovery: UDP broadcast on a configurable port (default 42069).
+Architecture:
+  NetKernel ── depends on ──► TransportPort / EventBusPort / I18nPort / CardRegistryPort
+                                    │
+                              TcpAdapter (default)
+
+All dependencies are injected via ``kernel.ports`` — no direct ``from services.* import``.
 """
 
 from __future__ import annotations
@@ -18,16 +22,19 @@ import os
 import socket
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
-from .params import ENV_DISCOVERY_PORT, ENV_PRAXIS_PORT, DISCOVERY_PORT_DEFAULT, PRAXIS_PORT_DEFAULT, NET_PEER_TIMEOUT, BROADCAST_INTERVAL
+from .params import NET_PEER_TIMEOUT, PRAXIS_PORT_DEFAULT, ENV_PRAXIS_PORT
+from .net_transport import TransportConfig, TcpAdapter
+from .ports import (
+    TransportPort, EventBusPort, I18nPort, CardRegistryPort,
+    Endpoint, Message, Event,
+    get_port,
+)
 
 logger = logging.getLogger(__name__)
 
-_DISCOVERY_PORT = int(os.environ.get(ENV_DISCOVERY_PORT, str(DISCOVERY_PORT_DEFAULT)))
-_PRAXIS_PORT = int(os.environ.get(ENV_PRAXIS_PORT, str(PRAXIS_PORT_DEFAULT)))
-_BROADCAST_INTERVAL = BROADCAST_INTERVAL
 _PEER_TIMEOUT = NET_PEER_TIMEOUT
 
 
@@ -39,79 +46,145 @@ class Peer:
     last_seen: float = 0.0
     cell_count: int = 0
     version: str = ""
+    _loss_reported: bool = False
 
     @property
     def alive(self) -> bool:
         return time.time() - self.last_seen < _PEER_TIMEOUT
 
 
+def _get_bus() -> EventBusPort | None:
+    try:
+        b = get_port("event_bus")
+        return b if isinstance(b, EventBusPort) else None
+    except KeyError:
+        return None
+
+
+def _get_i18n() -> I18nPort | None:
+    try:
+        i = get_port("i18n")
+        return i if isinstance(i, I18nPort) else None
+    except KeyError:
+        return None
+
+
+def _get_card_registry() -> CardRegistryPort | None:
+    try:
+        c = get_port("card_registry")
+        return c if isinstance(c, CardRegistryPort) else None
+    except KeyError:
+        return None
+
+
+def _emit_event(type_: str, severity: str, message: str,
+                data: dict | None = None) -> None:
+    bus = _get_bus()
+    if bus:
+        bus.emit(Event(
+            type=type_, source="net",
+            severity=severity, message=message,
+            data=data or {},
+        ))
+
+
 class NetKernel:
     """Network kernel — peer discovery + message transport.
 
-    Usage:
-      net = get_net()
-      net.start(cell_id="cell-1")
-      net.send_remote("cell-2", {"type": "card", "intent": "..."})
-      peers = net.list_peers()
+    Uses a ``TransportPort`` for the wire protocol.  Defaults to ``TcpAdapter``
+    (plain TCP + UDP broadcast discovery).
     """
 
-    def __init__(self):
+    def __init__(self, transport: TransportPort | None = None):
+        self._transport: TransportPort = transport or TcpAdapter()
         self._node_id: str = ""
-        self._port: int = _PRAXIS_PORT
+        self._port: int = 0
         self._peers: dict[str, Peer] = {}
         self._handlers: dict[str, Callable] = {}
         self._lock = threading.Lock()
         self._running = False
+        self._started_at: float = 0.0
 
-    def start(self, node_id: str = "", port: int = 0) -> dict:
-        """Start network services: UDP discovery + TCP listener."""
+    def start(self, node_id: str = "", port: int = 0,
+              config: TransportConfig | None = None) -> dict:
+        """Start network services: discovery + transport listener."""
         self._node_id = node_id or f"node-{socket.gethostname()}-{os.getpid()}"
-        self._port = port or _PRAXIS_PORT
         self._running = True
+        self._started_at = time.time()
 
-        # UDP broadcast listener (discovery)
-        threading.Thread(target=self._udp_listener, daemon=True).start()
-        # UDP broadcast sender (announce)
-        threading.Thread(target=self._udp_announcer, daemon=True).start()
-        # TCP listener (message transport)
-        threading.Thread(target=self._tcp_listener, daemon=True).start()
+        if not config:
+            resolved_port = port or int(os.environ.get(ENV_PRAXIS_PORT, str(PRAXIS_PORT_DEFAULT)))
+            config = TransportConfig(port=resolved_port)
+        self._port = config.port
 
-        logger.info("net started: %s on port %d (discovery %d)",
-                     self._node_id, self._port, _DISCOVERY_PORT)
-        return {"success": True, "node_id": self._node_id, "port": self._port}
+        self._transport.register_handler("_peer_announce", self._on_peer_announce)
+        self._transport.register_handler("message", self._on_message)
+        self._transport.register_handler("card_registry_sync", self._on_card_registry_sync)
+
+        result = self._transport.start(self._node_id, config)
+        logger.info("net started: %s on transport=%s port=%d",
+                     self._node_id, self._transport.name, self._port)
+        return result
 
     def stop(self) -> None:
         self._running = False
+        self._transport.stop()
 
     def register_handler(self, msg_type: str, handler: Callable) -> None:
-        """Register a handler for incoming message types."""
         with self._lock:
             self._handlers[msg_type] = handler
 
+    # ── Card registry sync ───────────────────────────────────────────────
+
+    def _on_card_registry_sync(self, msg: dict) -> None:
+        """Handle card_registry_sync — install or respond with card types."""
+        try:
+            registry = _get_card_registry()
+            if not registry:
+                logger.warning("card_registry port not available")
+                return
+
+            cards = msg.get("cards") or (msg.get("payload") or {}).get("cards")
+            if cards:
+                for cdef in cards:
+                    registry.install_def(cdef, source=f"peer:{msg.get('from', '?')}")
+                return
+
+            types = registry.list_types()
+            payload = {"type": "card_registry_sync", "cards": types}
+            self.send_remote(msg.get("from", ""), payload)
+        except Exception as e:
+            logger.warning("card_registry_sync handler: %s", e)
+
+    # ── Send / broadcast ─────────────────────────────────────────────────
+
     def send_remote(self, target_node: str, payload: dict) -> dict:
         """Send a message to a remote peer. Returns success/failure."""
+        peer: Peer | None = None
         with self._lock:
-            peer = self._peers.get(target_node)
-        if not peer or not peer.alive:
+            p = self._peers.get(target_node)
+            if p and p.alive:
+                peer = Peer(id=p.id, host=p.host, port=p.port,
+                            last_seen=p.last_seen)
+        if not peer:
             return {"success": False, "error": f"peer '{target_node}' not found or dead"}
-        try:
-            data = json.dumps({
-                "from": self._node_id,
-                "type": payload.get("type", "message"),
-                "payload": payload,
-                "timestamp": time.time(),
-            }).encode()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(10)
-            s.connect((peer.host, peer.port))
-            s.sendall(data)
-            s.close()
-            return {"success": True}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+
+        i18n = _get_i18n()
+        locale = i18n.get_locale() if i18n else "en"
+
+        data = json.dumps({
+            "from": self._node_id,
+            "type": payload.get("type", "message"),
+            "payload": payload,
+            "timestamp": time.time(),
+            "locale": locale,
+        }).encode()
+
+        ep = Endpoint(f"{peer.host}:{peer.port}", hint="tcp")
+        r = self._transport.send(ep, data)
+        return {"success": r.success, "error": r.error}
 
     def broadcast_remote(self, payload: dict) -> list[dict]:
-        """Send a message to all alive peers."""
         results = []
         with self._lock:
             peers = list(self._peers.values())
@@ -126,108 +199,70 @@ class NetKernel:
             return [{"id": p.id, "host": p.host, "port": p.port,
                      "alive": p.alive, "cells": p.cell_count,
                      "last_seen": round(time.time() - p.last_seen, 1)}
-                    for p in sorted(self._peers.values(), key=lambda x: x.last_seen, reverse=True)]
+                    for p in sorted(self._peers.values(),
+                                    key=lambda x: x.last_seen, reverse=True)]
 
     def health(self) -> dict:
-        """Return network health status."""
+        """Return network health status. Uses consistent PEER_TIMEOUT."""
         with self._lock:
             now = time.time()
             total = len(self._peers)
-            alive = sum(1 for p in self._peers.values() if p.alive and now - p.last_seen < 30)
+            alive_peers = [p for p in self._peers.values() if p.alive]
+            alive = len(alive_peers)
+            for p in self._peers.values():
+                if not p.alive and hasattr(p, '_loss_reported') and not p._loss_reported:
+                    p._loss_reported = True
+                    _emit_event(
+                        type_="network.peer.loss",
+                        severity="warn" if alive > 0 else "crit",
+                        message=f"Peer {p.id} lost",
+                        data={"peer_id": p.id},
+                    )
             return {
                 "status": "healthy" if alive >= 1 else "lonely",
                 "peers_total": total, "peers_alive": alive,
                 "peers_dead": total - alive,
                 "node_id": self._node_id,
                 "port": self._port,
-                "uptime": round(now - self._started_at) if hasattr(self, '_started_at') else 0,
+                "uptime": round(now - self._started_at) if self._started_at else 0,
             }
 
-    # ── UDP discovery ──
+    # ── Transport callbacks ──
 
-    def _udp_listener(self) -> None:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(5)
-        try:
-            sock.bind(("", _DISCOVERY_PORT))
-        except OSError:
-            logger.warning("discovery port %d in use", _DISCOVERY_PORT)
+    def _on_peer_announce(self, msg: dict) -> None:
+        peer_id = msg.get("peer_id", "")
+        if not peer_id or peer_id == self._node_id:
             return
-        while self._running:
-            try:
-                data, addr = sock.recvfrom(1024)
-                announcement = json.loads(data.decode())
-                peer_id = announcement.get("id", "")
-                if peer_id and peer_id != self._node_id:
-                    with self._lock:
-                        self._peers[peer_id] = Peer(
-                            id=peer_id, host=addr[0],
-                            port=announcement.get("port", self._port),
-                            last_seen=time.time(),
-                            cell_count=announcement.get("cells", 0),
-                            version=announcement.get("version", ""),
-                        )
-            except socket.timeout:
-                continue
-            except Exception:
-                continue
+        is_new = peer_id not in self._peers
+        with self._lock:
+            self._peers[peer_id] = Peer(
+                id=peer_id, host=msg.get("host", ""),
+                port=msg.get("port", self._port),
+                last_seen=time.time(),
+                cell_count=msg.get("cells", 0),
+                version=msg.get("version", ""),
+                _loss_reported=False,
+            )
+        if is_new:
+            _emit_event(
+                type_="network.peer.join",
+                severity="info",
+                message=f"Peer {peer_id} joined",
+                data={"peer_id": peer_id},
+            )
 
-    def _udp_announcer(self) -> None:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        announcement = json.dumps({
-            "id": self._node_id,
-            "port": self._port,
-            "cells": 0,
-            "version": "1.0",
-        }).encode()
-        while self._running:
+    def _on_message(self, raw: dict) -> None:
+        msg_type = raw.get("type", "message")
+        with self._lock:
+            handler = self._handlers.get(msg_type)
+        if handler:
             try:
-                sock.sendto(announcement, ("255.255.255.255", _DISCOVERY_PORT))
+                handler(raw)
             except Exception as e:
-                logger.warning("kernel/net: %s", e)
-            time.sleep(_BROADCAST_INTERVAL)
+                logger.error("handler error: %s", e)
 
-    # ── TCP message transport ──
 
-    def _tcp_listener(self) -> None:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(5)
-        try:
-            sock.bind(("0.0.0.0", self._port))
-            sock.listen(5)
-        except OSError:
-            logger.warning("port %d in use", self._port)
-            return
-        while self._running:
-            try:
-                conn, addr = sock.accept()
-                threading.Thread(target=self._handle_conn,
-                                 args=(conn, addr), daemon=True).start()
-            except socket.timeout:
-                continue
-
-    def _handle_conn(self, conn: socket.socket, addr: tuple) -> None:
-        try:
-            data = conn.recv(65536)
-            if not data:
-                return
-            msg = json.loads(data.decode())
-            msg_type = msg.get("type", "message")
-            with self._lock:
-                handler = self._handlers.get(msg_type)
-            if handler:
-                try:
-                    handler(msg)
-                except Exception as e:
-                    logger.error("handler error: %s", e)
-        except Exception as e:
-            logger.debug("conn error from %s: %s", addr[0], e)
-        finally:
-            conn.close()
-
+# ── Singleton ────────────────────────────────────────────────────────────────
 
 _net: NetKernel | None = None
 

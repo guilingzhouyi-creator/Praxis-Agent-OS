@@ -1,11 +1,11 @@
-"""ToolSpec 工具注册测试 — 注册/查询/验证/序列化/静音"""
+"""ToolSpec registration test — register/query/validate/serialize/mute"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestToolSpec:
-    """ToolSpec 基础"""
+    """ToolSpec basics"""
 
     def test_create(self):
         from services.tool_spec import ToolSpec, ParamSpec
@@ -35,7 +35,7 @@ class TestToolSpec:
 
 
 class TestValidate:
-    """参数验证"""
+    """Parameter validation"""
 
     def test_required_param_present(self):
         from services.tool_spec import ToolSpec, ParamSpec

@@ -51,3 +51,46 @@ def execute_scout(ps: Any) -> dict:
         "findings": result.get("findings", []),
         "error": result.get("error", ""),
     }
+
+
+class Verifier:
+    """Verification agent — check results against goals, detect inconsistencies.
+
+    Used by ExecutionPlan for self-check and consistency verification.
+    """
+
+    def check(self, result: dict, goal: str) -> dict:
+        """Check if a result satisfies a goal.
+
+        Args:
+            result: The step result dict.
+            goal: Description of what was expected.
+
+        Returns:
+            Dict with pass/fail, reason, and suggestions.
+        """
+        passed = result.get("success", False)
+        return {
+            "pass": passed,
+            "reason": "Goal met" if passed else f"Failed to achieve: {goal[:200]}",
+            "suggestions": [] if passed else ["Review the error and retry"],
+        }
+
+    def consistency_check(self, results: list[dict], goal: str) -> dict:
+        """Check multiple results for consistency.
+
+        Args:
+            results: List of step result dicts.
+            goal: Description of what was expected.
+
+        Returns:
+            Dict with consistent flag, conflicts, and recommendation.
+        """
+        successes = [r for r in results if r.get("success")]
+        failures = [r for r in results if not r.get("success")]
+        return {
+            "consistent": len(failures) == 0,
+            "conflicts": [r.get("error", "unknown error") for r in failures],
+            "recommendation": "All steps passed" if not failures
+                             else f"{len(failures)} step(s) failed — review and retry",
+        }

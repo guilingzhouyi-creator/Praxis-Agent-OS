@@ -265,6 +265,48 @@ _DEFAULTS: dict[str, str] = {
         "Otherwise resume where you left off, writing remaining content "
         "INCREMENTALLY rather than re-emitting it all."
     ),
+    # ── LLM turn budget warning ──
+    "llm.turn_budget_warning": (
+        "[System: {remaining} turn(s) remaining. Make this count.]"
+    ),
+    # ── LLM analyze suffix ──
+    "llm.analyze_suffix": (
+        "\n\nProvide a structured analysis with severity, impact, and recommendations."
+    ),
+    # ── Optimize prompt section headers ──
+    "llm.optimize.system_marker": "[System]",
+    "llm.optimize.task_marker": "[Task]",
+    # ── SubAgent built-in system prompts ──
+    "subagent.fallback": (
+        "You are {name}. {description}"
+    ),
+    "subagent.read_only": (
+        "\n\nYou are in READ-ONLY mode. Do NOT modify any files."
+    ),
+    "subagent.security_auditor": (
+        "You are a security expert. Review code for vulnerabilities, "
+        "injection risks, and insecure patterns. Report findings clearly."
+    ),
+    "subagent.debug_specialist": (
+        "You are a debugging specialist. Analyze stack traces, error logs, "
+        "and code paths to identify root causes. Suggest specific fixes."
+    ),
+    "subagent.code_reviewer": (
+        "You are a senior code reviewer. Focus on logic errors, edge cases, "
+        "performance issues, and adherence to project conventions."
+    ),
+    "subagent.scout": (
+        "You are a scout. Explore the codebase and summarize findings "
+        "concisely. Identify relevant files, patterns, and potential issues."
+    ),
+    # ── Convergence section markers ──
+    "convergence.discussion_header": (
+        "\n\n--- Discussion Document ---\n{doc_text}"
+    ),
+    # ── Memory context section ──
+    "agent_terminal.memory_context": (
+        "\n--- Memory Context ---\n{memory_context}\n---"
+    ),
 }
 
 # ── Runtime overrides (loaded from YAML at boot) ──

@@ -1,11 +1,11 @@
 """SSE Bridge — EventBus over HTTP (Server-Sent Events)
 
-将 kernel EventBus 的事件实时推送到 HTTP 客户端。
-前端通过 EventSource /api/events 订阅。
+Push kernel EventBus events in real-time to HTTP clients.
+The frontend subscribes via EventSource /api/events.
 
-用法:
-  GET /api/events — SSE 流，持续推送事件
-  GET /api/events?type=error_log — 按事件类型过滤
+Usage:
+  GET /api/events — SSE stream, continuously pushes events
+  GET /api/events?type=error_log — filter by event type
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# SSE 客户端注册表
+# SSE client registry
 _sse_clients: list[dict] = []  # [{"queue": Queue, "types": set, "id": str}]
 _sse_lock = threading.RLock()
 _client_counter = 0
 
 
 def subscribe(event_types: set[str] | None = None) -> dict:
-    """注册一个 SSE 客户端，返回客户端 ID 和消息队列。"""
+    """Register an SSE client; returns client ID and message queue."""
     global _client_counter
     q: queue.Queue = queue.Queue(maxsize=256)
     with _sse_lock:
@@ -37,7 +37,7 @@ def subscribe(event_types: set[str] | None = None) -> dict:
             "queue": q,
             "types": event_types or set(),
         })
-    # 订阅 EventBus
+    # Subscribe to EventBus
     try:
         from kernel import get_event_bus
         bus = get_event_bus()
@@ -51,7 +51,7 @@ def subscribe(event_types: set[str] | None = None) -> dict:
 
 
 def _broadcast(event_type: str, data: Any) -> None:
-    """向匹配的 SSE 客户端推送事件。"""
+    """Push an event to matching SSE clients."""
     with _sse_lock:
         dead: list[str] = []
         for client in _sse_clients:
@@ -70,13 +70,13 @@ def _broadcast(event_type: str, data: Any) -> None:
 
 
 def unsubscribe(client_id: str) -> None:
-    """移除 SSE 客户端。"""
+    """Remove an SSE client."""
     with _sse_lock:
         _sse_clients[:] = [c for c in _sse_clients if c["id"] != client_id]
 
 
 def push_event(event_type: str, data: Any) -> None:
-    """外部入口：向 EventBus 推送事件（自动广播到 SSE）。"""
+    """External entry: push an event to EventBus (automatically broadcasts to SSE)."""
     try:
         from kernel import emit_event
         emit_event(event_type, data, source="sse_bridge")
@@ -85,19 +85,19 @@ def push_event(event_type: str, data: Any) -> None:
     _broadcast(event_type, data)
 
 
-# 全局激活标记
+# Global activation flag
 _ACTIVE = False
 
 
 def ensure_active() -> None:
-    """确保 SSE 桥接已激活（自动订阅 EventBus）。"""
+    """Ensure the SSE bridge is activated (auto-subscribes to EventBus)."""
     global _ACTIVE
     if _ACTIVE:
         return
     try:
         from kernel import get_event_bus, SignalType
         bus = get_event_bus()
-        # 注册通配符监听器：所有事件都广播
+        # Register wildcard listener: broadcast all events
         bus.on_any(lambda sig: _broadcast(
             sig.type.name if hasattr(sig.type, 'name') else str(sig.type),
             sig.data if hasattr(sig, 'data') else {},
@@ -112,20 +112,20 @@ def ensure_active() -> None:
 # API Handler
 # ══════════════════════════════════════════════════════════════════════
 #
-# 注意：SSE handler 需要 HTTP Server 特殊处理（长连接）。
-# 在 api_gateway.py 的 do_GET 中做特殊判断。
+# Note: SSE handler requires special handling in the HTTP server (long-lived connection).
+# In api_gateway.py's do_GET, special-case the check for this.
 
 
 def handle_sse(body: dict | None = None) -> dict:
-    """GET /api/events — SSE 流的特殊 handler。
+    """GET /api/events — Special handler for SSE streams.
 
-    返回一个特殊的 dict 标记，HTTP server 读到这个标记
-    切换到 SSE 模式（长连接 + text/event-stream）。
+    Returns a special dict marker; when the HTTP server sees this marker,
+    it switches to SSE mode (long-lived connection + text/event-stream).
     """
     return {"_sse": True, "message": "SSE stream — use EventSource /api/events"}
 
 
-# ── 路由 ──
+# ── Routes ──
 
 SSE_ROUTES: list[tuple[str, str, Any, str]] = [
     ("GET", "/api/events", handle_sse, "SSE event stream (EventBus over HTTP)"),

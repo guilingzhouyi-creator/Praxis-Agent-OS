@@ -32,6 +32,8 @@ from .params import (
     SYSCALL_DEFAULT_FALLBACK, SYSCALL_DEFAULT_SIGNAL_TYPE, SYSCALL_DEFAULT_COST,
     SYSCALL_DEFAULT_RING, SYSCALL_DEFAULT_RESOURCE, SYSCALL_REGISTER_DEFAULT_AGENT,
     BARRIER_DEFAULT_COUNT,
+    EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED, EVENT_TOKEN_USAGE,
+    EVENT_CROSS_REVIEW, EVENT_AGENT_BOOT, EVENT_ARCHIVE_ALERT,
 )
 
 logger = logging.getLogger(__name__)
@@ -225,7 +227,8 @@ def emit_signal(signal_type: str, sender: str = "system", target: str = "",
 
 def push_event(event_type: str, data: dict | None = None) -> None:
     """Push an event to the kernel event bus (migrated from server.py)."""
-    emit_signal("task_assign", sender="kernel.push_event", target="cell",
+    from .params import EVENT_TASK_ASSIGN
+    emit_signal(EVENT_TASK_ASSIGN, sender="kernel.push_event", target="cell",
                 data={"type": event_type, **(data or {})})
 
 
@@ -299,6 +302,12 @@ __all__ = [
     "health",
     "push_event",
     "register_process",
+    "EVENT_TASK_ASSIGN",
+    "EVENT_REVIEW_REQUESTED",
+    "EVENT_TOKEN_USAGE",
+    "EVENT_CROSS_REVIEW",
+    "EVENT_AGENT_BOOT",
+    "EVENT_ARCHIVE_ALERT",
     "register_syscall",
     "sync_status",
     "syscall",

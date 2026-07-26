@@ -1,0 +1,39 @@
+"""Git tool handlers."""
+
+import subprocess
+
+
+def _git(args_list: list[str], timeout: int = 30) -> dict:
+    try:
+        r = subprocess.run(["git"] + args_list, capture_output=True, text=True, timeout=timeout)
+        return {"success": r.returncode == 0, "stdout": r.stdout.strip()[:2000], "stderr": r.stderr.strip()[:500]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def git_commit(args: dict, agent_id: str) -> dict:
+    message = args.get("message", "")
+    if not message:
+        return {"success": False, "error": "message is required"}
+    r1 = _git(["add", "-A"])
+    if not r1["success"]:
+        return r1
+    return _git(["commit", "-m", message])
+
+
+def git_push(args: dict, agent_id: str) -> dict:
+    return _git(["push"])
+
+
+def git_branch(args: dict, agent_id: str) -> dict:
+    action = args.get("action", "")
+    name = args.get("name", "")
+    if action == "list":
+        return _git(["branch"])
+    if action == "create" and name:
+        return _git(["branch", name])
+    if action == "switch" and name:
+        return _git(["checkout", name])
+    if action == "delete" and name:
+        return _git(["branch", "-d", name])
+    return {"success": False, "error": "invalid action or missing name"}

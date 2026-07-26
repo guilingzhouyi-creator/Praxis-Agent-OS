@@ -3,6 +3,7 @@
 Every hardcoded value in kernel/ belongs here.
 """
 
+import os as _os_env
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -99,6 +100,7 @@ CONTEXT_REGISTER_MAX_ENTRIES: Final[int] = 200
 
 SCOUT_POOL_MIN_IDLE: Final[int] = 2
 SCOUT_POOL_MAX_TOTAL: Final[int] = 16
+SCOUT_MAX_PER_AGENT: Final[int] = 4
 SCOUT_POOL_MAX_PER_AGENT: Final[int] = 4
 SCOUT_POOL_IDLE_TIMEOUT: Final[float] = 60.0
 SCOUT_CACHE_TTL: Final[float] = 30.0
@@ -114,12 +116,13 @@ RESULT_STORE_TTL: Final[float] = 300.0
 SEQ_MONITOR_NGRAM: Final[int] = 3              # max n-gram context length
 SEQ_MONITOR_MIN_SAMPLES: Final[int] = 5         # minimum samples before using a transition
 SEQ_MONITOR_ANOMALY_THRESHOLD: Final[float] = 0.05  # geometric mean below this = anomaly
-SEQ_MONITOR_PATH: Final[str] = ".praxis_seq_monitor.json"
+SEQ_MONITOR_PATH: Final[str] = _os_env.environ.get("NOMOS_SEQ_MONITOR_PATH", ".praxis_seq_monitor.json")
 
 # ── Reference Channel (async event recorder, non-blocking) ──
-RC_PATH: Final[str] = ".praxis_reference_channel.jsonl"
+RC_PATH: Final[str] = _os_env.environ.get("NOMOS_RC_PATH", ".praxis_reference_channel.jsonl")
 RC_FLUSH_INTERVAL: Final[float] = 5.0        # flush buffered events every 5s
 RC_MAX_EVENTS: Final[int] = 100               # or when buffer reaches 100
+RC_EXPORT_LIMIT: Final[int] = 999999          # max events to return from export() / count()
 
 
 # ── Swapper ──
@@ -192,14 +195,8 @@ BUILTIN_RULE_DEFS: Final[list[ConstitutionRuleDef]] = [
                         description="Important decisions must be persisted to Ring 3 (long-term)"),
 ]
 
-# ── Constitution action sets ──
-# These must be overridden per deployment with your project's actual tool names.
-# Example from Portal:
-#   CONSTITUTION_FILE_ACTIONS = {"read_file", "write_file", ...}
-#   CONSTITUTION_MODIFY_ACTIONS = {"write_file", "replace_string", ...}
-#   CONSTITUTION_GATE_ACTIONS = {"run_in_terminal", "deploy", ...}
-#   CONSTITUTION_SCOUT_BLOCKED = {"write_file", "delete", ...}
-
+# ── Constitution action sets (overridable via praxis.yaml constitution:) ──
+# config_handlers.py loads from YAML at boot and reassigns these.
 CONSTITUTION_FILE_ACTIONS: frozenset[str] = frozenset({
     "read", "read_file", "grep", "grep_search", "list", "list_dir",
     "search", "find", "stat",
@@ -253,6 +250,20 @@ AGENT_CLEARANCE: Final[dict[str, int]] = {
 }
 
 
+# ── Agent scheduling priority (role → scheduler priority, 1-10) ──
+# Used by boot.py to register agents with the time scheduler.
+# Overridable via settings API / YAML under scheduler.agent_priority map.
+AGENT_PRIORITY: Final[dict[str, int]] = {
+    "default":  5,
+    "reader":   5,
+    "writer":   5,
+    "reviewer": 3,   # reviewer runs at higher priority (lower number)
+    "scout":    5,
+    "l3":       5,
+    "deployer": 5,
+}
+
+
 # ── Territory → role mapping ──
 
 TERRITORY_MAP: Final[dict[str, str]] = {}
@@ -284,14 +295,12 @@ DANGER_TO_GATES: Final[dict[int, list[str]]] = {
     3: ["G1", "G2", "G3", "G4", "G5"],
 }
 
-# ── Tool sets for cadence/security tracking ──
-WRITE_TOOL_NAMES: Final[frozenset[str]] = frozenset({
-    "write_file", "edit_file", "edit", "replace_string", "create_file",
-})
-TERMINAL_TOOL_NAMES: Final[frozenset[str]] = frozenset({
-    "bash", "shell", "run_in_terminal", "exec", "powershell",
-})
+# ── Tool sets for cadence/security tracking (obsoleted by ToolConfig) ──
+# WRITE_TOOL_NAMES and TERMINAL_TOOL_NAMES are now derived from tools.yaml
+# via ToolConfig.write_tool_names() and ToolConfig.terminal_tool_names()
 
+
+CARD_TIMEOUT: Final[float] = 30.0
 
 # ── Boot sequence ──
 
@@ -319,6 +328,11 @@ CONSTITUTION_KEYWORD: Final[str] = "constitution"
 CONSTITUTION_FILE_EXT: Final[str] = ".nomos-rules.md"
 CONSTITUTION_ACTION_LEN_THRESHOLD: Final[int] = 5
 CONSTITUTION_SCOUT_AGENT_NAME: Final[str] = "scout"
+# Canonical ring the scout agent is restricted to. tool_pipeline.py:126
+# hard-coded `"RING_1"` and `agent_id == "scout"` — both now reference
+# these Final single sources so the restriction can be tuned here.
+SCOUT_AGENT_NAME: Final[str] = "scout"
+SCOUT_RING_LIMIT: Final[str] = "RING_1"
 CONSTITUTION_SHARED_KEYWORD: Final[str] = "shared"
 CONSTITUTION_CUSTOM_SECTION: Final[str] = "§custom"
 
@@ -458,6 +472,10 @@ TOOL_RATE_RING_1: Final[int] = 60
 TOOL_RATE_RING_2_5: Final[int] = 20
 TOOL_RATE_RING_3: Final[int] = 5
 
+# Token budget pre-allocated per tool execution in ToolPipeline.execute.
+# Replaces the hardcoded literal 100 in tool_pipeline.py (alloc/free calls).
+TOOL_EXEC_TOKEN_BUDGET: Final[int] = 100
+
 # ── GateChain ──
 LEDGER_MAX_ENTRIES: Final[int] = 200
 LEDGER_RECENT_LIMIT: Final[int] = 20
@@ -536,9 +554,9 @@ LOG_MAX_FILES: Final[int] = 5
 LOG_EXPORT_LIMIT: Final[int] = 10000
 
 # ── Error Bus service ──
-ERROR_BUS_BUFFER: Final[int] = 5000           # 内存环形缓冲区最大条目
-ERROR_BUS_DEDUP_WINDOW: Final[int] = 300      # 去重窗口秒数（5分钟内同类错误合并）
-ERROR_BUS_EXPORT_LIMIT: Final[int] = 10000    # 单次导出最大条目
+ERROR_BUS_BUFFER: Final[int] = 5000           # In-memory ring buffer capacity
+ERROR_BUS_DEDUP_WINDOW: Final[int] = 300      # Dedup window (seconds): merge identical errors within 5 minutes
+ERROR_BUS_EXPORT_LIMIT: Final[int] = 10000    # Max entries per export
 
 # ── Network service ──
 NETWORK_DEFAULT_TIMEOUT: Final[int] = 30
@@ -667,10 +685,11 @@ CHUNK_SIZE_TOKENS: Final[int] = 512
 # ── HTN Planner ──
 HTN_DOMAIN_PREFIX: Final[str] = "app"
 HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
-    "analyze": "read_file", "write": "write_file", "create": "create_file",
-    "build": "build_project", "test": "test_project", "lint": "lint",
-    "scout": "scout_delegate", "fix": "write_file", "extract": "write_file",
-    "review": "read_file", "doc": "write_file", "plan": "write_file",
+    "analyze": "analyze_code", "scout": "scout_delegate", "read": "read_file",
+    "write": "write_file", "create": "create_file", "replace": "replace_string_in_file",
+    "extract": "extract_method", "build": "build_project", "test": "test_project",
+    "lint": "lint", "review": "review_code", "doc": "generate_doc",
+    "fix": "write_file", "plan": "write_file",
 }
 
 # ── Scout ──
@@ -694,16 +713,41 @@ ENV_DISCOVERY_PORT: Final[str] = "PRAXIS_DISCOVERY_PORT"
 ENV_PRAXIS_PORT: Final[str] = "PRAXIS_PORT"
 ENV_API_TOKEN: Final[str] = "PRAXIS_API_TOKEN"
 
+# ── Decomposer (L3 card decomposition) ──
+DECOMPOSER_PLAN_PREFIX: Final[str] = "plan-"
+DECOMPOSER_AGENT_PREFIX: Final[str] = "agent-"
+DECOMPOSER_SCOUT_ROLE: Final[str] = "scout"
+DECOMPOSER_SCOUT_POOL: Final[str] = "scout_pool"
+DECOMPOSER_DEFAULT_ACTION: Final[str] = "think"
+DECOMPOSER_FALLBACK_ROLE: Final[str] = "default"
+DECOMPOSER_FALLBACK_AGENT: Final[str] = "agent-default"
+DECOMPOSER_DEFAULT_PHASE: Final[str] = "execute"
+DECOMPOSER_SENDER: Final[str] = "decomposer"
+DECOMPOSER_L3_TARGET: Final[str] = "l3"
+DECOMPOSER_EVENT_DECOMPOSED: Final[str] = "decomposed"
+DECOMPOSER_ID_LENGTH: Final[int] = 8
+CELL_SCOUT_ROLE: Final[str] = "scout"
+
+# ── Transport TLS (pluggable transport layer) ──
+NET_TLS_ENABLED: Final[bool] = False
+NET_TLS_CERT_PATH: Final[str] = ""
+NET_TLS_KEY_PATH: Final[str] = ""
+
 
 # ── PraxisRing (tool ring definition) ──
 
-# Canonical ring string constants — single source of truth
-RING_1: str = "RING_1"
-RING_2_5: str = "RING_2_5"
-RING_3: str = "RING_3"
+# Canonical ring string constants — single source of truth.
+# Marked Final so runtime cannot mutate them; all ring literals across
+# the codebase should import these instead of redeclaring.
+RING_1: Final[str] = "RING_1"
+RING_2_5: Final[str] = "RING_2_5"
+RING_3: Final[str] = "RING_3"
 
-# Ring name → numeric level
-RING_NUM_MAP: dict[str, int] = {RING_1: 1, RING_2_5: 2, RING_3: 3}
+# Ring name → numeric level (str→int) and inverse (int→str).
+# Both are Final so the 4 duplicate local maps in tool_pipeline /
+# tool_config / htn_planner / tool_spec can collapse to these.
+RING_NUM_MAP: Final[dict[str, int]] = {RING_1: 1, RING_2_5: 2, RING_3: 3}
+RING_NAME_MAP: Final[dict[int, str]] = {1: RING_1, 2: RING_2_5, 3: RING_3}
 
 class PraxisRing:
     TOOL_RING_CAPACITY: int = 50
@@ -741,6 +785,113 @@ class WitnessStatus:
 
 # ── Subprocess defaults ──
 RUN_SUBPROCESS_TIMEOUT: Final[int] = 15
+
+# ── Memory ring constants ──
+MEMORY_RING_WORKING_BUDGET: Final[int] = 8192
+MEMORY_RING_SHORT_BUDGET: Final[int] = 32768
+MEMORY_RING_LONG_BUDGET: Final[int] = 131072
+MEMORY_RING_WORKING_TTL: Final[float] = 1800.0
+MEMORY_RING_SHORT_TTL: Final[float] = 86400.0
+MEMORY_RING_LONG_TTL: Final[float] = 0.0
+MEMORY_BUILD_CONTEXT_LIMIT: Final[int] = 10
+MEMORY_RECALL_DEFAULT_LIMIT: Final[int] = 10
+MEMORY_ID_HASH_MOD: Final[int] = 10000
+MEMORY_PERSIST_FILE_RING2: Final[str] = "memory_ring2.jsonl"
+MEMORY_PERSIST_FILE_RING3: Final[str] = "memory_ring3.db"
+
+# ── AgentTerminal constants ──
+CACHE_KEEPALIVE_INTERVAL: Final[float] = 240.0
+CACHE_KEEPALIVE_PROMPT: Final[str] = "keepalive"
+TERMINAL_MAX_CONCURRENT_LOOPS: Final[int] = 3
+TERMINAL_SCOUT_FINDINGS_LIMIT: Final[int] = 5
+TERMINAL_CONTEXT_RECENT: Final[int] = 20
+TERMINAL_COLLECT_SCOUT_TIMEOUT: Final[float] = 310.0
+TERMINAL_MODE_VALID: Final[tuple[str, ...]] = ("assembly", "direct")
+TERMINAL_MODE_DEFAULT: Final[str] = "assembly"
+TERMINAL_STATE_DEFAULT: Final[str] = "idle"
+
+# ── Agent status strings ──
+AGENT_STATUS_IDLE: Final[str] = "IDLE"
+AGENT_STATUS_PROCESSING: Final[str] = "PROCESSING"
+AGENT_STATUS_CRASHED: Final[str] = "CRASHED"
+AGENT_STATUS_BOOTING: Final[str] = "BOOTING"
+AGENT_STATUS_WAITING_SCOUT: Final[str] = "WAITING_SCOUT"
+AGENT_STATUS_BOOTING_LABEL: Final[str] = "booting"
+
+# ── AgentLoop constants ──
+LOOP_FOLD_MAX_CHARS: Final[int] = 500
+LOOP_FOLD_LIST_TRUNCATION: Final[int] = 20
+LOOP_FOLD_LIST_PREVIEW: Final[int] = 15
+LOOP_LEAN_CASES_LIMIT: Final[int] = 3
+LOOP_EVOLVED_SKILLS_LIMIT: Final[int] = 2
+LOOP_EVOLVED_SKILL_TRUNC: Final[int] = 300
+LOOP_COMPACTION_THRESHOLD: Final[int] = 50000
+LOOP_STEP_RESULT_TRUNC: Final[int] = 200
+LOOP_TOKEN_ESTIMATION_FACTOR: Final[int] = 4
+LOOP_TURN_WARNING_THRESHOLD: Final[int] = 2
+LOOP_TOOL_SEARCH_MAX: Final[int] = 10
+
+# ── LLM constants ──
+LLM_THINKING_BUFFER: Final[int] = 1000
+LLM_TOOL_RESULT_TRUNCATION: Final[int] = 8000
+LLM_ANALYZE_MAX_TOKENS: Final[int] = 1024
+LLM_CACHE_RETENTION_THRESHOLD: Final[float] = 86400.0
+LLM_CACHE_RETENTION_STRING: Final[str] = "24h"
+
+# ── Cadence tracking ──
+CADENCE_MAX_STEPS: Final[int] = 50
+CADENCE_MAX_ATTEMPTS: Final[int] = 3
+
+# ── Scout/SubAgent truncation ──
+SCOUT_FINDING_TRUNC: Final[int] = 500
+SCOUT_RESULT_TRUNC: Final[int] = 300
+SCOUT_FILE_READ_TRUNC: Final[int] = 4000
+SCOUT_GREP_MAX: Final[int] = 20
+SCOUT_GREP_OUTPUT_TRUNC: Final[int] = 4000
+SCOUT_DIR_LIMIT: Final[int] = 100
+SCOUT_RECALL_LIMIT: Final[int] = 200
+
+# ── CardGate thresholds ──
+CARD_GATE_SMALL_MAX_FILES: Final[int] = 1
+CARD_GATE_SMALL_MAX_LINES: Final[int] = 50
+CARD_GATE_MEDIUM_MAX_FILES: Final[int] = 5
+CARD_GATE_MEDIUM_MAX_LINES: Final[int] = 200
+CARD_GATE_APPROVAL_TIMEOUT: Final[float] = 3600.0
+CARD_GATE_CONVENTION_TIMEOUT: Final[float] = 7200.0
+CARD_GATE_HISTORY_LIMIT: Final[int] = 50
+
+# ── Plan generation constants ──
+PLAN_GENERATION_MAX_TOKENS: Final[int] = 1024
+SKILL_ARCHITECT_MAX_TOKENS: Final[int] = 2048
+SUBAGENT_MAX_TOKENS: Final[int] = 4096
+MEMORY_CONTEXT_MAX_TOKENS: Final[int] = 1024
+
+# ── Convergence truncation ──
+CONVERGENCE_ANSWER_TRUNC: Final[int] = 500
+CONVERGENCE_DOC_TRUNC: Final[int] = 8000
+SESSION_COMPRESSION_THRESHOLD: Final[float] = 0.85
+
+# ── Agent ID prefix constants ──
+AGENT_ID_PREFIXES: Final[frozenset[str]] = frozenset({"agent-", "l3", "human"})
+SCOUT_PREFIX: Final[str] = "scout-"
+SUB_PREFIX: Final[str] = "sub-"
+
+# ── Event type strings (use these, NOT bare strings) ──
+EVENT_TASK_ASSIGN: Final[str] = "task_assign"
+EVENT_REVIEW_REQUESTED: Final[str] = "review_requested"
+EVENT_TOKEN_USAGE: Final[str] = "token_usage"
+EVENT_CROSS_REVIEW: Final[str] = "cross_review"
+EVENT_AGENT_BOOT: Final[str] = "agent_boot"
+EVENT_ARCHIVE_ALERT: Final[str] = "archive_alert"
+
+# ── Communication monitor ──
+COMM_HISTORY_MAX: Final[int] = 500
+COMM_TRACE_SAMPLE_RATE: Final[float] = 0.1
+
+# ── Keepalive ──
+KEEPALIVE_CACHE_HIT_MIN: Final[float] = 50.0
+KEEPALIVE_MAX_TOKENS: Final[int] = 1
+KEEPALIVE_TASK: Final[str] = "keepalive"
 
 # ── Service timeouts (scattered in code, centralized here) ──
 LSP_MANAGER_TIMEOUT: Final[float] = 5.0
@@ -878,6 +1029,7 @@ AGENT_TERMINAL_MAX_SCOUTS: Final[int] = 3
 AGENT_TERMINAL_STDIN_MAX: Final[int] = 200
 AGENT_TERMINAL_STDOUT_MAX: Final[int] = 500
 AGENT_TERMINAL_STDERR_MAX: Final[int] = 200
+AGENT_TERMINAL_RESULTS_MAX: Final[int] = 1000  # results cache: LRU eviction after 1000 entries
 AGENT_LOOP_MAX_WORKERS: Final[int] = 4
 AGENT_LOOP_FUTURE_TIMEOUT: Final[float] = 30.0
 AGENT_TERMINAL_WORKER_JOIN_TIMEOUT: Final[float] = 2.0
@@ -917,6 +1069,41 @@ PRAXIS_TRANSACTION_AREA: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "transactio
 PRAXIS_STATECHARTS: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "statecharts.json")
 PRAXIS_EXECUTION_RESULTS: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "execution_results.json")
 PRAXIS_DIALOGUE_SESSION: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "dialogue_session.json")
+PRAXIS_MESSAGE_GATE_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "message_gate.json")
+PRAXIS_CELL_STATE_TEMPLATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "cell_{}.json")
+PRAXIS_VAULT_SALT: Final[str] = _os.path.join(PRAXIS_DATA_DIR, ".praxis_vault_salt")
+PRAXIS_SETTINGS_FILE: Final[str] = ".praxis_settings.json"
+PRAXIS_ARCHIVE_DB: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "archive.db")
+PRAXIS_MCP_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "mcp_state.json")
+PRAXIS_SEQ_MONITOR_TEMPLATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "seq_monitor_{}.json")
+PRAXIS_MONITOR_BUS_LOG: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "monitor_bus.jsonl")
+
+# ── Sandbox ──
+SANDBOX_PROFILE_READ_ONLY: Final[str] = "DANGER_0"
+SANDBOX_PROFILE_SAFE_WRITE: Final[str] = "DANGER_1"
+SANDBOX_PROFILE_NETWORK: Final[str] = "DANGER_2"
+SANDBOX_PROFILE_FULL: Final[str] = "DANGER_3"
+SANDBOX_PROFILE_HOST: Final[str] = "DANGER_4"
+SANDBOX_TMP_ROOT: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sandbox")
+SANDBOX_EXEC_TIMEOUT: Final[float] = 300.0
+SANDBOX_MAX_OUTPUT: Final[int] = 5000
+
+# ── IPC / RPC ──
+IPC_SOCKET_DIR: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sockets")
+IPC_KERNEL_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "kernel.sock")
+IPC_LLM_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
+IPC_SANDBOX_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
+IPC_KEEPALIVE_INTERVAL: Final[float] = 5.0
+IPC_REQUEST_TIMEOUT: Final[float] = 300.0
+
+# State file naming templates — single source for the scattered
+# f"...{id}.json" literals across services (sandbox / session_export /
+# r4_agent / memory_init). Format with .format(id, ...) at call site.
+SANDBOX_STATE_TEMPLATE: Final[str] = "{cell_id}.state.json"
+SNAPSHOT_PATH_TEMPLATE: Final[str] = "{snapshot_id}.snapshot.json"
+SKILL_LEAN_CASE_TEMPLATE: Final[str] = "{agent_id}_{tool_name}_{ts}.json"
+AGENT_SESSION_TEMPLATE: Final[str] = "{ts}_{prefix}.json"
+
 
 # ── Backward-compatible aliases for old .praxis_* names ──
 PERSIST_PATH = PRAXIS_STATE_JSON
@@ -968,3 +1155,22 @@ def resolve_priority(value: Any, default: int = 5) -> int:
     if isinstance(value, str):
         return PRIORITY_GRADIENT.get(value.lower(), default)
     return default
+
+
+# ── I18n (ports.I18nPort defaults) ──
+I18N_DEFAULT_LOCALE: Final[str] = "en"
+I18N_LOCALE_DIR: Final[str] = ""
+I18N_FALLBACK_TO_KEY: Final[bool] = True  # return key itself if no translation
+
+# ── Ring Buffer Channel (ports.ChannelPort / ring adapter) ──
+CHANNEL_RING_CAPACITY: Final[int] = 1024
+CHANNEL_RING_OVERWRITE: Final[bool] = False
+CHANNEL_RING_GET_TIMEOUT: Final[float] = 5.0
+CHANNEL_RING_PUT_TIMEOUT: Final[float] = 5.0
+
+# ── Worker Pool (ports.WorkerPort / thread adapter) ──
+WORKER_POOL_MIN: Final[int] = 4
+WORKER_POOL_MAX: Final[int] = 32
+WORKER_POOL_QUEUE_SIZE: Final[int] = 256
+WORKER_POOL_IDLE_TIMEOUT: Final[float] = 60.0
+WORKER_POOL_TASK_TIMEOUT: Final[float] = 30.0

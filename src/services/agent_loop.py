@@ -13,8 +13,6 @@ from kernel.params import (
     AGENT_LOOP_DEFAULT_TIMEOUT,
     AGENT_LOOP_FUTURE_TIMEOUT,
     AGENT_LOOP_MAX_WORKERS,
-    WRITE_TOOL_NAMES,
-    TERMINAL_TOOL_NAMES,
 )
 from kernel.prompts import get_prompt
 
@@ -27,6 +25,9 @@ from .tool_spec import ParamSpec, ToolSpec
 from .verify_cadence import VerifyCadence
 
 logger = logging.getLogger(__name__)
+
+# Max accumulated content length across truncation, correction, and nudge appends
+_AGENT_LOOP_MAX_CONTENT: int = 100_000  # chars (~25K tokens)
 
 
 # extracted to services/todo_tracker.py
@@ -54,6 +55,7 @@ class AgentLoop:
         self._todo = TodoTracker()
         self._cadence = VerifyCadence()
         self._chat_params_hooks: list[Callable] = []
+        self._run_count = 0
 
     def register_chat_params_hook(self, hook: Callable) -> None:
         """Register a hook that modifies LLM call parameters.
@@ -256,6 +258,14 @@ class AgentLoop:
                 mem.compact(self.agent_id)
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
+        # Fallback: when ctx_window is unknown (0), compress every 3 runs
+        if ctx_window <= 0 and self._run_count % 3 == 0:
+            try:
+                from .memory import get_memory
+                get_memory().stub_compact(self.agent_id)
+            except Exception as e:
+                logger.warning("agent_loop stub_compact fallback failed: %s", e)
+        self._run_count += 1
 
         # ── Context injection block (R4 lean cases, evolved skills, Cell-B rules) ──
         try:
@@ -280,15 +290,16 @@ class AgentLoop:
             logger.warning("agent_loop context injection failed: %s", e)
 
         # ── Main LLM tool_use call ──
-        try:
+        from services.error_bus import error_boundary
+        with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
             result = engine.tool_use(
                 prompt=self.task, tools=wrapped_tools, system=system,
                 max_turns=max_steps, user_id=self._user_id, **model_kwargs,
             )
-        except Exception as e:
+        if not result:
             return self._finish({
                 "success": False, "answer": "", "steps": [],
-                "error": f"LLM call failed: {e}",
+                "error": "LLM call failed",
                 "verifier_used": False, "corrections": 0, "loop_stopped": False,
             }, t0=t0)
 
@@ -300,7 +311,7 @@ class AgentLoop:
             try:
                 cont = engine.generate(prompt=TRUNCATION_RESUME_NUDGE, system=system,
                                        user_id=self._user_id, **model_kwargs)
-                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))
+                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
                 turns += 1
             except Exception as e:
                 logger.warning("truncation continuation failed: %s", e)
@@ -339,11 +350,15 @@ class AgentLoop:
                 all_passed = False
                 break
 
-            # Cadence tracking
-            if tool_name in WRITE_TOOL_NAMES:
-                self._cadence.record_edit((step_result.get("args", {}) if isinstance(step_result, dict) else {}).get("path", ""))
-            if tool_name in TERMINAL_TOOL_NAMES:
-                self._cadence.record_check((step_result.get("args", {}) if isinstance(step_result, dict) else {}).get("command", ""))
+            # Cadence tracking (via ToolConfig)
+            try:
+                from .tool_config import ToolConfig as _TC
+                if tool_name in _TC.write_tool_names():
+                    self._cadence.record_edit((step_result.get("args", {}) if isinstance(step_result, dict) else {}).get("path", ""))
+                if tool_name in _TC.terminal_tool_names():
+                    self._cadence.record_check((step_result.get("args", {}) if isinstance(step_result, dict) else {}).get("command", ""))
+            except Exception as e:
+                logger.warning("agent_loop cadence tracking failed: %s", e)
 
             if verifier is not None:
                 v = verifier.check(step_result, self.task)
@@ -352,7 +367,7 @@ class AgentLoop:
                     try:
                         fix = engine.generate(prompt=verifier.correction_prompt(self.task, [v.get("reason", "")]),
                                               system=system, user_id=self._user_id, **model_kwargs)
-                        result["content"] = (result.get("content", "") + "\n" + fix.get("content", ""))
+                        result["content"] = (result.get("content", "") + "\n" + fix.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
                         verifier_used = True
                         step_result["_corrected"] = True
                     except Exception as e:
@@ -370,9 +385,9 @@ class AgentLoop:
             try:
                 cont = engine.generate(prompt=continuation_nudge, system=system,
                                        user_id=self._user_id, **model_kwargs)
-                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))
-            except Exception:
-                pass
+                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
+            except Exception as e:
+                logger.warning("agent_loop continuation nudge failed: %s", e)
 
         # ── Parallel read-only tool execution ──
         if read_only_tools and processed_results:

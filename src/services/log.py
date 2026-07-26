@@ -136,7 +136,7 @@ class LogService(BaseService):
 
     def export(self, path: str = "", level: str | None = None) -> dict:
         """Export logs to JSON file."""
-        r = self.query(level=level, limit=10000) if level else self.recent(10000)
+        r = self.query(level=level, limit=LOG_EXPORT_LIMIT) if level else self.recent(LOG_EXPORT_LIMIT)
         entries = r.get("entries", [])
         out_path = path or str(self._log_dir / f"export_{int(time.time())}.json")
         try:
@@ -174,6 +174,39 @@ class LogService(BaseService):
 
     # ── Stats ──
 
+    # ── Logging bridge: route standard logging.getLogger() into LogService ──
+
+    def install_handler(self) -> None:
+        """Install a logging handler that sends all logger.* calls to LogService.
+
+        After calling this, every logger.info/warning/error across all modules
+        is captured by LogService in addition to standard stderr output.
+        """
+        import logging as _logging
+
+        class _LogServiceHandler(_logging.Handler):
+            def __init__(self, svc: LogService):
+                super().__init__()
+                self._svc = svc
+                self.setLevel(_logging.DEBUG)
+
+            def emit(self, record: _logging.LogRecord) -> None:
+                level = record.levelname
+                msg = record.getMessage()[:500]
+                try:
+                    self._svc._log(level, msg, record.name,
+                                   getattr(record, 'agent_id', ''),
+                                   getattr(record, 'task_id', ''))
+                except Exception:
+                    pass
+
+        root = logging.getLogger()
+        # Avoid duplicates
+        for h in root.handlers:
+            if isinstance(h, _LogServiceHandler):
+                return
+        root.addHandler(_LogServiceHandler(self))
+
     def stats(self) -> dict:
         with self._lock:
             levels = {}
@@ -209,3 +242,43 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
+
+
+# ── API route handlers ──
+
+def handle_log_query(body: dict | None = None) -> dict:
+    """POST /api/logs/query — query logs with filters."""
+    svc = get_service()
+    return svc.query(
+        level=body.get("level") if body else None,
+        service=body.get("service") if body else None,
+        agent_id=body.get("agent_id") if body else None,
+        since=body.get("since") if body else None,
+        limit=body.get("limit", 100),
+    )
+
+
+def handle_log_recent(body: dict | None = None) -> dict:
+    """GET /api/logs/recent — recent log entries."""
+    return get_service().recent(limit=(body or {}).get("limit", 50))
+
+
+def handle_log_stats(body: dict | None = None) -> dict:
+    """GET /api/logs/stats — log statistics."""
+    return get_service().stats()
+
+
+def handle_log_export(body: dict | None = None) -> dict:
+    """POST /api/logs/export — export logs to JSON file."""
+    return get_service().export(
+        path=(body or {}).get("path", ""),
+        level=(body or {}).get("level"),
+    )
+
+
+LOG_SERVICE_ROUTES: list[tuple[str, str, Any, str]] = [
+    ("POST", "/api/logs/query", handle_log_query, "Query logs with filters"),
+    ("GET", "/api/logs/recent", handle_log_recent, "Recent log entries"),
+    ("GET", "/api/logs/stats", handle_log_stats, "Log statistics"),
+    ("POST", "/api/logs/export", handle_log_export, "Export logs to JSON"),
+]

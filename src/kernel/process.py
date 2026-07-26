@@ -37,6 +37,58 @@ class ProcessState(Enum):
     STOPPED = auto()
 
 
+# ── PCB Finite State Machine (FSM) ──────────────────────────────────────────
+# All state transitions must be declared here.  Illegal transitions are logged
+# and rejected, making the state machine self-documenting and safe to extend.
+
+_PCB_TRANSITIONS: dict[ProcessState, dict[str, ProcessState | None]] = {
+    ProcessState.READY: {
+        "run":    ProcessState.RUNNING,
+        "crash":  ProcessState.ZOMBIE,  # killed before first run
+        "stop":   ProcessState.STOPPED,
+    },
+    ProcessState.RUNNING: {
+        "block":  ProcessState.BLOCKED,
+        "yield":  ProcessState.READY,
+        "stop":   ProcessState.STOPPED,
+        "crash":  ProcessState.ZOMBIE,
+    },
+    ProcessState.BLOCKED: {
+        "wake":   ProcessState.READY,
+        "stop":   ProcessState.STOPPED,
+        "crash":  ProcessState.ZOMBIE,
+    },
+    ProcessState.ZOMBIE: {
+        "reap":   None,  # None → remove from table
+    },
+    ProcessState.STOPPED: {
+        "resume": ProcessState.READY,
+        "reap":   None,
+    },
+}
+
+
+def _apply_transition(pcb: PCB, action: str) -> bool:
+    """Apply an FSM transition to *pcb*.
+
+    Returns *True* if the transition was valid and applied.
+    ``action="reap"`` maps to *None* in the table, which signals
+    the caller to remove the PCB from the table.
+    """
+    allowed = _PCB_TRANSITIONS.get(pcb.state, {})
+    target = allowed.get(action)
+    if target is None and action == "reap":
+        # reap is always valid from ZOMBIE or STOPPED
+        return True
+    if target is None:
+        logger.warning("illegal FSM transition: %s → %s (state=%s)",
+                       pcb.name, action, pcb.state.name)
+        return False
+    pcb.state = target
+    pcb.touch()
+    return True
+
+
 @dataclass
 class ResourceUsage:
     tokens_allocated: int = 0
@@ -199,11 +251,13 @@ class ProcessTable:
             return True
 
     def exit(self, pid: int, exit_code: int = 0, reason: str = "") -> bool:
+        """Terminate a process — crash transition + record exit info."""
         with self._lock:
             pcb = self._processes.get(pid)
             if not pcb:
                 return False
-            pcb.state = ProcessState.ZOMBIE
+            if not _apply_transition(pcb, "crash"):
+                return False
             pcb.exit_code = exit_code
             pcb.exit_reason = reason
             self._audit("exit", pid, pcb.name, reason or f"exit({exit_code})")

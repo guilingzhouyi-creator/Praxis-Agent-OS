@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.params import (
     TERRITORY_MAP, role_for_domain,
     DECOMPOSER_PLAN_PREFIX, DECOMPOSER_AGENT_PREFIX, DECOMPOSER_SCOUT_ROLE,
@@ -25,7 +25,7 @@ from kernel.params import (
     DECOMPOSER_L3_TARGET, DECOMPOSER_EVENT_DECOMPOSED, DECOMPOSER_ID_LENGTH,
     CELL_SCOUT_ROLE,
 )
-from .card import Card, CardMode, Phase, PhaseMode, Step
+from .card_unified import CardUnified, CardPhase, CardTask, CardSummary
 from .card_builder import build_card as _build_card
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class DecomposeState(Enum):
 @dataclass
 class CardSlice:
     """A sub-card — work unit assigned to one Agent."""
-    card: Card
+    card: CardUnified
     role: str
     agent_id: str
     territory: str
@@ -107,23 +107,28 @@ class Decomposer:
                 continue
             seen_roles.add(role)
 
-            # Extract steps belonging to this role
-            steps_for_role = []
+            # Extract tasks belonging to this role (CardUnified phases have .tasks)
+            tasks_for_role = []
             for phase in base_card.phases:
-                for step in phase.steps:
-                    if step.agent == role or step.agent == DECOMPOSER_SCOUT_ROLE:
-                        steps_for_role.append(step)
+                for task in phase.tasks:
+                    if task.agent == role or task.agent == DECOMPOSER_SCOUT_ROLE:
+                        tasks_for_role.append(task)
 
-            if not steps_for_role:
-                steps_for_role = [Step(action=DECOMPOSER_DEFAULT_ACTION, target=f"work on {domain}",
-                                        agent=role, params={"prompt": f"Process {intent} for {prefix}"})]
+            if not tasks_for_role:
+                tasks_for_role = [CardTask(action=DECOMPOSER_DEFAULT_ACTION,
+                                           target=f"work on {domain}",
+                                           agent=role,
+                                           params={"prompt": f"Process {intent} for {prefix}"})]
 
-            slice_card = Card(
+            slice_card = CardUnified(
                 id=f"{plan_id}-{role}",
-                intent=intent, domain=prefix,
-                mode=base_card.mode, priority=base_card.priority,
-                phases=[Phase(name=f"{role}_work", mode=PhaseMode.PARALLEL,
-                               steps=steps_for_role)],
+                priority=base_card.priority,
+                nature=base_card.nature,
+                phases=[CardPhase(name=f"{role}_work", tasks=tasks_for_role)],
+            )
+            slice_card.summary = CardSummary(
+                title=intent, description="",
+                columns={"domain": prefix},
             )
             agent_id = f"{DECOMPOSER_AGENT_PREFIX}{role}"
             slices.append(CardSlice(card=slice_card, role=role,
@@ -131,15 +136,18 @@ class Decomposer:
 
         # No matching territory — create default sub-card
         if not slices:
-            slice_card = Card(
-                id=f"{plan_id}-default", intent=intent, domain=domain or ".",
-                mode=CardMode.EXECUTE,
-                phases=[Phase(name=DECOMPOSER_DEFAULT_PHASE, steps=[
-                    Step(action=DECOMPOSER_DEFAULT_ACTION, target=intent,
-                          agent=DECOMPOSER_FALLBACK_ROLE,
-                          params={"prompt": intent}),
+            slice_card = CardUnified(
+                id=f"{plan_id}-default",
+                priority=5,
+                nature="execution",
+                phases=[CardPhase(name=DECOMPOSER_DEFAULT_PHASE, tasks=[
+                    CardTask(action=DECOMPOSER_DEFAULT_ACTION, target=intent,
+                             agent=DECOMPOSER_FALLBACK_ROLE,
+                             params={"prompt": intent}),
                 ])],
             )
+            slice_card.summary = CardSummary(title=intent, description="",
+                                             columns={"domain": domain or "."})
             slices.append(CardSlice(card=slice_card, role=DECOMPOSER_FALLBACK_ROLE,
                                      agent_id=DECOMPOSER_FALLBACK_AGENT, territory=domain or "."))
 
@@ -148,7 +156,7 @@ class Decomposer:
 
         logger.info("decomposed: %s → %d slices for roles %s",
                      plan_id, len(slices), list(seen_roles))
-        emit_signal("task_assign", sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
+        emit_signal(EVENT_TASK_ASSIGN, sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
                      data={"plan_id": plan_id, "intent": intent[:60],
                            "slices": len(slices), "event": DECOMPOSER_EVENT_DECOMPOSED})
         return plan
@@ -215,7 +223,7 @@ class Decomposer:
         plan.converged_at = time.time()
         logger.info("converged: %s (%d/%d slices)",
                      plan_id, plan.completed_slices, plan.total_slices)
-        emit_signal("task_assign", sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
+        emit_signal(EVENT_TASK_ASSIGN, sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
                      data={"plan_id": plan_id, "event": "converged"})
         return {"success": True, "plan_id": plan_id,
                 "slices": plan.total_slices, "converged": True}

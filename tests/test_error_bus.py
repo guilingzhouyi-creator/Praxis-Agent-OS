@@ -1,18 +1,18 @@
-"""Error Bus 集成测试 — 错误录入 + 查询 + 统计 + 趋势 + API"""
+"""Error Bus integration test — error recording + query + stats + trend + API"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestErrorLogEntry:
-    """错误日志条目"""
+    """Error log entry"""
 
     def test_fingerprint(self):
         from services.error_bus import ErrorLogEntry, _compute_fingerprint
         fp = _compute_fingerprint("ERROR", "E_INTERNAL", "test.py:1", "test error")
         assert len(fp) == 16
 
-        # 相同输入应产生相同指纹
+        # Same input should produce the same fingerprint
         fp2 = _compute_fingerprint("ERROR", "E_INTERNAL", "test.py:1", "test error")
         assert fp == fp2
 

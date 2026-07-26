@@ -19,6 +19,8 @@ import os
 import threading
 from typing import Any
 
+from kernel.params import PRAXIS_MODE_STATE
+
 logger = logging.getLogger(__name__)
 
 _MODE_PATH: str = ""

@@ -27,7 +27,7 @@ def agent_can_access(agent_id: str, tool_ring: str) -> bool:
 
 
 class RateScheduler:
-    """Per-agent、per-ring tool rate limiting (sliding window)."""
+    """Per-agent, per-ring tool rate limiting (sliding window)."""
 
     def __init__(self):
         self._lock = threading.Lock()

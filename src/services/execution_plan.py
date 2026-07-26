@@ -19,7 +19,7 @@ from enum import Enum, auto
 from typing import Any
 
 from kernel.params import AGENT_LOOP_DEFAULT_TIMEOUT
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from .card import Card, CardMode, PhaseMode, Step
 from .agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
 from .plan_step_types import StepState, PlanStep
@@ -46,6 +46,7 @@ class ExecutionPlan:
 
     def __init__(self, card: Card, agent_map: dict[str, str], user_id: str = ""):
         self.card = card
+        self.plan_id = card.id  # alias for ExecutionEngine compatibility
         self.agent_map = agent_map
         self.user_id = user_id
         self.steps: list[PlanStep] = []
@@ -57,28 +58,70 @@ class ExecutionPlan:
         self._cancelled = False
         self._approval_requests: list = []
         self._turn_log: list[dict] = []
+        # Detect if card is CardUnified (new model) or old Card
+        self._is_unified = type(card).__name__ == "CardUnified"
         # Dynamic step budget via ScopeScheduler
+        if self._is_unified:
+            n_phases = len(card.phases)
+            n_steps = sum(len(p.tasks) for p in card.phases)
+        else:
+            n_phases = len(card.phases)
+            n_steps = sum(len(p.steps) for p in card.phases)
         from .scheduler_scope import get_scope_scheduler
         self._step_budget = get_scope_scheduler().calc_step_budget(
-            len(card.phases), sum(len(p.steps) for p in card.phases),
+            n_phases, n_steps,
         )
 
         self._decompose()
+
+    # ── Card-model normalizers (bridge old Card ↔ CardUnified) ──
+
+    def _card_intent(self) -> str:
+        return self.card.summary.title if self._is_unified else self.card.intent
+
+    def _card_domain(self) -> str:
+        if self._is_unified:
+            return self.card.summary.columns.get("domain", self.card.nature)
+        return self.card.domain
+
+    def _card_mode(self) -> str:
+        """Return a normalized mode string: 'execute' | 'issue' | 'parallel_all'."""
+        if self._is_unified:
+            return self.card.nature
+        mode = self.card.mode
+        from .card import CardMode
+        return {CardMode.EXECUTE: "execution", CardMode.ISSUE: "issue",
+                CardMode.PARALLEL_ALL: "parallel_all"}.get(mode, "execution")
+
+    def _phase_mode(self, phase) -> str:
+        """Return normalized phase mode string: 'sequential' | 'parallel'."""
+        if self._is_unified:
+            from .card_unified import PhaseMode as NewPM
+            return "parallel" if phase.mode == NewPM.MULTI else "sequential"
+        from .card import PhaseMode as OldPM
+        return "parallel" if phase.mode == OldPM.PARALLEL else "sequential"
+
+    def _card_phases_items(self, phase):
+        """Iterate items (steps/tasks) within a phase."""
+        return phase.tasks if self._is_unified else phase.steps
 
     def _decompose(self) -> None:
         """Convert Card phases/steps into ordered PlanSteps."""
         step_id = 0
         for phase in self.card.phases:
-            for step in phase.steps:
-                aid = self._resolve_agent(step.agent)
+            # CardUnified: phase.tasks (CardTask)
+            # Old Card:    phase.steps (Step)
+            items = phase.tasks if self._is_unified else phase.steps
+            for item in items:
+                aid = self._resolve_agent(item.agent)
                 ps = PlanStep(
                     step_id=f"s{step_id:03d}",
-                    action=step.action,
-                    target=step.target,
-                    params=step.params,
+                    action=item.action,
+                    target=item.target,
+                    params=item.params if self._is_unified else item.params,
                     agent=aid,
                     phase=phase.name,
-                    depends_on=list(step.depends_on),
+                    depends_on=list(item.depends_on) if not self._is_unified else [],
                 )
                 self.steps.append(ps)
                 self._step_index[ps.step_id] = ps
@@ -117,10 +160,13 @@ class ExecutionPlan:
             logger.warning("checkpoint service unavailable: %s", e)
 
     def _run_phase(self, phase_name: str, phase_steps: list[PlanStep],
-                   mode: PhaseMode, aggregated: dict, timeout: float) -> None:
-        """Execute all steps in a single phase. Modifies aggregated in place."""
+                   mode: str, aggregated: dict, timeout: float) -> None:
+        """Execute all steps in a single phase. Modifies aggregated in place.
+
+        *mode* is a string: ``"sequential"`` or ``"parallel"``.
+        """
         involved_agents: set[str] = set()
-        if mode == PhaseMode.SEQUENTIAL:
+        if mode == "sequential":
             for ps in phase_steps:
                 if self._cancelled:
                     return
@@ -132,7 +178,7 @@ class ExecutionPlan:
                     aggregated["success"] = False
                     aggregated["error"] = r.get("error", "")
                     break
-        elif mode == PhaseMode.PARALLEL:
+        elif mode == "parallel":
             # Group steps by agent → same-agent steps get batch dispatched
             from collections import defaultdict
             agent_groups: dict[str, list[dict]] = defaultdict(list)
@@ -201,7 +247,7 @@ class ExecutionPlan:
         self._started_at = time.time()
         aggregated: dict = {"steps": [], "success": True, "error": ""}
 
-        if self.card.mode == CardMode.ISSUE:
+        if self._card_mode() == "issue":
             emit_signal("review_requested", sender="execution_plan", target=self.card.cell_id or "cell",
                         data={"card_id": self.card.id, "event": "issue_created"})
             aggregated["issue"] = True
@@ -217,9 +263,9 @@ class ExecutionPlan:
             if ps.phase not in phase_order:
                 phase_order.append(ps.phase)
 
-        phase_modes = {p.name: p.mode for p in self.card.phases}
+        phase_modes = {p.name: self._phase_mode(p) for p in self.card.phases}
 
-        if self.card.mode == CardMode.PARALLEL_ALL:
+        if self._card_mode() == "parallel_all":
             # All phases run concurrently
             phase_threads = []
             phase_results: list[dict] = []
@@ -268,7 +314,7 @@ class ExecutionPlan:
         aggregated["completed"] = sum(1 for s in self.steps if s.state == StepState.DONE)
         aggregated["failed"] = sum(1 for s in self.steps if s.state == StepState.FAILED)
 
-        emit_signal("task_assign", sender="execution_plan", target=self.card.cell_id or "cell",
+        emit_signal(EVENT_TASK_ASSIGN, sender="execution_plan", target=self.card.cell_id or "cell",
                     data={"card_id": self.card.id, "event": "plan_complete", **aggregated})
         return aggregated
 
@@ -340,16 +386,16 @@ class ExecutionPlan:
         """
         ps.state = StepState.RUNNING
         ps.started_at = time.time()
-        emit_signal("task_assign", sender="execution_plan", target=ps.agent,
+        emit_signal(EVENT_TASK_ASSIGN, sender="execution_plan", target=ps.agent,
                     data={"card_id": self.card.id, "step_id": ps.step_id, "event": "step_start"})
 
         # Find verify spec from the original Card step
         # (match by action + target, since agent is resolved differently)
         verify_spec = None
         for phase in self.card.phases:
-            for step in phase.steps:
-                if step.action == ps.action and step.target == ps.target:
-                    verify_spec = step.verify
+            for item in self._card_phases_items(phase):
+                if item.action == ps.action and item.target == ps.target:
+                    verify_spec = item.verify if not self._is_unified else None
                     break
 
         verify_result = None
@@ -517,11 +563,15 @@ class ExecutionPlan:
         shell actions     → only shell tools
         think actions     → all tools (general purpose)
         """
-        read_tools = {"read_file", "grep_search", "list_dir", "search", "find",
-                      "stat", "file_stat", "code_search", "symbol_search"}
-        write_tools = {"write_file", "edit", "replace_string", "create_file",
-                       "delete", "rename", "file_move", "file_copy"}
-        shell_tools = {"shell", "bash", "powershell", "run_in_terminal", "exec"}
+        try:
+            from .tool_config import ToolConfig as _TC
+            read_tools = {t.name for t in _TC.by_ring("RING_1")}
+            write_tools = _TC.write_tool_names()
+            shell_tools = _TC.terminal_tool_names()
+        except Exception:
+            read_tools = {"read_file", "grep_search"}
+            write_tools = set()
+            shell_tools = set()
         all_tools = read_tools | write_tools | shell_tools
         action_lower = action.lower()
         if action_lower in read_tools or action_lower in ("read", "inspect", "scout"):
@@ -553,9 +603,9 @@ class ExecutionPlan:
     def summary(self) -> dict:
         return {
             "card_id": self.card.id,
-            "intent": self.card.intent[:80],
-            "domain": self.card.domain,
-            "mode": self.card.mode.name,
+            "intent": self._card_intent()[:80],
+            "domain": self._card_domain(),
+            "mode": self._card_mode(),
             "total_steps": len(self.steps),
             **self.progress(),
             "agent_map": self.agent_map,

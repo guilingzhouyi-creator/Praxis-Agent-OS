@@ -1,8 +1,3 @@
-# English locale — NOMOS Praxis i18n
-# Keys use dot notation: domain.subdomain.key
-# Variables: {tool}, {agent}, {path}, {count}, etc.
-
-# ── Shell commands ──
 shell:
   command:
     help: "Show available commands"
@@ -46,15 +41,15 @@ shell:
     disconnected: "Disconnected"
 
 # ── Tool descriptions ──
+
 tool:
   agent_broadcast: "Broadcast message to all agents"
   agent_consensus: "Multi-agent consensus"
-  agent_heartbeat: "Send heartbeat and query agent liveness"
+  agent_health_check: "Full health check"
   agent_list: "List all agents and their status"
   agent_merge: "Merge agent modifications"
   agent_message: "Send message to a specific agent"
   agent_restart: "Restart agent process"
-  agent_status: "Query agent runtime status (Statecharts + liveness)"
   agent_stop: "Stop agent process"
   agent_sync: "Sync state with target agent"
   agent_vote: "Agent voting"
@@ -62,8 +57,6 @@ tool:
   alert_list: "List alert rules"
   analyze_code: "Analyze code structure (classes/functions/imports/complexity)"
   api_call: "Generic HTTP request"
-  api_get: "HTTP GET request"
-  api_post: "HTTP POST request"
   apply_diff: "Apply diff patch to file"
   archive_catalog: "List archive catalog"
   archive_compact: "Compact expired entries"
@@ -79,24 +72,27 @@ tool:
   ast_parse: "Parse code into AST summary (functions/classes/calls)"
   ast_transform: "Transform code via AST (wrap_function/rename_function)"
   audit_dependencies: "Audit dependencies"
-  audit_export: "Export audit log (JSON/CSV)"
+  auto_refactor: "Auto-refactor code"
+  backup_and_encrypt: "Backup and encrypt"
   backup_create: "Create file/directory backup"
   backup_delete: "Delete backup"
   backup_list: "List all backups"
   backup_restore: "Restore from backup"
   brew_install: "Install Homebrew package"
   build_project: "Build project (auto-detect Python/Cargo/npm/go)"
+  card_create: "Create a task card"
+  card_status: "Query card status"
   cargo_build: "Build Rust project"
   check_version: "Check installed package version"
   checkpoint_create: "Create checkpoint (requires G4 approval + G5 witness)"
   checkpoint_list: "List checkpoints"
   code_complete: "Get code completion suggestions (requires pyright)"
+  code_sync: "Build & sync"
   config_get: "Read configuration value"
   config_list: "List all configuration items"
   config_reset: "Reset configuration file"
   config_set: "Set configuration value"
   confirm: "Request user confirmation for an action"
-  constitution_diff: "Diff old vs new constitution"
   constitution_history: "Query constitution change history"
   container_list: "List Docker containers"
   content_search: "Search file content (case sensitive/insensitive)"
@@ -110,11 +106,6 @@ tool:
   create_file: "Create a new file with content"
   create_project: "Create project from template"
   dashboard_query: "Query dashboard data"
-  db_delete: "Delete from database (MVP stub)"
-  db_insert: "Insert into database (MVP stub)"
-  db_migrate: "Run database migration (MVP stub)"
-  db_select: "Select from database (MVP stub)"
-  db_update: "Update database (MVP stub)"
   debug_breakpoint: "Set/remove breakpoint"
   debug_continue: "Continue to next breakpoint"
   debug_start: "Start debug session"
@@ -125,7 +116,7 @@ tool:
   dependency_graph: "Generate dependency graph (list installed packages)"
   dependency_list: "List project dependencies (supports pyproject.toml/requirements.txt/package.json)"
   dependency_update: "Update specified dependency package"
-  deploy: "Deploy project (MVP stub)"
+  deploy_pipeline: "Build-test-commit pipeline"
   diagnostics: "Run type checker for diagnostics"
   dns_lookup: "DNS resolve domain to IP"
   docker_build: "Build Docker image"
@@ -136,6 +127,7 @@ tool:
   encrypt_file: "Encrypt file (requires cryptography library)"
   env_get: "Get environment variable value"
   env_list: "List environment variables"
+  env_query: "Query environment info"
   env_set: "Set environment variable (current process only)"
   env_unset: "Delete environment variable"
   error_lookup: "Look up error code meaning"
@@ -143,7 +135,6 @@ tool:
   explain_code: "Explain code functionality"
   export_csv: "Export data to CSV"
   extract_method: "Extract method (placeholder, manual adjustment needed)"
-  feed_parse: "Parse RSS/Atom feed (same as rss_fetch)"
   file_append: "Append content to end of file"
   file_chmod: "Change file permissions"
   file_copy: "Copy file or directory"
@@ -152,26 +143,30 @@ tool:
   file_insert_lines: "Insert content at specified line"
   file_mkdir: "Create directory"
   file_move: "Move/rename file or directory"
-  file_search: "Full-text search file content (regex supported)"
   file_stat: "Query file metadata (size, permissions, timestamps)"
   file_type_search: "Search by file type (extension)"
   find_imports: "Find import statements in files"
   format_code: "Format code (black/autopep8)"
-  gate_dry_run: "Simulate gate check without actually executing"
   gate_history: "Query gate history"
   gem_install: "Install Ruby gem"
   generate_chart: "Generate chart (placeholder)"
   generate_doc: "Generate documentation from code"
+  git_branch: "Create/switch/delete branch"
+  git_commit: "Commit code changes"
+  git_push: "Push commits to remote"
   grep_search: "Search text with regex pattern"
   grep_search_enhanced: "Enhanced grep search (with context/include/exclude)"
   hash_data: "Compute data hash (SHA-256/SHA-512/MD5)"
   hover_info: "Get hover information (requires pyright)"
-  http_test: "Send HTTP request to test endpoint"
   image_list: "List Docker images"
   implementation_search: "Search implementations of interfaces/abstract methods"
+  incident_response: "Diagnose-backup"
   init_project: "Initialize project (git init + README)"
   inline_variable: "Inline variable"
   install_package: "Install Python package"
+  intent_classify: "Classify intent type"
+  intent_decompose: "Decompose compound intent into sub-cards"
+  intent_parse: "Parse natural language intent into a card via CardRegistry"
   lint_code: "Run linter for code quality (ruff/pylint)"
   list_dir: "List directory contents"
   list_templates: "List available project templates"
@@ -195,8 +190,10 @@ tool:
   memory_search: "Search Memory content"
   memory_stats: "Memory storage statistics"
   memory_store: "Store a Memory entry (with TTL) into the main MemoryManager"
+  merge_request: "Review & merge"
   metric_push: "Push metric data point"
   migrate_data: "Data migration (JSON to JSON, with field mapping)"
+  migrate_project: "Backup-analyze project"
   move_refactor: "Move refactoring (placeholder, update references manually)"
   notify: "Send notification to user"
   npm_install: "Install npm package"
@@ -204,9 +201,10 @@ tool:
   performance_profile: "Profile file read performance"
   ping: "Ping test network connectivity"
   pip_install: "Install Python package"
-  plot_data: "Plot data chart (same as generate_chart)"
   policy_check: "Check whether a tool call is compliant"
   port_check: "Check if port is open"
+  project_audit: "Audit dependencies"
+  project_tree: "Get project structure tree and file stats"
   rate_limiter: "Rate limit check"
   read_file: "Read file content"
   read_fingerprint: "Read tool call fingerprint"
@@ -214,9 +212,8 @@ tool:
   regex_search: "Regex search file content"
   rename_symbol: "Rename symbol (text replacement)"
   replace_string_in_file: "Replace string in file (sandbox→compile→flush)"
-  reputation_history: "Query reputation history trend"
   reputation_rank: "Agent reputation ranking"
-  resource_usage: "Query agent resource consumption (Token/Ring/Gate)"
+  review_and_fix: "Review and auto-fix code"
   review_code: "Review code quality (line length/TODO/bare except)"
   review_pr: "Review Pull Request (placeholder)"
   rss_fetch: "Fetch RSS/Atom feed"
@@ -233,8 +230,6 @@ tool:
   show_message: "Show message in the UI"
   show_progress: "Show progress bar in the UI"
   sign_data: "HMAC-SHA256 sign data"
-  skill_list: "List all installed skills"
-  skill_view: "View a skill's full content"
   slack_send: "Send Slack message"
   sms_send: "Send SMS (requires SMS gateway config)"
   spawn_agent: "Spawn a SubAgent for synchronous quick-check (Ring 1 only)"
@@ -243,7 +238,6 @@ tool:
   suggest_changes: "Suggest code improvements"
   symbol_search: "Search code for symbol definitions (functions/classes/variables)"
   territory_audit: "Audit territory configuration compliance"
-  territory_query: "Query territory boundaries and overlaps"
   test_project: "Run project tests (auto-detect test framework)"
   test_run: "Run specified test file"
   test_watch: "Watch files and auto-rerun tests (placeholder)"
@@ -253,9 +247,9 @@ tool:
   type_search: "Search type references"
   update_doc: "Update documentation file"
   upload_file: "Upload file to remote"
-  user_delete: "Delete user (MVP stub)"
   validate_schema: "JSON Schema validation"
   verify_sig: "Verify HMAC-SHA256 signature"
+  web_fetch: "Fetch web page content"
   web_search: "Search web (DuckDuckGo)"
   webhook_send: "Send webhook"
   websocket_connect: "Connect WebSocket (placeholder)"
@@ -264,7 +258,6 @@ tool:
   workflow_execute: "Execute workflow"
   workflow_status: "Query workflow status"
 
-# ── Param descriptions ──
 param:
   agent_id: "Target agent"
   domain: "Target domain"
@@ -288,6 +281,7 @@ param:
   ttl: "Lock timeout in seconds"
 
 # ── Connection messages ──
+
 connect:
   greeting: "Hello"
   security_check: "Security gate check"
@@ -296,6 +290,7 @@ connect:
   failed_reason: "connect failed: {reason}"
 
 # ── MCP ──
+
 mcp:
   server_added: "MCP server '{name}' imported with {count} tools"
   server_removed: "MCP server '{name}' removed"
@@ -305,11 +300,13 @@ mcp:
   disabled: "Server '{name}' is disabled"
 
 # ── Cache ──
+
 cache:
   cleared: "All caches cleared"
   stats: "Cache statistics"
 
 # ── Generic ──
+
 generic:
   success: "Success"
   error: "Error"
@@ -319,3 +316,4 @@ generic:
   done: "Done"
   yes: "Yes"
   no: "No"
+

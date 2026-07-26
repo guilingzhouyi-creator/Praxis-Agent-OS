@@ -1,0 +1,198 @@
+# commands.yaml — L2 Shell command definitions
+# Handler name maps to _cmd_{name} function in services/l2_shell.py
+
+help:
+  help: "Show available commands"
+
+agents:
+  help: "List all agents"
+  aliases: ["ls"]
+
+connect:
+  help: "Connect to an agent (direct mode)"
+  args:
+    - {name: agent_id, completer: agent, description: "Target agent ID"}
+    - {name: --role, completer: role, optional: true, description: "Filter by role"}
+
+disconnect:
+  help: "Disconnect and return to L3A"
+  aliases: ["dc"]
+
+mode:
+  help: "Show/switch mode (L3A/Direct, tool read/write)"
+  args:
+    - {name: sub, optional: true, description: "'tool' for tool mode"}
+    - {name: tool_mode, optional: true, description: "read|write|toggle"}
+
+status:
+  help: "Show Cell, agent, and session status"
+  args:
+    - {name: cell_id, optional: true, completer: agent, description: "Cell ID"}
+
+intents:
+  help: "List recent intents (CentralController)"
+  args:
+    - {name: status, optional: true, description: "Filter by status"}
+
+scheduler:
+  help: "Show 5D scheduling status (CentralScheduler)"
+
+observe:
+  help: "Observability: alerts/health/metrics"
+  args:
+    - {name: kind, optional: true, description: "alert|health|metric|audit"}
+
+skills:
+  help: "List/view/evolve R4Agent skills"
+  args:
+    - {name: sub, optional: true, description: "list|lean|evolve <intent>"}
+
+cells:
+  help: "List cells or show cell health (CellMonitor)"
+  args:
+    - {name: cell_id, optional: true, description: "Cell ID or 'list'"}
+
+cross:
+  help: "Cross-cell coordination status (L3B)"
+
+security:
+  help: "Security stats or run a check"
+  args:
+    - {name: sub, optional: true, description: "stats|check <action> <agent>"}
+
+memory:
+  help: "Memory operations across agents/cells/global"
+  aliases: ["mem"]
+  args:
+    - {name: --cell, optional: true, completer: cell, description: "Cell ID scope"}
+    - {name: --agent, optional: true, completer: agent, description: "Agent ID scope"}
+    - {name: op, optional: true, description: "stats|recall <query>|store <ring> <content>|compact|stub_compact|archive|forget|ring <N>"}
+
+plugins:
+  help: "List installed plugins (CentralPlugin)"
+  args:
+    - {name: sub, optional: true, description: "list|stats"}
+
+mcp:
+  help: "Manage MCP server connections"
+  args:
+    - {name: sub, optional: true, description: "status|list|add|remove|disable|enable"}
+
+process:
+  help: "List running processes"
+  aliases: ["ps"]
+  args:
+    - {name: pid, optional: true, description: "Filter by PID"}
+
+vfs:
+  help: "Virtual filesystem navigation (VFS)"
+  args:
+    - {name: path, optional: true, description: "Path (default: /)"}
+    - {name: --mounts, optional: true, description: "List mount points"}
+
+cache:
+  help: "Show cache statistics"
+  args:
+    - {name: sub, optional: true, description: "stats|clear"}
+
+sysinfo:
+  help: "System information summary"
+  aliases: ["info"]
+
+clear:
+  help: "Clear the terminal screen"
+  aliases: ["clr"]
+
+history:
+  help: "Show shell command history"
+  aliases: ["hist"]
+  args:
+    - {name: limit, optional: true, description: "Number of entries (default: 20)"}
+
+lang:
+  help: "Show or switch display language"
+  args:
+    - {name: locale, optional: true, description: "en, zh-CN, etc. Omit to show current"}
+
+spawn:
+  help: "Create a new agent in a Cell"
+  args:
+    - {name: role, completer: role, description: "writer|reader|security|scout"}
+    - {name: agent_id, optional: true, description: "Agent ID (auto if omitted)"}
+    - {name: --cell, optional: true, description: "Target Cell ID"}
+
+kill:
+  help: "Terminate an agent in a Cell"
+  args:
+    - {name: agent_id, completer: agent, description: "Agent ID"}
+
+destroy:
+  help: "Remove an entire Cell and all its agents"
+  args:
+    - {name: cell_id, description: "Cell ID"}
+
+emergency:
+  help: "Emergency stop — halt all operations"
+  aliases: ["halt"]
+  args:
+    - {name: cell_id, optional: true, description: "Cell ID (default: cell-1)"}
+
+cluster:
+  help: "Show cluster topology and Cell health"
+
+audit:
+  help: "View syscall audit trail"
+  args:
+    - {name: limit, optional: true, description: "Number of entries (default: 20)"}
+
+settings:
+  help: "View runtime system settings"
+
+devices:
+  help: "List registered kernel devices"
+
+tools:
+  help: "List all registered tools"
+  args:
+    - {name: category, optional: true, description: "Filter by category"}
+
+config:
+  help: "View or reload system configuration"
+  args:
+    - {name: sub, optional: true, description: "show|reload"}
+
+cron:
+  help: "Manage cron schedules"
+  args:
+    - {name: sub, optional: true, description: "list|add|remove"}
+
+buffer:
+  help: "Resource buffer management (stage/commit/diff/discard)"
+  aliases: ["bf"]
+  args:
+    - {name: sub, description: "status|commit <path>|diff <path>|discard <path>"}
+
+card:
+  help: "Manage card pool: install, list, search, export, remove"
+  aliases: ["c"]
+  args:
+    - {name: sub, description: "list|install <url>|install-file <path>|search <q>|export <name>|remove <name>"}
+
+cell_create:
+  help: "Create a new Cell with 3 Peer Agents"
+  aliases: ["cc"]
+  args:
+    - {name: territory, description: "Territory path"}
+
+agent_refresh:
+  help: "Reset an agent's context (clear pollution)"
+  args:
+    - {name: agent_id, description: "Agent ID"}
+
+tokens:
+  help: "Query token usage (global/cell/agent)"
+  aliases: ["tk"]
+  args:
+    - {name: --cell, optional: true, completer: cell, description: "Cell ID"}
+    - {name: --agent, optional: true, completer: agent, description: "Agent ID"}
+    - {name: sub, optional: true, description: "global|cells"}

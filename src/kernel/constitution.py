@@ -23,12 +23,10 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
 from .params import (
-    BUILTIN_RULE_DEFS,
     CONSTITUTION_ACTION_LEN_THRESHOLD,
     CONSTITUTION_CUSTOM_SECTION,
     CONSTITUTION_DEFAULT_PATH,
@@ -43,6 +41,7 @@ from .params import (
     CONSTITUTION_SHARED_KEYWORD,
     SANDBOX_ROOT_PATH,
 )
+from .rule_descriptor import RuleDescriptor, RuleSeverity, CheckResult, str_to_severity
 
 logger = logging.getLogger(__name__)
 
@@ -68,30 +67,10 @@ token_budget: 73000
 """
 
 
-class RuleSeverity(Enum):
-    MUST = auto()
-    SHOULD = auto()
-    MAY = auto()
-
-
-class CheckResult(Enum):
-    PASS = auto()
-    WARN = auto()
-    BLOCK = auto()
-
-
-@dataclass
-class ConstitutionRule:
-    section: str
-    severity: RuleSeverity
-    description: str
-    _check_fn: Any = None
-    created_at: float = field(default_factory=time.time)
-
-
 @dataclass
 class CheckReport:
-    rule: ConstitutionRule
+    """Result of evaluating a single rule against an action."""
+    rule: RuleDescriptor
     result: CheckResult
     detail: str = ""
 
@@ -113,7 +92,7 @@ class TerritoryConstitution:
 
 
 def _severity(s: str) -> RuleSeverity:
-    return {"MUST": RuleSeverity.MUST, "SHOULD": RuleSeverity.SHOULD, "MAY": RuleSeverity.MAY}.get(s, RuleSeverity.MAY)
+    return str_to_severity(s)
 
 
 # ── Built-in check functions ──
@@ -173,24 +152,112 @@ def _check_cross(rule, action, agent_id, target, territory):
     return CheckResult.PASS
 
 
-_BUILTIN_CHECKERS: dict[str, Any] = {
-    "Agent must not write outside its territory": _check_territory,
-    "Agent must not read files outside its territory without L3 approval": _check_territory,
-    "All tool calls must pass GateChain G1-G5": _check_gate,
-    "Cross-unit tool calls require G5 approval": _check_gate,
-    "All modifications must go through sandbox (no direct writes)": _check_sandbox,
-    "All modifications must be reviewable by L3 before flush": _check_sandbox,
-    "No Agent may modify the constitution itself": _check_constitution_mod,
-    "All tool calls must be logged with audit trail": _check_audit,
-    "Cross-territory changes require peer review": _check_cross,
-    "Scouts are read-only and depth=1": _check_scout,
-    "Scout findings must be logged before disposal": _check_scout,
-}
-
-BUILTIN_RULES = [
-    ConstitutionRule(section=d.section, severity=_severity(d.severity),
-                     description=d.description, _check_fn=_BUILTIN_CHECKERS.get(d.description))
-    for d in BUILTIN_RULE_DEFS
+_BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
+    RuleDescriptor(
+        id="territory.write", section="§2.3",
+        severity=RuleSeverity.MUST,
+        description="Agent must not write outside its territory",
+        check_fn=_check_territory,
+        tags=frozenset({"territory", "write"}),
+    ),
+    RuleDescriptor(
+        id="territory.read_l3", section="§3.1",
+        severity=RuleSeverity.MUST,
+        description="Agent must not read files outside its territory without L3 approval",
+        check_fn=_check_territory,
+        tags=frozenset({"territory", "read"}),
+    ),
+    RuleDescriptor(
+        id="gatechain.all", section="§3.3",
+        severity=RuleSeverity.MUST,
+        description="All tool calls must pass GateChain G1-G5",
+        check_fn=_check_gate,
+        tags=frozenset({"gatechain"}),
+    ),
+    RuleDescriptor(
+        id="gatechain.cross", section="§3.4",
+        severity=RuleSeverity.MUST,
+        description="Cross-unit tool calls require G5 approval",
+        check_fn=_check_gate,
+        tags=frozenset({"gatechain", "cross"}),
+    ),
+    RuleDescriptor(
+        id="sandbox.writes", section="§4.5",
+        severity=RuleSeverity.MUST,
+        description="All modifications must go through sandbox (no direct writes)",
+        check_fn=_check_sandbox,
+        tags=frozenset({"sandbox"}),
+    ),
+    RuleDescriptor(
+        id="sandbox.review", section="§4.6",
+        severity=RuleSeverity.MUST,
+        description="All modifications must be reviewable by L3 before flush",
+        check_fn=_check_sandbox,
+        tags=frozenset({"sandbox", "review"}),
+    ),
+    RuleDescriptor(
+        id="constitution.modify", section="§4.7",
+        severity=RuleSeverity.MUST,
+        description="No Agent may modify the constitution itself",
+        check_fn=_check_constitution_mod,
+        tags=frozenset({"constitution"}),
+    ),
+    RuleDescriptor(
+        id="audit.trail", section="§5.1",
+        severity=RuleSeverity.MUST,
+        description="All tool calls must be logged with audit trail",
+        check_fn=_check_audit,
+        tags=frozenset({"audit"}),
+    ),
+    RuleDescriptor(
+        id="decision.memory", section="§5.2",
+        severity=RuleSeverity.SHOULD,
+        description="All decisions must be recorded in memory Ring 2",
+        check_fn=None,
+        tags=frozenset({"memory"}),
+    ),
+    RuleDescriptor(
+        id="territory.cross_review", section="§6.1",
+        severity=RuleSeverity.MUST,
+        description="Cross-territory changes require peer review",
+        check_fn=_check_cross,
+        tags=frozenset({"territory", "review"}),
+    ),
+    RuleDescriptor(
+        id="l3.arbiter", section="§6.2",
+        severity=RuleSeverity.MUST,
+        description="L3 is the final arbiter of all disputes",
+        check_fn=None,
+        tags=frozenset({"l3"}),
+    ),
+    RuleDescriptor(
+        id="scout.readonly", section="§7.1",
+        severity=RuleSeverity.MUST,
+        description="Scouts are read-only and depth=1",
+        check_fn=_check_scout,
+        tags=frozenset({"scout"}),
+    ),
+    RuleDescriptor(
+        id="scout.log", section="§7.2",
+        severity=RuleSeverity.SHOULD,
+        description="Scout findings must be logged before disposal",
+        check_fn=_check_scout,
+        tags=frozenset({"scout", "audit"}),
+    ),
+    RuleDescriptor(
+        id="ring.context", section="§8.1",
+        severity=RuleSeverity.MUST,
+        description="Agent context must be built from Ring memory, not raw output",
+        check_fn=None,
+        tags=frozenset({"memory", "ring"}),
+    ),
+    RuleDescriptor(
+        id="ring.persist", section="§8.2",
+        severity=RuleSeverity.SHOULD,
+        description="Important decisions must be persisted to Ring 3 (long-term)",
+        check_fn=None,
+        tags=frozenset({"memory", "ring"}),
+    ),
 ]
 
 
@@ -305,7 +372,7 @@ class Constitution:
     """
 
     def __init__(self):
-        self._rules: list[ConstitutionRule] = list(BUILTIN_RULES)
+        self._rules: list[RuleDescriptor] = list(_BUILTIN_DESCRIPTORS)
         self._lock = threading.Lock()
         self._constitution_path: str = ""
 
@@ -322,7 +389,7 @@ class Constitution:
         custom_rules = self._parse_markdown(content)
         with self._lock:
             self._constitution_path = path
-            self._rules = list(BUILTIN_RULES) + custom_rules
+            self._rules = list(_BUILTIN_DESCRIPTORS) + custom_rules
         return {"success": True, "rules": len(self._rules), "custom": len(custom_rules), "path": path}
 
     def check(self, action: str, agent_id: str, target: str = "",
@@ -354,16 +421,14 @@ class Constitution:
                     for r in self._rules]
 
     def _evaluate(self, rule, action, agent_id, target, territory) -> CheckResult:
-        if rule._check_fn is not None:
-            return rule._check_fn(rule, action, agent_id, target, territory) or CheckResult.PASS
-        return CheckResult.PASS
+        return rule.evaluate(action, agent_id, target, territory)
 
     def _describe(self, rule, action, agent_id, target) -> str:
         return f"{rule.section}: {rule.description} (action={action}, agent={agent_id}, target={target})"
 
     @staticmethod
-    def _parse_markdown(content: str) -> list[ConstitutionRule]:
-        rules: list[ConstitutionRule] = []
+    def _parse_markdown(content: str) -> list[RuleDescriptor]:
+        rules: list[RuleDescriptor] = []
         current_section = ""
         for line in content.splitlines():
             m = re.match(r"^##+\s+(.+)$", line)
@@ -376,8 +441,12 @@ class Constitution:
             if sev:
                 desc = re.sub(r"\[(MUST|SHOULD|MAY)\]", "", line).strip()
                 if desc:
-                    rules.append(ConstitutionRule(section=current_section or CONSTITUTION_CUSTOM_SECTION,
-                                                  severity=sev, description=desc))
+                    rules.append(RuleDescriptor(
+                        id=f"custom.{len(rules)}",
+                        section=current_section or CONSTITUTION_CUSTOM_SECTION,
+                        severity=sev, description=desc,
+                        source="custom",
+                    ))
         return rules
 
 

@@ -1,4 +1,4 @@
-"""Sandbox 沙箱隔离测试 — Agent 注册/文件读写/暂存/刷新/丢弃"""
+"""Sandbox isolation test — Agent registration/file read-write/stage/flush/discard"""
 
 import sys, os, tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -15,7 +15,7 @@ def _clear_sandbox_state() -> None:
 
 
 class TestCellSandbox:
-    """Cell 沙箱"""
+    """Cell sandbox"""
 
     def setup_method(self):
         from services.sandbox import reset_manager
@@ -47,7 +47,7 @@ class TestCellSandbox:
 
 
 class TestSandboxOps:
-    """沙箱读写操作"""
+    """Sandbox read/write operations"""
 
     def test_write_and_read(self):
         from services.sandbox import SandboxManager, reset_manager

@@ -1,34 +1,8 @@
-"""Card — structured execution unit for Agent OS.
+"""DEPRECATED — old Card/Phase/Step/CardMode/PhaseMode, kept only as bridge.
 
-A Card is a work item that goes through Cell → AgentTerminal.
-Unlike a simple action+target, a Card has:
-  - Phases (ordered groups of steps)
-  - Steps (individual actions with routing)
-  - Pipeline (agent assignments)
-  - Mode (EXECUTE / ISSUE)
-
-Card decomposition:
-  Raw intent (from L3A) → TaskCard → Card (structured)
-  Card → ExecutionPlan → Step-by-step through AgentTerminals
-
-Example:
-
-  card = Card(
-      intent="Add user authentication to login page",
-      domain="app/auth",
-      phases=[
-          Phase(name="investigate", steps=[
-              Step("scout",     "structure",  "app/auth/*",     agent="scout"),
-          ]),
-          Phase(name="implement", steps=[
-              Step("write_file",  "app/auth/login.py", params={...}, agent="agent_b"),
-              Step("write_file",  "app/auth/login.html", params={...}, agent="agent_a"),
-          ], parallel=True),
-          Phase(name="review", steps=[
-              Step("code_review", "app/auth/login.py", agent="agent_c"),
-          ]),
-      ],
-  )
+All new code should use CardUnified (card_unified.py) instead.
+This module exists solely to support ``CardUnified.to_old_card()``
+until the migration to CardUnified is complete in all downstream consumers.
 """
 
 from __future__ import annotations
@@ -40,39 +14,29 @@ from enum import Enum, auto
 from typing import Any
 
 logger = logging.getLogger(__name__)
+logger.warning("DEPRECATED: import from services.card — use services.card_unified instead")
 
 
 class CardMode(Enum):
     EXECUTE = auto()
     ISSUE = auto()
-    PARALLEL_ALL = auto()   # all phases run concurrently
+    PARALLEL_ALL = auto()
 
 
 class PhaseMode(Enum):
-    SEQUENTIAL = auto()   # steps run one by one
-    PARALLEL = auto()     # steps run concurrently
+    SEQUENTIAL = auto()
+    PARALLEL = auto()
 
 
 @dataclass
 class Step:
-    """A single atomic unit of work within a Card."""
-
+    """DEPRECATED: use CardTask instead."""
     action: str = ""
     target: str = ""
     params: dict = field(default_factory=dict)
     agent: str = ""
     depends_on: list[str] = field(default_factory=list)
     verify: dict | None = field(default=None)
-    """Verify spec: auto-spawn a scout after this step completes.
-
-    Example:
-      Step(action="replace_string", ..., verify={
-          "template": "grep",
-          "scope": {"pattern": "TODO", "path": "."},
-      })
-      → ExecutionPlan auto-runs scout before and after,
-        diff included in step result.
-    """
 
     def with_agent(self, agent: str) -> Step:
         self.agent = agent
@@ -81,22 +45,16 @@ class Step:
 
 @dataclass
 class Phase:
-    """A named group of steps within a Card."""
-
+    """DEPRECATED: use CardPhase instead."""
     name: str = ""
     steps: list[Step] = field(default_factory=list)
     mode: PhaseMode = PhaseMode.SEQUENTIAL
-    depends_on: list[str] = field(default_factory=list)  # phase names that must complete first
+    depends_on: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Card:
-    """Fully structured execution card.
-
-    A Card is the highest-level work item.  It is decomposed into
-    Phases → Steps, each routed to an Agent Terminal.
-    """
-
+    """DEPRECATED: use CardUnified instead."""
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     intent: str = ""
     domain: str = ""
@@ -108,7 +66,6 @@ class Card:
     created_at: float = field(default_factory=__import__("time").time)
 
     def all_steps(self) -> list[Step]:
-        """Flatten all steps across all phases."""
         return [step for phase in self.phases for step in phase.steps]
 
     def step_count(self) -> int:
@@ -136,20 +93,10 @@ class Card:
         }
 
 
-# ── Helpers ──
-
 def make_card(intent: str, domain: str = "",
               steps: list[tuple[str, str, str]] | None = None,
               mode: CardMode = CardMode.EXECUTE) -> Card:
-    """Quick card builder: each tuple is (action, target, agent_role).
-
-    Example:
-      card = make_card("fix login", "app/auth", [
-          ("scout", "app/auth/*", "scout"),
-          ("read_file", "app/auth/login.py", "http"),
-          ("write_file", "app/auth/login.py", "business"),
-      ])
-    """
+    """DEPRECATED: construct CardUnified directly instead."""
     phases = [Phase(name="work", steps=[
         Step(action=a, target=t, agent=ag) for a, t, ag in (steps or [])
     ])]

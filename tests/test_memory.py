@@ -1,11 +1,11 @@
-"""Memory 三环记忆系统测试 — 存储/查询/构建上下文/紧缩/压力/质量/持久化"""
+"""Memory three-ring memory system test — store/query/build-context/compact/pressure/quality/persistence"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestRemember:
-    """记忆存储"""
+    """Memory storage"""
 
     def test_remember_returns_id(self):
         from services.memory import MemoryManager
@@ -33,7 +33,7 @@ class TestRemember:
 
 
 class TestRecall:
-    """记忆查询"""
+    """Memory query"""
 
     def test_recall_empty(self):
         from services.memory import MemoryManager

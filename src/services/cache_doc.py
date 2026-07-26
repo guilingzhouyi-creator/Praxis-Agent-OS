@@ -31,7 +31,7 @@ class CacheDocument:
     content: str = ""
     metadata: dict = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    archive_ref: str = ""           # 关联的 Archive entry_id
+    archive_ref: str = ""           # Linked Archive entry_id
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + CACHE_DOC_TTL)
     access_count: int = 0
@@ -44,10 +44,10 @@ class CacheDocument:
 class CacheDocumentStore:
     """CacheDocument store - in-memory stack, valid for Agent OS lifetime.
 
-    支持:
+    Supports:
       - put / get / delete / list
       - tag search
-      - 过期清理
+      - expiry cleanup
       - archive_ref linking
     """
 

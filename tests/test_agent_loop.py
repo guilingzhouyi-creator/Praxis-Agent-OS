@@ -1,11 +1,11 @@
-"""AgentLoop 测试 — 推理主循环 + 工具注册 + 结果折叠 + 执行"""
+"""AgentLoop tests — reasoning main loop + tool registration + result folding + execution"""
 
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestAgentLoopInit:
-    """AgentLoop 初始化"""
+    """AgentLoop initialization"""
 
     def test_basic_init(self):
         from services.agent_loop import AgentLoop
@@ -22,7 +22,7 @@ class TestAgentLoopInit:
 
 
 class TestAddTool:
-    """工具注册"""
+    """Tool registration"""
 
     def test_add_tool_basic(self):
         from services.agent_loop import AgentLoop
@@ -43,7 +43,7 @@ class TestAddTool:
 
 
 class TestFoldResult:
-    """结果折叠（Head+Tail 截断）"""
+    """Result folding (Head+Tail truncation)"""
 
     def test_fold_long_string(self):
         from services.agent_loop import AgentLoop
@@ -84,7 +84,7 @@ class TestFoldResult:
 
 
 class TestRegisterTodowrite:
-    """todowrite 工具自动注册"""
+    """todowrite tool auto-registration"""
 
     def test_todowrite_auto_register(self):
         from services.agent_loop import AgentLoop
@@ -103,7 +103,7 @@ class TestRegisterTodowrite:
 
 
 class TestRunBasic:
-    """基本执行（mock 模式）"""
+    """Basic execution (mock mode)"""
 
     def test_run_returns_dict(self):
         from services.agent_loop import AgentLoop
@@ -169,7 +169,7 @@ class TestChatParamsHook:
 
 
 class TestFinish:
-    """_finish 收尾"""
+    """_finish finalization"""
 
     def test_finish_adds_elapsed(self):
         from services.agent_loop import AgentLoop

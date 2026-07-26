@@ -21,7 +21,7 @@ import time
 from enum import Enum, auto
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.params import CARD_GATE_PATH, CARD_GATE_AUTO_SAVE
 from services._persistable import PersistableMixin
 
@@ -167,7 +167,7 @@ class CardGate(PersistableMixin):
         from .pending_queue import get_queue
         get_queue().enqueue(card_id, intent=intent, domain=domain, size=size_name)
 
-        emit_signal("task_assign", sender="card_gate", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="card_gate", target="l3",
                      data={"card_id": card_id, "event": "held_for_approval",
                            "size": size_name, "intent": intent[:200]})
         return {

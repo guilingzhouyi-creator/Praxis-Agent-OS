@@ -1,13 +1,13 @@
-"""LSP Manager — 多语言 LSP 进程管理 + 诊断缓存 + 反馈循环
+"""LSP Manager — Multi-language LSP process management + diagnostic cache + feedback loop
 
-架构:
+Architecture:
   LspManager (services/lsp_manager.py)
-  ├── _LanguageServer       — 单个 LSP server 的进程生命周期
-  ├── DiagnosticCache       — 文件级诊断缓存，增量更新
-  ├── FeedbackLoop          — 编辑后自动触发诊断 → 结果回传
-  └── API Handlers          — REST 端点
+  ├── _LanguageServer       — Process lifecycle of a single LSP server
+  ├── DiagnosticCache       — File-level diagnostic cache, incremental updates
+  ├── FeedbackLoop          — Auto-trigger diagnostics after editing → result callback
+  └── API Handlers          — REST endpoints
 
-支持的 LSP server:
+Supported LSP servers:
   Python: pyright (首选) / pylsp
   TypeScript/JS: typescript-language-server
   Go: gopls

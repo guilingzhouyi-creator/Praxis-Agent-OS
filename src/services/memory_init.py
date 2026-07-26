@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from kernel.params import MEMORY_INIT_TIMEOUT, PRAXIS_DATA_DIR, MEMORY_ALERT_EXPORT_LIMIT
+from kernel.params import MEMORY_INIT_TIMEOUT, PRAXIS_DATA_DIR, MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def _ensure_dirs() -> None:
 
 def _snapshot_path(prefix: str) -> str:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    return str(AGENT_SESSIONS_DIR / f"{ts}_{prefix}.json")
+    return str(AGENT_SESSIONS_DIR / AGENT_SESSION_TEMPLATE.format(ts=ts, prefix=prefix))
 
 
 def _latest_snapshot() -> str | None:

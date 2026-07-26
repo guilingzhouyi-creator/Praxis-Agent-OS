@@ -198,7 +198,7 @@ class NetworkService(BaseService):
         with self._lock:
             svc = self._services.get(name)
             if svc:
-                svc.health = "healthy" if result["success"] else "unreachable"
+                svc.health = "healthy" if result.get("success") else "unreachable"
                 svc.last_seen = time.time()
         return {"success": True, "name": name, "health": svc.health if svc else "unknown"}
 

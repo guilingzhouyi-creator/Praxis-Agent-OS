@@ -193,12 +193,11 @@ class Allocator:
              data={"requesting_agent": requesting_agent, "resource": resource,
                    "needed": needed, "reclaimed": freed})
 
-        # Terminate the victim process: set PCB to ZOMBIE
+        # Terminate the victim process via PCB exit (which uses FSM "crash" transition)
         try:
-            from .process import get_table, ProcessState
+            from .process import get_table
             pcb = get_table().get_by_name(victim)
             if pcb:
-                get_table().set_state(pcb.pid, ProcessState.ZOMBIE)
                 get_table().exit(pcb.pid, exit_code=-9, reason=f"OOM killed for {resource}")
         except Exception as e:
             logger.warning("allocator pcb update: %s", e)

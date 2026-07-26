@@ -59,16 +59,19 @@ class MessageType(Enum):
     CONVENE_CLOSE = auto()    # Close assembly (Convention → All)
 
 
+from kernel.params import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX
+
+
 def is_peer(agent_id: str) -> bool:
-    return any(agent_id.startswith(prefix) for prefix in ("agent-", "l3", "human"))
+    return any(agent_id.startswith(prefix) for prefix in AGENT_ID_PREFIXES)
 
 
 def is_scout(agent_id: str) -> bool:
-    return agent_id.startswith("scout-")
+    return agent_id.startswith(SCOUT_PREFIX)
 
 
 def is_subagent(agent_id: str) -> bool:
-    return agent_id.startswith("sub-")
+    return agent_id.startswith(SUB_PREFIX)
 
 
 @dataclass

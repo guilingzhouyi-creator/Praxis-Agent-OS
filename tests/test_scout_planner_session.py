@@ -1,11 +1,11 @@
-"""Scout + HTN Planner + Dialogue Session 测试"""
+"""Scout + HTN Planner + Dialogue Session test"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestScoutCore:
-    """Scout 基础功能"""
+    """Scout basic functionality"""
 
     def test_scout_search(self):
         from services.scout import Scout
@@ -27,7 +27,7 @@ class TestScoutCore:
 
 
 class TestHtnPlanner:
-    """HTN 规划器"""
+    """HTN planner"""
 
     def test_planner_create(self):
         from services.htn_planner import get_service, HtnPlanner

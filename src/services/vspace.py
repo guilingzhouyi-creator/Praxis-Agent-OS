@@ -5,9 +5,9 @@ Like virtual memory: the project is the "physical address space",
 each Agent's view is its "virtual address space" mapped via "page tables" (territory + sandbox).
 
 Mapping:
-  Project (physical)  ──territory──▶  Agent A 的虚拟视图
-                      ──sandbox────▶  Agent B 的虚拟视图 (含未 flush 修改)
-                      ──constitution─▶ 不可见区域 = 页错误
+  Project (physical)  ──territory──▶  Agent A's virtual view
+                      ──sandbox────▶  Agent B's virtual view (includes unflushed changes)
+                      ──constitution─▶  invisible region = page fault
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from services.cell_types import MessageType
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     except Exception as e:
         logger.warning("convention exec card registry submit failed: %s", e)
 
-    emit_signal("task_assign", sender="convention", target="l3",
+    emit_signal(EVENT_TASK_ASSIGN, sender="convention", target="l3",
                  data={"card_id": issue_card_id, "event": "converged_exec_card",
                        "exec_card_id": cid,
                        "cache_ref": close_r.get("cache_ref", ""),

@@ -27,7 +27,7 @@ import threading
 import time
 from typing import Any
 
-from kernel.params import RC_PATH, RC_FLUSH_INTERVAL, RC_MAX_EVENTS
+from kernel.params import RC_PATH, RC_FLUSH_INTERVAL, RC_MAX_EVENTS, RC_EXPORT_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class ReferenceChannel:
 
     def count(self, event_type: str = "") -> int:
         if event_type:
-            return len(self.export(limit=999999, event_type=event_type))
+            return len(self.export(limit=RC_EXPORT_LIMIT, event_type=event_type))
         return self._total
 
     def stats(self) -> dict:

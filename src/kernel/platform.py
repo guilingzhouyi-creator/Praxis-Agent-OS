@@ -158,7 +158,7 @@ def grep_cmd(pattern: str, path: str = ".", *,
             cmd.append("/i")
         if fixed:
             cmd.append("/x")
-            # 对固定字符串做 regex 转义，避免 findstr 将特殊字符解释为正则
+            # Escape regex metacharacters so findstr treats the pattern as a literal string
             safe = pattern.replace("\\", "\\\\").replace(".", "\\.").replace("*", "\\*")\
                           .replace("^", "\\^").replace("$", "\\$").replace("|", "\\|")\
                           .replace("(", "\\(").replace(")", "\\)").replace("+", "\\+")\

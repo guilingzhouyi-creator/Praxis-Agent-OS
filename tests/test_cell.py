@@ -1,11 +1,11 @@
-"""Cell 主控测试 — 初始化/Agent管理/消息/存活/紧急停止/状态持久化"""
+"""Cell Master Test — Init/Agent Management/Messages/Liveness/Emergency Stop/State Persistence"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestCellInit:
-    """Cell 初始化"""
+    """Cell Initialization"""
 
     def test_basic_init(self):
         from services.cell import Cell
@@ -21,7 +21,7 @@ class TestCellInit:
 
 
 class TestAddAgent:
-    """Agent 添加"""
+    """Agent Addition"""
 
     def test_add_agent_basic(self):
         from services.cell import Cell
@@ -53,7 +53,7 @@ class TestAddAgent:
 
 
 class TestAgentStatus:
-    """Agent 状态"""
+    """Agent Status"""
 
     def test_status_before_boot(self):
         from services.cell import Cell
@@ -66,7 +66,7 @@ class TestAgentStatus:
 
 
 class TestLiveness:
-    """存活检测"""
+    """Liveness Detection"""
 
     def test_liveness_empty_cell(self):
         from services.cell import Cell, reset_cells
@@ -86,10 +86,11 @@ class TestLiveness:
 
 
 class TestBootAndShutdown:
-    """启动/关闭"""
+    """Boot/Shutdown"""
 
     def test_boot_all(self):
-        from services.cell import Cell, reset_cells, reset_terminals
+        from services.cell import Cell, reset_cells
+        from services.agent_terminal import reset_terminals
         reset_cells()
         reset_terminals()
         cell = Cell("boot-cell")
@@ -115,7 +116,7 @@ class TestBootAndShutdown:
 
 
 class TestEmergencyStop:
-    """紧急停止"""
+    """Emergency Stop"""
 
     def test_emergency_stop(self):
         from services.cell import Cell, reset_cells
@@ -156,7 +157,7 @@ class TestEmergencyStop:
 
 
 class TestMessaging:
-    """Agent 间消息"""
+    """Inter-Agent Messages"""
 
     def test_send_message_unknown_target(self):
         from services.cell import Cell, reset_cells
@@ -188,7 +189,7 @@ class TestMessaging:
 
 
 class TestStats:
-    """Cell 统计"""
+    """Cell Statistics"""
 
     def test_stats_basic(self):
         from services.cell import Cell, reset_cells
@@ -209,7 +210,7 @@ class TestStats:
 
 
 class TestSaveRestoreState:
-    """Cell 状态保存/恢复"""
+    """Cell State Save/Restore"""
 
     def test_save_state(self):
         from services.cell import Cell, reset_cells

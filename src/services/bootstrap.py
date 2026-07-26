@@ -28,16 +28,23 @@ _BACKUP_SUFFIX = ".bak"
 # ── Default configuration template ──
 
 def default_config() -> dict:
-    """Return the default configuration dict (3 agents, 1 Cell, mock LLM)."""
+    """Return the default configuration dict from kernel/params.py constants."""
+    from kernel.params import (
+        ALLOCATOR_DEFAULTS, SWAPPER_DEFAULT_INTERVAL,
+        TERMINAL_MAX_WORKERS, SCOUT_POOL_MAX, SCOUT_MAX_PER_AGENT, SCOUT_CACHE_TTL,
+        CARD_TIMEOUT, API_GATEWAY_HOST, API_GATEWAY_PORT,
+        MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET,
+        MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
+    )
     return {
         "cell": {
-            "terminal": {"workers": 4, "poll": 0.05},
-            "scout": {"max_total": 16, "max_per_agent": 4, "cache_ttl": 30.0},
-            "card": {"timeout": 30.0},
+            "terminal": {"workers": TERMINAL_MAX_WORKERS, "poll": 0.05},
+            "scout": {"max_total": SCOUT_POOL_MAX, "max_per_agent": SCOUT_MAX_PER_AGENT, "cache_ttl": SCOUT_CACHE_TTL},
+            "card": {"timeout": CARD_TIMEOUT},
         },
         "kernel": {
-            "allocator": {"tokens": 131072},
-            "swapper": {"interval": 60.0},
+            "allocator": {"tokens": ALLOCATOR_DEFAULTS.tokens},
+            "swapper": {"interval": SWAPPER_DEFAULT_INTERVAL},
         },
         "llm": {
             "provider": "<provider>", "model": "<model>", "api_url": "",
@@ -48,9 +55,9 @@ def default_config() -> dict:
         "agents": {
             "reader": {"max_scouts": 3, "ring": 1},
             "writer": {"max_scouts": 3, "ring": 2},
-            "reviewer": {"max_scouts": 3, "ring": 3},
+            "reviewer": {"max_scouts": 1, "ring": 3},
         },
-        "api": {"host": "127.0.0.1", "port": 8080, "auth_token": ""},
+        "api": {"host": API_GATEWAY_HOST, "port": API_GATEWAY_PORT, "auth_token": ""},
     }
 
 
@@ -63,6 +70,10 @@ def needs_bootstrap() -> bool:
 
 def get_defaults() -> dict:
     """Return default config values for TUI to pre-fill forms."""
+    from kernel.params import (
+        MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET,
+        MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
+    )
     cfg = default_config()
     return {
         "cells": 1,
@@ -72,16 +83,17 @@ def get_defaults() -> dict:
             {"name": "openai", "url": "https://api.openai.com/v1", "models": ["gpt-4o", "gpt-4o-mini"]},
             {"name": "anthropic", "url": "https://api.anthropic.com/v1", "models": ["claude-sonnet-4-20250514", "claude-haiku-3-5"]},
             {"name": "deepseek", "url": "https://api.deepseek.com/v1", "models": ["deepseek-v4", "deepseek-chat"]},
-            {"name": "ollama", "url": "http://localhost:11434", "models": ["llama3", "qwen2.5"]},
+            {"name": "ollama", "url": "http://localhost:11434", "models": ["qwen2.5"]},
             {"name": "mock", "url": "", "models": ["mock"]},
         ],
         "token_presets": [
-            {"label": "Small (8K/32K/128K)", "working": 8192, "short": 32768, "long": 131072},
+            {"label": f"Small ({MEMORY_RING_WORKING_BUDGET//1024}K/{MEMORY_RING_SHORT_BUDGET//1024}K/{MEMORY_RING_LONG_BUDGET//1024}K)",
+             "working": MEMORY_RING_WORKING_BUDGET, "short": MEMORY_RING_SHORT_BUDGET, "long": MEMORY_RING_LONG_BUDGET},
             {"label": "Medium (16K/64K/256K)", "working": 16384, "short": 65536, "long": 262144},
             {"label": "Large (32K/128K/512K)", "working": 32768, "short": 131072, "long": 524288},
         ],
         "memory_ring_ttl": {
-            "ring1": 1800, "ring2": 86400, "ring3": 0,
+            "ring1": int(MEMORY_RING_WORKING_TTL), "ring2": int(MEMORY_RING_SHORT_TTL), "ring3": int(MEMORY_RING_LONG_TTL),
         },
         "config": cfg,
     }
@@ -163,7 +175,7 @@ def run_bootstrap(interactive: bool = True) -> dict:
 
     print()
     result = apply_config(config)
-    if result["success"]:
+    if result.get("success"):
         print(f"\n  Config written to {_CONFIG_PATH}")
 
     return result
@@ -248,7 +260,7 @@ def _prompt_bool(prompt, default=True):
         "api": {"host": API_GATEWAY_HOST, "port": API_GATEWAY_PORT, "auth_token": ""},
     }
     result = _write_config(config, 1)
-    if result["success"]:
+    if result.get("success"):
         logger.info("default config written to %s", _CONFIG_PATH)
     return result
 

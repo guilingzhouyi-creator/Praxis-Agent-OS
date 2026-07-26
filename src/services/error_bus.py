@@ -1,13 +1,13 @@
-"""ErrorBus — 统一错误日志总线
+"""ErrorBus — Unified Error Log Bus
 
-合流全项目 ~190 个异常捕获点，对外暴露 REST API 供前端消费。
+Merges ~190 exception capture points across the project, exposing a REST API for frontend consumption.
 
-三层架构:
-  1. ErrorLogEntry — 带指纹去重的结构化错误记录（比 LogEntry 丰富）
-  2. ErrorBus — 合流引擎，去重 + 写入 LogService + 推 EventBus + SSE
-  3. API Handlers — 通过 ApiGateway 暴露 REST 端点
+Three-tier architecture:
+  1. ErrorLogEntry — Structured error record with fingerprint-based deduplication (richer than LogEntry)
+  2. ErrorBus — Merging engine: dedup + write to LogService + push to EventBus + SSE
+  3. API Handlers — Expose REST endpoints via ApiGateway
 
-用法 — 一行替换所有 except 点:
+Usage — One-line replacement for all except points:
     try:
         ...
     except Exception as e:
@@ -26,8 +26,9 @@ import traceback
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 from services._base import BaseService
 from kernel.params import (
@@ -49,19 +50,19 @@ _LOG_DIR = Path(get_config_dir()) / "logs"
 
 @dataclass
 class ErrorLogEntry:
-    """结构化的错误日志条目 — 比通用 LogEntry 更丰富。
+    """Structured error log entry — richer than the generic LogEntry.
 
-    相比 services/log.py 的 LogEntry 增加了:
-      - error_code: 统一错误码（与 kernel/errors.py 联动）
-      - component:  组件分层 (kernel / services / tools / api / cli)
-      - source:     源码位置 (file:line)
-      - stack_trace:异常堆栈
-      - context:    附加键值对
-      - fingerprint:去重指纹
-      - count:      同一指纹累计出现次数
+    Adds to the LogEntry from services/log.py:
+      - error_code: Unified error code (linked with kernel/errors.py)
+      - component:  Component layer (kernel / services / tools / api / cli)
+      - source:     Source location (file:line)
+      - stack_trace:Exception stack trace
+      - context:    Additional key-value pairs
+      - fingerprint:Deduplication fingerprint
+      - count:      Cumulative occurrence count for the same fingerprint
     """
 
-    # ── 基础字段 ──
+    # ── Basic fields ──
     level: str  # "ERROR" | "CRITICAL" | "WARN"
     service: str  # e.g. "kernel/allocator", "services/agent_loop"
     message: str
@@ -69,14 +70,14 @@ class ErrorLogEntry:
     agent_id: str = ""
     task_id: str = ""
 
-    # ── 错误专用字段 ──
+    # ── Error-specific fields ──
     error_code: str = "E_INTERNAL"
     component: str = "kernel"  # kernel / services / tools / api / cli
     source: str = ""  # e.g. "kernel/allocator.py:77"
     stack_trace: str = ""
     context: dict = field(default_factory=dict)
 
-    # ── 去重字段 ──
+    # ── Deduplication fields ──
     fingerprint: str = ""
     count: int = 1
 
@@ -110,17 +111,17 @@ class ErrorLogEntry:
 def _compute_fingerprint(
     level: str, error_code: str, source: str, message: str,
 ) -> str:
-    """计算去重指纹 — sha256(level + error_code + source + message[:100]) → hex[:16]"""
+    """Compute deduplication fingerprint — sha256(level + error_code + source + message[:100]) → hex[:16]"""
     raw = f"{level}|{error_code}|{source}|{message[:100]}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def _caller_source(depth: int = 2) -> str:
-    """自动推断调用位置 — 返回 'file.py:line'"""
+    """Auto-detect caller location — returns 'file.py:line'"""
     import inspect
     try:
         frame = inspect.currentframe()
-        # 往上跳 depth 层: capture() → error() → caller()
+        # Skip up depth levels: capture() → error() → caller()
         for _ in range(depth):
             if frame and frame.f_back:
                 frame = frame.f_back
@@ -132,7 +133,7 @@ def _caller_source(depth: int = 2) -> str:
 
 
 def _format_exc(exc: Exception | None) -> str:
-    """格式化异常堆栈，截断前 1000 字符"""
+    """Format exception stack trace, truncated to first 1000 characters"""
     if not exc:
         return ""
     lines = "".join(
@@ -142,17 +143,17 @@ def _format_exc(exc: Exception | None) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 2. ErrorBus — 合流引擎
+# 2. ErrorBus — Merging engine
 # ══════════════════════════════════════════════════════════════════════
 
 
 class ErrorBus(BaseService):
-    """统一错误日志总线 — 合流入口、去重、查询、SSE。
+    """Unified error log bus — ingestion, deduplication, query, SSE.
 
-    职责:
-      1. ingest() 接收所有来源的错误 → 去重 → 写入 LogService + EventBus
-      2. 维护环形缓冲区供快速查询
-      3. 对外暴露 REST API 查询/统计接口
+    Responsibilities:
+      1. ingest() receives errors from all sources → dedup → write to LogService + EventBus
+      2. Maintains a ring buffer for fast queries
+      3. Exposes REST API query/statistics interfaces
     """
 
     def __init__(self, max_entries: int = ERROR_BUS_BUFFER):
@@ -162,18 +163,18 @@ class ErrorBus(BaseService):
         self._fingerprint_index: dict[str, ErrorLogEntry] = {}
         self._lock = threading.RLock()
 
-        # SSE 客户端
+        # SSE clients
         self._sse_clients: list[queue.Queue] = []
         self._sse_lock = threading.RLock()
 
-        # 统计缓存
+        # Stats cache
         self._stats_cache: dict = {}
         self._stats_ts: float = 0.0
 
     # ── Lifecycle ──
 
     def _on_start(self) -> dict:
-        """启动时订阅 EventBus 错误事件"""
+        """Subscribe to EventBus error events on startup"""
         try:
             from kernel import get_event_bus
             bus = get_event_bus()
@@ -184,14 +185,14 @@ class ErrorBus(BaseService):
         return {"success": True, "max_entries": self._max_entries}
 
     def _on_stop(self) -> dict:
-        # 关闭所有 SSE 连接
+        # Close all SSE connections
         with self._sse_lock:
             for q in self._sse_clients:
-                q.put(None)  # 哨兵通知断开
+                q.put(None)  # Sentinel to notify disconnection
             self._sse_clients.clear()
         return {"success": True}
 
-    # ── 合流入口 ──
+    # ── Ingestion entry points ──
 
     def error(
         self,
@@ -205,9 +206,9 @@ class ErrorBus(BaseService):
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """记录一条 ERROR 级别错误。
+        """Log an ERROR level error.
 
-        自动合流到 LogService + EventBus + SSE。
+        Automatically merges into LogService + EventBus + SSE.
         """
         return self._ingest(
             level="ERROR",
@@ -234,7 +235,7 @@ class ErrorBus(BaseService):
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """记录一条 CRITICAL 级别错误。"""
+        """Log a CRITICAL level error."""
         return self._ingest(
             level="CRITICAL",
             message=message,
@@ -259,7 +260,7 @@ class ErrorBus(BaseService):
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """记录一条 WARN 级别警告。"""
+        """Log a WARN level warning."""
         return self._ingest(
             level="WARN",
             message=message,
@@ -284,9 +285,9 @@ class ErrorBus(BaseService):
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """从 Exception 对象提取信息并记录。
+        """Extract information from an Exception object and log it.
 
-        自动提取 stack_trace；若 source 为空则自动推断调用位置。
+        Automatically extracts stack_trace; if source is empty, auto-infers the call location.
         """
         stack_trace = _format_exc(exc)
         _source = source or _caller_source(depth=3)
@@ -303,7 +304,7 @@ class ErrorBus(BaseService):
             context=context or {},
         )
 
-    # ── 内部合流逻辑 ──
+    # ── Internal ingestion logic ──
 
     def _ingest(
         self,
@@ -333,24 +334,27 @@ class ErrorBus(BaseService):
         )
 
         with self._lock:
-            # 去重
+            # Deduplication
             existing = self._fingerprint_index.get(entry.fingerprint)
             if existing:
                 existing.count += 1
-                existing.timestamp = entry.timestamp  # 更新时间
+                existing.timestamp = entry.timestamp  # Update timestamp
                 result_entry = existing
             else:
+                # deque(maxlen=N) auto-evicts the leftmost element on append when full;
+                # must capture the entry about to be evicted before appending, and
+                # after appending clean up its fingerprint index to keep
+                # the index in sync with the actual buffer contents.
+                evicted: ErrorLogEntry | None = None
+                if len(self._buffer) >= self._max_entries:
+                    evicted = self._buffer[0]
                 self._buffer.append(entry)
                 self._fingerprint_index[entry.fingerprint] = entry
                 result_entry = entry
-                # 淘汰旧的指纹（buffer 满时 deque 自动淘汰）
-                if len(self._buffer) == self._max_entries:
-                    # 清理被淘汰的指纹
-                    oldest = self._buffer[0]
-                    if oldest.fingerprint in self._fingerprint_index:
-                        del self._fingerprint_index[oldest.fingerprint]
+                if evicted is not None and evicted.fingerprint in self._fingerprint_index:
+                    del self._fingerprint_index[evicted.fingerprint]
 
-        # ── 推送到 LogService ──
+        # ── Push to LogService ──
         try:
             from services.log import get_service as get_log_service
             log_svc = get_log_service()
@@ -364,22 +368,22 @@ class ErrorBus(BaseService):
         except Exception as e:
             logger.warning("error_bus: log push failed: %s", e)
 
-        # ── 推送到 EventBus ──
+        # ── Push to EventBus ──
         try:
             from kernel import emit_event
             emit_event("error_log", result_entry.to_dict(), source=component)
         except Exception as e:
             logger.warning("error_bus: event push failed: %s", e)
 
-        # 使统计缓存过期
+        # Invalidate stats cache
         self._stats_ts = 0.0
 
         return {"success": True, "entry": result_entry.to_dict()}
 
-    # ── EventBus 回调 ──
+    # ── EventBus callback ──
 
     def _on_error_event(self, signal: Any) -> None:
-        """收到 EventBus 的错误事件 → 推送给所有 SSE 客户端"""
+        """Receive error events from EventBus → push to all SSE clients"""
         data = signal.data if hasattr(signal, "data") else signal
         with self._sse_lock:
             dead: list[queue.Queue] = []
@@ -394,19 +398,19 @@ class ErrorBus(BaseService):
     # ── SSE ──
 
     def subscribe_sse(self) -> queue.Queue:
-        """为 SSE 客户端创建一个订阅队列。"""
+        """Create a subscription queue for an SSE client."""
         q: queue.Queue = queue.Queue(maxsize=256)
         with self._sse_lock:
             self._sse_clients.append(q)
         return q
 
     def unsubscribe_sse(self, q: queue.Queue) -> None:
-        """移除 SSE 客户端队列。"""
+        """Remove an SSE client queue."""
         with self._sse_lock:
             if q in self._sse_clients:
                 self._sse_clients.remove(q)
 
-    # ── 查询 ──
+    # ── Query ──
 
     def query(
         self,
@@ -420,11 +424,11 @@ class ErrorBus(BaseService):
         offset: int = 0,
         limit: int = 50,
     ) -> dict:
-        """按条件查询错误日志（分页，按时间倒序）。"""
+        """Query error logs by criteria (paginated, descending by time)."""
         with self._lock:
             results = list(self._buffer)
 
-        # 过滤
+        # Filter
         if level:
             results = [e for e in results if e.level == level.upper()]
         if error_code:
@@ -440,7 +444,7 @@ class ErrorBus(BaseService):
         if until:
             results = [e for e in results if e.timestamp <= until]
 
-        # 按时间倒序
+        # Descending by time
         results.sort(key=lambda e: e.timestamp, reverse=True)
 
         total = len(results)
@@ -455,16 +459,16 @@ class ErrorBus(BaseService):
         }
 
     def get_by_fingerprint(self, fingerprint: str) -> dict | None:
-        """按指纹获取单条错误详情。"""
+        """Get a single error detail by fingerprint."""
         with self._lock:
             entry = self._fingerprint_index.get(fingerprint)
             if entry:
-                # 收集所有同指纹出现的时间点
+                # Collect all timestamps where this fingerprint appeared
                 return entry.to_dict()
             return None
 
     def stats(self) -> dict:
-        """错误统计：按 level / error_code / component 聚合，带缓存。"""
+        """Error statistics: aggregated by level / error_code / component, with cache."""
         now = time.time()
         if now - self._stats_ts < 2.0 and self._stats_cache:
             return self._stats_cache
@@ -487,7 +491,7 @@ class ErrorBus(BaseService):
             if e.agent_id:
                 agents.add(e.agent_id)
 
-        # top_sources 排序取前 10
+        # Sort top_sources, take top 10
         sorted_sources = sorted(top_sources.items(), key=lambda x: -x[1])[:10]
 
         result = {
@@ -502,7 +506,7 @@ class ErrorBus(BaseService):
             "agents": len(agents),
         }
 
-        # 磁盘文件数
+        # Disk file count
         try:
             log_dir = _LOG_DIR
             if log_dir.exists():
@@ -516,11 +520,11 @@ class ErrorBus(BaseService):
         return result
 
     def trend(self, window_minutes: int = 60, bucket_minutes: int = 10) -> dict:
-        """错误趋势：按时间窗口分桶统计。
+        """Error trend: bucket statistics by time window.
 
         Args:
-            window_minutes: 回顾窗口（默认 60 分钟）
-            bucket_minutes: 桶大小（默认 10 分钟）
+            window_minutes: Lookback window (default 60 minutes)
+            bucket_minutes: Bucket size (default 10 minutes)
 
         Returns:
             {"buckets": [{"bucket": "ISO8601", "count": int}, ...]}
@@ -531,7 +535,7 @@ class ErrorBus(BaseService):
         with self._lock:
             entries = [e for e in self._buffer if e.timestamp >= since]
 
-        # 分桶
+        # Bucketing
         bucket_size = bucket_minutes * 60
         buckets: dict[int, int] = defaultdict(int)
 
@@ -550,7 +554,7 @@ class ErrorBus(BaseService):
         return {"success": True, "window_minutes": window_minutes, "buckets": result}
 
     def recent(self, limit: int = 50) -> dict:
-        """取最近 N 条错误（快速）。"""
+        """Get the most recent N errors (fast)."""
         with self._lock:
             entries = list(self._buffer)[-limit:]
         entries.reverse()
@@ -561,7 +565,7 @@ class ErrorBus(BaseService):
         }
 
     def clear(self, before: float | None = None) -> dict:
-        """清空错误缓冲区（可指定 before 时间之前）。"""
+        """Clear the error buffer (optionally before a given timestamp)."""
         with self._lock:
             if before is None:
                 removed = len(self._buffer)
@@ -576,7 +580,7 @@ class ErrorBus(BaseService):
         return {"success": True, "removed": removed}
 
     def export(self, path: str = "") -> dict:
-        """导出错误日志到 JSON 文件。"""
+        """Export error logs to a JSON file."""
         with self._lock:
             entries = [e.to_dict() for e in self._buffer]
 
@@ -591,7 +595,7 @@ class ErrorBus(BaseService):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. 全局快捷入口
+# 3. Global quick-access entry points
 # ══════════════════════════════════════════════════════════════════════
 
 _bus: ErrorBus | None = None
@@ -614,6 +618,33 @@ def reset_bus() -> None:
     _bus = None
 
 
+@contextmanager
+def error_boundary(
+    message: str = "",
+    error_code: str = "E_INTERNAL",
+    component: str = "kernel",
+    agent_id: str = "",
+    task_id: str = "",
+    re_raise: bool = False,
+) -> Generator:
+    """Context manager — capture all exceptions within a block into ErrorBus.
+
+    Usage:
+        with error_boundary("agent loop failed", component="services"):
+            ...
+
+    By default exceptions are consumed (not re-raised).
+    Set re_raise=True to propagate after capture.
+    """
+    try:
+        yield
+    except Exception as e:
+        capture(message or str(e), error_code=error_code, component=component,
+                exc=e, agent_id=agent_id, task_id=task_id)
+        if re_raise:
+            raise
+
+
 def capture(
     message: str,
     error_code: str = "E_INTERNAL",
@@ -623,18 +654,18 @@ def capture(
     task_id: str = "",
     context: dict | None = None,
 ) -> dict:
-    """最简错误捕获入口 — 一行替换所有 except 点。
+    """Simplest error capture entry point — one-line replacement for all except blocks.
 
-    用法:
+    Usage:
         try:
             ...
         except Exception as e:
             capture("memory compact failed", exc=e, component="services")
 
-    自动提取:
-      - source: 调用栈 caller 的文件:行号
-      - stack_trace: exc 的 traceback
-      - service: 沿用 component 值
+    Auto-extracts:
+      - source: caller's file:line from the call stack
+      - stack_trace: traceback from exc
+      - service: reuses the component value
 
     Returns:
         {"success": True, "entry": {...}}
@@ -664,9 +695,9 @@ def capture_exception(
     task_id: str = "",
     context: dict | None = None,
 ) -> dict:
-    """直接从 Exception 对象捕获。
+    """Capture directly from an Exception object.
 
-    用法:
+    Usage:
         except Exception as e:
             capture_exception(e, "XXX failed", component="services")
     """
@@ -683,10 +714,10 @@ def capture_exception(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 4. API Handlers — 挂载到 ApiGateway
+# 4. API Handlers — Mounted to ApiGateway
 # ══════════════════════════════════════════════════════════════════════
 
-# 这些 handler 会被混入到 api_handlers.py 的 ApiHandlers 类
+# These handlers are mixed into the ApiHandlers class in api_handlers.py
 
 
 def _parse_float(body: dict, key: str) -> float | None:
@@ -713,7 +744,7 @@ def _parse_int(body: dict, key: str, default: int = 0) -> int:
 
 
 def handle_log_errors(body: dict | None = None) -> dict:
-    """GET /api/logs/errors — 分页查询错误列表（前端错误列表页）"""
+    """GET /api/logs/errors — Paginated error list (frontend error list page)"""
     b = body or {}
     bus = get_bus()
     return bus.query(
@@ -730,7 +761,7 @@ def handle_log_errors(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_detail(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/detail — 按指纹查单条错误详情"""
+    """POST /api/logs/errors/detail — Lookup single error detail by fingerprint"""
     b = body or {}
     fingerprint = b.get("fingerprint", "")
     if not fingerprint:
@@ -742,12 +773,12 @@ def handle_log_errors_detail(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_stats(body: dict | None = None) -> dict:
-    """GET /api/logs/errors/stats — 错误统计总览（前端仪表盘）"""
+    """GET /api/logs/errors/stats — Error statistics overview (frontend dashboard)"""
     return get_bus().stats()
 
 
 def handle_log_errors_trend(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/trend — 错误趋势（前端趋势图）"""
+    """POST /api/logs/errors/trend — Error trend (frontend trend chart)"""
     b = body or {}
     window = _parse_int(b, "window", 60)
     bucket = _parse_int(b, "bucket", 10)
@@ -755,20 +786,20 @@ def handle_log_errors_trend(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_clear(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/clear — 清除错误（维护操作）"""
+    """POST /api/logs/errors/clear — Clear errors (maintenance operation)"""
     b = body or {}
     before = _parse_float(b, "before")
     return get_bus().clear(before=before)
 
 
 def handle_log_errors_export(body: dict | None = None) -> dict:
-    """POST /api/logs/errors/export — 导出错误日志 JSON"""
+    """POST /api/logs/errors/export — Export error logs to JSON"""
     b = body or {}
     path = b.get("path", "")
     return get_bus().export(path=path)
 
 
-# ── 注册到 API Gateway ──
+# ── Register with API Gateway ──
 
 LOG_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/logs/errors", handle_log_errors, "Query error logs (paginated)"),

@@ -51,8 +51,8 @@ class IssueItem:
     id: str = ""
     question: str = ""
     domain: str = ""
-    proposed_by: str = ""       # 提出者 agent_id
-    assigned_to: str = ""       # 回答者 agent_id (领地匹配)
+    proposed_by: str = ""       # Proposer agent_id
+    assigned_to: str = ""       # Answerer agent_id (territory matching)
     answer: str = ""
     status: IssueStatus = IssueStatus.PENDING
     created_at: float = field(default_factory=time.time)

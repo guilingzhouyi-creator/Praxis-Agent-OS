@@ -1,14 +1,14 @@
-"""Prompt Engine — 上下文组装 + 滑动窗口 + 分层 Prompt
+"""Prompt Engine — context assembly + sliding window + layered prompts
 
-三层架构:
-  1. ContextAssembler  — 从 memory ring / LSP 诊断 / 文件摘要 / 历史对话 组装 context
-  2. WindowManager     — 优先级滑动窗口（高价值保留，低价值淘汰）
-  3. PromptBuilder     — 角色 system prompt + 任务 prompt + 约束 prompt → 合并输出
+Three-layer architecture:
+  1. ContextAssembler  — assembles context from memory ring / LSP diagnostics / file summaries / conversation history
+  2. WindowManager     — priority sliding window (high-value retained, low-value evicted)
+  3. PromptBuilder     — role system prompt + task prompt + constraint prompt → merged output
 
 API:
-  POST /api/prompt/build      — 构建完整 prompt（组装 context + 合并分层）
-  POST /api/prompt/template   — 获取/测试 prompt 模板
-  POST /api/prompt/context    — 仅组装 context（供前端预览）
+  POST /api/prompt/build      — build full prompt (assemble context + merge layers)
+  POST /api/prompt/template   — get/test prompt template
+  POST /api/prompt/context    — assemble context only (for frontend preview)
 """
 
 from __future__ import annotations

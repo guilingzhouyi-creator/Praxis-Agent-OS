@@ -99,7 +99,8 @@ class CellMonitor:
         with self._lock:
             snap = self._snapshots.get(cell_id)
             if snap:
-                snap.agent_status[agent_id] = "CRASHED"
+                from kernel.params import AGENT_STATUS_CRASHED
+                snap.agent_status[agent_id] = AGENT_STATUS_CRASHED
                 snap.cell_healthy = False
         return {"success": True}
 
@@ -177,6 +178,18 @@ class CellMonitor:
                 message=message, data=data or {},
             ))
             self._event_count += 1
+        # Also emit to MonitorBus
+        try:
+            from .monitor_bus import MonitorEvent, get_bus as _mb
+            severity_map = {"crash": "crit", "card_fail": "warn", "card_done": "info", "registered": "info"}
+            _mb().emit(MonitorEvent(
+                type="service.cell." + event, source="cell_monitor",
+                severity=severity_map.get(event, "info"),
+                agent_id=agent_id, cell_id=cell_id,
+                message=message or event, data=data or {},
+            ))
+        except Exception:
+            pass
 
 
 _cell_monitor: CellMonitor | None = None

@@ -21,9 +21,9 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
-from kernel import get_event_bus, emit_signal, Signal, SignalType
+from kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal, Signal, SignalType
 from kernel.params import DEFAULT_AGENT_CONFIGS, CELL_ROLLBACK_RING_SIZE, CELL_HISTORY_RING_SIZE, CELL_SNAPSHOT_MAX, CELL_L3_SENDER
 from .agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
 from .cell_agent import add_agent, _boot_agent
@@ -60,12 +60,24 @@ class Cell:
 
         self._agents: dict[str, AgentInfo] = {}
         self._mailbox: dict[str, list[CellMessage]] = {}
-        self._lock = threading.Lock()
+        # RLock: add_agent → boot_agent → _boot_agent re-enters the same lock;
+        # Lock() would deadlock on a second acquire from the same thread.
+        self._lock = threading.RLock()
         self._bus = get_event_bus()
         self._pool = get_scout_pool()
         self._current_user_id: str = ""
         self._emergency: bool = False
         self._conventions: dict[str, Any] = {}
+        # Lifecycle hooks — explicit interception points for Cell boot,
+        # shutdown, agent spawn (add) and agent kill (remove). Each is a
+        # list of callables invoked in registration order; a hook may
+        # veto spawn/kill by returning {"success": False, "error": ...}.
+        # Previously Cell had no explicit lifecycle hooks — callers had
+        # to subscribe to SignalType on the event bus instead.
+        self._boot_hooks: list[Callable] = []
+        self._shutdown_hooks: list[Callable] = []
+        self._spawn_hooks: list[Callable] = []
+        self._kill_hooks: list[Callable] = []
         # Ring buffers for temp cache — evicted items go to R4 Archive
         self._rollback_ring = CircularBuffer(
             CELL_ROLLBACK_RING_SIZE,
@@ -78,14 +90,24 @@ class Cell:
         self._card_snapshots: dict[str, dict] = {}  # card_id → file snapshot (capped below) 
 
     def add_agent(self, agent_id: str, role: str = "",
-                  territory: list[str] | None = None,
-                  ring: int | None = None,
-                  max_scouts: int | None = None,
-                  auto_boot: bool = False) -> dict:
+                   territory: list[str] | None = None,
+                   ring: int | None = None,
+                   max_scouts: int | None = None,
+                   auto_boot: bool = False) -> dict:
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
         info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else 1),
                          territory=territory or [],
                          max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else 3))
+        # Spawn hooks — may veto by returning {"success": False, ...}.
+        for hook in self._spawn_hooks:
+            try:
+                vr = hook(agent_id, role, territory, ring)
+                if isinstance(vr, dict) and not vr.get("success", True):
+                    return {"success": False,
+                            "error": f"spawn hook vetoed: {vr.get('error', '?')}",
+                            "hook_error": vr}
+            except Exception as e:
+                logger.warning("spawn hook %s raised: %s", hook, e)
         with self._lock:
             if agent_id in self._agents:
                 return {"success": False, "error": f"agent {agent_id} already registered"}
@@ -95,11 +117,42 @@ class Cell:
             return self.boot_agent(agent_id)
         return {"success": True}
 
+    def remove_agent(self, agent_id: str) -> dict:
+        """Remove an agent from the Cell.
+
+        Shuts down the agent terminal, unregisters from mailbox and process table.
+        Used by CentralController._process_admin_card (kill_agent).
+        """
+        # Kill hooks — may veto by returning {"success": False, ...}.
+        for hook in self._kill_hooks:
+            try:
+                vr = hook(agent_id)
+                if isinstance(vr, dict) and not vr.get("success", True):
+                    return {"success": False,
+                            "error": f"kill hook vetoed: {vr.get('error', '?')}",
+                            "hook_error": vr}
+            except Exception as e:
+                logger.warning("kill hook %s raised: %s", hook, e)
+        from .agent_terminal import get_terminals
+        with self._lock:
+            if agent_id not in self._agents:
+                return {"success": False, "error": f"agent {agent_id} not found"}
+            del self._agents[agent_id]
+            self._mailbox.pop(agent_id, None)
+        try:
+            term = get_terminals().get(agent_id)
+            if term:
+                term.shutdown()
+        except Exception:
+            pass
+        return {"success": True, "agent_id": agent_id, "action": "removed"}
+
     # ── Cell state persistence ──
 
     def save_state(self, path: str = "") -> dict:
         """Save Cell state (agents, conventions, snapshots) to JSON."""
-        path = path or f".praxis_cell_{self.cell_id}.json"
+        from kernel.params import PRAXIS_CELL_STATE_TEMPLATE
+        path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
         state = {
             "cell_id": self.cell_id, "territory": self.territory,
             "agents": {},
@@ -125,7 +178,8 @@ class Cell:
 
     def restore_state(self, path: str = "") -> dict:
         """Restore Cell state from JSON."""
-        path = path or f".praxis_cell_{self.cell_id}.json"
+        from kernel.params import PRAXIS_CELL_STATE_TEMPLATE
+        path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
         if not os.path.exists(path):
             return {"success": False, "error": "no state file"}
         try:
@@ -187,7 +241,8 @@ class Cell:
             try:
                 from .agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
                 term = get_terminal(target)
-                if term.status not in ("CRASHED",):
+                from kernel.params import AGENT_STATUS_CRASHED
+                if term.status.name not in (AGENT_STATUS_CRASHED,):
                     tcard = TerminalCard(
                         mode=TermCardMode.EXECUTE,
                         action="convention",
@@ -248,10 +303,11 @@ class Cell:
             term = terms.get(aid)
             if term is None:
                 agent_results[aid] = {"status": "no_terminal", "alive": False}
-            elif term.status.name in ("IDLE", "PROCESSING", "WAITING_SCOUT"):
-                agent_results[aid] = {"status": term.status.name, "alive": True}
-                healthy_count += 1
-            elif term.status.name in ("BOOTING",):
+                continue
+            from kernel.params import AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING
+            if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
+                agent_results[aid] = {"status": term.status.name.lower(), "alive": True}
+            elif term.status.name in (AGENT_STATUS_BOOTING,):
                 agent_results[aid] = {"status": "booting", "alive": True}
                 healthy_count += 1
             else:
@@ -278,7 +334,49 @@ class Cell:
 
     # ── Boot / Shutdown ──
 
+    def on_boot(self, hook: Callable) -> None:
+        """Register a boot hook invoked before each agent boots.
+
+        ``hook(agent_id)`` is an observation point (no veto); boot is
+        system-controlled. Raised exceptions are logged and swallowed.
+        """
+        if hook not in self._boot_hooks:
+            self._boot_hooks.append(hook)
+
+    def on_shutdown(self, hook: Callable) -> None:
+        """Register a shutdown hook invoked before Cell shutdown.
+
+        ``hook()`` is an observation point (no veto). Raised exceptions
+        are logged and swallowed.
+        """
+        if hook not in self._shutdown_hooks:
+            self._shutdown_hooks.append(hook)
+
+    def on_spawn(self, hook: Callable) -> None:
+        """Register a spawn hook invoked before adding an agent.
+
+        ``hook(agent_id, role, territory, ring)`` may veto the spawn by
+        returning ``{"success": False, "error": ...}``.
+        """
+        if hook not in self._spawn_hooks:
+            self._spawn_hooks.append(hook)
+
+    def on_kill(self, hook: Callable) -> None:
+        """Register a kill hook invoked before removing an agent.
+
+        ``hook(agent_id)`` may veto the kill by returning
+        ``{"success": False, "error": ...}``.
+        """
+        if hook not in self._kill_hooks:
+            self._kill_hooks.append(hook)
+
     def boot_agent(self, agent_id: str) -> dict:
+        # Boot hooks — observe boot (no veto; boot is system-controlled).
+        for hook in self._boot_hooks:
+            try:
+                hook(agent_id)
+            except Exception as e:
+                logger.warning("boot hook %s raised: %s", hook, e)
         return _boot_agent(self, agent_id)
 
     def boot_all(self) -> dict:
@@ -291,6 +389,12 @@ class Cell:
                 "agents": results}
 
     def shutdown_all(self) -> dict:
+        # Shutdown hooks — observe shutdown (no veto).
+        for hook in self._shutdown_hooks:
+            try:
+                hook()
+            except Exception as e:
+                logger.warning("shutdown hook %s raised: %s", hook, e)
         from .agent_terminal import reset_terminals
         reset_terminals()
         with self._lock:
@@ -336,6 +440,41 @@ class Cell:
         logger.info("Cell %s resumed: %d agents", self.cell_id, resumed)
         return {"success": True, "cell_id": self.cell_id, "agents_resumed": resumed}
 
+    def reset_agent_context(self, agent_id: str) -> dict:
+        """Reset an agent's working context to combat context pollution.
+
+        Workflow:
+          1. Pause the agent terminal (stop processing new cards)
+          2. Compact low-value memory entries
+          3. Clear Ring 1 (working memory) — the context pollution
+          4. Reload Ring 2 (cached session memory) for continuity
+          5. Resume the agent terminal
+
+        Used by CentralController._process_admin_card (refresh_agent).
+        """
+        from .agent_terminal import get_terminals
+        term = get_terminals().get(agent_id)
+        if not term:
+            return {"success": False, "error": f"agent {agent_id} not found"}
+        try:
+            term.pause()
+        except Exception as e:
+            logger.warning("reset_agent_context pause failed: %s", e)
+        try:
+            from .memory import get_memory
+            mem = get_memory()
+            mem.compact(agent_id)
+            mem.forget_agent(agent_id)
+            mem.restore(ring2_limit=50)
+        except Exception as e:
+            logger.warning("reset_agent_context memory reset failed: %s", e)
+        try:
+            term.resume()
+        except Exception as e:
+            logger.warning("reset_agent_context resume failed: %s", e)
+        logger.info("Cell %s reset context for agent %s", self.cell_id, agent_id)
+        return {"success": True, "cell_id": self.cell_id, "agent_id": agent_id, "action": "context_reset"}
+
     # ── Card Dispatch ──
 
     def dispatch_card(self, target_agent: str, action: str,
@@ -352,11 +491,16 @@ class Cell:
             params=params or {}, sender=sender,
         )
         card_id = term.dispatch(card)
-        emit_signal("task_assign", sender=sender, target=target_agent,
+        emit_signal(EVENT_TASK_ASSIGN, sender=sender, target=target_agent,
                     data={"card_id": card_id, "action": action, "mode": mode.name})
 
         # ── Blocking cross-review gate for write operations ──
-        if action in ("write_file", "replace_string", "delete", "rename"):
+        try:
+            from .tool_config import ToolConfig as _TC
+            _is_write = action in _TC.write_tool_names()
+        except Exception:
+            _is_write = False
+        if _is_write:
             review = self._auto_cross_review(target_agent, action, target, card_id)
             if not review.get("approved"):
                 return {"success": False, "card_id": card_id,
@@ -502,7 +646,15 @@ class Cell:
         self._snapshot_and_inject(card_id, card)
 
         plan = ExecutionPlan(card, agent_map, user_id=self._current_user_id)
-        result = plan.execute()
+        try:
+            result = plan.execute()
+        finally:
+            # Clean up snapshot temp files for this card to avoid /tmp leaks.
+            # The rollback_card path pops the snapshot for the same card_id first,
+            # so only completed snapshots are cleaned here; rollback flow is unaffected.
+            snap_wrapper = self._card_snapshots.pop(card_id, None)
+            if snap_wrapper and isinstance(snap_wrapper, dict):
+                self._cleanup_snapshot(snap_wrapper.get("files", {}))
         result["card_id"] = card_id
 
         # Record card history in ring buffer
@@ -555,7 +707,7 @@ class Cell:
         Prevents data loss: evicted items go to permanent cold storage.
         """
         try:
-            from tools.special.tools_archive import archive_store
+            from tools._archive import archive_store
             import json as _json
             content = _json.dumps(item, default=str, ensure_ascii=False) if not isinstance(item, str) else item
             title = item.get("intent", str(item)[:80]) if isinstance(item, dict) else str(item)[:80]

@@ -34,6 +34,10 @@ from kernel.params import (
     LLM_MAX_TRANSIENT_RETRIES,
     LLM_RATE_LIMIT_WAIT,
     LLM_TRANSIENT_BACKOFF_BASE,
+    LLM_CACHE_RETENTION_THRESHOLD,
+    LLM_CACHE_RETENTION_STRING,
+    LLM_THINKING_BUFFER,
+    LOOP_TURN_WARNING_THRESHOLD,
     TOOL_HANDLER_TIMEOUT,
 )
 
@@ -165,6 +169,7 @@ class LLMEngine:
 
     def tool_use(self, prompt: str, tools: list[ToolSpec], system: str = "",
                  max_turns: int = 5, user_id: str = "",
+                 context_trail: list[dict] | None = None,
                  **overrides: Any) -> dict:
         """LLM autonomously calls tools to fulfill a task.
 
@@ -174,18 +179,19 @@ class LLMEngine:
             system: System prompt
             max_turns: Max tool-call iterations
             user_id: Per-agent KV cache isolation (DeepSeek) or cache_control key
+            context_trail: Previous conversation turns for continuity
 
         Returns:
-            {"content": final_response, "tool_calls": [...], "turns": N}
+            {"content": final_response, "tool_calls": [...], "turns": N, "context_trail": [...]}
         """
         import json as _json
         import uuid
 
         prompt, system, cache_extra = self._get_strategy().optimize(prompt, system, user_id)
 
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
+        messages = list(context_trail or [])
+        if system and not any(m.get("role") == "system" for m in messages):
+            messages.insert(0, {"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         # ToolSearch: defer loading — only send relevant tools (saves ~10-18% tokens)
@@ -207,8 +213,9 @@ class LLMEngine:
 
             # ── Inject turn budget warning ──
             remaining = max_turns - turn
-            if remaining <= 2 and messages:
-                warning = {"role": "user", "content": f"[System: {remaining} turn(s) remaining. Make this count.]"}
+            from kernel.prompts import get_prompt as _gp
+            if remaining <= LOOP_TURN_WARNING_THRESHOLD and messages:
+                warning = {"role": "user", "content": _gp("llm.turn_budget_warning", "").format(remaining=remaining)}
                 messages.append(warning)
 
             # Build request with tool definitions
@@ -228,13 +235,13 @@ class LLMEngine:
             }
             if user_id:
                 body_dict["user_id"] = user_id
-            if self.config.cache_retention >= 86400:
-                body_dict["prompt_cache_retention"] = "24h"
+            if self.config.cache_retention >= LLM_CACHE_RETENTION_THRESHOLD:
+                body_dict["prompt_cache_retention"] = LLM_CACHE_RETENTION_STRING
             if reff and reff != "none":
                 body_dict["reasoning_effort"] = reff
             if tbud > 0:
                 body_dict["thinking"] = {"type": "enabled", "budget_tokens": tbud}
-                body_dict["max_tokens"] = max(max_tok, tbud + 1000)
+                body_dict["max_tokens"] = max(max_tok, tbud + LLM_THINKING_BUFFER)
             body = _json.dumps(body_dict).encode()
 
             try:
@@ -244,7 +251,7 @@ class LLMEngine:
 
                 if not tool_calls:
                     # LLM finished — no more tool calls
-                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1}
+                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1, "context_trail": messages[-30:]}
 
                 # Execute tool calls in parallel with per-handler timeout
                 assistant_msg = {"role": "assistant", "content": content, "tool_calls": [tc for tc in tool_calls]}
@@ -287,9 +294,9 @@ class LLMEngine:
                         })
 
             except Exception as e:
-                return {"content": "", "tool_calls": all_calls, "turns": turn + 1, "error": str(e)}
+                return {"content": "", "tool_calls": all_calls, "turns": turn + 1, "error": str(e), "context_trail": messages[-30:]}
 
-        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns}
+        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns, "context_trail": messages[-30:]}
 
     def _call_api(self, body: bytes, retry_count: int = 0) -> dict:
         """Low-level API call with retry layers. Returns parsed response dict with cache stats.
@@ -434,7 +441,8 @@ def analyze(findings: list, context: str = "", user_id: str = "") -> dict:
     """Analyze findings (scout results, code review, etc.) with LLM."""
     from kernel.prompts import get_prompt as _gp
     prompt = f"Context: {context}\n\nFindings:\n" + "\n".join(str(f) for f in findings)
-    prompt += "\n\nProvide a structured analysis with severity, impact, and recommendations."
+    from kernel.prompts import get_prompt as _gp
+    prompt += _gp("llm.analyze_suffix", "")
     return get_engine().generate(prompt, system=_gp("llm.analyze_system", "You are a code analysis expert."),
                                  max_tokens=1024, user_id=user_id)
 
@@ -508,7 +516,8 @@ def _counter_hook(result, prompt="", system="", max_tokens=0, user_id="", **kwar
         # Also emit TOKEN_USAGE event for CentralCollector cross-Cell aggregation
         from kernel import emit_signal
         provider = kwargs.get("provider", "")
-        emit_signal("token_usage", sender=user_id or "unknown", target="central_collector",
+        from kernel.params import EVENT_TOKEN_USAGE
+        emit_signal(EVENT_TOKEN_USAGE, sender=user_id or "unknown", target="central_collector",
                     data={"agent_id": user_id or "unknown", "cell_id": kwargs.get("cell_id", "default"),
                           "input_tokens": inp, "output_tokens": out,
                           "provider": provider, "model": result.get("model", "")})

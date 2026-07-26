@@ -25,7 +25,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.event import get_bus, Signal, SignalType
 from kernel.interrupt import get_table as get_int_table, InterruptType, register_handler
 
@@ -207,7 +207,7 @@ class OpsConsole:
             self._alerts.append(alert)
             if len(self._alerts) > self._max_alerts:
                 self._alerts = self._alerts[-self._max_alerts:]
-        emit_signal("task_assign", sender="ops", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="ops", target="l3",
                      data={"alert": level, "source": source, "message": message})
 
     def recent_alerts(self, level: str = "", limit: int = 20) -> list[dict]:

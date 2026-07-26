@@ -22,7 +22,7 @@ import shlex
 import time
 from typing import Any
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.commands import (
     register_command as _register_handler,
     get_command, get_handler, list_commands as _list_defs,
@@ -254,8 +254,10 @@ def guard_output(agent_id: str, response: str) -> dict:
         return {"safe": False, "output": replacement or response[:100],
                 "reason": review.get("reason", "")}
     except Exception as e:
+        # fail-closed: block response on guard exception to prevent dangerous content
         logger.warning("output guard failed: %s", e)
-        return {"safe": True, "output": response}
+        return {"safe": False, "output": "[blocked: output guard error]",
+                "reason": f"guard_error: {e}"}
 
 
 # ── Command handlers ──
@@ -295,7 +297,8 @@ def _cmd_connect(args: list[str]) -> dict:
     state = get_state()
     cell_id = state.cell_id
 
-    # Security gate: run through CentralSecurity
+    # Security gate: run through CentralSecurity — fail-closed:
+    # Security service exception blocks connect to avoid bypassing the security gate.
     try:
         from .central_security import get_center as _get_sec
         sec = _get_sec().check_all(
@@ -309,6 +312,8 @@ def _cmd_connect(args: list[str]) -> dict:
                     "security": sec}
     except Exception as e:
         logger.warning("security check unavailable: %s", e)
+        return {"success": False,
+                "error": f"security check required but unavailable: {e}"}
 
     # PreConnect enhanced check
     check = preconnect_enhanced(cell_id, agent_id)
@@ -323,7 +328,7 @@ def _cmd_connect(args: list[str]) -> dict:
         r = cell.send_direct_message(agent_id, "Hello")
         if r.get("success"):
             state.switch_to_direct(cell_id, agent_id)
-            emit_signal("task_assign", sender="shell", target="l3",
+            emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
                          data={"event": "direct_mode_entered",
                                "cell_id": cell_id, "agent_id": agent_id})
             return {"success": True, "message": f"Connected to {agent_id}",
@@ -343,7 +348,7 @@ def _cmd_disconnect(args: list[str]) -> dict:
         cell = get_cell(state.cell_id)
         r = cell.close_direct_session(state.agent_id)
         state.switch_to_l3a()
-        emit_signal("task_assign", sender="shell", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
                      data={"event": "l3a_mode_restored"})
         return {"success": True, "message": "Disconnected, returned to L3A mode"}
     except Exception as e:
@@ -460,17 +465,81 @@ def _cmd_security(args: list[str]) -> dict:
     return {"success": False, "error": "usage: /security [stats|check <action> <agent> [target] [tool]]"}
 
 
-def _cmd_memory(args: list[str]) -> dict:
-    """CentralMemory: stats or recall."""
+def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
+    """Execute memory operations for a single agent."""
+    from .memory import get_memory
     from .central_memory import get_center as _mem
     mem = _mem()
-    sub = args[0] if args else "stats"
-    if sub == "stats":
-        return {"success": True, "stats": mem.stats()}
-    if sub == "recall" and len(args) >= 2:
-        results = mem.recall(query=" ".join(args[1:]), limit=10)
-        return {"success": True, "results": results, "count": len(results)}
-    return {"success": False, "error": "usage: /memory [stats|recall <query>]"}
+    mm = get_memory()
+
+    if op == "stats":
+        return {"agent": agent_id, "stats": mem.stats()}
+    if op == "recall":
+        query = " ".join(op_args) if op_args else ""
+        results = mem.recall(agent_id=agent_id, query=query, limit=10) if query else []
+        return {"agent": agent_id, "results": results, "count": len(results)}
+    if op == "store":
+        ring = int(op_args[0]) if op_args else 1
+        content = " ".join(op_args[1:]) if len(op_args) > 1 else ""
+        r = mem.remember(agent_id=agent_id, content=content, ring=ring)
+        return {"agent": agent_id, "result": r}
+    if op == "compact":
+        r = mem.compact(agent_id=agent_id)
+        return {"agent": agent_id, "result": r}
+    if op == "stub_compact":
+        r = mm.stub_compact(agent_id=agent_id)
+        return {"agent": agent_id, "result": r}
+    if op == "archive":
+        r = mem.archive_ring3()
+        return {"agent": agent_id, "result": r}
+    if op == "forget":
+        r = mm.forget_agent(agent_id)
+        return {"agent": agent_id, "result": r}
+    if op == "ring":
+        ring_n = int(op_args[0]) if op_args else 1
+        r = mm._ring(ring_n).status() if hasattr(mm, '_ring') else {"error": "not available"}
+        return {"agent": agent_id, "ring": ring_n, "status": r}
+    return {"agent": agent_id, "error": f"unknown op: {op}"}
+
+
+def _cmd_memory(args: list[str]) -> dict:
+    """Control memory at three scopes: global / --cell / --agent.
+    
+    Usage:
+      /memory stats                            → global stats
+      /memory recall <query>                   → global search
+      /memory --cell cell-1 stats              → stats for all agents in cell
+      /memory --cell cell-1 compact            → compact all agents in cell
+      /memory --cell cell-1 archive            → archive cell
+      /memory --agent agent-writer compact     → compact specified agent
+      /memory --agent agent-writer forget      → clear memory
+      /memory --agent agent-writer ring 1      → inspect specified ring
+    """
+    from kernel.commands import resolve_scope, resolve_agents
+    scope, scope_id, rest = resolve_scope(args)
+    op = rest[0] if rest else "stats"
+    op_args = rest[1:]
+
+    if op == "stats" and scope == "global":
+        from .central_memory import get_center as _mem
+        return {"success": True, "stats": _mem().stats(), "scope": "global"}
+
+    if op == "recall" and scope == "global":
+        from .central_memory import get_center as _mem
+        query = " ".join(op_args)
+        results = _mem().recall(query=query, limit=10)
+        return {"success": True, "results": results, "count": len(results), "scope": "global"}
+
+    agents = resolve_agents(scope, scope_id)
+    results = {}
+    for agent_id in agents:
+        try:
+            results[agent_id] = _execute_memory_op(agent_id, op, op_args)
+        except Exception as e:
+            results[agent_id] = {"error": str(e)}
+
+    return {"success": True, "scope": scope, "scope_id": scope_id,
+            "agents": len(results), "results": results}
 
 
 def _cmd_plugins(args: list[str]) -> dict:
@@ -797,13 +866,141 @@ def _cmd_cron(args: list[str]) -> dict:
     return {"success": False, "error": "usage: /cron [list|add <id> <cron> <intent>|remove <id>]"}
 
 
+def _cmd_cell_create(args: list[str]) -> dict:
+    """Create a new Cell with 3 Peer Agents (reader, writer, governor).
+    /cell create <territory>
+    """
+    if not args:
+        return {"success": False, "error": "usage: /cell create <territory>"}
+    territory = args[0].strip("/")
+    try:
+        from .boot import _create_cell as _boot_create_cell
+        import time
+        agent_config = [
+            (f"agent-{int(time.time())}-r", "reader", [territory]),
+            (f"agent-{int(time.time())}-w", "writer", [territory]),
+            (f"agent-{int(time.time())}-g", "governor", [territory]),
+        ]
+        r = _boot_create_cell(agent_config)
+        return {"success": True, "action": "create_cell", "agents": agent_config, "cell_id": r.get("cell_id", "default")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _cmd_buffer(args: list[str]) -> dict:
+    """Resource buffer management.
+    /buffer status            → show pending buffer status
+    /buffer commit [path]     → commit pending to disk
+    /buffer diff <path>       → show pending vs checkpoint diff
+    /buffer discard <path>    → discard pending changes
+    """
+    from .resource_buffer.manager import get_manager as _bm
+    mgr = _bm()
+    sub = args[0] if args else "status"
+    try:
+        if sub == "status":
+            return mgr.status()
+        if sub == "commit":
+            return mgr.commit(args[1] if len(args) > 1 else "")
+        if sub == "diff" and len(args) >= 2:
+            return mgr.diff(args[1])
+        if sub == "discard" and len(args) >= 2:
+            return mgr.discard(args[1])
+        return {"success": False, "error": "usage: /buffer [status|commit <path>|diff <path>|discard <path>]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _cmd_card(args: list[str]) -> dict:
+    """Manage card pool: install, search, export, list.
+    /card install <url>           → install from URL
+    /card install-file <path>     → install from local file
+    /card search <query>          → search remote registries
+    /card export <name> [path]    → export to file
+    /card list [category]         → list installed card types
+    /card remove <name>           → remove card type
+    """
+    from .card_pool import get_pool as _cp
+    pool = _cp()
+    sub = args[0] if args else "list"
+    try:
+        if sub == "list":
+            cat = args[1] if len(args) > 1 else ""
+            return pool.list_pool(category=cat)
+        if sub == "install" and len(args) >= 2:
+            return pool.install_from_url(args[1])
+        if sub == "install-file" and len(args) >= 2:
+            return pool.install_from_file(args[1])
+        if sub == "export" and len(args) >= 2:
+            return pool.export_to_file(args[1], args[2] if len(args) > 2 else "")
+        if sub == "search" and len(args) >= 2:
+            return pool.search_remote(" ".join(args[1:]))
+        if sub == "remove" and len(args) >= 2:
+            return pool.remove(args[1])
+        return {"success": False, "error": "usage: /card [list|install <url>|install-file <path>|search <q>|export <name>|remove <name>]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _cmd_agent_refresh(args: list[str]) -> dict:
+    """Reset an agent's context (clear pollution + reload cached memory).
+    /agent refresh <agent_id>
+    """
+    if not args:
+        return {"success": False, "error": "usage: /agent refresh <agent_id>"}
+    agent_id = args[0]
+    try:
+        from .cell import get_cell
+        from .cell_monitor import get_cell_monitor
+        cell = get_cell()
+        result = cell.reset_agent_context(agent_id)
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _cmd_tokens(args: list[str]) -> dict:
+    """Query token usage with scope: global / --cell / --agent.
+    /tokens                  → global summary
+    /tokens --cell cell-1    → single Cell
+    /tokens --agent agent-a  → single agent
+    """
+    from kernel.commands import resolve_scope, resolve_agents
+    from .context_pool import all_cell_totals, cell_total, token_usage
+    scope, scope_id, rest = resolve_scope(args)
+    sub = rest[0] if rest else "global"
+    try:
+        if scope == "global" and sub == "global":
+            return {"success": True, "tokens": all_cell_totals()}
+        if scope == "cell" and scope_id:
+            return {"success": True, "cell": cell_total(scope_id)}
+        if scope == "agent" and scope_id:
+            return {"success": True, "agent": token_usage(scope_id)}
+        if sub == "cells":
+            return {"success": True, "cells": all_cell_totals().get("cells", [])}
+        agents = resolve_agents(scope, scope_id)
+        results = {a: token_usage(a).get(a, 0) for a in agents}
+        return {"success": True, "scope": scope, "scope_id": scope_id,
+                "results": results, "agents": len(results)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# Load command definitions from commands.yaml
+try:
+    from kernel.commands import load_command_defs
+    load_command_defs()
+except Exception:
+    pass
+
 # Register command handlers with centralized registry
 for _name in ("help", "agents", "connect", "disconnect", "mode", "status",
               "intents", "scheduler", "observe", "skills", "cells",
               "cross", "security", "memory", "plugins", "mcp",
               "process", "vfs", "cache", "sysinfo", "clear", "history",
               "lang", "spawn", "kill", "destroy", "emergency", "cluster",
-              "audit", "settings", "devices", "tools", "config", "cron"):
+              "audit", "settings", "devices", "tools", "config", "cron",
+               "cell_create", "agent_refresh", "tokens", "card", "buffer"):
     _handler = locals().get(f"_cmd_{_name}")
     if _handler:
         _register_handler(_name, _handler)
@@ -811,12 +1008,124 @@ for _name in ("help", "agents", "connect", "disconnect", "mode", "status",
 
 # ── Message dispatch ──
 
+def _pipeline(segments: list[str]) -> dict:
+    """Execute a generic command pipeline.
+
+    Three pipeline modes, auto-selected by previous command's output shape:
+
+    Mode 1 — Map (results is a dict of {key: value}):
+      /memory compact | /tokens --agent {key}
+      → Iterates over result keys, substitutes {key} and {value}
+
+    Mode 2 — Chain (results is a list):
+      /status | /tokens --agent {key}
+      → Iterates over list items
+
+    Mode 3 — Passthrough (any other result):
+      /status | /memory --agent {scope_id} stats
+      → Passes scope/scope_id/agents as variables
+
+    Available variables from previous command output:
+      {key}       — iteration key (from results dict keys)
+      {value}     — iteration value (from results dict values)
+      {scope}     — result["scope"]
+      {scope_id}  — result["scope_id"]
+      {count}     — result["agents"] or len(results)
+      {.field}    — any top-level field from result (e.g. {.success})
+    """
+    from kernel.commands import get_handler as _gh
+    import shlex
+
+    parts = [shlex.split(s.strip()) for s in segments]
+
+    def _subst(args: list[str], ctx: dict) -> list[str]:
+        """Substitute {key}, {value}, {scope}, {scope_id}, {.field} in args."""
+        out = []
+        for a in args:
+            if not isinstance(a, str) or "{" not in a:
+                out.append(a)
+                continue
+            # Replace {.field} with result["field"]
+            import re
+            a = re.sub(r"\{\.(\w+)\}", lambda m: str(ctx.get(m.group(1), m.group(0))), a)
+            # Replace {key}, {value}, {scope}, {scope_id}, {count}
+            a = a.format(**ctx)
+            out.append(a)
+        return out
+
+    def _build_ctx(result: dict) -> dict:
+        """Extract context variables from a command result."""
+        ctx = {"scope": result.get("scope", ""), "scope_id": result.get("scope_id", ""),
+               "count": str(result.get("agents", result.get("count", 0)))}
+        ctx.update({k: str(v) for k, v in result.items()
+                   if isinstance(v, (str, int, float, bool))})
+        return ctx
+
+    ctx = {}
+    last_result = None
+
+    for seg_idx, seg_parts in enumerate(parts):
+        if not seg_parts:
+            continue
+        cmd = seg_parts[0][1:] if seg_parts[0].startswith("/") else seg_parts[0]
+        cmd_args = seg_parts[1:]
+
+        handler = _gh(cmd)
+        if not handler:
+            return {"success": False, "error": f"pipeline: unknown '{cmd}'", "segment": seg_idx}
+
+        # Map mode: previous command returned results dict → iterate
+        if last_result and isinstance(last_result, dict):
+            results_dict = last_result.get("results")
+            if isinstance(results_dict, dict) and seg_idx > 0:
+                aggregated = {}
+                for item_key, item_val in results_dict.items():
+                    ictx = dict(ctx, key=str(item_key), value=str(item_val)
+                                if not isinstance(item_val, (dict, list)) else str(item_key))
+                    nargs = _subst(cmd_args, ictx)
+                    r = handler(nargs)
+                    aggregated[item_key] = r
+                return {"success": True, "pipeline": True,
+                        "segments": len(parts), "results": aggregated}
+
+            # Chain mode: results is a list
+            results_list = last_result.get("results")
+            if isinstance(results_list, (list, tuple)) and seg_idx > 0:
+                aggregated = {}
+                for i, item in enumerate(results_list):
+                    item_str = str(item) if not isinstance(item, (dict, list)) else str(i)
+                    ictx = dict(ctx, key=item_str, value=item_str, index=str(i))
+                    nargs = _subst(cmd_args, ictx)
+                    r = handler(nargs)
+                    aggregated[str(i) if not isinstance(item, str) else item] = r
+                return {"success": True, "pipeline": True,
+                        "segments": len(parts), "results": aggregated}
+
+        # Passthrough: execute normally, update context
+        cmd_args = _subst(cmd_args, ctx)
+        result = handler(cmd_args)
+        if not result.get("success", True):
+            return result
+
+        last_result = result
+        ctx.update(_build_ctx(result))
+
+    return last_result or {"success": True, "result": ""}
+
+
 def dispatch(text: str) -> dict:
     """Main entry: route user input through Shell.
 
     /command → execute command
+    cmd1 | cmd2 → pipeline (output of cmd1 feeds into cmd2)
     else     → L3A mode (parse intent) or Direct mode (message agent)
     """
+    # Pipeline detection
+    if "|" in text:
+        segments = [s.strip() for s in text.split("|")]
+        if len(segments) >= 2:
+            return _pipeline(segments)
+
     state = get_state()
 
     if text.startswith("/"):
@@ -888,7 +1197,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
     except Exception:
         pass
     state.switch_to_l3a()
-    emit_signal("task_assign", sender="shell", target="l3",
+    emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
                  data={"event": "l3a_mode_restored_auto",
                        "reason": reason})
 

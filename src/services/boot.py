@@ -133,6 +133,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
             if not br.get("success"):
                 logger.warning("bootstrap incomplete: %s", br.get("error", ""))
     except Exception as e:
+        from services.error_bus import capture
+        capture("bootstrap check failed", exc=e, component="kernel")
         logger.warning("bootstrap check: %s", e)
 
     # Register shutdown handler (atexit + signal) so state is always saved
@@ -141,6 +143,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         register_shutdown_handler()
         _BOOT_STEPS.append("shutdown_handler")
     except Exception as e:
+        from services.error_bus import capture
+        capture("shutdown handler failed", exc=e, component="kernel")
         logger.warning("boot shutdown handler: %s", e)
 
     # Restore previous state if available
@@ -213,6 +217,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                 success = False
                 break
         except Exception as e:
+            from services.error_bus import capture
+            capture(f"boot step {name} failed", exc=e, component="kernel")
             results[name] = {"success": False, "error": str(e)}
             success = False
             break
@@ -245,7 +251,8 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
     """Register all built-in boot steps via the extensible registry."""
     register_boot_step("load_constitution", _load_constitution, depends_on=[])
     register_boot_step("load_config", _load_config, depends_on=["load_constitution"])
-    register_boot_step("init_services", _init_services, depends_on=["load_config"])
+    register_boot_step("load_tools", _load_tools, depends_on=["load_config"])
+    register_boot_step("init_services", _init_services, depends_on=["load_tools"])
     register_boot_step("create_cell", lambda: _create_cell(agent_config),
                        depends_on=["init_services"])
 
@@ -341,6 +348,17 @@ def _init_kernel_and_vfs() -> dict:
     return results
 
 
+def _load_tools() -> dict:
+    """Load tool definitions from tools.yaml into TOOL_REGISTRY."""
+    try:
+        from .tool_config import ToolConfig
+        n = ToolConfig.load()
+        return {"success": True, "tools": n}
+    except Exception as e:
+        logger.warning("tool_config load failed: %s", e)
+        return {"success": False, "error": str(e)}
+
+
 def _init_skills_and_network() -> dict:
     """Init skills, network kernel, HTN planner."""
     results = {}
@@ -373,8 +391,8 @@ def _init_memory_and_archive() -> dict:
             results["swapper_wired"] = f"skip: {e}"
     except Exception as e: results["memory_restore"] = f"skip: {e}"
     try:
-        from tools.special.tools_archive import init_archive
-        init_archive("memories"); results["archive_init"] = "ok"
+        from tools._archive import init_archive
+        init_archive(); results["archive_init"] = "ok"
     except Exception as e: results["archive_init"] = f"skip: {e}"
     try:
         from .archive_orchestrator import ring3_from_archive
@@ -410,6 +428,33 @@ def _init_services() -> dict:
             results.update(r)
         except Exception as e:
             logger.error("boot sub-init failed: %s", e)
+    # Initialize MonitorBus + MessageGate
+    try:
+        from .monitor_bus import get_bus
+        get_bus()  # warm singleton
+        results["monitor_bus"] = "ok"
+    except Exception as e:
+        logger.warning("monitor_bus init: %s", e)
+    try:
+        from .monitor_bus import MonitorEvent, get_bus as _mb
+        _mb().emit(MonitorEvent(type="system.boot", source="boot", severity="info", message="System booted"))
+    except Exception:
+        pass
+    # Initialize ResourceBuffer (crash recovery + background flush)
+    try:
+        from .resource_buffer.manager import get_manager
+        get_manager()  # warm singleton, triggers recover()
+        results["resource_buffer"] = "ok"
+    except Exception as e:
+        logger.warning("resource_buffer init: %s", e)
+
+    # Install LogService logging bridge (catches all logger.* calls)
+    try:
+        from .log import get_service as _ls
+        _ls().install_handler()
+        results["log_handler"] = "ok"
+    except Exception as e:
+        logger.warning("log handler install: %s", e)
     return {"success": True, "services": list(results.keys()), "results": results}
 
 
@@ -428,7 +473,7 @@ def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -
     for agent_id, role, territory in agent_config or []:
         cell.add_agent(agent_id, role=role, territory=territory, auto_boot=True)
         pid = register_process(agent_id, role=role, ring=1)
-        get_time_scheduler().register(agent_id, priority=3 if role == "reviewer" else 5)
+        get_time_scheduler().register(agent_id, priority=AGENT_PRIORITY.get(role, 5))
         get_ft().heartbeat(agent_id)
         registered.append({"agent": agent_id, "pid": pid})
         for t in territory:

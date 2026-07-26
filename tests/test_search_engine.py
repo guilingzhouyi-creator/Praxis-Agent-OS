@@ -1,4 +1,4 @@
-"""Search Engine 集成测试 — 语义搜索 + 符号搜索 + 文档搜索 + API"""
+"""Search Engine integration test — semantic search + symbol search + doc search + API"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class TestSemanticSearch:
-    """语义搜索（TF-IDF）"""
+    """Semantic search (TF-IDF)"""
 
     def test_search_empty_query(self):
         from services.search_engine import SemanticSearch
@@ -42,7 +42,7 @@ def _make_semantic():
 
 
 class TestSymbolSearch:
-    """符号搜索（AST）"""
+    """Symbol search (AST)"""
 
     def test_search_function(self):
         from services.search_engine import SymbolSearch

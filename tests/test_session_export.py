@@ -1,11 +1,11 @@
-"""Session Export 集成测试 — 导出/导入/快照 + API"""
+"""Session Export integration test — export/import/snapshot + API"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestSessionExport:
-    """Session 导出"""
+    """Session export"""
 
     def test_export_basic(self):
         from services.session_export import SessionExportManager
@@ -33,7 +33,7 @@ class TestSessionExport:
 
 
 class TestSessionImport:
-    """Session 导入"""
+    """Session import"""
 
     def test_import_valid(self):
         from services.session_export import SessionExportManager

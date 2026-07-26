@@ -1,13 +1,13 @@
-"""File Editor — Diff语义编辑引擎 + 原子批量 + Patch系统 + Undo/Redo
+"""File Editor — Diff Semantic Edit Engine + Atomic Batch + Patch System + Undo/Redo
 
-架构:
+Architecture:
   FileEditor (services/file_editor.py)
-  ├── diff_edit()       — 语义 search/replace，带上下文容错匹配
-  ├── batch_edit()      — 原子化多文件编辑（全成功或全回滚）
-  ├── patch_create()    — 从变更创建 patch
-  ├── patch_apply()     — 应用 patch
-  ├── patch_revert()    — 回滚 patch
-  └── HistoryStack      — 文件操作历史栈 + reversal 反推
+  ├── diff_edit()       — Semantic search/replace with context-tolerant matching
+  ├── batch_edit()      — Atomic multi-file editing (all succeed or all roll back)
+  ├── patch_create()    — Create a patch from changes
+  ├── patch_apply()     — Apply a patch
+  ├── patch_revert()    — Revert a patch
+  └── HistoryStack      — File operation history stack + reversal inference
 
 API (通过 LOG_ROUTES 模式注册):
   POST /api/fs/edit         — 语义编辑
@@ -181,9 +181,10 @@ class EditEngine:
             final = new_content
 
         try:
-            path.write_text(final, encoding="utf-8")
+            from services.resource_buffer.manager import get_manager
+            get_manager().stage(str(path), final, op="edit")
         except Exception as e:
-            return {"success": False, "error": f"write failed: {e}"}
+            return {"success": False, "error": f"buffer stage failed: {e}"}
 
         op = EditOperation(
             edits=[{"path": str(path), "old": old, "new": new,

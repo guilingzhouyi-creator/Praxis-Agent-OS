@@ -25,14 +25,12 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from kernel.params import RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL, WRITE_TOOL_NAMES, TERMINAL_TOOL_NAMES
+from kernel.params import RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL
 
 logger = logging.getLogger(__name__)
 
 # Write tool names — on execution, invalidate cached results with matching paths
-_WRITE_TOOLS: frozenset[str] = WRITE_TOOL_NAMES | TERMINAL_TOOL_NAMES | frozenset({
-    "delete", "rename",
-})
+_WRITE_TOOLS: frozenset[str] = frozenset()  # populated lazily via ToolConfig
 
 
 def _canonical_json(obj: Any) -> str:

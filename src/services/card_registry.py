@@ -20,25 +20,12 @@ import time
 import uuid
 from typing import Any, Callable
 
-from kernel import emit_signal
+from kernel import EVENT_TASK_ASSIGN, emit_signal
 from kernel.params import CARD_REGISTRY_PATH, CARD_REGISTRY_AUTO_SAVE, CARD_DISPATCH_INTERVAL, CARD_QUEUE_PENDING_MAX
 from services._persistable import PersistableMixin
-from .card_state import CardState
 from .card_unified import CardUnified, CardLifecycle, CardSummary
 
 logger = logging.getLogger(__name__)
-
-# Map CardState (registry lifecycle) ↔ CardLifecycle (card internal)
-_STATE_TO_LIFECYCLE: dict[CardState, CardLifecycle] = {
-    CardState.PENDING: CardLifecycle.QUEUED,
-    CardState.DISPATCHED: CardLifecycle.DISPATCHED,
-    CardState.RUNNING: CardLifecycle.RUNNING,
-    CardState.DONE: CardLifecycle.COMPLETED,
-    CardState.FAILED: CardLifecycle.FAILED,
-    CardState.CANCELLED: CardLifecycle.CANCELLED,
-}
-
-_LIFECYCLE_TO_STATE: dict[CardLifecycle, CardState] = {v: k for k, v in _STATE_TO_LIFECYCLE.items()}
 
 
 def _card_to_dict(r: CardUnified) -> dict:
@@ -50,7 +37,7 @@ def _card_to_dict(r: CardUnified) -> dict:
         elapsed = round(time.time() - r.timestamps.dispatched_at, 1)
     d = r.to_dict(include_hidden=False)
     d["elapsed"] = elapsed
-    d["state"] = _LIFECYCLE_TO_STATE.get(r.state, CardState.PENDING).name
+    d["state"] = r.state.value  # CardLifecycle string value directly
     d["has_plan"] = bool(r.summary.columns or r.phases)
     d["plan_summary"] = r.summary.title[:80] if r.summary.title else ""
     return d
@@ -128,7 +115,7 @@ class CardRegistry(PersistableMixin):
                     rec.state = CardLifecycle.CANCELLED
                     if cid in self._queue:
                         self._queue.remove(cid)
-                    emit_signal("task_assign", sender="registry", target="l3",
+                    emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
                                  data={"card_id": cid, "event": "stale_escalated"})
 
     # ── Placeholder system ──
@@ -192,9 +179,13 @@ class CardRegistry(PersistableMixin):
                 return
             intent = record.summary.title
             domain = record.nature
+            # Phase 1 bridge: prefer embedded old Card, fall back to to_old_card(),
+            # then raw intent string.
             structured_card = None
             if hasattr(record, 'card') and record.card:
                 structured_card = record.card
+            elif record.phases and any(p.tasks for p in record.phases):
+                structured_card = record.to_old_card()
 
         try:
             from .card_gate import evaluate as _gate_evaluate
@@ -333,7 +324,7 @@ class CardRegistry(PersistableMixin):
             self._queue.append(cid)
             self._queue.sort(key=lambda x: self._cards[x].priority if x in self._cards else 5)
         logger.info("card submitted: %s — %s", cid, intent[:60])
-        emit_signal("task_assign", sender="registry", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
                      data={"card_id": cid, "intent": intent[:60], "event": "submitted"})
         try:
             from .reference_channel import get_rc as _rc
@@ -365,7 +356,7 @@ class CardRegistry(PersistableMixin):
                 self._cell_map[cell_id]["active_cards"] += 1
 
         logger.info("card dispatched: %s → %s", card_id, cell_id)
-        emit_signal("task_assign", sender="registry", target=cell_id,
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=cell_id,
                      data={"card_id": card_id, "event": "dispatched"})
         return {"success": True, "card_id": card_id, "cell_id": cell_id}
 
@@ -386,7 +377,7 @@ class CardRegistry(PersistableMixin):
                 cell["active_cards"] = max(0, cell["active_cards"] - 1)
             if card_id in self._queue:
                 self._queue.remove(card_id)
-        emit_signal("task_assign", sender="registry", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
                      data={"card_id": card_id, "state": record.state.value, "event": "completed"})
         # ── Task completion bus: fire webhooks ──
         try:
@@ -427,16 +418,18 @@ class CardRegistry(PersistableMixin):
         with self._lock:
             return self._cards.get(card_id)
 
-    def list(self, state: CardState | None = None,
-             cell_id: str = "", limit: int = 50) -> list[dict]:
+    def list(self, state: CardLifecycle | str | None = None,
+             cell_id: str = "", domain: str = "", limit: int = 50) -> list[dict]:
         with self._lock:
             result = []
             for r in sorted(self._cards.values(), key=lambda x: x.timestamps.created_at, reverse=True):
                 if state:
-                    lc = _STATE_TO_LIFECYCLE.get(state)
-                    if lc and r.state != lc:
+                    target = state.value if isinstance(state, CardLifecycle) else state
+                    if r.state.value != target:
                         continue
                 if cell_id and r.summary.columns.get("cell_id", "") != cell_id:
+                    continue
+                if domain and r.summary.columns.get("domain", "") != domain:
                     continue
                 result.append(_card_to_dict(r))
                 if len(result) >= limit:
