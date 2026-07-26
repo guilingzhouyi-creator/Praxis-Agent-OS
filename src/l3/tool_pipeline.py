@@ -202,7 +202,7 @@ class ToolPipeline:
                 # Release and signal
                 if lock_name:
                     get_rwlock(lock_name).unlock(agent_id)
-                if tool_ring_str == "RING_2_5":
+                if tool_ring_str == RING_2_5:
                     get_semaphore(f"pool:{tool_name}").release(agent_id)
                 self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
                 duration = _time.time() - _start
@@ -219,7 +219,7 @@ class ToolPipeline:
             return {"success": False, "error": ar["error"], "steps": result["steps"]}
 
         # 7. Ring 2.5 pool
-        if tool_ring_str == "RING_2_5":
+        if tool_ring_str == RING_2_5:
             sr = get_semaphore(f"pool:{tool_name}", 2).acquire(agent_id)
             result["steps"].append({"phase": "pool", **sr})
             if not sr["success"]:
@@ -230,7 +230,7 @@ class ToolPipeline:
         lock_name = ""
         if fpath:
             lock_name = f"file:{fpath}"
-            lr = get_rwlock(lock_name).write_lock(agent_id) if tool_ring_str != "RING_1" else get_rwlock(lock_name).read_lock(agent_id)
+            lr = get_rwlock(lock_name).write_lock(agent_id) if tool_ring_str != RING_1 else get_rwlock(lock_name).read_lock(agent_id)
             result["steps"].append({"phase": "lock", **lr})
 
         # 8b. Tool-definition hooks (modify spec before execution)
@@ -250,7 +250,7 @@ class ToolPipeline:
         # 10. Release
         if lock_name:
             get_rwlock(lock_name).unlock(agent_id)
-        if tool_ring_str == "RING_2_5":
+        if tool_ring_str == RING_2_5:
             get_semaphore(f"pool:{tool_name}").release(agent_id)
         self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
 

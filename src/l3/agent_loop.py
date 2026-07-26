@@ -14,6 +14,7 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_FUTURE_TIMEOUT,
     AGENT_LOOP_MAX_WORKERS,
 )
+from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
 
 from l4.llm import get_engine
@@ -74,7 +75,7 @@ class AgentLoop:
                        for pn, pt in params.items()]
         self._tools.append(ToolSpec(
             name=name, description=description, category="",
-            ring="RING_1", danger=0,
+            ring=RING_1, danger=0,
             parameters=param_specs, handler=executor,
             parallel_safe=parallel_safe,
         ))
@@ -91,7 +92,7 @@ class AgentLoop:
             self._tools.append(ToolSpec(
                 name="todowrite",
                 description="Update task list status. status: pending|in_progress|completed. Use 'add' for new items.",
-                category="generic", ring="RING_1", danger=0,
+                category="generic", ring=RING_1, danger=0,
                 parameters=[
                     ParamSpec("content", "string", required=True, description="Task description"),
                     ParamSpec("status", "string", required=True,

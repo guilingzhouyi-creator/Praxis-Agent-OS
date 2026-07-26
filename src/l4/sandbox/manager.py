@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxProfile(str, Enum):
-    READ_ONLY = "DANGER_0"
-    SAFE_WRITE = "DANGER_1"
-    NETWORK = "DANGER_2"
-    FULL = "DANGER_3"
-    HOST = "DANGER_4"
+    READ_ONLY = SANDBOX_PROFILE_READ_ONLY
+    SAFE_WRITE = SANDBOX_PROFILE_SAFE_WRITE
+    NETWORK = SANDBOX_PROFILE_NETWORK
+    FULL = SANDBOX_PROFILE_FULL
+    HOST = SANDBOX_PROFILE_HOST
 
 
 @dataclass

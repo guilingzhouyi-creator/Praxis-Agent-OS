@@ -49,7 +49,8 @@ class CellTokenMerger:
         # → CentralCollector via EventBus
         try:
             from l1.kernel import emit_signal
-            emit_signal("token_usage", sender="cell_token_merger", target="central_collector",
+            from l1.kernel.params.agent import EVENT_TOKEN_USAGE
+            emit_signal(EVENT_TOKEN_USAGE, sender="cell_token_merger", target="central_collector",
                         data={"cell_id": self.cell_id, "input_tokens": total,
                               "agent_count": len(data.get("per_agent", {}))})
         except Exception:

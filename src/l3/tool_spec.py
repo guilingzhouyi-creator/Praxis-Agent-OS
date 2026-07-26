@@ -18,6 +18,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
+from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
 from l1.kernel.params.system import PRAXIS_MUTE_STATE
 
 logger = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ class ToolSpec:
 # ═════════════════════════════════════════════════════════════════════════════
 
 def tool(name: str = "", description: str = "", category: str = "",
-         ring: str = "RING_1", danger: int = 0,
+         ring: str = RING_1, danger: int = 0,
          params: list | None = None,
          parallel_safe: bool = False,
          metadata: dict | None = None) -> Callable:

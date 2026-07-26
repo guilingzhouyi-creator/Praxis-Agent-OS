@@ -123,9 +123,10 @@ class AgentTerminal:
         if not self._tool_registry:
             return []
         from l3.tool_spec import is_muted as _is_muted
+        from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
         tools = []
         for name, spec in self._tool_registry.items():
-            sr = getattr(spec, "ring", "RING_1")
+            sr = getattr(spec, "ring", RING_1)
             if self.ring >= _RNM.get(sr, 1) and not _is_muted(name):
                 tools.append({"name": name, "ring": sr,
                               "danger": getattr(spec, "danger", 0),

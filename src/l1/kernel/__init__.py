@@ -31,7 +31,7 @@ from .params.kernel import (
     SYSCALL_AUDIT_MAX, SYSCALL_AUDIT_DETAIL_MAXLEN, SYSCALL_AUDIT_QUERY_LIMIT,
     SYSCALL_DEFAULT_FALLBACK, SYSCALL_DEFAULT_SIGNAL_TYPE, SYSCALL_DEFAULT_COST,
     SYSCALL_DEFAULT_RING, SYSCALL_DEFAULT_RESOURCE, SYSCALL_REGISTER_DEFAULT_AGENT,
-    BARRIER_DEFAULT_COUNT,
+    BARRIER_DEFAULT_COUNT, GateStatus,
 )
 from .params.agent import (
     EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED, EVENT_TOKEN_USAGE,
@@ -254,14 +254,14 @@ def health() -> dict:
         t0 = _t.time()
         try:
             ok = fn()
-            results[name] = {"status": "PASS" if ok else "FAIL",
+            results[name] = {"status": GateStatus.PASS if ok else "FAIL",
                              "elapsed_ms": round((_t.time() - t0) * 1000, 1)}
             if not ok:
                 all_ok = False
         except Exception as e:
             results[name] = {"status": "FAIL", "error": str(e)}
             all_ok = False
-    return {"status": "PASS" if all_ok else "FAIL",
+    return {"status": GateStatus.PASS if all_ok else "FAIL",
             "modules": results, "module_count": len(probes)}
 
 

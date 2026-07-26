@@ -48,7 +48,7 @@ class SandboxServer:
             if req.method == "sandbox.run":
                 result = await self._manager.run(
                     command=req.params.get("command", ""),
-                    profile=SandboxProfile(req.params.get("profile", "DANGER_0")),
+                    profile=SandboxProfile(req.params.get("profile", SANDBOX_PROFILE_READ_ONLY)),
                     timeout=req.params.get("timeout", 30),
                     agent_id=req.params.get("agent_id", ""),
                     tool_name=req.params.get("tool_name", ""),

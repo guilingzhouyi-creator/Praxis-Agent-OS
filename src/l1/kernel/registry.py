@@ -17,7 +17,7 @@ import logging
 import time
 from typing import Any
 
-from .params.kernel import REGISTRY_QUERY_LIMIT
+from .params.kernel import REGISTRY_QUERY_LIMIT, GateStatus
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class Registry:
 
     def summary(self) -> dict[str, Any]:
         m = self.modules()
-        healthy = sum(1 for v in m.values() if v.get("status") == "PASS")
+        healthy = sum(1 for v in m.values() if v.get("status") == GateStatus.PASS)
         return {
             "modules": {"total": len(m), "healthy": healthy},
             "processes": len(self.processes()),

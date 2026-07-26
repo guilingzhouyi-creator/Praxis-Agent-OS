@@ -37,9 +37,9 @@ class OpenAIProvider:
     name = "openai"
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "") or os.environ.get("DEEPSEEK_API_KEY", "")
-        self.api_url = api_url or os.environ.get("OPENAI_API_URL", self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
-        self.model = model or os.environ.get("OPENAI_MODEL", self._get_setting("llm.model", "<model>"))
+        self.api_key = api_key or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
+        self.api_url = api_url or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
+        self.model = model or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
 
     def _get_setting(self, key: str, default: str) -> str:
         try:
@@ -115,10 +115,10 @@ class AnthropicProvider:
     name = "anthropic"
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = "", cache_breakpoints: int = 4):
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-        self.api_url = api_url or os.environ.get("ANTHROPIC_API_URL",
+        self.api_key = api_key or os.environ.get(ENV_ANTHROPIC_KEY, "")
+        self.api_url = api_url or os.environ.get(ENV_ANTHROPIC_URL,
                        self._get_setting("llm.api_url", LLM_PROVIDER_URLS["anthropic"]))
-        self.model = model or os.environ.get("ANTHROPIC_MODEL",
+        self.model = model or os.environ.get(ENV_ANTHROPIC_MODEL,
                        self._get_setting("llm.model", "<model>"))
         self.cache_breakpoints = cache_breakpoints
 
@@ -205,8 +205,8 @@ class OllamaProvider:
     name = "ollama"
 
     def __init__(self, api_url: str = "", model: str = ""):
-        self.api_url = api_url or os.environ.get("OLLAMA_URL", self._get_setting("llm.api_url", LLM_PROVIDER_URLS["ollama"]))
-        self.model = model or os.environ.get("OLLAMA_MODEL", self._get_setting("llm.model", "<model>"))
+        self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["ollama"]))
+        self.model = model or os.environ.get(ENV_OLLAMA_MODEL, self._get_setting("llm.model", "<model>"))
 
     def _get_setting(self, key: str, default: str) -> str:
         try:
@@ -257,8 +257,8 @@ class WebSocketProvider:
     name = "websocket"
 
     def __init__(self, url: str = "", model: str = ""):
-        self.url = url or os.environ.get("LLM_WS_URL", self._get_setting("llm.api_url", ""))
-        self.model = model or os.environ.get("LLM_WS_MODEL", self._get_setting("llm.model", ""))
+        self.url = url or os.environ.get(ENV_LLM_WS_URL, self._get_setting("llm.api_url", ""))
+        self.model = model or os.environ.get(ENV_LLM_WS_MODEL, self._get_setting("llm.model", ""))
 
     def _get_setting(self, key: str, default: str) -> str:
         try:

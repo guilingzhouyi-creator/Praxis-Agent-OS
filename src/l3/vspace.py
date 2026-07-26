@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
 _DEFAULT_VSPACE = os.path.join(tempfile.gettempdir(), "nomos-vspace")
-_VSPACE_SANDBOX = os.environ.get("NOMOS_SANDBOX_ROOT", _DEFAULT_VSPACE)
+_VSPACE_SANDBOX = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_VSPACE)
 
 # Territory → agent mapping (single source: kernel/params.py)
 TERRITORY_TABLE: dict[str, str] = dict(PARAMS_TERRITORY)

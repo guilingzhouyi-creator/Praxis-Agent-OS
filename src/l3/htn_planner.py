@@ -422,9 +422,10 @@ class HTNPlanner(BaseService):
         tool = task.tool or ""
         try:
             from .tool_config import ToolConfig as _TC
+            from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
             spec = _TC.get(tool)
             if spec:
-                ring_to_role = {"RING_1": "reader", "RING_2_5": "writer", "RING_3": "reviewer"}
+                ring_to_role = {RING_1: "reader", RING_2_5: "writer", RING_3: "reviewer"}
                 return ring_to_role.get(spec.ring, "default")
         except Exception:
             pass

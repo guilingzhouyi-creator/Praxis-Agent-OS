@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
 _DEFAULT_SANDBOX = os.path.join(tempfile.gettempdir(), "nomos-sandbox")
-_SANDBOX_ROOT = os.environ.get("NOMOS_SANDBOX_ROOT", _DEFAULT_SANDBOX)
+_SANDBOX_ROOT = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_SANDBOX)
 
 
 @dataclass

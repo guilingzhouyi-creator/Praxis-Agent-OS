@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, TOOL_REGISTRY, ToolRing
-from l1.kernel.params.kernel import RING_NAME_MAP, RING_NUM_MAP
+from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class ToolConfig:
     def by_ring(cls, ring: str | int) -> list[ToolSpec]:
         if isinstance(ring, int):
             # single source: kernel.params.RING_NAME_MAP (int→str)
-            ring = RING_NAME_MAP.get(ring, "RING_1")
+            ring = RING_NAME_MAP.get(ring, RING_1)
         return [t for t in cls.all() if t.ring == ring]
 
     @classmethod

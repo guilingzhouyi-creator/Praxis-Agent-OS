@@ -126,9 +126,9 @@ class CentralSecurity:
         try:
             from .tool_pipeline import get_pipeline as _gp
             pipe = _gp()
-            from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
+            from l1.kernel.params.kernel import RING_1, RING_2_5, RING_NUM_MAP as _RNM
             from .tool_config import ToolConfig as _TC
-            tool_ring = _RNM.get("RING_2_5" if action in _TC.write_tool_names() else "RING_1", 1)
+            tool_ring = _RNM.get(RING_2_5 if action in _TC.write_tool_names() else RING_1, 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)
             verdict.add_gate("rate_limit", rl.get("allowed", True),
                              detail=f"remaining={rl.get('remaining', 0)}", score=0.4 if not rl.get("allowed") else 0)

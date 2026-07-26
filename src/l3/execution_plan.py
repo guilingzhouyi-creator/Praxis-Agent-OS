@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from .card import Card, CardMode, PhaseMode, Step
 from .agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
@@ -248,7 +248,7 @@ class ExecutionPlan:
         aggregated: dict = {"steps": [], "success": True, "error": ""}
 
         if self._card_mode() == "issue":
-            emit_signal("review_requested", sender="execution_plan", target=self.card.cell_id or "cell",
+            emit_signal(EVENT_REVIEW_REQUESTED, sender="execution_plan", target=self.card.cell_id or "cell",
                         data={"card_id": self.card.id, "event": "issue_created"})
             aggregated["issue"] = True
             aggregated["total_steps"] = len(self.steps)
@@ -565,7 +565,8 @@ class ExecutionPlan:
         """
         try:
             from .tool_config import ToolConfig as _TC
-            read_tools = {t.name for t in _TC.by_ring("RING_1")}
+            from l1.kernel.params.kernel import RING_1
+            read_tools = {t.name for t in _TC.by_ring(RING_1)}
             write_tools = _TC.write_tool_names()
             shell_tools = _TC.terminal_tool_names()
         except Exception:
