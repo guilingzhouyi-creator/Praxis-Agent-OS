@@ -458,6 +458,30 @@
 │  ├── 13 more files...                        ✅                │
 ```
 
+### Discussion & Convergence 🔧
+
+```
+│  src/l3/discussion/                                              │
+│  ├── issue_orchestrator.py (IssueCard→discussion session)   🔧   │
+│  ├── answer_session.py (5-phase answer protocol)             🔧   │
+│  ├── cell_answer_repo.py (per-Cell answer + checkpoint)      🔧   │
+│  ├── answer_aggregator.py (cross-Cell merge/dedup)           🔧   │
+│  ├── supplement_manager.py (classify supplements)            🔧   │
+│  └── report_service.py (report→MD + L3A + SSE)               🔧   │
+│                                                                   │
+│  Bus events:                                                      │
+│  ├── Cell listens: "discussion.start" → AnswerSession             │
+│  ├── Cell emits:  "discussion.cell_complete" → orchestrator       │
+│  ├── boot.py: blank constitution → auto-creates IssueCard         │
+│  └── cell_execute.py: checks IssueOrchestrator for sessions       │
+```
+
+**Status: 🔧 Uncommitted (written + committed, full integration pending).**
+- `AnswerSession`: 5 phases (independent answer → cross-examine → supplement → converge → report)
+- `IssueOrchestrator`: session lifecycle, cell registration, cell_complete routing
+- `AnswerAggregator`: cross-Cell answer merge with divergence detection
+- Boot auto-trigger: blank `.nomos-rules.md` creates IssueCard for territorial discussion
+
 ## L4 Bridge — 45 files, 9,141 lines ✅
 
 ```

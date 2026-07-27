@@ -268,7 +268,16 @@ praxis/
 │   │   │   ├── tool_registry.py     # Tool registry
 │   │   │   └── tool_spec.py         # ToolSpec registry (546 lines)
 │   │   │
-│   │   ├── tools/                   # 17 tool implementations
+│   │   ├── tools/                     # 17 tool implementations
+│   │   │
+│   │   ├── discussion/                # Multi-Cell discussion + convergence (7 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── cell_answer_repo.py    # Per-Cell answer persistence (245 lines)
+│   │   │   ├── answer_session.py      # 5-phase answer protocol (308 lines)
+│   │   │   ├── issue_orchestrator.py  # Issue→discussion orchestration (225 lines)
+│   │   │   ├── answer_aggregator.py   # Cross-Cell merge + dedup + divergence (284 lines)
+│   │   │   ├── supplement_manager.py  # Supplement classify/route (113 lines)
+│   │   │   └── report_service.py      # Report → MD + L3A + SSE (149 lines)
 │   │   │   ├── _archive.py          # Archive tools (74 lines)
 │   │   │   ├── _build.py            # Build tools (31 lines)
 │   │   │   ├── _code.py             # Code analysis (64 lines)
@@ -291,7 +300,7 @@ praxis/
 │   │   ├── api/                     # HTTP gateway + routes + middleware
 │   │   │   ├── __init__.py
 │   │   │   ├── api_gateway.py       # HTTP server (393 lines)
-│   │   │   ├── api_routes.py        # 157 routes (234 lines)
+│   │   │   ├── api_routes.py        # 170 routes (234 lines)
 │   │   │   ├── api_middleware.py    # Middleware chain (312 lines)
 │   │   │   └── api_handlers_cards.py # Card handlers (93 lines)
 │   │   │
@@ -301,10 +310,12 @@ praxis/
 │   │   │   ├── api_handlers_cluster.py # Cluster handlers
 │   │   │   ├── api_handlers_commands.py # Command handlers
 │   │   │   ├── api_handlers_config.py # Config handlers (168 lines)
+│   │   │   ├── api_handlers_constitution.py # Constitution API (73 lines)
 │   │   │   ├── api_handlers_monitor.py # Monitor handlers (188 lines)
 │   │   │   ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
 │   │   │   ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
-│   │   │   └── api_handlers_stats.py # StatsCenter query/top/live (101 lines)
+│   │   │   ├── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
+│   │   │   └── api_handlers_discussion.py # Discussion API (8 routes)
 │   │   │
 │   │   ├── llm/                     # LLM engine + providers
 │   │   │   ├── __init__.py
@@ -459,7 +470,7 @@ praxis/
 | Log | `LOG_MAX_MEMORY_ENTRIES=5000`, `LOG_EXPORT_LIMIT=10000` |
 | Version | `KERNEL_VERSION="0.3.0"`, `PRAXIS_CODENAME="Aether"` |
 
-## API Routes (157 total)
+## API Routes (157 + 13 = 170 total)
 
 | Category | Routes | Handler Prefix |
 |----------|--------|---------------|
@@ -482,6 +493,7 @@ praxis/
 | Comm | 2 | `comm_stats`, `comm_recent` |
 | Cron | 3 | `cron_list`, `cron_add`, `cron_remove` |
 | Credentials | 3 | `credential_status`, `credential_set`, `credential_delete` |
+| Constitution | 5 | `constitution`, `constitution/rules`, `constitution/summary`, `constitution/reload`, `constitution/custom` |
 | Bootstrap | 3 | `bootstrap_status`, `bootstrap_defaults`, `bootstrap_apply` |
 | Export | 2 | `export_counter`, `export_metrics` |
 | Rollback | 1 | `rollback_context` |
@@ -499,6 +511,7 @@ praxis/
 | Monitor | 6 | `monitor/events`, `monitor/stats`, `monitor/stream`, `monitor/gate`, `monitor/gate/<id>` |
 | Stats | 3 | `stats/query`, `stats/top`, `stats/live` (SSE) |
 | Records | 4 | `records/query`, `records/stats`, `records/export`, `records/bridge` |
+| Discussion | 8 | `discussion/submit_issue`, `discussion/session`, `discussion/session/<id>`, `discussion/cell`, `/v2/discussion/abort`, `/v2/discussion/sessions`, `/v2/discussion/aggregate`, `/v2/discussion/report` |
 | V1 | 2 | `v1/tools`, `v1/locales` |
 
 ## Error Codes (20)

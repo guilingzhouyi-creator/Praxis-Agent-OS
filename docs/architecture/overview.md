@@ -33,7 +33,7 @@ flowchart TB
     end
 
     subgraph L4["L4 — Bridge Layer (src/l4/)"]
-        GW["api/api_gateway.py\n157 HTTP routes"]
+        GW["api/api_gateway.py\n170 HTTP routes"]
         AH["api_handlers/\n9 Handler Modules"]
         LLM["llm/\nLLM Engine + Providers"]
         SAND["sandbox/\nCOW Isolation"]
@@ -61,6 +61,7 @@ flowchart TB
         BUF["resource_buffer/\nRing Buffer (4 files)"]
         SVCS["services/\nStats, Records, Model (29 files)"]
         CFG["config/\nConfig Loading (8 files)"]
+        DISC["discussion/\nAnswer+Convergence (6 files)"]
     end
 
     subgraph L2["L2 — Shell Layer (src/l2/)"]
@@ -210,7 +211,7 @@ flowchart TB
 | `shell_session.py` | 129 | Session lifecycle management |
 | `shell_completer.py` | 34 | Shell auto-completion engine |
 
-### L3 — Cell (`src/l3/`) — 4 Root Files + 14 Subdirectories, ~19,000 Lines
+### L3 — Cell (`src/l3/`) — 4 Root Files + 15 Subdirectories, ~19,000 Lines
 
 | Subdirectory | Key Files | Purpose |
 |-------------|-----------|---------|
@@ -228,13 +229,14 @@ flowchart TB
 | **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `counter.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
 | **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_policy.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
 | **tools/** | `_files.py`, `_code.py`, `_git.py`, etc. (17 files) | Tool implementations |
+| **discussion/** | `issue_orchestrator.py`, `answer_session.py`, `answer_aggregator.py`, `cell_answer_repo.py`, `supplement_manager.py`, `report_service.py` (6 files) | Multi-Cell discussion orchestration, answer collection, convergence, report generation |
 
 ### L4 — Bridge (`src/l4/`) — 11 Root Files + 8 Subdirectories, ~6,500 Lines
 
 | Subdirectory / File | Key Modules | Purpose |
 |--------------------|-------------|---------|
-| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 157 routes, middleware, card handlers |
-| **api_handlers/** | `__init__.py`, `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (9 files) | API handler modules — agent, providers, config, monitor, records, stats |
+| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 170 routes, middleware, card handlers |
+| **api_handlers/** | `__init__.py`, `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (10 files) | API handler modules — agent, providers, config, monitor, records, stats, discussion |
 | **llm/** | `llm.py`, `llm_base.py`, `llm_providers.py` | LLM Engine + ABC + 4 provider implementations |
 | **search/** | `search.py`, `search_engine.py` | Full-text and semantic search |
 | **lsp/** | `lsp.py`, `lsp_manager.py` | LSP client + manager |
@@ -283,6 +285,7 @@ Enforced by `tests/test_layer_imports.py`. 49 pre-existing cross-layer imports a
 | Interrupt controller | InterruptController (priority routing, beyond EventBus) |
 | Watchdog timer | CellWatchdog (per-agent liveness) |
 | Multi-core interconnect | L3B cross-cell routing |
+| **Kernel boot → Issue** | IssueOrchestrator + AnswerSession (blank constitution triggers territorial discussion) |
 
 ### Agent = Process
 
@@ -310,9 +313,37 @@ Each memory entry (`MemEntry`) carries `agent_id`, `cell_id`, `entry_type`, `imp
 
 ### Security = Three Layers
 
-1. **Constitution** — `constitution.py` parses `.nomos-rules.md`, enforces 14+ built-in rules
+1. **Constitution** — `constitution.py` parses `.nomos-rules.md`, enforces 14+ built-in rules.
+   - Runtime CRUD: `reload()`, `update_rules()`, `clear_custom_rules()`
+   - AgentLoop injection: `summary()` auto-injected into every system prompt
+   - NMI emission: on BLOCK → fires NMI (NMI_VIOLATION) + EventBus signal
+   - SettingsCenter persistence: custom rules survive restart via L3
+   - API: GET/PUT/DELETE `/api/v2/constitution/*` (5 routes)
 2. **GateChain G1-G5** — Non-bypassable tool authorization with `GateStatus` (PASS/WARN/BLOCK/REPORT)
 3. **Tool Pipeline** — 9-step execution (clearance → rate limit → constitution → gatechain → allocator → request pool → file lock → execute → release)
+
+### Discussion & Convergence (Layer 3)
+
+Multi-Cell answer orchestration for territorial / cross-cell issues:
+
+```
+IssueCard → IssueOrchestrator
+  ├─ broadcast "discussion.start" → each Cell runs AnswerSession
+  │   ├─ Phase 1: 3 Agents answer independently
+  │   ├─ Phase 2: cross-examination
+  │   ├─ Phase 3: supplement proposals
+  │   ├─ Phase 4: intra-Cell convergence
+  │   └─ Phase 5: report → cell_complete bus event
+  ├─ all cells complete → AnswerAggregator (merge/dedup/divergence)
+  ├─ SupplementManager classifies and routes supplements
+  └─ ReportService → answers.md + L3A push + SSE broadcast
+```
+
+- `cell_answer_repo.py`: per-Cell answer persistence with checkpoint recovery
+- `answer_session.py`: 5-phase answer protocol, thread-safe
+- `answer_aggregator.py`: cross-Cell merge, dedup, divergence detection
+- `supplement_manager.py`: classify supplements as clarification / extension / conflict
+- `report_service.py`: final report → MD file + L3A notification + SSE
 
 ## File Layout
 
@@ -321,7 +352,7 @@ src/
 ├── l1/kernel/          # 37 files — OS primitives
 │   └── params/         # 5 sub-modules, 589 constants
 ├── l2/                 # 10 files — Shell layer (40 commands)
-├── l3/                 # 4 root files + 14 subdirectories — Cell layer
+├── l3/                 # 4 root files + 15 subdirectories — Cell layer
 │   ├── agent/          # AgentLoop, Scout, SubAgent (22 files)
 │   ├── agent_terminal/ # Worker runtime
 │   ├── boot/           # Boot sequence (4 files)
@@ -335,7 +366,8 @@ src/
 │   ├── scheduler/      # 5D scheduler (11 files)
 │   ├── services/       # Stats, Records, Model (29 files)
 │   ├── tool_system/    # Pipeline, policy, spec (8 files)
-│   └── tools/          # 17 tool implementations
+│   ├── tools/          # 17 tool implementations
+│   └── discussion/     # Answer + convergence (7 files)
 ├── l4/                 # 11 root files + 8 subdirectories — Bridge layer
 │   ├── api/            # Gateway, routes, middleware
 │   ├── api_handlers/   # 9 handler modules
