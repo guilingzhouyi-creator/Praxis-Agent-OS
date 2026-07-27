@@ -60,6 +60,18 @@ flowchart TB
         CARD["card*.py\nCard Lifecycle"]
         LOG["log.py\nLog Service"]
         TRUST["content_trust.py\nProvenance"]
+        PMU["cell_pmu.py\nPerf Mon (28 ctrs)"]
+        ICACHE["cell_icache.py\nI-Cache (LFU)"]
+        MMU["cell_mmu.py\nMMU + TLB"]
+        INTR["cell_interrupt.py\nInterrupt Ctlr"]
+        WDT["cell_watchdog.py\nWatchdog Timer"]
+        ORCH["cell_orchestrate.py\nSubAgent Fork-Join"]
+        S_SPEC["subagent_spec.py\nSubAgent Spec"]
+        S_TASK["subagent_task.py\nSubAgent Task"]
+        S_DISP["subagent_dispatcher.py\n@mention Parse"]
+        S_MERGE["subagent_merger.py\nResult Merge"]
+        STAT["stats_center.py\nStats Center"]
+        REC["record_center.py\nRecord Center"]
     end
 
     subgraph L2["L2 — Shell Layer (src/l2/)"]
@@ -103,6 +115,8 @@ flowchart TB
     GW -->|"routes to"| BUF
     GW -->|"routes to"| CARD
     GW -->|"routes to"| TKN
+    GW -->|"routes to"| STAT
+    GW -->|"routes to"| REC
     LLM -->|"build_context()"| MEM
 
     %% L4 → L1
@@ -177,7 +191,7 @@ flowchart TB
 | Swapper | `swapper.py` | Background memory pressure management |
 | Reputation | `reputation.py` | Agent trust scores [0.0, 1.0] |
 | ToolChain | `tool_chain.py` | HMAC-SHA256 fingerprint chain |
-| Commands | `commands.py` | YAML-driven command definition registry |
+| Commands | `commands.py` | CommandRegistry class — system/user command registration, YAML+API metadata layering |
 | Prompts | `prompts.py` | YAML-driven prompt template registry |
 | OS | `os.py` | Lifecycle coordinator (boot/shutdown/restart) |
 | Errors | `errors.py` | Centralized error system — 20 error codes |
@@ -237,6 +251,8 @@ flowchart TB
 | **Queue** | `pending_queue.py`, `approval_gate.py` | Human approval queues |
 | **State** | `statecharts.py` | 5-region orthogonal state machine |
 | **Log** | `log.py` | Log service + rotation + API |
+| **Stats** | `stats_center.py` | Cross-Cell metric aggregation, query, top, SSE |
+| **Records** | `record_center.py` | Unified error/log/reference record center facade |
 | **Think** | `think_registry.py` | Three-layer think quota config |
 | **Buffer** | `resource_buffer/` | Ring file buffer |
 | **Context** | `context.py`, `context_pool.py` | Context register, per-agent context pool |
@@ -289,9 +305,13 @@ Enforced by `tests/test_layer_imports.py`. 49 pre-existing cross-layer imports a
 | Operating system | 10 Central Control Systems |
 | Memory hierarchy | Memory rings R1/R2/R3 + R4 archive |
 | MMU / page tables | Territory (constitution) + GateChain G3 |
+| MMU + TLB | CellMmu + CellTlb (territory→agent translation) |
 | System calls | tool_pipeline.execute() (9 steps) |
 | Device drivers | ToolSpec middleware + plugin system |
-| Interrupt controller | EventBus SignalType |
+| PMU | CellPmu (28 performance counters) |
+| I-Cache | ICache (LFU, separate from CellCache/D-Cache) |
+| Interrupt controller | InterruptController (priority routing, beyond EventBus) |
+| Watchdog timer | CellWatchdog (per-agent liveness) |
 | Multi-core interconnect | L3B cross-cell routing |
 
 ### Agent = Process

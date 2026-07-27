@@ -63,7 +63,7 @@ class TestSessionImport:
 
 
 class TestSnapshot:
-    """快照管理"""
+    """Snapshot management"""
 
     def test_create_and_list(self):
         from l3.session_export import SessionExportManager
@@ -78,7 +78,7 @@ class TestSnapshot:
         snap_id = r["snapshot_id"]
         assert snap_id is not None
 
-        # 列出
+        # List
         lr = mgr.list_snapshots()
         assert lr["success"]
         assert lr["count"] >= 1
@@ -116,7 +116,7 @@ class TestSnapshot:
         dr = mgr.delete_snapshot(snap_id)
         assert dr["success"]
 
-        # 确认已删除
+        # Confirm deleted
         rr = mgr.restore_snapshot(snap_id)
         assert not rr["success"]
 
@@ -128,7 +128,7 @@ class TestSnapshot:
 
 
 class TestSessionExportModel:
-    """SessionExport 数据模型"""
+    """SessionExport data model"""
 
     def test_version(self):
         from l3.session_export import SessionExport
@@ -152,7 +152,7 @@ class TestSessionExportModel:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_export(self):
         from l3.session_export import handle_session_export

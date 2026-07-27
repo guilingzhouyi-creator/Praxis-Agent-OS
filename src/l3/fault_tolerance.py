@@ -33,8 +33,9 @@ from l1.kernel.params.system import (
     CRASH_TIMEOUT,
     FAULT_CHECK_INTERVAL,
     FAULT_RETRY_INTERVAL,
+    FAULT_AUTONOMOUS_RECONNECT_INTERVAL,
 )
-AUTONOMOUS_RECONNECT_INTERVAL = 5.0  # Autonomous mode reconnect interval
+AUTONOMOUS_RECONNECT_INTERVAL = FAULT_AUTONOMOUS_RECONNECT_INTERVAL  # Autonomous mode reconnect interval
 
 
 @dataclass

@@ -8,19 +8,19 @@ Architecture:
   └── API Handlers          — REST endpoints
 
 Supported LSP servers:
-  Python: pyright (首选) / pylsp
+  Python: pyright (preferred) / pylsp
   TypeScript/JS: typescript-language-server
   Go: gopls
   Rust: rust-analyzer
   Ruby: ruby-lsp
 
 API:
-  POST /api/lsp/diagnostics    — 获取文件诊断
-  POST /api/lsp/hover          — 悬停信息
-  GET  /api/lsp/servers        — LSP 进程状态
-  POST /api/lsp/start          — 启动 LSP server
-  POST /api/lsp/stop           — 停止 LSP server
-  POST /api/lsp/feedback       — 编辑后触发反馈循环
+  POST /api/lsp/diagnostics    — Get file diagnostics
+  POST /api/lsp/hover          — Hover information
+  GET  /api/lsp/servers        — LSP process status
+  POST /api/lsp/start          — Start LSP server
+  POST /api/lsp/stop           — Stop LSP server
+  POST /api/lsp/feedback       — Post-edit trigger feedback loop
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from l1.kernel.params.api import LSP_MANAGER_TIMEOUT
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════
-# 1. LSP Server 配置
+# 1. LSP Server Configuration
 # ══════════════════════════════════════════════════════════════════════
 
 LSP_SERVER_COMMANDS: dict[str, list[str]] = {
@@ -62,12 +62,12 @@ LSP_FILE_EXTENSIONS: dict[str, list[str]] = {
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 2. Language Server 进程
+# 2. Language Server Process
 # ══════════════════════════════════════════════════════════════════════
 
 
 class LanguageServer:
-    """单个 LSP server 进程管理。"""
+    """Single LSP server process management."""
 
     def __init__(self, language: str, project_root: str = ""):
         self.language = language
@@ -78,12 +78,12 @@ class LanguageServer:
         self._seq = 0
 
     def start(self) -> dict:
-        """启动 LSP server 进程。"""
+        """Start the LSP server process."""
         cmd = LSP_SERVER_COMMANDS.get(self.language)
         if not cmd:
             return {"success": False, "error": f"unsupported language: {self.language}"}
 
-        # 检查命令是否存在
+        # Check if command exists
         if not self._find_executable(cmd[0]):
             return {"success": False, "error": f"LSP server not found: {cmd[0]}"}
 
@@ -107,7 +107,7 @@ class LanguageServer:
                 return {"success": False, "error": str(e)}
 
     def stop(self) -> dict:
-        """关闭 LSP server 进程。"""
+        """Shut down the LSP server process."""
         with self._lock:
             if not self._running or not self._process:
                 return {"success": True, "status": "not_running"}
@@ -121,7 +121,7 @@ class LanguageServer:
             return {"success": True}
 
     def send_request(self, method: str, params: dict | None = None) -> dict:
-        """发送 JSON-RPC 请求到 LSP server。"""
+        """Send JSON-RPC request to LSP server."""
         with self._lock:
             if not self._running or not self._process or not self._process.stdin:
                 return {"success": False, "error": "LSP server not running"}
@@ -141,13 +141,13 @@ class LanguageServer:
             except Exception as e:
                 return {"success": False, "error": f"write failed: {e}"}
 
-            # 读取响应
+            # Read response
             try:
                 resp_header = self._process.stdout.readline()  # Content-Length: xxx
                 if not resp_header:
                     return {"success": False, "error": "no response header"}
                 length = int(resp_header.strip().split(":")[1])
-                self._process.stdout.readline()  # 空行
+                self._process.stdout.readline()  # Blank line
                 resp_body = self._process.stdout.read(length)
                 result = json.loads(resp_body)
                 return {"success": True, "result": result.get("result", {})}
@@ -155,7 +155,7 @@ class LanguageServer:
                 return {"success": False, "error": f"read failed: {e}"}
 
     def _find_executable(self, name: str) -> bool:
-        """检查可执行文件是否在 PATH 中。"""
+        """Check if executable is in PATH."""
         path = os.environ.get("PATH", "")
         for p in path.split(os.pathsep):
             exe = os.path.join(p, name)
@@ -179,13 +179,13 @@ class LanguageServer:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. 诊断缓存
+# 3. Diagnostic Cache
 # ══════════════════════════════════════════════════════════════════════
 
 
 @dataclass
 class DiagnosticEntry:
-    """单个诊断结果。"""
+    """Single diagnostic entry."""
     file: str
     line: int
     column: int
@@ -208,11 +208,11 @@ class DiagnosticEntry:
 
 @dataclass
 class FileDiagnostics:
-    """一个文件的诊断快照。"""
+    """Diagnostic snapshot for one file."""
     file: str
     diagnostics: list[DiagnosticEntry] = field(default_factory=list)
     checked_at: float = field(default_factory=time.time)
-    version: int = 0          # 文件内容版本（用于增量更新）
+    version: int = 0          # File content version (for incremental updates)
 
     def has_errors(self) -> bool:
         return any(d.severity == "error" for d in self.diagnostics)
@@ -229,7 +229,7 @@ class FileDiagnostics:
 
 
 class DiagnosticCache:
-    """诊断缓存 — 文件级 + 增量更新 + TTL。"""
+    """Diagnostic cache — file-level + incremental updates + TTL."""
 
     def __init__(self, ttl: float = 30.0):
         self._cache: dict[str, FileDiagnostics] = {}
@@ -237,7 +237,7 @@ class DiagnosticCache:
         self._ttl = ttl
 
     def get(self, file_path: str) -> FileDiagnostics | None:
-        """获取文件诊断（如有缓存且未过期）。"""
+        """Get file diagnostics (if cached and not expired)."""
         with self._lock:
             entry = self._cache.get(file_path)
             if entry is None:
@@ -278,7 +278,7 @@ class DiagnosticCache:
 
 
 class LspManager:
-    """LSP Manager — 多语言 server 管理 + 诊断 + 反馈循环。"""
+    """LSP Manager — multi-language server management + diagnostics + feedback loop."""
 
     def __init__(self, project_root: str = ""):
         self._project_root = project_root or os.getcwd()
@@ -286,7 +286,7 @@ class LspManager:
         self._cache = DiagnosticCache()
         self._lock = threading.RLock()
 
-    # ── Server 生命周期 ──
+    # ── Server Lifecycle ──
 
     def start_server(self, language: str) -> dict:
         with self._lock:
@@ -315,11 +315,11 @@ class LspManager:
                 self._servers.pop(lang, None)
             return {"success": True, "results": results}
 
-    # ── 诊断 ──
+    # ── Diagnostics ──
 
     def get_diagnostics(self, file_path: str) -> dict:
-        """获取文件诊断（先查缓存，无则走 LSP）。"""
-        # 检查缓存
+        """Get file diagnostics (check cache first, fall back to LSP)."""
+        # Check cache
         cached = self._cache.get(file_path)
         if cached:
             return {
@@ -329,18 +329,18 @@ class LspManager:
                 "summary": cached.summary(),
             }
 
-        # 检测语言
+        # Detect language
         ext = Path(file_path).suffix
         language = self._detect_language(ext)
         if not language:
             return {"success": False, "error": f"unsupported file type: {ext}"}
 
-        # 确保 server 在运行
+        # Ensure server is running
         ls = self._get_or_start_server(language)
         if not ls:
             return {"success": False, "error": f"failed to start LSP server for {language}"}
 
-        # 打开文件 + 请求诊断
+        # Open file + request diagnostics
         uri = f"file://{Path(file_path).resolve()}"
         self._send_notification(ls, "textDocument/didOpen", {
             "textDocument": {"uri": uri, "languageId": language, "text": ""},
@@ -349,7 +349,7 @@ class LspManager:
             "textDocument": {"uri": uri},
         })
 
-        # 退回到 pyright CLI（更可靠）
+        # Fall back to pyright CLI (more reliable)
         diag_result = self._fallback_diagnostics(file_path)
         if diag_result.get("success"):
             diags = []
@@ -379,12 +379,12 @@ class LspManager:
         return {"success": True, "diagnostics": [], "source": "none"}
 
     def _fallback_diagnostics(self, file_path: str) -> dict:
-        """退回到工具调用方式的诊断（pyright/json/lint）。"""
+        """Fall back to tool-based diagnostics (pyright/json/lint)."""
         # Python: pyright
         path = Path(file_path)
         if path.suffix == ".py":
             try:
-                # 尝试 pyright
+                # Try pyright
                 r = subprocess.run(
                     ["pyright", str(path)],
                     capture_output=True, text=True, timeout=LSP_MANAGER_TIMEOUT,
@@ -393,13 +393,13 @@ class LspManager:
                 diags = self._parse_pyright_output(stdout, str(path))
                 return {"success": True, "diagnostics": diags}
             except Exception:
-                # 退回到 ast
+                # Fall back to ast
                 return self._ast_diagnostics(file_path)
-        # 其他语言 fallback 为空
+        # Other languages fallback to empty
         return {"success": True, "diagnostics": []}
 
     def _parse_pyright_output(self, output: str, file_path: str) -> list[dict]:
-        """解析 pyright 文本输出。"""
+        """Parse pyright text output."""
         diags = []
         for line in output.splitlines():
             # format: "file.py:line:col: severity: message"
@@ -417,7 +417,7 @@ class LspManager:
         return diags
 
     def _ast_diagnostics(self, file_path: str) -> list[dict]:
-        """使用 Python ast 做基础诊断。"""
+        """Basic diagnostics using Python ast."""
         import ast
         diags = []
         try:
@@ -436,7 +436,7 @@ class LspManager:
     # ── Hover ──
 
     def hover(self, file_path: str, line: int, column: int) -> dict:
-        """获取悬停信息。"""
+        """Get hover information."""
         ext = Path(file_path).suffix
         language = self._detect_language(ext)
         if not language:
@@ -453,10 +453,10 @@ class LspManager:
         })
         return result
 
-    # ── 反馈循环 ──
+    # ── Feedback Loop ──
 
     def feedback_loop(self, file_path: str) -> dict:
-        """编辑后触发反馈循环：诊断 → 格式化结果。"""
+        """Post-edit feedback loop: diagnostics → formatted results."""
         diag_result = self.get_diagnostics(file_path)
         if not diag_result.get("success"):
             return diag_result
@@ -473,7 +473,7 @@ class LspManager:
             "suggest_fix": has_errors,
         }
 
-    # ── 状态 ──
+    # ── Status ──
 
     def servers_status(self) -> dict:
         with self._lock:
@@ -483,7 +483,7 @@ class LspManager:
                 "cache": self._cache.stats(),
             }
 
-    # ── 内部 ──
+    # ── Internal ──
 
     def _detect_language(self, ext: str) -> str | None:
         for lang, exts in LSP_FILE_EXTENSIONS.items():
@@ -505,7 +505,7 @@ class LspManager:
 
     def _send_notification(self, ls: LanguageServer, method: str,
                            params: dict) -> None:
-        """发送 JSON-RPC 通知（无响应期望）。"""
+        """Send JSON-RPC notification (no response expected)."""
         if not ls._process or not ls._process.stdin:
             return
         request = {
@@ -523,7 +523,7 @@ class LspManager:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 5. 全局单例
+# 5. Global Singleton
 # ══════════════════════════════════════════════════════════════════════
 
 _manager: LspManager | None = None
@@ -552,7 +552,7 @@ def reset_manager() -> None:
 
 
 def handle_lsp_diagnostics(body: dict | None = None) -> dict:
-    """POST /api/lsp/diagnostics — 获取文件诊断"""
+    """POST /api/lsp/diagnostics — Get file diagnostics"""
     b = body or {}
     file_path = b.get("file", "")
     if not file_path:
@@ -561,7 +561,7 @@ def handle_lsp_diagnostics(body: dict | None = None) -> dict:
 
 
 def handle_lsp_hover(body: dict | None = None) -> dict:
-    """POST /api/lsp/hover — 获取悬停信息"""
+    """POST /api/lsp/hover — Get hover info"""
     b = body or {}
     file_path = b.get("file", "")
     line = b.get("line", 0)
@@ -572,12 +572,12 @@ def handle_lsp_hover(body: dict | None = None) -> dict:
 
 
 def handle_lsp_servers(body: dict | None = None) -> dict:
-    """GET /api/lsp/servers — LSP 进程状态"""
+    """GET /api/lsp/servers — LSP process status"""
     return get_manager().servers_status()
 
 
 def handle_lsp_start(body: dict | None = None) -> dict:
-    """POST /api/lsp/start — 启动 LSP server"""
+    """POST /api/lsp/start — Start LSP server"""
     b = body or {}
     language = b.get("language", "")
     if not language:
@@ -586,7 +586,7 @@ def handle_lsp_start(body: dict | None = None) -> dict:
 
 
 def handle_lsp_stop(body: dict | None = None) -> dict:
-    """POST /api/lsp/stop — 停止 LSP server"""
+    """POST /api/lsp/stop — Stop LSP server"""
     b = body or {}
     language = b.get("language", "")
     if not language:
@@ -595,7 +595,7 @@ def handle_lsp_stop(body: dict | None = None) -> dict:
 
 
 def handle_lsp_feedback(body: dict | None = None) -> dict:
-    """POST /api/lsp/feedback — 编辑后反馈循环"""
+    """POST /api/lsp/feedback — Post-edit feedback loop"""
     b = body or {}
     file_path = b.get("file", "")
     if not file_path:
@@ -603,7 +603,7 @@ def handle_lsp_feedback(body: dict | None = None) -> dict:
     return get_manager().feedback_loop(file_path)
 
 
-# ── 路由注册 ──
+# ── Route Registration ──
 
 LSP_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/lsp/diagnostics", handle_lsp_diagnostics, "Get file diagnostics"),

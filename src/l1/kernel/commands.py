@@ -1,14 +1,20 @@
-"""Command registry — YAML-driven shell command definitions.
+"""CommandRegistry — unified shell command registry with system/user separation.
 
-Commands defined in commands.yaml (single source of truth).
-Praxis.yaml commands: section overrides help/aliases at boot.
-Handler functions registered by name from services/l2_shell.py.
+Architecture:
+  System commands — registered by code, protected (cannot be deleted or modified).
+  User commands   — registered via API or config, fully mutable.
+
+Both types share the same metadata source: config/commands.yaml (defaults)
++ praxis.yaml commands: overrides + runtime API overrides.
+
+The registry is a singleton.  Access via get_registry().
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import yaml
@@ -20,146 +26,330 @@ ARG_AGENT = "agent"
 ARG_ROLE = "role"
 ARG_DOMAIN = "domain"
 
-_COMMAND_HANDLERS: dict[str, Callable] = {}
-_DEFAULTS: dict[str, dict] = {}
-_overrides: dict[str, dict] = {}
-_loaded = False
 
-_COMMANDS_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "commands.yaml")
+@dataclass
+class CommandDef:
+    """Internal command definition."""
+    name: str = ""
+    help: str = ""
+    category: str = "other"
+    aliases: list[str] = field(default_factory=list)
+    args: list[dict] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
+    system: bool = False          # True = protected, cannot be removed/modified
+    handler: Callable | None = None
+    source: str = "default"       # "default" | "yaml" | "api" | "config"
 
+
+class CommandRegistry:
+    """Unified command registry — system (protected) + user (mutable).
+
+    Thread-safe via RLock.  Merges metadata from:
+      1. config/commands.yaml (_defaults)
+      2. praxis.yaml commands: (_overrides)
+      3. Runtime API calls (_user_defs + _user_handlers)
+    """
+
+    def __init__(self):
+        self._lock = __import__("threading").RLock()
+        # System commands — registered by code, protected
+        self._system_handlers: dict[str, Callable] = {}
+        self._system_defs: dict[str, CommandDef] = {}
+        # User commands — registered via API/config, mutable
+        self._user_handlers: dict[str, Callable] = {}
+        self._user_defs: dict[str, CommandDef] = {}
+        # Metadata layers (loaded from YAML, overlaid in order)
+        self._defaults: dict[str, dict] = {}      # from commands.yaml
+        self._overrides: dict[str, dict] = {}     # from praxis.yaml
+        self._loaded = False
+
+    # ── Metadata loading ────────────────────────────────────────
+
+    def load_defaults(self, yaml_path: str = "") -> int:
+        """Load command metadata from commands.yaml."""
+        path = yaml_path or _default_yaml_path()
+        if not os.path.exists(path):
+            logger.warning("commands.yaml not found at %s", path)
+            return 0
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                self._defaults.update(data)
+                self._loaded = True
+                logger.info("command_defs: loaded %d from %s", len(data), path)
+                return len(data)
+        except Exception as e:
+            logger.warning("command_defs load failed: %s", e)
+        return 0
+
+    def load_overrides(self, cfg: dict) -> None:
+        """Load command overrides from praxis.yaml commands: section."""
+        if not cfg:
+            return
+        self._overrides.update(cfg)
+        logger.info("command overrides: %d keys", len(cfg))
+
+    # ── Registration ────────────────────────────────────────────
+
+    def register_system(self, name: str, handler: Callable,
+                        metadata: dict | None = None) -> None:
+        """Register a system command (protected from deletion/modification).
+
+        Args:
+          name: Command name (without leading /).
+          handler: Callable[[list[str]], dict].
+          metadata: Optional dict with help, category, aliases, args, examples.
+        """
+        with self._lock:
+            if name in self._system_handlers:
+                logger.warning("system command %s already registered — overwriting", name)
+            self._system_handlers[name] = handler
+            meta = metadata or self._defaults.get(name, {})
+            self._system_defs[name] = CommandDef(
+                name=name,
+                help=meta.get("help", ""),
+                category=meta.get("category", "other"),
+                aliases=meta.get("aliases", []),
+                args=meta.get("args", []),
+                examples=meta.get("examples", []),
+                system=True,
+                handler=handler,
+                source="system",
+            )
+
+    def register_user(self, name: str, handler: Callable,
+                      metadata: dict) -> dict:
+        """Register a user (custom) command.  Can be unregistered later.
+
+        Args:
+          name: Command name (without leading /).
+          handler: Callable[[list[str]], dict].
+          metadata: Dict with at minimum "help" text.
+        """
+        with self._lock:
+            if name in self._system_handlers:
+                return {"success": False, "error": f"cannot override system command: {name}"}
+            if not metadata.get("help"):
+                return {"success": False, "error": "metadata must include 'help'"}
+            self._user_handlers[name] = handler
+            self._user_defs[name] = CommandDef(
+                name=name,
+                help=metadata.get("help", ""),
+                category=metadata.get("category", "custom"),
+                aliases=metadata.get("aliases", []),
+                args=metadata.get("args", []),
+                examples=metadata.get("examples", []),
+                system=False,
+                handler=handler,
+                source="api",
+            )
+            return {"success": True, "name": name}
+
+    def unregister(self, name: str) -> dict:
+        """Unregister a user command.  System commands cannot be unregistered."""
+        with self._lock:
+            if name in self._system_handlers:
+                return {"success": False, "error": f"cannot unregister system command: {name}"}
+            self._user_handlers.pop(name, None)
+            self._user_defs.pop(name, None)
+            return {"success": True, "name": name}
+
+    # ── Query ───────────────────────────────────────────────────
+
+    def get(self, name: str) -> CommandDef | None:
+        """Get a merged command definition."""
+        with self._lock:
+            # Check user commands first (highest priority)
+            if name in self._user_defs:
+                return self._user_defs[name]
+            # Check system commands
+            if name in self._system_defs:
+                return self._system_defs[name]
+            # Check metadata-only (no handler registered — e.g. from commands.yaml)
+            base = dict(self._defaults.get(name, {}))
+            ov = self._overrides.get(name, {})
+            merged = {**base, **ov}
+            if ov.get("aliases"):
+                merged["aliases"] = ov["aliases"]
+            if ov.get("args"):
+                merged["args"] = ov["args"]
+            if merged.get("help"):
+                return CommandDef(
+                    name=name,
+                    help=merged.get("help", ""),
+                    category=merged.get("category", "other"),
+                    aliases=merged.get("aliases", []),
+                    args=merged.get("args", []),
+                    examples=merged.get("examples", []),
+                    system=False,
+                    source="override" if name in self._overrides else "default",
+                )
+            return None
+
+    def get_handler(self, name: str) -> Callable | None:
+        """Get handler function by command name."""
+        with self._lock:
+            if name in self._user_handlers:
+                return self._user_handlers[name]
+            return self._system_handlers.get(name)
+
+    def list(self, category: str = "") -> list[dict]:
+        """List all registered commands (system + user)."""
+        with self._lock:
+            result = []
+            seen = set()
+
+            # System commands
+            for name, cd in self._system_defs.items():
+                if category and cd.category != category:
+                    continue
+                result.append(self._to_list_item(cd))
+                seen.add(name)
+
+            # User commands
+            for name, cd in self._user_defs.items():
+                if name in seen:
+                    continue
+                if category and cd.category != category:
+                    continue
+                result.append(self._to_list_item(cd))
+                seen.add(name)
+
+            # Metadata-only commands that have handlers in _defaults (YAML-defined)
+            for name in self._defaults:
+                if name in seen:
+                    continue
+                if category and self._defaults[name].get("category") != category:
+                    continue
+                if name in self._system_handlers or name in self._user_handlers:
+                    continue
+                cmd = self.get(name)
+                if cmd and cmd.help:
+                    result.append(self._to_list_item(cmd))
+                    seen.add(name)
+
+            return sorted(result, key=lambda x: (x.get("category", ""), x["name"]))
+
+    def has_command(self, name: str) -> bool:
+        """Check if a command exists (has both metadata and handler)."""
+        cmd = self.get(name)
+        if cmd is None:
+            return False
+        return cmd.handler is not None or self.get_handler(name) is not None
+
+    def is_system(self, name: str) -> bool:
+        """Check if a command is a protected system command."""
+        with self._lock:
+            return name in self._system_handlers
+
+    # ── Stats ───────────────────────────────────────────────────
+
+    def stats(self) -> dict:
+        with self._lock:
+            return {
+                "system": len(self._system_handlers),
+                "user": len(self._user_handlers),
+                "metadata_defaults": len(self._defaults),
+                "metadata_overrides": len(self._overrides),
+            }
+
+    # ── Internal ────────────────────────────────────────────────
+
+    @staticmethod
+    def _to_list_item(cd: CommandDef) -> dict:
+        return {
+            "name": cd.name,
+            "help": cd.help,
+            "category": cd.category,
+            "aliases": cd.aliases,
+            "system": cd.system,
+            "source": cd.source,
+            "args": [{"name": a.get("name", ""), "optional": a.get("optional", False)}
+                     for a in cd.args],
+            "examples": cd.examples[:3],
+        }
+
+
+# ── Singleton ────────────────────────────────────────────────
+
+_REGISTRY: CommandRegistry | None = None
+_REGISTRY_LOCK = __import__("threading").Lock()
+
+
+def get_registry() -> CommandRegistry:
+    global _REGISTRY
+    if _REGISTRY is None:
+        with _REGISTRY_LOCK:
+            if _REGISTRY is None:
+                _REGISTRY = CommandRegistry()
+    return _REGISTRY
+
+
+def reset_registry() -> None:
+    global _REGISTRY
+    _REGISTRY = None
+
+
+# ── Backward-compatible aliases ─────────────────────────────
 
 def load_command_defs(yaml_path: str = "") -> int:
-    """Load command definitions from commands.yaml into _DEFAULTS."""
-    global _DEFAULTS, _loaded
-    path = yaml_path or _COMMANDS_YAML_PATH
-    if not os.path.exists(path):
-        logger.warning("commands.yaml not found at %s", path)
-        return 0
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        if isinstance(data, dict):
-            _DEFAULTS.update(data)
-            _loaded = True
-            logger.info("command_defs: loaded %d commands from %s", len(data), path)
-            return len(data)
-    except Exception as e:
-        logger.warning("command_defs load failed: %s", e)
-    return 0
+    return get_registry().load_defaults(yaml_path)
 
 
 def load_command_overrides(cfg: dict) -> None:
-    """Load command overrides from praxis.yaml commands: section."""
-    global _overrides
-    if not cfg:
-        return
-    _overrides.update(cfg)
-    logger.info("command overrides loaded: %d keys", len(cfg))
+    get_registry().load_overrides(cfg)
 
 
-def register_command(name: str, handler: Callable) -> None:
-    """Register a command handler function.
-
-    Command metadata (help, aliases, args) lives in _DEFAULTS or YAML overrides.
-    This only registers the executable handler.
-    """
-    _COMMAND_HANDLERS[name] = handler
+def register_command(name: str, handler: Callable,
+                     metadata: dict | None = None) -> None:
+    get_registry().register_system(name, handler, metadata)
 
 
 def get_command(name: str) -> dict | None:
-    """Get merged command definition (override layered on default)."""
-    base = dict(_DEFAULTS.get(name, {}))
-    ov = _overrides.get(name, {})
-    merged = {**base, **ov}
-    if ov.get("aliases"):
-        merged["aliases"] = ov["aliases"]
-    if ov.get("args"):
-        merged["args"] = ov["args"]
-    merged["name"] = name
-    merged["has_handler"] = name in _COMMAND_HANDLERS
-    return merged if merged.get("help") else None
+    cd = get_registry().get(name)
+    if cd is None:
+        return None
+    return {
+        "name": cd.name,
+        "help": cd.help,
+        "category": cd.category,
+        "aliases": cd.aliases,
+        "args": cd.args,
+        "examples": cd.examples,
+        "has_handler": cd.handler is not None or get_registry().get_handler(name) is not None,
+    }
 
 
 def get_handler(name: str) -> Callable | None:
-    return _COMMAND_HANDLERS.get(name)
-
-
-# ── Scope resolution (shared across all commands with --cell / --agent) ──
-
-def resolve_scope(args: list[str]) -> tuple[str, str, list[str]]:
-    """Parse --cell <id> / --agent <id> flags from args.
-
-    Returns:
-        (scope, scope_id, remaining_args)
-        scope: "global" | "cell" | "agent"
-    """
-    rest = list(args)
-    scope = "global"
-    scope_id = ""
-    if "--cell" in rest:
-        idx = rest.index("--cell")
-        if idx + 1 < len(rest):
-            scope, scope_id = "cell", rest[idx + 1]
-            rest = rest[:idx] + rest[idx + 2:]
-    if "--agent" in rest:
-        idx = rest.index("--agent")
-        if idx + 1 < len(rest):
-            scope, scope_id = "agent", rest[idx + 1]
-            rest = rest[:idx] + rest[idx + 2:]
-    return scope, scope_id, rest
-
-
-def resolve_agents(scope: str = "global", scope_id: str = "") -> list[str]:
-    """Resolve scope → list of agent_ids."""
-    if scope == "agent" and scope_id:
-        return [scope_id]
-    if scope == "cell" and scope_id:
-        try:
-            from l3.cell import get_cell
-            cell = get_cell(scope_id)
-            agents = cell.list_agents() if hasattr(cell, "list_agents") else []
-            return [a.get("agent_id", a) if isinstance(a, dict) else a for a in agents]
-        except Exception:
-            return []
-    try:
-        from l3.cell import get_cell
-        cell = get_cell()
-        agents = cell.list_agents() if hasattr(cell, "list_agents") else []
-        return [a.get("agent_id", a) if isinstance(a, dict) else a for a in agents]
-    except Exception:
-        return ["agent-1"]
+    return get_registry().get_handler(name)
 
 
 def list_commands() -> list[dict]:
-    """List all known commands (defaults + overrides merged)."""
-    all_keys = set(_DEFAULTS.keys()) | set(_overrides.keys())
-    result = []
-    for k in sorted(all_keys):
-        cmd = get_command(k)
-        if cmd and cmd.get("has_handler"):
-            result.append({
-                "name": k,
-                "help": cmd["help"],
-                "aliases": cmd.get("aliases", []),
-                "category": cmd.get("category", "other"),
-                "examples": cmd.get("examples", []),
-                "args": [
-                    {"name": a["name"], "optional": a.get("optional", False)}
-                    for a in cmd.get("args", [])
-                ],
-            })
-    return result
+    return [{
+        "name": c["name"],
+        "help": c["help"],
+        "aliases": c["aliases"],
+        "category": c["category"],
+        "examples": c.get("examples", []),
+        "args": c.get("args", []),
+    } for c in get_registry().list()]
 
 
 def list_all_definitions() -> dict:
-    """List all command definitions with sources (for debugging)."""
-    all_keys = set(_DEFAULTS.keys()) | set(_overrides.keys())
+    reg = get_registry()
     return {
-        k: {
-            "source": "override" if k in _overrides else "default",
-            "help": (get_command(k) or {}).get("help", ""),
-            "aliases": (get_command(k) or {}).get("aliases", []),
-            "has_handler": k in _COMMAND_HANDLERS,
-        }
-        for k in sorted(all_keys)
+        "system": {n: {"help": cd.help, "category": cd.category}
+                    for n, cd in reg._system_defs.items()},
+        "user": {n: {"help": cd.help, "category": cd.category}
+                  for n, cd in reg._user_defs.items()},
+        "metadata": dict(reg._defaults),
+        "overrides": dict(reg._overrides),
     }
+
+
+def _default_yaml_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "config", "commands.yaml",
+    )

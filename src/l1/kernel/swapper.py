@@ -35,6 +35,8 @@ class Swapper:
         self.interval = interval
         self._running = True
         self._mem = memory_service
+        self._total_swapped_out = 0
+        self._total_compactions = 0
 
     def set_memory(self, mem: Any) -> None:
         """Wire MemoryService to the swapper (called from boot.py)."""
@@ -46,7 +48,7 @@ class Swapper:
         self._pager_bridge = None
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
-        logger.info("swapper started (interval=%ds)", interval)
+        logger.info("swapper started (interval=%ds)", self.interval)
 
     def _loop(self) -> None:
         while self._running:
@@ -79,12 +81,32 @@ class Swapper:
         if not self._mem:
             return {"success": False, "error": "no memory service"}
         try:
-            entry = self._mem.get(entry_id, ring=3)
+            # Find the entry across rings via ID lookup (use generous limit to avoid truncation)
+            ring3_entries = self._mem.recall(rings=[3], limit=999999)
+            entry = next((e for e in ring3_entries if e.id == entry_id), None)
             if not entry:
                 return {"success": False, "error": f"entry not found: {entry_id}"}
-            self._mem.promote(entry_id, target_ring=1)
+
+            # Preserve all original metadata for the restore
+            new_id = self._mem.remember(
+                agent_id=entry.agent_id,
+                entry_type=entry.entry_type,
+                content=entry.content,
+                tags=entry.tags,
+                source=entry.source,
+                importance=entry.importance,
+                cell_id=entry.cell_id,
+                ring=1,
+            )
             self._total_swapped_out -= 1
-            return {"success": True, "entry": entry}
+            return {"success": True, "entry": {
+                "id": new_id,
+                "agent_id": entry.agent_id,
+                "entry_type": entry.entry_type,
+                "content": entry.content[:100],
+                "cell_id": entry.cell_id,
+                "importance": entry.importance,
+            }}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

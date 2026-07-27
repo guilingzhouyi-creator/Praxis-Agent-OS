@@ -78,7 +78,7 @@ class TestSymbolSearch:
 
 
 class TestDocSearch:
-    """API 文档搜索"""
+    """API doc search"""
 
     def test_search_known(self):
         from l4.search_engine import DocSearch
@@ -106,7 +106,7 @@ class TestDocSearch:
 
 
 class TestSearchEngine:
-    """统一搜索入口"""
+    """Unified search entry"""
 
     def test_search_semantic_mode(self):
         from l4.search_engine import get_engine
@@ -143,7 +143,7 @@ class TestSearchEngine:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_search_no_query(self):
         from l4.search_engine import handle_search

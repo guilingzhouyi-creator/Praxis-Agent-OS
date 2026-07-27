@@ -1,78 +1,78 @@
 ---
-全宗: AGENT
-案卷: issues
-件号: 000
-类型: 规范
-日期: 2026-07-22
-时间戳: 2026-07-22T19:50
-作者: OpenCode
-关键词: [template, specification, convention]
-关联: []
-债务: []
+fonds: AGENT
+series: issues
+item_no: 000
+type: specification
+date: 2026-07-22
+timestamp: 2026-07-22T19:50
+author: OpenCode
+keywords: [template, specification, convention]
+relations: []
+debt: []
 ---
 
-# Praxis 议题规范与示例
+# Praxis Issue Specification and Examples
 
-## 规范
+## Specification
 
-### 文件命名
-`{件号:03d}_{type}_{title}.md`
-例: `001_event_ssr_implementation.md`
+### File Naming
+`{item_no:03d}_{type}_{title}.md`
+Example: `001_event_ssr_implementation.md`
 
-### 标头字段
+### Header Fields
 
-| 字段 | 必填 | 说明 | 枚举值 |
+| Field | Required | Description | Enum Values |
 |:-----|:----:|:-----|:--------|
-| `全宗` | 🔴 | 记忆分类 | `PHASE` / `DESIGN` / `AGENT` / `REVIEW` |
-| `案卷` | 🔴 | 议题分类名 | `skills` / `phase17` / `ux` 等 |
-| `件号` | 🔴 | 3 位数字序号 | `001`-`999` |
-| `类型` | 🔴 | 文档类型 | `议题` / `决策` / `实现` / `发现` / `规范` / `事件` |
-| `日期` | 🔴 | 创建日期 | `YYYY-MM-DD` |
-| `时间戳` | 🔴 | 精确时间 | `YYYY-MM-DDTHH:MM` |
-| `作者` | 🔴 | 创建者 | Agent 名 |
-| `关键词` | 🟡 | 搜索标签 | `[tag1, tag2]` |
-| `关联` | 🟡 | 关联记忆 ID | `[PHASE-16-001]` |
-| `债务` | 🟡 | 产生的待办 | `[gateway rsa upgrade]` |
+| `fonds` | 🔴 | Memory category | `PHASE` / `DESIGN` / `AGENT` / `REVIEW` |
+| `series` | 🔴 | Issue category name | `skills` / `phase17` / `ux` etc. |
+| `item_no` | 🔴 | 3-digit sequence number | `001`-`999` |
+| `type` | 🔴 | Document type | `issue` / `decision` / `implementation` / `finding` / `specification` / `event` |
+| `date` | 🔴 | Creation date | `YYYY-MM-DD` |
+| `timestamp` | 🔴 | Precise time | `YYYY-MM-DDTHH:MM` |
+| `author` | 🔴 | Creator | Agent name |
+| `keywords` | 🟡 | Search tags | `[tag1, tag2]` |
+| `relations` | 🟡 | Related memory IDs | `[PHASE-16-001]` |
+| `debt` | 🟡 | Generated todos | `[gateway rsa upgrade]` |
 
-### 正文规范
-- 标题用 `#`，节用 `##`，子节用 `###`
-- 结论先行：首段一句话说明议题核心
-- 方案至少一个，方案间用 `### 方案 N` 分隔
-- 所有方案必须有 `优点` `缺点` 评估
+### Body Specification
+- Use `#` for title, `##` for section, `###` for subsection
+- Conclusion first: first sentence summarizes the core of the issue
+- At least one proposal, separate proposals with `### Proposal N`
+- All proposals must have `Pros` `Cons` evaluation
 
 ---
 
-## 示例
+## Example
 
 ```yaml
 ---
-全宗: AGENT
-案卷: skills
-件号: 001
-类型: 议题
-日期: 2026-07-22
-时间戳: 2026-07-22T19:50
-作者: OpenCode
-关键词: [SSR, 渲染, 性能]
-关联: [PHASE-16-003]
-债务: [迁移旧模板引擎]
+fonds: AGENT
+series: skills
+item_no: 001
+type: issue
+date: 2026-07-22
+timestamp: 2026-07-22T19:50
+author: OpenCode
+keywords: [SSR, rendering, performance]
+relations: [PHASE-16-003]
+debt: [Migrate legacy template engine]
 ---
 ```
 
-# 议题：服务端渲染支持
+# Issue: Server-Side Rendering Support
 
-当前全部页面在客户端渲染，首屏加载慢、SEO 差。需要引入 SSR 方案。
+All pages currently render on the client side, resulting in slow initial load and poor SEO. An SSR solution is needed.
 
-## 方案 1：Next.js 全量迁移
+## Proposal 1: Full Migration to Next.js
 
-将现有 Flask 模板全部迁移到 Next.js。
+Migrate all existing Flask templates to Next.js.
 
-- 优点：生态成熟，社区活跃，SSR/SSG 双支持
-- 缺点：全量重写，工期 2-3 个月，与现有 Flask 路由不兼容
+- Pros: Mature ecosystem, active community, dual SSR/SSG support
+- Cons: Full rewrite, 2-3 month timeline, incompatible with existing Flask routes
 
-## 方案 2：Flask + React 混合
+## Proposal 2: Flask + React Hybrid
 
-保留 Flask 后端，前端关键页面接入 React SSR。
+Keep the Flask backend and integrate React SSR for key frontend pages.
 
-- 优点：渐进式迁移，可分批上线
-- 缺点：架构复杂度增加，需要维护两套渲染管线
+- Pros: Incremental migration, can be rolled out in batches
+- Cons: Increased architectural complexity, need to maintain two rendering pipelines

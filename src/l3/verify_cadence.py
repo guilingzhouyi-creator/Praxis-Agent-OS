@@ -13,17 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class VerifyCadence:
-    """Edit-then-verify with subprocess checks.
-
-    After edit_file/write_file WITHOUT a following build/check command,
-    injects a nudge to run a verification command. At most once per edit.
-    """
-
-    VERIFY_CMDS = frozenset({
-        "cargo", "tsc", "make", "npm", "pytest", "mvn", "gradle",
-        "gcc", "clang", "dotnet", "ruff", "black", "mypy", "pyright",
-        "go build", "go test", "cargo check", "cargo test",
-    })
+    """Edit-then-verify with subprocess checks."""
+    from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS
 
     def __init__(self):
         self._edited: set[str] = set()

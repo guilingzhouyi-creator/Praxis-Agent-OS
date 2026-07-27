@@ -15,6 +15,7 @@ from l1.kernel.params.agent import DEFAULT_CELL_ID
 logger = logging.getLogger(__name__)
 
 
+
 def preconnect_enhanced(cell_id: str, agent_id: str,
                         message: str = "") -> dict:
     from l2.selector import preconnect as _preconnect
@@ -253,6 +254,91 @@ def _cmd_cross(args: list[str]) -> dict:
     from l3.l3 import get_coordinator
     coord = get_coordinator()
     return {"success": True, "cross_cell": getattr(coord, 'status', lambda: {})()}
+
+
+def _cmd_cluster(args: list[str]) -> dict:
+    """/cluster [status|composites|expand|shrink]"""
+    sub = args[0].lower() if args else "status"
+
+    if sub == "status":
+        from l3.l3 import get_coordinator
+        coord = get_coordinator()
+        state = "SINGLE"
+        if len(coord._cells) >= 2 and getattr(coord, '_cross_cell_active', False):
+            state = "MULTI"
+        elif len(coord._cells) >= 2:
+            state = "TRANSITIONING"
+        return {
+            "success": True,
+            "state": state,
+            "cells": len(coord._cells),
+            "composites": len(coord.b.composites),
+            "cross_cell_active": getattr(coord, '_cross_cell_active', False),
+        }
+
+    if sub == "composites":
+        from l3.l3 import get_coordinator
+        coord = get_coordinator()
+        return {
+            "success": True,
+            "composites": [c.status() for c in coord.b.composites],
+        }
+
+    if sub == "expand" and len(args) >= 2:
+        cell_id = args[1]
+        territory = args[2].split(",") if len(args) >= 3 else ["."]
+        from l3.l3 import get_coordinator
+        coord = get_coordinator()
+        coord.register_cell(cell_id, territory)
+        return {"success": True, "cell_id": cell_id, "composites": len(coord.b.composites)}
+
+    if sub == "shrink" and len(args) >= 2:
+        cell_id = args[1]
+        from l3.l3 import get_coordinator
+        coord = get_coordinator()
+        coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
+        from l3.l3b import L3B
+        new_l3b = L3B()
+        for c in coord._cells:
+            new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
+        coord.b = new_l3b
+        coord._cross_cell_active = len(coord._cells) >= 2
+        return {"success": True, "removed": cell_id, "remaining": len(coord._cells)}
+
+    return {"success": False, "error": "usage: /cluster [status|composites|expand <id>|shrink <id>]"}
+
+
+def _cmd_htn(args: list[str]) -> dict:
+    """/htn [a|b|c] — view HTN instance status"""
+    sub = args[0].lower() if args else "a"
+
+    if sub == "a":
+        try:
+            from l3.htn_a import get_htn_a
+            h = get_htn_a()
+            return {"success": True, "htn": "A", "methods": len(h._methods)}
+        except Exception as e:
+            return {"success": False, "error": f"HTN-A not available: {e}"}
+
+    if sub == "b":
+        from l3.l3 import get_coordinator
+        coord = get_coordinator()
+        info = {}
+        for comp in coord.b.composites:
+            info[comp.composite_id] = {
+                "methods": len(comp.htn_b._methods) if hasattr(comp, 'htn_b') and hasattr(comp.htn_b, '_methods') else 0,
+            }
+        return {"success": True, "htn": "B", "composites": info}
+
+    if sub == "c":
+        try:
+            from l3.htn_planner import get_service
+            h = get_service()
+            return {"success": True, "htn": "C", "methods": len(h._methods)}
+        except Exception as e:
+            return {"success": False, "error": f"HTN-C not available: {e}"}
+
+    return {"success": False, "error": "usage: /htn [a|b|c]"}
 
 
 def _cmd_security(args: list[str]) -> dict:
@@ -612,11 +698,14 @@ def _cmd_cell_create(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /cell create <territory>"}
     territory = args[0].strip("/")
     try:
+        from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES, AGENT_ROLE_MAP
         from l3.boot import _create_cell as _boot_create_cell
+        # Use config-driven default roles; fallback role from AGENT_ROLE_MAP[3]
+        default_role = AGENT_ROLE_MAP.get(3, "default")
+        now = int(time.time())
         agent_config = [
-            (f"agent-{int(time.time())}-r", "reader", [territory]),
-            (f"agent-{int(time.time())}-w", "writer", [territory]),
-            (f"agent-{int(time.time())}-g", "governor", [territory]),
+            (f"agent-{now}-{i}", role, [territory])
+            for i, role in enumerate(CENTRAL_DEFAULT_ROLES[:3] or [default_role])
         ]
         r = _boot_create_cell(agent_config)
         return {"success": True, "action": "create_cell", "agents": agent_config,
@@ -851,21 +940,48 @@ def _cmd_think(args: list[str]) -> dict:
     return {"success": False, "error": "usage: /think [config|cell|stats]"}
 
 
+# ── System command registration ──────────────────────────────────
+# Decorator: @system_command marks a function as a system shell command.
+
+import functools as _ft
+
+_SYSTEM_COMMANDS: list[tuple[str, Callable]] = []
+
+
+def system_command(name: str, metadata: dict | None = None):
+    """Decorator that marks a function as a system shell command.
+    Usage:
+      @system_command("mycmd", metadata={"help": "..."})
+      def _cmd_mycmd(args): ...
+    """
+    def _wrapper(fn):
+        _SYSTEM_COMMANDS.append((name, fn, metadata or {}))
+        @_ft.wraps(fn)
+        def _inner(*a, **kw): return fn(*a, **kw)
+        return _inner
+    return _wrapper
+
+
 # Load command definitions from commands.yaml
 try:
-    from l1.kernel.commands import load_command_defs
-    load_command_defs()
+    from l1.kernel.commands import get_registry
+    _reg = get_registry()
+    _reg.load_defaults()
 except Exception:
     pass
 
-# Register command handlers with centralized registry
-for _name in ("help", "agents", "connect", "disconnect", "mode", "status",
-              "intents", "scheduler", "observe", "skills", "cells",
-              "cross", "security", "memory", "plugins", "mcp",
-              "process", "vfs", "cache", "sysinfo", "clear", "history",
-              "lang", "spawn", "kill", "destroy", "emergency", "cluster",
-              "audit", "settings", "devices", "tools", "config", "cron",
-               "cell_create", "agent_refresh", "tokens", "card", "buffer", "think"):
-    _handler = locals().get(f"_cmd_{_name}")
-    if _handler:
-        _register_handler(_name, _handler)
+# Apply @system_command decorators to all _cmd_* functions.
+# This must run AFTER all _cmd_* functions are defined.
+for _cmd_name in dir():
+    if _cmd_name.startswith("_cmd_"):
+        _fn = locals()[_cmd_name]
+        # Only auto-register if NOT already registered via @system_command
+        _already = any(n == _cmd_name[5:] for n, _, _ in _SYSTEM_COMMANDS)
+        if not _already:
+            _SYSTEM_COMMANDS.append((_cmd_name[5:], _fn, {}))
+
+for _name, _fn, _meta in _SYSTEM_COMMANDS:
+    try:
+        _reg.register_system(_name, _fn, metadata=_meta or None)
+    except Exception as _e:
+        logging.getLogger(__name__).warning("cmd register %s: %s", _name, _e)

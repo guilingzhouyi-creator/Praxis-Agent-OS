@@ -2,6 +2,11 @@
 
 from typing import Final
 
+from .system import (
+    MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX, SCOUT_TIMEOUT,
+    TOOL_SCOUT_RUN_TIMEOUT, TOOL_SCOUT_MAX_STEPS,
+)
+
 
 # ── Tool danger levels ──
 
@@ -33,8 +38,20 @@ TOOL_PIP_INSTALL_TIMEOUT: Final[int] = 120
 TOOL_NPM_TIMEOUT: Final[int] = 120
 TOOL_PYRIGHT_TIMEOUT: Final[int] = 60
 TOOL_COMPILE_CHECK_TIMEOUT: Final[int] = 10
-TOOL_SCOUT_RUN_TIMEOUT: Final[int] = 180
-TOOL_SCOUT_MAX_STEPS: Final[int] = 10
+TOOL_WEB_TIMEOUT: Final[int] = 15              # web_fetch / web_search timeout
+TOOL_SEARCH_TIMEOUT: Final[int] = 30           # grep/rg search timeout
+
+# ── Build system detectors (configurable list) ──
+BUILD_DETECTORS: Final[list[tuple[str, ...]]] = [
+    ("python", "-m", "build"),
+    ("cargo", "build"),
+    ("npm", "run", "build"),
+]
+TEST_DETECTORS: Final[list[tuple[str, ...]]] = [
+    ("python", "-m", "pytest"),
+    ("cargo", "test"),
+    ("npm", "test"),
+]
 
 # ── Tool timeouts (seconds) ──
 TOOL_TERMINAL_TIMEOUT: Final[float] = 30.0
@@ -68,8 +85,6 @@ HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
     "fix": "write_file", "plan": "write_file",
 }
 
-
 # ── Scout ──
-MAX_SCOUTS_PER_AGENT: Final[int] = 3
-SCOUT_TIMEOUT: Final[float] = 300.0
-SCOUT_POOL_MAX: Final[int] = 12
+# (Constants imported from .system)
+

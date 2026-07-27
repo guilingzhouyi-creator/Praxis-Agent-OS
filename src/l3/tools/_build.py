@@ -2,15 +2,14 @@
 
 import subprocess
 
-from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
+from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT, BUILD_DETECTORS, TEST_DETECTORS
 
 
 def build_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
-    cmds = [("python", "-m", "build"), ("cargo", "build"), ("npm", "run", "build")]
-    for cmd in cmds:
+    for cmd in BUILD_DETECTORS:
         try:
-            r = subprocess.run(cmd, cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
+            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:2000]}
         except Exception:
@@ -20,10 +19,9 @@ def build_project(args: dict, agent_id: str) -> dict:
 
 def test_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
-    cmds = [("python", "-m", "pytest"), ("cargo", "test"), ("npm", "test")]
-    for cmd in cmds:
+    for cmd in TEST_DETECTORS:
         try:
-            r = subprocess.run(cmd, cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
+            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:2000]}
         except Exception:

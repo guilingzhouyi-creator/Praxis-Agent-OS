@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ContextItem:
-    """上下文片段，带优先级元数据。"""
+    """Context fragment with priority metadata."""
     content: str
     source: str                # "memory_ring" | "lsp_diag" | "file_summary" | "history"
     priority: float = 0.5      # 0.0 ~ 1.0
@@ -51,12 +51,12 @@ class ContextItem:
 
 @dataclass
 class PromptTemplate:
-    """分层 prompt 模板。"""
-    role: str = ""             # 角色 prompt："You are a senior Python engineer..."
-    task: str = ""             # 任务 prompt："Fix the bug in login.py..."
-    constraints: str = ""      # 约束 prompt："Do not modify tests..."
-    context: str = ""          # 组装后的上下文
-    tools: str = ""            # 可用工具描述
+    """Layered prompt template."""
+    role: str = ""             # Role prompt: "You are a senior Python engineer..."
+    task: str = ""             # Task prompt: "Fix the bug in login.py..."
+    constraints: str = ""      # Constraint prompt: "Do not modify tests..."
+    context: str = ""          # Assembled context
+    tools: str = ""            # Available tool description
 
     def build(self) -> str:
         parts = []
@@ -92,14 +92,14 @@ class PromptTemplate:
 
 
 class ContextAssembler:
-    """从多个源组装 LLM context。"""
+    """Assemble LLM context from multiple sources."""
 
     def __init__(self, max_tokens: int = 4096):
         self._max_tokens = max_tokens
         self._items: list[ContextItem] = []
 
     def add_memory_context(self, agent_id: str = "") -> int:
-        """从 memory ring 加载最近的上下文。"""
+        """Load recent context from memory ring."""
         try:
             from l3.memory import get_memory
             mem = get_memory()
@@ -120,11 +120,11 @@ class ContextAssembler:
 
     def add_file_context(self, file_paths: list[str] = None,
                          max_chars_per_file: int = 2000) -> int:
-        """加载指定文件的摘要上下文。"""
+        """Load summary context for specified files."""
         if not file_paths:
             return 0
         total = 0
-        for path in file_paths[:5]:  # 最多 5 个文件
+        for path in file_paths[:5]:  # Max 5 files
             try:
                 from pathlib import Path
                 p = Path(path)
@@ -146,7 +146,7 @@ class ContextAssembler:
         return total
 
     def add_lsp_diagnostics(self, file_path: str = "") -> int:
-        """从 LSP 添加诊断上下文。"""
+        """Add diagnostics context from LSP."""
         try:
             from l4.lsp import LocalAnalyzer
             analyzer = LocalAnalyzer()
@@ -168,7 +168,7 @@ class ContextAssembler:
 
     def add_history_context(self, history: list[dict] = None,
                             max_messages: int = 10) -> int:
-        """从对话历史添加上下文。"""
+        """Load context from conversation history."""
         if not history:
             return 0
         recent = history[-max_messages:]
@@ -190,7 +190,7 @@ class ContextAssembler:
 
     def add_string(self, content: str, source: str = "custom",
                    priority: float = 0.5, tags: list[str] = None) -> int:
-        """添加自定义上下文片段。"""
+        """Add custom context fragment."""
         item = ContextItem(
             content=content,
             source=source,
@@ -202,12 +202,12 @@ class ContextAssembler:
         return item.tokens
 
     def assemble(self, max_tokens: int = 0) -> str:
-        """按优先级排序 + 滑动窗口截断 → 组装 context 字符串。"""
+        """Sort by priority + sliding window truncation → assemble context string."""
         budget = max_tokens or self._max_tokens
         if not self._items:
             return ""
 
-        # 按优先级降序排列
+        # Sort by descending priority
         sorted_items = sorted(self._items, key=lambda x: -x.priority)
 
         parts = []
@@ -219,7 +219,7 @@ class ContextAssembler:
             used += item.tokens
 
         result = "\n\n".join(parts)
-        # 按字符截断保底
+        # Fallback character-level truncation
         max_chars = budget * 4
         if len(result) > max_chars:
             result = result[:max_chars] + "\n...[truncated]"
@@ -242,9 +242,9 @@ class ContextAssembler:
 
 
 class PromptBuilder:
-    """分层 Prompt 构建器。"""
+    """Layered Prompt Builder."""
 
-    # 默认系统 prompt 模板 (from kernel.prompts)
+    # Default system prompt template (from kernel.prompts)
     SYSTEM_TEMPLATES: dict[str, str] = {}  # loaded lazily
 
     CONSTRAINT_TEMPLATES: dict[str, str] = {}  # loaded lazily
@@ -256,20 +256,20 @@ class PromptBuilder:
               context: str = "", tools_desc: str = "",
               constraints: list[str] = None,
               variables: dict[str, Any] = None) -> PromptTemplate:
-        """构建完整分层 prompt。"""
+        """Build complete layered prompt."""
         vars = variables or {}
         vars.setdefault("version", KERNEL_VERSION)
         vars.setdefault("codename", PRAXIS_CODENAME)
         vars.setdefault("max_steps", AGENT_LOOP_DEFAULT_STEPS)
 
-        # 角色 prompt (from kernel.prompts registry)
+        # Role prompt (from kernel.prompts registry)
         from l1.kernel.prompts import get_prompt as _gp
         role_key = role if (role in self._custom_templates or _gp(f"prompt_engine.system.{role}", "")) else "default"
         role_prompt = (self._custom_templates.get(role)
                        or _gp(f"prompt_engine.system.{role_key}",
                               _gp("prompt_engine.system.default", ""))).format(**vars)
 
-        # 约束 prompt (from kernel.prompts registry)
+        # Constraint prompt (from kernel.prompts registry)
         constraint_parts = []
         for key in (constraints or []):
             tpl = _gp(f"prompt_engine.constraint.{key}", key)
@@ -284,7 +284,7 @@ class PromptBuilder:
         )
 
     def register_template(self, name: str, template: str) -> dict:
-        """注册自定义系统 prompt 模板。"""
+        """Register custom system prompt template."""
         self._custom_templates[name] = template
         return {"success": True, "name": name, "preview": template[:80]}
 
@@ -303,7 +303,7 @@ class PromptBuilder:
 
 
 class PromptEngine:
-    """PromptEngine — 上下文组装 + 滑动窗口 + 分层 Prompt 的统一入口。"""
+    """PromptEngine — Unified entry for context assembly + sliding window + layered prompts."""
 
     def __init__(self, max_context_tokens: int = 4096):
         self._assembler = ContextAssembler(max_tokens=max_context_tokens)
@@ -317,31 +317,31 @@ class PromptEngine:
                      include_diagnostics: bool = False,
                      tools_desc: str = "",
                      max_tokens: int = 0) -> dict:
-        """一站式构建 prompt：组装 context → 合并分层 → 返回完整 prompt。"""
+        """One-stop prompt build: assemble context → merge layers → return full prompt."""
         with self._lock:
             self._assembler.reset()
 
-            # 1. 加载 memory context
+            # 1. Load memory context
             if agent_id:
                 self._assembler.add_memory_context(agent_id)
 
-            # 2. 加载文件上下文
+            # 2. Load file context
             if file_paths:
                 self._assembler.add_file_context(file_paths)
 
-            # 3. 加载 LSP 诊断
+            # 3. Load LSP diagnostics
             if include_diagnostics:
                 for fp in (file_paths or [])[:3]:
                     self._assembler.add_lsp_diagnostics(fp)
 
-            # 4. 加载历史对话
+            # 4. Load conversation history
             if history:
                 self._assembler.add_history_context(history)
 
-            # 5. 组装
+            # 5. Assemble
             context = self._assembler.assemble(max_tokens=max_tokens)
 
-            # 6. 构建分层 prompt
+            # 6. Build layered prompt
             pt = self._builder.build(
                 role=role,
                 task=task,
@@ -366,7 +366,7 @@ class PromptEngine:
                            history: list[dict] = None,
                            include_diagnostics: bool = False,
                            max_tokens: int = 0) -> dict:
-        """仅组装 context，不构建完整 prompt（供前端预览）。"""
+        """Assemble context only, without building full prompt (for frontend preview)."""
         with self._lock:
             self._assembler.reset()
             if agent_id:
@@ -395,7 +395,7 @@ class PromptEngine:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 5. 全局单例
+# 5. Global Singleton
 # ══════════════════════════════════════════════════════════════════════
 
 _engine: PromptEngine | None = None
@@ -417,7 +417,7 @@ def get_engine() -> PromptEngine:
 
 
 def handle_prompt_build(body: dict | None = None) -> dict:
-    """POST /api/prompt/build — 构建完整 prompt"""
+    """POST /api/prompt/build — Build full prompt"""
     b = body or {}
     return get_engine().build_prompt(
         task=b.get("task", ""),
@@ -433,7 +433,7 @@ def handle_prompt_build(body: dict | None = None) -> dict:
 
 
 def handle_prompt_context(body: dict | None = None) -> dict:
-    """POST /api/prompt/context — 仅组装 context"""
+    """POST /api/prompt/context — Assemble context only"""
     b = body or {}
     return get_engine().build_context_only(
         agent_id=b.get("agent_id", ""),
@@ -445,12 +445,12 @@ def handle_prompt_context(body: dict | None = None) -> dict:
 
 
 def handle_prompt_templates(body: dict | None = None) -> dict:
-    """GET /api/prompt/templates — 列出所有 prompt 模板"""
+    """GET /api/prompt/templates — List all prompt templates"""
     return get_engine().get_templates()
 
 
 def handle_prompt_template_register(body: dict | None = None) -> dict:
-    """POST /api/prompt/template — 注册自定义模板"""
+    """POST /api/prompt/template — Register custom template"""
     b = body or {}
     name = b.get("name", "")
     template = b.get("template", "")
@@ -459,7 +459,7 @@ def handle_prompt_template_register(body: dict | None = None) -> dict:
     return get_engine().register_template(name, template)
 
 
-# ── 路由注册 ──
+# ── Route Registration ──
 
 PROMPT_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/prompt/build", handle_prompt_build, "Build full prompt with context assembly"),

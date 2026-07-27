@@ -1,4 +1,4 @@
-"""MessageGate 单测 — 规则匹配 / 依赖链 / 持久化 (S3/S5 修复点)。"""
+"""MessageGate unit test — rule matching / dependency chain / persistence (S3/S5 fix points)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from l3.message_gate import (
     get_gate,
     reset_gate,
 )
-from l4.monitor_bus import MonitorEvent
+from l3.monitor_bus import MonitorEvent
 
 
 def _make_engine(tmp_obj) -> MessageGateEngine:

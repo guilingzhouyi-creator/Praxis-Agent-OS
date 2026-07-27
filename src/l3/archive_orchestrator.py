@@ -28,21 +28,19 @@ def archive_ring3(mem: Any) -> int:
     Returns:
         Number of entries archived.
     """
-    from tools._archive import _cmd_archive_store
+    from l3.tools._archive import _cmd_archive_store
 
     entries = mem.long.to_dict()
     count = 0
     for e in entries:
         if e.get("importance", 0) >= ARCHIVE_IMPORTANCE_THRESHOLD:
             fonds, series = _classify(e)
-            r = _cmd_archive_store({
-                "fonds": fonds,
-                "series": series,
-                "title": (e.get("content", "") or "")[:80],
-                "content": e.get("content", ""),
-                "tags": e.get("tags", []),
-                "ttl": 0,  # archive entries are permanent
-            }, agent_id=e.get("agent_id", "system"))
+            r = _cmd_archive_store(
+                fonds=fonds,
+                series=series,
+                content=e.get("content", ""),
+                tags=",".join(str(t) for t in (e.get("tags") or [])),
+            )
             if r.get("success"):
                 count += 1
     if count > 0:
@@ -59,7 +57,7 @@ def ring3_from_archive(mem: Any) -> int:
     Returns:
         Number of entries restored.
     """
-    from tools._archive import _get_db
+    from l3.tools._archive import _get_db
 
     count = 0
     try:

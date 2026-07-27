@@ -16,6 +16,11 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Supervisor timing defaults
+_SUPERVISOR_WAIT_TIMEOUT: float = 5.0       # process wait timeout on stop
+_SUPERVISOR_MONITOR_INTERVAL: float = 10.0  # health check interval
+_SUPERVISOR_IDLE_INTERVAL: float = 60.0     # main loop idle interval
+
 
 class Supervisor:
     """Four-process lifecycle manager."""
@@ -94,7 +99,7 @@ class Supervisor:
                     pass
             for p in procs:
                 try:
-                    p.wait(timeout=5)
+                    p.wait(timeout=_SUPERVISOR_WAIT_TIMEOUT)
                 except Exception:
                     try:
                         p.kill()
@@ -150,7 +155,7 @@ class Supervisor:
     def _monitor_loop(self) -> None:
         """Health check + auto restart."""
         while self._running:
-            time.sleep(10)
+            time.sleep(_SUPERVISOR_MONITOR_INTERVAL)
             for role, procs in list(self._procs.items()):
                 if not self.PROCESSES[role]["restart"]:
                     continue
@@ -178,7 +183,7 @@ def main() -> None:
     logger.info("supervisor started: %s", r)
     try:
         while True:
-            time.sleep(60)
+            time.sleep(_SUPERVISOR_IDLE_INTERVAL)
     except KeyboardInterrupt:
         sv.stop()
 

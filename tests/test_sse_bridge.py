@@ -15,7 +15,7 @@ class TestSseBridgeCore:
         cid = client["client_id"]
         # Should not raise
         unsubscribe(cid)
-        # 重复取消也不应报错
+        # Double unsubscribe should not error
         unsubscribe(cid)
 
     def test_subscribe_with_types(self):
@@ -45,7 +45,7 @@ class TestSseBridgeCore:
     def test_type_filter(self):
         from l4.sse_bridge import subscribe, push_event, unsubscribe
 
-        # 只订阅 test_a
+        # Subscribe only to test_a
         client = subscribe(event_types={"test_a"})
         q = client["queue"]
         push_event("test_b", {"msg": "should be filtered"})
@@ -62,22 +62,22 @@ class TestSseBridgeCore:
         client = subscribe()
         cid = client["client_id"]
         unsubscribe(cid)
-        unsubscribe(cid)  # 二次取消不应抛异常
+        unsubscribe(cid)  # Double unsubscribe should not raise
 
 
 class TestEnsureActive:
-    """激活检查"""
+    """Active check"""
 
     def test_ensure_active(self):
         from l4.sse_bridge import ensure_active, _ACTIVE
         old = _ACTIVE
         ensure_active()
-        # 不应抛出异常
+        # Should not raise
         assert True
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_sse(self):
         from l4.sse_bridge import handle_sse

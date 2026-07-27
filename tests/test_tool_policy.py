@@ -1,4 +1,4 @@
-"""ToolPolicy 单测 — 多层策略 / 缓存 / load_from_yaml (S4 修复点)。"""
+"""ToolPolicy unit test — multi-layer policy / cache / load_from_yaml (S4 fix point)."""
 
 from __future__ import annotations
 

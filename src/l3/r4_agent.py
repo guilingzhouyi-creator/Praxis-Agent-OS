@@ -218,6 +218,28 @@ class R4Agent:
             logger.warning("R4Agent: incremental archive failed: %s", e)
             return 0
 
+    def restore_ring3(self, limit: int = 100) -> dict:
+        """Restore archived entries back into Ring 3 knowledge.
+
+        Delegates to archive_orchestrator.ring3_from_archive().
+        Called by boot.py during system startup to warm up Ring 3.
+
+        Args:
+            limit: Max entries to restore (default 100).
+
+        Returns:
+            {"success": bool, "restored": int}
+        """
+        try:
+            from .archive_orchestrator import ring3_from_archive
+            from .memory import get_memory
+            mem = get_memory()
+            count = ring3_from_archive(mem)
+            return {"success": True, "restored": count}
+        except Exception as e:
+            logger.warning("R4Agent: restore_ring3 failed: %s", e)
+            return {"success": False, "error": str(e)}
+
     def _check_consistency(self) -> list[dict]:
         """Detect cross-fonds contradictions in Archive."""
         from tools._archive import _get_db

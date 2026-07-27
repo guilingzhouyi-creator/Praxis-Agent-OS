@@ -131,7 +131,7 @@ class TestBatchEdit:
             ]
             r = engine.batch_edit(edits, description="rollback test")
             assert not r["success"]
-            # 验证两个文件都被回滚
+            # Verify both files were rolled back
             c1 = Path(f1.name).read_text(encoding="utf-8")
             assert "file_one" in c1, "file_one should be rolled back"
         finally:
@@ -202,7 +202,7 @@ class TestUndoRedo:
 
 
 class TestPatchSystem:
-    """Patch 创建/应用/回滚"""
+    """Patch create/apply/rollback"""
 
     def test_patch_create_and_apply(self):
         from l3.file_editor import EditEngine, DiffEdit, PatchManager
@@ -240,7 +240,7 @@ class TestPatchSystem:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_fs_edit_basic(self):
         from l3.file_editor import handle_fs_edit

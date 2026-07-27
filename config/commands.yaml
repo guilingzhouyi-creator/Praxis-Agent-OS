@@ -246,6 +246,14 @@ cluster:
   examples:
     - "/cluster            — show cluster topology"
 
+htn:
+  category: debug
+  help: "View HTN instance status (a | b | c)"
+  examples:
+    - "/htn a             — HTN-A: global decomposer"
+    - "/htn b             — HTN-B: cross-cell routing"
+    - "/htn c             — HTN-C: in-cell decomposition"
+
 audit:
   category: audit
   help: "View syscall audit trail"

@@ -255,8 +255,10 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
     register_boot_step("load_config", _load_config, depends_on=["load_constitution"])
     register_boot_step("load_tools", _load_tools, depends_on=["load_config"])
     register_boot_step("init_services", _init_services, depends_on=["load_tools"])
-    register_boot_step("create_cell", lambda: _create_cell(agent_config),
+    register_boot_step("init_record_center", _init_record_center,
                        depends_on=["init_services"])
+    register_boot_step("create_cell", lambda: _create_cell(agent_config),
+                       depends_on=["init_record_center"])
 
 
 def _load_constitution() -> dict:
@@ -358,6 +360,19 @@ def _load_tools() -> dict:
         return {"success": True, "tools": n}
     except Exception as e:
         logger.warning("tool_config load failed: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+def _init_record_center() -> dict:
+    """Init RecordCenter and bridge to StatsCenter."""
+    try:
+        from .record_center import get_record_center
+        rc = get_record_center()
+        rc.bridge_stats()
+        logger.info("record_center: initialized, export_dir=%s", rc._export_dir)
+        return {"success": True}
+    except Exception as e:
+        logger.warning("record_center init: %s", e)
         return {"success": False, "error": str(e)}
 
 

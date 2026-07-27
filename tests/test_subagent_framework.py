@@ -72,7 +72,7 @@ class TestSubAgentSpec:
 
 
 class TestDispatcher:
-    """调度器"""
+    """Dispatcher"""
 
     def test_dispatch_known(self):
         from l3.subagent_framework import SubAgentDispatcher
@@ -124,7 +124,7 @@ class TestDispatcher:
 
 
 class TestSpecRegistration:
-    """规格注册"""
+    """Spec registration"""
 
     def test_register_spec(self):
         from l3.subagent_framework import SubAgentDispatcher, SubAgentSpec
@@ -144,7 +144,7 @@ class TestSpecRegistration:
 
 
 class TestResultMerger:
-    """结果归并"""
+    """Result merge"""
 
     def test_merge_empty(self):
         from l3.subagent_framework import ResultMerger
@@ -187,7 +187,7 @@ class TestResultMerger:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_subagent_specs(self):
         from l3.subagent_framework import handle_subagent_specs

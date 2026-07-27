@@ -87,28 +87,38 @@ DEFAULT_AGENT_CONFIGS: Final[dict[str, AgentDefaults]] = {
 }
 
 # ── Canonical role names (single source of truth) ──
-CENTRAL_ROLES: Final[list[str]] = ["reader", "writer", "reviewer", "scout", "l3", "default", "deployer"]
-CENTRAL_DEFAULT_ROLES: Final[list[str]] = ["reader", "writer", "reviewer"]
+CENTRAL_ROLES: list[str] = ["reader", "writer", "reviewer", "scout", "l3", "default", "deployer"]
+CENTRAL_DEFAULT_ROLES: list[str] = ["reader", "writer", "reviewer"]
 
 
 # ── Clearance (role → ring access level) ──
 
-AGENT_CLEARANCE: Final[dict[str, int]] = {
-    "default": 1,
+AGENT_CLEARANCE: dict[str, int] = {
+    "default": 3,
     "scout":   1,
     "l3":      3,
 }
 
 
 # ── Agent scheduling priority (role → scheduler priority, 1-10) ──
-AGENT_PRIORITY: Final[dict[str, int]] = {
+# Config-driven via praxis.yaml agents: section or API.
+AGENT_PRIORITY: dict[str, int] = {
     "default":  5,
     "reader":   5,
     "writer":   5,
-    "reviewer": 3,
+    "reviewer": 5,
     "scout":    5,
     "l3":       5,
     "deployer": 5,
+}
+
+
+# ── HTN role map (ring level → agent role for HTN-C inference) ──
+# Config-driven via praxis.yaml agent_role_map: section or API.
+AGENT_ROLE_MAP: dict[int, str] = {
+    1: "reader",
+    2: "writer",
+    3: "reviewer",
 }
 
 

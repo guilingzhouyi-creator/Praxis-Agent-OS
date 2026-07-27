@@ -1,10 +1,10 @@
-"""L2 Shell 端到端集成测试 — 启动真实服务进行完整链路测试。
+"""L2 Shell end-to-end integration test — start real services for full-link testing.
 
-遵循 tests/test_integration.py 的测试模式：
-  1. 在测试函数内部 import 服务模块
-  2. 创建 Cell、Agent、L3 等真实实例
-  3. 执行操作并验证结果
-  4. 用 reset_*() 清理单例状态
+Follows the test pattern from tests/test_integration.py:
+  1. Import service modules inside test functions
+  2. Create real instances of Cell, Agent, L3, etc.
+  3. Execute operations and verify results
+  4. Use reset_*() to clean up singleton state
 """
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestL2ShellDispatchE2E:
-    """端到端测试：L2_Shell dispatch 通过真实 Cell/Agent 执行完整链路。"""
+    """End-to-end test: L2_Shell dispatch executes full chain via real Cell/Agent."""
 
     def test_dispatch_agents_with_real_cell(self):
-        """创建 Cell + Agent 后，/agents 命令应能列出该 agent。"""
+        """After creating Cell + Agent, /agents command should list that agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
         from l3.scout import reset_pool
@@ -48,7 +48,7 @@ class TestL2ShellDispatchE2E:
             reset_state()
 
     def test_dispatch_connect_disconnect_live(self):
-        """真实 Cell + Agent 的 /connect → /disconnect 完整流程。"""
+        """Full /connect → /disconnect flow with real Cell + Agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
         from l3.scout import reset_pool
@@ -66,7 +66,7 @@ class TestL2ShellDispatchE2E:
 
             # /connect
             r = dispatch("/connect connector")
-            # 可能因为 LLM/provider 不可用而被 preconnect 拒绝，但路由本身正确
+            # May be rejected by preconnect due to LLM/provider unavailability, but routing itself is correct
             assert isinstance(r, dict)
             if r.get("success"):
                 s = get_state()
@@ -84,7 +84,7 @@ class TestL2ShellDispatchE2E:
             reset_state()
 
     def test_dispatch_status_after_connect(self):
-        """连接后在 Direct 模式下 /status 应显示 agent 信息。"""
+        """After connecting, /status in Direct mode should show agent info."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
         from l3.scout import reset_pool
@@ -100,7 +100,7 @@ class TestL2ShellDispatchE2E:
             cell.add_agent("stat-bot", role="reader", territory=["."], auto_boot=True)
             time.sleep(0.3)
 
-            # 强制设置 Direct 状态（不需要 LLM preconnect）
+            # Force set Direct state (no need for LLM preconnect)
             state = get_state()
             state.switch_to_direct("e2e-status", "stat-bot", "sess-e2e")
 
@@ -108,7 +108,7 @@ class TestL2ShellDispatchE2E:
             assert r.get("mode") == "DIRECT"
             assert r.get("agent_id") == "stat-bot"
             assert r.get("session_id") == "sess-e2e"
-            # liveness 应该存在（Cell 是活的）
+            # liveness should exist (Cell is alive)
             assert "liveness" in r or "liveness_error" in r
         finally:
             reset_terminals()
@@ -117,7 +117,7 @@ class TestL2ShellDispatchE2E:
             reset_state()
 
     def test_dispatch_help_returns_commands(self):
-        """/help 在任何状态下都应返回命令列表。"""
+        """/help should return command list in any state."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/help")
@@ -131,7 +131,7 @@ class TestL2ShellDispatchE2E:
         assert "/disconnect" in names
 
     def test_dispatch_unknown_command(self):
-        """未知命令应返回 error + suggestions。"""
+        """Unknown command should return error + suggestions."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/xyznonexistent")
@@ -140,7 +140,7 @@ class TestL2ShellDispatchE2E:
         assert "suggestions" in r
 
     def test_dispatch_mode_switch(self):
-        """/mode 应正确显示和切换工具模式。"""
+        """/mode should correctly display and switch tool modes."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/mode")
@@ -151,19 +151,19 @@ class TestL2ShellDispatchE2E:
 
 
 class TestL2ShellDirectMessageE2E:
-    """Direct 消息发送的端到端测试。"""
+    """Direct message sending end-to-end test."""
 
     def test_non_slash_routes_to_intent(self):
-        """非 / 文本在 L3A 模式下应路由到 l3 coordinator。"""
+        """Non-/ text in L3A mode should route to l3 coordinator."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
-        # L3 coordinator 已存在（服务层自动初始化）
+        # L3 coordinator already exists (auto-initialized by service layer)
         r = dispatch("list current directory")
-        # coordinator.process_intent 应返回一个 card 结果（可能出错但路由正确）
+        # coordinator.process_intent should return a card result (may error but routing is correct)
         assert isinstance(r, dict)
 
     def test_direct_message_send_to_live_agent(self):
-        """在 Direct 模式下发送消息给真实 agent。"""
+        """In Direct mode, send message to a real agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
         from l3.scout import reset_pool
@@ -182,10 +182,10 @@ class TestL2ShellDirectMessageE2E:
             state = get_state()
             state.switch_to_direct("e2e-msg", "msg-bot", "sess-msg")
 
-            # 发送非 / 消息，应路由到 _direct_message
+            # Send non-/ message, should route to _direct_message
             r = dispatch("hello agent")
             assert isinstance(r, dict)
-            # 即使 agent 处理失败，路由本身是正确的
+            # Even if agent processing fails, routing itself is correct
             assert "success" in r or "error" in r
         finally:
             reset_terminals()
@@ -195,66 +195,66 @@ class TestL2ShellDirectMessageE2E:
 
 
 class TestL2ShellCentralCommandsE2E:
-    """9 个中央控制命令的端到端测试——验证路由到真实服务。"""
+    """End-to-end test for 9 central control commands — verify routing to real services."""
 
     def test_cmd_intents(self):
-        """intents 命令应通过 L3 coordinator 返回数据。"""
+        """intents command should return data via L3 coordinator."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/intents")
         assert "intents" in r
 
     def test_cmd_scheduler(self):
-        """scheduler 命令应返回调度状态。"""
+        """scheduler command should return scheduling status."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/scheduler")
         assert r.get("success")
 
     def test_cmd_observe(self):
-        """observe 命令应返回可观测数据。"""
+        """observe command should return observability data."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/observe")
         assert "health" in r or "alerts" in r or "metrics" in r or r.get("success")
 
     def test_cmd_skills(self):
-        """skills 命令应返回 R4Agent 技能列表。"""
+        """skills command should return R4Agent skill list."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/skills")
         assert "skills" in r or r.get("success")
 
     def test_cmd_cells(self):
-        """cells 命令应列出 cell。"""
+        """cells command should list cells."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/cells")
         assert "cells" in r or r.get("success")
 
     def test_cmd_cross(self):
-        """cross 命令应返回跨 cell 协调状态。"""
+        """cross command should return cross-cell coordination status."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/cross")
         assert "cross_cell" in r or r.get("success")
 
     def test_cmd_security(self):
-        """security 命令应返回安全统计。"""
+        """security command should return security stats."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/security")
         assert "stats" in r or r.get("success")
 
     def test_cmd_memory(self):
-        """memory 命令应返回内存统计。"""
+        """memory command should return memory stats."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/memory")
         assert "stats" in r or r.get("success")
 
     def test_cmd_plugins(self):
-        """plugins 命令应返回插件列表。"""
+        """plugins command should return plugin list."""
         from l2.l2_shell import dispatch, reset_state
         reset_state()
         r = dispatch("/plugins")

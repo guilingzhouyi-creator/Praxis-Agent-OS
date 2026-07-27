@@ -1,83 +1,79 @@
-"""Agent API handlers — extracted from api_handlers.py."""
+"""Agent config API handlers — query and update agent parameters at runtime.
+
+Endpoints:
+  GET  /api/v1/agents/config  — return current agent_role_map, priorities, clearance, defaults
+  PUT  /api/v1/agents/config  — update agent_role_map, agent_priority, or clearance selectively
+"""
+
 from __future__ import annotations
+
 from typing import Any
-from l1.kernel.params.agent import DEFAULT_CELL_ID
 
 
-def agent_list(body: dict | None = None) -> dict:
-    from .selector import preselect
-    return preselect()
+def handle_agent_config_get(body: dict | None = None) -> dict:
+    """GET /api/v1/agents/config — return current agent config."""
+    from l1.kernel.params.agent import (
+        AGENT_ROLE_MAP, AGENT_PRIORITY, AGENT_CLEARANCE,
+        CENTRAL_ROLES, CENTRAL_DEFAULT_ROLES,
+        DEFAULT_AGENT_CONFIGS,
+    )
+    return {
+        "success": True,
+        "central_roles": list(CENTRAL_ROLES),
+        "default_roles": list(CENTRAL_DEFAULT_ROLES),
+        "agent_role_map": {str(k): v for k, v in AGENT_ROLE_MAP.items()},
+        "agent_priority": dict(AGENT_PRIORITY),
+        "clearance": dict(AGENT_CLEARANCE),
+        "agent_defaults": {
+            role: {
+                "ring": cfg.ring,
+                "max_scouts": cfg.max_scouts,
+                "max_tokens": cfg.max_tokens,
+                "priority": cfg.priority,
+            }
+            for role, cfg in DEFAULT_AGENT_CONFIGS.items()
+        },
+    }
 
 
-def agent_select(body: dict) -> dict:
-    from .selector import preselect
-    agent_id = body.get("agent_id", "")
-    roster = preselect()
-    for a in roster.get("agents", []):
-        if a.get("agent_id") == agent_id:
-            return a
-    return {"error": f"agent not found: {agent_id}"}
+def handle_agent_config_set(body: dict | None = None) -> dict:
+    """PUT /api/v1/agents/config — update agent config at runtime.
 
+    Accepts any of:
+      {"agent_role_map": {"1": "reader", "2": "writer", "3": "reviewer"}}
+      {"agent_priority": {"reader": 5, "writer": 5, "reviewer": 5}}
+      {"clearance": {"reader": 3, "writer": 3, "reviewer": 3}}
+      {"default_roles": ["reader", "writer", "reviewer"]}
+    """
+    b = body or {}
+    results = {}
 
-def agent_select_by(body: dict) -> dict:
-    from .selector import preselect
-    role = body.get("role", "")
-    domain = body.get("domain", "")
-    roster = preselect()
-    for a in roster.get("agents", []):
-        if role and a.get("role") != role:
-            continue
-        if domain and domain not in a.get("territory", []):
-            continue
-        return a
-    return {"error": "no agent matched"}
+    if "agent_role_map" in b:
+        from l1.kernel.params.agent import AGENT_ROLE_MAP
+        AGENT_ROLE_MAP.clear()
+        for k, v in b["agent_role_map"].items():
+            AGENT_ROLE_MAP[int(k)] = str(v)
+        results["agent_role_map"] = len(AGENT_ROLE_MAP)
 
+    if "agent_priority" in b:
+        from l1.kernel.params.agent import AGENT_PRIORITY
+        AGENT_PRIORITY.clear()
+        AGENT_PRIORITY.update(b["agent_priority"])
+        results["agent_priority"] = len(AGENT_PRIORITY)
 
-def agent_preconnect(body: dict) -> dict:
-    from .selector import preconnect
-    cell_id = body.get("cell_id", DEFAULT_CELL_ID)
-    agent_id = body.get("agent_id", "")
-    message = body.get("message", "")
-    if not agent_id:
-        return {"error": "agent_id required"}
-    return preconnect(cell_id, agent_id, message)
+    if "clearance" in b:
+        from l1.kernel.params.agent import AGENT_CLEARANCE
+        AGENT_CLEARANCE.clear()
+        AGENT_CLEARANCE.update(b["clearance"])
+        results["clearance"] = len(AGENT_CLEARANCE)
 
+    if "default_roles" in b:
+        from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES
+        CENTRAL_DEFAULT_ROLES.clear()
+        CENTRAL_DEFAULT_ROLES.extend(str(r) for r in b["default_roles"])
+        results["default_roles"] = len(CENTRAL_DEFAULT_ROLES)
 
-def agent_reachable(body: dict) -> dict:
-    from .cell import get_cell
-    agent_id = body.get("agent_id", "")
-    if not agent_id:
-        return {"error": "agent_id required"}
-    cell = get_cell(DEFAULT_CELL_ID)
-    return cell.agent_reachable(agent_id)
+    if not results:
+        return {"success": False, "error": "no supported fields in body; try agent_role_map, agent_priority, clearance, or default_roles"}
 
-
-def agent_direct(body: dict) -> dict:
-    from .cell import get_cell
-    agent_id = body.get("agent_id", "")
-    message = body.get("message", "")
-    if not agent_id or not message:
-        return {"error": "agent_id and message required"}
-    from .central_security import get_center as _sec
-    sec = _sec().check_all(action="direct_session", agent_id=agent_id, tool_name="direct_message")
-    if not sec.get("allowed"):
-        return {"error": "blocked by security", "security": sec}
-    cell = get_cell(DEFAULT_CELL_ID)
-    return cell.send_direct_message(agent_id, message)
-
-
-def agent_direct_close(body: dict) -> dict:
-    return {"success": True, "message": "Direct session is auto-managed via stdin queue"}
-
-
-def agent_review_message(body: dict) -> dict:
-    from .selector import set_llm_reviewer
-    callback_str = body.get("callback", "")
-    if callback_str:
-        import importlib
-        parts = callback_str.rsplit(".", 1)
-        mod = importlib.import_module(parts[0])
-        fn = getattr(mod, parts[1])
-        set_llm_reviewer(fn)
-        return {"success": True}
-    return {"error": "callback required"}
+    return {"success": True, "updated": results}

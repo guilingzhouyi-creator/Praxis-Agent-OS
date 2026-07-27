@@ -1,11 +1,11 @@
-"""Config API 集成测试 — 配置列表/读取/覆写/分类 + API"""
+"""Config API integration test — config list/read/override/categories + API"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestFetchConfig:
-    """配置读取"""
+    """Config read"""
 
     def test_fetch_known(self):
         from l4.api_handlers_config import _fetch
@@ -39,7 +39,7 @@ class TestFetchConfig:
 
 
 class TestConfigList:
-    """配置列表"""
+    """Config list"""
 
     def test_list_all(self):
         from l4.api_handlers_config import handle_config_list
@@ -64,7 +64,7 @@ class TestConfigList:
 
 
 class TestConfigGet:
-    """配置读取端点"""
+    """Config read endpoint"""
 
     def test_get_known(self):
         from l4.api_handlers_config import handle_config_get
@@ -85,7 +85,7 @@ class TestConfigGet:
 
 
 class TestConfigSet:
-    """运行时覆写"""
+    """Runtime override"""
 
     def test_set_and_get(self):
         from l4.api_handlers_config import handle_config_set, handle_config_get, _CONFIG_OVERRIDES
@@ -114,7 +114,7 @@ class TestConfigSet:
 
 
 class TestConfigCategories:
-    """配置分类"""
+    """Config categories"""
 
     def test_categories(self):
         from l4.api_handlers_config import handle_config_categories
@@ -135,7 +135,7 @@ class TestConfigCategories:
 
 
 class TestSerialize:
-    """值序列化"""
+    """Value serialization"""
 
     def test_serialize_int(self):
         from l4.api_handlers_config import _serialize

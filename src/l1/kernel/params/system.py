@@ -42,7 +42,7 @@ SEQ_MONITOR_ANOMALY_THRESHOLD: Final[float] = 0.05
 SEQ_MONITOR_PATH: Final[str] = _os.environ.get("NOMOS_SEQ_MONITOR_PATH", ".praxis_seq_monitor.json")
 
 # ── Reference Channel (async event recorder, non-blocking) ──
-RC_PATH: Final[str] = _os.environ.get("NOMOS_RC_PATH", ".praxis_reference_channel.jsonl")
+RC_PATH: Final[str] = _os.environ.get("NOMOS_RC_PATH", ".praxis/.praxis_reference_channel.jsonl")
 RC_FLUSH_INTERVAL: Final[float] = 5.0
 RC_MAX_EVENTS: Final[int] = 100
 RC_EXPORT_LIMIT: Final[int] = 999999
@@ -273,6 +273,19 @@ SANDBOX_PROFILE_FULL: Final[str] = "DANGER_3"
 SANDBOX_PROFILE_HOST: Final[str] = "DANGER_4"
 SANDBOX_TMP_ROOT: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sandbox")
 SANDBOX_EXEC_TIMEOUT: Final[float] = 300.0
+
+# ── Fault tolerance ──
+FAULT_AUTONOMOUS_RECONNECT_INTERVAL: Final[float] = 5.0
+
+# ── Workspace ──
+WORKSPACE_MAX_RECENT: Final[int] = 20
+
+# ── Verify cadence ──
+VERIFY_CMDS: Final[frozenset[str]] = frozenset({
+    "cargo", "tsc", "make", "npm", "pytest", "mvn", "gradle",
+    "gcc", "clang", "dotnet", "ruff", "black", "mypy", "pyright",
+    "go build", "go test", "cargo check", "cargo test",
+})
 SANDBOX_MAX_OUTPUT: Final[int] = 5000
 
 
@@ -311,3 +324,35 @@ BOOT_VFS_TEMP_PATH: Final[str] = "/tmp"
 # ── Think quota (ThinkQuotaRegistry defaults) ──
 THINK_BUDGET_GLOBAL_DEFAULT: Final[int] = 0
 THINK_REASONING_DEFAULT: Final[str] = "none"
+
+
+# ── Cell PMU (Performance Monitoring Unit) defaults ──
+PMU_HISTORY_SIZE: Final[int] = 3600
+PMU_SNAPSHOT_INTERVAL: Final[float] = 60.0
+PMU_COUNTER_GROUPS: Final[list[str]] = [
+    "cards", "tools", "cache", "scouts", "bus", "token", "agent", "watchdog",
+]
+
+
+# ── I-Cache (Instruction Cache) defaults ──
+ICACHE_MAX_ENTRIES: Final[int] = 500
+ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes slowly
+ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
+
+
+# ── MMU + TLB (Memory Management Unit) defaults ──
+TLB_MAX_ENTRIES: Final[int] = 64
+TLB_DEFAULT_RING: Final[int] = 1
+TLB_CLEARANCE_FALLBACK: Final[int] = 1
+
+
+# ── InterruptController (Priority Interrupt) defaults ──
+IRQ_TABLE_SIZE: Final[int] = 32
+IRQ_PRIORITY_LEVELS: Final[int] = 4        # NMI=0, HIGH=1, NORMAL=2, LOW=3
+
+
+# ── StatsCenter (Unified Statistics Center) defaults ──
+STATS_BUCKET_SIZE: Final[int] = 600               # seconds per bucket (10 min)
+STATS_HISTORY_BUCKETS: Final[int] = 144            # 24h of buckets
+STATS_SSE_BUFFER: Final[int] = 100                 # max SSE events buffered per subscriber
+STATS_DEFAULT_WINDOW: Final[str] = "5m"            # default query window

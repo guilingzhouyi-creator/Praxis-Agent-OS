@@ -11,6 +11,7 @@ build/
 htmlcov/
 *.coverage
 *.pytest_cache/
+.ruff_cache/
 
 # ── Virtual environment ──
 .env
@@ -40,12 +41,9 @@ Thumbs.db
 *.log
 logs/
 
-# ── Sandbox (generated at runtime) ──
-.praxis/sandbox/
-praxis/sandbox/
-
-# ── Resource buffer (async ring file buffer) ──
-.praxis/resource_buffer/
+# ── Sandbox & resource buffer (generated at runtime) ──
+.praxis/
+!config/praxis.yaml
 
 # ── Generated chain / proof files ──
 .chain_key
@@ -57,10 +55,17 @@ memories/
 
 # ── Runtime-generated state files (all .praxis_* patterns) ──
 .praxis_*.json
-!praxis.yaml
+!config/praxis.yaml
 .praxis_*.jsonl
 .praxis_*.db
 .praxis_state.db
+
+# ── User-authored config files in config/ ──
+!config/praxis.yaml
+!config/commands.yaml
+!config/.nomos-rules.md
+!config/.mcp.json
+!config/tools.yaml
 
 # ── Temp scripts ──
 _scan_*.py
@@ -78,7 +83,7 @@ _scan_*.py
 *.dylib
 
 # ── AtomCode automation configs ──
-.atomcode/settings.json
+.atomcode/
 .mcp.json
 
 # ── Node (opencode skills + node_modules) ──

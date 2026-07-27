@@ -23,6 +23,7 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from .card import Card, CardMode, PhaseMode, Step
 from .agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
 from .plan_step_types import StepState, PlanStep
+from .execution_run import execute as _execute, _run_phase, _execute_step, _execute_agent, _execute_scout
 
 logger = logging.getLogger(__name__)
 
@@ -238,88 +239,8 @@ class ExecutionPlan:
         self._mark_phase_checkpoint_done(involved_agents)
 
     def execute(self, timeout: float = 300.0) -> dict:
-        """Execute all steps, respecting dependencies and card mode.
-
-        CardMode.EXECUTE:     phases run sequentially, steps within follow PhaseMode
-        CardMode.ISSUE:       creates proposals, doesn't execute
-        CardMode.PARALLEL_ALL: all phases run concurrently in their own threads
-        """
-        self._started_at = time.time()
-        aggregated: dict = {"steps": [], "success": True, "error": ""}
-
-        if self._card_mode() == "issue":
-            emit_signal(EVENT_REVIEW_REQUESTED, sender="execution_plan", target=self.card.cell_id or "cell",
-                        data={"card_id": self.card.id, "event": "issue_created"})
-            aggregated["issue"] = True
-            aggregated["total_steps"] = len(self.steps)
-            self._completed_at = time.time()
-            return aggregated
-
-        # Group steps by phase
-        phases: dict[str, list[PlanStep]] = {}
-        phase_order: list[str] = []
-        for ps in self.steps:
-            phases.setdefault(ps.phase, []).append(ps)
-            if ps.phase not in phase_order:
-                phase_order.append(ps.phase)
-
-        phase_modes = {p.name: self._phase_mode(p) for p in self.card.phases}
-
-        if self._card_mode() == "parallel_all":
-            # All phases run concurrently
-            phase_threads = []
-            phase_results: list[dict] = []
-
-            def _run_phase_wrapper(pname: str, psteps: list[PlanStep], pmode: PhaseMode) -> None:
-                local_agg: dict = {"steps": [], "success": True, "error": ""}
-                self._run_phase(pname, psteps, pmode, local_agg, timeout)
-                phase_results.append(local_agg)
-
-            for pname in phase_order:
-                if self._cancelled:
-                    break
-                psteps = phases[pname]
-                pmode = phase_modes.get(pname, PhaseMode.SEQUENTIAL)
-                t = threading.Thread(target=_run_phase_wrapper, args=(pname, psteps, pmode),
-                                     daemon=True)
-                t.start()
-                phase_threads.append(t)
-
-            for t in phase_threads:
-                t.join(timeout=timeout)
-
-            for pr in phase_results:
-                aggregated["steps"].extend(pr["steps"])
-                if not pr["success"]:
-                    aggregated["success"] = False
-                    aggregated["error"] = pr.get("error", "")
-        else:
-            # Sequential phases (default EXECUTE mode)
-            for phase_idx, phase_name in enumerate(phase_order):
-                if self._cancelled:
-                    break
-                psteps = phases[phase_name]
-                pmode = phase_modes.get(phase_name, PhaseMode.SEQUENTIAL)
-                self._run_phase(phase_name, psteps, pmode, aggregated, timeout)
-                if not aggregated.get("success", True):
-                    break
-
-                # ── Memory pressure check + auto-compaction between phases ──
-                if phase_idx < len(phase_order) - 1:
-                    self._check_memory_and_compact(aggregated)
-
-        self._completed_at = time.time()
-        aggregated["total_elapsed"] = round(self._completed_at - self._started_at, 3)
-        aggregated["total_steps"] = len(self.steps)
-        aggregated["completed"] = sum(1 for s in self.steps if s.state == StepState.DONE)
-        aggregated["failed"] = sum(1 for s in self.steps if s.state == StepState.FAILED)
-
-        emit_signal(EVENT_TASK_ASSIGN, sender="execution_plan", target=self.card.cell_id or "cell",
-                    data={"card_id": self.card.id, "event": "plan_complete", **aggregated})
-        return aggregated
-
-    MEMORY_PRESSURE_INTERVAL: float = 30.0  # min seconds between compactions
-    _last_compact: float = 0.0
+        """Execute all steps. Delegates to execution_run.py."""
+        return _execute(self, timeout=timeout)
 
     def _check_memory_and_compact(self, aggregated: dict) -> None:
         """Check memory pressure; if high, snapshot context → compact → resume.

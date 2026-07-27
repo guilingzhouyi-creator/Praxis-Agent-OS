@@ -115,9 +115,15 @@ class AgentTerminal:
         self._active_loops: int = 0
         from ..todo import TodoTable
         self.todo = TodoTable(agent_id)
+        # Watchdog pet callback (set by Cell)
+        self._watchdog_pet: Any = None
 
     def set_tool_registry(self, registry: dict[str, Any]) -> None:
         self._tool_registry = registry
+
+    def set_watchdog_pet(self, fn: Any) -> None:
+        """Set the watchdog pet callback, called after each card completes."""
+        self._watchdog_pet = fn
 
     def list_tools(self) -> list[dict]:
         if not self._tool_registry:
@@ -270,6 +276,12 @@ class AgentTerminal:
                     ev.set()
                 if self._active_cards <= 0:
                     self.status = TerminalStatus.IDLE
+                # Watchdog pet after each completed card
+                if self._watchdog_pet:
+                    try:
+                        self._watchdog_pet(self.agent_id)
+                    except Exception as e:
+                        logger.warning("watchdog pet failed: %s", e)
         with self._lock:
             self._active_cards = 0
             self.status = TerminalStatus.IDLE

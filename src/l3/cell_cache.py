@@ -8,15 +8,15 @@ Architecture (in SoC terms):
                                │ flush / promote
                           ┌────┴────┐
                           │ CellCache (L2, per-Cell)
-                          │  ┌─ Hot Ring:  deque[IndexEntry]  ←最新摘要
-                          │  │   环形淘汰，满→flush→L3
+                          │  ┌─ Hot Ring:  deque[IndexEntry]  ← latest summaries
+                          │  │   Ring eviction, full→flush→L3
                           │  ├─ Index Chain: dict[key→IndexEntry]
-                          │  │   存活更久，摘要指向完整值位置
+                          │  │   Longer-lived, summary points to full value location
                           │  └─ KV Cache:   dict[key→CellCacheEntry]
-                          │      TTL管理，淘汰→flush→L3
+                          │      TTL-managed, evict→flush→L3
                           └─────────┬─────────┘
                                     │ inject / lookup / search
-                             Cell 内 Agent 们（共享热数据）
+                             Agents within the Cell (share hot data)
 """
 
 from __future__ import annotations
@@ -53,8 +53,10 @@ class CellCache:
         hot_ttl: float = CELL_CACHE_HOT_TTL,
         index_ttl: float = CELL_CACHE_INDEX_TTL,
         kv_ttl: float = CELL_CACHE_KV_TTL,
+        pmu: Any = None,
     ):
         self.cell_id = cell_id
+        self._pmu = pmu
         # Hot Ring — deque of IndexEntry, newest at right
         self._hot: deque[IndexEntry] = deque(maxlen=hot_size)
         # Index Chain — survives hot eviction, maps key → IndexEntry
@@ -134,6 +136,8 @@ class CellCache:
         self._evict_kv()
 
         self._inject_count += 1
+        if self._pmu:
+            self._pmu.increment("cache.injections")
         return {"success": True, "key": key, "cell_id": self.cell_id}
 
     def lookup(self, key: str) -> CellCacheEntry | None:
@@ -149,6 +153,8 @@ class CellCache:
         entry = self._kv.get(key)
         if entry and not entry.expired(now):
             self._hits += 1
+            if self._pmu:
+                self._pmu.increment("cache.hits")
             self._touch_kv(key)
             return entry
 
@@ -156,11 +162,15 @@ class CellCache:
         idx = self._index.get(key)
         if idx and not idx.expired(now):
             self._hits += 1
+            if self._pmu:
+                self._pmu.increment("cache.hits")
             if idx.location in ("l3", "r4"):
                 # Value is demoted; return None but let caller know via index
                 return None
 
         self._misses += 1
+        if self._pmu:
+            self._pmu.increment("cache.misses")
         return None
 
     def search(self, query: str, limit: int = 10) -> list[IndexEntry]:
@@ -212,6 +222,8 @@ class CellCache:
         if key in self._index:
             self._index[key].location = "kv"
         self._inject_count += 1
+        if self._pmu:
+            self._pmu.increment("cache.promotions")
         return {"success": True, "key": key, "action": "promoted"}
 
     def flush(self) -> int:
@@ -267,6 +279,8 @@ class CellCache:
 
         if count:
             self._flush_count += count
+            if self._pmu:
+                self._pmu.increment("cache.flushes", delta=count)
             logger.info("CellCache %s: flushed %d entries to L3", self.cell_id, count)
         return count
 

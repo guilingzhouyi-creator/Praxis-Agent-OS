@@ -83,6 +83,21 @@ class CentralCollector:
                     "window": window, "input": inp, "output": out, "calls": 1,
                 })
 
+        # Push to global StatsCenter
+        try:
+            from .stats_center import get_center, MetricPoint
+            sc = get_center()
+            ts = time.time()
+            sc.ingest(MetricPoint(name="tokens.consumed", value=float(inp + out),
+                                  tags={"cell": cell_id, "agent": agent_id,
+                                        "provider": provider, "model": model},
+                                  timestamp=ts, metric_type="counter"))
+            sc.ingest(MetricPoint(name="tokens.calls", value=1.0,
+                                  tags={"cell": cell_id, "agent": agent_id},
+                                  timestamp=ts, metric_type="counter"))
+        except Exception:
+            pass
+
     def cell_summary(self) -> list[dict]:
         """Return per-Cell aggregated token usage."""
         with self._lock:

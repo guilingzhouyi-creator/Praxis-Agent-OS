@@ -28,7 +28,7 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
+from l3.tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
 from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -371,13 +371,16 @@ class MCPBridge:
     def start_oauth(self, server_name: str,
                     auth_url: str = "",
                     client_id: str = "",
-                    redirect_port: int = 19876) -> dict:
+                    redirect_port: int = 0) -> dict:
         """Initiate OAuth flow for an MCP server.
 
         Returns the authorization URL the user must visit in their browser.
         After authorization, the provider redirects to localhost:redirect_port
         with a code parameter — call finish_oauth() with that code.
         """
+        from l1.kernel.params.api import MCP_OAUTH_REDIRECT_PORT
+        if not redirect_port:
+            redirect_port = MCP_OAUTH_REDIRECT_PORT
         import urllib.parse as _parse
         with self._lock:
             self._server_status[server_name] = MCP_STATUS_NEEDS_AUTH

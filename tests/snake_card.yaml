@@ -1,5 +1,5 @@
-# Card: 工业化贪吃蛇 — 全自主多轮开发流程
-# LLM 自主调工具、委派 Scout、多轮迭代、工业规范
+# Card: Industrial Snake Game — Fully autonomous multi-round development flow
+# LLM autonomously calls tools, delegates Scout, multi-round iteration, industrial standards
 
 card:
   id: "snake-001"
@@ -11,7 +11,7 @@ card:
 
 phases:
 
-  # ─── Phase 1: 侦察 — 了解项目结构 ───
+  # ─── Phase 1: Recon — Understand project structure ───
   - name: recon
     mode: PARALLEL
     steps:
@@ -23,7 +23,7 @@ phases:
         target: "Check if tkinter is available. Search for existing Python game code in this project."
         agent: scout
 
-  # ─── Phase 2: 计划 — LLM 自主设计架构 ───
+  # ─── Phase 2: Plan — LLM autonomously designs architecture ───
   - name: design
     mode: SEQUENTIAL
     steps:
@@ -60,7 +60,7 @@ phases:
 
             Flag any issues and suggest improvements.
 
-  # ─── Phase 3: 实现 — 自主写代码 ───
+  # ─── Phase 3: Implement — Autonomously write code ───
   - name: implement
     mode: PARALLEL
     steps:
@@ -108,7 +108,7 @@ phases:
             - Testing instructions
             - License
 
-  # ─── Phase 4: 验证 — Scout 审查代码质量 ───
+  # ─── Phase 4: Verify — Scout reviews code quality ───
   - name: verify
     mode: PARALLEL
     steps:
@@ -128,7 +128,7 @@ phases:
                  thread safety, input validation."
         agent: scout
 
-  # ─── Phase 5: 迭代改进 — 根据审查结果修改 ───
+  # ─── Phase 5: Iterate — Modify based on review results ───
   - name: iterate
     mode: SEQUENTIAL
     steps:

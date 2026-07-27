@@ -105,6 +105,22 @@ tool_rates:
   ring_2_5: 20                  # Write tools: 20 calls/min
   ring_3: 5                     # Destructive tools: 5 calls/min
 
+# ── Tool timeouts & detectors ──
+tool:
+  web_timeout: 15               # web_fetch / web_search timeout (s)
+  search_timeout: 30            # grep/rg search timeout (s)
+  terminal_timeout: 30          # run_in_terminal timeout (s)
+  git_timeout: 30               # git operations timeout (s)
+  build_timeout: 300            # build/test project timeout (s)
+  build_detectors:              # build system auto-detection order
+    - ["python", "-m", "build"]
+    - ["cargo", "build"]
+    - ["npm", "run", "build"]
+  test_detectors:               # test framework auto-detection order
+    - ["python", "-m", "pytest"]
+    - ["cargo", "test"]
+    - ["npm", "test"]
+
 # ── HTN planner ──
 htn:
   domain_prefix: app
@@ -236,7 +252,7 @@ clearance:
 # Uncomment to override help text, aliases, or argument schemas.
 # commands:
 #   mode:
-#     help: "切换模式"
+#     help: "switch mode"
 #     aliases: ["m"]
 #   connect:
 #     args:
@@ -256,11 +272,11 @@ agents:
     max_scouts: 1
     ring: 3
 
-# ── Think quota 上限配置档 ──
+# ── Think quota configuration ──
 think:
-  max_budget: 32768               # 全局思考预算硬上限 (tokens)
-  max_reasoning: "high"            # 允许的最高 reasoning_effort
-  profiles:                        # 按 role 分档 (可选)
+  max_budget: 32768               # Global think budget hard limit (tokens)
+  max_reasoning: "high"            # Maximum allowed reasoning_effort
+  profiles:                        # Tiered by role (optional)
     default:  {max_budget: 4096}
     reader:   {max_budget: 2048}
     writer:   {max_budget: 8192}

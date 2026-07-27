@@ -1,49 +1,49 @@
 ---
-全宗: DECISION
-案卷: Praxis-v1
-议题: NOMOS Praxis 技术栈与架构决议
-时间戳: 2026-07-21T18:00
+fonds: DECISION
+series: Praxis-v1
+title: NOMOS Praxis Tech Stack and Architecture Decision
+timestamp: 2026-07-21T18:00
 L3: NOMOSAgent
-状态: 讨论中
-关联: [ARCHIVE-decisions-001]
+status: discussing
+relations: [ARCHIVE-decisions-001]
 ---
 
-# NOMOS Praxis — 技术栈与架构议题
+# NOMOS Praxis — Tech Stack and Architecture Decision
 
-## 核心决策
+## Core Decisions
 
-五项议题全部收敛：GUI=Python webview、内核=纯 Python、领地=按层（A）、L3=纯规则引擎、MVP=4 天 5 工具。
+All five issues converged: GUI=Python webview, kernel=pure Python, territory=by layer (A), L3=pure rule engine, MVP=4 days 5 tools.
 
-## 设计规则
+## Design Rules
 
-1. GUI 必须使用 pywebview——唯一满足启动 <500ms、打包 <50MB、三平台、Python 零摩擦的方案。
-2. 内核必须保持纯 Python——当前瓶颈是 LLM API 调用（500ms-5s），非计算路径（微秒级），引入 Rust/C++ 得不偿失。
-3. 领地必须按层划分（方案 A）——Agent A (routes/params/middleware/auth/i18n)、Agent B (pages/services/visa/cache/config)、Agent C (tests/security/nomos_mcp/memories/scripts)。
-4. L3 必须使用纯规则引擎 ~100 行 Python——Task Card 已结构化意图，不需要 LLM 推理。渐进路径：初期硬编码路由表，后续自动从宪法生成。
-5. MVP 必须在 4 天内完成——禁止包含多 Agent 审批、多单元、Ring Ω、桌面打包。
-6. `config/` 必须归属 Agent B（业务层）——config 的业务耦合在 services/，不在 routes/。
-7. pywebview 未适配 Python 3.14 时，必须回退 tkinter + tkhtmlview（不阻塞 P0）。
+1. GUI must use pywebview——the only solution meeting <500ms startup, <50MB package, three platforms, and zero friction with Python.
+2. Kernel must remain pure Python——the current bottleneck is LLM API calls (500ms-5s), not computation paths (microsecond level), introducing Rust/C++ would not be worth it.
+3. Territory must be divided by layer (Scheme A)——Agent A (routes/params/middleware/auth/i18n), Agent B (pages/services/visa/cache/config), Agent C (tests/security/nomos_mcp/memories/scripts).
+4. L3 must use a pure rule engine ~100 lines of Python——Task Card already structures intent, no LLM reasoning needed. Gradual path: initially hardcoded routing table, later auto-generated from the constitution.
+5. MVP must be completed in 4 days——must not include multi-agent approval, multi-unit, Ring Ω, or desktop packaging.
+6. `config/` must belong to Agent B (business layer)——config's business coupling is in services/, not routes/.
+7. If pywebview is not compatible with Python 3.14, must fall back to tkinter + tkhtmlview (do not block P0).
 
-## 规格
+## Specifications
 
-- 启动要求: pywebview 实测 200-300ms，打包 15-25MB，三平台系统 WebView 零额外分发
-- 性能瓶颈数据: Ring 淘汰 <1μs, 门禁检查 <1μs, JSON 序列化 ~2μs, SHA-256 ~1.5μs, LLM API 500ms-5s（唯一瓶颈，差 30 万倍）
-- `L3RuleEngine.match()`: ~20 行 domain 查表 + intent 关键词匹配，返回 AgentId
-- `L3RuleEngine.converge()`: ~15 行优先级合并，冲突时取高信誉 Agent
-- MVP 组件估算: 意图卡 0.5 天, L3 0.5 天, 1 Agent+5 工具 1 天, 双环面板 1 天, 活动流卡片 0.5 天, pywebview 集成 0.5 天
-- MVP 5 工具: read_file(0, 读文件), grep_search(0, 文本搜索), replace_string_in_file(1, 修改文件), run_in_terminal(1, 执行命令), read_fingerprint(0, 反查工具输出原文)
-- P1 候选: 第二 Agent + 审批流优先（证明"多 Agent > 单 Agent"），其次工具环指纹链可视化，P2 记忆回灌提示，P3 桌面打包
-- 集成路径（议题 #6）: MVP 阶段 `--gui` 启动 Praxis，无标志启动 Flask 开发；Praxis 通过 `import nomos.rings` 直接导入现有代码，不通过 HTTP
-- 领地划分（方案 A）: Agent A (routes/params/middleware/auth/i18n, 以读为主), Agent B (pages/services/visa/cache/config, 读写均衡), Agent C (tests/security/nomos_mcp/memories/scripts, 只读审计+写测试，安全修复可跨越所有领地)
-- 跨领地操作预估: ~15-20%（80% 操作在领地内不阻塞）
+- Startup requirements: pywebview measured 200-300ms, package 15-25MB, three-platform native WebView with zero additional distribution
+- Performance bottleneck data: Ring eviction <1μs, gate check <1μs, JSON serialization ~2μs, SHA-256 ~1.5μs, LLM API 500ms-5s (only bottleneck, 300,000x difference)
+- `L3RuleEngine.match()`: ~20 lines domain lookup table + intent keyword matching, returns AgentId
+- `L3RuleEngine.converge()`: ~15 lines priority merging, on conflict selects higher reputation Agent
+- MVP component estimates: Intent Card 0.5 day, L3 0.5 day, 1 Agent+5 Tools 1 day, Dual Ring Panel 1 day, Activity Stream Card 0.5 day, pywebview integration 0.5 day
+- MVP 5 tools: read_file(0, read file), grep_search(0, text search), replace_string_in_file(1, modify file), run_in_terminal(1, execute command), read_fingerprint(0, reverse-lookup tool output source)
+- P1 candidates: Second Agent + approval flow first (prove "multi-agent > single agent"), then tool ring fingerprint chain visualization, P2 memory backfill hints, P3 desktop packaging
+- Integration path (Issue #6): MVP stage `--gui` starts Praxis, no flag starts Flask dev; Praxis imports existing code directly via `import nomos.rings`, not via HTTP
+- Territory division (Scheme A): Agent A (routes/params/middleware/auth/i18n, read-oriented), Agent B (pages/services/visa/cache/config, balanced read/write), Agent C (tests/security/nomos_mcp/memories/scripts, read-only audit + write tests, security fixes can span all territories)
+- Cross-territory operation estimate: ~15-20% (80% of operations stay within territory, no blocking)
 
-## 排除
+## Exclusions
 
-- Rust Tauri：被排除（打包虽小，需 Rust 桥接层，单人维护 Python+Rust 负担重）
-- C++ Qt：被排除（启动 ~1s > 500ms，打包 > 50MB，桥接复杂维护成本高）
-- Electron：被排除（启动 ~2s > 500ms，打包 > 100MB > 50MB 约束）
-- Rust/C++ 重写指纹计算：被排除（1000 次调用总耗时 1.5ms，不到一次 API 调用的 1/200）
-- L3 使用小模型/大模型：被排除（结构化意图不需要 NLP 理解，额外引入 200ms-2s API 延迟）
-- MVP 估算 6-8 天：被排除（OpenCode 的 4 天估算合理，卡片与双环面板共享样式不分离）
-- 领地方案 B（按域）和方案 C（手动）：被排除（方案 A 按层跨领地审批最少）
-- `config/` 归属 Agent A：被排除（config 业务耦合在 services/，应归 Agent B）
+- Rust Tauri: excluded (package is small, but requires Rust bridge layer, heavy maintenance burden for a single developer maintaining Python+Rust)
+- C++ Qt: excluded (startup ~1s > 500ms, package > 50MB, complex bridge and high maintenance cost)
+- Electron: excluded (startup ~2s > 500ms, package > 100MB > 50MB constraint)
+- Rust/C++ rewrite of fingerprint computation: excluded (1000 calls total 1.5ms, less than 1/200 of a single API call)
+- L3 using small/large model: excluded (structured intent doesn't need NLP understanding, introduces additional 200ms-2s API latency)
+- MVP estimate 6-8 days: excluded (OpenCode's 4-day estimate is reasonable, Card and Dual Ring Panel share styles, no separation needed)
+- Territory Scheme B (by domain) and Scheme C (manual): excluded (Scheme A by layer has the least cross-territory approvals)
+- `config/` belonging to Agent A: excluded (config's business coupling is in services/, should belong to Agent B)

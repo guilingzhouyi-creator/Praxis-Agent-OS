@@ -62,7 +62,7 @@ _L1_DEFAULTS: dict[str, Any] = {
     "llm.reasoning_effort": "none",
     "llm.thinking_budget": 0,
 
-    # ── Think quota (ThinkQuotaRegistry 上限 clamp) ──
+    # ── Think quota (ThinkQuotaRegistry cap clamp) ──
     "think.max_budget": 32768,
     "think.max_reasoning": "high",
     "think.profiles": {},

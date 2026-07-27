@@ -1,7 +1,7 @@
 # Memory System
 
-> **Source:** `src/l3/memory.py` (469 lines), `memory_ring.py` (125 lines), `memory_quality.py` (75 lines),  
-> `central_memory.py` (139 lines), `archive_orchestrator.py` (85 lines), `r4_agent.py` (383 lines)
+> **Source:** `src/l3/memory.py` (562 lines), `memory_ring.py` (153 lines), `memory_quality.py` (92 lines),  
+> `central_memory.py` (169 lines), `archive_orchestrator.py` (104 lines), `r4_agent.py` (443 lines)
 
 ## Four-Ring Architecture
 
@@ -32,7 +32,7 @@ flowchart LR
     R1 -->|"pressure >= 80%"| R2
     R2 -->|"swapper compact"| R3
     R3 -->|"archive_ring3()\nimportance >= 0.7"| R4
-    R4 -->|"restore() on boot"| R2
+    R4 -->|"ring3_from_archive() on boot"| R2
 ```
 
 | Ring | Name | Budget | Slots | TTL | Backend | Eviction |
@@ -73,11 +73,13 @@ All memory operations go through `get_memory()` in `l3/memory.py`.
 | `recall(agent_id, entry_type, tag, rings, limit, cell_id=...)` | Multi-ring filtered query |
 | `build_context(agent_id, max_tokens=4096)` | Build LLM context string with watermark |
 | `compact(agent_id, ring=0)` | Merge 3+ related entries → summary in Ring 2 |
+| `stub_compact(agent_id, keep_recent_turns, min_collapse_size)` | Stub old tool results to save tokens |
+| `quality_report(agent_id)` | Memory quality distribution report |
 | `forget_agent(agent_id)` | Clear all entries for an agent across all rings |
 | `forget_cell(cell_id)` | Clear all entries for a Cell |
-| `pressure(agent_id) -> float` | Memory pressure check (0.0-1.0) |
+| `pressure(agent_id) -> dict` | Memory pressure check: returns `{level, working_pct, short_pct, long_pct}` |
 | `stats()` | Entry counts per ring |
-| `search(agent_id, query, tags, ring, limit)` | FTS5 full-text search on Ring 3 |
+| `search_long_term(query, agent_id, limit)` | FTS5 full-text search on Ring 3 |
 
 ### Memory Quality
 
@@ -100,13 +102,13 @@ Ring 3 is backed by SQLite with FTS5 virtual table:
 
 ```python
 # CREATE VIRTUAL TABLE knowledge_fts USING fts5(...)
-entries = memory.search(agent_id="agent-1", query="port configuration",
-                        tags=["network"], ring=3, limit=10)
+entries = memory.search_long_term(query="port configuration",
+                                   agent_id="agent-1", limit=10)
 ```
 
 ### Ring 4: Archive (R4Agent)
 
-The R4 agent (`l3/r4_agent.py`) manages cold storage:
+The R4 agent (`l3/r4_agent.py`) manages cold storage with `archive_orchestrator.py`:
 
 | Function | Description |
 |----------|-------------|
@@ -114,6 +116,12 @@ The R4 agent (`l3/r4_agent.py`) manages cold storage:
 | `restore_ring3(limit)` | Restore archived entries back to Ring 3 on boot |
 | `get_lean_cases()` | Retrieve lean case examples from archive |
 | `evolve_skill(intent)` | Evolve a new skill from archived patterns |
+
+Standalone function in `archive_orchestrator.py`:
+
+| Function | Description |
+|----------|-------------|
+| `ring3_from_archive(mem)` | Restore recent Archive entries into Ring 3 knowledge (called by boot) |
 
 ## CentralMemory (coordinator)
 

@@ -8,7 +8,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from l4.monitor_bus import MonitorBus, MonitorEvent, _match_type
+from l3.monitor_bus import MonitorBus, MonitorEvent, _match_type
 
 
 def _ev(type_: str = "l1.kernel.test", severity: str = "info", **kw) -> MonitorEvent:

@@ -61,7 +61,7 @@ class TestValidate:
 
 
 class TestRegister:
-    """工具注册"""
+    """Tool registration"""
 
     def setup_method(self):
         from l3.tool_spec import clear_tools
@@ -106,7 +106,7 @@ class TestRegister:
 
 
 class TestExecute:
-    """工具执行"""
+    """Tool execution"""
 
     def test_execute_success(self):
         from l3.tool_spec import execute_tool, clear_tools
@@ -140,7 +140,7 @@ class TestExecute:
 
 
 class TestMute:
-    """静音功能"""
+    """Mute functionality"""
 
     def test_mute_tool(self):
         from l3.tool_spec import mute_tool, is_muted, clear_mutes, clear_tools

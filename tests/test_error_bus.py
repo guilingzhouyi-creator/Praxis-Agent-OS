@@ -16,7 +16,7 @@ class TestErrorLogEntry:
         fp2 = _compute_fingerprint("ERROR", "E_INTERNAL", "test.py:1", "test error")
         assert fp == fp2
 
-        # 不同输入应产生不同指纹
+        # Different inputs should produce different fingerprints
         fp3 = _compute_fingerprint("ERROR", "E_TIMEOUT", "test.py:1", "test error")
         assert fp != fp3
 
@@ -39,7 +39,7 @@ class TestErrorLogEntry:
 
 
 class TestErrorBus:
-    """错误总线"""
+    """Error bus"""
 
     def setUp(self):
         from l3.error_bus import reset_bus
@@ -151,7 +151,7 @@ class TestErrorBus:
 
 
 class TestCaptureHelper:
-    """capture 快捷入口"""
+    """capture shortcut"""
 
     def test_capture(self):
         from l3.error_bus import capture, reset_bus
@@ -176,7 +176,7 @@ class TestCaptureHelper:
 
 
 class TestGetByFingerprint:
-    """按指纹查询"""
+    """Query by fingerprint"""
 
     def test_found(self):
         from l3.error_bus import get_bus, reset_bus
@@ -204,7 +204,7 @@ class TestGetByFingerprint:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def setUp(self):
         from l3.error_bus import reset_bus

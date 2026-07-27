@@ -418,15 +418,14 @@ class HTNPlanner(BaseService):
 
     @staticmethod
     def _infer_agent(task: Task) -> str:
-        """Map tool name to agent role via ToolConfig ring."""
+        """Map tool ring level to agent role.  Config-driven via AGENT_ROLE_MAP."""
         tool = task.tool or ""
         try:
             from .tool_config import ToolConfig as _TC
-            from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
+            from l1.kernel.params.agent import AGENT_ROLE_MAP
             spec = _TC.get(tool)
             if spec:
-                ring_to_role = {RING_1: "reader", RING_2_5: "writer", RING_3: "reviewer"}
-                return ring_to_role.get(spec.ring, "default")
+                return AGENT_ROLE_MAP.get(spec.ring, "default")
         except Exception:
             pass
         return "default"

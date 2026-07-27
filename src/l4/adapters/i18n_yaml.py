@@ -8,7 +8,7 @@ Usage:
     from l4.adapters.i18n_yaml import YamlI18nAdapter
     i18n = YamlI18nAdapter(locale_dir="./locales")
     i18n.set_locale("zh-CN")
-    msg = i18n.t("shell.command.help")  # → "显示可用命令"
+    msg = i18n.t("shell.command.help")  # → "Show available commands"
 """
 
 from __future__ import annotations

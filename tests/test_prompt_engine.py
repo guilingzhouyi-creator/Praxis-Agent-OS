@@ -1,4 +1,4 @@
-"""Prompt Engine 集成测试 — 上下文组装 + 分层 Prompt + API"""
+"""Prompt Engine integration test — context assembly + layered Prompt + API"""
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class TestContextAssembler:
-    """上下文组装器"""
+    """Context assembler"""
 
     def test_empty(self):
         from l3.prompt_engine import ContextAssembler
@@ -64,7 +64,7 @@ class TestContextAssembler:
 
 
 class TestPromptBuilder:
-    """分层 Prompt 构建"""
+    """Layered Prompt construction"""
 
     def test_build_default(self):
         from l3.prompt_engine import PromptBuilder
@@ -109,7 +109,7 @@ class TestPromptBuilder:
 
 
 class TestPromptEngine:
-    """完整 PromptEngine"""
+    """Full PromptEngine"""
 
     def test_build_prompt_basic(self):
         from l3.prompt_engine import PromptEngine
@@ -135,7 +135,7 @@ class TestPromptEngine:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_prompt_build(self):
         from l3.prompt_engine import handle_prompt_build

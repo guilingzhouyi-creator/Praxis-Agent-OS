@@ -14,6 +14,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+from l1.kernel.params.system import (
+    SANDBOX_PROFILE_READ_ONLY, SANDBOX_PROFILE_SAFE_WRITE,
+    SANDBOX_PROFILE_NETWORK, SANDBOX_PROFILE_FULL, SANDBOX_PROFILE_HOST,
+)
+
+
 class SandboxProfile(str, Enum):
     READ_ONLY = SANDBOX_PROFILE_READ_ONLY
     SAFE_WRITE = SANDBOX_PROFILE_SAFE_WRITE
@@ -61,7 +67,7 @@ class SandboxManager:
         agent_id: str = "",
         tool_name: str = "",
     ) -> SandboxResult:
-        """在隔离沙箱中执行命令。"""
+        """Execute a command in an isolated sandbox."""
         sandbox_id = f"sbox-{uuid.uuid4().hex[:8]}"
         workdir = self._sandbox_root / sandbox_id
         workdir.mkdir(parents=True)

@@ -13,7 +13,7 @@ from l1.kernel import Signal, SignalType, get_event_bus, get_rwlock, get_semapho
 from l1.kernel.allocator import get_allocator
 from l1.kernel.constitution import get_constitution
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
-from l1.kernel.params.kernel import RING_1 as _RING_1, RING_NUM_MAP
+from l1.kernel.params.kernel import RING_1 as _RING_1, RING_2_5, RING_NUM_MAP
 from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
 from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT
 from l1.kernel.tool_chain import get_tool_chain
@@ -38,6 +38,11 @@ class ToolPipeline:
         self._rate_scheduler = get_rate_scheduler()
         self._post_execute_hooks: list[Callable] = []
         self._tool_definition_hooks: list[Callable] = []
+        self._pmu: Any = None
+
+    def set_pmu(self, pmu: Any) -> None:
+        """Attach a Cell PMU for tool execution counters."""
+        self._pmu = pmu
 
     def register_post_execute_hook(self, hook: Callable) -> None:
         """Register a hook called after every tool execution.
@@ -247,6 +252,12 @@ class ToolPipeline:
                 exec_r = _ets(tool_name, args or {}, agent_id=agent_id)
             result["result"] = exec_r or {}
             result["success"] = (exec_r or {}).get("success", True)
+            # PMU: count tool execution by ring
+            if self._pmu:
+                ring_label = tool_ring_str.replace(".", "_")
+                self._pmu.increment(f"tools.executed.{ring_label}")
+                if not result["success"]:
+                    self._pmu.increment("tools.rejected")
 
         # 10. Release
         if lock_name:

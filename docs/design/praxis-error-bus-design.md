@@ -1,12 +1,12 @@
-# ErrorLog 总线架构设计
+# ErrorLog Bus Architecture Design
 
-## 1. 设计目标
+## 1. Design Goals
 
-将全项目分散的 ~190 个异常捕获点合流到一条统一的**错误日志总线**，对外暴露 REST API 供前端使用。
+Merge ~190 scattered exception capture points across the project into a unified **error log bus**, exposing a REST API for the frontend.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                         前端 (Web UI)                             │
+│                       Frontend (Web UI)                           │
 │        ┌───────────┐  ┌──────────┐  ┌───────────┐              │
 │        │ ErrorList  │  │ ErrorDetail│ │ ErrorStats│              │
 │        └─────┬─────┘  └────┬─────┘  └─────┬─────┘              │
@@ -24,13 +24,15 @@
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
 │  │  ingest()     │→│  dedup()      │→│  emit_to_bus()        │  │
-│  │  (合流入口)    │  │  (指纹去重)   │  │  (LogService + Event) │  │
+│  │  (Ingress)    │  │  (Fingerprint │  │  (LogService + Event) │  │
+│  │               │  │   dedup)     │  │                       │  │
 │  └──────────────┘  └──────────────┘  └───────────────────────┘  │
 │                        │                                         │
 │                        ▼                                         │
 │  ┌──────────────────────────────────────────────────────────┐    │
-│  │                    Ring Buffer (ERROR_BUS_BUFFER)         │    │
-│  │    内存环形缓冲区，按时间排序，支持快速分页查询              │    │
+│  │              Ring Buffer (ERROR_BUS_BUFFER)               │    │
+│  │    In-memory ring buffer, sorted by time, supports       │    │
+│  │    fast paginated queries                                │    │
 │  └──────────────────────────────────────────────────────────┘    │
 └───────────────────────────┬──────────────────────────────────────┘
                             │
@@ -38,35 +40,35 @@
           ▼                 ▼                       ▼
 ┌─────────────────┐ ┌──────────────┐ ┌──────────────────────┐
 │   LogService    │ │   EventBus   │ │   {config_dir}/logs/  │
-│  (services/log) │ │ (kernel/event)│ │   log_*.json (持久化)  │
+│  (services/log) │ │ (kernel/event)│ │   log_*.json (Persist)│
 └─────────────────┘ └──────────────┘ └──────────────────────┘
 ```
 
 ---
 
-## 2. 核心数据结构
+## 2. Core Data Structure
 
-### ErrorLogEntry — 比现有 LogEntry 更丰富
+### ErrorLogEntry — Richer than the existing LogEntry
 
 ```python
 @dataclass
 class ErrorLogEntry:
-    # ── 基础字段（继承自 LogEntry 语义） ──
+    # ── Base Fields (inherited from LogEntry semantics) ──
     level: str                    # "ERROR" | "CRITICAL" | "WARN"
-    service: str                  # 服务名, e.g. "kernel/allocator", "services/agent_loop"
-    message: str                  # 人类可读错误消息
-    timestamp: float              # 时间戳 (time.time())
-    agent_id: str                 # 关联 agent (可选)
-    task_id: str                  # 关联任务 (可选)
+    service: str                  # Service name, e.g. "kernel/allocator", "services/agent_loop"
+    message: str                  # Human-readable error message
+    timestamp: float              # Timestamp (time.time())
+    agent_id: str                 # Associated agent (optional)
+    task_id: str                  # Associated task (optional)
 
-    # ── 新增错误专用字段 ──
-    error_code: str               # 错误码, e.g. "E_INTERNAL", "E_TIMEOUT", "EFAULT"
-    component: str                # 组件分层: "kernel" | "services" | "tools" | "api" | "cli"
-    source: str                   # 源码位置, e.g. "kernel/allocator.py:77"
-    stack_trace: str              # 堆栈追踪 (截断前 1000 字符)
-    context: dict                 # 附加上下文, e.g. {"resource": "memory", "amount": 1024}
-    fingerprint: str              # 去重指纹: sha256(level + error_code + source + message[:100])
-    count: int                    # 同一指纹累计出现次数 (去重用)
+    # ── New error-specific fields ──
+    error_code: str               # Error code, e.g. "E_INTERNAL", "E_TIMEOUT", "EFAULT"
+    component: str                # Component layer: "kernel" | "services" | "tools" | "api" | "cli"
+    source: str                   # Source location, e.g. "kernel/allocator.py:77"
+    stack_trace: str              # Stack trace (truncated to first 1000 chars)
+    context: dict                 # Additional context, e.g. {"resource": "memory", "amount": 1024}
+    fingerprint: str              # Dedup fingerprint: sha256(level + error_code + source + message[:100])
+    count: int                    # Cumulative occurrence count for the same fingerprint (for dedup)
 
     def to_dict(self) -> dict:
         return {
@@ -87,39 +89,39 @@ class ErrorLogEntry:
         }
 ```
 
-### 与现有 LogEntry 的关系
+### Relationship with Existing LogEntry
 
 ```
 LogEntry (services/log.py)         ErrorLogEntry (services/error_bus.py)
-├── level                          ├── level (继承)
-├── service                        ├── service (继承)
-├── message                        ├── message (继承)
-├── timestamp                      ├── timestamp (继承)
-├── agent_id                       ├── agent_id (继承)
-├── task_id                        ├── task_id (继承)
-                                   ├── error_code ★ 新增
-                                   ├── component  ★ 新增
-                                   ├── source     ★ 新增
-                                   ├── stack_trace ★ 新增
-                                   ├── context    ★ 新增
-                                   ├── fingerprint★ 新增（去重用）
-                                   └── count      ★ 新增（去重累计）
+├── level                          ├── level (inherited)
+├── service                        ├── service (inherited)
+├── message                        ├── message (inherited)
+├── timestamp                      ├── timestamp (inherited)
+├── agent_id                       ├── agent_id (inherited)
+├── task_id                        ├── task_id (inherited)
+                                   ├── error_code ★ New
+                                   ├── component  ★ New
+                                   ├── source     ★ New
+                                   ├── stack_trace ★ New
+                                   ├── context    ★ New
+                                   ├── fingerprint★ New (for dedup)
+                                   └── count      ★ New (dedup accum)
 ```
 
 ---
 
-## 3. 总线接口设计
+## 3. Bus Interface Design
 
-### ErrorBus 类
+### ErrorBus Class
 
 ```python
 class ErrorBus:
-    """统一错误日志总线 — 合流入口"""
+    """Unified error log bus — ingress point"""
 
     def __init__(self, max_entries: int = ERROR_BUS_BUFFER):
         ...
 
-    # ── 合流入口 ──
+    # ── Ingress ──
 
     def error(
         self,
@@ -133,7 +135,7 @@ class ErrorBus:
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """记录一条 ERROR 级别错误 → LogService + EventBus + RingBuffer"""
+        """Record an ERROR level error → LogService + EventBus + RingBuffer"""
 
     def exception(
         self,
@@ -146,12 +148,12 @@ class ErrorBus:
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """从 Exception 对象提取信息并记录（自动提取 stack_trace + source）"""
+        """Extract info from an Exception object and record (auto-extract stack_trace + source)"""
 
     def warn(self, ...) -> dict:
-        """记录一条 WARN 级别警告"""
+        """Record a WARN level warning"""
 
-    # ── 查询 ──
+    # ── Query ──
 
     def query(
         self,
@@ -165,42 +167,42 @@ class ErrorBus:
         offset: int = 0,
         limit: int = 50,
     ) -> dict:
-        """按条件查询错误日志（分页）"""
+        """Query error logs by criteria (paginated)"""
 
     def get_by_fingerprint(self, fingerprint: str) -> dict | None:
-        """按指纹获取单条错误详情"""
+        """Get a single error detail by fingerprint"""
 
     def stats(self) -> dict:
-        """错误统计：按 level/error_code/component 聚合"""
+        """Error stats: aggregated by level/error_code/component"""
 
     def trend(self, window_minutes: int = 60) -> list[dict]:
-        """错误趋势：按时间窗口分桶统计"""
+        """Error trend: bucketed by time window"""
 
-    # ── 维护 ──
+    # ── Maintenance ──
 
     def clear(self, before: float | None = None) -> dict:
-        """清空（可指定时间点之前）"""
+        """Clear (can specify a time before a given point)"""
 
     def export(self, path: str = "") -> dict:
-        """导出错误日志到 JSON 文件"""
+        """Export error logs to JSON file"""
 
-    # ── 去重 ──
+    # ── Dedup ──
 
     def _compute_fingerprint(self, level: str, error_code: str,
                               source: str, message: str) -> str:
         """sha256(level + error_code + source + message[:100]) → hex[:16]"""
 
     def _dedup_or_record(self, entry: ErrorLogEntry) -> ErrorLogEntry:
-        """指纹命中 count+=1 不新增；未命中 append"""
+        """Fingerprint hit → count+=1, no new entry; miss → append"""
 ```
 
-### 辅助函数 — 全局快捷入口
+### Helper Functions — Global Quick Entry
 
 ```python
-# 全局单例
+# Global singleton
 def get_bus() -> ErrorBus: ...
 
-# 快捷函数 — 所有 except 点无脑调用
+# Quick function — blindly call at all except points
 def capture(
     message: str,
     error_code: str = "E_INTERNAL",
@@ -208,32 +210,32 @@ def capture(
     exc: Exception | None = None,
     **context,
 ) -> dict:
-    """最简入口：一行替换 logger.warning / pass"""
+    """Simplest entry: one-line replacement for logger.warning / pass"""
 ```
 
 ---
 
-## 4. REST API 接口（供前端使用）
+## 4. REST API Interface (for Frontend Use)
 
-所有接口以 `/api/logs/` 为前缀，遵循现有 API Gateway 的 `POST` + JSON body 风格。
+All endpoints are prefixed with `/api/logs/` and follow the existing API Gateway's `POST` + JSON body style.
 
-| 方法 | 路径 | 说明 | 前端用途 |
-|------|------|------|----------|
-| `GET` | `/api/logs/errors` | 分页查询错误列表 | 错误列表页 |
-| `GET` | `/api/logs/errors/:fingerprint` | 错误详情 | 错误详情页 |
-| `GET` | `/api/logs/errors/stats` | 错误统计总览 | 仪表盘 |
-| `GET` | `/api/logs/errors/trend` | 错误趋势（时间桶） | 趋势图 |
-| `POST` | `/api/logs/errors/clear` | 清除已解决的错误 | 维护操作 |
-| `GET` | `/api/logs/errors/stream` | SSE 实时错误流 | 实时通知 |
-| `GET` | `/api/logs/export` | 导出错误日志 JSON | 运维导出 |
-| `GET` | `/api/logs` | 通用日志查询（LogService） | 日志浏览 |
-| `GET` | `/api/logs/stats` | 日志统计（LogService） | 仪表盘 |
+| Method | Path | Description | Frontend Use |
+|--------|------|-------------|--------------|
+| `GET` | `/api/logs/errors` | Paginated query of error list | Error list page |
+| `GET` | `/api/logs/errors/:fingerprint` | Error details | Error detail page |
+| `GET` | `/api/logs/errors/stats` | Error stats overview | Dashboard |
+| `GET` | `/api/logs/errors/trend` | Error trend (time buckets) | Trend chart |
+| `POST` | `/api/logs/errors/clear` | Clear resolved errors | Maintenance operation |
+| `GET` | `/api/logs/errors/stream` | SSE real-time error stream | Real-time notifications |
+| `GET` | `/api/logs/export` | Export error log JSON | Ops export |
+| `GET` | `/api/logs` | General log query (LogService) | Log browsing |
+| `GET` | `/api/logs/stats` | Log stats (LogService) | Dashboard |
 
-### 请求/响应示例
+### Request/Response Example
 
 **GET /api/logs/errors**
 
-请求参数（JSON body）：
+Request params (JSON body):
 ```json
 {
     "level": "ERROR",
@@ -248,7 +250,7 @@ def capture(
 }
 ```
 
-响应：
+Response:
 ```json
 {
     "success": true,
@@ -277,7 +279,7 @@ def capture(
 
 **GET /api/logs/errors/stats**
 
-响应：
+Response:
 ```json
 {
     "success": true,
@@ -302,7 +304,7 @@ def capture(
 
 **GET /api/logs/errors/trend?window=60**
 
-响应：
+Response:
 ```json
 {
     "success": true,
@@ -325,25 +327,25 @@ data: {"type": "error", "entry": {...}}
 
 ---
 
-## 5. 集成层：改造所有 except 点
+## 5. Integration Layer: Migrate All except Points
 
-### 替换策略 — 一条原则
+### Replacement Strategy — One Principle
 
 ```
-🔴 原来: except Exception: pass
-🟢 改成: except Exception as e:
-            capture("xxx failed", exc=e, component="xxx", source="xxx.py:N")
+🔴 Before: except Exception: pass
+🟢 After:  except Exception as e:
+               capture("xxx failed", exc=e, component="xxx", source="xxx.py:N")
 
-🟡 原来: except Exception as e: logger.warning("xxx: %s", e)
-🟢 改成: except Exception as e:
-            logger.warning("xxx: %s", e)     # 保留向下兼容
-            capture("xxx failed", exc=e, ...) # 新增总线推送
+🟡 Before: except Exception as e: logger.warning("xxx: %s", e)
+🟢 After:  except Exception as e:
+               logger.warning("xxx: %s", e)     # Keep backward compat
+               capture("xxx failed", exc=e, ...) # New bus push
 ```
 
-### `src/services/error_bus.py` 中的 `capture()` 设计
+### `capture()` Design in `src/services/error_bus.py`
 
 ```python
-# 一行替代所有 except 点中的 pass / logger.warning
+# One-line replacement for pass / logger.warning in all except points
 def capture(
     message: str,
     error_code: str = "E_INTERNAL",
@@ -354,20 +356,20 @@ def capture(
     context: dict | None = None,
 ) -> dict:
     """
-    错误捕获快捷入口。
+    Error capture quick entry.
 
-    用法:
+    Usage:
         try:
             ...
         except Exception as e:
             capture("memory compact failed", exc=e, component="services")
 
-    自动提取:
-      - source: 调用栈 caller 的文件:行号
-      - stack_trace: exc 的 traceback
+    Auto-extracts:
+      - source: caller's file:line
+      - stack_trace: exc's traceback
     """
     bus = get_bus()
-    source = _caller_source()  # 自动推断调用位置
+    source = _caller_source()  # Auto-infer call location
     stack_trace = _format_exc(exc) if exc else ""
     return bus.error(
         message=message,
@@ -381,30 +383,30 @@ def capture(
     )
 ```
 
-### 四阶段改造计划
+### Four-Phase Migration Plan
 
-| 阶段 | 范围 | 改动量 | 效果 |
-|------|------|--------|------|
-| **P0** | 🔴 62 个无声吞掉点 | ~62 处 | 消除静默丢失 |
-| **P1** | 🟢 kernel/ 的 30 个 logger 点 | ~30 处 | 核心层接入总线 |
-| **P2** | 🟢 services/ 的 45 个 logger 点 | ~45 处 | 服务层接入总线 |
-| **P3** | 🟢 tools/ + api/ 其余点 | ~30 处 | 全量覆盖 |
+| Phase | Scope | Changes | Effect |
+|-------|-------|---------|--------|
+| **P0** | 🔴 62 silent swallow points | ~62 places | Eliminate silent loss |
+| **P1** | 🟢 30 logger points in kernel/ | ~30 places | Kernel layer connects to bus |
+| **P2** | 🟢 45 logger points in services/ | ~45 places | Service layer connects to bus |
+| **P3** | 🟢 Remaining points in tools/ + api/ | ~30 places | Full coverage |
 
 ---
 
-## 6. EventBus 集成
+## 6. EventBus Integration
 
-ErrorBus 在 `ingest()` 时自动 `emit_event("error_log", entry.to_dict(), source=component)`。
+ErrorBus automatically emits `emit_event("error_log", entry.to_dict(), source=component)` on `ingest()`.
 
-已有 LogService 也订阅 `STATE_CHANGE` — 同样的机制：
+The existing LogService also subscribes to `STATE_CHANGE` — same mechanism:
 
 ```python
-# ErrorBus 启动时注册
+# ErrorBus registers on startup
 bus = get_event_bus()
 bus.on_event("error_log", self._on_error_event)
 
 def _on_error_event(self, signal: Signal) -> None:
-    """实时推送给 SSE 订阅者"""
+    """Push to SSE subscribers in real time"""
     with self._sse_lock:
         for queue in self._sse_clients:
             queue.put(signal.data)
@@ -412,20 +414,20 @@ def _on_error_event(self, signal: Signal) -> None:
 
 ---
 
-## 7. 集成层接入方案（吞掉点改造成略）
+## 7. Integration Layer Migration Plan (Swallow Point Retrofit Strategy)
 
-### 7.1 接口总表
+### 7.1 Interface Summary Table
 
-所有 except 点统一替换为以下两种模式之一：
+All except points are uniformly replaced by one of the following patterns:
 
-| 原模式 | 替换为 | 适用范围 |
-|--------|--------|----------|
-| `except Exception: pass` | `except Exception as e: capture("...", exc=e, component="...")` | 所有 silent swallow |
-| `except Exception as e: logger.warning("...", e)` | `except Exception as e: logger.warning("...", e); capture("...", exc=e, component="...")` | 已有日志但需合流 |
-| `except Exception as e: return {"error": str(e)}` | `except Exception as e: capture("...", exc=e, ...); return {"error": str(e)}` | API handler 返回前记录 |
-| `except ImportError:` | `except ImportError as e: capture("import failed", exc=e, error_code="E_MISSING_DEP")` | ImportError 专用 |
+| Original Pattern | Replace With | Scope |
+|------------------|-------------|-------|
+| `except Exception: pass` | `except Exception as e: capture("...", exc=e, component="...")` | All silent swallow |
+| `except Exception as e: logger.warning("...", e)` | `except Exception as e: logger.warning("...", e); capture("...", exc=e, component="...")` | Existing log but needs bus integration |
+| `except Exception as e: return {"error": str(e)}` | `except Exception as e: capture("...", exc=e, ...); return {"error": str(e)}` | Record before returning from API handler |
+| `except ImportError:` | `except ImportError as e: capture("import failed", exc=e, error_code="E_MISSING_DEP")` | ImportError-specific |
 
-### 7.2 P0 — 消除 62 个无声吞掉点（按文件分组）
+### 7.2 P0 — Eliminate 62 Silent Swallow Points (Grouped by File)
 
 ```
 src/main.py
@@ -571,7 +573,7 @@ src/tools/special/tools_archive.py
   L110 except Exception: return 0       → capture("archive db count failed", component="tools")
 ```
 
-### 7.3 P1+P2+P3 — 提升已有日志点到总线（示例片段）
+### 7.3 P1+P2+P3 — Upgrade Existing Log Points to the Bus (Sample Snippet)
 
 ```diff
 // kernel/event.py
@@ -595,23 +597,23 @@ src/tools/special/tools_archive.py
 
 ---
 
-## 8. 新增/修改文件清单 (整理)
+## 8. New/Modified File Summary
 
-| 文件 | 状态 | 说明 |
-|------|------|------|
-| `docs/design/praxis-error-bus-design.md` | ✅ 新建 | 本设计文档 |
-| `src/services/error_bus.py` | ✅ 新建 | ErrorBus 核心 + capture + API handlers |
-| `src/kernel/params.py` | ✅ 修改 | 新增 3 个 ERROR_BUS_* 常量 |
-| `src/services/api_gateway.py` | ✅ 修改 | 注册 LOG_ROUTES 到 API Gateway |
-| `src/services/api_handlers.py` | 🔜 可选 | 可将 handler 混入 ApiHandlers 类（已有 LOG_ROUTES 独立模式） |
-| 全项目 ~190 个 except 点 | 🔜 待改造 | 按 P0→P1→P2→P3 阶段逐步替换 |
+| File | Status | Description |
+|------|--------|-------------|
+| `docs/design/praxis-error-bus-design.md` | ✅ New | This design document |
+| `src/services/error_bus.py` | ✅ New | ErrorBus core + capture + API handlers |
+| `src/kernel/params.py` | ✅ Modified | Add 3 ERROR_BUS_* constants |
+| `src/services/api_gateway.py` | ✅ Modified | Register LOG_ROUTES with API Gateway |
+| `src/services/api_handlers.py` | 🔜 Optional | Can mix handlers into ApiHandlers class (already has LOG_ROUTES standalone mode) |
+| ~190 except points across the project | 🔜 Pending | Gradually replace by phase P0→P1→P2→P3 |
 
-## 8. 前端对接契约
+## 8. Frontend Integration Contract
 
-前端只需对接 REST API：
+Frontend only needs to integrate with the REST API:
 
 ```typescript
-// 前端类型定义（供参考）
+// Frontend type definition (for reference)
 interface ErrorLogEntry {
     id: string;           // fingerprint[:12]
     level: 'ERROR' | 'CRITICAL' | 'WARN';
@@ -646,18 +648,18 @@ interface ErrorTrendBucket {
 
 ---
 
-## 9. 与现有系统的关系
+## 9. Relationship with Existing Systems
 
 ```
 PraxisError (kernel/errors.py)          ErrorBus (services/error_bus.py)
-├── 错误码定义                             ├── 错误记录引擎
-├── 返回结构化 dict                        ├── 总线合流 + 去重
-├── i18n 翻译                             ├── 查询 + 统计
-└── 供工具 handler 使用                    └── REST API 暴露
+├── Error code definitions               ├── Error recording engine
+├── Returns structured dict              ├── Bus merging + dedup
+├── i18n translation                     ├── Query + stats
+└── For tool handler use                 └── REST API exposure
 
 LogService (services/log.py)              EventBus (kernel/event.py)
-├── 通用日志                               ├── 实时事件分发
-├── 磁盘持久化 + 轮转                       └── SSE 推送
-├── 通用查询
-└── 被 ErrorBus 调用（写日志目的地）
+├── General logging                       ├── Real-time event distribution
+├── Disk persistence + rotation           └── SSE push
+├── General query
+└── Called by ErrorBus (log write destination)
 ```

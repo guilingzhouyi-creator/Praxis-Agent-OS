@@ -110,7 +110,7 @@ def test_persist_corrupted_file():
 
 # ── CardRegistry persistence tests ──
 
-from l4.card_registry import CardRegistry, get_registry, reset_registry
+from l3.card_registry import CardRegistry, get_registry, reset_registry
 
 
 def test_card_registry_persist_round_trip():

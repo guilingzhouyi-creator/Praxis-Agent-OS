@@ -1,61 +1,61 @@
 ---
-全宗: DESIGN
-案卷: guide
-件号: 001
-类型: 实现
-日期: 2026-07-22
-时间戳: 2026-07-22T19:00
-作者: L3
-关键词: [NOMOS, Praxis, quickstart, guide]
-关联: [ARCHIVE-design-001]
-债务: []
+Fonds: DESIGN
+File: guide
+Item: 001
+Type: Implementation
+Date: 2026-07-22
+Timestamp: 2026-07-22T19:00
+Author: L3
+Keywords: [NOMOS, Praxis, quickstart, guide]
+Relations: [ARCHIVE-design-001]
+Debts: []
 ---
 
-# NOMOS Praxis 快速启动指南
+# NOMOS Praxis Quickstart Guide
 
-> 5 分钟从零到第一个意图执行。
+> 5 minutes from zero to your first intent execution.
 
-## 前置条件
+## Prerequisites
 
 - Python 3.11+
-- 本仓库已克隆到本地
+- This repository is cloned locally
 
-## 启动
+## Startup
 
 ```bash
-# 从项目根目录启动 Praxis GUI
+# Start Praxis GUI from the project root
 python run.py --gui
 ```
 
-等待 pywebview 窗口弹出（首次启动可能需几秒加载 Flask 后端）。
+Wait for the pywebview window to appear (first launch may take a few seconds to load the Flask backend).
 
-## 第一个意图
+## First Intent
 
-在窗口右侧 Chat 输入框中输入：
+In the Chat input box on the right side of the window, enter:
 
 ```
-修改数据库连接配置
+Modify database connection configuration
 ```
 
-流程：
-1. L3 引擎解析意图 → 识别领域 `app/config`
-2. 路由到 Agent B（业务层）
-3. 展示任务预览卡片，点击 **确认**
-4. Agent B 执行：`read_file` → `grep_search` → `replace_string_in_file`
-5. 左侧事务区生成任务卡片
-6. 中间编辑器显示文件变更 Diff
-7. 底部面板实时更新执行日志、门禁状态
+Flow:
+1. L3 engine parses intent → identifies domain `app/config`
+2. Routes to Agent B (business layer)
+3. Shows task preview card, click **Confirm**
+4. Agent B executes: `read_file` → `grep_search` → `replace_string_in_file`
+5. Left transaction area generates task card
+6. Center editor shows file change Diff
+7. Bottom panel updates execution logs and gate status in real time
 
-## 验证
+## Verification
 
-- 窗口标题栏显示 `内核在线`（绿色圆点）
-- Agent 流条显示执行进度
-- 底部状态栏显示 Agent 信誉分和 PID
+- Window title bar shows `Kernel Online` (green dot)
+- Agent stream bar shows execution progress
+- Bottom status bar shows Agent reputation score and PID
 
-## 故障排查
+## Troubleshooting
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| 窗口白屏 | Flask 后端未就绪 | 等待终端出现 `Running on 127.0.0.1:5007` |
-| 解析失败 | L3 引擎未识别意图 | 尝试更明确的表达，如"把 config.py 的 debug 改为 true" |
-| 执行被阻断 | GateChain G3 领地检查 | 确认 Agent 拥有目标文件所在领地权限 |
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| White screen | Flask backend not ready | Wait for `Running on 127.0.0.1:5007` in terminal |
+| Parse failure | L3 engine did not recognize intent | Try a more explicit expression, e.g. "change debug to true in config.py" |
+| Execution blocked | GateChain G3 territory check | Confirm Agent has territory permission for the target file |

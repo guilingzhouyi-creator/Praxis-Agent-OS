@@ -1,48 +1,48 @@
 ---
-全宗: REVIEW
-案卷: architecture
-件号: 001
-类型: 审查
-日期: 2026-07-21
-时间戳: 2026-07-21T19:00
-作者: NOMOSAgent
-关键词: [NOMOS, Praxis, OS Shell, review, cross-review]
-关联: [ARCHIVE-design-006]
-债务: []
+Fonds: REVIEW
+File: architecture
+Item: 001
+Type: Review
+Date: 2026-07-21
+Timestamp: 2026-07-21T19:00
+Author: NOMOSAgent
+Keywords: [NOMOS, Praxis, OS Shell, review, cross-review]
+Relations: [ARCHIVE-design-006]
+Debts: []
 ---
 
-# 🟢 NOMOSAgent 对 Praxis Agent OS Shell 设计的交叉审查
+# 🟢 NOMOSAgent Cross-Review of the Praxis Agent OS Shell Design
 
-## 核心决策
+## Core Decision
 
-审查确认 Agent OS Shell 定位升级和 L3 双阶段模型正确，提出 4 项质询和 4 个议题必须实施前解决。
+The review confirms that the Agent OS Shell positioning upgrade and L3 two-phase model are correct, and raises 4 inquiries and 4 issues that must be resolved before implementation.
 
-## 设计规则
+## Design Rules
 
-1. L3 对话历史必须存储在 Portal SQLite（`nomos_l3_dialogues` 表），回灌时只加载"最近 20 条 + 被 Ring 1 引用的历史条目"，不得与 `memories/sessions/` 重复。
-2. `app/praxis/` 下文件名必须体现桥接而非重新实现——`gate_chain.py` → `gate_bridge.py`，`tool_ring.py` → `tool_bridge.py`。
-3. G5 三态（pass/report/block）的触发条件必须在 D2 设计任务中明确：pass=领地内操作直接执行，report=跨领地边界执行+通知 L3，block=写生产数据拒绝执行。
-4. 窗口必须定义默认尺寸（1280×800）、最小宽度（900px）和 <900px 降级策略（右栏折叠为底部弹出面板）。
-5. L3 确认等待必须定义状态机——超时自动取消 / 意图卡锁定 / 确认后方可修改。
-6. L3 和 Copilot 角色必须分离：L3 是独立模块（元协调），Copilot 是 Agent 之一，不得合并标注。
+1. L3 dialogue history must be stored in Portal SQLite (`nomos_l3_dialogues` table); when refeeding, only load the "last 20 entries + historical entries referenced by Ring 1" — must not duplicate with `memories/sessions/`.
+2. File names under `app/praxis/` must reflect bridging rather than reimplementation — `gate_chain.py` → `gate_bridge.py`, `tool_ring.py` → `tool_bridge.py`.
+3. The trigger conditions for G5 tri-state (pass/report/block) must be clearly defined in the D2 design task: pass=operation within territory executed directly, report=cross-territory boundary execution + notify L3, block=write to production data denied.
+4. Windows must define a default size (1280×800), minimum width (900px), and a degradation strategy for <900px (right column collapses to a bottom popup panel).
+5. L3 confirmation wait must define a state machine — timeout auto-cancel / intent card locked / modifiable only after confirmation.
+6. L3 and Copilot roles must be separated: L3 is an independent module (meta-coordinator), Copilot is one of the Agents — must not be merged.
 
-## 规格
+## Specifications
 
-- L3 对话存储: Portal SQLite 表 `nomos_l3_dialogues`，回灌加载 "最近 20 条 + Ring 1 引用条目"，不与 `memories/sessions/` 重复（session 存档=阶段性摘要，L3 对话=原始交互记录）
-- 桥接文件命名: `app/praxis/gate_bridge.py`（桥接 `app/services/gate_chain.py`），`app/praxis/tool_bridge.py`（桥接 `app/services/tool_ring.py`）
-- G5 三态触发:
-  - 🟢 pass: Agent 在领地内操作
-  - 🟡 report: Agent 跨越领地边界（执行 + 通知 L3）
-  - 🔴 block: Agent 试图写生产数据（拒绝执行）
-- 窗口规格: 默认 1280×800，最小宽度 900px（中栏至少 300px），<900px → 右栏折叠为底部弹出面板
-- 角色分离: L3 独立进程/模块，不绑定任何 Agent；Copilot 是 Agent A；🟢 只标注 Copilot
-- L3 等待确认状态机: 超时自动取消 / 意图卡锁定 / 确认后方可修改
-- MVP 条件统一: 设计稿 9 条 + 路线图 7 条 → 统一为 9 条门禁，追加 G8（UI 一致性）、G9（Agent 面板状态）、共存验证
+- L3 dialogue storage: Portal SQLite table `nomos_l3_dialogues`, refeed loads "last 20 entries + Ring 1 referenced entries", does not duplicate `memories/sessions/` (session archive=periodic summary, L3 dialogue=raw interaction records)
+- Bridge file naming: `app/praxis/gate_bridge.py` (bridges `app/services/gate_chain.py`), `app/praxis/tool_bridge.py` (bridges `app/services/tool_ring.py`)
+- G5 tri-state triggers:
+  - 🟢 pass: Agent operates within territory
+  - 🟡 report: Agent crosses territory boundary (execute + notify L3)
+  - 🔴 block: Agent attempts to write production data (deny execution)
+- Window specs: default 1280×800, min width 900px (center column at least 300px), <900px → right column collapses to bottom popup panel
+- Role separation: L3 independent process/module, not bound to any Agent; Copilot is Agent A; 🟢 only Copilot annotated
+- L3 confirmation wait state machine: timeout auto-cancel / intent card locked / modifiable only after confirmation
+- MVP conditions unified: 9 conditions from design draft + 7 from roadmap → unified as 9 gate checks, add G8 (UI consistency), G9 (Agent panel status), coexistence verification
 
-## 排除
+## Exclusions
 
-- L3 对话存储在内存或文件系统：被排除（内存 OOM 风险，文件并发写冲突）
-- `app/praxis/` 下重新实现 GateChain/ToolRing：被排除（应桥接现有 `app/services/`）
-- G5 仅二态（pass/block）：被排除（需要三态 pass/report/block 的 report 中间态）
-- 窗口可缩小到 680px 以下无限制：被排除（最小 900px，否则中栏无法显示工具调用卡片）
-- L3 与 Copilot 角色合并：被排除（L3 不能既当裁判又当运动员）
+- L3 dialogue stored in memory or file system: excluded (memory OOM risk, file concurrent write conflicts)
+- Reimplementing GateChain/ToolRing under `app/praxis/`: excluded (should bridge existing `app/services/`)
+- G5 only two-state (pass/block): excluded (needs tri-state pass/report/block with report intermediate state)
+- Window shrinkable below 680px without restriction: excluded (min 900px, otherwise center column cannot display tool call cards)
+- L3 and Copilot roles merged: excluded (L3 cannot be both referee and player)

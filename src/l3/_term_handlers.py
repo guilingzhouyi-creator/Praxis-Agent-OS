@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, TERMINAL_CONTEXT_RECENT
 from l1.kernel.params.system import POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS
 from l1.kernel.params.tool import TOOL_GREP_TIMEOUT
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
@@ -212,7 +212,7 @@ def handle_think(term, card, phases):
         ring_context = memory.build_context(term.agent_id, max_tokens=1024)
         if ring_context:
             ctx_parts.append(ring_context)
-        recent = term.context.recent(5)
+        recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
         if recent:
             ctx_parts.append("=== Recent Context ===\n" + "\n".join(
                 str(r.get("value", ""))[:200] for r in recent
@@ -287,8 +287,16 @@ def handle_think(term, card, phases):
         if _scope("shell") and not _is_muted("shell"):
             loop.add_tool("shell", "Run shell command", {"command": "string"}, _handle_shell)
 
+        # Pet watchdog before entering the long-running AgentLoop (multi-turn LLM)
+        if getattr(term, '_watchdog_pet', None):
+            term._watchdog_pet(term.agent_id)
+
         ar = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
                       model_config=term.model_config)
+
+        # Pet watchdog again after AgentLoop returns (before post-processing)
+        if getattr(term, '_watchdog_pet', None):
+            term._watchdog_pet(term.agent_id)
 
         # ── Collect multi tool_use → batch TerminalCard for Agent internal parallel ──
         batch_tool_calls = []

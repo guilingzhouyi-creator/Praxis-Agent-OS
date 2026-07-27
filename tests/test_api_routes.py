@@ -1,8 +1,8 @@
-"""api_routes / api_gateway._match_route 单测 — S1 前缀路由严格匹配。
+"""api_routes / api_gateway._match_route unit test — S1 prefix route strict matching.
 
-策略：用显式注册的最小路由集测试 _match_route 逻辑，
-不依赖 ApiHandlers mixin 的完整加载（那些 handler 在
-ApiGateway 实例上可能 getattr 失败）。
+Strategy: Test _match_route logic with a minimal explicitly registered route set,
+without depending on the full ApiHandlers mixin loading (those handlers
+may fail getattr on the ApiGateway instance).
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _make_gateway_with_minimal_routes():
 
 
 class TestApiRoutesTable:
-    """API_ROUTES 静态表 — 单一来源。"""
+    """API_ROUTES static table — single source of truth."""
 
     def test_routes_are_4_tuples(self):
         for entry in API_ROUTES:
@@ -87,15 +87,15 @@ class TestPrefixRouteS1Strict:
         assert handler({}) == {"_prefix_card": True}
 
     def test_prefix_route_multi_segment_rejected(self):
-        """S1 fix: GET /api/card/foo/bar 不再误匹配 /api/card/ 的 id='bar'。"""
+        """S1 fix: GET /api/card/foo/bar no longer falsely matches /api/card/ with id='bar'."""
         gw = _make_gateway_with_minimal_routes()
         handler, params = gw._match_route("GET", "/api/card/foo/bar")
-        # 多段剩余不被前缀路由接受，应 fall through 到 not_found
+        # Multi-segment remainder not accepted by prefix route, should fall through to not_found
         assert params == {}
         assert "error" in handler({})
 
     def test_prefix_does_not_match_substring_sibling(self):
-        """S1 fix: /api/cardx 不应命中 /api/card/。"""
+        """S1 fix: /api/cardx should not match /api/card/."""
         gw = _make_gateway_with_minimal_routes()
         handler, params = gw._match_route("GET", "/api/cardx")
         assert params == {}
@@ -115,7 +115,7 @@ class TestPrefixRouteS1Strict:
 
 
 class TestExactRoute:
-    """非前缀路由的精确匹配。"""
+    """Exact match for non-prefix routes."""
 
     def test_exact_path_match(self):
         gw = _make_gateway_with_minimal_routes()
@@ -136,7 +136,7 @@ class TestExactRoute:
         assert "error" in handler({})
 
     def test_wrong_method_no_match(self):
-        """GET 路由不应匹配 DELETE 请求。"""
+        """GET route should not match DELETE request."""
         gw = _make_gateway_with_minimal_routes()
         handler, params = gw._match_route("DELETE", "/api/health")
         assert params == {}
@@ -144,7 +144,7 @@ class TestExactRoute:
 
 
 class TestRoutePrecedence:
-    """前缀路由与精确路由的优先级。"""
+    """Prefix route vs exact route precedence."""
 
     def test_exact_path_beats_prefix_when_both_registered(self):
         """If both /api/card/ (prefix) and /api/card (exact) exist,
@@ -177,17 +177,17 @@ class TestRegisterRoute:
 
 
 class TestApiGatewayConstruction:
-    """ApiGateway 构造 + API_ROUTES 加载（含 warnings）。"""
+    """ApiGateway construction + API_ROUTES loading (with warnings)."""
 
     def test_gateway_constructs_without_error(self):
-        """ApiGateway() 加载全部 API_ROUTES，缺失的 handler 仅 warn 不 raise。"""
+        """ApiGateway() loads all API_ROUTES, missing handlers only warn not raise."""
         gw = ApiGateway()
         assert gw.host is not None
         assert gw.port > 0
-        # 至少部分路由应注册成功
+        # At least some routes should register successfully
         assert len(gw._routes) > 0
 
     def test_gateway_has_routes_list(self):
         gw = ApiGateway()
-        # _routes 应非空（即使部分 handler 缺失）
+        # _routes should be non-empty (even if some handlers are missing)
         assert isinstance(gw._routes, list)

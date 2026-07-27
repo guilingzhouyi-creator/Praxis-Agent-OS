@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceBufferManager:
-    """资源管理器高层入口 — 统一 stage/commit/read/diff/discard。"""
+    """Resource manager high-level entry — unified stage/commit/read/diff/discard."""
 
     def __init__(self):
         self._ring = RingBuffer()

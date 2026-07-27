@@ -85,6 +85,7 @@ API_GATEWAY_HOST: Final[str] = "127.0.0.1"
 API_MAX_BODY_BYTES: Final[int] = 1_048_576
 MCP_DEFAULT_URL: Final[str] = "http://localhost:3500/mcp/v1"
 MCP_TIMEOUT: Final[int] = 5
+MCP_OAUTH_REDIRECT_PORT: Final[int] = 19876
 
 # ── CORS ──
 API_CORS_ORIGIN: Final[str] = "*"
@@ -147,13 +148,13 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 from dataclasses import dataclass
 import os as _os
 from .system import PRAXIS_DATA_DIR
+from .kernel import IPC_REQUEST_TIMEOUT
 
 IPC_SOCKET_DIR: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sockets")
 IPC_KERNEL_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
 IPC_LLM_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
 IPC_SANDBOX_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
 IPC_KEEPALIVE_INTERVAL: Final[float] = 5.0
-IPC_REQUEST_TIMEOUT: Final[float] = 300.0
 
 
 # ── Subprocess / LSP / HTTP timeouts (config-driven) ──

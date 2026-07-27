@@ -44,21 +44,30 @@ class CentralMemory:
         # Quality gate (Rings 1-3)
         if ring <= 3:
             try:
-                from .memory_quality import score_entry, is_worth_remembering
-                score = score_entry(content, entry_type)
-                if not is_worth_remembering(score):
-                    return {"success": False, "ring": ring, "reason": "quality_rejected", "score": score}
+                from .memory_quality import _is_good_memory, _score_importance
+                accepted, reason = _is_good_memory(content, entry_type)
+                if not accepted:
+                    return {"success": False, "ring": ring, "reason": f"quality_rejected:{reason}"}
+                if importance == 0.5:
+                    importance = _score_importance(content, entry_type)
             except Exception:
                 pass
 
         if ring == 4:
-            # Archive directly
+            # Archive directly to fonds/series store
             try:
-                from .memory import get_memory
-                mem = get_memory()
-                r = mem.remember(agent_id=agent_id, entry_type=entry_type,
-                                 content=content, tags=tags, ring=4,
-                                 importance=importance, cell_id=cell_id)
+                from l3.tools._archive import _cmd_archive_store
+                from .archive_orchestrator import _classify
+                pseudo_entry = {
+                    "agent_id": agent_id,
+                    "entry_type": entry_type,
+                    "content": content,
+                    "tags": tags or [],
+                }
+                fonds, series = _classify(pseudo_entry)
+                r = _cmd_archive_store(fonds=fonds, series=series,
+                                       content=content,
+                                       tags=",".join(tags or []))
                 self._stats["archives"] += 1
                 return {"success": True, "ring": 4, "result": r}
             except Exception as e:
@@ -93,12 +102,24 @@ class CentralMemory:
             mem = get_memory()
             for ring in rings:
                 try:
-                    entries = mem.search(agent_id=agent_id, query=query,
-                                         tags=tags, ring=ring, limit=limit)
+                    entries = mem.recall(agent_id=agent_id if agent_id else None,
+                                         tag=tags[0] if tags else None,
+                                         rings=[ring],
+                                         limit=limit)
                     for e in (entries or []):
                         if isinstance(e, dict):
                             e["_ring"] = ring
                             results.append(e)
+                        else:
+                            # MemEntry dataclass → dict
+                            results.append({
+                                "id": e.id, "agent_id": e.agent_id,
+                                "entry_type": e.entry_type, "content": e.content,
+                                "tokens": e.tokens, "tags": list(e.tags),
+                                "importance": e.importance,
+                                "timestamp": e.timestamp, "ttl": e.ttl,
+                                "_ring": ring,
+                            })
                 except Exception:
                     pass
         except Exception as e:

@@ -35,7 +35,7 @@ class TestAnalyze:
 
 
 class TestLlmEngine:
-    """LLMEngine 核心"""
+    """LLMEngine core"""
 
     def test_engine_singleton(self):
         from l4.llm import get_engine, reset_engine
@@ -77,7 +77,7 @@ class TestLlmEngine:
 
 
 class TestToolUse:
-    """工具调用结果"""
+    """Tool call result"""
 
     def test_tool_use_with_args(self):
         from l4.llm import get_engine, reset_engine
@@ -111,7 +111,7 @@ class TestToolUse:
 
 
 class TestHooks:
-    """LLM 调用钩子"""
+    """LLM call hooks"""
 
     def test_pre_hook(self):
         from l4.llm import on_llm_call, _LLM_HOOKS
@@ -150,7 +150,7 @@ class TestHooks:
 
 
 class TestRetryConfig:
-    """重试配置"""
+    """Retry configuration"""
 
     def test_rate_limit_wait(self):
         from l1.kernel.params.api import LLM_RATE_LIMIT_WAIT

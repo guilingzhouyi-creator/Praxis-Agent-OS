@@ -1,4 +1,4 @@
-"""RateScheduler — per-agent、per-ring tool rate limiting.
+"""RateScheduler — per-agent, per-ring tool rate limiting.
 Extracted from tool_pipeline.py for schedulr matrix integration.
 
 Ring 1:   60 calls/min  (fast, read-only)

@@ -59,6 +59,12 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/cell/stop",         ".cell_stop",          "Emergency stop cell"),
     ("GET", "/api/cell/liveness",      ".cell_liveness",      "Cell liveness check"),
 
+    # Cluster (multi-cell orchestration)
+    ("GET",  "/api/cluster/status",    ".cluster_status",     "Cluster state + composites"),
+    ("GET",  "/api/cluster/composites",".cluster_composites", "List L3B composites"),
+    ("POST", "/api/cluster/expand",    ".cluster_expand",     "Expand: register new Cell"),
+    ("POST", "/api/cluster/shrink",    ".cluster_shrink",     "Remove Cell + cleanup composites"),
+
     # Agent
     ("GET", "/api/agents",             ".agent_list",         "List all agents"),
     ("GET", "/api/agent/select/",      ".agent_select",       "Select agent by id"),
@@ -101,6 +107,12 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/plugins/mcp",       ".plugin_install_mcp", "Install MCP server as plugin"),
     ("GET", "/api/plugins/stats",      ".plugin_stats",       "Plugin statistics"),
 
+    # Shell commands
+    ("GET", "/api/v1/commands",        "services.api_handlers_commands.handle_commands_list",  "List all commands (system + user)"),
+    ("POST", "/api/v1/commands",       "services.api_handlers_commands.handle_commands_register", "Register a user command"),
+    ("DELETE", "/api/v1/commands/{name}","services.api_handlers_commands.handle_commands_remove", "Unregister a user command"),
+    ("PUT", "/api/v1/commands/{name}",  "services.api_handlers_commands.handle_commands_update",  "Update a user command"),
+
     # Tools & counters
     ("GET", "/api/tools",              ".tool_stats",         "Tool stats"),
     ("POST", "/api/tools/policy",      ".tool_policy_set",    "Set tool visibility policy"),
@@ -115,6 +127,21 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/tokens",             ".token_stats",        "Token stats"),
     ("GET", "/api/tokens/cells",       ".token_cells",        "Token per Cell"),
     ("GET", "/api/tokens/global",      ".token_global",       "Token global summary"),
+
+    # Agent config
+    ("GET", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
+    ("PUT", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
+
+    # StatsCenter (unified metrics)
+    ("POST", "/api/v2/stats/query",    "services.api_handlers_stats.handle_stats_query",  "Aggregated metric query"),
+    ("GET", "/api/v2/stats/top",       "services.api_handlers_stats.handle_stats_top",    "Cross-Cell metric ranking"),
+    ("GET", "/api/v2/stats/live",      "services.api_handlers_stats.handle_stats_live",   "Real-time metric stream (SSE)"),
+
+    # RecordCenter (unified error/log/reference)
+    ("POST", "/api/v2/records/query",  "services.api_handlers_records.handle_records_query",  "Unified query across error/log/reference"),
+    ("GET",  "/api/v2/records/stats",  "services.api_handlers_records.handle_records_stats",  "Aggregated record stats"),
+    ("POST", "/api/v2/records/export", "services.api_handlers_records.handle_records_export", "Export records to JSON"),
+    ("POST", "/api/v2/records/bridge", "services.api_handlers_records.handle_records_bridge", "Bridge record metrics to StatsCenter"),
 
     # Communication
     ("GET", "/api/communication/stats", ".comm_stats",        "Communication stats"),

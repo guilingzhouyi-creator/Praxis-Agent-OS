@@ -1,5 +1,5 @@
-# Card: Praxis 自举 — 读取自己内核，应用规则，修改自身
-# L3A 解析: "检查 kernel/__init__.py 的 __all__ 是否完整，补全缺失导出"
+# Card: Praxis Bootstrap — read own kernel, apply rules, modify itself
+# L3A parse: "Check if __all__ in kernel/__init__.py is complete, add missing exports"
 card:
   id: "self-host-001"
   intent: "Bootstrap: Read Praxis kernel __init__.py, check __all__ completeness 
@@ -9,7 +9,7 @@ card:
 
 phases:
 
-  # ── Phase 1: 加载技能 + 侦察 ──
+  # ── Phase 1: Load skill + Recon ──
   - name: learn
     mode: SEQUENTIAL
     steps:
@@ -22,7 +22,7 @@ phases:
             Extract the relevant rules for modifying kernel code.
             Output the rules you will follow.
 
-  # ── Phase 2: 读自己代码 ──
+  # ── Phase 2: Read own code ──
   - name: read-self
     mode: PARALLEL
     steps:
@@ -48,7 +48,7 @@ phases:
             Report which modules exist but are not in __all__.
             Cross-reference with the praxis-self skill rules.
 
-  # ── Phase 3: 自主修改 ──
+  # ── Phase 3: Self-modify ──
   - name: modify
     mode: SEQUENTIAL
     steps:
@@ -64,7 +64,7 @@ phases:
             Output ONLY the updated __all__ list with all modules included.
             Verify: process, interrupt, device, tool_chain modules must be in __all__.
 
-  # ── Phase 4: 验证 ──
+  # ── Phase 4: Verify ──
   - name: verify
     mode: SEQUENTIAL
     steps:

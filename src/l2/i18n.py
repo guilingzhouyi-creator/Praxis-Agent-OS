@@ -14,7 +14,7 @@ Usage:
 
   t("shell.command.help")                    # → "Show available commands"
   set_locale("zh-CN")
-  t("shell.command.help")                    # → "显示可用命令"
+  t("shell.command.help")                    # → "Show available commands"
 """
 
 from __future__ import annotations

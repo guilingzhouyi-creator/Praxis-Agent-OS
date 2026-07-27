@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class RingBuffer:
-    """环形文件缓冲区 — 非内存，基于隐藏文件。"""
+    """Ring file buffer — not in-memory, backed by hidden files."""
 
     RING_ROOT: str = ".praxis/resource_buffer"
     SLOT_CAPACITY: int = 64

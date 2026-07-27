@@ -31,8 +31,9 @@ from .config_handlers import (
     cfg_kernel, cfg_cell, cfg_llm, cfg_constitution, cfg_gatechain,
     cfg_tool_rates, cfg_htn, cfg_cache, cfg_persist, cfg_network,
     cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,
-    cfg_devices, cfg_territories, cfg_clearance, cfg_agents, cfg_think,
-    cfg_loop_control,
+    cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
+    cfg_agent_role_map, cfg_agent_priority,
+    cfg_think, cfg_loop_control,
 )
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,8 @@ _builtin_handlers = [
     ("credentials", cfg_credentials), ("card_gate", cfg_card_gate), ("card_types", cfg_card_types), ("content_trust", cfg_content_trust), ("commands", cfg_commands), ("mcp", cfg_mcp),
     ("devices", cfg_devices), ("territories", cfg_territories),
     ("clearance", cfg_clearance), ("agents", cfg_agents),
+    ("agent_role_map", cfg_agent_role_map),
+    ("agent_priority", cfg_agent_priority),
     ("think", cfg_think),
     ("loop_control", cfg_loop_control),
 ]

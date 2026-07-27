@@ -17,6 +17,7 @@ from typing import Any
 
 from .l3a import L3A, TaskCard
 from .l3b import L3B
+from .l3b_bus import get_bus as get_l3b_bus
 from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,22 @@ class CentralController:
             )
         except Exception as e:
             logger.warning("cellmonitor register failed: %s", e)
+
+        # ── Register L3B composites with bus ──
+        try:
+            bus = get_l3b_bus()
+            for comp in self.b.composites:
+                bus.register(comp.composite_id)
+        except Exception as e:
+            logger.warning("l3b bus register failed: %s", e)
+
+        # ── HTN-A: warm-up on first Cell registration ──
+        try:
+            from .htn_a import get_htn_a
+            htn_a = get_htn_a()
+            logger.debug("HTN-A ready: %d methods", len(htn_a._methods))
+        except Exception as e:
+            logger.warning("HTN-A init failed: %s", e)
 
         # ── Cell-B: auto-enable cross-territory rules when 2+ Cells ──
         if len(self._cells) >= 2:
@@ -117,8 +134,48 @@ class CentralController:
             "status": "queued",
         }
 
-        # 3. Cross-cell routing (2+ cells)
-        if len(self._cells) >= 2 and domain:
+        # 3. Cross-cell routing (2+ cells) — HTN-A decomposition
+        multi_cell = len(self._cells) >= 2
+        if multi_cell:
+            try:
+                from .htn_a import get_htn_a, get_shards
+                htn_a = get_htn_a()
+                htn_task = htn_a.decompose(card.intent, domain)
+                shards = get_shards(htn_task)
+                result["htn_a"] = {
+                    "task_count": len(htn_task.sub_tasks),
+                    "shards": [
+                        {"cell_id": s["cell_id"], "task_count": len(s["tasks"])}
+                        for s in shards
+                    ],
+                }
+                # Dispatch shards to L3B composites
+                for shard in shards:
+                    shard_cell = shard["cell_id"]
+                    tasks = shard["tasks"]
+                    # Find composite that routes to this Cell
+                    for composite in self.b.composites:
+                        if composite.next_cell == shard_cell:
+                            summary = "\n".join(f"[{t.name}] {t.description[:100]}" for t in tasks)
+                            composite.dispatch_to_next({
+                                "intent": f"{card.intent} — {shard_cell}",
+                                "domain": domain,
+                                "task_name": shard_cell,
+                                "target_cell": shard_cell,
+                            })
+                            break
+                result["cross_cell"] = {
+                    "active": True,
+                    "composites": len(self.b.composites),
+                    "shards": len(shards),
+                }
+            except Exception as e:
+                logger.warning("HTN-A decomposition failed: %s", e)
+                # Fallback to legacy routing
+                cross = self.b.route(domain, exclude="")
+                if cross:
+                    result["cross_cell"] = {"domain": domain, "candidate": cross, "fallback": True}
+        elif domain:
             cross = self.b.route(domain, exclude="")
             if cross:
                 result["cross_cell"] = {"domain": domain, "candidate": cross}
@@ -157,11 +214,8 @@ class CentralController:
         try:
             if admin_action == "spawn_agent":
                 from .cell import get_cell
-                role = "reader"
-                if "writer" in intent.lower() or "write" in intent.lower():
-                    role = "writer"
-                elif "security" in intent.lower():
-                    role = "security"
+                from l1.kernel.params.agent import AGENT_ROLE_MAP
+                role = AGENT_ROLE_MAP.get(3, "default")
                 cell = get_cell()
                 cell.add_agent(target_agent or f"auto-{int(time.time())}", role=role, territory=["."], auto_boot=True)
                 result = {"success": True, "action": "spawn_agent", "agent": target_agent, "role": role}

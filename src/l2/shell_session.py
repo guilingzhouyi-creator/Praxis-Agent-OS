@@ -11,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import IO
 
+from l1.kernel.params.api import SHELL_SESSION_TIMEOUT
 from l1.kernel.params.system import BUFFER_MAX, POLL_INTERVAL_SLOW
 from l1.kernel.platform import IS_WINDOWS, create_interactive_shell, set_nonblocking
 
@@ -43,7 +44,7 @@ class TerminalSession:
         if self.process:
             self.process.terminate()
             try:
-                self.process.wait(timeout=3)
+                self.process.wait(timeout=SHELL_SESSION_TIMEOUT)
             except subprocess.TimeoutExpired:
                 self.process.kill()
 

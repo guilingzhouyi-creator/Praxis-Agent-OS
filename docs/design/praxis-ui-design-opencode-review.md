@@ -1,44 +1,44 @@
 ---
-全宗: REVIEW
-案卷: ui
-件号: 001
-类型: 审查
-日期: 2026-07-21
-时间戳: 2026-07-21T19:00
-作者: OpenCode
-关键词: [NOMOS, Praxis, UI, review, cross-review]
-关联: [ARCHIVE-design-003]
-债务: []
+Fonds: REVIEW
+File: ui
+Item: 001
+Type: Review
+Date: 2026-07-21
+Timestamp: 2026-07-21T19:00
+Author: OpenCode
+Keywords: [NOMOS, Praxis, UI, review, cross-review]
+Relations: [ARCHIVE-design-003]
+Debts: []
 ---
 
-# 🔵 OpenCode 对 Praxis UI 设计的交叉审查
+# 🔵 OpenCode Cross-Review of the Praxis UI Design
 
-## 核心决策
+## Core Decision
 
-审查确认三条铁律与分形三环方向正确，提出 6 项质询和 5 个议题必须实施前解决。
+The review confirms that the three iron laws and the fractal three-ring direction are correct, and raises 6 inquiries and 5 issues that must be resolved before implementation.
 
-## 设计规则
+## Design Rules
 
-1. Task Card UX 必须在 P0 实施前定稿创建入口方案（议题 A：自由文本 + LLM 解析兜底 + 模板库，三阶段渐进）。
-2. L3 并发模型必须在 P2 前定义——单队列串行 / 多 L3 实例竞合 / 意图级时间片轮转（议题 D）。
-3. 指纹碰撞必须在 P2 前解决——扩展到 128 bit（SHA-256 截半），查找时校验完整 output hash，极端碰撞时 last-write-wins + warning 日志（议题 C）。
-4. G5 门禁定义必须在 P1 前完成——定义为"跨单元/生产级审批门"（议题 B）。
-5. P1 前必须做 PRAXIS_TOOLS ↔ NOMOS 实际工具集的双向映射审计（议题 E）。
-6. 当工具输出 > 200 行或 Ring 1 容量满时，必须明确存储策略（截断/拒绝/溢出到磁盘）并在 UX 中提示数据淘汰。
-7. 宪法 200 行上限导致 Tool Ring 1 淘汰时，必须通过回灌提示卡片告知用户已淘汰的指纹数据不可用。
+1. Task Card UX must finalize the creation entry scheme before P0 implementation (Issue A: free text + LLM parsing fallback + template library, three-phase progressive).
+2. L3 concurrency model must be defined before P2 — single-queue serial / multi-L3 instance contention / intent-level time-slice round-robin (Issue D).
+3. Fingerprint collision must be resolved before P2 — extend to 128 bit (SHA-256 truncated), verify full output hash on lookup, last-write-wins + warning log on extreme collision (Issue C).
+4. G5 gate definition must be completed before P1 — defined as "cross-unit/production-level approval gate" (Issue B).
+5. Before P1, a bidirectional mapping audit of PRAXIS_TOOLS ↔ NOMOS actual toolset must be performed (Issue E).
+6. When tool output exceeds 200 lines or Ring 1 capacity is full, the storage strategy (truncate/deny/spill to disk) must be clearly defined and data eviction must be indicated in the UX.
+7. When constitution's 200-line limit causes Tool Ring 1 eviction, the refeed prompt card must inform the user that evicted fingerprint data is unavailable.
 
-## 规格
+## Specifications
 
-- 指纹碰撞参数: SHA-256 截半 → 扩展到 128 bit；48 bit 空间在 N=10⁵ 时碰撞概率 ≈ 1.8%，必须降低
-- 现有 `tool_ring.py` 指纹查找实现: `next((r for r in ring if r.fingerprint == fp), None)` ——碰撞时静默返回错误，必须修复
-- G5 触发条件 (议题 B): (1) 操作涉及 Agent 领地外文件/资源 (2) 操作等级 ≥ 4 (3) 需要第二 Agent 见证；G5 失败→操作进入跨单元申请池等待审批
-- 实施顺序强制: 议题 A（P0）→ 议题 B + 议题 E（P1 并行）→ 议题 C + 议题 D（P2 并行）
-- 议题 A 三阶段: P0 硬编码模板 → P1 用户自定义模板 → P2 LLM 即席解析
-- 议题 D 压测通过标准: 50 意图同时到达，排队延迟 < 10s（P95），无 OOM
+- Fingerprint collision parameters: SHA-256 truncated → extend to 128 bit; at 48 bit space with N=10⁵, collision probability ≈ 1.8%, must be reduced
+- Current `tool_ring.py` fingerprint lookup implementation: `next((r for r in ring if r.fingerprint == fp), None)` — silently returns error on collision, must be fixed
+- G5 trigger conditions (Issue B): (1) operation involves files/resources outside Agent's territory (2) operation rank ≥ 4 (3) requires a second Agent witness; G5 failure → operation enters cross-unit request pool awaiting approval
+- Implementation order enforced: Issue A (P0) → Issue B + Issue E (P1 parallel) → Issue C + Issue D (P2 parallel)
+- Issue A three phases: P0 hardcoded templates → P1 user-defined templates → P2 LLM ad-hoc parsing
+- Issue D stress test pass criteria: 50 intents arriving simultaneously, queuing delay < 10s (P95), no OOM
 
-## 排除
+## Exclusions
 
-- L3 无限并发处理意图：被排除（L3 必须定义并发模型，单队列是默认候选）
-- 指纹碰撞容忍：被排除（48 bit 在生产系统下碰撞不可忽略）
-- G5 保持未定义：被排除（全文 7 处引用 G1-G5 但 G5 未定义，实施前必须补完）
-- 不映射工具集直接实施：被排除（`read_fingerprint` 未列入 PRAXIS_TOOLS 表，db_* 工具未实现）
+- L3 unlimited concurrent intent processing: excluded (L3 must define a concurrency model; single queue is the default candidate)
+- Fingerprint collision tolerance: excluded (48 bit collision is not negligible in production systems)
+- G5 left undefined: excluded (document references G1-G5 in 7 places but G5 is undefined; must be completed before implementation)
+- Implementing without mapping the toolset: excluded (`read_fingerprint` not listed in PRAXIS_TOOLS table, db_* tools not implemented)

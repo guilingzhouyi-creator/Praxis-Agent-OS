@@ -1,4 +1,4 @@
-# Card: 最终自举 — Agent 读自己 → 写文件 → 编译验证
+# Card: Final Bootstrap — Agent reads itself → writes file → compile verify
 card:
   id: "bootstrap-final"
   intent: "Read kernel/__init__.py, compare __all__ against actual kernel modules,
@@ -13,7 +13,7 @@ phases:
     steps:
       - action: think
         agent: writer
-        target: "自举修正 __all__"
+        target: "bootstrap fix __all__"
         params:
           prompt: |
             DO NOT ask me for the file content. USE THE TOOLS AVAILABLE TO YOU.

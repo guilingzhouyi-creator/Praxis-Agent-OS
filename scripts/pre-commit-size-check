@@ -1,4 +1,5 @@
-﻿"""Pre-commit hook 鈥?enforce minimum 1000-line net changes per commit.
+#!/usr/bin/env python3
+"""Pre-commit hook — enforce minimum 1000-line net changes per commit.
 
 Usage:
   git commit -m "msg"                    # blocked if < 1000 lines
@@ -19,14 +20,11 @@ result = subprocess.run(
 
 stats = result.stdout.strip()
 if not stats:
-    print("PRE-COMMIT: no staged changes 鈥?nothing to commit.")
-    sys.exit(1)
+    sys.exit(0)
 
-# Parse last line of git diff --stat: " N files changed, M insertions(+), D deletions(-)"
 lines = stats.split("\n")
 last = lines[-1] if lines else ""
 if "file changed" not in last and "files changed" not in last:
-    print("PRE-COMMIT: cannot parse diff stat.")
     sys.exit(0)
 
 total = 0
@@ -44,10 +42,10 @@ for part in last.split(","):
             pass
 
 if total < THRESHOLD:
-    print(f"\n  鉀?PRE-COMMIT BLOCKED: net change ({total} lines) < threshold ({THRESHOLD} lines)")
-    print(f"  鈹溾攢鈹€ Break into smaller commits of 鈮THRESHOLD} lines each")
-    print(f"  鈹溾攢鈹€ Or use: SKIP_SIZE_CHECK=1 git commit ...")
-    print(f"  鈹斺攢鈹€ Or use: git commit --no-verify ...\n")
+    print(f"\n  \u26d4 PRE-COMMIT BLOCKED: net change ({total} lines) < threshold ({THRESHOLD} lines)")
+    print(f"  \u251c\u2500\u2500 Break into smaller commits of \u2265{THRESHOLD} lines each")
+    print(f"  \u251c\u2500\u2500 Or use: SKIP_SIZE_CHECK=1 git commit ...")
+    print(f"  \u2514\u2500\u2500 Or use: git commit --no-verify ...\n")
     sys.exit(1)
 
 sys.exit(0)

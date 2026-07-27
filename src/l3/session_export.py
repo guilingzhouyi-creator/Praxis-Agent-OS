@@ -35,7 +35,7 @@ _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 
 @dataclass
 class SessionExport:
-    """可导出的 session 格式。"""
+    """Exportable session format."""
     version: int = 2
     session_id: str = ""
     agent_id: str = ""
@@ -83,7 +83,7 @@ class SessionExport:
 
 @dataclass
 class Snapshot:
-    """session 快照（包含完整状态）。"""
+    """Session snapshot (includes full state)."""
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     session_id: str = ""
     created_at: float = field(default_factory=time.time)
@@ -138,7 +138,7 @@ class Snapshot:
 
 
 class SessionExportManager:
-    """Session 导出/导入/快照管理器。"""
+    """Session export/import/snapshot manager."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -148,7 +148,7 @@ class SessionExportManager:
                        agent_id: str = "", messages: list[dict] = None,
                        tags: list[str] = None,
                        metadata: dict = None) -> dict:
-        """导出 session 为可共享 JSON。"""
+        """Export session as shareable JSON."""
         export = SessionExport(
             session_id=session_id or f"session-{uuid.uuid4().hex[:8]}",
             agent_id=agent_id,
@@ -167,7 +167,7 @@ class SessionExportManager:
         }
 
     def import_session(self, raw: str) -> dict:
-        """导入 session JSON。"""
+        """Import session JSON."""
         try:
             export = SessionExport.from_json(raw)
             return {
@@ -183,13 +183,13 @@ class SessionExportManager:
         except Exception as e:
             return {"success": False, "error": f"import failed: {e}"}
 
-    # ── 快照 ──
+    # ── Snapshots ──
 
     def create_snapshot(self, session_id: str = "",
                         messages: list[dict] = None,
                         agent_id: str = "",
                         label: str = "") -> dict:
-        """创建当前 session 的快照。"""
+        """Create a snapshot of the current session."""
         export = SessionExport(
             session_id=session_id,
             agent_id=agent_id,
@@ -204,7 +204,7 @@ class SessionExportManager:
         return snapshot.save()
 
     def list_snapshots(self) -> dict:
-        """列出所有快照。"""
+        """List all snapshots."""
         if not _SNAPSHOT_DIR.exists():
             return {"success": True, "snapshots": [], "count": 0}
 
@@ -226,7 +226,7 @@ class SessionExportManager:
         return {"success": True, "snapshots": snapshots, "count": len(snapshots)}
 
     def restore_snapshot(self, snapshot_id: str) -> dict:
-        """从快照恢复 session 数据。"""
+        """Restore session data from snapshot."""
         snapshot = Snapshot.load(snapshot_id)
         if not snapshot:
             return {"success": False, "error": f"snapshot not found: {snapshot_id}"}
@@ -240,7 +240,7 @@ class SessionExportManager:
         }
 
     def delete_snapshot(self, snapshot_id: str) -> dict:
-        """删除快照。"""
+        """Delete snapshot."""
         path = _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=snapshot_id)
         if not path.exists():
             return {"success": False, "error": "snapshot not found"}
@@ -252,7 +252,7 @@ class SessionExportManager:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. 全局单例
+# 3. Global Singleton
 # ══════════════════════════════════════════════════════════════════════
 
 _manager: SessionExportManager | None = None
@@ -274,7 +274,7 @@ def get_manager() -> SessionExportManager:
 
 
 def handle_session_export(body: dict | None = None) -> dict:
-    """POST /api/session/export — 导出 session"""
+    """POST /api/session/export — Export session"""
     b = body or {}
     return get_manager().export_session(
         session_id=b.get("session_id", ""),
@@ -286,7 +286,7 @@ def handle_session_export(body: dict | None = None) -> dict:
 
 
 def handle_session_import(body: dict | None = None) -> dict:
-    """POST /api/session/import — 导入 session"""
+    """POST /api/session/import — Import session"""
     b = body or {}
     raw = b.get("data", "")
     if not raw:
@@ -295,12 +295,12 @@ def handle_session_import(body: dict | None = None) -> dict:
 
 
 def handle_session_snapshots(body: dict | None = None) -> dict:
-    """GET /api/session/snapshots — 列出快照"""
+    """GET /api/session/snapshots — List snapshots"""
     return get_manager().list_snapshots()
 
 
 def handle_session_snapshot_create(body: dict | None = None) -> dict:
-    """POST /api/session/snapshot — 创建快照"""
+    """POST /api/session/snapshot — Create snapshot"""
     b = body or {}
     return get_manager().create_snapshot(
         session_id=b.get("session_id", ""),
@@ -311,7 +311,7 @@ def handle_session_snapshot_create(body: dict | None = None) -> dict:
 
 
 def handle_session_snapshot_restore(body: dict | None = None) -> dict:
-    """POST /api/session/snapshot/restore — 恢复快照"""
+    """POST /api/session/snapshot/restore — Restore snapshot"""
     b = body or {}
     snapshot_id = b.get("snapshot_id", "")
     if not snapshot_id:
@@ -320,7 +320,7 @@ def handle_session_snapshot_restore(body: dict | None = None) -> dict:
 
 
 def handle_session_snapshot_delete(body: dict | None = None) -> dict:
-    """POST /api/session/snapshot/delete — 删除快照"""
+    """POST /api/session/snapshot/delete — Delete snapshot"""
     b = body or {}
     snapshot_id = b.get("snapshot_id", "")
     if not snapshot_id:
@@ -328,7 +328,7 @@ def handle_session_snapshot_delete(body: dict | None = None) -> dict:
     return get_manager().delete_snapshot(snapshot_id)
 
 
-# ── 路由注册 ──
+# ── Route Registration ──
 
 SESSION_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/session/export", handle_session_export, "Export session as JSON"),

@@ -104,6 +104,17 @@ def ensure_active() -> None:
         ))
         _ACTIVE = True
         logger.info("sse_bridge: active, broadcasting all EventBus events")
+        # Subscribe StatsCenter live metrics to SSE bridge
+        try:
+            from l3.stats_center import get_center
+            center = get_center()
+            center.subscribe_sse(lambda event: _broadcast(
+                event.get("type", "stats.metric"),
+                event,
+            ))
+            logger.info("sse_bridge: subscribed to StatsCenter live metrics")
+        except Exception as e:
+            logger.warning("sse_bridge: stats center subscribe failed: %s", e)
     except Exception as e:
         logger.warning("sse_bridge: activation failed: %s", e)
 

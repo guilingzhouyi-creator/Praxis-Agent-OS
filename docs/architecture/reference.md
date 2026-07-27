@@ -41,7 +41,7 @@ praxis/
 │   │   ├── health.py                # Kernel health check (162 lines)
 │   │   ├── resource.py              # Resource limiter (136 lines)
 │   │   ├── prompts.py               # Prompt registry (368 lines)
-│   │   ├── commands.py              # Command registry (165 lines)
+│   │   ├── commands.py              # CommandRegistry — sys/user cmds, YAML+API metadata (294 lines)
 │   │   ├── model_registry.py        # LLM model registry (298 lines)
 │   │   ├── platform.py              # Cross-platform detection (217 lines)
 │   │   ├── errors.py                # 20 error codes (208 lines)
@@ -161,8 +161,9 @@ praxis/
 │   │   ├── service_manager.py       # Service lifecycle (220 lines)
 │   │   ├── acb.py                   # Agent Control Block (332 lines)
 │   │   ├── r4_agent.py              # R4 archivist (443 lines)
-│   │   ├── subagent.py              # Lightweight sub-agent (134 lines)
-│   │   ├── subagent_framework.py    # Subagent framework (496 lines)
+│   │   ├── record_center.py         # Unified error/log/reference record center (358 lines)
+│   │   ├── subagent.py              # Lightweight sub-agent (111 lines)
+│   │   ├── subagent_framework.py    # SubAgent framework — facade over spec/task/dispatch/merge (115 lines)
 │   │   ├── pager.py                 # Context paging (320 lines)
 │   │   ├── pager_bridge.py          # Swapper↔Pager bridge (106 lines)
 │   │   ├── pal_router.py            # LLM cost router (178 lines)
@@ -187,6 +188,7 @@ praxis/
 │   │   ├── review.py                # Peer review (127 lines)
 │   │   ├── vspace.py                # Virtual space (311 lines)
 │   │   ├── workspace.py             # Workspace manager (86 lines)
+│   │   ├── stats_center.py          # Cross-Cell metric aggregation (341 lines)
 │   │   ├── statecharts.py           # 5-region state machine (301 lines)
 │   │   ├── observability_bus.py     # Alert/health/metric (143 lines)
 │   │   ├── assembly.py              # Constitutional assembly (212 lines)
@@ -213,6 +215,16 @@ praxis/
 │   │   ├── cell_convention.py       # Cell convention helpers (139 lines)
 │   │   ├── cell_buffer.py           # Cell buffer operations (65 lines)
 │   │   ├── cell_decompose.py        # Cell decomposition (101 lines)
+│   │   ├── cell_pmu.py              # CellPmu (performance counters) (199 lines)
+│   │   ├── cell_icache.py           # ICache (instruction cache, LFU) (168 lines)
+│   │   ├── cell_mmu.py              # CellMmu + CellTlb (territory→agent translation) (209 lines)
+│   │   ├── cell_interrupt.py        # InterruptController (priority interrupt routing) (249 lines)
+│   │   ├── cell_watchdog.py         # CellWatchdog (per-agent liveness) (187 lines)
+│   │   ├── cell_orchestrate.py      # SubAgentOrchestrator (fork-join) (234 lines)
+│   │   ├── subagent_spec.py         # SubAgentSpec dataclass (142 lines)
+│   │   ├── subagent_task.py         # SubAgentTask (AgentLoop execution) (223 lines)
+│   │   ├── subagent_dispatcher.py   # SubAgentDispatcher (@mention parsing) (92 lines)
+│   │   ├── subagent_merger.py       # ResultMerger (58 lines)
 │   │   └── cell_types.py            # Cell type definitions (100 lines)
 │   │
 │   ├── l4/                          # === L4: BRIDGE ===
@@ -223,6 +235,8 @@ praxis/
 │   │   ├── api_handlers_monitor.py  # Monitor handlers (188 lines)
 │   │   ├── api_handlers_agent.py    # Agent handlers (83 lines)
 │   │   ├── api_handlers_config.py   # Config handlers (168 lines)
+│   │   ├── api_handlers_records.py  # RecordCenter query/stats/export/bridge (91 lines)
+│   │   ├── api_handlers_stats.py    # StatsCenter query/top/live (101 lines)
 │   │   ├── api_middleware.py        # Middleware chain (312 lines)
 │   │   ├── llm.py                   # LLM Engine (542 lines)
 │   │   ├── llm_base.py              # LLMProvider ABC (186 lines)
@@ -399,6 +413,8 @@ praxis/
 | SSE | 1 | `events` |
 | Buffer | 4 | `buffer/status`, `buffer/commit`, `buffer/diff`, `buffer/discard` |
 | Monitor | 6 | `monitor/events`, `monitor/stats`, `monitor/stream`, `monitor/gate`, `monitor/gate/<id>` |
+| Stats | 3 | `stats/query`, `stats/top`, `stats/live` (SSE) |
+| Records | 4 | `records/query`, `records/stats`, `records/export`, `records/bridge` |
 | V1 | 2 | `v1/tools`, `v1/locales` |
 
 ## Error Codes (20)

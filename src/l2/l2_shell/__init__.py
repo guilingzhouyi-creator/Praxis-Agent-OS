@@ -14,7 +14,7 @@ import logging
 import shlex
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.commands import get_command, get_handler, list_commands as _list_defs
+from l1.kernel.commands import get_command, get_handler, get_registry as _get_cmd_reg
 from l1.kernel.params.agent import DEFAULT_CELL_ID
 
 from .commands import preconnect_enhanced, _pipeline
@@ -42,7 +42,8 @@ def dispatch(text: str) -> dict:
             handler = get_handler(cmd)
             if handler:
                 return handler(args)
-        for c in _list_defs():
+        # Check aliases
+        for c in _get_cmd_reg().list():
             if cmd in c.get("aliases", []):
                 handler = get_handler(c["name"])
                 if handler:
@@ -54,7 +55,7 @@ def dispatch(text: str) -> dict:
         except Exception:
             err = f"unknown command: /{cmd}"
         return {"success": False, "error": err,
-                "suggestions": [c["name"] for c in _list_defs()]}
+                "suggestions": [c["name"] for c in _get_cmd_reg().list()]}
 
     if state.is_direct():
         return _direct_message(state, text)

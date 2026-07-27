@@ -1,6 +1,6 @@
 """Adapters — concrete implementations of kernel.ports interfaces.
 
-命名规范 (Naming convention):
+Naming convention:
   File:                  Class:
   i18n_yaml.py           YamlI18nAdapter
   channel_ring.py         RingChannel
@@ -9,8 +9,8 @@
   card_registry.py        CardRegistryAdapter
   monitor_bus.py          MonitorBusAdapter
 
-导入规范 (Import convention):
-  # In wiring.py (集中注册点):
+Import convention:
+  # In wiring.py (central registration point):
   from l4.adapters import YamlI18nAdapter, RingChannel, ThreadPoolWorker
 
   # Outside wiring.py — use get_port("name") instead of direct adapter import:

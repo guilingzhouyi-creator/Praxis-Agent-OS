@@ -23,7 +23,7 @@ from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = "praxis.yaml"
+_CONFIG_PATH = "config/praxis.yaml"
 _BACKUP_SUFFIX = ".bak"
 
 # ── Default configuration template ──

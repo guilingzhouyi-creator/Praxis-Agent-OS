@@ -10,19 +10,19 @@ class TestRemember:
     def test_remember_returns_id(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        eid = mem.remember("agent-a", "test", "hello world", ring=1)
+        eid = mem.remember("agent-a", "test", "hello world this is a test memory entry with sufficient length", ring=1)
         assert eid.startswith("mem-")
 
     def test_remember_ring2(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        eid = mem.remember("agent-b", "note", "important data", ring=2)
+        eid = mem.remember("agent-b", "note", "important data that is long enough for quality validation", ring=2)
         assert eid.startswith("mem-")
 
     def test_remember_ring3(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        eid = mem.remember("agent-c", "knowledge", "long term knowledge", ring=3)
+        eid = mem.remember("agent-c", "knowledge", "long term knowledge entry that must pass the quality gate validation", ring=3)
         assert eid.startswith("mem-")
 
     def test_remember_rejects_short(self):
@@ -44,15 +44,15 @@ class TestRecall:
     def test_recall_recent(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        mem.remember("agent-x", "chat", "msg1", ring=1)
-        mem.remember("agent-x", "chat", "msg2", ring=1)
+        mem.remember("agent-x", "chat", "msg1 content that is sufficiently long to pass the quality gate", ring=1)
+        mem.remember("agent-x", "chat", "msg2 content that is also long enough for quality validation check", ring=1)
         results = mem.recall(agent_id="agent-x", limit=10)
         assert len(results) >= 1
 
     def test_recall_by_type(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        mem.remember("agent-y", "code", "def foo(): pass", ring=1)
+        mem.remember("agent-y", "code", "def foo(): pass is a function definition in Python language", ring=1)
         mem.remember("agent-y", "note", "note text", ring=1)
         results = mem.recall(agent_id="agent-y", entry_type="code", limit=10)
         assert len(results) >= 1
@@ -60,7 +60,7 @@ class TestRecall:
 
 
 class TestBuildContext:
-    """上下文构建"""
+    """Context construction"""
 
     def test_build_context_empty(self):
         from l3.memory import MemoryManager
@@ -71,13 +71,13 @@ class TestBuildContext:
     def test_build_context_with_data(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        mem.remember("agent-z", "chat", "some context data", ring=1)
+        mem.remember("agent-z", "chat", "some context data that is sufficiently long to pass the memory quality gate", ring=1)
         ctx = mem.build_context("agent-z", max_tokens=4096)
         assert "some context data" in ctx
 
 
 class TestPressure:
-    """内存压力检测"""
+    """Memory pressure detection"""
 
     def test_pressure_low(self):
         from l3.memory import MemoryManager
@@ -96,7 +96,7 @@ class TestPressure:
 
 
 class TestStats:
-    """统计信息"""
+    """Statistics"""
 
     def test_stats_keys(self):
         from l3.memory import MemoryManager
@@ -109,13 +109,13 @@ class TestStats:
     def test_stats_after_store(self):
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        mem.remember("agent-s", "test", "data", ring=1)
+        mem.remember("agent-s", "test", "test data entry with sufficient length for memory quality gate validation", ring=1)
         s = mem.stats()
         assert s["working"]["entries"] >= 1
 
 
 class TestCompact:
-    """紧缩操作"""
+    """Compact operation"""
 
     def test_compact_empty(self):
         from l3.memory import MemoryManager
@@ -133,7 +133,7 @@ class TestCompact:
 
 
 class TestQuality:
-    """质量报告"""
+    """Quality report"""
 
     def test_quality_report_empty(self):
         from l3.memory import MemoryManager
@@ -152,7 +152,7 @@ class TestQuality:
 
 
 class TestForget:
-    """遗忘"""
+    """Forget"""
 
     def test_forget_agent(self):
         from l3.memory import MemoryManager
@@ -165,7 +165,7 @@ class TestForget:
 
 
 class TestPersistence:
-    """持久化"""
+    """Persistence"""
 
     def test_set_persist_dir(self):
         import tempfile
@@ -179,7 +179,7 @@ class TestPersistence:
         import tempfile
         from l3.memory import MemoryManager
         mem = MemoryManager()
-        mem.remember("agent-p", "test", "persist data", ring=2)
+        mem.remember("agent-p", "test", "persist data entry with sufficient length for memory quality validation test", ring=2)
         with tempfile.TemporaryDirectory() as d:
             r = mem.persist(d)
             assert r["success"]
@@ -194,7 +194,7 @@ class TestPersistence:
 
 
 class TestRingLayer:
-    """RingLayer 基础功能"""
+    """RingLayer basic functionality"""
 
     def test_ring_layer_push(self):
         from l3.memory_ring import RingLayer

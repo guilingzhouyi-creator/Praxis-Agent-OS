@@ -111,7 +111,7 @@ class AgentRuntime:
             self._active_tools += 1
         exec_result = {}
         try:
-            from .services.tool_pipeline import ToolPipeline
+            from l3.tool_pipeline import ToolPipeline
             pipeline = ToolPipeline()
             exec_result = pipeline.execute(
                 tool_name=action.target,

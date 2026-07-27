@@ -111,7 +111,7 @@ class TestAstDiagnostics:
 
 
 class TestLanguageDetection:
-    """语言检测"""
+    """Language detection"""
 
     def test_python_ext(self):
         from l4.lsp_manager import LspManager
@@ -124,7 +124,7 @@ class TestLanguageDetection:
 
 
 class TestApiHandlers:
-    """API Handler 函数级测试"""
+    """API Handler function-level test"""
 
     def test_handle_lsp_diagnostics_missing_file(self):
         from l4.lsp_manager import handle_lsp_diagnostics

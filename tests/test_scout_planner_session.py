@@ -62,7 +62,7 @@ class TestHtnPlanner:
 
 
 class TestDialogueSession:
-    """对话会话"""
+    """Dialogue session"""
 
     def test_session_create(self):
         from l3.dialogue_session import DialogueSession

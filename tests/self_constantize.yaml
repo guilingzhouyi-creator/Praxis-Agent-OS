@@ -1,4 +1,4 @@
-# Card: Praxis 常量化自举 — Scout 扫描内核硬编码值 → Agent 分析 → 提方案
+# Card: Praxis Constantization Bootstrap — Scout scans kernel hardcoded values → Agent analyzes → propose solution
 card:
   id: "self-const-001"
   intent: "Scan Praxis kernel/ for magic numbers outside params.py. Report findings."

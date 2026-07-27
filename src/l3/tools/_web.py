@@ -7,6 +7,8 @@ try:
 except ImportError:
     HAS_URLLIB = False
 
+from l1.kernel.params.tool import TOOL_WEB_TIMEOUT
+
 
 def web_fetch(args: dict, agent_id: str) -> dict:
     url = args.get("url", "")
@@ -15,7 +17,7 @@ def web_fetch(args: dict, agent_id: str) -> dict:
     if not HAS_URLLIB:
         return {"success": False, "error": "urllib not available"}
     try:
-        r = req.urlopen(url, timeout=15)
+        r = req.urlopen(url, timeout=TOOL_WEB_TIMEOUT)
         content = r.read().decode("utf-8", errors="replace")
         return {"success": True, "data": content[:10000], "url": url, "truncated": len(content) > 10000}
     except Exception as e:
@@ -29,9 +31,11 @@ def web_search(args: dict, agent_id: str) -> dict:
     if not HAS_URLLIB:
         return {"success": False, "error": "urllib not available"}
     try:
-        url = "https://duckduckgo.com/html/?q=" + req.quote(query)
-        r = req.urlopen(url, timeout=15)
-        content = r.read().decode("utf-8", errors="replace")
+        # Delegate to web_fetch instead of inline DuckDuckGo HTML parsing
+        fetch = web_fetch({"url": "https://duckduckgo.com/html/?q=" + req.quote(query)}, agent_id)
+        if not fetch.get("success"):
+            return fetch
+        content = fetch.get("data", "")
         import re
         results = re.findall(r'<a rel="nofollow" href="([^"]+)"[^>]*>([^<]+)</a>', content)
         items = [{"title": t, "url": u} for u, t in results[:10]]

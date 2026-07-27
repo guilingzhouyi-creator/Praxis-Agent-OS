@@ -1,4 +1,4 @@
-# Card: Praxis 真实自举 — 读 -> 改 -> 写 -> 编译验证
+# Card: Praxis Real Bootstrap — Read -> Edit -> Write -> Compile verify
 card:
   id: "self-host-write"
   intent: "Read kernel/__init__.py, verify __all__ exports all 17 kernel modules,

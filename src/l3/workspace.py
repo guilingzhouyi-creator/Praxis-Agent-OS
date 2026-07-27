@@ -10,11 +10,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import PRAXIS_CONFIG_DIR
+from l1.kernel.params.system import PRAXIS_CONFIG_DIR, WORKSPACE_MAX_RECENT
 from l1.kernel.platform import get_config_dir
 CONFIG_DIR = Path(get_config_dir())
 CONFIG_FILE = CONFIG_DIR / "workspaces.json"
-_MAX_RECENT = 20
 
 
 def _ensure_config() -> None:
@@ -46,7 +45,7 @@ def open_path(path: str) -> dict:
     recent = data.get("recent", [])
     recent = [r for r in recent if r.get("path") != str(p)]
     recent.insert(0, {"path": str(p), "name": p.name, "opened_at": time.time()})
-    data["recent"] = recent[:_MAX_RECENT]
+    data["recent"] = recent[:WORKSPACE_MAX_RECENT]
     _save(data)
     return {"success": True, "path": str(p), "name": p.name}
 

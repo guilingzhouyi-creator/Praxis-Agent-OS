@@ -31,7 +31,7 @@ class TodoTracker:
     TASK_STATUSES = frozenset({"pending", "in_progress", "verifying", "verified", "escalated", "waived"})
 
     def __init__(self, state_path: str = ""):
-        self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE", ".praxis_todo_state.json")
+        self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE", ".praxis/.praxis_todo_state.json")
         self._items: list[dict] = []
         self._read_cfg()
         self._iteration: int = 0

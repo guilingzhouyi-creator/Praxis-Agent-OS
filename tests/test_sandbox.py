@@ -122,7 +122,7 @@ class TestSandboxOps:
 
 
 class TestAgentRegistration:
-    """Agent 注册"""
+    """Agent registration"""
 
     def setup_method(self):
         from l4.sandbox import reset_manager
@@ -163,7 +163,7 @@ class TestAgentRegistration:
 
 
 class TestStatus:
-    """沙箱状态"""
+    """Sandbox status"""
 
     def setup_method(self):
         from l4.sandbox import reset_manager

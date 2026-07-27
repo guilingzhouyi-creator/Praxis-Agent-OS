@@ -1,4 +1,4 @@
-"""ToolConfig 单测 — YAML 加载 / ring 映射 / danger 默认 (M5 修复点)。"""
+"""ToolConfig unit test — YAML loading / ring mapping / danger defaults (M5 fix point)."""
 
 from __future__ import annotations
 

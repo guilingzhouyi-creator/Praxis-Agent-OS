@@ -9,15 +9,15 @@ Architecture:
   ├── patch_revert()    — Revert a patch
   └── HistoryStack      — File operation history stack + reversal inference
 
-API (通过 LOG_ROUTES 模式注册):
-  POST /api/fs/edit         — 语义编辑
-  POST /api/fs/batch_edit   — 原子批量编辑
-  GET  /api/fs/history      — 操作历史
-  POST /api/fs/undo         — 回滚
-  POST /api/fs/redo         — 重做
-  POST /api/fs/patch        — 从变更创建 patch
-  POST /api/fs/patch/apply  — 应用 patch
-  POST /api/fs/patch/revert — 回滚 patch
+API (via LOG_ROUTES registration):
+  POST /api/fs/edit         — Semantic edit
+  POST /api/fs/batch_edit   — Atomic batch edit
+  GET  /api/fs/history      — Operation history
+  POST /api/fs/undo         — Rollback
+  POST /api/fs/redo         — Redo
+  POST /api/fs/patch        — Create patch from changes
+  POST /api/fs/patch/apply  — Apply patch
+  POST /api/fs/patch/revert — Revert patch
 """
 
 from __future__ import annotations
@@ -42,18 +42,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DiffEdit:
-    """单次语义编辑操作。
+    """Single semantic edit operation.
 
-    old_str: 要替换的原始文本（支持上下文容错匹配）
-    new_str: 替换后的文本
-    path:    文件路径
-    description: 人类可读的编辑说明
+    old_str: Original text to replace (supports context-tolerant matching)
+    new_str: Replacement text
+    path:    File path
+    description: Human-readable edit description
     """
     path: str
     old_str: str
     new_str: str
     description: str = ""
-    start_line: int = 0       # 精确行号（可选）
+    start_line: int = 0       # Exact line number (optional)
     end_line: int = 0
     case_sensitive: bool = True
 
@@ -70,7 +70,7 @@ class DiffEdit:
 
 @dataclass
 class EditOperation:
-    """已执行的一次编辑操作（用于历史栈）。"""
+    """A single executed edit operation (used for history stack)."""
     id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:12])
     timestamp: float = field(default_factory=time.time)
     edits: list[dict] = field(default_factory=list)   # [{"path", "old", "new", "line"}, ...]
@@ -91,7 +91,7 @@ class EditOperation:
 
 @dataclass
 class Patch:
-    """结构化的补丁，可序列化为文件。"""
+    """Structured patch, serializable to file."""
     id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:12])
     created_at: float = field(default_factory=time.time)
     description: str = ""
@@ -127,7 +127,7 @@ class Patch:
 
 
 class EditEngine:
-    """文件编辑引擎 — Diff语义匹配 + 原子批量 + 历史栈。"""
+    """File edit engine — Diff semantic matching + atomic batch + history stack."""
 
     def __init__(self, max_history: int = 100):
         self._history: list[EditOperation] = []
@@ -135,15 +135,15 @@ class EditEngine:
         self._lock = threading.RLock()
         self._max_history = max_history
 
-    # ── Diff 语义编辑 ──
+    # ── Diff Semantic Edit ──
 
     def diff_edit(self, edit: DiffEdit) -> dict:
-        """执行语义 search/replace 编辑。
+        """Execute semantic search/replace edit.
 
-        支持：
-          - 精确匹配（默认）
-          - 上下文容错匹配（忽略头尾空白差异）
-          - 行号范围限定
+        Supports:
+          - Exact match (default)
+          - Context-tolerant match (ignores leading/trailing whitespace differences)
+          - Line range restriction
         """
         path = Path(edit.path)
         if not path.exists():
@@ -157,7 +157,7 @@ class EditEngine:
         old = edit.old_str
         new = edit.new_str
 
-        # 行号范围截取
+        # Line range extraction
         if edit.start_line > 0 and edit.end_line > 0:
             lines = content.splitlines(keepends=True)
             if edit.start_line < 1 or edit.end_line > len(lines):
@@ -166,14 +166,14 @@ class EditEngine:
         else:
             target = content
 
-        # 语义匹配
+        # Semantic matching
         idx = self._match(target, old, edit.case_sensitive)
         if idx < 0:
             return {"success": False, "error": "old_str not found (try adjusting context)"}
 
         new_content = target[:idx] + new + target[idx + len(old):]
 
-        # 写回文件
+        # Write back to file
         if edit.start_line > 0 and edit.end_line > 0:
             lines[edit.start_line - 1:edit.end_line] = [new_content]
             final = "".join(lines)
@@ -201,8 +201,8 @@ class EditEngine:
         }
 
     def _match(self, content: str, pattern: str, case_sensitive: bool = True) -> int:
-        """语义匹配 — 先精确匹配，再上下文容错匹配。"""
-        # 1. 精确匹配
+        """Semantic matching — first exact match, then context-tolerant match."""
+        # 1. Exact match
         if case_sensitive:
             idx = content.find(pattern)
         else:
@@ -210,33 +210,33 @@ class EditEngine:
         if idx >= 0:
             return idx
 
-        # 2. 容错匹配 — 忽略两端空白差异
+        # 2. Fault-tolerant match — ignore leading/trailing whitespace differences
         stripped = pattern.strip()
         lines = content.splitlines()
         for i, line in enumerate(lines):
             if stripped in line:
-                # 还原到 content 中的位置
+                # Restore position in content
                 pos = sum(len(l) + 1 for l in lines[:i])
                 return pos + line.find(stripped)
 
         return -1
 
-    # ── 原子批量编辑 ──
+    # ── Atomic Batch Edit ──
 
     def batch_edit(self, edits: list[DiffEdit], description: str = "",
                    agent_id: str = "") -> dict:
-        """原子化多文件编辑 — 全成功或全回滚。
+        """Atomic multi-file edit — all succeed or all roll back.
 
-        流程：
-          1. 对所有文件做 dry-run 验证
-          2. 逐一执行编辑
-          3. 任一失败 → 全部回滚
-          4. 全部成功 → 记录一个原子操作
+        Steps:
+          1. Dry-run validation on all files
+          2. Execute edits one by one
+          3. Any failure → roll back all
+          4. All succeed → record as one atomic operation
         """
         if not edits:
             return {"success": False, "error": "no edits provided"}
 
-        # Phase 1: Dry-run 验证
+        # Phase 1: Dry-run validation
         snapshots: list[tuple[str, str]] = []  # (path, original_content)
         prepared: list[tuple[int, DiffEdit, str]] = []  # (idx, edit, new_content)
 
@@ -264,7 +264,7 @@ class EditEngine:
             new_content = content[:idx] + new + content[idx + len(old):]
             prepared.append((i, edit, new_content))
 
-        # Phase 2: 执行编辑
+        # Phase 2: Execute edits
         applied: list[dict] = []
         try:
             for i, edit, new_content in prepared:
@@ -276,7 +276,7 @@ class EditEngine:
                     "line": edit.start_line or 1,
                 })
         except Exception as e:
-            # Phase 3: 回滚全部
+            # Phase 3: Roll back all
             for path_str, orig in snapshots:
                 try:
                     Path(path_str).write_text(orig, encoding="utf-8")
@@ -285,7 +285,7 @@ class EditEngine:
             return {"success": False, "error": f"write failed, all rolled back: {e}",
                     "applied_before_rollback": len(applied)}
 
-        # 记录操作
+        # Record operation
         op = EditOperation(
             edits=applied,
             description=description or f"batch edit: {len(edits)} files",
@@ -304,7 +304,7 @@ class EditEngine:
     # ── Undo / Redo ──
 
     def undo(self, operation_id: str = "") -> dict:
-        """回滚最近一次（或指定）操作。"""
+        """Rollback the most recent (or specified) operation."""
         with self._lock:
             if not self._history:
                 return {"success": False, "error": "nothing to undo"}
@@ -318,7 +318,7 @@ class EditEngine:
             if not op:
                 return {"success": False, "error": f"operation not found: {operation_id}"}
 
-        # 逆序回滚
+        # Reverse order rollback
         for e in reversed(op.edits):
             path = Path(e["path"])
             if not path.exists():
@@ -345,13 +345,13 @@ class EditEngine:
                 "description": op.description, "type": "undo"}
 
     def redo(self) -> dict:
-        """重做最近一次回滚的操作。"""
+        """Redo the most recently undone operation."""
         with self._lock:
             if not self._redo_stack:
                 return {"success": False, "error": "nothing to redo"}
             op = self._redo_stack.pop()
 
-        # 重做所有编辑
+        # Redo all edits
         for e in op.edits:
             path = Path(e["path"])
             if not path.exists():
@@ -371,7 +371,7 @@ class EditEngine:
         return {"success": True, "operation_id": op.id,
                 "description": op.description, "type": "redo"}
 
-    # ── 历史查询 ──
+    # ── History Query ──
 
     def history(self, limit: int = 50) -> dict:
         with self._lock:
@@ -385,7 +385,7 @@ class EditEngine:
                 "redo_available": len(self._redo_stack),
             }
 
-    # ── 内部 ──
+    # ── Internal ──
 
     def _push(self, op: EditOperation) -> None:
         with self._lock:
@@ -396,12 +396,12 @@ class EditEngine:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3. Patch 系统
+# 3. Patch System
 # ══════════════════════════════════════════════════════════════════════
 
 
 class PatchManager:
-    """Patch 管理 — 创建/应用/回滚/序列化。"""
+    """Patch management — create/apply/revert/serialize."""
 
     def __init__(self, engine: EditEngine, patch_dir: str = ""):
         self._engine = engine
@@ -413,7 +413,7 @@ class PatchManager:
 
     def create_from_history(self, operation_id: str, description: str = "",
                             author: str = "") -> dict:
-        """从历史操作创建 patch。"""
+        """Create a patch from history operations."""
         with self._engine._lock:
             op = next((o for o in self._engine._history
                       if o.id == operation_id), None)
@@ -428,13 +428,13 @@ class PatchManager:
 
         with self._lock:
             self._patches[patch.id] = patch
-            # 持久化到磁盘
+            # Persist to disk
             self._save(patch)
 
         return {"success": True, "patch": patch.to_dict()}
 
     def apply(self, patch_id: str) -> dict:
-        """应用一个 patch。"""
+        """Apply a patch."""
         with self._lock:
             patch = self._patches.get(patch_id)
         if not patch:
@@ -459,7 +459,7 @@ class PatchManager:
         return result
 
     def revert(self, patch_id: str) -> dict:
-        """回滚一个已应用的 patch。"""
+        """Revert an applied patch."""
         with self._lock:
             patch = self._patches.get(patch_id)
         if not patch:
@@ -469,12 +469,12 @@ class PatchManager:
         if patch.reverted:
             return {"success": False, "error": "patch already reverted"}
 
-        # 反转 changes 并执行 undo
+        # Reverse changes and execute undo
         edits = []
         for c in reversed(patch.changes):
             edits.append(DiffEdit(
                 path=c["path"],
-                old_str=c["new"],   # 新旧互换
+                old_str=c["new"],   # Swap old and new
                 new_str=c["old"],
                 description=f"revert: {patch.description}",
             ))
@@ -503,7 +503,7 @@ class PatchManager:
         return {"success": True, "patch": patch.to_dict()}
 
     def _save(self, patch: Patch) -> None:
-        """持久化 patch 到磁盘。"""
+        """Persist patch to disk."""
         try:
             path = self._patch_dir / f"{patch.id}.json"
             path.write_text(patch.to_json(), encoding="utf-8")
@@ -511,7 +511,7 @@ class PatchManager:
             logger.warning("patch save failed: %s", e)
 
     def _load_all(self) -> None:
-        """启动时从磁盘加载所有 patch。"""
+        """Load all patches from disk at startup."""
         if not self._patch_dir.exists():
             return
         for f in self._patch_dir.glob("*.json"):
@@ -525,7 +525,7 @@ class PatchManager:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 4. 全局单例
+# 4. Global Singleton
 # ══════════════════════════════════════════════════════════════════════
 
 _engine: EditEngine | None = None
@@ -558,7 +558,7 @@ def get_patch_manager() -> PatchManager:
 
 
 def handle_fs_edit(body: dict | None = None) -> dict:
-    """POST /api/fs/edit — 语义编辑文件"""
+    """POST /api/fs/edit — Semantic file edit"""
     b = body or {}
     path = b.get("path", "")
     old_str = b.get("old_str", "")
@@ -578,7 +578,7 @@ def handle_fs_edit(body: dict | None = None) -> dict:
 
 
 def handle_fs_batch_edit(body: dict | None = None) -> dict:
-    """POST /api/fs/batch_edit — 原子化多文件编辑"""
+    """POST /api/fs/batch_edit — Atomic multi-file edit"""
     b = body or {}
     raw_edits = b.get("edits", [])
     if not raw_edits:
@@ -592,26 +592,26 @@ def handle_fs_batch_edit(body: dict | None = None) -> dict:
 
 
 def handle_fs_history(body: dict | None = None) -> dict:
-    """GET /api/fs/history — 文件操作历史"""
+    """GET /api/fs/history — File operation history"""
     b = body or {}
     limit = b.get("limit", 50)
     return get_engine().history(limit=limit)
 
 
 def handle_fs_undo(body: dict | None = None) -> dict:
-    """POST /api/fs/undo — 回滚操作"""
+    """POST /api/fs/undo — Rollback operation"""
     b = body or {}
     op_id = b.get("operation_id", "")
     return get_engine().undo(operation_id=op_id)
 
 
 def handle_fs_redo(body: dict | None = None) -> dict:
-    """POST /api/fs/redo — 重做操作"""
+    """POST /api/fs/redo — Redo operation"""
     return get_engine().redo()
 
 
 def handle_fs_patch_create(body: dict | None = None) -> dict:
-    """POST /api/fs/patch — 从历史操作创建 patch"""
+    """POST /api/fs/patch — Create patch from history"""
     b = body or {}
     op_id = b.get("operation_id", "")
     if not op_id:
@@ -624,7 +624,7 @@ def handle_fs_patch_create(body: dict | None = None) -> dict:
 
 
 def handle_fs_patch_apply(body: dict | None = None) -> dict:
-    """POST /api/fs/patch/apply — 应用 patch"""
+    """POST /api/fs/patch/apply — Apply patch"""
     b = body or {}
     patch_id = b.get("patch_id", "")
     if not patch_id:
@@ -633,7 +633,7 @@ def handle_fs_patch_apply(body: dict | None = None) -> dict:
 
 
 def handle_fs_patch_revert(body: dict | None = None) -> dict:
-    """POST /api/fs/patch/revert — 回滚 patch"""
+    """POST /api/fs/patch/revert — Revert patch"""
     b = body or {}
     patch_id = b.get("patch_id", "")
     if not patch_id:
@@ -642,12 +642,12 @@ def handle_fs_patch_revert(body: dict | None = None) -> dict:
 
 
 def handle_fs_patch_list(body: dict | None = None) -> dict:
-    """GET /api/fs/patches — 列出所有 patch"""
+    """GET /api/fs/patches — List all patches"""
     return get_patch_manager().list_patches()
 
 
 def handle_fs_patch_get(body: dict | None = None) -> dict:
-    """POST /api/fs/patch/get — 获取单个 patch"""
+    """POST /api/fs/patch/get — Get single patch"""
     b = body or {}
     patch_id = b.get("patch_id", "")
     if not patch_id:
@@ -655,7 +655,7 @@ def handle_fs_patch_get(body: dict | None = None) -> dict:
     return get_patch_manager().get_patch(patch_id)
 
 
-# ── 路由注册 ──
+# ── Route Registration ──
 
 FS_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/fs/edit", handle_fs_edit, "Semantic file edit (search/replace)"),

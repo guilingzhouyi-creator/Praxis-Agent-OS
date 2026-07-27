@@ -214,10 +214,53 @@ def cfg_mcp(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_commands(cfg: dict, s: Any, results: dict) -> None:
-    """Load command overrides from praxis.yaml commands: section."""
-    from l1.kernel.commands import load_command_overrides
-    load_command_overrides(cfg if isinstance(cfg, dict) else {})
-    results["commands"] = len(cfg) if isinstance(cfg, dict) else 0
+    """Load command overrides + custom commands from praxis.yaml commands: section.
+
+    Format:
+      commands:
+        # Override metadata for existing commands
+        mode:
+          help: "switch mode"
+          aliases: ["m"]
+        # Register new custom commands with handler spec
+        my-command:
+          help: "My custom command"
+          category: "custom"
+          handler:
+            type: callback       # "callback" | "echo" | "l3_intent"
+            response: "hello world"
+    """
+    from l1.kernel.commands import get_registry
+    reg = get_registry()
+
+    # Separate overrides from new command registrations
+    overrides = {}
+    custom_count = 0
+    for name, meta in (cfg or {}).items():
+        handler_spec = meta.pop("handler", None) if isinstance(meta, dict) else None
+        if handler_spec and isinstance(handler_spec, dict):
+            # Register as user command
+            htype = handler_spec.get("type", "echo")
+            response = handler_spec.get("response", f"{name}: ok")
+            if htype == "echo":
+                def _make_echo(resp):
+                    return lambda args: {"success": True, "output": resp}
+                reg.register_user(name, _make_echo(response), meta)
+            elif htype == "l3_intent":
+                def _make_l3():
+                    from l2.l2_shell import dispatch as _d
+                    return lambda args: _d("/" + " ".join(args))
+                reg.register_user(name, _make_l3(), meta)
+            custom_count += 1
+        else:
+            overrides[name] = meta
+
+    if overrides:
+        reg.load_overrides(overrides)
+    results["commands"] = {
+        "overrides": len(overrides),
+        "custom": custom_count,
+    }
 
 
 def cfg_credentials(cfg: dict, s: Any, results: dict) -> None:
@@ -276,6 +319,41 @@ def cfg_territories(cfg: dict, s: Any, results: dict) -> None:
 def cfg_clearance(cfg: dict, s: Any, results: dict) -> None:
     AGENT_CLEARANCE.clear(); AGENT_CLEARANCE.update(cfg)
     results["clearance"] = len(cfg)
+
+
+def cfg_agent_role_map(cfg: dict, s: Any, results: dict) -> None:
+    """Load AGENT_ROLE_MAP from praxis.yaml agent_role_map: section.
+
+    Format:
+      agent_role_map:
+        1: "reader"
+        2: "writer"
+        3: "reviewer"
+
+    Maps tool ring level → agent role name for HTN-C inference.
+    """
+    from l1.kernel.params.agent import AGENT_ROLE_MAP
+    AGENT_ROLE_MAP.clear()
+    for ring_str, role in cfg.items():
+        try:
+            AGENT_ROLE_MAP[int(ring_str)] = str(role)
+        except (ValueError, TypeError):
+            continue
+    results["agent_role_map"] = len(AGENT_ROLE_MAP)
+
+
+def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
+    """Load AGENT_PRIORITY from praxis.yaml agent_priority: section.
+
+    Format:
+      agent_priority:
+        reader:   5
+        writer:   5
+        reviewer: 5
+    """
+    from l1.kernel.params.agent import AGENT_PRIORITY
+    AGENT_PRIORITY.clear(); AGENT_PRIORITY.update(cfg)
+    results["agent_priority"] = len(cfg)
 
 
 def cfg_agents(cfg: dict, s: Any, results: dict) -> None:

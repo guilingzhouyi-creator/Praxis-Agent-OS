@@ -35,14 +35,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
-    """单个搜索结果。"""
+    """A single search result."""
     path: str
     line: int = 0
     column: int = 0
     content: str = ""
     score: float = 0.0
     kind: str = "text"          # text | symbol | doc
-    symbol_name: str = ""       # 符号名（符号搜索时）
+    symbol_name: str = ""       # symbol name (when symbol search)
     symbol_type: str = ""       # function | class | variable | method
 
     def to_dict(self) -> dict:
@@ -60,7 +60,7 @@ class SearchResult:
 
 @dataclass
 class DocEntry:
-    """API 文档条目。"""
+    """An API documentation entry."""
     package: str
     module: str
     name: str
@@ -85,7 +85,7 @@ class DocEntry:
 
 
 class SemanticSearch:
-    """轻量级语义搜索 — TF-IDF 关键词排序，无需外部依赖。"""
+    """Lightweight semantic search — TF-IDF keyword ranking, no external dependencies."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -93,7 +93,7 @@ class SemanticSearch:
     def search(self, query: str, root_dir: str = ".",
                file_pattern: str = "*.py", max_results: int = 20,
                include_content: bool = True) -> dict:
-        """按关键词搜索代码内容，TF-IDF 排序。"""
+        """Search code content by keyword, ranked by TF-IDF."""
         root = Path(root_dir).resolve()
         if not root.exists():
             return {"success": False, "error": f"directory not found: {root_dir}"}
@@ -102,7 +102,7 @@ class SemanticSearch:
         if not query_terms:
             return {"success": False, "error": "empty query"}
 
-        # 1. 收集匹配文件
+        # 1. Collect matching files
         matches: list[SearchResult] = []
         files = list(root.rglob(file_pattern))
 
@@ -114,11 +114,11 @@ class SemanticSearch:
                 lines = content.splitlines()
                 for i, line in enumerate(lines, 1):
                     line_lower = line.lower()
-                    # 计算 TF-IDF 分数
+                    # Compute TF-IDF score
                     score = sum(1 for t in query_terms
                                 if t in line_lower)
                     if score > 0:
-                        # IDF 加权：稀有词权重更高
+                        # IDF weighting: rare terms get higher weight
                         idf_score = sum(
                             1.0 / (1.0 + self._term_frequency(t, content))
                             for t in query_terms if t in line_lower
@@ -134,7 +134,7 @@ class SemanticSearch:
             except Exception:
                 continue
 
-        # 2. 按分数降序排列
+        # 2. Sort by score descending
         matches.sort(key=lambda r: -r.score)
         results = matches[:max_results]
 
@@ -147,7 +147,7 @@ class SemanticSearch:
         }
 
     def _is_ignored(self, path: Path) -> bool:
-        """跳过 .git, node_modules, __pycache__, .venv 等。"""
+        """Skip .git, node_modules, __pycache__, .venv, etc."""
         ignored_parts = {".git", "node_modules", "__pycache__",
                          ".venv", "venv", ".tox", ".egg-info"}
         return any(p in ignored_parts for p in path.parts)
@@ -162,7 +162,7 @@ class SemanticSearch:
 
 
 class SymbolSearch:
-    """AST 级代码符号搜索 — 跨项目查找类/函数/变量。"""
+    """AST-level code symbol search — find classes/functions/variables across projects."""
 
     LANGUAGES: dict[str, tuple[str, list[str]]] = {
         "python": ("python", [".py"]),
@@ -175,7 +175,7 @@ class SymbolSearch:
 
     def search(self, name: str, kind: str = "",
                root_dir: str = ".", max_results: int = 30) -> dict:
-        """搜索代码符号。"""
+        """Search for code symbols."""
         root = Path(root_dir).resolve()
         if not root.exists():
             return {"success": False, "error": f"directory not found: {root_dir}"}
@@ -183,7 +183,7 @@ class SymbolSearch:
         term = name.lower()
         results: list[SearchResult] = []
 
-        # Python AST 搜索
+        # Python AST search
         for file_path in root.rglob("*.py"):
             if self._is_ignored(file_path):
                 continue
@@ -239,7 +239,7 @@ class SymbolSearch:
             except Exception:
                 continue
 
-        # 去重 + 排序
+        # Deduplicate + sort
         seen: set[tuple[str, int, str]] = set()
         unique: list[SearchResult] = []
         for r in results:
@@ -260,7 +260,7 @@ class SymbolSearch:
         }
 
     def _is_method(self, node: ast.FunctionDef) -> bool:
-        """判断函数是否类内方法（检查父节点）。"""
+        """Determine if a function is a method inside a class (check parent node)."""
         for n in ast.walk(node):
             if isinstance(n, ast.ClassDef):
                 for item in n.body:
@@ -278,9 +278,9 @@ class SymbolSearch:
 
 
 class DocSearch:
-    """API 文档搜索 — 内建索引 + 动态扩展。"""
+    """API documentation search — built-in index + dynamic extension."""
 
-    # Python stdlib 常用模块的快速参考索引
+    # Fast reference index for common Python stdlib modules
     STDLIB_INDEX: dict[str, DocEntry] = {
         "pathlib.Path": DocEntry("stdlib", "pathlib", "Path",
                                  "Path(*pathsegments)",
@@ -340,11 +340,11 @@ class DocSearch:
         self._custom_index: dict[str, DocEntry] = {}
 
     def search(self, query: str, max_results: int = 10) -> dict:
-        """搜索 API 文档。"""
+        """Search API documentation."""
         q = query.lower()
         results: list[DocEntry] = []
 
-        # 搜索内置索引
+        # Search built-in index
         all_entries = dict(self.STDLIB_INDEX)
         all_entries.update(self._custom_index)
 
@@ -363,7 +363,7 @@ class DocSearch:
             if score > 0:
                 results.append(entry)
 
-        # 按分数排序
+        # Sort by score
         results.sort(key=lambda e: -self._rank(e, q))
         top = results[:max_results]
 
@@ -388,7 +388,7 @@ class DocSearch:
     def index(self, package: str, module: str, name: str,
               signature: str = "", docstring: str = "",
               url: str = "") -> dict:
-        """注册自定义 API 文档。"""
+        """Register a custom API documentation entry."""
         key = f"{package}.{module}.{name}"
         self._custom_index[key] = DocEntry(
             package=package,
@@ -407,7 +407,7 @@ class DocSearch:
 
 
 class SearchEngine:
-    """统一搜索入口 — 自动选择最佳搜索方式。"""
+    """Unified search entry — automatically selects the best search method."""
 
     def __init__(self):
         self._semantic = SemanticSearch()
@@ -417,13 +417,13 @@ class SearchEngine:
 
     def search(self, query: str, mode: str = "auto",
                root_dir: str = ".", max_results: int = 20) -> dict:
-        """统一搜索入口。
+        """Unified search entry.
 
         mode:
-          "auto"     — 智能选择（含大写字母/点 → 符号搜索；含 import/lib → 文档搜索；否则语义搜索）
-          "semantic" — 语义搜索
-          "symbol"   — 符号搜索
-          "docs"     — 文档搜索
+          "auto"     — smart selection (uppercase/dot → symbol search; import/lib → doc search; otherwise semantic search)
+          "semantic" — semantic search
+          "symbol"   — symbol search
+          "docs"     — doc search
         """
         if mode == "semantic":
             return self._semantic.search(query, root_dir, max_results=max_results)
@@ -432,7 +432,7 @@ class SearchEngine:
         elif mode == "docs":
             return self._docs.search(query, max_results=max_results)
         else:
-            # auto: 智能选择
+            # auto: smart selection
             if "." in query or query[0].isupper():
                 sym_r = self._symbol.search(query, root_dir=root_dir,
                                             max_results=max_results)
@@ -464,7 +464,7 @@ class SearchEngine:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 6. 全局单例
+# 6. Global singleton
 # ══════════════════════════════════════════════════════════════════════
 
 _engine: SearchEngine | None = None
@@ -486,7 +486,7 @@ def get_engine() -> SearchEngine:
 
 
 def handle_search(body: dict | None = None) -> dict:
-    """POST /api/search — 统一搜索入口"""
+    """POST /api/search — unified search entry"""
     b = body or {}
     query = b.get("query", "")
     mode = b.get("mode", "auto")
@@ -499,7 +499,7 @@ def handle_search(body: dict | None = None) -> dict:
 
 
 def handle_search_semantic(body: dict | None = None) -> dict:
-    """POST /api/search/semantic — 语义搜索"""
+    """POST /api/search/semantic — semantic search"""
     b = body or {}
     query = b.get("query", "")
     root = b.get("root", ".")
@@ -511,7 +511,7 @@ def handle_search_semantic(body: dict | None = None) -> dict:
 
 
 def handle_search_symbol(body: dict | None = None) -> dict:
-    """POST /api/search/symbol — 符号搜索"""
+    """POST /api/search/symbol — symbol search"""
     b = body or {}
     name = b.get("name", "")
     kind = b.get("kind", "")
@@ -523,7 +523,7 @@ def handle_search_symbol(body: dict | None = None) -> dict:
 
 
 def handle_search_docs(body: dict | None = None) -> dict:
-    """POST /api/search/docs — API 文档搜索"""
+    """POST /api/search/docs — API documentation search"""
     b = body or {}
     query = b.get("query", "")
     max_results = b.get("max_results", 10)
@@ -533,7 +533,7 @@ def handle_search_docs(body: dict | None = None) -> dict:
 
 
 def handle_search_index_doc(body: dict | None = None) -> dict:
-    """POST /api/search/docs/index — 注册自定义 API 文档"""
+    """POST /api/search/docs/index — register custom API documentation"""
     b = body or {}
     return get_engine().index_doc(
         package=b.get("package", ""),
@@ -545,7 +545,7 @@ def handle_search_index_doc(body: dict | None = None) -> dict:
     )
 
 
-# ── 路由注册 ──
+# ── Route registration ──
 
 SEARCH_ROUTES: list[tuple[str, str, Any, str]] = [
     ("POST", "/api/search", handle_search, "Unified search (auto-select mode)"),
