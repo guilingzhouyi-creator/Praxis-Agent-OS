@@ -148,7 +148,7 @@ class ContextAssembler:
     def add_lsp_diagnostics(self, file_path: str = "") -> int:
         """Add diagnostics context from LSP."""
         try:
-            from l4.lsp import LocalAnalyzer
+            from l4.lsp.lsp import LocalAnalyzer
             analyzer = LocalAnalyzer()
             diag = analyzer.type_check()
             if diag and diag.get("diagnostics"):

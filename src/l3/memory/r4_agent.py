@@ -376,7 +376,7 @@ class R4Agent:
             return {"success": False, "error": "usage: /skills evolve <description>"}
 
         try:
-            from l4.llm import get_engine
+            from l4.llm.llm import get_engine
             from l1.kernel.prompts import get_prompt
             from l1.kernel.skill import get_skill_manager
             import json, os

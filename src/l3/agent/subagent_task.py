@@ -123,7 +123,7 @@ class SubAgentTask:
 
     def _run_generate(self) -> None:
         """Fast path — single LLM call, no tools."""
-        from l4.llm import get_engine
+        from l4.llm.llm import get_engine
         from l3.services.model_service import get_service as _ms
         engine = get_engine()
         model_kwargs = self._resolve_model_kwargs()

@@ -4,7 +4,7 @@ Each call goes through the kernel device manager for rate limiting.
 Supports multiple providers: Claude, GPT, local, or mock (for testing).
 
 Usage:
-  from l4.llm import think, analyze
+  from l4.llm.llm import think, analyze
 
   result = think("What is the capital of France?", system="You are a helpful assistant")
   # → {"content": "Paris", "tokens": 15, "model": "claude-3-haiku"}
@@ -44,7 +44,7 @@ from l1.kernel.params.api import (
 from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT
 
 # Base types extracted to llm_base.py
-from .llm_base import (
+from .llm.llm_base import (
     _PROVIDER_REGISTRY,
     LLMConfig,
     LLMProvider,
@@ -53,7 +53,7 @@ from .llm_base import (
 )
 
 # Provider implementations extracted to llm_providers.py
-from .llm_providers import MockProvider, WebSocketProvider
+from .llm.llm_providers import MockProvider, WebSocketProvider
 from l3.tool_system.tool_spec import ToolSpec
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class LLMEngine:
 
         p = self.config.provider
         if self.config.use_websocket:
-            from .llm_providers import WebSocketProvider
+            from .llm.llm_providers import WebSocketProvider
             return WebSocketProvider(self.config.api_url, self.config.model, self.config.api_key)
 
         registry = get_registry()
@@ -94,7 +94,7 @@ class LLMEngine:
             return provider
 
         logger.warning("llm: no provider '%s', using MockProvider", p)
-        from .llm_providers import MockProvider
+        from .llm.llm_providers import MockProvider
         return MockProvider()
 
     def generate(self, prompt: str, system: str = "",
@@ -473,7 +473,7 @@ def optimize_prompt(prompt: str, system: str = "") -> tuple[str, str]:
 # modifying generate() internals.
 #
 # Usage:
-#   from l4.llm import on_llm_call
+#   from l4.llm.llm import on_llm_call
 #
 #   @on_llm_call("pre")
 #   def log_prompt(prompt, system, **kwargs):

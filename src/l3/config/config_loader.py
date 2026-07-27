@@ -200,7 +200,7 @@ def validate(data: dict) -> dict:
 
     llm = data.get("llm", {})
     try:
-        from l4.llm import list_providers
+        from l4.llm.llm import list_providers
         valid_providers = list_providers() or ["mock"]
     except Exception:
         valid_providers = ("mock", "ollama", "openai", "anthropic")

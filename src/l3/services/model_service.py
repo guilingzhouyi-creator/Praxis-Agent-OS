@@ -21,7 +21,7 @@ import os
 import re
 from typing import Any
 
-from l4.llm_base import LLMConfig
+from l4.llm.llm_base import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class ModelService:
     def _credential_vault(self) -> Any:
         if self._vault is None:
             try:
-                from l4.credential_vault import get_credential
+                from l4.vault.credential_vault import get_credential
                 self._vault_vault = get_credential
             except Exception:
                 self._vault_vault = lambda p, k: None
@@ -166,7 +166,7 @@ class ModelService:
         """Quick health check for a provider by name."""
         try:
             config = self.resolve(overrides={"provider": provider_name})
-            from l4.llm import get_engine
+            from l4.llm.llm import get_engine
             engine = get_engine(config)
             if hasattr(engine._provider, "health"):
                 return engine._provider.health()

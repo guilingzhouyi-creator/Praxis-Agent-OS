@@ -5,18 +5,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..api_handlers_cards import (
+from ..api.api_handlers_cards import (
     list_cards, get_card, submit_card, submit_batch,
     card_rollback, card_gate_history, sideload_dispatch,
 )
-from ..api_handlers_monitor import (
+from ..api_handlers.api_handlers_monitor import (
     token_stats, token_cells, token_global,
     comm_stats, comm_recent,
     loop_stats, loops_recent,
     export_counter, export_metrics,
     network_health,
 )
-from ..api_handlers_agent import (
+from ..api_handlers.api_handlers_agent import (
     agent_list as _agent_list,
     agent_select as _agent_select,
     agent_select_by as _agent_select_by,
@@ -27,7 +27,7 @@ from ..api_handlers_agent import (
     agent_review_message as _agent_review_message,
 )
 
-from ..api_handlers_cluster import (
+from ..api_handlers.api_handlers_cluster import (
     cluster_status as _cluster_status,
     cluster_composites as _cluster_composites,
     cluster_expand as _cluster_expand,
@@ -102,47 +102,47 @@ class ApiHandlers:
             return {"error": str(e)}
 
     def _agent_list(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_list as _fn
+        from ..api_handlers.api_handlers_agent import agent_list as _fn
         return _fn(body)
 
     def _agent_select(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import _agent_select as _fn
+        from ..api_handlers.api_handlers_agent import _agent_select as _fn
         return _fn(body)
 
     def _agent_select_by(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_select_by as _fn
+        from ..api_handlers.api_handlers_agent import agent_select_by as _fn
         return _fn(body)
 
     def _shell_dispatch(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import _shell_dispatch as _fn
+        from ..api_handlers.api_handlers_agent import _shell_dispatch as _fn
         return _fn(body)
 
     def _shell_autocomplete(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import _shell_autocomplete as _fn
+        from ..api_handlers.api_handlers_agent import _shell_autocomplete as _fn
         return _fn(body)
 
     def _shell_commands(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import _shell_commands as _fn
+        from ..api_handlers.api_handlers_agent import _shell_commands as _fn
         return _fn(body)
 
     def _agent_review_message(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_review_message as _fn
+        from ..api_handlers.api_handlers_agent import agent_review_message as _fn
         return _fn(body)
 
     def _agent_preconnect(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_preconnect as _fn
+        from ..api_handlers.api_handlers_agent import agent_preconnect as _fn
         return _fn(body)
 
     def _agent_reachable(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_reachable as _fn
+        from ..api_handlers.api_handlers_agent import agent_reachable as _fn
         return _fn(body)
 
     def _agent_direct(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_direct as _fn
+        from ..api_handlers.api_handlers_agent import agent_direct as _fn
         return _fn(body)
 
     def _agent_direct_close(self, body: dict | None = None) -> dict:
-        from ..api_handlers_agent import agent_direct_close as _fn
+        from ..api_handlers.api_handlers_agent import agent_direct_close as _fn
         return _fn(body)
 
     def _network_health(self, body: dict | None = None) -> dict:
@@ -485,7 +485,7 @@ class ApiHandlers:
 
     def _credential_status(self, body: dict | None = None) -> dict:
         try:
-            from ..credential_vault import export_vault_status, list_credentials
+            from ..vault.credential_vault import export_vault_status, list_credentials
             provider = (body or {}).get("provider", "")
             if provider:
                 return list_credentials(provider)
@@ -495,7 +495,7 @@ class ApiHandlers:
 
     def _credential_set(self, body: dict) -> dict:
         try:
-            from ..credential_vault import set_credential
+            from ..vault.credential_vault import set_credential
             provider = body.get("provider", "")
             key = body.get("key", "api_key")
             value = body.get("value", "")
@@ -507,7 +507,7 @@ class ApiHandlers:
 
     def _credential_delete(self, body: dict) -> dict:
         try:
-            from ..credential_vault import delete_credential
+            from ..vault.credential_vault import delete_credential
             provider = body.get("provider", "")
             key = body.get("key", "")
             if not provider:

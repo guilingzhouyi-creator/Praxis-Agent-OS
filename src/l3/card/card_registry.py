@@ -267,7 +267,7 @@ class CardRegistry(PersistableMixin):
 
     def generate_plan(self, intent: str, domain: str = "") -> dict:
         try:
-            from l4.llm import get_engine as _ge
+            from l4.llm.llm import get_engine as _ge
             engine = _ge()
             from l1.kernel.prompts import get_prompt as _gp
             prompt = _gp("card_registry.generate_plan", "").format(intent=intent, domain=domain)

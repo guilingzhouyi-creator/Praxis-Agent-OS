@@ -43,7 +43,7 @@ class OpenAIProvider:
 
     def _vault_key(self, provider: str, key: str = "api_key") -> str:
         try:
-            from l4.credential_vault import get_credential
+            from l4.vault.credential_vault import get_credential
             return get_credential(provider, key)
         except Exception:
             return ""
@@ -123,7 +123,7 @@ class AnthropicProvider:
 
     def _vault_key(self, provider: str, key: str = "api_key") -> str:
         try:
-            from l4.credential_vault import get_credential
+            from l4.vault.credential_vault import get_credential
             return get_credential(provider, key)
         except Exception:
             return ""

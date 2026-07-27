@@ -4,7 +4,7 @@ Architecture:
   HTTPServer → _Handler (parse) → MiddlewareChain (process) → ApiHandlers (business)
 
 Usage:
-  from l4.api_gateway import start_api
+  from l4.api.api_gateway import start_api
   start_api()  # default port from kernel.params
 """
 
@@ -29,7 +29,7 @@ from l1.kernel.params.api import (
     API_GATEWAY_QUEUE_TIMEOUT,
 )
 from .api_handlers import ApiHandlers
-from .api_middleware import (
+from .api.api_middleware import (
     MiddlewareChain, LocaleMiddleware, CORSMiddleware,
     Request, Response,
 )
@@ -96,7 +96,7 @@ class ApiGateway(ApiHandlers):
     def _register_defaults(self) -> None:
         """Load all routes from centralized api_routes.py + external modules."""
         import importlib
-        from .api_routes import API_ROUTES
+        from .api.api_routes import API_ROUTES
 
         for method, path, handler_ref, desc in API_ROUTES:
             if handler_ref.startswith("."):
@@ -116,7 +116,7 @@ class ApiGateway(ApiHandlers):
 
         # SSE bridge activation
         try:
-            from l4.sse_bridge import ensure_active
+            from l4.sse.sse_bridge import ensure_active
             ensure_active()
         except Exception as e:
             logger.warning("sse activation: %s", e)
@@ -267,7 +267,7 @@ class ApiGateway(ApiHandlers):
                 self.send_header("Access-Control-Allow-Origin", API_CORS_ORIGIN)
                 self.end_headers()
                 try:
-                    from l4.sse_bridge import subscribe, unsubscribe
+                    from l4.sse.sse_bridge import subscribe, unsubscribe
                     import queue as _queue
                     client = subscribe()
                     q = client["queue"]
@@ -288,7 +288,7 @@ class ApiGateway(ApiHandlers):
                     pass
                 finally:
                     try:
-                        from l4.sse_bridge import unsubscribe as _unsub
+                        from l4.sse.sse_bridge import unsubscribe as _unsub
                         _unsub(client.get("client_id", ""))
                     except Exception:
                         pass

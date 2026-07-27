@@ -147,7 +147,7 @@ def cfg_network(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_api(cfg: dict, s: Any, results: dict) -> None:
-    from l4.api_gateway import start_api
+    from l4.api.api_gateway import start_api
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     host = cfg.get("host", API_GATEWAY_HOST)
     port = int(cfg.get("port", API_GATEWAY_PORT))
@@ -300,7 +300,7 @@ def cfg_credentials(cfg: dict, s: Any, results: dict) -> None:
           api_key: sk-ant-...
     """
     try:
-        from .credential_vault import set_credential
+        from .vault.credential_vault import set_credential
         count = 0
         for provider, keys in (cfg or {}).items():
             for key_name, value in keys.items():
@@ -315,7 +315,7 @@ def cfg_credentials(cfg: dict, s: Any, results: dict) -> None:
 def cfg_api_routes(cfg: dict, s: Any, results: dict) -> None:
     """Load external API routes from praxis.yaml api.routes section."""
     try:
-        from l4.api_gateway import load_routes_from_yaml
+        from l4.api.api_gateway import load_routes_from_yaml
         r = load_routes_from_yaml(cfg if isinstance(cfg, list) else [])
         results["api_routes"] = r.get("loaded", 0)
     except Exception as e:

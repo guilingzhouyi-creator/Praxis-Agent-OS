@@ -233,7 +233,7 @@ class ModelRegistry:
         Returns an LLMProvider subclass instance, or None if the provider
         is not registered in _PROVIDER_REGISTRY.
         """
-        from l4.llm_base import _PROVIDER_REGISTRY, LLMProvider
+        from l4.llm.llm_base import _PROVIDER_REGISTRY, LLMProvider
 
         cls = _PROVIDER_REGISTRY.get(provider)
         if cls is None:

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from l4.llm import optimize_prompt
+from l4.llm.llm import optimize_prompt
 
 # ── Global config (loaded from praxis.yaml at boot) ──
 

@@ -46,7 +46,7 @@ def handle_providers_list(body: dict | None = None) -> dict:
         models = reg.list_models() if hasattr(reg, "list_models") else []
     except Exception:
         models = []
-    from l4.credential_vault import export_vault_status
+    from l4.vault.credential_vault import export_vault_status
     vault = export_vault_status()
     return {
         "success": True,
@@ -70,7 +70,7 @@ def handle_providers_register(body: dict | None = None) -> dict:
     if not name:
         return {"success": False, "error": "name required"}
 
-    from l4.credential_vault import set_credential
+    from l4.vault.credential_vault import set_credential
     if b.get("api_key"):
         set_credential(name, "api_key", b["api_key"])
     if b.get("api_url"):
@@ -85,7 +85,7 @@ def handle_providers_remove(name: str = "") -> dict:
     """DELETE /api/v2/providers/{name} — unregister a provider."""
     if not name:
         return {"success": False, "error": "name required"}
-    from l4.credential_vault import delete_credential
+    from l4.vault.credential_vault import delete_credential
     delete_credential(name)
     return {"success": True, "provider": name}
 
@@ -103,7 +103,7 @@ def handle_providers_config(name: str = "", body: dict | None = None) -> dict:
     if not name:
         return {"success": False, "error": "name required"}
     b = body or {}
-    from l4.credential_vault import set_credential
+    from l4.vault.credential_vault import set_credential
     for key in ("api_key", "api_url", "model"):
         if key in b:
             set_credential(name, key, str(b[key]))

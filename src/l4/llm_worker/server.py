@@ -59,7 +59,7 @@ class LLMWorkerServer:
             writer.close()
 
     async def _generate(self, params: dict) -> dict:
-        from l4.llm import get_engine
+        from l4.llm.llm import get_engine
         engine = get_engine()
         prompt = params.get("prompt", "")
         system = params.get("system", "")
@@ -69,7 +69,7 @@ class LLMWorkerServer:
         return {"content": result.get("content", ""), "tokens": result.get("tokens", 0)}
 
     async def _tool_use(self, params: dict) -> dict:
-        from l4.llm import get_engine
+        from l4.llm.llm import get_engine
         engine = get_engine()
         prompt = params.get("prompt", "")
         system = params.get("system", "")

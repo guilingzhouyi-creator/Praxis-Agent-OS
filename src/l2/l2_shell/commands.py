@@ -30,7 +30,7 @@ def preconnect_enhanced(cell_id: str, agent_id: str,
         return {"allowed": False, "checks": checks,
                 "reason": basic.get("reason", "preconnect_failed")}
     try:
-        from l4.llm import get_engine
+        from l4.llm.llm import get_engine
         engine = get_engine()
         provider_status = engine.provider_status() if hasattr(engine, 'provider_status') else {}
         checks["llm_provider"] = provider_status

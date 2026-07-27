@@ -201,7 +201,7 @@ def start_api() -> None:
     """praxis-api: start the API gateway process."""
     logging.basicConfig(level=logging.INFO)
     os.environ.setdefault("PRAXIS_ROLE", "api")
-    from l4.api_gateway import start_api as _start_api
+    from l4.api.api_gateway import start_api as _start_api
     _start_api()
 
 

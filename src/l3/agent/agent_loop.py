@@ -17,7 +17,7 @@ from l1.kernel.params.agent import (
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
 
-from l4.llm import get_engine
+from l4.llm.llm import get_engine
 from .scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
 from .agent.session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
 from .services.todo_tracker import TodoTracker
