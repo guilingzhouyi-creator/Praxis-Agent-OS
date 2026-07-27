@@ -37,9 +37,16 @@ class OpenAIProvider:
     name = "openai"
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
-        self.api_key = api_key or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
-        self.api_url = api_url or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
-        self.model = model or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
+        self.api_key = api_key or self._vault_key("openai") or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
+        self.api_url = api_url or self._vault_key("openai", "api_url") or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
+        self.model = model or self._vault_key("openai", "model") or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
+
+    def _vault_key(self, provider: str, key: str = "api_key") -> str:
+        try:
+            from l4.credential_vault import get_credential
+            return get_credential(provider, key)
+        except Exception:
+            return ""
 
     def _get_setting(self, key: str, default: str) -> str:
         try:
@@ -114,11 +121,18 @@ class AnthropicProvider:
     """Anthropic API (Claude)."""
     name = "anthropic"
 
+    def _vault_key(self, provider: str, key: str = "api_key") -> str:
+        try:
+            from l4.credential_vault import get_credential
+            return get_credential(provider, key)
+        except Exception:
+            return ""
+
     def __init__(self, api_key: str = "", api_url: str = "", model: str = "", cache_breakpoints: int = 4):
-        self.api_key = api_key or os.environ.get(ENV_ANTHROPIC_KEY, "")
-        self.api_url = api_url or os.environ.get(ENV_ANTHROPIC_URL,
+        self.api_key = api_key or self._vault_key("anthropic") or os.environ.get(ENV_ANTHROPIC_KEY, "")
+        self.api_url = api_url or self._vault_key("anthropic", "api_url") or os.environ.get(ENV_ANTHROPIC_URL,
                        self._get_setting("llm.api_url", LLM_PROVIDER_URLS["anthropic"]))
-        self.model = model or os.environ.get(ENV_ANTHROPIC_MODEL,
+        self.model = model or self._vault_key("anthropic", "model") or os.environ.get(ENV_ANTHROPIC_MODEL,
                        self._get_setting("llm.model", "<model>"))
         self.cache_breakpoints = cache_breakpoints
 

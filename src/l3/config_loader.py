@@ -33,6 +33,7 @@ from .config_handlers import (
     cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,
     cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
     cfg_agent_role_map, cfg_agent_priority,
+    cfg_model_spec,
     cfg_think, cfg_loop_control,
 )
 
@@ -178,6 +179,7 @@ _builtin_handlers = [
     ("clearance", cfg_clearance), ("agents", cfg_agents),
     ("agent_role_map", cfg_agent_role_map),
     ("agent_priority", cfg_agent_priority),
+    ("model_spec", cfg_model_spec),
     ("think", cfg_think),
     ("loop_control", cfg_loop_control),
 ]

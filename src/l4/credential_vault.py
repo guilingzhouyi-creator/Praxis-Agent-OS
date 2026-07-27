@@ -98,6 +98,30 @@ def delete_credential(provider: str, key_name: str = "") -> dict:
     return {"success": ok, "provider": provider, "key": key_name or "*"}
 
 
+def get_credential_for_provider(provider: str) -> dict[str, str]:
+    """Get ALL credentials for a provider with env var fallback.
+
+    Checks vault first, then env vars from _PROVIDER_ENV_MAP.
+    Returns dict of {key_name: value} for all known keys.
+    Unset keys are omitted.
+    """
+    result: dict[str, str] = {}
+    with _lock:
+        prov = _vault.get(provider, {})
+        result.update(prov)
+    for env_name in _PROVIDER_ENV_MAP.get(provider, []):
+        val = os.environ.get(env_name)
+        if val:
+            key = env_name.lower().replace("api_", "").replace("_key", "_key")  # normalize
+            if env_name.endswith("_KEY"):
+                result["api_key"] = val
+            elif env_name.endswith("_URL"):
+                result["api_url"] = val
+            elif env_name.endswith("_MODEL"):
+                result["model"] = val
+    return result
+
+
 def list_providers() -> list[dict]:
     """List all providers and their key names (without values)."""
     with _lock:

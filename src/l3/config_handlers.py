@@ -213,6 +213,31 @@ def cfg_mcp(cfg: dict, s: Any, results: dict) -> None:
     results["mcp_servers"] = imported
 
 
+def cfg_model_spec(cfg: dict, s: Any, results: dict) -> None:
+    """Load model_spec tree from praxis.yaml model_spec: section.
+
+    Stores flat keys in SettingsCenter for ModelService retrieval:
+      model_spec.subagent.defaults.{key}
+      model_spec.subagent.specs.{name}.{key}
+      model_spec.scout.{key}
+      model_spec.r4_agent.{key}
+      model_spec.convention.{key}
+      model_spec.cell.{key}
+    """
+    _store_tree(s, "model_spec", cfg)
+    results["model_spec"] = "loaded"
+
+
+def _store_tree(s: Any, prefix: str, data: dict) -> None:
+    """Recursively store a nested dict as flat keys in SettingsCenter."""
+    for key, value in data.items():
+        full_key = f"{prefix}.{key}"
+        if isinstance(value, dict):
+            _store_tree(s, full_key, value)
+        else:
+            s.set(full_key, value)
+
+
 def cfg_commands(cfg: dict, s: Any, results: dict) -> None:
     """Load command overrides + custom commands from praxis.yaml commands: section.
 

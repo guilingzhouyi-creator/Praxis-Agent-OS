@@ -162,81 +162,14 @@ class ExecutionPlan:
 
     def _run_phase(self, phase_name: str, phase_steps: list[PlanStep],
                    mode: str, aggregated: dict, timeout: float) -> None:
-        """Execute all steps in a single phase. Modifies aggregated in place.
+        """Execute all steps in a single phase. Delegates to execution_run.py."""
+        return _run_phase(self, phase_name, phase_steps, mode, aggregated, timeout)
 
-        *mode* is a string: ``"sequential"`` or ``"parallel"``.
+    def _check_memory_and_compact(self, aggregated: dict) -> None:
+        """Check memory pressure; if high, snapshot context → compact → resume.
+
+        Called between sequential phases.  Never raises.
         """
-        involved_agents: set[str] = set()
-        if mode == "sequential":
-            for ps in phase_steps:
-                if self._cancelled:
-                    return
-                involved_agents.add(ps.agent)
-                self._save_step_checkpoint(ps)
-                r = self._execute_step(ps, timeout)
-                aggregated["steps"].append(r)
-                if not r["success"]:
-                    aggregated["success"] = False
-                    aggregated["error"] = r.get("error", "")
-                    break
-        elif mode == "parallel":
-            # Group steps by agent → same-agent steps get batch dispatched
-            from collections import defaultdict
-            agent_groups: dict[str, list[dict]] = defaultdict(list)
-            for ps in phase_steps:
-                agent_groups[ps.agent].append({
-                    "name": ps.action, "input": {"path": ps.target, **ps.params}
-                })
-
-            threads = []
-            results = [None] * len(phase_steps)
-            result_idx = 0
-
-            def _run_single(i, ps):
-                involved_agents.add(ps.agent)
-                self._save_step_checkpoint(ps)
-                results[i] = self._execute_step(ps, timeout)
-
-            def _run_batch(agent: str, batch_items: list[dict], start_idx: int):
-                involved_agents.add(agent)
-                from ._term_types import TerminalCard as _BatchCard
-                from .agent_terminal import get_terminal
-                try:
-                    term = get_terminal(agent)
-                    bc = _BatchCard(action="batch", target=phase_steps[start_idx].target or "",
-                                    batch=batch_items)
-                    term.dispatch(bc)
-                    # Mark all steps in batch as done
-                    for j, _ in enumerate(batch_items):
-                        results[start_idx + j] = {"success": True, "action": "batch", "agent": agent}
-                except Exception as e:
-                    for j, _ in enumerate(batch_items):
-                        results[start_idx + j] = {"success": False, "error": str(e)}
-
-            for agent, items in agent_groups.items():
-                if len(items) > 1:
-                    t = threading.Thread(target=_run_batch, args=(agent, items, result_idx),
-                                         daemon=True)
-                    t.start()
-                    threads.append(t)
-                    result_idx += len(items)
-                else:
-                    ps = phase_steps[result_idx]
-                    t = threading.Thread(target=_run_single, args=(result_idx, ps), daemon=True)
-                    t.start()
-                    threads.append(t)
-                    result_idx += 1
-
-            for t in threads:
-                t.join(timeout=timeout)
-            for r in results:
-                if r:
-                    aggregated["steps"].append(r)
-                    if not r["success"]:
-                        aggregated["success"] = False
-                        aggregated["error"] = r.get("error", "")
-        # Phase complete — mark checkpoints done
-        self._mark_phase_checkpoint_done(involved_agents)
 
     def execute(self, timeout: float = 300.0) -> dict:
         """Execute all steps. Delegates to execution_run.py."""
@@ -300,118 +233,8 @@ class ExecutionPlan:
             logger.warning("memory compaction skipped: %s", e)
 
     def _execute_step(self, ps: PlanStep, timeout: float) -> dict:
-        """Execute a single plan step through the appropriate backend.
-
-        If the step has verify spec, auto-runs scout before and after the step,
-        and includes a diff in the result.
-        """
-        ps.state = StepState.RUNNING
-        ps.started_at = time.time()
-        emit_signal(EVENT_TASK_ASSIGN, sender="execution_plan", target=ps.agent,
-                    data={"card_id": self.card.id, "step_id": ps.step_id, "event": "step_start"})
-
-        # Find verify spec from the original Card step
-        # (match by action + target, since agent is resolved differently)
-        verify_spec = None
-        for phase in self.card.phases:
-            for item in self._card_phases_items(phase):
-                if item.action == ps.action and item.target == ps.target:
-                    verify_spec = item.verify if not self._is_unified else None
-                    break
-
-        verify_result = None
-
-        try:
-            # ── Pre-execution scout (before state) ──
-            if verify_spec:
-                before = self._execute_scout_verify(ps, verify_spec, "before")
-
-            # ── Human approval gate (dangerous tools) ──
-            if ps.agent != "scout_pool" and ps.action != "think":
-                try:
-                    from l3.tool_spec import get_tool
-                    spec = get_tool(ps.action)
-                    from l3.approval_gate import get_gate, _get_threshold
-                    threshold = _get_threshold()
-                    if spec and threshold > 0 and spec.danger >= threshold:
-                        gate = get_gate()
-                        ar = gate.request(
-                            tool_name=ps.action, agent_id=ps.agent,
-                            args=ps.params,
-                            reason=f"danger={spec.danger} >= threshold={threshold}",
-                        )
-                        self._approval_requests.append(ar)
-                        status = ar.wait(timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
-                        if status != "approved":
-                            ps.state = StepState.FAILED
-                            ps.error = f"rejected by human approval ({status})"
-                            ps.completed_at = time.time()
-                            return {"step_id": ps.step_id, "phase": ps.phase,
-                                    "action": ps.action, "target": ps.target,
-                                    "agent": ps.agent, "success": False,
-                                    "error": ps.error, "elapsed": 0.0}
-                except Exception as e:
-                    logger.warning("approval check skipped: %s", e)
-
-            # ── Main execution ──
-            if ps.agent == "scout_pool":
-                result = self._execute_scout(ps)
-            else:
-                result = self._execute_agent(ps, timeout)
-
-            ps.state = StepState.DONE if result.get("success") else StepState.FAILED
-            ps.result = result
-            if not result.get("success"):
-                ps.error = result.get("error", "unknown error")
-            ps.completed_at = time.time()
-
-            # ── Post-execution scout (after state, auto-verify) ──
-            if verify_spec and result.get("success"):
-                after = self._execute_scout_verify(ps, verify_spec, "after")
-                if before.get("success") and after.get("success"):
-                    verify_result = self._diff_verify(before, after)
-
-            # Store in shared context
-            self._context[ps.step_id] = result
-
-            # Turn-level datalog: structured per-step record
-            turn_entry = {
-                "turn": len(self._turn_log) + 1,
-                "step_id": ps.step_id,
-                "phase": ps.phase,
-                "action": ps.action,
-                "target": ps.target,
-                "agent": ps.agent,
-                "success": result.get("success", False),
-                "error": result.get("error", ""),
-                "elapsed": round(ps.elapsed, 3),
-                "verify": bool(verify_result),
-                "danger": result.get("danger", 0),
-                "gate_result": result.get("gate_result", ""),
-            }
-            self._turn_log.append(turn_entry)
-
-            return {
-                "step_id": ps.step_id,
-                "phase": ps.phase,
-                "action": ps.action,
-                "target": ps.target,
-                "agent": ps.agent,
-                "success": result.get("success", False),
-                "output": result.get("output", result.get("findings", "")),
-                "error": result.get("error", ""),
-                "elapsed": round(ps.elapsed, 3),
-                "verify": verify_result,
-            }
-        except Exception as e:
-            ps.state = StepState.FAILED
-            ps.error = str(e)
-            ps.completed_at = time.time()
-            return {"step_id": ps.step_id, "phase": ps.phase, "action": ps.action,
-                    "target": ps.target, "agent": ps.agent,
-                    "success": False, "error": str(e),
-                    "elapsed": round(ps.elapsed, 3), "verify": verify_result}
-
+        """Execute a single plan step. Delegates to execution_run.py."""
+        return _execute_step(self, ps, timeout)
     def _execute_scout_verify(self, ps: PlanStep, spec: dict, phase: str) -> dict:
         from .execution_verify import execute_scout_verify as _verify
         return _verify(ps, spec, phase)
@@ -425,57 +248,8 @@ class ExecutionPlan:
         return _scout(ps)
 
     def _execute_agent(self, ps: PlanStep, timeout: float) -> dict:
-        """Execute a step through an AgentTerminal."""
-        term = get_terminal(ps.agent)
-        if term.status in (TerminalStatus.STOPPED, TerminalStatus.CRASHED):
-            return {"success": False, "error": f"terminal {ps.agent} not running"}
-
-        # If terminal hasn't booted, boot it
-        if term.status == TerminalStatus.BOOTING:
-            term.boot()
-
-        params = dict(ps.params)
-        if self.user_id:
-            params["user_id"] = self.user_id
-
-        # Inject context from previous steps so the next agent knows what was done
-        if self._context:
-            summaries = []
-            for sid, ctx in self._context.items():
-                if isinstance(ctx, dict):
-                    act = ctx.get("action", "?")
-                    tgt = ctx.get("target", "")
-                    ok = ctx.get("success", False)
-                    out = ctx.get("output", "")
-                    agent = ctx.get("agent", "?")
-                    summaries.append(
-                        f"[{sid}] Agent {agent}: {act} {tgt} → {'✅' if ok else '❌'}"
-                        f"{'  Output: ' + str(out)[:200] if out else ''}"
-                    )
-            if summaries:
-                history_str = "Previous execution steps:\n" + "\n".join(summaries)
-                params["context_history"] = history_str
-
-        # Capability scoping: derive allowed tools from step action
-        # A "read_file" step should not have write tools available.
-        # The AgentLoop will receive _allowed_actions and restrict tool registration.
-        action_scope = self._derive_action_scope(ps.action)
-        params["_allowed_actions"] = action_scope
-
-        card = TerminalCard(
-            action=ps.action, target=ps.target,
-            params=params, sender="execution_plan",
-        )
-        card_id = term.dispatch(card)
-        result = term.wait_for_result(card_id, timeout=timeout)
-
-        if result:
-            return {"success": result.success, "output": result.output,
-                    "findings": result.findings, "error": result.error,
-                    "phases": result.phase}
-        return {"success": False, "error": "timeout or no result"}
-
-    @staticmethod
+        """Execute a step on an AgentTerminal. Delegates to execution_run.py."""
+        return _execute_agent(self._plan_context, ps, timeout) if hasattr(self, '_plan_context') else _execute_agent(self, ps, timeout)
     def _derive_action_scope(action: str) -> list[str]:
         """Derive allowed tool names from a step action.
 
