@@ -29,7 +29,7 @@ from l1.kernel.params.system import (
     CARD_QUEUE_PENDING_MAX,
 )
 from l3._persistable import PersistableMixin
-from .card.card_unified import CardUnified, CardLifecycle, CardSummary
+from .card_unified import CardUnified, CardLifecycle, CardSummary
 
 _MODEL_SPEC = "card_planner"
 
@@ -107,7 +107,7 @@ class CardRegistry(PersistableMixin):
                     if rec.state == CardLifecycle.QUEUED and rec.timestamps.dispatched_at > 0]
         for cid, rec in held:
             try:
-                from .card.card_gate import evaluate as _gate_evaluate
+                from .card_gate import evaluate as _gate_evaluate
                 gate_r = _gate_evaluate(cid, intent=rec.summary.title, domain=rec.nature)
                 if gate_r.get("auto_approve", False):
                     logger.info("card %s un-held by card gate, re-queued", cid)
@@ -194,7 +194,7 @@ class CardRegistry(PersistableMixin):
                 structured_card = record  # CardUnified is natively supported
 
         try:
-            from .card.card_gate import evaluate as _gate_evaluate
+            from .card_gate import evaluate as _gate_evaluate
             gate_r = _gate_evaluate(cid, intent=intent, domain=domain)
         except Exception:
             gate_r = {"auto_approve": True, "action": "dispatch"}

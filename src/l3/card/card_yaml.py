@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .card.card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
+from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 
 
 def load_card(path: str) -> dict:

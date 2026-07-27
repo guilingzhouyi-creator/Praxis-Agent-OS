@@ -179,7 +179,7 @@ def shutdown_to_memories() -> dict:
 
     # 1. Snapshot all cells + agents
     try:
-        from .cell import _cells, reset_cells
+        from l3.cell import _cells, reset_cells
         snapshot = {}
         for cid, cell in list(_cells.items()):
             s = cell.stats()
@@ -209,7 +209,7 @@ def shutdown_to_memories() -> dict:
 
     # 2. Persist ops console alerts
     try:
-        from .ops_console import get_ops
+        from l3.ops_console import get_ops
         ops = get_ops()
         alerts = ops.recent_alerts(limit=MEMORY_ALERT_EXPORT_LIMIT)
         if alerts:
@@ -266,9 +266,9 @@ def shutdown_to_memories() -> dict:
 
     # 7. Reset cells + terminals
     try:
-        from .agent_terminal import reset_terminals
+        from l3.agent_terminal import reset_terminals
         reset_terminals()
-        from .cell import reset_cells
+        from l3.cell import reset_cells
         reset_cells()
         results["reset"] = "ok"
     except Exception as e:

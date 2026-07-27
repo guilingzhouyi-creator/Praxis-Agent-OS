@@ -276,7 +276,7 @@ class VFS:
 
     def proc_read(self, path: str) -> dict:
         """Read /proc files (kernel virtual filesystem)."""
-        from .services.process import get_table
+        from .process import get_table
         parts = path.strip("/").split("/")
         if len(parts) == 1 and parts[0] == "proc":
             table = get_table()

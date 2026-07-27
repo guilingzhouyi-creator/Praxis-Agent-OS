@@ -182,7 +182,7 @@ class AgentLoop:
         # ── Cell L2 cache injection ──
         if self._cell_id:
             try:
-                from .cell import get_cell as _get_cell
+                from l3.cell import get_cell as _get_cell
                 cell = _get_cell(self._cell_id)
                 answer = result.get("answer", "")
                 # Use fingerprint of full task text for key uniqueness
@@ -426,7 +426,7 @@ class AgentLoop:
                         # Persist correction to Cell L2 cache
                         if self._cell_id and v.get("reason"):
                             try:
-                                from .cell import get_cell as _get_cell
+                                from l3.cell import get_cell as _get_cell
                                 cell = _get_cell(self._cell_id)
                                 cell.cache.inject(
                                     key=f"correct:{self.agent_id}:{tool_name}:{self.task[:30]}",

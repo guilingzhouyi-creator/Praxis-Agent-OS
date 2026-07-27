@@ -31,7 +31,7 @@ class CardRegistryProtocol:
         Returns:
             {"success": True, "cards": [{"name": "...", "version": "...", ...}]}
         """
-        from .net_client import NetClient
+        from l3.net_client import NetClient
         url = f"{registry_url.rstrip('/')}/api/v1/cards"
         if query:
             import urllib.parse
@@ -53,7 +53,7 @@ class CardRegistryProtocol:
         Returns:
             {"success": True, "card_def": {...}}
         """
-        from .net_client import NetClient
+        from l3.net_client import NetClient
         url = f"{registry_url.rstrip('/')}/api/v1/cards/{name}"
         r = NetClient.download(url, timeout=timeout)
         if r.get("success"):
@@ -70,7 +70,7 @@ class CardRegistryProtocol:
     def publish_card(registry_url: str, card_def: dict,
                      timeout: float = 30.0) -> dict:
         """Publish a card definition to remote registry."""
-        from .net_client import NetClient
+        from l3.net_client import NetClient
         url = f"{registry_url.rstrip('/')}/api/v1/cards/publish"
         return NetClient.post(url, card_def, timeout=timeout)
 

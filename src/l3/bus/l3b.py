@@ -85,7 +85,7 @@ class L3BComposite:
     def read_prev_cache(self, query: str, limit: int = 10) -> list[dict]:
         """Read the preceding Cell's L2 cache summary (can only read preceding, not succeeding)."""
         try:
-            from .cell import get_cell as _get_cell
+            from l3.cell import get_cell as _get_cell
             cell = _get_cell(self.prev_cell)
             hits = cell.cache.search(query, limit=limit)
             return [{
@@ -114,7 +114,7 @@ class L3BComposite:
                          f"only to adjacent {self.next_cell}",
             }
         try:
-            from .cell import get_cell as _get_cell
+            from l3.cell import get_cell as _get_cell
             cell = _get_cell(self.next_cell)
             intent = card_data.get("intent", card_data.get("task_name", ""))
             domain = card_data.get("domain", "")
@@ -248,7 +248,7 @@ class L3B:
         results: list[dict] = []
         for cell_id in list(self._cells.keys()):
             try:
-                from .cell import get_cell as _get_cell
+                from l3.cell import get_cell as _get_cell
                 cell = _get_cell(cell_id)
                 hits = cell.cache.search(query, limit=limit)
                 for entry in hits:
@@ -268,7 +268,7 @@ class L3B:
 
     def cache_lookup(self, key: str, cell_id: str) -> dict:
         try:
-            from .cell import get_cell as _get_cell
+            from l3.cell import get_cell as _get_cell
             cell = _get_cell(cell_id)
             entry = cell.cache.lookup(key)
             if entry:
@@ -282,7 +282,7 @@ class L3B:
         per_cell = {}
         for cell_id in list(self._cells.keys()):
             try:
-                from .cell import get_cell as _get_cell
+                from l3.cell import get_cell as _get_cell
                 cell = _get_cell(cell_id)
                 s = cell.cache.stats()
                 per_cell[cell_id] = s

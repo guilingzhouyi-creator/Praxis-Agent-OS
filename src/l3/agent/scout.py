@@ -268,7 +268,7 @@ class ScoutPool(BaseService):
         # Inject findings into Cell L2 cache if cell_id provided
         if cell_id and result.get("success") and result.get("findings"):
             try:
-                from .cell import get_cell as _get_cell
+                from l3.cell import get_cell as _get_cell
                 cell = _get_cell(cell_id)
                 findings_text = str(result["findings"])[:SCOUT_FINDING_TRUNC]
                 cell.cache.inject(

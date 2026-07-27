@@ -202,7 +202,7 @@ def _gate_g1(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
 def _gate_g2(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
-    from .services.process import get_table
+    from .process import get_table
     pcb = get_table().get_by_name(ctx["agent_id"]) if ctx["agent_id"] else None
     if not pcb:
         steps.append({"gate": "G2", "result": "BLOCK",

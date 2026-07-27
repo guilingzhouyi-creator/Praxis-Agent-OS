@@ -74,7 +74,7 @@ class Allocator:
     def _update_pcb(self, agent_id: str, resource: str, amount: int, is_alloc: bool) -> None:
         """Update PCB ResourceUsage for the calling agent."""
         try:
-            from .services.process import get_table
+            from .process import get_table
             pcb = get_table().get_by_name(agent_id)
             if pcb:
                 if resource == RESOURCE_TOKENS:
@@ -204,7 +204,7 @@ class Allocator:
 
         # Terminate the victim process via PCB exit (which uses FSM "crash" transition)
         try:
-            from .services.process import get_table
+            from .process import get_table
             pcb = get_table().get_by_name(victim)
             if pcb:
                 get_table().exit(pcb.pid, exit_code=-9, reason=f"OOM killed for {resource}")

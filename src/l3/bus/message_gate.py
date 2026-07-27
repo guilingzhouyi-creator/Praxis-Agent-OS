@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .bus.monitor_bus import MonitorEvent
-from ._persistable import PersistableMixin
+from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
 

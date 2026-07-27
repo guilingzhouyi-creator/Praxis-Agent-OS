@@ -20,8 +20,8 @@ from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from .card.card import Card, CardMode, PhaseMode, Step
-from .agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
+from .card.models import Card, CardMode, PhaseMode, Step
+from l3.agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
 from .card.plan_step_types import StepState, PlanStep
 from .card.execution_run import execute as _execute, _run_phase, _execute_step, _execute_agent, _execute_scout
 
@@ -90,16 +90,16 @@ class ExecutionPlan:
         if self._is_unified:
             return self.card.nature
         mode = self.card.mode
-        from .card.card import CardMode
+        from .card.models import CardMode
         return {CardMode.EXECUTE: "execution", CardMode.ISSUE: "issue",
                 CardMode.PARALLEL_ALL: "parallel_all"}.get(mode, "execution")
 
     def _phase_mode(self, phase) -> str:
         """Return normalized phase mode string: 'sequential' | 'parallel'."""
         if self._is_unified:
-            from .card.card_unified import PhaseMode as NewPM
+            from .card_unified import PhaseMode as NewPM
             return "parallel" if phase.mode == NewPM.MULTI else "sequential"
-        from .card.card import PhaseMode as OldPM
+        from .card.models import PhaseMode as OldPM
         return "parallel" if phase.mode == OldPM.PARALLEL else "sequential"
 
     def _card_phases_items(self, phase):
@@ -190,7 +190,7 @@ class ExecutionPlan:
                 return
 
             # 1. Snapshot: save context register snapshots for all agents
-            from .agent_terminal import get_terminals
+            from l3.agent_terminal import get_terminals
             snapshots = {}
             for aid, term in get_terminals().items():
                 try:

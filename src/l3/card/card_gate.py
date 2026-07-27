@@ -130,7 +130,7 @@ class CardGate(PersistableMixin):
     def _stamp(self, card_id: str, status: str, size: str, by: str) -> None:
         """Stamp approval trail on card record."""
         try:
-            from .card.card_registry import get_registry
+            from .card_registry import get_registry
             reg = get_registry()
             card = reg._cards.get(card_id)
             if card:

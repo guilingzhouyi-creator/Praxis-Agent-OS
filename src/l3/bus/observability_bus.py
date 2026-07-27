@@ -57,7 +57,7 @@ class ObservabilityBus:
     def _alert(self, source: str, message: str, level: str = "info",
                data: dict | None = None) -> dict:
         try:
-            from .ops_console import get_ops
+            from l3.ops_console import get_ops
             ops = get_ops()
             ops.add_alert(source, message, level, data)
             return {"success": True}
@@ -102,7 +102,7 @@ class ObservabilityBus:
         result = {}
 
         try:
-            from .ops_console import get_ops
+            from l3.ops_console import get_ops
             result["ops"] = get_ops().summary()
         except Exception:
             result["ops"] = {}

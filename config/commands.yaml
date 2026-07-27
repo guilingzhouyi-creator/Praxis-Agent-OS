@@ -343,6 +343,19 @@ agent_refresh:
   examples:
     - "/agent_refresh agent-writer — reset agent context"
 
+model:
+  category: control
+  help: "Manage LLM model providers and model specs"
+  args:
+    - {name: sub, description: "list|status|switch|health|set"}
+    - {name: role, optional: true, description: "peer_agent|subagent|scout|r4_agent|convention|card_planner|l3a"}
+    - {name: value, optional: true, description: "Provider name or key=value"}
+  examples:
+    - "/model list               — list registered providers"
+    - "/model status              — show all model specs"
+    - "/model switch scout ollama qwen2.5-coder:1.5b — switch scout model"
+    - "/model health openai       — test provider connectivity"
+
 tokens:
   category: audit
   help: "Query token usage (global/cell/agent)"

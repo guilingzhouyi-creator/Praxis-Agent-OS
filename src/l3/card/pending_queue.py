@@ -131,7 +131,7 @@ class PendingQueue(PersistableMixin):
 
     def _stamp_card(self, card_id: str, status: str, by: str) -> None:
         try:
-            from .card.card_registry import get_registry
+            from .card_registry import get_registry
             card = get_registry()._cards.get(card_id)
             if card:
                 card.approval_status = status

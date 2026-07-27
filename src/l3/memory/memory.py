@@ -69,10 +69,10 @@ def _estimate_tokens(text: str, provider: str = "") -> int:
     return max(1, len(text) // 4)
 
 
-from .memory.memory_ring import MemEntry, RingLayer, _estimate_tokens
-from .memory.memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
-from .memory.memory_context import build_context as _build_context
-from .memory.memory_search import search_long_term as _search_long_term
+from .memory_ring import MemEntry, RingLayer, _estimate_tokens
+from .memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
+from .memory_context import build_context as _build_context
+from .memory_search import search_long_term as _search_long_term
 
 
 class MemoryManager:
@@ -171,7 +171,7 @@ class MemoryManager:
         # Auto-promote important results to Cell L2 cache
         if promote_to_cell and results:
             try:
-                from .cell import get_cell as _get_cell
+                from l3.cell import get_cell as _get_cell
                 cell = _get_cell(promote_to_cell)
                 for e in results:
                     if e.importance >= 0.6 and e.content:

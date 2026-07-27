@@ -13,7 +13,7 @@ from typing import Any
 from l1.kernel import EVENT_REVIEW_REQUESTED, emit_signal
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED as _EVT_REV
 from l3.card.plan_step_types import StepState
-from l3.card.card import PhaseMode
+from l3.card.models import PhaseMode
 
 logger = logging.getLogger(__name__)
 

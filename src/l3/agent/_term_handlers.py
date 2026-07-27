@@ -106,7 +106,7 @@ def handle_shell(term, card, phases):
 
     if session_id:
         try:
-            from .shell import get_manager as _sh
+            from l3.shell import get_manager as _sh
             sm = _sh()
             existing = sm.get(session_id)
             if existing and existing.is_alive():

@@ -44,7 +44,7 @@ class CardPool:
 
     def install_from_url(self, url: str) -> dict:
         """Download and register a card definition from URL."""
-        from .net_client import NetClient
+        from l3.net_client import NetClient
         r = NetClient.download(url)
         if not r.get("success"):
             return r
@@ -77,7 +77,7 @@ class CardPool:
         phases = defn.get("phases", [])
         metadata_schema = defn.get("metadata_schema", {})
 
-        from .card.card_unified import register_card_type
+        from .card_unified import register_card_type
         register_card_type(name, {
             "display": display,
             "has_review": defn.get("has_review", False),
@@ -93,7 +93,7 @@ class CardPool:
 
     def export_to_file(self, name: str, path: str = "") -> dict:
         """Export a registered card type definition to YAML file."""
-        from .card.card_unified import get_card_type
+        from .card_unified import get_card_type
         defn = get_card_type(name)
         if not defn:
             return {"success": False, "error": f"unknown card type: {name}"}
@@ -120,7 +120,7 @@ class CardPool:
 
     def search_remote(self, query: str, registry_url: str = "") -> dict:
         """Search card types across all configured remote registries."""
-        from .card.card_registry_protocol import CardRegistryProtocol
+        from .card_registry_protocol import CardRegistryProtocol
         urls = [registry_url] if registry_url else [r["url"] for r in self._registries]
         all_results = []
         for url in urls:
@@ -150,7 +150,7 @@ class CardPool:
 
     def list_pool(self, category: str = "") -> dict:
         """List all registered card types."""
-        from .card.card_unified import list_card_types
+        from .card_unified import list_card_types
         types = list_card_types()
         if category:
             types = [t for t in types if t.get("name", "").startswith(category)]
@@ -158,7 +158,7 @@ class CardPool:
 
     def remove(self, name: str) -> dict:
         """Remove a card type from the registry."""
-        from .card.card_unified import _card_type_registry, _registry_lock
+        from .card_unified import _card_type_registry, _registry_lock
         if name not in _card_type_registry:
             return {"success": False, "error": f"unknown card type: {name}"}
         with _registry_lock:
