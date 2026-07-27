@@ -200,7 +200,7 @@ class OS:
 
     def _watchdog_tick(self) -> None:
         """Single watchdog check — process liveness, interrupt health."""
-        from .process import get_table, ProcessState
+        from .services.process import get_table, ProcessState
         from .interrupt import get_table as int_table
 
         pt = get_table()

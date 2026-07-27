@@ -32,26 +32,26 @@ from l1.kernel.params.agent import (
     CELL_L3_SENDER,
 )
 from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
-from ..cell_agent import add_agent, _boot_agent
-from ..scout import get_pool as get_scout_pool
-from l3.cell_buffer import CircularBuffer
-from ..cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
-from ..execution_plan import ExecutionPlan
-from ..think_registry import get_think_registry
-from ..cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
-from ..bus_components import (
+from ..cell.components.cell_agent import add_agent, _boot_agent
+from ..agent.scout import get_pool as get_scout_pool
+from l3.cell.components.cell_buffer import CircularBuffer
+from ..cell.components.cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
+from ..card.execution_plan import ExecutionPlan
+from ..scheduler.think_registry import get_think_registry
+from ..cell.components.cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
+from ..services.bus_components import (
     CellPmuComponent, CellWatchdogComponent, CellICacheComponent,
     CellMmuComponent, CellInterruptComponent, CellCacheComponent,
 )
-from ..cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
-from ..cell_rollback import rollback_card as _rollback_card
-from ..cell_cross_review import auto_cross_review as _auto_cross_review
-from ..subagent_spec import BUILTIN_SUBAGENTS
-from ..subagent_framework import get_dispatcher as get_subagent_dispatcher
-from ..cell_orchestrate import SubAgentOrchestrator
+from ..cell.components.cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
+from ..cell.components.cell_rollback import rollback_card as _rollback_card
+from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
+from ..agent.subagent_spec import BUILTIN_SUBAGENTS
+from ..agent.subagent_framework import get_dispatcher as get_subagent_dispatcher
+from ..services.cell_orchestrate import SubAgentOrchestrator
 
 logger = logging.getLogger(__name__)
-from ..issue import IssueCard as _IssueCard
+from ..card.issue import IssueCard as _IssueCard
 
 
 
@@ -165,7 +165,7 @@ class Cell:
             info.model_config = dict(defaults.model_config)
         else:
             # Resolve from ThinkQuotaRegistry for this agent
-            from ..think_registry import get_think_registry
+            from ..scheduler.think_registry import get_think_registry
             reg = get_think_registry()
             active = max(1, len([a for a in self._agents.values()
                                  if a.status.name in ("IDLE", "RUNNING")]))
@@ -226,9 +226,9 @@ class Cell:
         except Exception:
             pass
         try:
-            from ..context_pool import unregister as _unregister_cp
+            from ..memory.context_pool import unregister as _unregister_cp
             _unregister_cp(agent_id)
-            from l3.memory import get_memory
+            from l3.memory.memory import get_memory
             get_memory().forget_agent(agent_id)
         except Exception:
             pass
@@ -277,7 +277,7 @@ class Cell:
             with self._lock:
                 for aid, d in state.get("agents", {}).items():
                     if aid not in self._agents:
-                        from ..cell_types import AgentStatus
+                        from ..cell.components.cell_types import AgentStatus
                         from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS
                         cfg = DEFAULT_AGENT_CONFIGS.get(d.get("role", ""))
                         info = AgentInfo(
@@ -321,7 +321,7 @@ class Cell:
             self._bus.emit(Signal(type=SignalType.TASK_ASSIGN, sender=sender,
                                   target=target, data={"cell": self.cell_id, "msg_type": msg_type.name}))
         self._pmu.increment("bus.messages_sent")
-        from ..comm_monitor import get_monitor
+        from ..bus.comm_monitor import get_monitor
         get_monitor().record_message(channel="cell_mailbox", msg_type="send",
                                       direction="out", agent_id=sender, target=target)
         # Convention messages also dispatch a TerminalCard to the agent's execution loop
@@ -566,7 +566,7 @@ class Cell:
         except Exception as e:
             logger.warning("reset_agent_context pause failed: %s", e)
         try:
-            from ..memory import get_memory
+            from ..memory.memory import get_memory
             mem = get_memory()
             mem.compact(agent_id)
             mem.forget_agent(agent_id)
@@ -602,7 +602,7 @@ class Cell:
 
         # ══ Blocking cross-review gate for write operations ══
         try:
-            from ..tool_config import ToolConfig as _TC
+            from ..tool_system.tool_config import ToolConfig as _TC
             _is_write = action in _TC.write_tool_names()
         except Exception:
             _is_write = False
@@ -616,16 +616,16 @@ class Cell:
         return {"success": True, "card_id": card_id}
 
     def convene(self, issue_card: Any, agent_map: dict[str, str] | None = None) -> dict:
-        from ..cell_convention import convene as _convene
+        from ..cell.components.cell_convention import convene as _convene
         return _convene(self, issue_card)
 
     def close_convention(self, issue_card_id: str) -> dict:
-        from ..cell_convention import close_convention as _close
+        from ..cell.components.cell_convention import close_convention as _close
         return _close(self, issue_card_id)
 
     def handle_convention_message(self, agent_id: str, msg_type: MessageType,
                                   payload: dict) -> dict:
-        from ..cell_convention import handle_convention_message as _handle
+        from ..cell.components.cell_convention import handle_convention_message as _handle
         return _handle(self, agent_id, msg_type, payload)
 
 
@@ -642,19 +642,19 @@ class Cell:
 
     def _snapshot_and_inject(self, card_id: str, card: Card) -> None:
         """Snapshot files and inject rollback context. Delegates to cell_execute.py."""
-        from ..cell_execute import _snapshot_and_inject as _ssi
+        from ..cell.components.cell_execute import _snapshot_and_inject as _ssi
         _ssi(self, card_id, card)
 
     @staticmethod
     def _take_snapshot(card: Any) -> dict:
         """Snapshot files referenced in card steps. Delegates to cell_execute.py."""
-        from ..cell_execute import _take_snapshot as _ts
+        from ..cell.components.cell_execute import _take_snapshot as _ts
         return _ts(card)
 
     @staticmethod
     def _cleanup_snapshot(snapshot: dict) -> None:
         """Clean up temporary snapshot files. Delegates to cell_execute.py."""
-        from ..cell_execute import _cleanup_snapshot as _cs
+        from ..cell.components.cell_execute import _cleanup_snapshot as _cs
         _cs(snapshot)
 
     @staticmethod
@@ -720,13 +720,13 @@ class Cell:
 
     def _inject_tools(self, term: Any) -> None:
         try:
-            from ..tool_spec import TOOL_REGISTRY
+            from ..tool_system.tool_spec import TOOL_REGISTRY
             term.set_tool_registry(TOOL_REGISTRY)
         except Exception as e:
             logger.warning("tool inject failed: %s", e)
         # Wire PMU to the global pipeline for tool execution counters
         try:
-            from ..tool_pipeline import get_pipeline
+            from ..tool_system.tool_pipeline import get_pipeline
             get_pipeline().set_pmu(self._pmu)
         except Exception as e:
             logger.warning("pipeline pmu wire failed: %s", e)
@@ -933,7 +933,7 @@ class Cell:
                       {"type": "scout", "prompt": "Verify {result}"}
         """
         if post_actions:
-            from ..subagent_spec import SubAgentSpec
+            from ..agent.subagent_spec import SubAgentSpec
             # Create an anonymous spec with the post_actions
             spec = SubAgentSpec(
                 name=spec_name,
@@ -1007,7 +1007,7 @@ class Cell:
 
     def set_think_quota(self, distribution: str | None = None,
                         **config: Any) -> None:
-        from ..think_registry import get_think_registry
+        from ..scheduler.think_registry import get_think_registry
         reg = get_think_registry()
         if distribution:
             self.distribution_mode = distribution

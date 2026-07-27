@@ -28,7 +28,7 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from l3.tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
+from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
 from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ _default_mcp_tools: dict[str, ToolSpec] = {}  # registered export tools
 def _mcp_handler(tool_name: str) -> Callable:
     """Wrap execute_tool_spec as an MCP call handler."""
     def handler(args: dict, agent_id: str = "") -> dict:
-        from .tool_spec import execute_tool_spec
+        from .tool_system.tool_spec import execute_tool_spec
         return execute_tool_spec(tool_name, args, agent_id)
     return handler
 
@@ -257,7 +257,7 @@ class MCPBridge:
 
     def _json_schema_to_params(self, schema: dict) -> list[Any]:
         """Convert JSON Schema to list of ParamSpec."""
-        from .tool_spec import ParamSpec as _PS
+        from .tool_system.tool_spec import ParamSpec as _PS
         props = schema.get("properties", {})
         required = set(schema.get("required", []))
         type_map = {"string": "string", "integer": "int", "number": "float",
@@ -324,7 +324,7 @@ class MCPBridge:
 
     def remove_server(self, server_name: str) -> dict:
         """Unregister all tools from an MCP server and remove."""
-        from .tool_spec import TOOL_REGISTRY, unregister_plugin
+        from .tool_system.tool_spec import TOOL_REGISTRY, unregister_plugin
         with self._lock:
             self._imported_servers.pop(server_name, None)
             self._server_status.pop(server_name, None)
@@ -350,7 +350,7 @@ class MCPBridge:
     def import_discover(self, registry_url: str = "") -> dict:
         """Scan a config section or registry for MCP servers and import all."""
         try:
-            from .tool_spec import TOOL_REGISTRY
+            from .tool_system.tool_spec import TOOL_REGISTRY
             imported = []
             config = _load_mcp_state()
             for name, info in config.items():
@@ -495,7 +495,7 @@ class MCPBridge:
     def export_tools(self, categories: list[str] | None = None,
                      include_muted: bool = False) -> dict:
         """Register selected Praxis tools as MCP-exportable."""
-        from .tool_spec import list_tools
+        from .tool_system.tool_spec import list_tools
         tools = list_tools(include_muted=include_muted)
         if categories:
             tools = [t for t in tools if t.category in categories]

@@ -352,7 +352,7 @@ class ErrorBus(BaseService):
 
         # ── Push to LogService ──
         try:
-            from l3.log import get_service as get_log_service
+            from l3.bus.log import get_service as get_log_service
             log_svc = get_log_service()
             log_svc._log(
                 level=level,

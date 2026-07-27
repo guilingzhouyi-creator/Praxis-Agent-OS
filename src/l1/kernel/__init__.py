@@ -21,7 +21,7 @@ from .resource import get_limiter, ResourceProfile
 from .allocator import get_allocator
 from .constitution import get_constitution
 from .gatechain import get_gatechain
-from .process import get_table, ProcessState
+from .services.process import get_table, ProcessState
 from .interrupt import get_table as get_interrupt_table, fire, InterruptType, Interrupt
 from .device import get_device_manager, DeviceType, DeviceHealth
 from .vfs import get_vfs

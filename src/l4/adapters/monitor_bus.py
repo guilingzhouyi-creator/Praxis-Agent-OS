@@ -1,6 +1,6 @@
 """MonitorBusPort adapter — wraps services.monitor_bus behind the port interface.
 
-Eliminates the ``from l3.monitor_bus import MonitorEvent, get_bus``
+Eliminates the ``from l3.bus.monitor_bus import MonitorEvent, get_bus``
 pattern in kernel layer.
 """
 
@@ -24,7 +24,7 @@ class MonitorBusAdapter(MonitorBusPort):
     def emit(self, type_: str, source: str, severity: str,
              message: str, data: dict | None = None) -> None:
         try:
-            from l3.monitor_bus import MonitorEvent, get_bus
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
             bus = get_bus()
             bus.emit(MonitorEvent(
                 type=type_, source=source,
@@ -38,7 +38,7 @@ class MonitorBusAdapter(MonitorBusPort):
               source: str = "", since: float = 0.0,
               limit: int = 100) -> list[dict]:
         try:
-            from l3.monitor_bus import get_bus
+            from l3.bus.monitor_bus import get_bus
             return get_bus().query(
                 type_prefix=type_prefix, severity=severity,
                 source=source, since=since, limit=limit,

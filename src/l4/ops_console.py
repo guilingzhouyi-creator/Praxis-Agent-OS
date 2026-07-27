@@ -176,7 +176,7 @@ class OpsConsole:
 
         # Check scout pool
         try:
-            from .scout import get_pool
+            from .agent.scout import get_pool
             pool = get_pool()
             ps = pool.stats()
             if ps.get("active", 0) >= ps.get("max_total", 16) * 0.9:

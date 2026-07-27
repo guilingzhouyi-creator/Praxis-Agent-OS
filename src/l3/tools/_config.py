@@ -1,7 +1,7 @@
 """Config tool handlers."""
 
 try:
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     HAS_SETTINGS = True
 except ImportError:
     HAS_SETTINGS = False

@@ -36,11 +36,11 @@ DEFAULTS: dict[str, Any] = {
 
 def get_settings():
     """Get the global Settings instance (delegates to services.settings_adapter)."""
-    from l3.settings_adapter import get_settings as _get
+    from l3.config.settings_adapter import get_settings as _get
     return _get()
 
 
 def reset_settings():
     """Reset the global Settings instance."""
-    from l3.settings_adapter import reset_settings as _reset
+    from l3.config.settings_adapter import reset_settings as _reset
     _reset()

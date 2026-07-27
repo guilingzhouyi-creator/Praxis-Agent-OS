@@ -94,7 +94,7 @@ def handle_providers_health(name: str = "") -> dict:
     """GET /api/v2/providers/{name}/health — test provider connectivity."""
     if not name:
         return {"success": False, "error": "name required"}
-    from l3.model_service import get_service
+    from l3.services.model_service import get_service
     return get_service().health_check(name)
 
 
@@ -115,7 +115,7 @@ def handle_providers_config(name: str = "", body: dict | None = None) -> dict:
 
 def handle_model_spec_list(body: dict | None = None) -> dict:
     """GET /api/v2/model-spec — list all model specs."""
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     specs = {k: v for k, v in all_.items() if k.startswith("model_spec.")}
@@ -131,7 +131,7 @@ def handle_model_spec_update(name: str = "", body: dict | None = None) -> dict:
     if not name:
         return {"success": False, "error": "name required"}
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     prefix = f"model_spec.{name}"
     for key, value in b.items():
@@ -144,7 +144,7 @@ def handle_model_spec_update(name: str = "", body: dict | None = None) -> dict:
 
 def handle_subagent_defaults(body: dict | None = None) -> dict:
     """GET /api/v2/subagent/defaults — get subagent platform defaults."""
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     result = {}
@@ -157,7 +157,7 @@ def handle_subagent_defaults(body: dict | None = None) -> dict:
 def handle_subagent_defaults_update(body: dict | None = None) -> dict:
     """PUT /api/v2/subagent/defaults — update subagent platform defaults."""
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     for key, value in b.items():
         sc.set(f"model_spec.subagent.defaults.{key}", value)
@@ -168,7 +168,7 @@ def handle_subagent_spec_config(name: str = "") -> dict:
     """GET /api/v2/subagent/specs/{name} — get per-subagent model config."""
     if not name:
         return {"success": False, "error": "name required"}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     result = {}
@@ -183,7 +183,7 @@ def handle_subagent_spec_config_update(name: str = "", body: dict | None = None)
     if not name:
         return {"success": False, "error": "name required"}
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     for key, value in b.items():
         sc.set(f"model_spec.subagent.specs.{name}.{key}", value)
@@ -195,7 +195,7 @@ def handle_subagent_spec_config_update(name: str = "", body: dict | None = None)
 
 def handle_scout_config(body: dict | None = None) -> dict:
     """GET /api/v2/scout/config — get scout model config."""
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     result = {}
@@ -208,7 +208,7 @@ def handle_scout_config(body: dict | None = None) -> dict:
 def handle_scout_config_update(body: dict | None = None) -> dict:
     """PUT /api/v2/scout/config — update scout model config."""
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     for key, value in b.items():
         sc.set(f"model_spec.scout.{key}", value)
@@ -220,7 +220,7 @@ def handle_scout_config_update(body: dict | None = None) -> dict:
 
 def handle_r4_config(body: dict | None = None) -> dict:
     """GET /api/v2/r4/config — get R4Agent model config."""
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     result = {}
@@ -233,7 +233,7 @@ def handle_r4_config(body: dict | None = None) -> dict:
 def handle_r4_config_update(body: dict | None = None) -> dict:
     """PUT /api/v2/r4/config — update R4Agent model config."""
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     for key, value in b.items():
         sc.set(f"model_spec.r4_agent.{key}", value)
@@ -245,7 +245,7 @@ def handle_r4_config_update(body: dict | None = None) -> dict:
 
 def handle_convention_config(body: dict | None = None) -> dict:
     """GET /api/v2/convention/config — get convention model config."""
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     all_ = sc.all() if hasattr(sc, "all") else {}
     result = {}
@@ -258,7 +258,7 @@ def handle_convention_config(body: dict | None = None) -> dict:
 def handle_convention_config_update(body: dict | None = None) -> dict:
     """PUT /api/v2/convention/config — update convention model config."""
     b = body or {}
-    from l3.settings_center import get_center
+    from l3.config.settings_center import get_center
     sc = get_center()
     for key, value in b.items():
         sc.set(f"model_spec.convention.{key}", value)

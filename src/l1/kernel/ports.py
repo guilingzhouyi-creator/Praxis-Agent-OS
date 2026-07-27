@@ -262,7 +262,7 @@ class I18nPort(ABC):
 class CardRegistryPort(ABC):
     """Card type registry — query and install card definitions.
 
-    Replaces lazy ``from l3.card_unified import list_card_types``
+    Replaces lazy ``from l3.card.card_unified import list_card_types``
     and ``from l3.card_pool import get_pool`` in kernel layer.
     """
     @abstractmethod
@@ -282,7 +282,7 @@ class CardRegistryPort(ABC):
 class MonitorBusPort(ABC):
     """Monitoring event bus — structured event emission and query.
 
-    Replaces lazy ``from l3.monitor_bus import MonitorEvent, get_bus``
+    Replaces lazy ``from l3.bus.monitor_bus import MonitorEvent, get_bus``
     in kernel layer.
 
     This is a lighter-weight sibling of EventBusPort focused on

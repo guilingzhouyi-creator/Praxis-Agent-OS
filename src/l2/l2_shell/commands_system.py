@@ -36,7 +36,7 @@ def _cmd_vfs(args: list[str]) -> dict:
 
 def _cmd_cache(args: list[str]) -> dict:
     try:
-        from l3.cache import get_llm_cache_stats, reset_caches
+        from l3.memory.cache import get_llm_cache_stats, reset_caches
         sub = args[0].lower() if args else "stats"
         if sub == "clear":
             reset_caches()
@@ -114,7 +114,7 @@ def _cmd_devices(args: list[str]) -> dict:
 
 def _cmd_tools(args: list[str]) -> dict:
     try:
-        from l3.tool_spec import list_tools
+        from l3.tool_system.tool_spec import list_tools
         from l2.i18n import get_locale
         category = args[0] if args else None
         locale = get_locale()
@@ -129,7 +129,7 @@ def _cmd_config(args: list[str]) -> dict:
     sub = args[0].lower() if args else "show"
     if sub == "reload":
         try:
-            from l3.config_loader import load as load_config
+            from l3.config.config_loader import load as load_config
             cfg = load_config()
             from l1.kernel.commands import load_command_overrides
             load_command_overrides(cfg.get("commands", {}))
@@ -139,14 +139,14 @@ def _cmd_config(args: list[str]) -> dict:
         except Exception as e:
             return {"success": False, "error": str(e)}
     try:
-        from l3.config_loader import load as load_config
+        from l3.config.config_loader import load as load_config
         cfg = load_config()
         return {"success": True, "config": {k: v for k, v in cfg.items() if k in ("kernel", "cell", "llm", "language")}}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 def _cmd_tokens(args: list[str]) -> dict:
-    from l3.context_pool import all_cell_totals, cell_total, token_usage
+    from l3.memory.context_pool import all_cell_totals, cell_total, token_usage
     scope, scope_id, rest = _resolve_scope(args)
     sub = rest[0] if rest else "global"
     try:

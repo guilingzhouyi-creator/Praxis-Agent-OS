@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def cluster_status(body: dict | None = None) -> dict:
     """GET /api/cluster/status — current cluster state + composites overview."""
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     state_name = "SINGLE"
     if len(coord._cells) >= 2 and getattr(coord, '_cross_cell_active', False):
@@ -49,7 +49,7 @@ def cluster_status(body: dict | None = None) -> dict:
 
 def cluster_composites(body: dict | None = None) -> dict:
     """GET /api/cluster/composites — detailed L3B composite list."""
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     items = []
     for comp in coord.b.composites:
@@ -71,7 +71,7 @@ def cluster_expand(body: dict) -> dict:
     territory = (body or {}).get("territory", ["."])
     agents = (body or {}).get("agents")
 
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     coord.register_cell(cell_id, territory, agents)
 
@@ -93,14 +93,14 @@ def cluster_shrink(body: dict) -> dict:
     if not cell_id:
         return {"success": False, "error": "cell_id required"}
 
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     from l3.cell import reset_cells
 
     # Remove from cell list
     coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
     # Rebuild composites
-    from l3.l3b import L3B
+    from l3.bus.l3b import L3B
     new_l3b = L3B()
     for c in coord._cells:
         new_l3b.register(c.get("id", ""), c.get("territory"))

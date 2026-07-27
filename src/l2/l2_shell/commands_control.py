@@ -5,26 +5,26 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 def _cmd_intents(args: list[str]) -> dict:
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     status = args[0] if args else ""
     return {"success": True, "intents": coord.list_intents(status=status)}
 
 def _cmd_scheduler(args: list[str]) -> dict:
-    from l3.scheduler import get_scheduler as _gs
+    from l3.scheduler.scheduler import get_scheduler as _gs
     sched = _gs()
     if hasattr(sched, 'stats'):
         return {"success": True, "stats": sched.stats()}
     return {"success": True, "status": "scheduler active"}
 
 def _cmd_observe(args: list[str]) -> dict:
-    from l3.observability_bus import get_obs_bus as _go
+    from l3.bus.observability_bus import get_obs_bus as _go
     bus = _go()
     kind = args[0] if args else "health"
     return bus.observe(kind, "shell", {})
 
 def _cmd_skills(args: list[str]) -> dict:
-    from l3.r4_agent import get_r4_agent
+    from l3.memory.r4_agent import get_r4_agent
     r4 = get_r4_agent()
     sub = args[0] if args else "list"
     if sub == "lean":
@@ -39,7 +39,7 @@ def _cmd_skills(args: list[str]) -> dict:
     return {"success": True, "skills": stats}
 
 def _cmd_cells(args: list[str]) -> dict:
-    from l3.cell_monitor import get_cell_monitor
+    from l3.cell.components.cell_monitor import get_cell_monitor
     cm = get_cell_monitor()
     sub = args[0] if args else "list"
     if sub == "list":
@@ -47,12 +47,12 @@ def _cmd_cells(args: list[str]) -> dict:
     return cm.get_events(cell_id=sub, limit=20)
 
 def _cmd_cross(args: list[str]) -> dict:
-    from l3.l3 import get_coordinator
+    from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
     return {"success": True, "cross_cell": getattr(coord, 'status', lambda: {})()}
 
 def _cmd_security(args: list[str]) -> dict:
-    from l3.central_security import get_center as _sec
+    from l3.services.central_security import get_center as _sec
     sec = _sec()
     sub = args[0] if args else "stats"
     if sub == "stats":
@@ -65,8 +65,8 @@ def _cmd_security(args: list[str]) -> dict:
 
 
 def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
-    from l3.memory import get_memory
-    from l3.central_memory import get_center as _mem
+    from l3.memory.memory import get_memory
+    from l3.memory.central_memory import get_center as _mem
     mem = _mem()
     mm = get_memory()
     if op == "stats":
@@ -99,7 +99,7 @@ def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
     return {"agent": agent_id, "error": f"unknown op: {op}"}
 
 def _cmd_plugins(args: list[str]) -> dict:
-    from l3.central_plugin import get_center as _plug
+    from l3.services.central_plugin import get_center as _plug
     plug = _plug()
     sub = args[0] if args else "list"
     if sub == "list":
@@ -127,10 +127,10 @@ def _cmd_memory(args: list[str]) -> dict:
     op = rest[0] if rest else "stats"
     op_args = rest[1:]
     if op == "stats" and scope == "global":
-        from l3.central_memory import get_center as _mem
+        from l3.memory.central_memory import get_center as _mem
         return {"success": True, "stats": _mem().stats(), "scope": "global"}
     if op == "recall" and scope == "global":
-        from l3.central_memory import get_center as _mem
+        from l3.memory.central_memory import get_center as _mem
         query = " ".join(op_args)
         results = _mem().recall(query=query, limit=10)
         return {"success": True, "results": results, "count": len(results), "scope": "global"}
@@ -215,7 +215,7 @@ def _cmd_think(args: list[str]) -> dict:
       /think cell <cell_id> agent <aid> set   — override per Agent
       /think stats                           — quota usage stats
     """
-    from l3.think_registry import get_think_registry
+    from l3.scheduler.think_registry import get_think_registry
     reg = get_think_registry()
     if not args:
         return reg.stats()
@@ -297,14 +297,14 @@ def _cmd_htn(args: list[str]) -> dict:
 
     if sub == "a":
         try:
-            from l3.htn_a import get_htn_a
+            from l3.bus.htn_a import get_htn_a
             h = get_htn_a()
             return {"success": True, "htn": "A", "methods": len(h._methods)}
         except Exception as e:
             return {"success": False, "error": f"HTN-A not available: {e}"}
 
     if sub == "b":
-        from l3.l3 import get_coordinator
+        from l3.cell.peers.l3 import get_coordinator
         coord = get_coordinator()
         info = {}
         for comp in coord.b.composites:
@@ -315,7 +315,7 @@ def _cmd_htn(args: list[str]) -> dict:
 
     if sub == "c":
         try:
-            from l3.htn_planner import get_service
+            from l3.bus.htn_planner import get_service
             h = get_service()
             return {"success": True, "htn": "C", "methods": len(h._methods)}
         except Exception as e:

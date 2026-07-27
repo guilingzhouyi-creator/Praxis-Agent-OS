@@ -33,7 +33,7 @@ from l1.kernel import (
     get_limiter,
 )
 from l1.kernel.constitution import get_constitution
-from l3.memory import get_memory as _get_mem
+from l3.memory.memory import get_memory as _get_mem
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ class AgentRuntime:
             self._active_tools += 1
         exec_result = {}
         try:
-            from l3.tool_pipeline import ToolPipeline
+            from l3.tool_system.tool_pipeline import ToolPipeline
             pipeline = ToolPipeline()
             exec_result = pipeline.execute(
                 tool_name=action.target,

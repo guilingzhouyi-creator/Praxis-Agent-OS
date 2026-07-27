@@ -1,7 +1,7 @@
 """Memory tool handlers."""
 
 try:
-    from l3.memory import get_memory
+    from l3.memory.memory import get_memory
     HAS_MEMORY = True
 except ImportError:
     HAS_MEMORY = False

@@ -33,14 +33,14 @@ from l1.kernel.params.agent import (
     EVENT_REVIEW_REQUESTED,
 )
 from l1.kernel.params.system import POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED
-from ..cache import get_file_cache, get_context_register
-from ..scout import get_pool as get_scout_pool
-from .._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
-from .._term_handlers import get_action_handler
-from .._term_lifecycle import run_cache_keepalive
-from l3.model_service import get_service as _get_model_service
-from ..tool_pipeline import get_pipeline
-from ..context import get_context as get_context_manager
+from ..memory.cache import get_file_cache, get_context_register
+from ..agent.scout import get_pool as get_scout_pool
+from ..agent._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
+from ..agent._term_handlers import get_action_handler
+from ..agent._term_lifecycle import run_cache_keepalive
+from l3.services.model_service import get_service as _get_model_service
+from ..tool_system.tool_pipeline import get_pipeline
+from ..memory.context import get_context as get_context_manager
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,8 @@ _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..")
 
 # ── Cache keepalive ──
 from l1.kernel.params.agent import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT
+
+_MODEL_SPEC = "peer_agent"
 
 
 class AgentTerminal:
@@ -68,7 +70,7 @@ class AgentTerminal:
         # model_config: resolve from ThinkQuotaRegistry (global → cell → agent)
         self.model_config = None
         try:
-            from ..think_registry import get_think_registry
+            from ..scheduler.think_registry import get_think_registry
             reg = get_think_registry()
             self.model_config = reg.resolve(
                 cell_id, agent_id,
@@ -114,7 +116,7 @@ class AgentTerminal:
         from l1.kernel.params.agent import TERMINAL_MAX_CONCURRENT_LOOPS
         self._max_concurrent_loops: int = TERMINAL_MAX_CONCURRENT_LOOPS
         self._active_loops: int = 0
-        from ..todo import TodoTable
+        from ..services.todo import TodoTable
         self.todo = TodoTable(agent_id)
         # Watchdog pet callback (set by Cell)
         self._watchdog_pet: Any = None
@@ -129,7 +131,7 @@ class AgentTerminal:
     def list_tools(self) -> list[dict]:
         if not self._tool_registry:
             return []
-        from l3.tool_spec import is_muted as _is_muted
+        from l3.tool_system.tool_spec import is_muted as _is_muted
         from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
         tools = []
         for name, spec in self._tool_registry.items():
@@ -150,14 +152,14 @@ class AgentTerminal:
             self._boot_result = {"success": False, "error": "constitution blocked boot", "phases": phases}
             return self._boot_result
         try:
-            from l3.memory import get_memory
+            from l3.memory.memory import get_memory
             get_memory().remember(agent_id=self.agent_id, cell_id=self.cell_id, entry_type="boot",
                 content=f"boot: role={self.role} territory={self.territory}", tags=["boot"], ring=1)
             phases.append({"phase": "memory_warm", "success": True})
         except Exception as e:
             phases.append({"phase": "memory_warm", "success": False, "error": str(e)})
         try:
-            from ..context_pool import register as _register_cp
+            from ..memory.context_pool import register as _register_cp
             _register_cp(agent_id=self.agent_id, cell_id=self.cell_id, max_tokens=4096)
             phases.append({"phase": "context_pool_register", "success": True})
         except Exception as e:
@@ -175,7 +177,7 @@ class AgentTerminal:
                     d = getattr(s, 'description', '')[:120]
                     p = getattr(s, 'prompt', '')[:300]
                     parts.append(f"[{n}] {d}\n{p}")
-                from ..context import get_context as _gc
+                from ..memory.context import get_context as _gc
                 _gc().store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
                             agent_id=self.agent_id, entry_type="manual")
                 phases.append({"phase": "manual_loaded", "count": len(all_s)})
@@ -185,7 +187,7 @@ class AgentTerminal:
 
         # ── Persistence session — load snapshot / init hooks ──
         try:
-            from l3.agent_persist import SnapshotHook, load_snapshot
+            from l3.agent.agent_persist import SnapshotHook, load_snapshot
             self._snapshot_hook = SnapshotHook(self.agent_id)
             snapshot = load_snapshot(self.agent_id)
             if snapshot:
@@ -216,7 +218,7 @@ class AgentTerminal:
     # ── Worker / dispatch ──
 
     def _worker(self) -> None:
-        from l3.scheduler import get_time_scheduler as _get_ts
+        from l3.scheduler.scheduler import get_time_scheduler as _get_ts
         while self._running:
             if self._paused:
                 time.sleep(POLL_INTERVAL_PAUSED)
@@ -264,7 +266,7 @@ class AgentTerminal:
                 if self._cards_since_pressure_check >= 10 and card.action != "think":
                     self._cards_since_pressure_check = 0
                     try:
-                        from ..memory import get_memory
+                        from ..memory.memory import get_memory
                         p = get_memory().pressure(self.agent_id)
                         if p.get("level") == "high":
                             get_memory().stub_compact(self.agent_id)
@@ -377,7 +379,7 @@ class AgentTerminal:
                               success=False, error=pr.get("error", "pipeline rejected"),
                               output=result_output, findings=result_findings, phase=phases)
         try:
-            from l3.memory import get_memory
+            from l3.memory.memory import get_memory
             mem = get_memory()
             mem.remember(agent_id=self.agent_id, entry_type="card_result",
                 content=f"{card.action} {card.target}: {result_output[:200]}",
@@ -446,7 +448,7 @@ class AgentTerminal:
         return tid
 
     def list_todos(self, status: str = "", limit: int = 20) -> list[dict]:
-        from ..todo import TodoStatus
+        from ..services.todo import TodoStatus
         st = TodoStatus[status.upper()] if status else None
         return self.todo.list(st, limit)
 
@@ -493,14 +495,14 @@ class AgentTerminal:
     # ── Convention handler (persistent AgentLoop per convention) ──
 
     def _convention_handler(self, card: TerminalCard) -> CardResult:
-        from .._term_convention import convention_handler as _ch
+        from ..agent._term_convention import convention_handler as _ch
         return _ch(self, card)
 
     # ── Direct message handler ──
 
     def _handle_direct(self, card: TerminalCard) -> CardResult:
         """Handle direct message via stdin queue. Runs AgentLoop, writes to Memory R2."""
-        from ..agent_loop import AgentLoop
+        from ..agent.agent_loop import AgentLoop
         text = card.params.get("text", "")
         sender = card.params.get("sender", "shell")
         from l1.kernel.prompts import get_prompt as _get_prompt
@@ -512,10 +514,10 @@ class AgentTerminal:
             cell_id=self.cell_id,
         )
         result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
-                          **_get_model_service().resolve_dict("peer_agent"))
+                          **_get_model_service().resolve_dict(_MODEL_SPEC))
         answer = result.get("answer", "")
         try:
-            from ..memory import get_memory
+            from ..memory.memory import get_memory
             get_memory().remember(
                 agent_id=self.agent_id, entry_type="direct_message",
                 content=f"{sender}: {text[:200]}\nAgent: {answer[:500]}",
@@ -619,7 +621,7 @@ class AgentTerminal:
 
     def send_direct_message(self, text: str, sender: str = "shell") -> dict:
         """Queue a direct message as a TerminalCard via stdin."""
-        from .._term_types import TerminalCard, CardMode as TermCardMode
+        from ..agent._term_types import TerminalCard, CardMode as TermCardMode
         card = TerminalCard(
             mode=TermCardMode.EXECUTE,
             action="direct_message",

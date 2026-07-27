@@ -5,7 +5,7 @@ from typing import Any
 
 def list_cards(body: dict) -> dict:
     try:
-        from l3.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         state = body.get("state") or body.get("_id")
         approval_status = body.get("approval_status", "")
         cards = get_registry().list(state=state)
@@ -22,7 +22,7 @@ def get_card(body: dict) -> dict:
         card_id = body.get("_id") or body.get("card_id", "")
         if not card_id:
             return {"success": False, "error": "card_id required"}
-        from l3.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         card = get_registry().get(card_id)
         if card:
             return {"success": True, "card": card}
@@ -39,7 +39,7 @@ def submit_card(body: dict) -> dict:
         if not intent:
             return {"success": False, "error": "intent required"}
         domain = body.get("domain", ".")
-        from l3.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         cid = get_registry().submit(intent, domain)
         return {"success": True, "card_id": cid}
     except Exception as e:
@@ -51,7 +51,7 @@ def submit_batch(body: dict) -> dict:
         cards = body.get("cards", [])
         if not cards:
             return {"success": False, "error": "batch empty"}
-        from l3.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         results = []
         for c in cards:
             cid = get_registry().submit(c.get("intent", ""), c.get("domain", "."))

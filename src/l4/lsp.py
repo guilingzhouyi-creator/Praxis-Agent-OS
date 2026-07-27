@@ -210,7 +210,7 @@ def reset_lsp() -> None:
 
 def register_lsp_tools() -> None:
     """Register all LSP operations as agent-callable tools."""
-    from .tool_spec import ToolSpec, ParamSpec, register, ToolRing
+    from .tool_system.tool_spec import ToolSpec, ParamSpec, register, ToolRing
 
     lsp = get_lsp()
 

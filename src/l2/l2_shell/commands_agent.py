@@ -64,7 +64,7 @@ def _cmd_emergency(args: list[str]) -> dict:
 def _cmd_cluster(args: list[str]) -> dict:
     try:
         from l3.cell import get_cell
-        from l3.cell_monitor import get_cell_monitor
+        from l3.cell.components.cell_monitor import get_cell_monitor
         cm = get_cell_monitor()
         cells = getattr(cm, 'list_cells', lambda: [])()
         agents = {}
@@ -83,7 +83,7 @@ def _cmd_cell_create(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /cell create <territory>"}
     territory = args[0].strip("/")
     try:
-        from l3.boot import _create_cell as _boot_create_cell
+        from l3.boot.boot import _create_cell as _boot_create_cell
         agent_config = [
             (f"agent-{int(time.time())}-r", "reader", [territory]),
             (f"agent-{int(time.time())}-w", "writer", [territory]),

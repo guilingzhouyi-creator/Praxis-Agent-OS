@@ -65,8 +65,8 @@ def _run_sync(mode: str, task: str, agent_id: str,
     """Run a synchronous SubAgent with restricted tools."""
     try:
         import time as _time
-        from l3.subagent import SubAgent
-        from l3.middleware import MiddlewareChain, ConfineMiddleware, BeforeOutcome
+        from l3.agent.subagent import SubAgent
+        from l3.services.middleware import MiddlewareChain, ConfineMiddleware, BeforeOutcome
 
         # Build middleware chain for confinement
         mw_chain = MiddlewareChain()
@@ -109,7 +109,7 @@ def _run_sync(mode: str, task: str, agent_id: str,
 def _run_scout(task: str, agent_id: str, timeout: float) -> dict:
     """Run an async Scout, wait and collect result."""
     try:
-        from l3.scout import get_pool as get_scout_pool
+        from l3.agent.scout import get_pool as get_scout_pool
 
         pool = get_scout_pool()
         scout = pool.commission(

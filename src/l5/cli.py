@@ -247,7 +247,7 @@ def cmd_setting(args):
 
 
 def cmd_card_list(args):
-    from l3.card_registry import get_registry
+    from l3.card.card_registry import get_registry
     cr = get_registry()
     cards = cr.list(state=None)
     if not cards:
@@ -264,7 +264,7 @@ def cmd_card_submit(args):
     if not args:
         print("Usage: card-submit <intent> [domain]")
         return {"success": False}
-    from l3.card_registry import get_registry
+    from l3.card.card_registry import get_registry
     cr = get_registry()
     intent = " ".join(args)
     cid = cr.submit(intent, ".")
@@ -276,7 +276,7 @@ def cmd_card_cancel(args):
     if not args:
         print("Usage: card-cancel <card_id>")
         return {"success": False}
-    from l3.card_registry import get_registry
+    from l3.card.card_registry import get_registry
     cr = get_registry()
     ok = cr.cancel(args[0])
     print(f"Cancelled: {ok}")

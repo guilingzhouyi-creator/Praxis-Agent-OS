@@ -6,7 +6,7 @@ Depends: services/ipc.py (message bus), constants.py (WitnessStatus)
 from __future__ import annotations
 
 from typing import Any
-from l3.ipc import get_bus, IPCMessage, MessageType
+from l3.bus.ipc import get_bus, IPCMessage, MessageType
 from .constants import WitnessStatus
 
 

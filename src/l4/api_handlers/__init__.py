@@ -59,7 +59,7 @@ class ApiHandlers:
 
     def _submit_batch(self, body: dict) -> dict:
         try:
-            from l3.card_registry import get_registry
+            from l3.card.card_registry import get_registry
             cards = body.get("cards", [])
             ids = [get_registry().submit(c.get("intent", ""), c.get("domain", "")) for c in cards]
             return {"success": True, "card_ids": ids, "count": len(ids)}
@@ -82,14 +82,14 @@ class ApiHandlers:
 
     def _settings(self, body: dict | None = None) -> dict:
         try:
-            from l3.settings_center import get_center
+            from l3.config.settings_center import get_center
             return {"settings": get_center().all()}
         except Exception as e:
             return {"error": str(e)}
 
     def _set_settings(self, body: dict) -> dict:
         try:
-            from l3.settings_center import get_center
+            from l3.config.settings_center import get_center
             return get_center().set_many(body)
         except Exception as e:
             return {"error": str(e)}
@@ -187,19 +187,19 @@ class ApiHandlers:
         return _cluster_shrink(body)
 
     def _cellmon_list(self, body: dict | None = None) -> dict:
-        from l3.cell_monitor import get_cell_monitor
+        from l3.cell.components.cell_monitor import get_cell_monitor
         cm = get_cell_monitor()
         return {"cells": cm.list_cells(), "stats": cm.stats()}
 
     def _cellmon_get(self, body: dict) -> dict:
         cid = (body or {}).get("_id", "")
-        from l3.cell_monitor import get_cell_monitor
+        from l3.cell.components.cell_monitor import get_cell_monitor
         cell = get_cell_monitor().get_cell(cid)
         return {"error": f"cell not found: {cid}"} if not cell else {"cell": cell}
 
     def _cellmon_events(self, body: dict | None = None) -> dict:
         b = body or {}
-        from l3.cell_monitor import get_cell_monitor
+        from l3.cell.components.cell_monitor import get_cell_monitor
         events = get_cell_monitor().get_events(
             cell_id=b.get("cell_id", ""), since=b.get("since", 0.0), limit=b.get("limit", 50))
         return {"events": events, "count": len(events)}
@@ -271,25 +271,25 @@ class ApiHandlers:
             return {"error": str(e)}
 
     def _security_check(self, body: dict) -> dict:
-        from l3.central_security import get_center
+        from l3.services.central_security import get_center
         return get_center().check_all(
             action=body.get("action", ""), agent_id=body.get("agent_id", ""),
             target=body.get("target", ""), args=body.get("args", {}),
             tool_name=body.get("tool_name", ""), user_token=body.get("user_token", ""))
 
     def _security_stats(self, body: dict | None = None) -> dict:
-        from l3.central_security import get_center
+        from l3.services.central_security import get_center
         return get_center().stats()
 
     def _memory_store(self, body: dict) -> dict:
-        from l3.central_memory import get_center
+        from l3.memory.central_memory import get_center
         return get_center().remember(
             agent_id=body.get("agent_id", ""), content=body.get("content", ""),
             entry_type=body.get("entry_type", "observation"), tags=body.get("tags", []),
             ring=body.get("ring", 1), importance=body.get("importance", 0.5))
 
     def _memory_recall(self, body: dict) -> dict:
-        from l3.central_memory import get_center
+        from l3.memory.central_memory import get_center
         results = get_center().recall(
             agent_id=body.get("agent_id", ""), query=body.get("query", ""),
             tags=body.get("tags", None), rings=body.get("rings", None),
@@ -297,36 +297,36 @@ class ApiHandlers:
         return {"success": True, "results": results, "count": len(results)}
 
     def _memory_stats(self, body: dict | None = None) -> dict:
-        from l3.central_memory import get_center
+        from l3.memory.central_memory import get_center
         return {"success": True, "stats": get_center().stats()}
 
     def _plugin_list(self, body: dict | None = None) -> dict:
-        from l3.central_plugin import get_center
+        from l3.services.central_plugin import get_center
         kind = (body or {}).get("kind", "")
         return {"success": True, "plugins": get_center().list_plugins(kind)}
 
     def _plugin_install_tool(self, body: dict) -> dict:
-        from l3.central_plugin import get_center
+        from l3.services.central_plugin import get_center
         return get_center().install_tool_plugin(
             name=body.get("name", ""), tools=body.get("tools", []),
             description=body.get("description", ""))
 
     def _plugin_remove(self, body: dict) -> dict:
-        from l3.central_plugin import get_center
+        from l3.services.central_plugin import get_center
         return get_center().remove_tool_plugin(body.get("name", ""))
 
     def _plugin_install_mcp(self, body: dict) -> dict:
-        from l3.central_plugin import get_center
+        from l3.services.central_plugin import get_center
         return get_center().install_mcp(
             server_name=body.get("server_name", ""), endpoint=body.get("endpoint", ""),
             api_key=body.get("api_key", ""))
 
     def _plugin_stats(self, body: dict | None = None) -> dict:
-        from l3.central_plugin import get_center
+        from l3.services.central_plugin import get_center
         return {"success": True, "stats": get_center().stats()}
 
     def _trust_check(self, body: dict) -> dict:
-        from l3.content_trust import get_trust
+        from l3.services.content_trust import get_trust
         ct = get_trust(body.get("policy", ""))
         prov = ct.tag(
             source_type=body.get("source_type", "unknown"), source_id=body.get("source_id", ""),
@@ -335,7 +335,7 @@ class ApiHandlers:
                 "can_store": ct.can_store(prov)}
 
     def _trust_stats(self, body: dict | None = None) -> dict:
-        from l3.content_trust import get_trust
+        from l3.services.content_trust import get_trust
         return {"stats": get_trust().stats()}
 
     def _session_state(self, body: dict | None = None) -> dict:
@@ -345,11 +345,11 @@ class ApiHandlers:
                 "cell_id": s.cell_id, "is_direct": s.is_direct()}
 
     def _card_types_list(self, body: dict | None = None) -> dict:
-        from l3.card_unified import list_card_types
+        from l3.card.card_unified import list_card_types
         return {"success": True, "types": list_card_types()}
 
     def _card_types_register(self, body: dict) -> dict:
-        from l3.card_unified import register_card_type
+        from l3.card.card_unified import register_card_type
         name = body.get("name", "")
         defn = body.get("definition", {})
         if not name or not defn:
@@ -358,7 +358,7 @@ class ApiHandlers:
         return {"success": True, "name": name}
 
     def _card_unified_submit(self, body: dict) -> dict:
-        from l3.card_unified import CardUnified, CardSummary
+        from l3.card.card_unified import CardUnified, CardSummary
         card = CardUnified(nature=body.get("nature", "execution"), priority=body.get("priority", 5))
         card.summary = CardSummary(
             title=body.get("title", ""), description=body.get("description", ""),
@@ -375,7 +375,7 @@ class ApiHandlers:
         return {"success": True, "card": card.to_dict(include_hidden=False)}
 
     def _card_plan(self, body: dict) -> dict:
-        from l3.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         card_id = body.get("card_id", "")
         if not card_id:
             return {"error": "card_id required"}
@@ -411,14 +411,14 @@ class ApiHandlers:
 
     def _tool_stats(self, body: dict | None = None) -> dict:
         try:
-            from l3.counter import get_counter
+            from l3.services.counter import get_counter
             return get_counter().tool_summary()
         except Exception as e:
             return {"error": str(e)}
 
     def _tool_policy_set(self, body: dict) -> dict:
         try:
-            from l3.tool_policy import ToolPolicy, PolicyRule, PolicyScope, PolicyAction
+            from l3.tool_system.tool_policy import ToolPolicy, PolicyRule, PolicyScope, PolicyAction
             scope_str = body.get("scope", "global")
             scope_parts = scope_str.split(":", 1)
             scope = PolicyScope(scope_parts[0])
@@ -433,14 +433,14 @@ class ApiHandlers:
 
     def _tool_policy_list(self, body: dict | None = None) -> dict:
         try:
-            from l3.tool_policy import ToolPolicy
+            from l3.tool_system.tool_policy import ToolPolicy
             return {"success": True, "policies": ToolPolicy.to_dict()}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     def _tool_policy_remove(self, body: dict) -> dict:
         try:
-            from l3.tool_policy import ToolPolicy, PolicyScope
+            from l3.tool_system.tool_policy import ToolPolicy, PolicyScope
             scope_str = body.get("scope", "global")
             scope_parts = scope_str.split(":", 1)
             scope = PolicyScope(scope_parts[0])
@@ -458,21 +458,21 @@ class ApiHandlers:
 
     def _bootstrap_status(self, body: dict | None = None) -> dict:
         try:
-            from l3.bootstrap import needs_bootstrap, _CONFIG_PATH
+            from l3.config.bootstrap import needs_bootstrap, _CONFIG_PATH
             return {"needed": needs_bootstrap(), "config_path": _CONFIG_PATH}
         except Exception as e:
             return {"error": str(e)}
 
     def _bootstrap_defaults(self, body: dict | None = None) -> dict:
         try:
-            from l3.bootstrap import get_defaults
+            from l3.config.bootstrap import get_defaults
             return get_defaults()
         except Exception as e:
             return {"error": str(e)}
 
     def _bootstrap_apply(self, body: dict) -> dict:
         try:
-            from l3.bootstrap import apply_config
+            from l3.config.bootstrap import apply_config
             return apply_config(body)
         except Exception as e:
             return {"error": str(e)}
@@ -517,23 +517,23 @@ class ApiHandlers:
             return {"error": str(e)}
 
     def _tool_mode_get(self, body: dict | None = None) -> dict:
-        from l3.tool_mode import get_mode
+        from l3.tool_system.tool_mode import get_mode
         return {"mode": get_mode()}
 
     def _tool_mode_set(self, body: dict) -> dict:
-        from l3.tool_mode import set_mode
+        from l3.tool_system.tool_mode import set_mode
         return set_mode(body.get("mode", "toggle"))
 
     def _list_approvals(self, body: dict | None = None) -> dict:
         try:
-            from l3.approval_gate import get_gate
+            from l3.card.approval_gate import get_gate
             return {"pending": get_gate().list_pending()}
         except Exception as e:
             return {"error": str(e)}
 
     def _approval_respond(self, body: dict) -> dict:
         try:
-            from l3.approval_gate import get_gate
+            from l3.card.approval_gate import get_gate
             req_id = body.get("id", "")
             approved = body.get("approved", False)
             response = body.get("response", "")
@@ -555,14 +555,14 @@ class ApiHandlers:
 
     def _card_gate_config(self, body: dict | None = None) -> dict:
         try:
-            from l3.card_gate import stats as _gate_stats
+            from l3.card.card_gate import stats as _gate_stats
             return _gate_stats()
         except Exception as e:
             return {"error": str(e)}
 
     def _card_gate_config_set(self, body: dict) -> dict:
         try:
-            from l3.card_gate import get_gate
+            from l3.card.card_gate import get_gate
             gate = get_gate()
             gate.load_config(body)
             return {"success": True, "applied": list(body.keys())}
@@ -571,7 +571,7 @@ class ApiHandlers:
 
     def _card_gate_history(self, body: dict | None = None) -> dict:
         try:
-            from l3.card_gate import list_history
+            from l3.card.card_gate import list_history
             limit = int((body or {}).get("limit", 50))
             return {"history": list_history(limit), "count": limit}
         except Exception as e:
@@ -579,7 +579,7 @@ class ApiHandlers:
 
     def _pending_list(self, body: dict | None = None) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             status = (body or {}).get("status", "PENDING")
             limit = int((body or {}).get("limit", 50))
             return {"pending": get_queue().list(status=status, limit=limit)}
@@ -588,7 +588,7 @@ class ApiHandlers:
 
     def _pending_approve(self, body: dict) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             mid = body.get("id", "")
             if not mid:
                 return {"error": "id is required"}
@@ -598,7 +598,7 @@ class ApiHandlers:
 
     def _pending_reject(self, body: dict) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             mid = body.get("id", "")
             if not mid:
                 return {"error": "id is required"}
@@ -608,7 +608,7 @@ class ApiHandlers:
 
     def _pending_escalate(self, body: dict) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             mid = body.get("id", "")
             if not mid:
                 return {"error": "id is required"}
@@ -618,7 +618,7 @@ class ApiHandlers:
 
     def _pending_priority(self, body: dict) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             mid = body.get("id", "")
             priority = int(body.get("priority", 5))
             if not mid:
@@ -629,21 +629,21 @@ class ApiHandlers:
 
     def _pending_stats(self, body: dict | None = None) -> dict:
         try:
-            from l3.pending_queue import get_queue
+            from l3.card.pending_queue import get_queue
             return get_queue().stats()
         except Exception as e:
             return {"error": str(e)}
 
     def _card_gate_stats(self, body: dict | None = None) -> dict:
         try:
-            from l3.card_gate import stats as _gate_stats
+            from l3.card.card_gate import stats as _gate_stats
             return _gate_stats()
         except Exception as e:
             return {"error": str(e)}
 
     def _card_approval_trail(self, body: dict) -> dict:
         try:
-            from l3.card_registry import get_registry
+            from l3.card.card_registry import get_registry
             card_id = body.get("_id", "")
             card = get_registry().get(card_id)
             if not card:
@@ -656,7 +656,7 @@ class ApiHandlers:
 
     def _gate_pending(self, body: dict | None = None) -> dict:
         try:
-            from l3.card_gate import list_pending
+            from l3.card.card_gate import list_pending
             pending = list_pending()
             return {"pending": pending, "count": len(pending)}
         except Exception as e:
@@ -664,7 +664,7 @@ class ApiHandlers:
 
     def _gate_respond(self, body: dict) -> dict:
         try:
-            from l3.card_gate import approve
+            from l3.card.card_gate import approve
             card_id = body.get("card_id", "")
             if not card_id:
                 return {"error": "card_id is required"}
@@ -686,7 +686,7 @@ class ApiHandlers:
 
     def _list_tools_v1(self, body: dict | None = None) -> dict:
         try:
-            from l3.tool_spec import list_tools
+            from l3.tool_system.tool_spec import list_tools
             locale = (body or {}).get("locale", "") if body else ""
             tools = list_tools(locale=locale)
             return {"success": True, "data": [{
@@ -708,7 +708,7 @@ class ApiHandlers:
 
     def _loop_config_get(self, body: dict | None = None) -> dict:
         try:
-            from l3.settings_center import get_center
+            from l3.config.settings_center import get_center
             center = get_center()
             keys = [
                 "loop.max_steps", "loop.timeout", "loop.max_iterations", "loop.max_attempts",
@@ -721,7 +721,7 @@ class ApiHandlers:
 
     def _loop_config_set(self, body: dict) -> dict:
         try:
-            from l3.settings_center import get_center
+            from l3.config.settings_center import get_center
             center = get_center()
             config = body or {}
             applied = []

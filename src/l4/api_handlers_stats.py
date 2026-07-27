@@ -30,7 +30,7 @@ def handle_stats_query(body: dict | None = None) -> dict:
     """
     b = body or {}
     try:
-        from l3.stats_center import get_center
+        from l3.services.stats_center import get_center
         center = get_center()
         results = center.query(
             metrics=b.get("metrics"),
@@ -60,7 +60,7 @@ def handle_stats_top(body: dict | None = None) -> dict:
     if not metric:
         return {"success": False, "error": "metric required"}
     try:
-        from l3.stats_center import get_center
+        from l3.services.stats_center import get_center
         center = get_center()
         ranking = center.top(
             metric=metric,
@@ -80,8 +80,8 @@ def handle_stats_live(body: dict | None = None) -> dict:
     (fallback when native SSE is unavailable).
     """
     try:
-        from l3.stats_center import get_center
-        from l3.monitor_bus import get_bus as get_monitor
+        from l3.services.stats_center import get_center
+        from l3.bus.monitor_bus import get_bus as get_monitor
 
         center = get_center()
         monitor = get_monitor()

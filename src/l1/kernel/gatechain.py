@@ -202,7 +202,7 @@ def _gate_g1(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
 def _gate_g2(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
-    from .process import get_table
+    from .services.process import get_table
     pcb = get_table().get_by_name(ctx["agent_id"]) if ctx["agent_id"] else None
     if not pcb:
         steps.append({"gate": "G2", "result": "BLOCK",
@@ -282,7 +282,7 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
                       "reputation": round(rep, 2)})
         return steps, GateResult.BLOCK
     elif repeated and high_freq_same_tool:
-        from l3.stagnation import get_detector
+        from l3.agent.stagnation import get_detector
         _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "SPINNING"})
         steps.append({"gate": "G5", "result": "REPORT",
                       "reason": f"{len(history)} calls, {same_tool_count}x '{ctx['tool']}', rep={rep:.2f}, score={score:.1f}",
@@ -290,7 +290,7 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
                       "break_reason": _ba.get("reason", "")})
         return steps, GateResult.REPORT
     elif repeated:
-        from l3.stagnation import get_detector
+        from l3.agent.stagnation import get_detector
         _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "OSCILLATION"})
         outcome = "REPORT" if rep < 0.7 else "WARN"
         steps.append({"gate": "G5", "result": outcome,

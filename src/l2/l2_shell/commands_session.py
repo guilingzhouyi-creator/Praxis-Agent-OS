@@ -67,7 +67,7 @@ def _cmd_connect(args: list[str]) -> dict:
     state = get_state()
     cell_id = state.cell_id
     try:
-        from l3.central_security import get_center as _get_sec
+        from l3.services.central_security import get_center as _get_sec
         sec = _get_sec().check_all(
             action="direct_session", agent_id=agent_id, target=cell_id,
             tool_name="direct_message",
@@ -119,7 +119,7 @@ def _cmd_mode(args: list[str]) -> dict:
     tool_mode = state.mode
     result = {"mode": tool_mode, "agent_id": state.agent_id or "-", "cell_id": state.cell_id}
     if args:
-        from l3.tool_mode import set_mode, get_mode
+        from l3.tool_system.tool_mode import set_mode, get_mode
         if args[0] == "tool":
             sub = args[1] if len(args) > 1 else "toggle"
             sr = set_mode(sub)
@@ -128,7 +128,7 @@ def _cmd_mode(args: list[str]) -> dict:
         else:
             result["error"] = "usage: /mode [tool [read|write|toggle]]"
     else:
-        from l3.tool_mode import get_mode
+        from l3.tool_system.tool_mode import get_mode
         result["current_tool_mode"] = get_mode()
     return result
 

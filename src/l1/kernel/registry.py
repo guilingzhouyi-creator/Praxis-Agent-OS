@@ -34,7 +34,7 @@ class Registry:
         return get_device_manager().list()
 
     def processes(self) -> list[dict]:
-        from .process import get_table
+        from .services.process import get_table
         return get_table().list()
 
     def interrupts(self) -> dict[str, Any]:

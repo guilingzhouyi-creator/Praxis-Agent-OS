@@ -95,7 +95,7 @@ class CronScheduler:
     def _load_config(self) -> None:
         """Load cron entries from praxis.yaml → schedules: section."""
         try:
-            from l3.config_loader import load as load_config
+            from l3.config.config_loader import load as load_config
             cfg = load_config()
             schedules = cfg.get("schedules", {})
             if isinstance(schedules, dict):
@@ -192,7 +192,7 @@ class CronScheduler:
     def _dispatch(self, entry: dict) -> None:
         """Submit a card for a cron entry."""
         try:
-            from .card_registry import get_registry
+            from .card.card_registry import get_registry
             reg = get_registry()
             cid = reg.submit(
                 intent=entry["intent"],

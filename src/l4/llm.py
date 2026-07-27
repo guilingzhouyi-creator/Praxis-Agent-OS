@@ -54,7 +54,7 @@ from .llm_base import (
 
 # Provider implementations extracted to llm_providers.py
 from .llm_providers import MockProvider, WebSocketProvider
-from l3.tool_spec import ToolSpec
+from l3.tool_system.tool_spec import ToolSpec
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class LLMEngine:
         self._provider = self._build_provider()
 
     def _get_strategy(self):
-        from l3.cache_strategy import get_strategy
+        from l3.config.cache_strategy import get_strategy
         return get_strategy(self.config.provider)
 
     def _build_provider(self) -> LLMProvider:
@@ -347,7 +347,7 @@ class LLMEngine:
             if code in (413, 400) and "too long" in body_text.lower() and retry_count < LLM_MAX_OVERFLOW_RETRIES:
                 logger.warning("llm overflow, compact+retry (attempt %d/%d)", retry_count + 1, LLM_MAX_OVERFLOW_RETRIES)
                 try:
-                    from .memory import get_memory
+                    from .memory.memory import get_memory
                     get_memory().compact("system")
                 except Exception:
                     pass
@@ -506,7 +506,7 @@ def on_llm_call(hook_type: str):
 @on_llm_call("post")
 def _counter_hook(result, prompt="", system="", max_tokens=0, user_id="", **kwargs):
     try:
-        from .counter import get_counter
+        from .services.counter import get_counter
         c = get_counter()
         inp = result.get("input_tokens", 0)
         out = result.get("output_tokens", 0)

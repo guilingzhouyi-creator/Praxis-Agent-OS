@@ -5,7 +5,7 @@ import sqlite3
 import os
 
 try:
-    from l3.archive_orchestrator import get_archiver
+    from l3.memory.archive_orchestrator import get_archiver
     HAS_ARCHIVE = True
 except ImportError:
     HAS_ARCHIVE = False

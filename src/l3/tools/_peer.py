@@ -1,7 +1,7 @@
 """Peer agent communication handlers."""
 
 try:
-    from l3.ipc import get_bus, IPCMessage, MessageType
+    from l3.bus.ipc import get_bus, IPCMessage, MessageType
     HAS_IPC = True
 except ImportError:
     HAS_IPC = False

@@ -99,7 +99,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
 
 def _l3a_intent(text: str) -> dict:
     try:
-        from .l3 import get_coordinator
+        from .cell.peers.l3 import get_coordinator
         coord = get_coordinator()
         return coord.process_intent(text)
     except Exception as e:

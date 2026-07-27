@@ -159,7 +159,7 @@ class SandboxManager:
     def _audit(self, sandbox_id: str, agent_id: str, tool: str,
                success: bool, error: str, elapsed: float) -> None:
         try:
-            from l3.monitor_bus import MonitorEvent, get_bus
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
             get_bus().emit(MonitorEvent(
                 type="sandbox.execution", source="sandbox_manager",
                 severity="info" if success else "warn",

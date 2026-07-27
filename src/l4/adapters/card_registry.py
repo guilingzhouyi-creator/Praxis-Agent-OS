@@ -1,6 +1,6 @@
 """CardRegistryPort adapter — wraps services.card_unified behind the port interface.
 
-Eliminates the ``from l3.card_unified import list_card_types``
+Eliminates the ``from l3.card.card_unified import list_card_types``
 pattern in kernel layer.
 """
 
@@ -23,7 +23,7 @@ class CardRegistryAdapter(CardRegistryPort):
 
     def list_types(self) -> list[dict]:
         try:
-            from l3.card_unified import list_card_types
+            from l3.card.card_unified import list_card_types
             return list_card_types()
         except Exception as e:
             logger.warning("card_registry: list_types failed: %s", e)

@@ -110,7 +110,7 @@ def _show_help() -> None:
 
 def _list_tools() -> None:
     try:
-        from .tool_spec import TOOL_REGISTRY
+        from .tool_system.tool_spec import TOOL_REGISTRY
         tools = sorted(TOOL_REGISTRY.keys())
         for t in tools:
             spec = TOOL_REGISTRY[t]
@@ -146,7 +146,7 @@ def _handle_scout(task: str, agent_id: str, cell_id: str) -> None:
         return
     print(f"  [Scout] Commissioning: {task}")
     try:
-        from .scout import get_pool
+        from .agent.scout import get_pool
         pool = get_pool()
         r = pool.commission(agent_id, task)
         print(f"  [Scout] Status: {r.get('status', '?')}")
@@ -202,7 +202,7 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
 
     print(f"  [Exec] {tool_name} {args}")
     try:
-        from .tool_spec import TOOL_REGISTRY, execute_tool_spec
+        from .tool_system.tool_spec import TOOL_REGISTRY, execute_tool_spec
         spec = TOOL_REGISTRY.get(tool_name)
         if not spec:
             print(f"  [Error] Unknown tool: {tool_name}")

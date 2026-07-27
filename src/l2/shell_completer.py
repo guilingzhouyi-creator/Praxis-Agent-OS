@@ -11,7 +11,7 @@ def get_tool_names() -> list[str]:
     """Get all registered tool names from ToolConfig + built-in commands."""
     tool_names = []
     try:
-        from .tool_config import ToolConfig as _TC
+        from .tool_system.tool_config import ToolConfig as _TC
         tool_names = sorted(_TC.completions().keys())
     except Exception:
         pass
