@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from l3._term_types import TerminalCard, CardResult
+from l3.model_service import get_service as _get_model_service
 from l1.kernel.params.agent import (
     CONVENTION_MAX_ROUNDS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
@@ -67,7 +68,8 @@ def _convention_start(term: Any, conv_id: str, payload: dict) -> CardResult:
         agent_id=term.agent_id,
         system=system,
     )
-    loop.run(max_steps=CONVENTION_SESSION_MAX_STEPS, timeout=CONVENTION_SESSION_TIMEOUT)
+    loop.run(max_steps=CONVENTION_SESSION_MAX_STEPS, timeout=CONVENTION_SESSION_TIMEOUT,
+             **_get_model_service().resolve_dict("convention"))
     term._convention_loops[conv_id] = {"loop": loop, "turn_count": 1}
     logger.info("agent %s joined convention %s: %d issues",
                  term.agent_id, conv_id, len(my_issues))
@@ -95,7 +97,8 @@ def _convention_turn(term: Any, conv_id: str, payload: dict,
         prompt = f"{source} says: {statement}\n\nAcknowledge and respond."
 
     loop_obj.task = prompt
-    loop_obj.run(max_steps=CONVENTION_MAX_ROUNDS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
+    loop_obj.run(max_steps=CONVENTION_MAX_ROUNDS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
+                 **_get_model_service().resolve_dict("convention"))
     session["turn_count"] += 1
     return CardResult(card_id=conv_id, action="convention",
                       success=True, output=f"Turn {session['turn_count']} processed")
@@ -107,7 +110,8 @@ def _convention_propose(term: Any, conv_id: str, payload: dict) -> CardResult:
         question = payload.get("question", "")
         proposer = payload.get("sender", "unknown")
         session["loop"].task = f"Agent {proposer} proposes: {question}\n\nDo you support this? Any concerns?"
-        session["loop"].run(max_steps=CONVENTION_SUB_MAX_STEPS, timeout=CONVENTION_SUB_TIMEOUT)
+        session["loop"].run(max_steps=CONVENTION_SUB_MAX_STEPS, timeout=CONVENTION_SUB_TIMEOUT,
+                            **_get_model_service().resolve_dict("convention"))
     return CardResult(card_id=conv_id, action="convention",
                       success=True, output="Proposal acknowledged")
 
@@ -118,7 +122,8 @@ def _convention_close(term: Any, conv_id: str, payload: dict) -> CardResult:
     if session and session.get("loop"):
         loop_obj = session["loop"]
         loop_obj.task = "The convention has concluded. Summarize your final position in 2-3 sentences."
-        loop_obj.run(max_steps=CONVENTION_SUB_MAX_STEPS, timeout=CONVENTION_SUB_TIMEOUT)
+        loop_obj.run(max_steps=CONVENTION_SUB_MAX_STEPS, timeout=CONVENTION_SUB_TIMEOUT,
+                     **_get_model_service().resolve_dict("convention"))
         answer = getattr(loop_obj, "result", {}).get("answer", "") if hasattr(loop_obj, "result") else ""
         logger.info("agent %s convention %s final: %s", term.agent_id, conv_id, answer[:200])
     term._convention_loops.pop(conv_id, None)

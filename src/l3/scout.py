@@ -31,6 +31,7 @@ from l1.kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT, SCOUT_F
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
 from l1.kernel.params.system import SCOUT_MONITOR_INTERVAL, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES, MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX
 
+from l3.model_service import get_service as _get_model_service
 from l3.tool_spec import ToolRing, execute_tool_spec, get_tool
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,8 @@ class ScoutSession:
         loop.add_tool("list_dir", "List directory contents", {"path": "string"},
                       self._tool_list)
 
-        result = loop.run(max_steps=SCOUT_LOOP_STEPS, timeout=SCOUT_LOOP_TIMEOUT)
+        result = loop.run(max_steps=SCOUT_LOOP_STEPS, timeout=SCOUT_LOOP_TIMEOUT,
+                          **_get_model_service().resolve_dict("scout"))
         findings = []
 
         # Extract answer

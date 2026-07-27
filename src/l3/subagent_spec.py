@@ -14,6 +14,8 @@ class SubAgentSpec:
     timeout: float = 60.0
     read_only: bool = True
     tags: list[str] = field(default_factory=list)
+    model_spec: str = "subagent"            # model_spec 引用名, 在 praxis.yaml 中定义
+    model_config: dict | None = None        # per-spec model override dict
     sandbox_profile: str = ""          # empty=no sandbox, "safe"/"isolated"/"danger"
     post_actions: list[dict] = field(default_factory=list)
     """Post-execution actions chained after SubAgent completes.
@@ -36,6 +38,8 @@ class SubAgentSpec:
             "read_only": self.read_only,
             "tags": self.tags,
             "sandbox_profile": self.sandbox_profile,
+            "model_spec": self.model_spec,
+            "model_config": self.model_config,
             "post_actions": self.post_actions,
         }
 

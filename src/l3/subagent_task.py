@@ -111,10 +111,22 @@ class SubAgentTask:
         except Exception as e:
             return {"type": "scout", "error": str(e)}
 
+    def _resolve_model_kwargs(self) -> dict:
+        """Resolve model kwargs from spec's model_spec name + overrides."""
+        try:
+            from l3.model_service import get_service as _ms
+            spec_name = self.spec.model_spec or "subagent"
+            overrides = self.spec.model_config or {}
+            return _ms().resolve_dict(spec_name, overrides=overrides)
+        except Exception:
+            return {}
+
     def _run_generate(self) -> None:
         """Fast path — single LLM call, no tools."""
         from l4.llm import get_engine
+        from l3.model_service import get_service as _ms
         engine = get_engine()
+        model_kwargs = self._resolve_model_kwargs()
         from l1.kernel.prompts import get_prompt as _gpr
         system = self.spec.system_prompt or _gpr(
             "subagent.fallback", "You are {name}. {description}"
@@ -125,6 +137,7 @@ class SubAgentTask:
             system=system,
             max_tokens=SUBAGENT_MAX_TOKENS,
             user_id=self.parent_agent_id or self.id,
+            **model_kwargs,
         )
 
         with self._lock:
@@ -169,9 +182,11 @@ class SubAgentTask:
             )
             loop.add_tool(tool_name, desc, params, handler, parallel_safe=parallel)
 
+        model_kwargs = self._resolve_model_kwargs()
         result = loop.run(
             max_steps=self.spec.max_steps or AGENT_LOOP_DEFAULT_STEPS,
             timeout=self.spec.timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
+            **model_kwargs,
         )
 
         with self._lock:

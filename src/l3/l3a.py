@@ -17,6 +17,7 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.prompts import get_prompt
+from l3.model_service import get_service as _get_model_service
 from l1.kernel.params.agent import L3A_MAX_STEPS, L3A_TIMEOUT
 from .card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
 
@@ -167,7 +168,8 @@ class L3A:
             parallel_safe=False,
         )
 
-        result = loop.run(max_steps=L3A_MAX_STEPS, timeout=L3A_TIMEOUT)
+        result = loop.run(max_steps=L3A_MAX_STEPS, timeout=L3A_TIMEOUT,
+                          **_get_model_service().resolve_dict("l3a"))
         self._history.append({"role": "assistant", "content": result.get("answer", "")})
         return result
 

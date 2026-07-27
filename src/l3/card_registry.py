@@ -20,6 +20,7 @@ import time
 import uuid
 from typing import Any, Callable
 
+from l3.model_service import get_service as _get_model_service
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import (
@@ -270,7 +271,8 @@ class CardRegistry(PersistableMixin):
             prompt = _gp("card_registry.generate_plan", "").format(intent=intent, domain=domain)
             r = engine.generate(prompt,
                                 system=_gp("card_registry.generate_plan.system", "You are a planning assistant."),
-                                max_tokens=1024)
+                                max_tokens=1024,
+                                **_get_model_service().resolve_dict("card_planner"))
             content = r.get("content", "")
             plan = json.loads(content.strip().removeprefix("```json").removesuffix("```").strip())
             if not isinstance(plan, dict):

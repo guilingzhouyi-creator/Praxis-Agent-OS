@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l3.model_service import get_service as _get_model_service
 from l3.tool_spec import ToolRing
 from l1.kernel.params.agent import SUBAGENT_LOOP_TIMEOUT, SUBAGENT_LOOP_STEPS
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
@@ -114,7 +115,8 @@ class SubAgent:
         loop.add_tool("grep_search", "Search for pattern in files", {"pattern": "string", "path": "string"}, _grep)
         loop.add_tool("list_dir", "List directory contents", {"path": "string"}, _list)
 
-        r = loop.run(max_steps=SUBAGENT_LOOP_STEPS, timeout=SUBAGENT_LOOP_TIMEOUT)
+        r = loop.run(max_steps=SUBAGENT_LOOP_STEPS, timeout=SUBAGENT_LOOP_TIMEOUT,
+                      **_get_model_service().resolve_dict("subagent"))
         answer = r.get("answer", "")
         if answer:
             findings.append({"type": "conclusion", "content": answer[:500]})

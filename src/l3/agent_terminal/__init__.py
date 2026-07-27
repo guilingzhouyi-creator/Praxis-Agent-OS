@@ -38,6 +38,7 @@ from ..scout import get_pool as get_scout_pool
 from .._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
 from .._term_handlers import get_action_handler
 from .._term_lifecycle import run_cache_keepalive
+from l3.model_service import get_service as _get_model_service
 from ..tool_pipeline import get_pipeline
 from ..context import get_context as get_context_manager
 
@@ -510,7 +511,8 @@ class AgentTerminal:
             ),
             cell_id=self.cell_id,
         )
-        result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
+        result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
+                          **_get_model_service().resolve_dict("peer_agent"))
         answer = result.get("answer", "")
         try:
             from ..memory import get_memory

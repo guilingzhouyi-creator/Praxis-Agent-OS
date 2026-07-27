@@ -25,6 +25,8 @@ import threading
 import time
 from typing import Any
 
+from l3.model_service import get_service as _get_model_service
+
 from l1.kernel import emit_signal
 from l1.kernel.params.agent import R4_AGENT_ID, R4_ROLE, R4_TERRITORY
 from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL
@@ -382,7 +384,8 @@ class R4Agent:
             prompt = f"Create a skill for: {intent.strip()}"
             engine = get_engine()
             result = engine.generate(prompt=prompt, system=system, max_tokens=2048,
-                                     user_id="r4-agent")
+                                     user_id="r4-agent",
+                                     **_get_model_service().resolve_dict("r4_agent"))
 
             content = result.get("content", "").strip()
             # Strip any markdown fences if present
