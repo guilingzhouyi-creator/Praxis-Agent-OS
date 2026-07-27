@@ -22,6 +22,9 @@ ALLOWLIST = {
     # L2→L3 shell accessing L3 services
     ("l2/i18n.py", "l4.adapters.i18n_yaml"),
     ("l2/l2_shell/commands.py", "l3.cache"),
+    ("l2/l2_shell/commands.py", "l3.l3b"),
+    ("l2/l2_shell/commands.py", "l3.htn_a"),
+    ("l2/l2_shell/commands.py", "l3.htn_planner"),
     ("l2/l2_shell/completer.py", "l3.agent_terminal"),
     # L3→L4 wiring/adapters (dependency injection)
     ("l3/wiring.py", "l4.adapters.i18n_yaml"),
@@ -69,6 +72,7 @@ ALLOWLIST = {
     ("l2/l2_shell/commands.py", "l3.boot"),
     # L3->L4 LLM base
     ("l3/_term_lifecycle.py", "l4.llm_base"),
+    ("l3/subagent_framework.py", "l4.llm"),
 }
 
 

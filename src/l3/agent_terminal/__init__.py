@@ -176,6 +176,20 @@ class AgentTerminal:
         except Exception as e:
             phases.append({"phase": "manual_loaded", "error": str(e)})
 
+        # ── Persistence session — load snapshot / init hooks ──
+        try:
+            from l3.agent_persist import SnapshotHook, load_snapshot
+            self._snapshot_hook = SnapshotHook(self.agent_id)
+            snapshot = load_snapshot(self.agent_id)
+            if snapshot:
+                phases.append({"phase": "persist_restore", "status": snapshot.get("status")})
+            else:
+                phases.append({"phase": "persist_restore", "note": "no snapshot"})
+            logger.info("agent %s: persist ready", self.agent_id)
+        except Exception as e:
+            self._snapshot_hook = None
+            phases.append({"phase": "persist_init", "error": str(e)})
+
         from l1.kernel.params.agent import EVENT_TASK_ASSIGN
         emit_signal(EVENT_TASK_ASSIGN, sender=self.agent_id, target="cell",
                      data={"event": "agent_boot", "role": self.role, "ring": self.ring})

@@ -247,6 +247,12 @@ layer_1:
       params:
         - {name: name, type: string, required: true, description: "Skill name"}
         - {name: "*", type: string, optional: true, description: "Variable key=value pairs for $VAR expansion"}
+    recall:
+      description: "Search past execution transcript by keyword"
+      handler: l3.agent_persist.recall
+      params:
+        - {name: query, type: string, required: true, description: "Search keyword"}
+        - {name: limit, type: int, optional: true, description: "Max results (default 20)"}
 
 # ═══════════════════════════════════════════════════════════════
 # Hidden — Not registered in TOOL_REGISTRY, used as references

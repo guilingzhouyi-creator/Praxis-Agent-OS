@@ -53,8 +53,8 @@ class AgentLoop:
         self._user_id = user_id or agent_id
         self._cell_id = cell_id
         self._tools: list[ToolSpec] = []
-        self._loop_detector = ToolLoopDetector()
-        self._repeat_detector = CoarseRepeatDetector()
+        self._loop_detector = ToolLoopDetector(cell_id=cell_id, agent_id=agent_id)
+        self._repeat_detector = CoarseRepeatDetector(cell_id=cell_id, agent_id=agent_id)
         self._todo = TodoTracker()
         self._cadence = VerifyCadence()
         self._chat_params_hooks: list[Callable] = []
@@ -180,14 +180,17 @@ class AgentLoop:
         self._cadence.reset()
 
         # ── Cell L2 cache injection ──
-        if self._cell_id and result.get("success"):
+        if self._cell_id:
             try:
                 from .cell import get_cell as _get_cell
                 cell = _get_cell(self._cell_id)
                 answer = result.get("answer", "")
-                if answer:
+                # Use fingerprint of full task text for key uniqueness
+                import hashlib as _hl
+                task_hash = _hl.sha256(self.task.encode()).hexdigest()[:8]
+                if result.get("success") and answer:
                     summary = answer.strip()[:200]
-                    key = f"agent:{self.agent_id}:{self.task[:40]}"
+                    key = f"agent:{self.agent_id}:{task_hash}:r{self._run_count}"
                     cell.cache.inject(
                         key=key,
                         value=answer,
@@ -196,8 +199,33 @@ class AgentLoop:
                         entry_type="decision",
                         importance=0.6,
                     )
+                elif not result.get("success") and result.get("error"):
+                    error = result["error"][:200]
+                    key = f"fail:{self.agent_id}:{task_hash}:r{self._run_count}"
+                    cell.cache.inject(
+                        key=key,
+                        value=result.get("error", ""),
+                        summary=f"FAIL [{self.agent_id}]: {error}",
+                        agent_id=self.agent_id,
+                        entry_type="failure",
+                        importance=0.3,
+                    )
             except Exception as e:
                 logger.debug("cell cache inject: %s", e)
+
+        # ── Snapshot hook ──
+        try:
+            from l3.agent_persist import append_transcript
+            record = {
+                "task": self.task[:100],
+                "success": result.get("success", False),
+                "steps": result.get("total_steps", 0),
+                "elapsed": round(elapsed, 2),
+                "summary": str(result.get("answer", ""))[:200],
+            }
+            append_transcript(self._user_id, record)
+        except Exception as e:
+            logger.debug("persist append: %s", e)
 
         result["total_elapsed"] = round(elapsed, 2)
         result["total_steps"] = turns + corrections
@@ -395,6 +423,21 @@ class AgentLoop:
                         result["content"] = (result.get("content", "") + "\n" + fix.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
                         verifier_used = True
                         step_result["_corrected"] = True
+                        # Persist correction to Cell L2 cache
+                        if self._cell_id and v.get("reason"):
+                            try:
+                                from .cell import get_cell as _get_cell
+                                cell = _get_cell(self._cell_id)
+                                cell.cache.inject(
+                                    key=f"correct:{self.agent_id}:{tool_name}:{self.task[:30]}",
+                                    value={"tool": tool_name, "error": v.get("reason", ""), "fix": fix.get("content", "")[:300]},
+                                    summary=f"CORRECT [{self.agent_id}] {tool_name}: {v.get('reason', '')[:120]}",
+                                    agent_id=self.agent_id,
+                                    entry_type="correction",
+                                    importance=0.5,
+                                )
+                            except Exception:
+                                pass
                     except Exception as e:
                         logger.warning("agent_loop verifier correction failed: %s", e)
 
