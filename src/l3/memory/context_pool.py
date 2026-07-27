@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from .memory.context import ContextManager
+from .context import ContextManager
 
 _lock = threading.Lock()
 _pools: dict[str, ContextManager] = {}  # agent_id → ContextManager

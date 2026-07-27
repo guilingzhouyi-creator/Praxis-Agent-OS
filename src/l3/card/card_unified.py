@@ -286,9 +286,9 @@ class CardUnified:
         ExecutionPlan / cell.execute_card() can consume CardUnified
         without being rewritten all at once.
         """
-        from .card.models import Card as OldCard, CardMode as OldCardMode
-        from .card.models import Phase as OldPhase, PhaseMode as OldPhaseMode
-        from .card.models import Step as OldStep
+        from .models import Card as OldCard, CardMode as OldCardMode
+        from .models import Phase as OldPhase, PhaseMode as OldPhaseMode
+        from .models import Step as OldStep
 
         # Map nature → CardMode
         mode_map = {

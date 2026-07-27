@@ -137,6 +137,13 @@ class Cell:
         # Wire interrupt handlers
         self._wire_interrupts()
 
+        # Bind constitution to cell bus (for violation NMI emission)
+        try:
+            from l1.kernel.constitution import get_constitution
+            get_constitution().bind_cell(self._cell_bus)
+        except Exception:
+            pass
+
         # Register built-in subagent specs
         self._subagent_dispatcher = get_subagent_dispatcher()
         for spec in BUILTIN_SUBAGENTS.values():

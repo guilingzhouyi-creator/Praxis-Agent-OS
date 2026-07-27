@@ -161,7 +161,7 @@ def shutdown_to_memories() -> dict:
 
     # 0. Persist MemoryManager Ring 2/3 (JSONL + SQLite)
     try:
-        from .memory.memory import get_memory
+        from .memory import get_memory
         mem = get_memory()
         mem.set_persist_dir(str(MEMORIES_DIR))
         pr = mem.persist()
@@ -171,7 +171,7 @@ def shutdown_to_memories() -> dict:
 
     # 0b. Archive Ring 3 high-importance entries via ArchiveOrchestrator
     try:
-        from .memory.archive_orchestrator import archive_ring3
+        from .archive_orchestrator import archive_ring3
         n = archive_ring3(mem)
         results["archive_ring3"] = f"{n} archived"
     except Exception as e:

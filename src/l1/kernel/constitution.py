@@ -17,6 +17,7 @@ Also provides:
 
 from __future__ import annotations
 
+import json
 import logging
 import os as _os
 import re
@@ -97,7 +98,7 @@ def _severity(s: str) -> RuleSeverity:
 
 # ── Built-in check functions ──
 
-def _check_territory(rule, action, agent_id, target, territory):
+def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if action not in CONSTITUTION_FILE_ACTIONS or not target:
         return CheckResult.PASS
     if territory and not any(target.startswith(t) for t in territory):
@@ -105,7 +106,7 @@ def _check_territory(rule, action, agent_id, target, territory):
     return CheckResult.PASS
 
 
-def _check_sandbox(rule, action, agent_id, target, territory):
+def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if action in CONSTITUTION_MODIFY_ACTIONS:
         if rule.severity == RuleSeverity.MUST and target:
             # Real path check: verify target starts with configured sandbox root
@@ -115,7 +116,7 @@ def _check_sandbox(rule, action, agent_id, target, territory):
     return CheckResult.PASS
 
 
-def _check_constitution_mod(rule, action, agent_id, target, territory):
+def _check_constitution_mod(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if not target:
         return CheckResult.PASS
     if CONSTITUTION_KEYWORD in target.lower():
@@ -125,13 +126,13 @@ def _check_constitution_mod(rule, action, agent_id, target, territory):
     return CheckResult.PASS
 
 
-def _check_gate(rule, action, agent_id, target, territory):
+def _check_gate(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if action in CONSTITUTION_GATE_ACTIONS:
         return CheckResult.WARN
     return CheckResult.WARN if action in CONSTITUTION_MODIFY_ACTIONS and len(action) > CONSTITUTION_ACTION_LEN_THRESHOLD else CheckResult.PASS
 
 
-def _check_scout(rule, action, agent_id, target, territory):
+def _check_scout(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if agent_id == CONSTITUTION_SCOUT_AGENT_NAME:
         if action in CONSTITUTION_SCOUT_BLOCKED:
             return CheckResult.BLOCK
@@ -140,11 +141,11 @@ def _check_scout(rule, action, agent_id, target, territory):
     return CheckResult.PASS
 
 
-def _check_audit(rule, action, agent_id, target, territory):
+def _check_audit(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     return CheckResult.PASS
 
 
-def _check_cross(rule, action, agent_id, target, territory):
+def _check_cross(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if action in CONSTITUTION_SCOUT_BLOCKED:
         if territory and any(CONSTITUTION_SHARED_KEYWORD in t.lower() for t in territory):
             return CheckResult.BLOCK
@@ -367,14 +368,79 @@ def diff_territory(old: TerritoryConstitution, new: TerritoryConstitution) -> di
 class Constitution:
     """Constitution engine — the highest authority in the Agent OS.
 
-    All rules are immutable at runtime (can only be changed by modifying
-    the constitution file and restarting the system).
+    Rules can be hot-reloaded via reload() or updated at runtime via
+    update_rules().  On BLOCK detection, emits NMI interrupt and
+    EventBus signal for SSE broadcast to frontend.
     """
 
     def __init__(self):
         self._rules: list[RuleDescriptor] = list(_BUILTIN_DESCRIPTORS)
         self._lock = threading.Lock()
         self._constitution_path: str = ""
+        self._cell_bus = None  # set by Cell to enable interrupt emission
+
+    # ── Cell bus binding (for constitution.violation NMI) ──
+
+    def bind_cell(self, cell_bus: Any) -> None:
+        """Bind a Cell bus so constitution violations trigger NMI interrupt.
+
+        Called by Cell.__init__ after creating the cell bus.
+        """
+        self._cell_bus = cell_bus
+
+    def _trigger_violation(self, action: str, agent_id: str,
+                           target: str, rule_id: str) -> None:
+        """Emit constitution.violation NMI via cell bus."""
+        if not self._cell_bus:
+            return
+        try:
+            self._cell_bus.emit("interrupt.triggered", {
+                "irq": "constitution.violation",
+                "data": {"action": action, "agent_id": agent_id,
+                         "target": target, "rule_id": rule_id},
+            })
+        except Exception:
+            pass
+        # Also emit EventBus signal for SSE broadcast
+        try:
+            from l1.kernel import get_event_bus
+            bus = get_event_bus()
+            bus.emit_event("constitution.violation", data={
+                "action": action, "agent_id": agent_id,
+                "target": target, "rule_id": rule_id,
+            })
+        except Exception:
+            pass
+
+    # ── LLM-readable summary (injected into AgentLoop system prompt) ──
+
+    def summary(self, for_agent: str = "") -> str:
+        """Return a human-readable constitution summary for LLM context.
+
+        Injected into AgentLoop's system prompt so the LLM knows
+        the rules before making tool calls.  Filters rules relevant
+        to the given agent if ``for_agent`` is provided.
+        """
+        with self._lock:
+            must_rules = [r for r in self._rules
+                          if r.severity == RuleSeverity.MUST]
+            should_rules = [r for r in self._rules
+                            if r.severity == RuleSeverity.SHOULD]
+
+        lines = ["--- Constitution Rules ---"]
+        lines.append("You MUST obey these rules. Violations will be blocked.")
+        if must_rules:
+            lines.append(f"\nMUST ({len(must_rules)} rules):")
+            for r in must_rules:
+                lines.append(f"  [{r.id}] {r.description}")
+        if should_rules:
+            lines.append(f"\nSHOULD ({len(should_rules)} rules):")
+            for r in should_rules:
+                lines.append(f"  [{r.id}] {r.description}")
+        lines.append("\n--- End Constitution ---")
+        return "\n".join(lines)
+
+    # ── Hot-reload from file ──
 
     def load(self, path: str = "") -> dict:
         """Load constitution from .nomos-rules.md file."""
@@ -415,10 +481,98 @@ class Constitution:
                         for r in reports],
         }
 
+    def reload(self) -> dict:
+        """Reload constitution from the same file path (hot-reload)."""
+        if not self._constitution_path:
+            return {"success": False, "error": "no constitution path set"}
+        return self.load(self._constitution_path)
+
+    def update_rules(self, custom_rules: list[dict]) -> dict:
+        """Add or update custom rules at runtime.
+
+        Each rule dict:
+          {"id": "...", "severity": "MUST|SHOULD|MAY",
+           "description": "...", "section": "§custom"}
+        """
+        count = 0
+        with self._lock:
+            # Remove existing custom rules
+            self._rules = [r for r in self._rules if r.source != "custom"]
+            for spec in custom_rules:
+                sev = _severity(spec.get("severity", "MUST"))
+                self._rules.append(RuleDescriptor(
+                    id=spec.get("id", f"custom.{len(self._rules)}"),
+                    section=spec.get("section", CONSTITUTION_CUSTOM_SECTION),
+                    severity=sev,
+                    description=spec.get("description", ""),
+                    source="custom",
+                ))
+                count += 1
+        # Emit CONSTITUTION_UPDATE signal for SSE broadcast
+        try:
+            from l1.kernel import get_event_bus
+            bus = get_event_bus()
+            bus.emit_event("constitution.updated", data={"count": count})
+        except Exception:
+            pass
+        return {"success": True, "updated": count, "total": len(self._rules)}
+
+    def clear_custom_rules(self) -> dict:
+        """Remove all custom rules (keep built-in)."""
+        with self._lock:
+            self._rules = [r for r in self._rules if r.source != "custom"]
+        return {"success": True, "total": len(self._rules)}
+
     def rules_list(self) -> list[dict]:
         with self._lock:
-            return [{"section": r.section, "severity": r.severity.name, "description": r.description}
+            return [{"id": r.id, "section": r.section,
+                     "severity": r.severity.name,
+                     "description": r.description,
+                     "source": r.source or "builtin"}
                     for r in self._rules]
+
+    # ── Enhanced check with violation event emission ──
+
+    def check(self, action: str, agent_id: str, target: str = "",
+              territory: list[str] | None = None) -> list[CheckReport]:
+        reports: list[CheckReport] = []
+        for rule in self._rules:
+            result = self._evaluate(rule, action, agent_id, target, territory or [])
+            if result == CheckResult.BLOCK:
+                self._trigger_violation(action, agent_id, target, rule.id)
+            if result != CheckResult.PASS:
+                reports.append(CheckReport(rule=rule, result=result,
+                                           detail=self._describe(rule, action, agent_id, target)))
+        return reports
+
+    def is_allowed(self, action: str, agent_id: str, target: str = "",
+                   territory: list[str] | None = None) -> dict:
+        reports = self.check(action, agent_id, target, territory)
+        blocks = [r for r in reports if r.result == CheckResult.BLOCK]
+        return {
+            "allowed": len(blocks) == 0,
+            "decision": "pass" if not blocks else "block",
+            "blocks": len(blocks),
+            "warns": len([r for r in reports if r.result == CheckResult.WARN]),
+            "details": [{"section": r.rule.section, "rule_id": r.rule.id,
+                         "result": r.result.name, "detail": r.detail}
+                        for r in reports],
+        }
+
+    def to_dict(self) -> dict:
+        """Full constitution state for API export."""
+        with self._lock:
+            return {
+                "path": self._constitution_path or "",
+                "total_rules": len(self._rules),
+                "builtin": len([r for r in self._rules if r.source != "custom"]),
+                "custom": len([r for r in self._rules if r.source == "custom"]),
+                "rules": [{"id": r.id, "section": r.section,
+                           "severity": r.severity.name,
+                           "description": r.description,
+                           "source": r.source or "builtin"}
+                          for r in self._rules],
+            }
 
     def _evaluate(self, rule, action, agent_id, target, territory) -> CheckResult:
         return rule.evaluate(action, agent_id, target, territory)

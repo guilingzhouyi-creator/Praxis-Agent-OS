@@ -1,6 +1,7 @@
 """Kernel event bus — publish/subscribe with history and async dispatch."""
 from __future__ import annotations
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from threading import RLock
@@ -72,13 +73,14 @@ class Signal:
 
 
 class EventBus:
-    """Publish/subscribe event bus with history."""
+    """Publish/subscribe event bus with async dispatch."""
 
     def __init__(self, max_history: int = EVENT_MAX_HISTORY):
         self._listeners: dict[SignalType, list[Callable]] = {}
         self._history: deque[Signal] = deque(maxlen=max_history)
         self._wildcard_listeners: list[Callable] = []
         self._lock = RLock()
+        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="evt")
 
     def on(self, st: SignalType, cb: Callable) -> None:
         with self._lock:
@@ -96,22 +98,29 @@ class EventBus:
                 self._listeners.pop(st, None)
 
     def emit(self, signal: Signal) -> int:
-        count = 0
+        """Emit a signal — record to history synchronously, dispatch callbacks asynchronously.
+
+        Returns the number of callbacks queued. Callbacks run in a thread pool so that
+        a slow or blocking callback cannot block the emitter or other subscribers.
+        """
         with self._lock:
             self._history.append(signal)
-            for cb in self._listeners.get(signal.type, []):
-                try:
-                    cb(signal)
-                    count += 1
-                except Exception as e:
-                    logger.warning("event handler: %s", e)
-            for cb in self._wildcard_listeners:
-                try:
-                    cb(signal)
-                    count += 1
-                except Exception as e:
-                    logger.warning("event handler: %s", e)
+            callbacks = list(self._listeners.get(signal.type, []))
+            wildcards = list(self._wildcard_listeners)
+
+        count = len(callbacks) + len(wildcards)
+        for cb in callbacks:
+            self._executor.submit(self._safe_call, cb, signal)
+        for cb in wildcards:
+            self._executor.submit(self._safe_call, cb, signal)
         return count
+
+    @staticmethod
+    def _safe_call(cb: Callable, signal: Signal) -> None:
+        try:
+            cb(signal)
+        except Exception as e:
+            logger.warning("event handler: %s", e)
 
     # ── String-based convenience API (for extensibility, cross-platform) ──
 

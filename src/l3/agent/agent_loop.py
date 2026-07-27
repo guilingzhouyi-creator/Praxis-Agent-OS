@@ -18,12 +18,12 @@ from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
 
 from l4.llm.llm import get_engine
-from .scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
-from .agent.session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
-from .services.todo_tracker import TodoTracker
-from .tool_system.tool_pipeline import get_pipeline
-from .tool_system.tool_spec import ParamSpec, ToolSpec
-from .agent.verify_cadence import VerifyCadence
+from l3.scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
+from .session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
+from l3.services.todo_tracker import TodoTracker
+from l3.tool_system.tool_pipeline import get_pipeline
+from l3.tool_system.tool_spec import ParamSpec, ToolSpec
+from .verify_cadence import VerifyCadence
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +283,14 @@ class AgentLoop:
             system = (system + "\n\n" + vc) if system else vc
         if todo_reminder:
             system = (system + "\n\n" + todo_reminder) if system else todo_reminder
+
+        # Inject constitution rules into system prompt
+        try:
+            from l1.kernel.constitution import get_constitution
+            const_summary = get_constitution().summary(for_agent=self.agent_id)
+            system = (system + "\n\n" + const_summary) if system else const_summary
+        except Exception:
+            pass
 
         wrapped_tools = []
         read_only_tools = []

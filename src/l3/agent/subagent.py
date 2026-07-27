@@ -63,7 +63,7 @@ class SubAgent:
 
     def _execute(self, task: str, tools: list[str]) -> list[dict]:
         """Run the task through AgentLoop with Ring 1 tools only."""
-        from .agent.agent_loop import AgentLoop
+        from .agent_loop import AgentLoop
 
         loop = AgentLoop(task=task, agent_id=self.caller_id, prompt_key="subagent.system")
         findings: list[dict] = []

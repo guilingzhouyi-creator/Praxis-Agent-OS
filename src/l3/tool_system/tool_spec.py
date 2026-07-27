@@ -20,9 +20,10 @@ from typing import Any, Callable, Protocol, runtime_checkable
 
 from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
 from l1.kernel.paths import get_paths as _gp
+from l1.kernel.registry_base import RegisterableSpec
 
-from .tool_system.tool_params import ParamSpec, ReturnSpec
-from .tool_system.tool_registry import (
+from .tool_params import ParamSpec, ReturnSpec
+from .tool_registry import (
     TOOL_REGISTRY, _PLUGIN_REGISTRY, _MIDDLEWARE,
     register, register_plugin, unregister_plugin, register_middleware,
     get_tool, list_tools, list_categories, list_plugins, tool_registry_to_json,
@@ -98,6 +99,9 @@ class ToolSpec:
     - parameters, returns for validation
     - handler for execution
     - metadata for extensibility (any key-value pairs)
+
+    Also available as ToolSpecBase(RegisterableSpec) for users of the
+    unified registry architecture (see registry_base.py).
     """
     name: str
     description: str
@@ -157,17 +161,66 @@ class ToolSpec:
             "name": self.name, "description": self.description,
             "category": self.category, "ring": self.ring,
             "danger": self.danger, "gates": self.gates,
-            "parameters": [
-                {"name": p.name, "type": p.type, "required": p.required,
-                 "default": p.default, "description": p.description}
-                for p in self.parameters
-            ],
-            "returns": self.returns.__dict__,
             "parallel_safe": self.parallel_safe,
             "sandbox_profile": self.sandbox_profile,
-            "metadata": self.metadata,
         }
 
+
+# ── ToolSpecBase — unified registry architecture compat layer ──
+
+
+@dataclass
+class ToolSpecBase(RegisterableSpec):
+    """ToolSpec that also satisfies the RegisterableSpec protocol.
+
+    Use this when registering tools via a MapRegistry[ToolSpecBase]
+    from the unified registry architecture.
+    """
+    ring: str = RING_1
+    danger: int = 0
+    gates: list[str] = field(default_factory=list)
+    parameters: list[ParamSpec] = field(default_factory=list)
+    returns: ReturnSpec = field(default_factory=ReturnSpec)
+    parallel_safe: bool = False
+    sandbox_profile: str | None = None
+    handler: Callable | None = None
+
+    def __post_init__(self):
+        if not self.gates:
+            self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
+
+    def validate(self, args: dict) -> list[str]:
+        errors = []
+        for p in self.parameters:
+            val = args.get(p.name)
+            if p.required and val is None:
+                errors.append(f"missing required parameter: {p.name}")
+            else:
+                err = p.validate(val)
+                if err:
+                    errors.append(err)
+        return errors
+
+    def to_api_format(self) -> dict:
+        properties = {}
+        required = []
+        for p in self.parameters:
+            properties[p.name] = {"type": p.type, "description": p.description}
+            if p.required:
+                required.append(p.name)
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                    "additionalProperties": False,
+                },
+            },
+        }
 
 # ═════════════════════════════════════════════════════════════════════════════
 # @tool decorator — register a tool at module load time
@@ -237,8 +290,8 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
         return {"success": False, "error": "; ".join(errors)}
 
     # ── ResultStore: try cache hit for read-only tools ──
-    from .memory.result_store import get_result_store as _get_rs
-    from .tool_system.tool_config import ToolConfig as _TC
+    from l3.memory.result_store import get_result_store as _get_rs
+    from .tool_config import ToolConfig as _TC
     _rs = _get_rs()
     is_write = tool_name in _TC.write_tool_names()
     if not is_write and spec.ring == RING_1:
@@ -282,7 +335,7 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
 
     # Record tool call
     try:
-        from .services.counter import get_counter
+        from l3.services.counter import get_counter
         get_counter().record_tool(agent_id=agent_id or "unknown",
                                   tool=tool_name,
                                   success=result.get("success", False))
@@ -301,7 +354,7 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
 
     # ── Reference Channel: {prediction, actual, deviation} triplet ──
     try:
-        from .bus.reference_channel import get_rc as _rc
+        from l3.bus.reference_channel import get_rc as _rc
         actual_ok = result.get("success", False)
         pred_summary = result.get("data", result.get("output", ""))[:200]
         _rc().tool_call(tool_name, agent_id, allowed=actual_ok,

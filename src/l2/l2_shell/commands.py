@@ -690,7 +690,7 @@ def _cmd_cron(args: list[str]) -> dict:
             pi = args.index("--priority")
             if pi + 1 < len(args):
                 try: priority = int(args[pi + 1])
-                except: pass
+                except (ValueError, IndexError): pass
         return s.add(eid, cron_expr, intent, domain=domain, priority=priority)
     if sub == "remove" and len(args) >= 2:
         return s.remove(args[1])

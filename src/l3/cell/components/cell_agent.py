@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS
-from .cell.components.cell_types import AgentStatus, AgentInfo
+from .cell_types import AgentStatus, AgentInfo
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def _boot_agent(self, agent_id: str) -> dict:
 def _ensure_terminal(self, aid: str, role: str, territory: list[str]) -> None:
     """Ensure an agent terminal exists and is booted."""
     from .agent_terminal import get_terminal, TerminalStatus
-    from .tool_system.tool_spec import TOOL_REGISTRY
+    from l3.tool_system.tool_spec import TOOL_REGISTRY
     term = get_terminal(aid, role=role, territory=territory, cell_id=self.cell_id)
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
         term.boot()
@@ -73,7 +73,7 @@ def _ensure_terminal(self, aid: str, role: str, territory: list[str]) -> None:
 
 def _inject_tools(self, agent_id: str, term: Any) -> None:
     """Inject TOOL_REGISTRY into an agent terminal."""
-    from .tool_system.tool_spec import TOOL_REGISTRY
+    from l3.tool_system.tool_spec import TOOL_REGISTRY
     term.set_tool_registry(TOOL_REGISTRY)
 
 

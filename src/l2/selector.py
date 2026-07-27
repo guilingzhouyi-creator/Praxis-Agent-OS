@@ -219,13 +219,16 @@ def _select_best(role: str, domain: str) -> dict:
     best = None
     best_score = -1
     for cell_id, cell in get_cells().items():
-        for aid in cell._agents:
+        lv = cell.liveness()
+        agents_data = lv.get("agents", {})
+        cell_territory = getattr(cell, 'territory', [])
+        for aid, info_dict in agents_data.items():
             score = 0
-            info = cell._agents[aid]
-            if role and info.role.lower() == role.lower():
+            info_role = info_dict.get("role", "")
+            if role and info_role.lower() == role.lower():
                 score += 2
             if domain:
-                for t in info.territory:
+                for t in cell_territory:
                     if domain.startswith(t):
                         score += 1
             if score > best_score:

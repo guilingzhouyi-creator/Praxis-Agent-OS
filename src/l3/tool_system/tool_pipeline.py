@@ -18,7 +18,7 @@ from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
 from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT
 from l1.kernel.tool_chain import get_tool_chain
 
-from .scheduler.scheduler_rate import agent_can_access, get_rate_scheduler
+from l3.scheduler.scheduler_rate import agent_can_access, get_rate_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class ToolPipeline:
             try:
                 r = hook(tool_name, spec)
                 if isinstance(r, dict) and spec is not None:
-                    from .tool_system.tool_spec import ToolSpec as _ToolSpec
+                    from .tool_spec import ToolSpec as _ToolSpec
                     if isinstance(spec, _ToolSpec):
                         for k, v in r.items():
                             if hasattr(spec, k):
@@ -106,7 +106,7 @@ class ToolPipeline:
         """
         import time as _time
 
-        from .tool_system.tool_spec import ToolSpec as _ToolSpec
+        from .tool_spec import ToolSpec as _ToolSpec
         _start = _time.time()
         chain = get_tool_chain()
         ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
@@ -136,9 +136,9 @@ class ToolPipeline:
 
         # 3b. ToolPolicy approval check
         try:
-            from .tool_system.tool_policy import ToolPolicy as _TP
+            from .tool_policy import ToolPolicy as _TP
             if _TP.requires_approval(agent_id, tool_name):
-                from .card.approval_gate import get_gate as _gg
+                from l3.card.approval_gate import get_gate as _gg
                 ar = _gg().request(tool_name, agent_id, args or {}, reason="policy requires approval")
                 result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
                 status = ar.wait(timeout=APPROVAL_GATE_WAIT_TIMEOUT)
@@ -248,7 +248,7 @@ class ToolPipeline:
             if _executor:
                 exec_r = _executor(tool_name, args or {}, agent_id=agent_id)
             else:
-                from .tool_system.tool_spec import execute_tool_spec as _ets
+                from .tool_spec import execute_tool_spec as _ets
                 exec_r = _ets(tool_name, args or {}, agent_id=agent_id)
             result["result"] = exec_r or {}
             result["success"] = (exec_r or {}).get("success", True)

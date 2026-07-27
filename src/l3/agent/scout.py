@@ -82,7 +82,7 @@ class ScoutSession:
 
     def _investigate_autonomous(self) -> dict:
         """LLM-driven autonomous investigation via AgentLoop."""
-        from .agent.agent_loop import AgentLoop
+        from .agent_loop import AgentLoop
         loop = AgentLoop(task=self.task, agent_id=self.agent_id, prompt_key="scout.system")
 
         # Register Ring 1 tools with real implementations

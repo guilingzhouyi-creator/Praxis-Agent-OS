@@ -29,7 +29,7 @@ def register_func_handler(action: str, handler_fn: Any) -> None:
     """Register a callable handler function for an action.
 
     External code can add custom tool handlers:
-      from .agent._term_handlers import register_func_handler
+      from ._term_handlers import register_func_handler
       register_func_handler("my_tool", my_handler_fn)
 
     The handler receives (term, card, phases) and returns (output, findings, success).
@@ -200,7 +200,7 @@ def _handle_edit(args, agent):
 def handle_think(term, card, phases):
     phases.append("think")
     try:
-        from .agent.agent_loop import AgentLoop
+        from .agent_loop import AgentLoop
         from .memory.memory import get_memory
         import os as _os
 
@@ -304,7 +304,7 @@ def handle_think(term, card, phases):
             if isinstance(tc, dict) and tc.get("name") and tc.get("input"):
                 batch_tool_calls.append({"name": tc["name"], "input": tc["input"]})
         if len(batch_tool_calls) > 1:
-            from .agent._term_types import TerminalCard as _TCCard
+            from ._term_types import TerminalCard as _TCCard
             term.stdin.append(_TCCard(action="batch", target=card.target or "", batch=batch_tool_calls))
             phases.append(f"batch_sent:{len(batch_tool_calls)}")
 

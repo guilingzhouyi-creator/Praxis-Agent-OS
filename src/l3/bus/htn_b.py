@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .bus.htn_planner import HTNPlanner, Task, TaskType
+from .htn_planner import HTNPlanner, Task, TaskType
 
 logger = logging.getLogger(__name__)
 

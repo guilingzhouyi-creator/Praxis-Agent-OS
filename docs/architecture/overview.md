@@ -33,49 +33,38 @@ flowchart TB
     end
 
     subgraph L4["L4 — Bridge Layer (src/l4/)"]
-        GW["api_gateway.py\n153 HTTP routes"]
-        LLM["llm.py\nLLM Engine"]
+        GW["api/api_gateway.py\n157 HTTP routes"]
+        AH["api_handlers/\n9 Handler Modules"]
+        LLM["llm/\nLLM Engine + Providers"]
         SAND["sandbox/\nCOW Isolation"]
-        MC["mcp_bridge.py\nMCP Adapter"]
         ADAPT["adapters/\n7 Port Impls"]
         RPC["rpc/\nIPC Framework"]
+        SRCH["search/\nSearch Engine"]
+        LSP_SVC["lsp/\nLSP Manager"]
+        VAULT["vault/\nCredentials + Auth"]
+        SSE_BR["sse/\nSSE Bridge"]
+        LLMW["llm_worker/\nLLM Worker"]
     end
 
     subgraph L3["L3 — Cell Layer (src/l3/)"]
-        CELL["cell/\nAgent Orchestration"]
-        TERM["agent_terminal/\nAgent Workers"]
-        BOOT["boot.py\nBootstrap"]
-        MEM["memory.py\n4-Ring Memory"]
-        ERRBUS["error_bus/\nError Bus"]
-        MON["monitor_bus.py\nMonitor Bus"]
-        CTX["context_pool.py\nContext Pool"]
-        TOOLS["tools/\n35 Tools"]
-        PL["tool_pipeline.py\n9-Step Pipeline"]
-        BUF["resource_buffer/\nFile Buffer"]
-        PEND["pending_queue.py\nApproval Queue"]
-        TKN["think_registry.py\nThink Quota"]
-        SCD["scheduler*.py\n5D Scheduler"]
-        SCT["scout.py\nScout Pool"]
-        CONF["convergence.py\nConvergence"]
-        CARD["card*.py\nCard Lifecycle"]
-        LOG["log.py\nLog Service"]
-        TRUST["content_trust.py\nProvenance"]
-        PMU["cell_pmu.py\nPerf Mon (28 ctrs)"]
-        ICACHE["cell_icache.py\nI-Cache (LFU)"]
-        MMU["cell_mmu.py\nMMU + TLB"]
-        INTR["cell_interrupt.py\nInterrupt Ctlr"]
-        WDT["cell_watchdog.py\nWatchdog Timer"]
-        ORCH["cell_orchestrate.py\nSubAgent Fork-Join"]
-        S_SPEC["subagent_spec.py\nSubAgent Spec"]
-        S_TASK["subagent_task.py\nSubAgent Task"]
-        S_DISP["subagent_dispatcher.py\n@mention Parse"]
-        S_MERGE["subagent_merger.py\nResult Merge"]
-        STAT["stats_center.py\nStats Center"]
-        REC["record_center.py\nRecord Center"]
+        CELL["cell/\nAgent Orchestration (18 files)"]
+        TERM["agent_terminal/\nWorker Runtime"]
+        BOOT["boot/\n5-Step Bootstrap (4 files)"]
+        BUS["bus/\nMonitor, L3B, IPC, HTN (15 files)"]
+        CARD["card/\nCard Lifecycle + Registry (21 files)"]
+        MEM["memory/\n4-Ring + Pager + Cache (17 files)"]
+        ERRBUS["error_bus/\nError Capture (2 files)"]
+        SCD["scheduler/\n5D Scheduler (11 files)"]
+        AGT["agent/\nAgentLoop, Scout, SubAgent (22 files)"]
+        TOOLS["tools/\n17 Tool Implementations"]
+        TLSYS["tool_system/\nPipeline, Policy, Spec (8 files)"]
+        BUF["resource_buffer/\nRing Buffer (4 files)"]
+        SVCS["services/\nStats, Records, Model (29 files)"]
+        CFG["config/\nConfig Loading (8 files)"]
     end
 
     subgraph L2["L2 — Shell Layer (src/l2/)"]
-        S["l2_shell/\n39 Commands"]
+        S["l2_shell/\n40 Commands"]
         I18N["i18n.py\nLocalization"]
         SEL["selector.py\nAgent Select"]
         SH["shell.py\nShell Entry"]
@@ -87,6 +76,7 @@ flowchart TB
         PROC["process.py\nProcessTable"]
         ALLOC["allocator.py\nToken Alloc"]
         EVT["event.py\nEventBus"]
+        SBUS["bus.py\nSystemBus"]
         GATE["gatechain.py\nG1-G5"]
         CONST["constitution.py\nRules Engine"]
         VFS["vfs.py\nVirtual FS"]
@@ -110,13 +100,11 @@ flowchart TB
     %% L4 → L3
     GW -->|"routes to"| CELL
     GW -->|"routes to"| ERRBUS
-    GW -->|"routes to"| MON
-    GW -->|"routes to"| LOG
+    GW -->|"routes to"| BUS
     GW -->|"routes to"| BUF
     GW -->|"routes to"| CARD
-    GW -->|"routes to"| TKN
-    GW -->|"routes to"| STAT
-    GW -->|"routes to"| REC
+    GW -->|"routes to"| SCD
+    GW -->|"routes to"| SVCS
     LLM -->|"build_context()"| MEM
 
     %% L4 → L1
@@ -130,10 +118,10 @@ flowchart TB
     %% L3 → L1
     CELL -->|"emit_signal()"| EVT
     CELL -->|"constitution"| CONST
-    PL -->|"G1-G5 check"| GATE
-    PL -->|"alloc tokens"| ALLOC
-    PL -->|"lock file"| SYN
-    PL -->|"limit check"| REP
+    TLSYS -->|"G1-G5 check"| GATE
+    TLSYS -->|"alloc tokens"| ALLOC
+    TLSYS -->|"lock file"| SYN
+    TLSYS -->|"limit check"| REP
     BOOT -->|"init kernel"| SYSC
     BOOT -->|"load"| CONST
     BOOT -->|"VFS mount"| VFS
@@ -146,16 +134,14 @@ flowchart TB
 
     %% L3 internal
     CELL -->|"dispatch"| TERM
-    CELL -->|"delegate"| SCT
-    TERM -->|"execute"| PL
+    CELL -->|"delegate"| AGT
+    TERM -->|"execute"| TLSYS
     TERM -->|"remember"| MEM
     TERM -->|"tool spec"| TOOLS
-    TERM -->|"register"| CTX
     BOOT -->|"create"| CELL
-    PL -->|"sandbox"| BUF
-    CELL -->|"approve/reject"| PEND
-    CELL -->|"scale config"| TKN
-    CONF -->|"converge"| CARD
+    TLSYS -->|"sandbox"| BUF
+    CELL -->|"approve/reject"| CARD
+    CELL -->|"scale config"| SCD
     SCD -->|"schedule"| CELL
 
     %% L2 → L1
@@ -182,6 +168,7 @@ flowchart TB
 | Process | `process.py` | ProcessTable, PCB (identity, state, resources) |
 | Allocator | `allocator.py` | Token/ring/sandbox quota allocation, GC, swap |
 | Event | `event.py` | EventBus pub/sub with history |
+| SystemBus | `bus.py` | Component lifecycle, topology, health aggregation |
 | GateChain | `gatechain.py` | G1-G5 tool authorization chain |
 | Constitution | `constitution.py` | Constitutional rules engine — highest authority |
 | VFS | `vfs.py` | Virtual file system with ring-level access control |
@@ -213,7 +200,7 @@ flowchart TB
 | Module | Lines | Purpose |
 |--------|-------|---------|
 | `l2_shell/__init__.py` | 87 | Command dispatch, direct/indirect message routing |
-| `l2_shell/commands.py` | 764 | 39 command handlers + `_pipeline()` |
+| `l2_shell/commands.py` | 764 | 40 command handlers (incl. /model) + `_pipeline()` |
 | `l2_shell/completer.py` | 67 | Tab auto-completion |
 | `l2_shell/state.py` | 27 | ShellState (L3A/Direct mode) |
 | `l2_shell/output_guard.py` | 15 | Output guard for dangerous responses |
@@ -223,57 +210,40 @@ flowchart TB
 | `shell_session.py` | 129 | Session lifecycle management |
 | `shell_completer.py` | 34 | Shell auto-completion engine |
 
-### L3 — Cell (`src/l3/`) — ~130 Files, ~19,000 Lines
+### L3 — Cell (`src/l3/`) — 4 Root Files + 14 Subdirectories, ~19,000 Lines
 
-| Category | Key Files | Purpose |
-|----------|-----------|---------|
-| **Assembly** | `decomposer.py` | Intent decomposition: human intent → sub-cards → dispatch → converge |
-| **HTN-A** | `htn_a.py` | Global sharder: intent → cross-Cell sub-task tree |
-| **HTN-B** | `htn_b.py` | Adjacent Cell routing decomposition |
-| **L3B Composite** | `l3b.py` | L3B chain topology with composite-based routing |
-| **L3B Bus** | `l3b_bus.py` | Composite communication bus (5 message types) |
-| **L3B Message Pool** | `l3b_message_pool.py` | 2-tier buffer: Hot Ring + SQLite Persist + BACKPRESSURE |
-| **CellCache** | `cell_cache.py` | Per-Cell L2 shared cache (3-tier: Hot→Index→KV) |
-| **Package** | `package_manager.py` | Unified apt/pip/npm/cargo management |
-| **Cell** | `cell/__init__.py` | Agent collaboration unit — 28 methods |
-| **Terminal** | `agent_terminal/__init__.py` | Per-agent worker process — 20+ methods |
-| **Memory** | `memory.py`, `memory_init.py`, `memory_ring.py` | 4-ring memory + quality scoring + archive (R4)
-| **Cards** | `card*.py` (10 files) | Card lifecycle, registry, gate, builder, pool |
-| **Boot** | `boot.py`, `boot_init.py`, `bootstrap.py` | System bootstrap — 5 boot steps |
-| **Tools** | `tools/` (16 files) | 35+ tool implementations |
-| **Pipeline** | `tool_pipeline.py`, `tool_spec.py` | Ring-gated tool execution (9 steps) |
-| **Scheduler** | `scheduler*.py` (5 files) | Multi-dimensional scheduling |
-| **Scout** | `scout.py` | Read-only investigation pool |
-| **Error** | `error_bus/` | Unified error logging + API |
-| **Monitor** | `monitor_bus.py` | Monitoring event bus + JSONL persistence |
-| **Config** | `config*.py`, `config_loader.py` | YAML configuration + hot-reload |
-| **Execution** | `execution_*.py` (3 files) | Execution engine, plan, verification |
-| **Queue** | `pending_queue.py`, `approval_gate.py` | Human approval queues |
-| **State** | `statecharts.py` | 5-region orthogonal state machine |
-| **Log** | `log.py` | Log service + rotation + API |
-| **Stats** | `stats_center.py` | Cross-Cell metric aggregation, query, top, SSE |
-| **Records** | `record_center.py` | Unified error/log/reference record center facade |
-| **Think** | `think_registry.py` | Three-layer think quota config |
-| **Buffer** | `resource_buffer/` | Ring file buffer |
-| **Context** | `context.py`, `context_pool.py` | Context register, per-agent context pool |
-| **Policy** | `tool_policy.py`, `message_gate.py` | Tool visibility, message policy |
-| **Security** | `central_security.py`, `content_trust.py` | Security checks, content provenance |
+| Subdirectory | Key Files | Purpose |
+|-------------|-----------|---------|
+| **agent/** | `agent_loop.py`, `scout.py`, `subagent*.py` (22 files) | AgentLoop, Scout pool, SubAgent framework, handlers, verifiers |
+| **agent_terminal/** | `__init__.py` | Terminal runtime — per-agent worker process |
+| **boot/** | `boot.py`, `boot_init.py`, `wiring.py` (4 files) | Boot sequence + port/adapter wiring |
+| **bus/** | `monitor_bus.py`, `l3b*.py`, `htn*.py`, `log.py`, `ipc.py` (15 files) | L3B, MonitorBus, HTN planners, IPC, logging buses |
+| **card/** | `card*.py`, `execution*.py`, `pending_queue.py` (21 files) | Card lifecycle, registry, execution plan, gates, approvals |
+| **cell/** | `__init__.py` + `components/` + `peers/` (22 files) | Cell class, PMU/Watchdog/ICache/MMU/Interrupt, L3A/L3 |
+| **config/** | `config_loader.py`, `config_handlers.py`, `settings_center.py` (8 files) | Config loading + hot-reload + 3-layer settings |
+| **error_bus/** | `__init__.py`, `api.py` (2 files) | Error capture bus with dedup + API |
+| **memory/** | `memory.py`, `context*.py`, `pager*.py`, `cache*.py`, `r4_agent.py` (17 files) | 4-ring memory, context, pager, cache, R4 archive |
+| **resource_buffer/** | `ring.py`, `manager.py`, `api.py` (4 files) | Ring file buffer |
+| **scheduler/** | `scheduler*.py`, `think_registry.py`, `acb.py`, `loop_detectors.py` (11 files) | 5-D scheduler, think quota, agent control block |
+| **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `counter.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
+| **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_policy.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
+| **tools/** | `_files.py`, `_code.py`, `_git.py`, etc. (17 files) | Tool implementations |
 
-### L4 — Bridge (`src/l4/`) — 45 Files, ~6,500 Lines
+### L4 — Bridge (`src/l4/`) — 11 Root Files + 8 Subdirectories, ~6,500 Lines
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `api_gateway.py` | 326 | HTTP server + MiddlewareChain |
-| `api_handlers/__init__.py` | 587 | API handler mixin (covers 35 categories) |
-| `api_routes.py` | 197 | 153 route definitions |
-| `api_handlers_*.py` | 4 files | Cards, monitor, agent, config handlers |
-| `api_middleware.py` | 233 | CORS, Locale, BodyParser, RequestLog |
-| `llm.py` + `llm_base.py` + `llm_providers.py` | 870 | LLM Engine + 4 providers |
-| `llm_worker/` | 88 | LLM worker process |
-| `sandbox.py` + `sandbox/` | 501 | Copy-on-write isolation |
-| `mcp_bridge.py` | 500 | MCP adapter |
-| `rpc/` | 63 | IPC framework |
-| `adapters/` | 6 ports | Port implementations |
+| Subdirectory / File | Key Modules | Purpose |
+|--------------------|-------------|---------|
+| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 157 routes, middleware, card handlers |
+| **api_handlers/** | `__init__.py`, `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (9 files) | API handler modules — agent, providers, config, monitor, records, stats |
+| **llm/** | `llm.py`, `llm_base.py`, `llm_providers.py` | LLM Engine + ABC + 4 provider implementations |
+| **search/** | `search.py`, `search_engine.py` | Full-text and semantic search |
+| **lsp/** | `lsp.py`, `lsp_manager.py` | LSP client + manager |
+| **vault/** | `credential_vault.py`, `auth.py` | AES-256 vault + authentication |
+| **sse/** | `sse_bridge.py` | SSE event streaming bridge |
+| Root files | `mcp_bridge.py`, `sandbox.py`, `supervisor.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | MCP adapter, sandbox isolation, process supervision, cron, CI, git, network |
+| **llm_worker/** | worker process | LLM worker process |
+| **rpc/** | protocol + transport | IPC framework |
+| **adapters/** | 6 port implementations | Port→adapter wiring |
 
 ### L5 — User (`src/l5/`) — 2 Files, 401 Lines
 
@@ -350,15 +320,30 @@ Each memory entry (`MemEntry`) carries `agent_id`, `cell_id`, `entry_type`, `imp
 src/
 ├── l1/kernel/          # 37 files — OS primitives
 │   └── params/         # 5 sub-modules, 589 constants
-├── l2/                 # 10 files — Shell layer (39 commands)
-├── l3/                 # 130+ files — Cell layer
-│   ├── cell/           # Cell orchestration
-│   ├── agent_terminal/ # Agent workers
-│   ├── error_bus/      # Error logging
-│   ├── resource_buffer/# File buffer
-│   └── tools/          # Tool implementations
-├── l4/                 # 45 files — Bridge layer
-│   ├── api_handlers/   # API mixin
+├── l2/                 # 10 files — Shell layer (40 commands)
+├── l3/                 # 4 root files + 14 subdirectories — Cell layer
+│   ├── agent/          # AgentLoop, Scout, SubAgent (22 files)
+│   ├── agent_terminal/ # Worker runtime
+│   ├── boot/           # Boot sequence (4 files)
+│   ├── bus/            # Monitor, L3B, IPC, HTN (15 files)
+│   ├── card/           # Card lifecycle (21 files)
+│   ├── cell/           # Cell orchestration (22 files)
+│   ├── config/         # Config loading (8 files)
+│   ├── error_bus/      # Error capture (2 files)
+│   ├── memory/         # 4-ring memory (17 files)
+│   ├── resource_buffer/# Ring buffer (4 files)
+│   ├── scheduler/      # 5D scheduler (11 files)
+│   ├── services/       # Stats, Records, Model (29 files)
+│   ├── tool_system/    # Pipeline, policy, spec (8 files)
+│   └── tools/          # 17 tool implementations
+├── l4/                 # 11 root files + 8 subdirectories — Bridge layer
+│   ├── api/            # Gateway, routes, middleware
+│   ├── api_handlers/   # 9 handler modules
+│   ├── llm/            # LLM engine + providers
+│   ├── search/         # Search engine
+│   ├── lsp/            # LSP manager
+│   ├── vault/          # Credentials + auth
+│   ├── sse/            # SSE bridge
 │   ├── sandbox/        # Process isolation
 │   ├── rpc/            # RPC framework
 │   ├── adapters/       # Port implementations

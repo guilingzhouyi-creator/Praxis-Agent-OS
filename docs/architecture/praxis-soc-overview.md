@@ -58,7 +58,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  PMU — CellPmu (src/l3/cell_pmu.py, 236L)                    │
+│  PMU — CellPmu (src/l3/cell/components/cell_pmu.py, 236L)                    │
 │                                                              │
 │  28 hardware-style 64-bit counters per Cell, dot-delimited:  │
 │                                                              │
@@ -87,7 +87,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Watchdog — CellWatchdog (src/l3/cell_watchdog.py, 220L)     │
+│  Watchdog — CellWatchdog (src/l3/cell/components/cell_watchdog.py, 220L)     │
 │                                                              │
 │  Per-agent watchdog state machine:                           │
 │  HEALTHY ──(missed pet)──> UNRESPONSIVE ──(timeout)──> CRASHED│
@@ -106,7 +106,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  I-Cache — ICache (src/l3/cell_icache.py, 194L)              │
+│  I-Cache — ICache (src/l3/cell/components/cell_icache.py, 194L)              │
 │                                                              │
 │  Read-only cache for structural Cell knowledge:              │
 │    - Tool definitions    (entry_type="tool")                 │
@@ -129,7 +129,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  MMU+TLB — CellMmu + CellTlb (src/l3/cell_mmu.py, 255L)     │
+│  MMU+TLB — CellMmu + CellTlb (src/l3/cell/components/cell_mmu.py, 255L)     │
 │                                                              │
 │  Translates territory pattern → agent_id + ring clearance    │
 │  Three-level translation cascade:                            │
@@ -151,7 +151,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  InterruptController (src/l3/cell_interrupt.py, 296L)        │
+│  InterruptController (src/l3/cell/components/cell_interrupt.py, 296L)        │
 │                                                              │
 │  4 priority levels:                                          │
 │    NMI    (0) — unmaskable, fires inline                     │
@@ -178,7 +178,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  SubAgent Framework (src/l3/subagent_*.py, 6 files, ~750L)   │
+│  SubAgent Framework (src/l3/agent/subagent*.py, 6 files, ~750L)   │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │ subagent_spec.py      — SubAgentSpec dataclass         │  │
@@ -287,7 +287,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  AgentLoop (src/l3/agent_loop.py)                             │
+│  AgentLoop (src/l3/agent/agent_loop.py)                             │
 │                                                              │
 │  ├── LLM multi-turn tool_use()               ✅               │
 │  ├── ToolLoopDetector                        ✅               │
@@ -320,7 +320,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Card System (l3/card*.py)                                    │
+│  Card System (l3/card/)                                    │
 │                                                              │
 │  ├── CardUnified + phases + steps            ✅               │
 │  ├── CardRegistry (queue + dispatcher)       ✅               │
@@ -553,7 +553,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────┘                               │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  3. CellCache — L2 Shared Cache (src/l3/cell_cache.py, ~383L)             │   │
+│  │  3. CellCache — L2 Shared Cache (src/l3/cell/components/cell_cache.py, ~383L)             │   │
 │  │                                                                          │   │
 │  │     ┌── Hot Ring (50 slots, TTL=300s) ──────────────────────────────────┐  │   │
 │  │     │  inject(key, value, summary, agent_id, entry_type, ttl)        │  │   │
@@ -572,7 +572,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  4. Circular Buffer (src/l3/cell_buffer.py: CircularBuffer, ~64L)         │   │
+│  │  4. Circular Buffer (src/l3/cell/components/cell_buffer.py: CircularBuffer, ~64L)         │   │
 │  │     ┌─ Rollback Ring (20 slots) ────────────────────────────────────────┐  │   │
 │  │     │  pre-execution file snapshot (shutil.copy2 → tempfile)          │  │   │
 │  │     │  on_evict → _archive_item("rollback", item) → R4 archive        │  │   │
@@ -609,7 +609,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  7. Voting Protocol (src/l3/cell_convention.py + convention.py)           │   │
+│  │  7. Voting Protocol (src/l3/cell/components/cell_convention.py + src/l3/card/convention.py)           │   │
 │  │     IssueCard → convene() → ConventionProtocol (Multi-Agent Deliberation) │   │
 │  │       → convergence.py: converge() + to_execution_card()                  │   │
 │  │       → Submit to CardRegistry → Standard Execution                       │   │
@@ -622,7 +622,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  9. PMU — Performance Monitoring Unit (src/l3/cell_pmu.py, ~236L)         │   │
+│  │  9. PMU — Performance Monitoring Unit (src/l3/cell/components/cell_pmu.py, ~236L)         │   │
 │  │     28 hardware-style 64-bit counters: cards/tools/cache/scouts/           │   │
 │  │     bus/token/agent/watchdog/icache/tlb/interrupt groups                  │   │
 │  │     Snapshot history ring buffer, delta/rate queries                      │   │
@@ -630,7 +630,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  10. Watchdog Timer (src/l3/cell_watchdog.py, ~220L)                      │   │
+│  │  10. Watchdog Timer (src/l3/cell/components/cell_watchdog.py, ~220L)                      │   │
 │  │      Per-agent state machine: HEALTHY → UNRESPONSIVE → CRASHED            │   │
 │  │      Background daemon thread, poll at POLL_INTERVAL                      │   │
 │  │      Auto-pet on card completion via AgentTerminal                        │   │
@@ -639,7 +639,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  11. I-Cache — Instruction Cache (src/l3/cell_icache.py, ~194L)           │   │
+│  │  11. I-Cache — Instruction Cache (src/l3/cell/components/cell_icache.py, ~194L)           │   │
 │  │      Read-only LFU cache: tools/templates/HTN/constitution/territory     │   │
 │  │      ICACHE_TTL=1h default, frequency decay to age stale entries         │   │
 │  │      Backs MMU page walk (territory.* keys)                               │   │
@@ -647,7 +647,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  12. MMU + TLB — Memory Management Unit (src/l3/cell_mmu.py, ~255L)       │   │
+│  │  12. MMU + TLB — Memory Management Unit (src/l3/cell/components/cell_mmu.py, ~255L)       │   │
 │  │      territory_pattern → agent_id translation authority                    │   │
 │  │      TLB (64 entries max): LFU-like eviction (lowest hit_count)           │   │
 │  │      Translation cascade: TLB → I-Cache page walk → agents dict scan     │   │
@@ -655,7 +655,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └──────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │  13. InterruptController (src/l3/cell_interrupt.py, ~296L)                │   │
+│  │  13. InterruptController (src/l3/cell/components/cell_interrupt.py, ~296L)                │   │
 │  │      4 priority levels: NMI(0/unmaskable) / HIGH(1) / NORMAL(2) / LOW(3) │   │
 │  │      16 built-in IRQ slots (0-15): watchdog.crash, constitution.violation│   │
 │  │      task.complete, review.response, message.delivered, heartbeat, etc.  │   │
@@ -690,7 +690,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │  └─────────┼──────────────┼──────────────┼──────────────┼──────────────┘   │
 │            ▼              ▼              ▼              ▼                  │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  AgentLoop (l3/agent_loop.py) — LLM multi-turn tool_use()            │   │
+│  │  AgentLoop (l3/agent/agent_loop.py) — LLM multi-turn tool_use()            │   │
 │  │                                                                       │   │
 │  │  ┌─────────────────────────────────────────────────────────────┐     │   │
 │  │  │  run(max_steps=10, timeout=120s)                             │     │   │
@@ -728,7 +728,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                     TOOL PIPELINE (src/l3/tool_pipeline.py, ~295L)           │
+│                     TOOL PIPELINE (src/l3/tool_system/tool_pipeline.py, ~295L)           │
 │                                                                               │
 │  Tool Call                                                                    │
 │     │                                                                         │
@@ -833,7 +833,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │     emit_signal() / subscribe() / SignalType enum                           │
 │     → CentralCollector, L3A, Cell                                           │
 │                                                                              │
-│  2. MonitorBus    (l3/monitor_bus.py, 220L)  — Unified Monitoring           │
+│  2. MonitorBus    (l3/bus/monitor_bus.py, 220L)  — Unified Monitoring           │
 │     MonitorEvent(type, source, severity, cell_id, data)                     │
 │     JSONL Persistence + SSE Stream + Query API                              │
 │                                                                              │
@@ -841,16 +841,16 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │     capture("msg", exc=e) / error_boundary("ctx")                           │
 │     SHA-256 Dedup / LogService + EventBus + SSE                             │
 │                                                                              │
-│  4. LogService    (l3/log.py, 288L)  — System Log                           │
+│  4. LogService    (l3/bus/log.py, 288L)  — System Log                           │
 │     log.info() / install_handler() → Rotating JSON File                     │
 │                                                                              │
-│  5. ReferenceCh.  (l3/reference_channel.py, 260L)  — Async Audit Trail      │
+│  5. ReferenceCh.  (l3/bus/reference_channel.py, 260L)  — Async Audit Trail      │
 │     record("event", data) → JSONL Buffer → flush(5s or 100 events)          │
 │                                                                              │
-│  6. Observability (l3/observability_bus.py, 143L)  — Alerts/Health/Metrics  │
+│  6. Observability (l3/bus/observability_bus.py, 143L)  — Alerts/Health/Metrics  │
 │     observe(kind, source, data) → MonitorBus → SSE → UI                     │
 │                                                                              │
-│  7. MessageGate   (l3/message_gate.py, 169L)  — Policy Engine Filter        │
+│  7. MessageGate   (l3/bus/message_gate.py, 169L)  — Policy Engine Filter        │
 │     allow/block/mute/hold/redirect rules, dependency-aware                   │
 │                                                                              │
 │  SSE Bridge (l4/sse_bridge.py, 132L):                                       │
@@ -870,31 +870,31 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                       12 Coprocessors                                         │
 │ ┌──────────────────────────────────────────────────────────────────────────┐ │
-│ │  1. CentralController  (l3/l3.py, 224L)  — Intent Lifecycle Controller   │ │
+│ │  1. CentralController  (l3/cell/peers/l3.py, 224L)  — Intent Lifecycle Controller   │ │
 │ │     process_intent("fix login bug") → Card → CardRegistry → Execution    │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  2. CentralScheduler   (scheduler*.py, 6 files)  — 5-Dimensional Scheduling│ │
+│ │  2. CentralScheduler   (l3/scheduler/scheduler*.py, 6 files)  — 5-Dimensional Scheduling│ │
 │ │     Rate / Time Slice / Scope / Routing / Priority Queue                 │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  3. R4Agent            (r4_agent.py, 443L)  — Archive + Skill Evolution  │ │
+│ │  3. R4Agent            (l3/memory/r4_agent.py, 443L)  — Archive + Skill Evolution  │ │
 │ │     archive_ring3 / restore_ring3 / get_lean_cases / evolve_skill        │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  4. CellMonitor        (cell_monitor.py, 209L)  — Per-Cell Health Monitor │ │
+│ │  4. CellMonitor        (l3/cell/components/cell_monitor.py, 209L)  — Per-Cell Health Monitor │ │
 │ │     record / get_events / stats — Send MonitorEvent to MonitorBus        │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  5. CentralSecurity    (central_security.py, 166L)  — 6-Gate Unified Check│ │
+│ │  5. CentralSecurity    (l3/services/central_security.py, 166L)  — 6-Gate Unified Check│ │
 │ │     check_all(action, agent, target, tool) → {allowed, gates}            │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  6. CentralMemory      (central_memory.py, 169L)  — R1-R4 Coordinator    │ │
+│ │  6. CentralMemory      (l3/memory/central_memory.py, 169L)  — R1-R4 Coordinator    │ │
 │ │     remember / recall / compact / archive_ring3 / stats                  │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  7. CentralPlugin      (central_plugin.py, 152L)  — Plugin Lifecycle     │ │
+│ │  7. CentralPlugin      (l3/services/central_plugin.py, 152L)  — Plugin Lifecycle     │ │
 │ │     install_tool_plugin / remove_tool_plugin / install_mcp / list        │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  8. CentralCollector   (central_collector.py, 149L)  — Token Aggregation │ │
+│ │  8. CentralCollector   (l3/cell/peers/central_collector.py, 149L)  — Token Aggregation │ │
 │ │     cell_total / global_quota / stats  — TOKEN_CELL_QUOTA=5M             │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  9. L3B                (l3/l3b.py, 81L)  — Cross-Cell Routing            │ │
+│ │  9. L3B                (l3/bus/l3b.py, 81L)  — Cross-Cell Routing            │ │
 │ │     route(card_id, target_cell) → Dispatch to another Cell               │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │ 10. InterruptController (cell_interrupt.py, 296L)  — Priority IRQ Ctrl   │ │

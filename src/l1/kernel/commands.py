@@ -19,12 +19,19 @@ from typing import Any, Callable
 
 import yaml
 
+from l1.kernel.registry_base import RegisterableSpec
+
 logger = logging.getLogger(__name__)
 
 # Argument completion types
 ARG_AGENT = "agent"
 ARG_ROLE = "role"
 ARG_DOMAIN = "domain"
+
+# Source identifiers for command registration
+SRC_DEFAULT = "default"
+SRC_SYSTEM = "system"
+SRC_OVERRIDE = "override"
 
 
 @dataclass
@@ -38,7 +45,7 @@ class CommandDef:
     examples: list[str] = field(default_factory=list)
     system: bool = False          # True = protected, cannot be removed/modified
     handler: Callable | None = None
-    source: str = "default"       # "default" | "yaml" | "api" | "config"
+    source: str = SRC_DEFAULT       # SRC_DEFAULT | "yaml" | "api" | "config"
 
 
 class CommandRegistry:
@@ -115,7 +122,7 @@ class CommandRegistry:
                 examples=meta.get("examples", []),
                 system=True,
                 handler=handler,
-                source="system",
+                source=SRC_SYSTEM,
             )
 
     def register_user(self, name: str, handler: Callable,
@@ -183,7 +190,7 @@ class CommandRegistry:
                     args=merged.get("args", []),
                     examples=merged.get("examples", []),
                     system=False,
-                    source="override" if name in self._overrides else "default",
+                    source=SRC_OVERRIDE if name in self._overrides else SRC_DEFAULT,
                 )
             return None
 
@@ -295,6 +302,19 @@ def reset_registry() -> None:
 
 def load_command_defs(yaml_path: str = "") -> int:
     return get_registry().load_defaults(yaml_path)
+
+
+# ── Registry protocol helpers ──
+
+
+def register_command_spec(spec: RegisterableSpec) -> bool:
+    """Register a command via the unified Registry protocol."""
+    return get_registry().register(spec)
+
+
+def list_command_specs(category: str = "") -> list[RegisterableSpec]:
+    """List commands via the unified Registry protocol."""
+    return get_registry().list(category=category)
 
 
 def load_command_overrides(cfg: dict) -> None:

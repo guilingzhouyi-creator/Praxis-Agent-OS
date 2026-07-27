@@ -44,7 +44,7 @@ from l1.kernel.params.api import (
 from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT
 
 # Base types extracted to llm_base.py
-from .llm.llm_base import (
+from .llm_base import (
     _PROVIDER_REGISTRY,
     LLMConfig,
     LLMProvider,
@@ -53,7 +53,7 @@ from .llm.llm_base import (
 )
 
 # Provider implementations extracted to llm_providers.py
-from .llm.llm_providers import MockProvider, WebSocketProvider
+from .llm_providers import MockProvider, WebSocketProvider
 from l3.tool_system.tool_spec import ToolSpec
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class LLMEngine:
 
         p = self.config.provider
         if self.config.use_websocket:
-            from .llm.llm_providers import WebSocketProvider
+            from .llm_providers import WebSocketProvider
             return WebSocketProvider(self.config.api_url, self.config.model, self.config.api_key)
 
         registry = get_registry()
@@ -94,7 +94,7 @@ class LLMEngine:
             return provider
 
         logger.warning("llm: no provider '%s', using MockProvider", p)
-        from .llm.llm_providers import MockProvider
+        from .llm_providers import MockProvider
         return MockProvider()
 
     def generate(self, prompt: str, system: str = "",

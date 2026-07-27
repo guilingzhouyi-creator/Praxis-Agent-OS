@@ -6,8 +6,8 @@ import time
 import uuid
 from typing import Any
 
-from .agent.subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
-from .agent.subagent_task import SubAgentTask
+from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
+from .subagent_task import SubAgentTask
 
 logger = logging.getLogger(__name__)
 

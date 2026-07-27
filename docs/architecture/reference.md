@@ -10,7 +10,7 @@ praxis/
 ├── pyproject.toml
 ├── praxis.yaml
 ├── .nomos-rules.md
-├── commands.yaml                    # 39 command definitions
+├── commands.yaml                    # 40 command definitions
 ├── tools.yaml                       # Tool metadata
 ├── .gitignore
 │
@@ -46,6 +46,7 @@ praxis/
 │   │   ├── platform.py              # Cross-platform detection (217 lines)
 │   │   ├── errors.py                # 20 error codes (208 lines)
 │   │   ├── rule_descriptor.py       # Rule definition (106 lines)
+│   │   ├── bus.py                   # SystemBus — component lifecycle, topology, health (421 lines)
 │   │   └── versioning.py            # Schema migration (107 lines)
 │   │
 │   │   └── params/                  # === CONSTANTS ===
@@ -70,195 +71,278 @@ praxis/
 │   │   └── shell_completer.py       # Completion engine (44 lines)
 │   │
 │   ├── l3/                          # === L3: CELL ===
-│   │   ├── cell/__init__.py         # Cell class, 28+ methods (1048 lines)
-│   │   ├── agent_terminal/__init__.py # AgentTerminal, 34 methods (639 lines)
-│   │   ├── error_bus/
-│   │   │   ├── __init__.py          # ErrorBus, error_boundary, capture (725 lines)
-│   │   │   └── api.py               # 6 API handlers (72 lines)
-│   │   ├── resource_buffer/
-│   │   │   ├── __init__.py
-│   │   │   ├── ring.py              # RingBuffer (290 lines)
-│   │   │   ├── manager.py           # ResourceBufferManager (62 lines)
-│   │   │   └── api.py               # Buffer API handlers (36 lines)
-│   │   ├── tools/                   # 15 tool files + __init__
-│   │   │   ├── _files.py            # File operations (via buffer) (131 lines)
-│   │   │   ├── _code.py             # Code analysis (64 lines)
-│   │   │   ├── _search.py           # Search tools (42 lines)
-│   │   │   ├── _build.py            # Build tools (31 lines)
-│   │   │   ├── _git.py              # Git tools (39 lines)
-│   │   │   ├── _comm.py             # Communication (34 lines)
-│   │   │   ├── _config.py           # Config tools (44 lines)
-│   │   │   ├── _env.py              # Environment tools (16 lines)
-│   │   │   ├── _archive.py          # Archive tools (74 lines)
-│   │   │   ├── _memory.py           # Memory tools (50 lines)
-│   │   │   ├── _peer.py             # Peer tools (55 lines)
-│   │   │   ├── _terminal.py         # Terminal tools (17 lines)
-│   │   │   ├── _web.py              # Web tools (40 lines)
-│   │   │   ├── _logging.py          # Logging tools (21 lines)
-│   │   │   └── _deps.py             # Dependency tools (20 lines)
-│   │   │
-│   │   ├── boot.py                  # System bootstrap (528 lines)
-│   │   ├── boot_init.py             # Memory/shutdown init (107 lines)
-│   │   ├── bootstrap.py             # YAML bootstrap wizard (329 lines)
-│   │   ├── agent_loop.py            # LLM tool-calling loop (421 lines)
-│   │   ├── memory.py                # MemoryManager — 4-ring (536 lines)
-│   │   ├── memory_init.py           # Memory lifecycle (318 lines)
-│   │   ├── memory_ring.py           # RingLayer, MemEntry (153 lines)
-│   │   ├── memory_quality.py        # Quality scoring (92 lines)
-│   │   ├── central_memory.py        # R1-R4 coordinator (165 lines)
-│   │   ├── card.py                  # Card data model (103 lines)
-│   │   ├── card_unified.py          # Unified card types (550 lines)
-│   │   ├── card_registry.py         # Card queue + status (490 lines)
-│   │   ├── card_builder.py          # Intent→Card compiler (227 lines)
-│   │   ├── card_gate.py             # Card approval gate (252 lines)
-│   │   ├── card_state.py            # Backward-compat re-exports (13 lines)
-│   │   ├── card_yaml.py             # YAML card loader (58 lines)
-│   │   ├── card_pool.py             # Remote card registry (183 lines)
-│   │   ├── card_registry_protocol.py # Net protocol (80 lines)
-│   │   ├── scout.py                 # Scout pool (373 lines)
-│   │   ├── context.py               # Context register (181 lines)
-│   │   ├── context_pool.py          # Per-agent context pool (76 lines)
-│   │   ├── cell_token_merger.py     # Token accumulator (68 lines)
-│   │   ├── monitor_bus.py           # Monitoring event bus (220 lines)
-│   │   ├── message_gate.py          # Message policy engine (169 lines)
-│   │   ├── tool_spec.py             # ToolSpec registry (546 lines)
-│   │   ├── tool_pipeline.py         # 9-step execution (295 lines)
-│   │   ├── tool_config.py           # YAML tool config (250 lines)
-│   │   ├── tool_policy.py           # Tool visibility policy (241 lines)
-│   │   ├── tool_mode.py             # Global read/write mode (101 lines)
-│   │   ├── htn_planner.py           # HTN planner (452 lines)
-│   │   ├── execution_plan.py        # Card→Plan compiler (613 lines)
-│   │   ├── execution_engine.py      # Step execution (386 lines)
-│   │   ├── execution_verify.py      # Verification chain (96 lines)
-│   │   ├── l3.py                    # L3 coordinator (224 lines)
-│   │   ├── l3a.py                   # L3A: Human→Card (212 lines)
-│   │   ├── l3b.py                   # L3B: Cross-cell (81 lines)
-│   │   ├── central_security.py      # 6-gate check (166 lines)
-│   │   ├── central_plugin.py        # Plugin lifecycle (152 lines)
-│   │   ├── central_collector.py     # Token aggregation (149 lines)
-│   │   ├── scheduler.py             # Unified scheduler (177 lines)
-│   │   ├── scheduler_rate.py        # Rate scheduler (72 lines)
-│   │   ├── scheduler_scope.py       # Scope scheduling (75 lines)
-│   │   ├── scheduler_time.py        # Time-slice (126 lines)
-│   │   ├── scheduler_router.py      # Intent routing (118 lines)
-│   │   ├── scheduler_types.py       # Dataclasses (57 lines)
-│   │   ├── convention.py            # Convention meetings (280 lines)
-│   │   ├── convergence.py           # Convention→Card / convergence detection (156 lines)
-│   │   ├── fault_tolerance.py       # Checkpoint + recovery (323 lines)
-│   │   ├── dialogue_session.py      # Dialogue persistence (325 lines)
-│   │   ├── session_export.py        # Session export (340 lines)
-│   │   ├── session_snapshot.py      # Snapshot lifecycle (69 lines)
-│   │   ├── approval_gate.py         # Human approval (155 lines)
-│   │   ├── pending_queue.py         # Approval queue (270 lines)
-│   │   ├── reference_channel.py     # Event capture (260 lines)
-│   │   ├── log.py                   # Log service + rotation (288 lines)
-│   │   ├── config_loader.py         # praxis.yaml loader (282 lines)
-│   │   ├── config_handlers.py       # Config migration (305 lines)
-│   │   ├── settings_center.py       # 3-layer settings (247 lines)
-│   │   ├── settings_adapter.py      # Settings adapter (67 lines)
-│   │   ├── identity.py              # Ed25519 keys + proofs (391 lines)
-│   │   ├── wiring.py                # Port→adapter wiring (210 lines)
-│   │   ├── service_manager.py       # Service lifecycle (220 lines)
-│   │   ├── acb.py                   # Agent Control Block (332 lines)
-│   │   ├── r4_agent.py              # R4 archivist (443 lines)
-│   │   ├── record_center.py         # Unified error/log/reference record center (358 lines)
-│   │   ├── subagent.py              # Lightweight sub-agent (111 lines)
-│   │   ├── subagent_framework.py    # SubAgent framework — facade over spec/task/dispatch/merge (115 lines)
-│   │   ├── pager.py                 # Context paging (320 lines)
-│   │   ├── pager_bridge.py          # Swapper↔Pager bridge (106 lines)
-│   │   ├── pal_router.py            # LLM cost router (178 lines)
-│   │   ├── stagnation.py            # Deadlock detection (195 lines)
-│   │   ├── loop_detectors.py        # Loop detection (84 lines)
-│   │   ├── counter.py               # Token/tool/turn counters (321 lines)
-│   │   ├── cache.py                 # Multi-level cache (301 lines)
-│   │   ├── cache_doc.py             # Meeting doc cache (151 lines)
-│   │   ├── cache_strategy.py        # LLM prefix cache (107 lines)
-│   │   ├── result_store.py          # Tool result cache (163 lines)
-│   │   ├── sequence_monitor.py      # Anomaly detection (263 lines)
-│   │   ├── file_editor.py           # Semantic file editing (671 lines)
-│   │   ├── archive_orchestrator.py  # Archive (104 lines)
-│   │   ├── process.py               # Process manager (139 lines)
-│   │   ├── task_bus.py              # Task dispatch (220 lines)
-│   │   ├── todo.py                  # Task queue (202 lines)
-│   │   ├── todo_tracker.py          # Todo state machine (240 lines)
-│   │   ├── issue.py                 # Issue tracking (286 lines)
-│   │   ├── transaction_area.py      # Card staging (302 lines)
-│   │   ├── verifier.py              # Result verification (120 lines)
-│   │   ├── verify_cadence.py        # Check cadence (97 lines)
-│   │   ├── review.py                # Peer review (127 lines)
-│   │   ├── vspace.py                # Virtual space (311 lines)
-│   │   ├── workspace.py             # Workspace manager (86 lines)
-│   │   ├── stats_center.py          # Cross-Cell metric aggregation (341 lines)
-│   │   ├── statecharts.py           # 5-region state machine (301 lines)
-│   │   ├── observability_bus.py     # Alert/health/metric (143 lines)
-│   │   ├── assembly.py              # Constitutional assembly (212 lines)
-│   │   ├── prompt_engine.py         # Prompt building (469 lines)
-│   │   ├── template.py              # Jinja2 templates (85 lines)
-│   │   ├── content_trust.py         # Content provenance (367 lines)
-│   │   ├── comm_monitor.py          # Communication monitor (182 lines)
-│   │   ├── ai.py                    # AI service (127 lines)
-│   │   ├── config.py                # Config API (111 lines)
-│   │   ├── think_registry.py        # Think quota registry (247 lines)
-│   │   ├── ipc.py                   # IPC protocol (323 lines)
-│   │   ├── plan_step_types.py       # Plan step data (38 lines)
-│   │   ├── fs.py                    # Filesystem ops (199 lines)
-│   │   ├── _term_convention.py      # Terminal convention utilities (126 lines)
-│   │   ├── _term_handlers.py        # Terminal handler logic (339 lines)
-│   │   ├── _term_lifecycle.py       # Terminal lifecycle (51 lines)
-│   │   ├── _term_types.py           # Terminal types (44 lines)
+│   │   ├── __init__.py              # Root init
 │   │   ├── _base.py                 # Base classes (93 lines)
 │   │   ├── _persistable.py          # Persistable mixin (104 lines)
 │   │   ├── _pool.py                 # Pool utilities (191 lines)
-│   │   ├── decomposer.py            # Intent decomposition (265 lines)
-│   │   ├── package_manager.py       # Unified apt/pip/npm/cargo (175 lines)
-│   │   ├── cell_monitor.py          # Cell health events (209 lines)
-│   │   ├── cell_convention.py       # Cell convention helpers (139 lines)
-│   │   ├── cell_buffer.py           # Cell buffer operations (65 lines)
-│   │   ├── cell_decompose.py        # Cell decomposition (101 lines)
-│   │   ├── cell_pmu.py              # CellPmu (performance counters) (199 lines)
-│   │   ├── cell_icache.py           # ICache (instruction cache, LFU) (168 lines)
-│   │   ├── cell_mmu.py              # CellMmu + CellTlb (territory→agent translation) (209 lines)
-│   │   ├── cell_interrupt.py        # InterruptController (priority interrupt routing) (249 lines)
-│   │   ├── cell_watchdog.py         # CellWatchdog (per-agent liveness) (187 lines)
-│   │   ├── cell_orchestrate.py      # SubAgentOrchestrator (fork-join) (234 lines)
-│   │   ├── subagent_spec.py         # SubAgentSpec dataclass (142 lines)
-│   │   ├── subagent_task.py         # SubAgentTask (AgentLoop execution) (223 lines)
-│   │   ├── subagent_dispatcher.py   # SubAgentDispatcher (@mention parsing) (92 lines)
-│   │   ├── subagent_merger.py       # ResultMerger (58 lines)
-│   │   └── cell_types.py            # Cell type definitions (100 lines)
+│   │   │
+│   │   ├── agent/                   # AgentLoop, Scout, SubAgent (22 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── agent_loop.py        # LLM tool-calling loop (421 lines)
+│   │   │   ├── agent_persist.py     # Agent persistence
+│   │   │   ├── ai.py                # AI service (127 lines)
+│   │   │   ├── convergence.py       # Convention→Card / convergence detection (156 lines)
+│   │   │   ├── pal_router.py        # LLM cost router (178 lines)
+│   │   │   ├── review.py            # Peer review (127 lines)
+│   │   │   ├── scout.py             # Scout pool (373 lines)
+│   │   │   ├── session_snapshot.py  # Snapshot lifecycle (69 lines)
+│   │   │   ├── stagnation.py        # Deadlock detection (195 lines)
+│   │   │   ├── subagent.py          # Lightweight sub-agent (111 lines)
+│   │   │   ├── subagent_dispatcher.py # @mention parsing (92 lines)
+│   │   │   ├── subagent_framework.py # Facade over spec/task/dispatch/merge (115 lines)
+│   │   │   ├── subagent_merger.py   # ResultMerger (58 lines)
+│   │   │   ├── subagent_spec.py     # SubAgentSpec dataclass (142 lines)
+│   │   │   ├── subagent_task.py     # SubAgentTask (AgentLoop execution) (223 lines)
+│   │   │   ├── verifier.py          # Result verification (120 lines)
+│   │   │   ├── verify_cadence.py    # Check cadence (97 lines)
+│   │   │   ├── _term_convention.py  # Terminal convention utilities (126 lines)
+│   │   │   ├── _term_handlers.py    # Terminal handler logic (339 lines)
+│   │   │   ├── _term_lifecycle.py   # Terminal lifecycle (51 lines)
+│   │   │   └── _term_types.py       # Terminal types (44 lines)
+│   │   │
+│   │   ├── agent_terminal/          # Terminal runtime
+│   │   │   └── __init__.py          # AgentTerminal, 34 methods (639 lines)
+│   │   │
+│   │   ├── boot/                    # Boot sequence + wiring (4 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── boot.py              # 5-step system bootstrap (528 lines)
+│   │   │   ├── boot_init.py         # Memory/shutdown init (107 lines)
+│   │   │   └── wiring.py            # Port→adapter wiring (210 lines)
+│   │   │
+│   │   ├── bus/                     # IPC, L3B, MonitorBus, HTN (15 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── comm_monitor.py      # Communication monitor (182 lines)
+│   │   │   ├── htn_a.py             # Global intent sharding
+│   │   │   ├── htn_b.py             # Inter-cell routing decomposition
+│   │   │   ├── htn_planner.py       # HTN planner (452 lines)
+│   │   │   ├── ipc.py               # IPC protocol (323 lines)
+│   │   │   ├── l3b.py               # L3B: Cross-cell (81 lines)
+│   │   │   ├── l3b_bus.py           # Composite communication bus (5 message types)
+│   │   │   ├── l3b_message_pool.py  # 2-tier buffer: Hot Ring + SQLite
+│   │   │   ├── log.py               # Log service + rotation (288 lines)
+│   │   │   ├── message_gate.py      # Message policy engine (169 lines)
+│   │   │   ├── monitor_bus.py       # Monitoring event bus (220 lines)
+│   │   │   ├── observability_bus.py # Alert/health/metric (143 lines)
+│   │   │   ├── reference_channel.py # Event capture (260 lines)
+│   │   │   └── task_bus.py          # Task dispatch (220 lines)
+│   │   │
+│   │   ├── card/                    # Card lifecycle + registry (21 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── approval_gate.py     # Human approval (155 lines)
+│   │   │   ├── card_builder.py      # Intent→Card compiler (227 lines)
+│   │   │   ├── card_gate.py         # Card approval gate (252 lines)
+│   │   │   ├── card_pool.py         # Remote card registry (183 lines)
+│   │   │   ├── card_registry.py     # Card queue + status (490 lines)
+│   │   │   ├── card_registry_protocol.py # Net protocol (80 lines)
+│   │   │   ├── card_unified.py      # Unified card types (550 lines)
+│   │   │   ├── card_yaml.py         # YAML card loader (58 lines)
+│   │   │   ├── convention.py        # Convention meetings (280 lines)
+│   │   │   ├── decomposer.py        # Intent decomposition (265 lines)
+│   │   │   ├── dialogue_session.py  # Dialogue persistence (325 lines)
+│   │   │   ├── execution_engine.py  # Step execution (386 lines)
+│   │   │   ├── execution_plan.py    # Card→Plan compiler (613 lines)
+│   │   │   ├── execution_run.py     # Execution runner
+│   │   │   ├── execution_verify.py  # Verification chain (96 lines)
+│   │   │   ├── issue.py             # Issue tracking (286 lines)
+│   │   │   ├── models.py            # Card model types
+│   │   │   ├── pending_queue.py     # Approval queue (270 lines)
+│   │   │   ├── plan_step_types.py   # Plan step data (38 lines)
+│   │   │   └── transaction_area.py  # Card staging (302 lines)
+│   │   │
+│   │   ├── cell/                    # Cell class + components + peers (22 files)
+│   │   │   ├── __init__.py          # Cell class, 28+ methods (1048 lines)
+│   │   │   ├── components/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── cell_agent.py    # Agent registration
+│   │   │   │   ├── cell_buffer.py   # CircularBuffer (65 lines)
+│   │   │   │   ├── cell_cache.py    # L2 shared cache (383 lines)
+│   │   │   │   ├── cell_convention.py # Cell convention helpers (139 lines)
+│   │   │   │   ├── cell_cross_review.py # Cross-review
+│   │   │   │   ├── cell_decompose.py # Cell decomposition (101 lines)
+│   │   │   │   ├── cell_execute.py  # Cell execution
+│   │   │   │   ├── cell_icache.py   # ICache, LFU (168 lines)
+│   │   │   │   ├── cell_interrupt.py # InterruptController, 4 pri (249 lines)
+│   │   │   │   ├── cell_mmu.py      # CellMmu + CellTlb (209 lines)
+│   │   │   │   ├── cell_monitor.py  # Cell health events (209 lines)
+│   │   │   │   ├── cell_pmu.py      # 28 performance counters (199 lines)
+│   │   │   │   ├── cell_rollback.py # Cell rollback
+│   │   │   │   ├── cell_token_merger.py # Token tracking (68 lines)
+│   │   │   │   ├── cell_types.py    # Cell type definitions (100 lines)
+│   │   │   │   └── cell_watchdog.py # Watchdog timer (187 lines)
+│   │   │   └── peers/
+│   │   │       ├── __init__.py
+│   │   │       ├── central_collector.py # Token aggregation (149 lines)
+│   │   │       ├── l3.py            # L3 coordinator (224 lines)
+│   │   │       └── l3a.py           # L3A: Human→Card (212 lines)
+│   │   │
+│   │   ├── config/                  # Config loading + settings (8 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── bootstrap.py         # YAML bootstrap wizard (329 lines)
+│   │   │   ├── cache_strategy.py    # LLM prefix cache (107 lines)
+│   │   │   ├── config.py            # Config API (111 lines)
+│   │   │   ├── config_handlers.py   # Config migration (305 lines)
+│   │   │   ├── config_loader.py     # praxis.yaml loader (282 lines)
+│   │   │   ├── settings_adapter.py  # Settings adapter (67 lines)
+│   │   │   └── settings_center.py   # 3-layer settings (247 lines)
+│   │   │
+│   │   ├── error_bus/               # Error capture bus (2 files)
+│   │   │   ├── __init__.py          # ErrorBus, error_boundary (725 lines)
+│   │   │   └── api.py               # 6 API handlers (72 lines)
+│   │   │
+│   │   ├── memory/                  # 4-ring memory + pager + cache (17 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── archive_orchestrator.py # Archive (104 lines)
+│   │   │   ├── cache.py             # Multi-level cache (301 lines)
+│   │   │   ├── cache_doc.py         # Meeting doc cache (151 lines)
+│   │   │   ├── central_memory.py    # R1-R4 coordinator (165 lines)
+│   │   │   ├── context.py           # Context register (181 lines)
+│   │   │   ├── context_pool.py      # Per-agent context pool (76 lines)
+│   │   │   ├── memory.py            # MemoryManager — 4-ring (536 lines)
+│   │   │   ├── memory_context.py    # Memory context
+│   │   │   ├── memory_init.py       # Memory lifecycle (318 lines)
+│   │   │   ├── memory_quality.py    # Quality scoring (92 lines)
+│   │   │   ├── memory_ring.py       # RingLayer, MemEntry (153 lines)
+│   │   │   ├── memory_search.py     # Memory search
+│   │   │   ├── pager.py             # Context paging (320 lines)
+│   │   │   ├── pager_bridge.py      # Swapper↔Pager bridge (106 lines)
+│   │   │   ├── r4_agent.py          # R4 archivist (443 lines)
+│   │   │   └── result_store.py      # Tool result cache (163 lines)
+│   │   │
+│   │   ├── resource_buffer/         # Ring file buffer (4 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── api.py               # Buffer API handlers (36 lines)
+│   │   │   ├── manager.py           # ResourceBufferManager (62 lines)
+│   │   │   └── ring.py              # RingBuffer (290 lines)
+│   │   │
+│   │   ├── scheduler/               # 5-D scheduler + think + ACB (11 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── acb.py               # Agent Control Block (332 lines)
+│   │   │   ├── loop_detectors.py    # Loop detection (84 lines)
+│   │   │   ├── scheduler.py         # Unified scheduler (177 lines)
+│   │   │   ├── scheduler_rate.py    # Rate scheduler (72 lines)
+│   │   │   ├── scheduler_router.py  # Intent routing (118 lines)
+│   │   │   ├── scheduler_scope.py   # Scope scheduling (75 lines)
+│   │   │   ├── scheduler_time.py    # Time-slice (126 lines)
+│   │   │   ├── scheduler_types.py   # Dataclasses (57 lines)
+│   │   │   ├── sequence_monitor.py  # Anomaly detection (263 lines)
+│   │   │   └── think_registry.py    # Think quota registry (247 lines)
+│   │   │
+│   │   ├── services/                # Stats, Records, Model, etc. (29 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── assembly.py          # Constitutional assembly (212 lines)
+│   │   │   ├── bus_components.py    # Bus component registration
+│   │   │   ├── cell_orchestrate.py  # SubAgentOrchestrator (fork-join) (234 lines)
+│   │   │   ├── central_plugin.py    # Plugin lifecycle (152 lines)
+│   │   │   ├── central_security.py  # 6-gate check (166 lines)
+│   │   │   ├── content_trust.py     # Content provenance (367 lines)
+│   │   │   ├── counter.py           # Token/tool/turn counters (321 lines)
+│   │   │   ├── fault_tolerance.py   # Checkpoint + recovery (323 lines)
+│   │   │   ├── file_editor.py       # Semantic file editing (671 lines)
+│   │   │   ├── fs.py                # Filesystem ops (199 lines)
+│   │   │   ├── global_components.py # Global component registration
+│   │   │   ├── hook.py              # Hook system
+│   │   │   ├── identity.py          # Ed25519 keys + proofs (391 lines)
+│   │   │   ├── middleware.py        # Service middleware
+│   │   │   ├── model_service.py     # ModelService — ModelSpec resolution (542 lines)
+│   │   │   ├── package_manager.py   # Unified apt/pip/npm/cargo (175 lines)
+│   │   │   ├── process.py           # Process manager (139 lines)
+│   │   │   ├── prompt_engine.py     # Prompt building (469 lines)
+│   │   │   ├── record_center.py     # Unified record center (358 lines)
+│   │   │   ├── service_manager.py   # Service lifecycle (220 lines)
+│   │   │   ├── session_export.py    # Session export (340 lines)
+│   │   │   ├── statecharts.py       # 5-region state machine (301 lines)
+│   │   │   ├── stats_center.py      # Cross-Cell metric aggregation (341 lines)
+│   │   │   ├── template.py          # Jinja2 templates (85 lines)
+│   │   │   ├── todo.py              # Task queue (202 lines)
+│   │   │   ├── todo_tracker.py      # Todo state machine (240 lines)
+│   │   │   ├── vspace.py            # Virtual space (311 lines)
+│   │   │   └── workspace.py         # Workspace manager (86 lines)
+│   │   │
+│   │   ├── tool_system/             # Tool pipeline + spec + policy (8 files)
+│   │   │   ├── __init__.py
+│   │   │   ├── tool_config.py       # YAML tool config (250 lines)
+│   │   │   ├── tool_mode.py         # Global read/write mode (101 lines)
+│   │   │   ├── tool_params.py       # Tool parameter definitions
+│   │   │   ├── tool_pipeline.py     # 9-step execution (295 lines)
+│   │   │   ├── tool_policy.py       # Tool visibility policy (241 lines)
+│   │   │   ├── tool_registry.py     # Tool registry
+│   │   │   └── tool_spec.py         # ToolSpec registry (546 lines)
+│   │   │
+│   │   ├── tools/                   # 17 tool implementations
+│   │   │   ├── _archive.py          # Archive tools (74 lines)
+│   │   │   ├── _build.py            # Build tools (31 lines)
+│   │   │   ├── _code.py             # Code analysis (64 lines)
+│   │   │   ├── _comm.py             # Communication (34 lines)
+│   │   │   ├── _config.py           # Config tools (44 lines)
+│   │   │   ├── _deps.py             # Dependency tools (20 lines)
+│   │   │   ├── _env.py              # Environment tools (16 lines)
+│   │   │   ├── _files.py            # File operations (131 lines)
+│   │   │   ├── _git.py              # Git tools (39 lines)
+│   │   │   ├── _logging.py          # Logging tools (21 lines)
+│   │   │   ├── _memory.py           # Memory tools (50 lines)
+│   │   │   ├── _peer.py             # Peer tools (55 lines)
+│   │   │   ├── _search.py           # Search tools (42 lines)
+│   │   │   ├── _skills.py           # Skill tools
+│   │   │   ├── _subagent.py         # SubAgent tools
+│   │   │   ├── _terminal.py         # Terminal tools (17 lines)
+│   │   │   └── _web.py              # Web tools (40 lines)
 │   │
 │   ├── l4/                          # === L4: BRIDGE ===
-│   │   ├── api_gateway.py           # HTTP server (393 lines)
-│   │   ├── api_handlers/__init__.py # Handler mixin (688 lines)
-│   │   ├── api_routes.py            # 152 routes (234 lines)
-│   │   ├── api_handlers_cards.py    # Card handlers (93 lines)
-│   │   ├── api_handlers_monitor.py  # Monitor handlers (188 lines)
-│   │   ├── api_handlers_agent.py    # Agent handlers (83 lines)
-│   │   ├── api_handlers_config.py   # Config handlers (168 lines)
-│   │   ├── api_handlers_records.py  # RecordCenter query/stats/export/bridge (91 lines)
-│   │   ├── api_handlers_stats.py    # StatsCenter query/top/live (101 lines)
-│   │   ├── api_middleware.py        # Middleware chain (312 lines)
-│   │   ├── llm.py                   # LLM Engine (542 lines)
-│   │   ├── llm_base.py              # LLMProvider ABC (186 lines)
-│   │   ├── llm_providers.py         # Provider impls (299 lines)
+│   │   ├── api/                     # HTTP gateway + routes + middleware
+│   │   │   ├── __init__.py
+│   │   │   ├── api_gateway.py       # HTTP server (393 lines)
+│   │   │   ├── api_routes.py        # 157 routes (234 lines)
+│   │   │   ├── api_middleware.py    # Middleware chain (312 lines)
+│   │   │   └── api_handlers_cards.py # Card handlers (93 lines)
+│   │   │
+│   │   ├── api_handlers/            # 9 handler modules
+│   │   │   ├── __init__.py          # Handler mixin (688 lines)
+│   │   │   ├── api_handlers_agent.py # Agent handlers (83 lines)
+│   │   │   ├── api_handlers_cluster.py # Cluster handlers
+│   │   │   ├── api_handlers_commands.py # Command handlers
+│   │   │   ├── api_handlers_config.py # Config handlers (168 lines)
+│   │   │   ├── api_handlers_monitor.py # Monitor handlers (188 lines)
+│   │   │   ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
+│   │   │   ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
+│   │   │   └── api_handlers_stats.py # StatsCenter query/top/live (101 lines)
+│   │   │
+│   │   ├── llm/                     # LLM engine + providers
+│   │   │   ├── __init__.py
+│   │   │   ├── llm.py               # LLM Engine (542 lines)
+│   │   │   ├── llm_base.py          # LLMProvider ABC (186 lines)
+│   │   │   └── llm_providers.py     # Provider impls (299 lines)
+│   │   │
+│   │   ├── search/                  # Search engine
+│   │   │   ├── __init__.py
+│   │   │   ├── search.py            # Text search (124 lines)
+│   │   │   └── search_engine.py     # Full-text search (556 lines)
+│   │   │
+│   │   ├── lsp/                     # LSP client + manager
+│   │   │   ├── __init__.py
+│   │   │   ├── lsp.py               # LSP client (265 lines)
+│   │   │   └── lsp_manager.py       # LSP manager (615 lines)
+│   │   │
+│   │   ├── vault/                   # Credential vault + auth
+│   │   │   ├── __init__.py
+│   │   │   ├── credential_vault.py  # AES-256 vault (209 lines)
+│   │   │   └── auth.py              # Authentication (147 lines)
+│   │   │
+│   │   ├── sse/                     # SSE bridge
+│   │   │   ├── __init__.py
+│   │   │   └── sse_bridge.py        # SSE streaming (132 lines)
+│   │   │
 │   │   ├── llm_worker/              # Worker process (104 lines)
 │   │   ├── mcp_bridge.py            # MCP adapter (588 lines)
-│   │   ├── lsp_manager.py           # LSP manager (615 lines)
-│   │   ├── lsp.py                   # LSP client (265 lines)
 │   │   ├── sandbox.py               # Sandbox interface (329 lines)
 │   │   ├── sandbox/                 # Sandbox mgr + server (256 lines)
 │   │   ├── rpc/                     # RPC protocol + transport (78 lines)
 │   │   ├── supervisor.py            # Process supervisor (217 lines)
 │   │   ├── cron_scheduler.py        # Cron scheduling (224 lines)
-│   │   ├── credential_vault.py      # AES-256 vault (209 lines)
-│   │   ├── search_engine.py         # Full-text search (556 lines)
-│   │   ├── sse_bridge.py            # SSE streaming (132 lines)
-│   │   ├── auth.py                  # Authentication (147 lines)
 │   │   ├── user_session.py          # User sessions (149 lines)
 │   │   ├── notify.py                # Webhooks (99 lines)
 │   │   ├── net_client.py            # HTTP client (83 lines)
+│   │   ├── network.py               # Network
 │   │   ├── ops_console.py           # Dashboard (289 lines)
-│   │   ├── search.py                # Text search (124 lines)
 │   │   ├── ci.py                    # CI pipeline (230 lines)
 │   │   ├── git.py                   # Git ops (149 lines)
 │   │   └── adapters/
@@ -375,7 +459,7 @@ praxis/
 | Log | `LOG_MAX_MEMORY_ENTRIES=5000`, `LOG_EXPORT_LIMIT=10000` |
 | Version | `KERNEL_VERSION="0.3.0"`, `PRAXIS_CODENAME="Aether"` |
 
-## API Routes (153 total)
+## API Routes (157 total)
 
 | Category | Routes | Handler Prefix |
 |----------|--------|---------------|
@@ -476,20 +560,20 @@ Defined in `params/api.py`:
 
 | Variable | Constant | Used By |
 |----------|----------|---------|
-| `OPENAI_API_KEY` | `ENV_OPENAI_KEY` | `l4/llm_providers.py` |
-| `DEEPSEEK_API_KEY` | `ENV_DEEPSEEK_KEY` | `l4/llm_providers.py` |
-| `ANTHROPIC_API_KEY` | `ENV_ANTHROPIC_KEY` | `l4/llm_providers.py` |
-| `OLLAMA_URL` | `ENV_OLLAMA_URL` | `l4/llm_providers.py` |
-| `OLLAMA_MODEL` | `ENV_OLLAMA_MODEL` | `l4/llm_providers.py` |
-| `OPENAI_API_URL` | `ENV_OPENAI_URL` | `l4/llm_providers.py` |
-| `OPENAI_MODEL` | `ENV_OPENAI_MODEL` | `l4/llm_providers.py` |
-| `ANTHROPIC_API_URL` | `ENV_ANTHROPIC_URL` | `l4/llm_providers.py` |
-| `ANTHROPIC_MODEL` | `ENV_ANTHROPIC_MODEL` | `l4/llm_providers.py` |
-| `LLM_WS_URL` | `ENV_LLM_WS_URL` | `l4/llm_providers.py` |
-| `LLM_WS_MODEL` | `ENV_LLM_WS_MODEL` | `l4/llm_providers.py` |
-| `NOMOS_SANDBOX_ROOT` | `ENV_SANDBOX_ROOT` | `l4/sandbox.py`, `l3/vspace.py` |
-| `PRAXIS_DISCOVERY_PORT` | `ENV_DISCOVERY_PORT` | `l3/config_handlers.py` |
-| `PRAXIS_PORT` | `ENV_PRAXIS_PORT` | `l3/config_handlers.py` |
+| `OPENAI_API_KEY` | `ENV_OPENAI_KEY` | `l4/llm/llm_providers.py` |
+| `DEEPSEEK_API_KEY` | `ENV_DEEPSEEK_KEY` | `l4/llm/llm_providers.py` |
+| `ANTHROPIC_API_KEY` | `ENV_ANTHROPIC_KEY` | `l4/llm/llm_providers.py` |
+| `OLLAMA_URL` | `ENV_OLLAMA_URL` | `l4/llm/llm_providers.py` |
+| `OLLAMA_MODEL` | `ENV_OLLAMA_MODEL` | `l4/llm/llm_providers.py` |
+| `OPENAI_API_URL` | `ENV_OPENAI_URL` | `l4/llm/llm_providers.py` |
+| `OPENAI_MODEL` | `ENV_OPENAI_MODEL` | `l4/llm/llm_providers.py` |
+| `ANTHROPIC_API_URL` | `ENV_ANTHROPIC_URL` | `l4/llm/llm_providers.py` |
+| `ANTHROPIC_MODEL` | `ENV_ANTHROPIC_MODEL` | `l4/llm/llm_providers.py` |
+| `LLM_WS_URL` | `ENV_LLM_WS_URL` | `l4/llm/llm_providers.py` |
+| `LLM_WS_MODEL` | `ENV_LLM_WS_MODEL` | `l4/llm/llm_providers.py` |
+| `NOMOS_SANDBOX_ROOT` | `ENV_SANDBOX_ROOT` | `l4/sandbox.py`, `l3/services/vspace.py` |
+| `PRAXIS_DISCOVERY_PORT` | `ENV_DISCOVERY_PORT` | `l3/config/config_handlers.py` |
+| `PRAXIS_PORT` | `ENV_PRAXIS_PORT` | `l3/config/config_handlers.py` |
 | `NOMOS_DEFAULT_CELL` | `ENV_DEFAULT_CELL` | — |
 | `PRAXIS_API_TOKEN` | `ENV_API_TOKEN` | — |
 

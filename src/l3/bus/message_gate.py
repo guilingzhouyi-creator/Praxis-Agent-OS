@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from .bus.monitor_bus import MonitorEvent
+from .monitor_bus import MonitorEvent
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class MessageGateRule:
     created_at: float = field(default_factory=time.time)
 
     def matches(self, event: MonitorEvent) -> bool:
-        from .bus.monitor_bus import _match_type
+        from .monitor_bus import _match_type
         for key in ("type", "severity", "agent_id", "cell_id", "source"):
             val = self.pattern.get(key, "")
             if not val:

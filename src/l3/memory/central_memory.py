@@ -44,7 +44,7 @@ class CentralMemory:
         # Quality gate (Rings 1-3)
         if ring <= 3:
             try:
-                from .memory.memory_quality import _is_good_memory, _score_importance
+                from .memory_quality import _is_good_memory, _score_importance
                 accepted, reason = _is_good_memory(content, entry_type)
                 if not accepted:
                     return {"success": False, "ring": ring, "reason": f"quality_rejected:{reason}"}
@@ -57,7 +57,7 @@ class CentralMemory:
             # Archive directly to fonds/series store
             try:
                 from l3.tools._archive import _cmd_archive_store
-                from .memory.archive_orchestrator import _classify
+                from .archive_orchestrator import _classify
                 pseudo_entry = {
                     "agent_id": agent_id,
                     "entry_type": entry_type,
@@ -75,7 +75,7 @@ class CentralMemory:
 
         # Rings 1-3 via memory module
         try:
-            from .memory.memory import get_memory
+            from .memory import get_memory
             mem = get_memory()
             r = mem.remember(agent_id=agent_id, entry_type=entry_type,
                              content=content, tags=tags, ring=ring,
@@ -98,7 +98,7 @@ class CentralMemory:
         results = []
 
         try:
-            from .memory.memory import get_memory
+            from .memory import get_memory
             mem = get_memory()
             for ring in rings:
                 try:
@@ -132,7 +132,7 @@ class CentralMemory:
         """Trigger compaction on one or all rings."""
         self._stats["compactions"] += 1
         try:
-            from .memory.memory import get_memory
+            from .memory import get_memory
             mem = get_memory()
             if ring and ring <= 3:
                 r = mem.compact(agent_id, ring=ring)
@@ -146,7 +146,7 @@ class CentralMemory:
         """Incremental archive from Ring 3 to Ring 4."""
         self._stats["archives"] += 1
         try:
-            from .memory.archive_orchestrator import archive_ring3
+            from .archive_orchestrator import archive_ring3
             n = archive_ring3(mem_any)
             return {"success": True, "archived": n}
         except Exception as e:
@@ -155,14 +155,14 @@ class CentralMemory:
     def stats(self) -> dict:
         base = dict(self._stats)
         try:
-            from .memory.memory import get_memory
+            from .memory import get_memory
             mem = get_memory()
             ms = mem.stats() if hasattr(mem, 'stats') else {}
             base["memory_stats"] = ms
         except Exception:
             pass
         try:
-            from .memory.r4_agent import get_r4_agent
+            from .r4_agent import get_r4_agent
             r4 = get_r4_agent()
             r4s = r4.stats() if hasattr(r4, 'stats') else {}
             base["r4_stats"] = r4s

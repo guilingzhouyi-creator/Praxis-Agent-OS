@@ -157,7 +157,7 @@ class IpcBus(BaseService):
         constraint_key = self._resolve_constraint(msg.sender, msg.receiver)
         if not COMM_CONSTRAINTS.get(constraint_key, True):
             self._total_dropped += 1
-            from .bus.comm_monitor import get_monitor
+            from .comm_monitor import get_monitor
             get_monitor().record_dropped(channel="ipc")
             return {"success": False, "error": f"communication forbidden: {constraint_key}"}
 
@@ -172,7 +172,7 @@ class IpcBus(BaseService):
                 except Exception as e:
                     logger.warning("ipc handler: %s", e)
 
-        from .bus.comm_monitor import get_monitor
+        from .comm_monitor import get_monitor
         get_monitor().record_message(channel="ipc", msg_type="send",
                                       direction="out", agent_id=msg.sender,
                                       target=msg.msg_type.name)

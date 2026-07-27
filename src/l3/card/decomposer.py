@@ -35,7 +35,7 @@ from l1.kernel.params.agent import (
     CELL_SCOUT_ROLE,
 )
 from .card_unified import CardUnified, CardPhase, CardTask, CardSummary
-from .card.card_builder import build_card as _build_card
+from .card_builder import build_card as _build_card
 
 logger = logging.getLogger(__name__)
 

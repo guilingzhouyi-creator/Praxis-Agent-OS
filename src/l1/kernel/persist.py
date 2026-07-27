@@ -3,6 +3,10 @@
 Replaces the old snapshot-overwrite model with an append-only SQLite event log.
 Events are immutable; full replay reconstructs kernel state from scratch.
 
+Architecture:
+  Write connection:  single WAL-mode connection (serialized via _DB_LOCK)
+  Read connections:  pool of 2 connections (parallel reads, share _DB_LOCK)
+
 Schema:
   events(
     seq      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +43,8 @@ from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
-_DB: sqlite3.Connection | None = None
+_DB: sqlite3.Connection | None = None         # write connection
+_READ_DBS: list[sqlite3.Connection] = []       # read connection pool (2)
 _DB_LOCK = threading.Lock()
 _DB_PATH: str = ""
 
@@ -51,7 +56,8 @@ def _db_path() -> str:
     return _DB_PATH
 
 
-def _get_db() -> sqlite3.Connection:
+def _get_write_db() -> sqlite3.Connection:
+    """Get or create the write connection (WAL mode, single writer)."""
     global _DB
     if _DB is None:
         with _DB_LOCK:
@@ -59,6 +65,7 @@ def _get_db() -> sqlite3.Connection:
                 path = _db_path()
                 _DB = sqlite3.connect(path, check_same_thread=False)
                 _DB.execute("PRAGMA journal_mode=WAL")
+                _DB.execute("PRAGMA synchronous=NORMAL")
                 _DB.execute("""
                     CREATE TABLE IF NOT EXISTS events (
                         "seq"    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,11 +80,24 @@ def _get_db() -> sqlite3.Connection:
     return _DB
 
 
+def _get_read_db() -> sqlite3.Connection:
+    """Get or lazily create a read connection from the pool."""
+    global _READ_DBS
+    with _DB_LOCK:
+        if not _READ_DBS:
+            path = _db_path()
+            for _ in range(2):
+                conn = sqlite3.connect(path, check_same_thread=False)
+                conn.execute("PRAGMA query_only=ON")
+                _READ_DBS.append(conn)
+        return _READ_DBS[0]
+
+
 # ── Append ──
 
 def append(event: str, payload: dict | None = None) -> int:
     """Append an immutable event to the store. Returns sequence number."""
-    db = _get_db()
+    db = _get_write_db()
     with _DB_LOCK:
         cur = db.execute(
             "INSERT INTO events (event, payload, ts) VALUES (?, ?, ?)",
@@ -89,7 +109,7 @@ def append(event: str, payload: dict | None = None) -> int:
 
 def append_many(events: list[tuple[str, dict]]) -> list[int]:
     """Append multiple events atomically. Returns list of sequence numbers."""
-    db = _get_db()
+    db = _get_write_db()
     seqs = []
     with _DB_LOCK:
         for event, payload in events:
@@ -107,7 +127,7 @@ def append_many(events: list[tuple[str, dict]]) -> list[int]:
 def query(event_type: str = "", after_seq: int = 0,
           limit: int = PERSIST_QUERY_LIMIT) -> list[dict]:
     """Query events. Returns list of {seq, event, payload, ts}."""
-    db = _get_db()
+    db = _get_read_db()
     with _DB_LOCK:
         if event_type:
             rows = db.execute(
@@ -126,7 +146,7 @@ def query(event_type: str = "", after_seq: int = 0,
 
 
 def count(event_type: str = "") -> int:
-    db = _get_db()
+    db = _get_read_db()
     with _DB_LOCK:
         if event_type:
             return db.execute("SELECT COUNT(*) FROM events WHERE event = ?", (event_type,)).fetchone()[0]
@@ -134,7 +154,7 @@ def count(event_type: str = "") -> int:
 
 
 def last_seq() -> int:
-    db = _get_db()
+    db = _get_read_db()
     with _DB_LOCK:
         r = db.execute("SELECT MAX(seq) FROM events").fetchone()
         return r[0] or 0
@@ -156,7 +176,7 @@ def replay() -> dict:
 
     stats = {"events": 0, "processes": 0, "audit": 0, "devices": 0, "interrupts": 0}
 
-    db = _get_db()
+    db = _get_read_db()
     with _DB_LOCK:
         rows = db.execute(
             "SELECT seq, event, payload, ts FROM events ORDER BY seq"

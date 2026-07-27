@@ -76,41 +76,70 @@ class LedgerEntry:
 
 
 class ToolHistoryLedger:
-    """Stores recent tool call history for G3/G5 risk analysis."""
+    """Stores recent tool call history for G3/G5 risk analysis.
+
+    Uses dict-based buckets for O(1) lookup by agent/tool instead of
+    linear scan of the full list.
+    """
 
     def __init__(self, max_entries: int = LEDGER_MAX_ENTRIES):
-        self._entries: list[LedgerEntry] = []
         self._max = max_entries
+        self._entries: list[LedgerEntry] = []
+        self._by_agent: dict[str, deque[LedgerEntry]] = {}
+        self._by_tool: dict[str, deque[LedgerEntry]] = {}
+        self._by_agent_tool: dict[str, deque[LedgerEntry]] = {}
         self._lock = threading.Lock()
+
+    def _bucket_key(self, agent_id: str, tool: str) -> str:
+        return f"{agent_id}|{tool}"
 
     def record(self, entry: LedgerEntry) -> None:
         with self._lock:
             self._entries.append(entry)
             if len(self._entries) > self._max:
                 self._entries = self._entries[-self._max:]
+            # Update index buckets
+            self._by_agent.setdefault(entry.agent_id, deque(maxlen=self._max)).append(entry)
+            self._by_tool.setdefault(entry.tool, deque(maxlen=self._max)).append(entry)
+            key = self._bucket_key(entry.agent_id, entry.tool)
+            self._by_agent_tool.setdefault(key, deque(maxlen=self._max)).append(entry)
 
     def recent(self, agent_id: str = "", tool: str = "", limit: int = LEDGER_RECENT_LIMIT) -> list[LedgerEntry]:
+        """Get recent entries for an agent/tool. Uses indexed buckets for O(bucket) lookup."""
         with self._lock:
-            filtered = self._entries
+            if agent_id and tool:
+                key = self._bucket_key(agent_id, tool)
+                bucket = self._by_agent_tool.get(key, [])
+                return list(bucket)[-limit:]
             if agent_id:
-                filtered = [e for e in filtered if e.agent_id == agent_id]
+                bucket = self._by_agent.get(agent_id, [])
+                return list(bucket)[-limit:]
             if tool:
-                filtered = [e for e in filtered if e.tool == tool]
-            return filtered[-limit:]
+                bucket = self._by_tool.get(tool, [])
+                return list(bucket)[-limit:]
+            return self._entries[-limit:]
 
     def count(self, agent_id: str = "", tool: str = "", window: float = LEDGER_COUNT_WINDOW) -> int:
+        """Count entries within a time window. Scans only the relevant bucket."""
         now = time.time()
         with self._lock:
-            return sum(
-                1 for e in self._entries
-                if (not agent_id or e.agent_id == agent_id)
-                and (not tool or e.tool == tool)
-                and (now - e.timestamp) <= window
-            )
+            if agent_id and tool:
+                key = self._bucket_key(agent_id, tool)
+                bucket = self._by_agent_tool.get(key, [])
+            elif agent_id:
+                bucket = self._by_agent.get(agent_id, [])
+            elif tool:
+                bucket = self._by_tool.get(tool, [])
+            else:
+                bucket = self._entries
+            return sum(1 for e in bucket if (now - e.timestamp) <= window)
 
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
+            self._by_agent.clear()
+            self._by_tool.clear()
+            self._by_agent_tool.clear()
 
 
 

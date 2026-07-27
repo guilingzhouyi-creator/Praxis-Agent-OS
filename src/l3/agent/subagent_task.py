@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS
-from .agent.subagent_spec import SubAgentSpec
+from .subagent_spec import SubAgentSpec
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,7 @@ class SubAgentTask:
             "subagent.fallback", "You are {name}. {description}"
         ).format(name=self.spec.name, description=self.spec.description)
 
-        from .agent.agent_loop import AgentLoop
+        from .agent_loop import AgentLoop
         from .tool_system.tool_spec import TOOL_REGISTRY
 
         loop = AgentLoop(
@@ -257,7 +257,7 @@ def _resolve_tool_handler(tool_name: str) -> Any:
     if tool_name in _HANDLER_CACHE:
         return _HANDLER_CACHE[tool_name]
     try:
-        from .agent._term_handlers import _HANDLER_MAP
+        from ._term_handlers import _HANDLER_MAP
         handler = _HANDLER_MAP.get(tool_name)
         if handler:
             _HANDLER_CACHE[tool_name] = handler

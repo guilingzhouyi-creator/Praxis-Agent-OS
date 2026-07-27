@@ -24,9 +24,9 @@ from typing import Any
 
 from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS
 
-from .agent.subagent_spec import SubAgentSpec
-from .agent.subagent_dispatcher import SubAgentDispatcher
-from .agent.subagent_merger import ResultMerger
+from .subagent_spec import SubAgentSpec
+from .subagent_dispatcher import SubAgentDispatcher
+from .subagent_merger import ResultMerger
 
 logger = logging.getLogger(__name__)
 

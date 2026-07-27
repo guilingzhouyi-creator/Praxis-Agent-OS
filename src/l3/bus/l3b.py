@@ -48,7 +48,7 @@ class L3BComposite:
     """
 
     def __init__(self, prev_cell_id: str, next_cell_id: str):
-        from .bus.htn_b import create_htn_b
+        from .htn_b import create_htn_b
 
         self.prev_cell = prev_cell_id
         self.next_cell = next_cell_id

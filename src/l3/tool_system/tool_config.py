@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from .tool_system.tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, TOOL_REGISTRY, ToolRing
+from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, TOOL_REGISTRY, ToolRing
 from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
 
 logger = logging.getLogger(__name__)
@@ -200,7 +200,7 @@ class ToolConfig:
     @classmethod
     def available_for(cls, agent_id: str) -> list[ToolSpec]:
         """ToolPolicy-filtered tool list."""
-        from .tool_system.tool_policy import ToolPolicy
+        from .tool_policy import ToolPolicy
         return [t for t in cls.all() if ToolPolicy.is_allowed(agent_id, t.name)]
 
     # ── Derivative data sets ──

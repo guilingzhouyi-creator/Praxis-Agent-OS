@@ -214,8 +214,8 @@ class R4Agent:
     def _incremental_archive(self) -> int:
         """Export new Ring 3 entries to Archive since last run."""
         try:
-            from .memory.archive_orchestrator import archive_ring3
-            from .memory.memory import get_memory
+            from .archive_orchestrator import archive_ring3
+            from .memory import get_memory
             mem = get_memory()
             return archive_ring3(mem)
         except Exception as e:
@@ -235,8 +235,8 @@ class R4Agent:
             {"success": bool, "restored": int}
         """
         try:
-            from .memory.archive_orchestrator import ring3_from_archive
-            from .memory.memory import get_memory
+            from .archive_orchestrator import ring3_from_archive
+            from .memory import get_memory
             mem = get_memory()
             count = ring3_from_archive(mem)
             return {"success": True, "restored": count}

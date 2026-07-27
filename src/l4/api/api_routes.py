@@ -128,6 +128,13 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/tokens/cells",       ".token_cells",        "Token per Cell"),
     ("GET", "/api/tokens/global",      ".token_global",       "Token global summary"),
 
+    # Constitution
+    ("GET",  "/api/v2/constitution",              "services.api_handlers_constitution.handle_constitution_get",           "Get full constitution state"),
+    ("PUT",  "/api/v2/constitution/rules",         "services.api_handlers_constitution.handle_constitution_rules_update",    "Add/update custom rules"),
+    ("DELETE","/api/v2/constitution/rules",         "services.api_handlers_constitution.handle_constitution_rules_clear",    "Clear all custom rules"),
+    ("POST", "/api/v2/constitution/reload",        "services.api_handlers_constitution.handle_constitution_reload",          "Reload constitution from file"),
+    ("GET",  "/api/v2/constitution/summary",       "services.api_handlers_constitution.handle_constitution_summary",         "LLM-readable constitution summary"),
+
     # Agent config
     ("GET", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
