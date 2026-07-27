@@ -43,6 +43,31 @@ class Skill:
     knowledge: dict[str, Any] = field(default_factory=dict)
     source: str = ""
     loaded_at: float = 0.0
+    allowed_tools: list[str] | None = None
+    variables: list[str] | None = None
+    prompt: str = ""
+
+    def expand(self, **kwargs: str) -> str:
+        """Expand $VARIABLES in prompt with keyword args."""
+        if not self.prompt:
+            return self.prompt
+        result = self.prompt
+        for k, v in kwargs.items():
+            result = result.replace(f"${k.upper()}", str(v))
+        return result
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "rules": len(self.rules),
+            "procedures": len(self.procedures),
+            "knowledge": self.knowledge,
+            "source": self.source,
+            "allowed_tools": self.allowed_tools or [],
+            "variables": self.variables or [],
+            "prompt": self.prompt or "",
+        }
 
 
 class SkillManager:
@@ -162,6 +187,27 @@ class SkillManager:
                 rules.extend(skill.get("rules", []))
         return rules
 
+    def list_by_allowed_tools(self, tool_name: str) -> list[dict]:
+        """List skills that allow using a specific tool."""
+        results = []
+        with self._lock:
+            for name, skill in self._skills.items():
+                at = skill.get("allowed_tools")
+                if at is None or tool_name in at:
+                    results.append({
+                        "name": name,
+                        "description": skill.get("description", "")[:60],
+                    })
+        return results
+
+    def update(self, name: str, data: dict) -> dict:
+        """Update a skill's data at runtime (e.g., increment usage count)."""
+        with self._lock:
+            if name not in self._skills:
+                return {"success": False, "error": f"skill '{name}' not found"}
+            self._skills[name].update(data)
+            return {"success": True, "skill": name}
+
     def query(self, question: str) -> list[dict]:
         """Query skills by keyword matching."""
         q = question.lower()
@@ -221,6 +267,9 @@ class SkillManager:
             "procedures": [],
             "knowledge": {"body": body[:2000]},
             "source": path,
+            "allowed_tools": meta.get("allowed_tools"),
+            "variables": meta.get("variables"),
+            "prompt": body.strip(),
         }
         self._store(data, path)
         return True

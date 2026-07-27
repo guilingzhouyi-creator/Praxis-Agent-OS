@@ -230,6 +230,25 @@ layer_2:
 # (No tools currently assigned — reserved for future destructive operations)
 
 # ═══════════════════════════════════════════════════════════════
+# Layer 1 — Skills (RING_1, danger=0)
+# ═══════════════════════════════════════════════════════════════
+
+layer_1:
+  skills:
+    list_skills:
+      description: "List available skills, optionally filtered by tag or tool name"
+      handler: l3.tools._skills.list_skills
+      params:
+        - {name: tag, type: string, optional: true, description: "Filter by tag"}
+        - {name: tool, type: string, optional: true, description: "Filter by allowed tool"}
+    use_skill:
+      description: "Execute a skill by name with variable substitution"
+      handler: l3.tools._skills.use_skill
+      params:
+        - {name: name, type: string, required: true, description: "Skill name"}
+        - {name: "*", type: string, optional: true, description: "Variable key=value pairs for $VAR expansion"}
+
+# ═══════════════════════════════════════════════════════════════
 # Hidden — Not registered in TOOL_REGISTRY, used as references
 # ═══════════════════════════════════════════════════════════════
 
