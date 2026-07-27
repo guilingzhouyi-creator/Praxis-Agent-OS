@@ -135,6 +135,16 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/constitution/reload",        "services.api_handlers_constitution.handle_constitution_reload",          "Reload constitution from file"),
     ("GET",  "/api/v2/constitution/summary",       "services.api_handlers_constitution.handle_constitution_summary",         "LLM-readable constitution summary"),
 
+    # Discussion / Layer 3
+    ("POST", "/api/v2/discussion/start",                "services.api_handlers_discussion.handle_discussion_start",                "Start discussion for an issue"),
+    ("GET",  "/api/v2/discussion/sessions",              "services.api_handlers_discussion.handle_discussion_sessions",              "List all discussion sessions"),
+    ("GET",  "/api/v2/discussion/reports",               "services.api_handlers_discussion.handle_discussion_reports",               "List all reports"),
+    ("GET",  "/api/v2/discussion/{id}",                  "services.api_handlers_discussion.handle_discussion_get",                  "Get session status"),
+    ("GET",  "/api/v2/discussion/{id}/answers",          "services.api_handlers_discussion.handle_discussion_answers",              "Get raw cell answers"),
+    ("GET",  "/api/v2/discussion/{id}/report",           "services.api_handlers_discussion.handle_discussion_report",               "Get aggregated report"),
+    ("POST", "/api/v2/discussion/{id}/supplement",       "services.api_handlers_discussion.handle_discussion_supplement",            "Submit supplement issue"),
+    ("POST", "/api/v2/discussion/push-to-l3a",           "services.api_handlers_discussion.handle_discussion_push_l3a",              "Push report to L3A"),
+
     # Agent config
     ("GET", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
