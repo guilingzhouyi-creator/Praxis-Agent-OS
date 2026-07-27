@@ -456,6 +456,14 @@ class Constitution:
         with self._lock:
             self._constitution_path = path
             self._rules = list(_BUILTIN_DESCRIPTORS) + custom_rules
+        # Emit loaded event for SSE
+        try:
+            from l1.kernel import get_event_bus
+            get_event_bus().emit_event("constitution.loaded", data={
+                "rules": len(self._rules), "custom": len(custom_rules), "path": path,
+            })
+        except Exception:
+            pass
         return {"success": True, "rules": len(self._rules), "custom": len(custom_rules), "path": path}
 
     def check(self, action: str, agent_id: str, target: str = "",
@@ -493,10 +501,11 @@ class Constitution:
         Each rule dict:
           {"id": "...", "severity": "MUST|SHOULD|MAY",
            "description": "...", "section": "§custom"}
+
+        Persists to SettingsCenter for L3 runtime overrides.
         """
         count = 0
         with self._lock:
-            # Remove existing custom rules
             self._rules = [r for r in self._rules if r.source != "custom"]
             for spec in custom_rules:
                 sev = _severity(spec.get("severity", "MUST"))
@@ -508,7 +517,15 @@ class Constitution:
                     source="custom",
                 ))
                 count += 1
-        # Emit CONSTITUTION_UPDATE signal for SSE broadcast
+        # Persist to SettingsCenter L3
+        try:
+            from l3.config.settings_center import get_center
+            sc = get_center()
+            sc.set("constitution.custom_rules", custom_rules)
+            sc.set("constitution.custom_rule_count", count)
+        except Exception:
+            pass
+        # Emit signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus
             bus = get_event_bus()

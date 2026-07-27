@@ -263,27 +263,46 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
 
 
 def _load_constitution() -> dict:
-    """Load constitution from .nomos-rules.md into both territory and rule engine."""
+    """Load constitution from .nomos-rules.md into both territory and rule engine.
+
+    Also restores custom rules previously persisted to SettingsCenter L3
+    (from runtime API updates) so they survive restarts.
+    """
     from pathlib import Path
     from l1.kernel.params.agent import CONSTITUTION_ENV_VAR
     from l1.kernel.paths import get_paths
     from l1.kernel.constitution import load_territory, TerritoryConstitution, get_constitution
     constitution_path = get_paths().constitution_file
     path = Path(os.environ.get(CONSTITUTION_ENV_VAR, constitution_path))
+    result = {"source": str(path) if path.exists() else "none"}
     try:
         if path.exists():
             c = load_territory(str(path))
             if not c or not isinstance(c, TerritoryConstitution):
-                return {"success": True, "source": str(path), "assembly_mode": True}
-            engine_load = get_constitution().load(str(path))
-            if not engine_load.get("success"):
-                logger.warning("constitution engine load failed: %s", engine_load.get("error", ""))
-            return {
-                "success": True, "source": str(path),
-                "assembly_mode": False,
-                "rules": engine_load.get("rules", 0),
-            }
-        return {"success": True, "source": "none", "assembly_mode": True}
+                result["assembly_mode"] = True
+            else:
+                engine_load = get_constitution().load(str(path))
+                if not engine_load.get("success"):
+                    logger.warning("constitution engine load failed: %s", engine_load.get("error", ""))
+                result["assembly_mode"] = False
+                result["rules"] = engine_load.get("rules", 0)
+                result["custom"] = engine_load.get("custom", 0)
+        else:
+            result["assembly_mode"] = True
+
+        # Restore custom rules from SettingsCenter L3 (runtime persistence)
+        try:
+            from l3.config.settings_center import get_center
+            sc = get_center()
+            custom_rules = sc.get("constitution.custom_rules")
+            if custom_rules and isinstance(custom_rules, list) and len(custom_rules) > 0:
+                r = get_constitution().update_rules(custom_rules)
+                result["restored"] = r.get("updated", 0)
+                logger.info("constitution: restored %d custom rules from L3", r.get("updated", 0))
+        except Exception:
+            pass
+
+        return {"success": True, **result}
     except Exception as e:
         logger.error("constitution load error: %s", e)
         return {"success": False, "error": str(e), "assembly_mode": True}

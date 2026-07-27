@@ -67,6 +67,11 @@ def cfg_llm(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
+    """Load constitution config from praxis.yaml.
+
+    Stores action sets in both module-level constants (for hot-path perf)
+    and SettingsCenter (for API query/runtime override).
+    """
     from l1.kernel.params.agent import (
         CONSTITUTION_FILE_ACTIONS,
         CONSTITUTION_MODIFY_ACTIONS,
@@ -74,13 +79,33 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
         CONSTITUTION_SCOUT_BLOCKED,
     )
     if "file_actions" in cfg:
-        CONSTITUTION_FILE_ACTIONS = frozenset(cfg["file_actions"])
+        val = frozenset(cfg["file_actions"])
+        CONSTITUTION_FILE_ACTIONS = val
+        s.set("constitution.file_actions", list(val))
     if "modify_actions" in cfg:
-        CONSTITUTION_MODIFY_ACTIONS = frozenset(cfg["modify_actions"])
+        val = frozenset(cfg["modify_actions"])
+        CONSTITUTION_MODIFY_ACTIONS = val
+        s.set("constitution.modify_actions", list(val))
     if "gate_actions" in cfg:
-        CONSTITUTION_GATE_ACTIONS = frozenset(cfg["gate_actions"])
+        val = frozenset(cfg["gate_actions"])
+        CONSTITUTION_GATE_ACTIONS = val
+        s.set("constitution.gate_actions", list(val))
     if "scout_blocked" in cfg:
-        CONSTITUTION_SCOUT_BLOCKED = frozenset(cfg["scout_blocked"])
+        val = frozenset(cfg["scout_blocked"])
+        CONSTITUTION_SCOUT_BLOCKED = val
+        s.set("constitution.scout_blocked", list(val))
+
+    # Load custom rules from YAML (optional)
+    rules = cfg.get("rules", [])
+    if rules:
+        try:
+            from l1.kernel.constitution import get_constitution
+            c = get_constitution()
+            s.set("constitution.custom_rules", rules)
+            c.update_rules(rules)
+        except Exception as e:
+            logger.warning("constitution rules load: %s", e)
+
     results["constitution"] = True
 
 
