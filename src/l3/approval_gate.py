@@ -8,7 +8,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import APPROVAL_GATE_PATH, APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class ApprovalGate(PersistableMixin):
     def __init__(self, persist_path: str = ""):
         self._requests: dict[str, ApprovalRequest] = {}
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or APPROVAL_GATE_PATH, APPROVAL_GATE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().approval_gate, APPROVAL_GATE_AUTO_SAVE)
         self._restore()
         # Expire any stale pending requests from before restart
         now = time.time()

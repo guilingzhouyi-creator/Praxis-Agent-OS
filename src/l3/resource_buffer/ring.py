@@ -23,15 +23,24 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+from l1.kernel.params.system import (
+    RESOURCE_BUFFER_SLOT_CAPACITY,
+    RESOURCE_BUFFER_SLOT_NAME,
+    RESOURCE_BUFFER_AUTO_EXPAND,
+    RESOURCE_BUFFER_FLUSH_INTERVAL,
+    RESOURCE_BUFFER_HIDDEN_TTL,
+)
+
+
 class RingBuffer:
     """Ring file buffer — not in-memory, backed by hidden files."""
 
     RING_ROOT: str = ".praxis/resource_buffer"
-    SLOT_CAPACITY: int = 64
-    SLOT_NAME: str = "slot_{:04d}.dat"
-    AUTO_EXPAND: bool = True
-    FLUSH_INTERVAL: float = 30.0
-    HIDDEN_TTL: float = 300.0
+    SLOT_CAPACITY: int = RESOURCE_BUFFER_SLOT_CAPACITY
+    SLOT_NAME: str = RESOURCE_BUFFER_SLOT_NAME
+    AUTO_EXPAND: bool = RESOURCE_BUFFER_AUTO_EXPAND
+    FLUSH_INTERVAL: float = RESOURCE_BUFFER_FLUSH_INTERVAL
+    HIDDEN_TTL: float = RESOURCE_BUFFER_HIDDEN_TTL
 
     def __init__(self, root: str = ""):
         self._root = Path(root or self.RING_ROOT)

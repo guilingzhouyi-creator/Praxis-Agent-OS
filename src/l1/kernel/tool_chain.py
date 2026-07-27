@@ -40,7 +40,7 @@ from .params.kernel import (
     TOOLCHAIN_QUERY_LIMIT,
     CHAIN_KEY_ENV_VAR,
 )
-from .params.system import PRAXIS_CHAIN_KEY
+from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ _SECRET_KEY = os.environ.get(CHAIN_KEY_ENV_VAR, "").encode() or os.urandom(32)
 # Persist to file for audit continuity across restarts.
 # Key file is created with 0o600 on POSIX (O_CREAT|O_EXCL) so it cannot be
 # pre-seeded by another user; existing files are read with explicit permission.
-_KEY_PATH = os.environ.get("CHAIN_KEY_PATH", PRAXIS_CHAIN_KEY)
+_KEY_PATH = os.environ.get("CHAIN_KEY_PATH", _gp().chain_key)
 if not os.environ.get(CHAIN_KEY_ENV_VAR):
     try:
         if os.path.exists(_KEY_PATH):

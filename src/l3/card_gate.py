@@ -22,7 +22,8 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.params.system import CARD_GATE_PATH, CARD_GATE_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import CARD_GATE_AUTO_SAVE
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
 
@@ -76,7 +77,7 @@ class CardGate(PersistableMixin):
         self._human_pending: dict[str, dict] = {}
         self._history: list[dict] = []  # approval audit trail
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or CARD_GATE_PATH, CARD_GATE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().card_gate, CARD_GATE_AUTO_SAVE)
         self._restore()
         if CARD_GATE_AUTO_SAVE > 0:
             self._start_auto_save()

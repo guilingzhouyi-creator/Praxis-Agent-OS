@@ -7,7 +7,7 @@ L3A writes cards → pushes to Transaction Area → sits in queue
 
 No card can bypass the Transaction Area — not even auto-approval.
 
-Persistence: JSON file at TRANSACTION_AREA_PATH, auto-saved every 30s.
+Persistence: JSON file at get_paths().transaction_area, auto-saved every 30s.
 """
 
 from __future__ import annotations
@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import TRANSACTION_AREA_PATH, TRANSACTION_AREA_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import TRANSACTION_AREA_AUTO_SAVE
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
 
@@ -77,7 +78,7 @@ class TransactionArea(BaseService, PersistableMixin):
         self._lock = threading.RLock()
         self._max_queue = max_queue
         self._dispatched_count = 0
-        self._init_persistence(persist_path or TRANSACTION_AREA_PATH, TRANSACTION_AREA_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().transaction_area, TRANSACTION_AREA_AUTO_SAVE)
         self._restore()
         if TRANSACTION_AREA_AUTO_SAVE > 0:
             self._start_auto_save()

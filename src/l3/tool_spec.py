@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
 from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
-from l1.kernel.params.system import PRAXIS_MUTE_STATE
+from l1.kernel.paths import get_paths as _gp
 
 from .tool_params import ParamSpec, ReturnSpec
 from .tool_registry import (

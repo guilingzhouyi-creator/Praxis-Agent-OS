@@ -64,8 +64,8 @@ class MessageGateEngine(PersistableMixin):
         self._rules: dict[str, MessageGateRule] = {}
         self._triggered: dict[str, float] = {}  # rule_id → triggered_at
         self._lock = threading.RLock()
-        from l1.kernel.params.system import PRAXIS_MESSAGE_GATE_STATE
-        self._init_persistence(persist_path or PRAXIS_MESSAGE_GATE_STATE)
+        from l1.kernel.paths import get_paths as _gp
+        self._init_persistence(persist_path or _gp().message_gate_state)
         self._restore()
 
     # ── Rule management ──

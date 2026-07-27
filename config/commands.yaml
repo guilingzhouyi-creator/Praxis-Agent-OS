@@ -139,7 +139,7 @@ mcp:
     - {name: sub, optional: true, description: "status|add|remove|disable|enable"}
   examples:
     - "/mcp                — MCP server status"
-    - '/mcp add my-server http://localhost:3500/mcp/v1 — add server'
+    - '/mcp add my-server http://YOUR_MCP_HOST:PORT/mcp/v1 — add server'
 
 process:
   category: system
@@ -323,7 +323,7 @@ card:
     - {name: sub, description: "list|install <url>|install-file <path>|search <q>|export <name>|remove <name>"}
   examples:
     - "/card               — list installed cards"
-    - '/card install https://example.com/cards/deploy.yaml — install from URL'
+    - '/card install https://CARD_REGISTRY_URL/deploy.yaml — install from URL'
     - '/card search deploy  — search remote registries'
 
 cell_create:

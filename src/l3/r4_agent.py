@@ -270,17 +270,18 @@ class R4Agent:
                        args: dict, error: str, turn_log: list[dict]) -> None:
         """Record a tool call failure for later analysis and lean case generation."""
         try:
-            from l1.kernel.params.system import SKILL_LEAN_DIR
+            from l1.kernel.paths import get_paths as _gp
             from l1.kernel.params.system import SKILL_LEAN_CASE_TEMPLATE
             import json, os
+            lean_dir = _gp().skill_lean_dir
             entry = {
                 "agent_id": agent_id, "tool": tool_name, "args": args,
                 "error": error[:200], "timestamp": time.time(),
                 "turn_count": len(turn_log),
                 "resolved": False,
             }
-            os.makedirs(SKILL_LEAN_DIR, exist_ok=True)
-            fp = os.path.join(SKILL_LEAN_DIR, SKILL_LEAN_CASE_TEMPLATE.format(
+            os.makedirs(lean_dir, exist_ok=True)
+            fp = os.path.join(lean_dir, SKILL_LEAN_CASE_TEMPLATE.format(
                 agent_id=agent_id, tool_name=tool_name, ts=int(time.time())))
             with open(fp, "w", encoding="utf-8") as f:
                 json.dump(entry, f, indent=2)
@@ -290,17 +291,18 @@ class R4Agent:
     def _process_failure_traces(self) -> int:
         """Scan pending failure traces and generate lean case Skill entries."""
         import json, os
-        from l1.kernel.params.system import SKILL_LEAN_DIR
+        from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
 
+        lean_dir = _gp().skill_lean_dir
         processed = 0
         try:
-            if not os.path.isdir(SKILL_LEAN_DIR):
+            if not os.path.isdir(lean_dir):
                 return 0
-            for fn in os.listdir(SKILL_LEAN_DIR):
+            for fn in os.listdir(lean_dir):
                 if not fn.endswith(".json"):
                     continue
-                fp = os.path.join(SKILL_LEAN_DIR, fn)
+                fp = os.path.join(lean_dir, fn)
                 try:
                     with open(fp, encoding="utf-8") as f:
                         entry = json.load(f)
@@ -374,7 +376,7 @@ class R4Agent:
             from l1.kernel.prompts import get_prompt
             from l1.kernel.skill import get_skill_manager
             import json, os
-            from l1.kernel.params.system import SKILL_EVOLVED_DIR
+            from l1.kernel.paths import get_paths as _gp
 
             system = get_prompt("r4_agent.skill_architect", "")
             prompt = f"Create a skill for: {intent.strip()}"
@@ -407,7 +409,7 @@ class R4Agent:
             )
 
             # Persist as SKILL.md
-            skill_dir = os.path.join(SKILL_EVOLVED_DIR, name)
+            skill_dir = os.path.join(_gp().skill_evolved_dir, name)
             os.makedirs(skill_dir, exist_ok=True)
             md_path = os.path.join(skill_dir, "SKILL.md")
             md_lines = ["---"]

@@ -29,8 +29,8 @@ _lock = threading.Lock()
 def _ensure_root() -> Path:
     global _agent_root
     if _agent_root is None:
-        from l1.kernel.params.system import PRAXIS_DATA_DIR
-        _agent_root = Path(PRAXIS_DATA_DIR) / "agents"
+        from l1.kernel.paths import get_paths as _gp
+        _agent_root = Path(_gp().data_dir) / "agents"
         _agent_root.mkdir(parents=True, exist_ok=True)
     return _agent_root
 

@@ -34,6 +34,15 @@ SKILL_DIRS = [
 ]
 
 
+def resolve_skill_dirs() -> list[str]:
+    """Return skill discovery paths via PraxisPaths (deploy-mode aware)."""
+    try:
+        from .paths import get_paths
+        return get_paths().skill_dirs
+    except Exception:
+        return list(SKILL_DIRS)
+
+
 @dataclass
 class Skill:
     name: str
@@ -107,21 +116,37 @@ class SkillManager:
         return count
 
     def load_builtin(self) -> int:
-        """Load built-in skills from default search paths."""
+        """Load built-in skills from deploy-mode-aware search paths."""
         count = 0
+        dirs = resolve_skill_dirs()
         import l1.kernel as _kernel
         kernel_dir = os.path.dirname(_kernel.__file__)
-        for sd in SKILL_DIRS:
-            path = os.path.join(os.path.dirname(kernel_dir), sd)
-            count += self.load_dir(path)
-            path2 = os.path.join(os.path.dirname(kernel_dir), "..", sd)
-            if os.path.isdir(path2):
-                count += self.load_dir(path2)
+        for sd in dirs:
+            if os.path.isabs(sd):
+                # Absolute path — use directly
+                count += self.load_dir(sd)
+            else:
+                # Relative path — try project root, then src/
+                for base in [
+                    os.path.join(os.path.dirname(kernel_dir), ".."),  # project root
+                    os.path.dirname(kernel_dir),                      # src/
+                ]:
+                    path = os.path.join(base, sd)
+                    if os.path.isdir(path):
+                        count += self.load_dir(path)
+                        break
         # Also load evolved skills from data directory
         try:
-            from l1.kernel.params.system import SKILL_EVOLVED_DIR
-            if os.path.isdir(SKILL_EVOLVED_DIR):
-                count += self.load_dir(SKILL_EVOLVED_DIR)
+            from ..paths import get_paths as _gp
+            if os.path.isdir(_gp().skill_evolved_dir):
+                count += self.load_dir(_gp().skill_evolved_dir)
+            # Also try PraxisPaths version
+            try:
+                ev = _gp().skill_evolved_dir
+                if ev != _gp().skill_evolved_dir and os.path.isdir(ev):
+                    count += self.load_dir(ev)
+            except Exception:
+                pass
         except Exception:
             pass
         return count

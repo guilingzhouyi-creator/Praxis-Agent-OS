@@ -204,8 +204,8 @@ def get_bus() -> MonitorBus:
     global _bus
     if _bus is None:
         try:
-            from l1.kernel.params.system import PRAXIS_MONITOR_BUS_LOG
-            persist = PRAXIS_MONITOR_BUS_LOG
+            from l1.kernel.paths import get_paths as _gp
+            persist = _gp().monitor_bus_log
         except Exception:
             persist = ""
         _bus = MonitorBus(persist_path=persist)

@@ -31,7 +31,7 @@ class CardPool:
         try:
             from l1.kernel.params.system import PRAXIS_CONFIG_DIR
             import yaml
-            cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "praxis.yaml")
+            cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "praxis.yaml")
             if os.path.exists(cfg_path):
                 with open(cfg_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f)

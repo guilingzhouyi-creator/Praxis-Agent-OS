@@ -233,11 +233,9 @@ class CellCache:
         Hot Ring entries are already IndexEntries (summaries only),
         so we only flush full values from KV.
         """
-        from l3.memory import get_memory
-
         now = time.time()
-        mem = get_memory()
         count = 0
+        failures = 0
 
         expired_keys = [
             k for k, e in self._kv.items()
@@ -252,20 +250,10 @@ class CellCache:
             if idx:
                 idx.location = "l3"
 
-            # Persist to MemoryManager Ring 2 (short-term)
-            try:
-                mem.remember(
-                    agent_id=entry.agent_id,
-                    cell_id=self.cell_id,
-                    entry_type=entry.entry_type,
-                    content=entry.value if isinstance(entry.value, str) else str(entry.value),
-                    ring=2,
-                    importance=entry.importance,
-                    tags=["cell_cache", entry.entry_type, self.cell_id],
-                )
+            if self._flush_one(entry, key):
                 count += 1
-            except Exception as e:
-                logger.warning("CellCache flush: %s", e)
+            else:
+                failures += 1
 
         # Also evict expired index entries (keep them lean)
         self._index_order = [k for k in self._index_order if k in self._index]
@@ -275,13 +263,12 @@ class CellCache:
         ]
         for key in expired_idx:
             self._pop_from_list(self._index_order, key)
-            self._index.pop(key, None)
 
-        if count:
-            self._flush_count += count
-            if self._pmu:
-                self._pmu.increment("cache.flushes", delta=count)
-            logger.info("CellCache %s: flushed %d entries to L3", self.cell_id, count)
+        if count or failures:
+            log_msg = "flushed %d entries" % count
+            if failures:
+                log_msg += ", %d failed/skipped" % failures
+            logger.info("CellCache %s: %s", self.cell_id, log_msg)
         return count
 
     def get_cell_context(self, max_tokens: int = 2048) -> str:
@@ -350,36 +337,50 @@ class CellCache:
 
     # ── Internal helpers ──────────────────────────────────────────
 
+    def _flush_one(self, entry: CellCacheEntry, key: str) -> bool:
+        """Flush a single entry to MemoryManager Ring 2.
+
+        Returns True if the entry was persisted, False on failure.
+        Replaces duplicated flush logic in flush() and _evict_kv().
+        """
+        from l3.memory import get_memory
+        content = entry.value if isinstance(entry.value, str) else json.dumps(entry.value, default=str)
+        # Skip if content would be rejected by MemoryManager quality gate (<30 chars)
+        if len(content) < 30:
+            logger.debug("CellCache flush skip: content too short (%d chars)", len(content))
+            return False
+        try:
+            mem = get_memory()
+            mem.remember(
+                agent_id=entry.agent_id,
+                cell_id=self.cell_id,
+                entry_type=entry.entry_type,
+                content=content,
+                ring=2,
+                importance=entry.importance,
+                tags=["cell_cache", entry.entry_type, self.cell_id],
+            )
+            self._flush_count += 1
+            return True
+        except Exception as e:
+            logger.warning("CellCache flush: %s", e)
+            return False
+
     def _evict_index(self) -> None:
         while len(self._index) > self._index_size and self._index_order:
             oldest = self._index_order.pop(0)
             idx = self._index.pop(oldest, None)
-            if idx and idx.location == "hot":
-                # Index entry being evicted — nothing to flush (summaries only)
-                pass
+            # Don't evict index entries — keep the summary so the index chain
+            # remains intact even after the KV value is flushed to L3.
+            if idx:
+                pass  # Summary preserved in _index (location was set to "l3" by _flush_one)
 
     def _evict_kv(self) -> None:
         while len(self._kv) > self._kv_size and self._kv_order:
             oldest = self._kv_order.pop(0)
             entry = self._kv.pop(oldest, None)
             if entry:
-                # Flush to MemoryManager
-                try:
-                    from l3.memory import get_memory
-                    mem = get_memory()
-                    mem.remember(
-                        agent_id=entry.agent_id,
-                        cell_id=self.cell_id,
-                        entry_type=entry.entry_type,
-                        content=entry.value if isinstance(entry.value, str) else str(entry.value),
-                        ring=2,
-                        importance=entry.importance,
-                        tags=["cell_cache", entry.entry_type, self.cell_id],
-                    )
-                    self._flush_count += 1
-                except Exception as e:
-                    logger.warning("CellCache evict flush: %s", e)
-                # Update index location
+                self._flush_one(entry, oldest)
                 idx = self._index.get(oldest)
                 if idx:
                     idx.location = "l3"

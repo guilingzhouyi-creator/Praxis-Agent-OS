@@ -123,7 +123,7 @@ def _cmd_mcp(args: list[str]) -> dict:
     return {"success": False, "error": "usage: /mcp [status|add <name> <endpoint>|remove <name>|disable <name>|enable <name>]"}
 
 def _cmd_memory(args: list[str]) -> dict:
-    scope, scope_id, rest = resolve_scope(args)
+    scope, scope_id, rest = _resolve_scope(args)
     op = rest[0] if rest else "stats"
     op_args = rest[1:]
     if op == "stats" and scope == "global":

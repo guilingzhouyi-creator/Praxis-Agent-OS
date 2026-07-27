@@ -3,7 +3,7 @@
 Cards enter the registry, are queued by priority, dispatched to Cells
 by territory match, executed, and tracked through completion.
 
-Persistence: JSON file at CARD_REGISTRY_PATH, auto-saved every 30s.
+Persistence: JSON file at get_paths().card_registry, auto-saved every 30s.
 
 Flow:
   submit(card) → PENDING → DISPATCHED → RUNNING → DONE | FAILED
@@ -21,8 +21,8 @@ import uuid
 from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
+from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import (
-    CARD_REGISTRY_PATH,
     CARD_REGISTRY_AUTO_SAVE,
     CARD_DISPATCH_INTERVAL,
     CARD_QUEUE_PENDING_MAX,
@@ -65,7 +65,7 @@ class CardRegistry(PersistableMixin):
         self._cell_resolver: Callable[[str], Any] | None = None
         self._dispatcher_running = False
         self._dispatcher_thread: threading.Thread | None = None
-        self._init_persistence(persist_path or CARD_REGISTRY_PATH, CARD_REGISTRY_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().card_registry, CARD_REGISTRY_AUTO_SAVE)
         self._restore()
         if CARD_REGISTRY_AUTO_SAVE > 0:
             self._start_auto_save()
@@ -184,13 +184,11 @@ class CardRegistry(PersistableMixin):
                 return
             intent = record.summary.title
             domain = record.nature
-            # Phase 1 bridge: prefer embedded old Card, fall back to to_old_card(),
-            # then raw intent string.
+            # Prefer CardUnified directly (new architecture), fall back to
+            # raw intent string for simple dispatch.
             structured_card = None
-            if hasattr(record, 'card') and record.card:
-                structured_card = record.card
-            elif record.phases and any(p.tasks for p in record.phases):
-                structured_card = record.to_old_card()
+            if hasattr(record, 'phases') and any(p.tasks for p in record.phases):
+                structured_card = record  # CardUnified is natively supported
 
         try:
             from .card_gate import evaluate as _gate_evaluate

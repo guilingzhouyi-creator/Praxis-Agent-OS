@@ -70,11 +70,14 @@ def join_url(*parts: str) -> str:
 
 
 def get_config_dir() -> _Path:
-    """Return config directory — XDG ~/.config/nomos-praxis on Unix,
-    %APPDATA%/nomos-praxis on Windows."""
-    if IS_WINDOWS:
-        return _Path(_os.environ.get("APPDATA", _Path.home() / ".config")) / "nomos-praxis"
-    return _Path.home() / ".config" / "nomos-praxis"
+    """Return config directory — delegates to PraxisPaths for deploy-mode awareness."""
+    try:
+        from .paths import get_paths
+        return _Path(get_paths().config_dir)
+    except Exception:
+        if IS_WINDOWS:
+            return _Path(_os.environ.get("APPDATA", _Path.home() / ".config")) / "nomos-praxis"
+        return _Path.home() / ".config" / "nomos-praxis"
 
 
 def get_temp_dir() -> str:

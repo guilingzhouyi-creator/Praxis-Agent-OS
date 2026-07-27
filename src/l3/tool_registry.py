@@ -9,7 +9,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, Callable
 
-from l1.kernel.params.system import PRAXIS_MUTE_STATE
+from l1.kernel.paths import get_paths as _gp
 
 if TYPE_CHECKING:
     from l3.tool_spec import ToolSpec
@@ -34,7 +34,7 @@ _MUTE_PATH: str = ""
 def _mute_path() -> str:
     global _MUTE_PATH
     if not _MUTE_PATH:
-        _MUTE_PATH = os.environ.get("PRAXIS_MUTE_PATH", PRAXIS_MUTE_STATE)
+        _MUTE_PATH = os.environ.get("PRAXIS_MUTE_PATH", _gp().mute_state)
     return _MUTE_PATH
 
 

@@ -254,7 +254,8 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
     register_boot_step("load_constitution", _load_constitution, depends_on=[])
     register_boot_step("load_config", _load_config, depends_on=["load_constitution"])
     register_boot_step("load_tools", _load_tools, depends_on=["load_config"])
-    register_boot_step("init_services", _init_services, depends_on=["load_tools"])
+    register_boot_step("init_system_bus", _init_system_bus, depends_on=["load_tools"])
+    register_boot_step("init_services", _init_services, depends_on=["init_system_bus"])
     register_boot_step("init_record_center", _init_record_center,
                        depends_on=["init_services"])
     register_boot_step("create_cell", lambda: _create_cell(agent_config),
@@ -264,9 +265,11 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
 def _load_constitution() -> dict:
     """Load constitution from .nomos-rules.md into both territory and rule engine."""
     from pathlib import Path
-    from l1.kernel.params.agent import CONSTITUTION_DEFAULT_PATH, CONSTITUTION_ENV_VAR
+    from l1.kernel.params.agent import CONSTITUTION_ENV_VAR
+    from l1.kernel.paths import get_paths
     from l1.kernel.constitution import load_territory, TerritoryConstitution, get_constitution
-    path = Path(os.environ.get(CONSTITUTION_ENV_VAR, CONSTITUTION_DEFAULT_PATH))
+    constitution_path = get_paths().constitution_file
+    path = Path(os.environ.get(CONSTITUTION_ENV_VAR, constitution_path))
     try:
         if path.exists():
             c = load_territory(str(path))
@@ -433,6 +436,41 @@ def _init_memory_and_archive() -> dict:
             results[mod] = "ok"
         except Exception as e:
             results[mod] = f"skip: {e}"
+    return results
+
+
+def _init_system_bus() -> dict:
+    """Initialize SystemBus root with global service components.
+
+    Registers EventBus, StatsCenter, RecordCenter, CentralController
+    so they participate in the unified lifecycle and event routing.
+    """
+    results = {}
+    try:
+        from l1.kernel.bus import get_root_bus, SystemBus
+        root = get_root_bus()
+
+        # Mount sub-buses
+        gs = root.mount("global")
+
+        # Register global components
+        from l3.global_components import (
+            StatsCenterComponent, RecordCenterComponent,
+            EventBusComponent, CentralControllerComponent,
+        )
+        gs.register(StatsCenterComponent())
+        gs.register(RecordCenterComponent())
+        gs.register(EventBusComponent())
+        gs.register(CentralControllerComponent())
+
+        # The Cell bus will be mounted by _create_cell later
+
+        gs.install()
+        results["system_bus"] = "ok"
+        results["components"] = [c.meta.name for c in gs.list()]
+    except Exception as e:
+        logger.warning("system_bus init: %s", e)
+        results["system_bus"] = f"skip: {e}"
     return results
 
 

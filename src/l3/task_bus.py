@@ -26,7 +26,7 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from l1.kernel.params.system import PRAXIS_DATA_DIR
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 

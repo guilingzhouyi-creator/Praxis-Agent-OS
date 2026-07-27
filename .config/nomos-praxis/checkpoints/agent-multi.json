@@ -1,0 +1,11 @@
+{
+  "agent_id": "agent-multi",
+  "task_id": {
+    "step": 3
+  },
+  "task_status": "running",
+  "progress": {},
+  "tool_ring_snapshot": [],
+  "sandbox_files": [],
+  "created_at": 1785153464.6788654
+}

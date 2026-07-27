@@ -118,8 +118,8 @@ def _mcp_state_path() -> str:
     global MCP_STATE_PATH
     if not MCP_STATE_PATH:
         try:
-            from l1.kernel.params.system import PRAXIS_DATA_DIR
-            MCP_STATE_PATH = os.path.join(PRAXIS_DATA_DIR, "mcp_state.json")
+            from l1.kernel.paths import get_paths as _gp
+            MCP_STATE_PATH = _gp().mcp_state
         except Exception:
             MCP_STATE_PATH = os.environ.get("PRAXIS_MCP_STATE", "mcp_state.json")
     return MCP_STATE_PATH

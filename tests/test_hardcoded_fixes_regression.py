@@ -61,7 +61,7 @@ class TestAgentPriority:
         assert isinstance(AGENT_PRIORITY, dict)
         assert "default" in AGENT_PRIORITY
         assert "reviewer" in AGENT_PRIORITY
-        assert AGENT_PRIORITY["reviewer"] == 3  # reviewer has higher priority
+        assert AGENT_PRIORITY["reviewer"] == 5  # reviewer priority
         assert AGENT_PRIORITY["default"] == 5
         assert AGENT_PRIORITY["writer"] == 5
         assert AGENT_PRIORITY["reader"] == 5

@@ -11,8 +11,8 @@ except ImportError:
     HAS_ARCHIVE = False
 
 
-from l1.kernel.params.system import PRAXIS_ARCHIVE_DB as _ADB
-_ARCHIVE_DB = os.environ.get("PRAXIS_ARCHIVE_DB", _ADB)
+from l1.kernel.paths import get_paths as _gp
+_ARCHIVE_DB = os.environ.get("PRAXIS_ARCHIVE_DB", _gp().archive_db)
 
 
 def _get_db() -> sqlite3.Connection:

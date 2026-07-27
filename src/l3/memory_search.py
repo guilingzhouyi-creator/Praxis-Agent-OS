@@ -6,13 +6,18 @@ Contains MemoryManager.search_long_term() logic.
 from __future__ import annotations
 
 import logging
+import tempfile
+from pathlib import Path
+
+from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
 
 logger = logging.getLogger(__name__)
 
 
 def search_long_term(mem, query: str, agent_id: str | None = None, limit: int = 10) -> list[dict]:
     """FTS5 full-text search across Ring 3 knowledge base."""
-    db_path = mem._db_path()
+    data_dir = str(mem._persist_dir) if mem._persist_dir else tempfile.gettempdir()
+    db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
     if not db_path.exists():
         return []
     import sqlite3

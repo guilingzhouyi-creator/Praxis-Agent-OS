@@ -141,10 +141,12 @@ htn:
     plan: create_file
 
 # ── Card pool (external registries for card type distribution) ──
+# Replace <url> with your actual card registry endpoint.
 card_pool:
   registries:
     - name: "community"
-      url: "https://community.praxis.dev/api/v1"
+      url: "https://registry.example.com/api/v1"    # ← replace with your registry
+
       priority: 1
   auto_sync: false
   sync_interval: 3600
@@ -196,10 +198,11 @@ card_types:
 mcp:
   servers: []
     # - name: filesystem
-    #   endpoint: http://localhost:3500/mcp/v1
+    #   endpoint: "http://localhost:3500/mcp/v1"
     #   api_key: ""
     # - name: database
-    #   endpoint: http://localhost:3501/mcp/v1
+    #   endpoint: "http://localhost:3501/mcp/v1"
+    # Replace localhost:3500/3501 with your MCP server address.
 
 # ── Persistence ──
 persist:

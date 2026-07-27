@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from l3._base import BaseService
-from l1.kernel.params.system import PRAXIS_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 

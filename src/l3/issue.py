@@ -22,7 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import ISSUE_TABLE_PATH, ISSUE_TABLE_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import ISSUE_TABLE_AUTO_SAVE
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ class IssueTable(PersistableMixin):
     def __init__(self, persist_path: str = ""):
         self._cards: dict[str, IssueCard] = {}
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or ISSUE_TABLE_PATH, ISSUE_TABLE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().issue_table, ISSUE_TABLE_AUTO_SAVE)
         self._restore()
         if ISSUE_TABLE_AUTO_SAVE > 0:
             self._start_auto_save()

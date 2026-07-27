@@ -339,19 +339,24 @@ class MemoryManager:
     #   Ring 1 → in-memory only (ephemeral)
 
     def _jsonl_path(self) -> Path:
-        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING2, PRAXIS_DATA_DIR
-        return (self._persist_dir or Path(PRAXIS_DATA_DIR)) / MEMORY_PERSIST_FILE_RING2
+        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING2
+        from l1.kernel.paths import get_paths as _gp
+        return (self._persist_dir or Path(_gp().data_dir)) / MEMORY_PERSIST_FILE_RING2
 
-    def _db_path(self) -> Path:
-        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3, PRAXIS_DATA_DIR
-        return (self._persist_dir or Path(PRAXIS_DATA_DIR)) / MEMORY_PERSIST_FILE_RING3
+    def _ring3_path(self) -> Path:
+        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+        from l1.kernel.paths import get_paths as _gp
+        return (self._persist_dir or Path(_gp().data_dir)) / MEMORY_PERSIST_FILE_RING3
 
     def _ensure_ring3_db(self) -> None:
         """Create Ring 3 SQLite table with FTS5 if not exists."""
-        import sqlite3
-        db = self._db_path()
-        db.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db), check_same_thread=False)
+        import sqlite3, tempfile
+        from pathlib import Path
+        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+        data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
+        db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS knowledge (
@@ -373,6 +378,7 @@ class MemoryManager:
 
     def persist(self, path: str | None = None) -> dict:
         """Persist Ring 2 → JSONL, Ring 3 → SQLite FTS5."""
+        from pathlib import Path
         p = Path(path) if path else self._persist_dir
         if not p:
             return {"success": False, "error": "no path configured"}
@@ -389,8 +395,12 @@ class MemoryManager:
 
         # Ring 3 → SQLite FTS5
         self._ensure_ring3_db()
-        import sqlite3
-        conn = sqlite3.connect(str(self._db_path()), check_same_thread=False)
+        import sqlite3, tempfile
+        from pathlib import Path
+        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+        data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
+        db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
         long_entries = self.long.to_dict()
         for e in long_entries:
             conn.execute(
@@ -412,6 +422,7 @@ class MemoryManager:
             ring2_limit: Max JSONL lines to restore (0 = unlimited).
             ring3_limit: Max SQLite rows to restore (0 = unlimited).
         """
+        from pathlib import Path
         p = Path(path) if path else self._persist_dir
         if not p:
             return {"success": False, "error": "no path configured"}
@@ -436,7 +447,11 @@ class MemoryManager:
                     logger.warning("services/memory: %s", e)
 
         # Ring 3 ← SQLite FTS5
-        db_path = self._db_path()
+        import tempfile
+        from pathlib import Path
+        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+        data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
+        db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
         if db_path.exists():
             import sqlite3
             try:

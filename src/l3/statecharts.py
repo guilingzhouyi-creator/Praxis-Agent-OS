@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from l1.kernel.params.system import STATECHARTS_PATH, STATECHARTS_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import STATECHARTS_AUTO_SAVE
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +209,7 @@ class AgentStatecharts:
         self.review = ReviewRegion(); self.resource = ResourceRegion()
         self.comm = CommRegion()
         self._regions = [self.task, self.health, self.review, self.resource, self.comm]
-        self._persist_path = persist_path or STATECHARTS_PATH.replace(".json", f"_{agent_id}.json") if agent_id else STATECHARTS_PATH
+        self._persist_path = persist_path or _gp().statecharts.replace(".json", f"_{agent_id}.json") if agent_id else _gp().statecharts
         self._restore_snapshot()
 
     def save_snapshot(self) -> dict:

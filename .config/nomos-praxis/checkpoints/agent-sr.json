@@ -1,0 +1,12 @@
+{
+  "agent_id": "agent-sr",
+  "task_id": {
+    "action": "write",
+    "target": "/tmp/test"
+  },
+  "task_status": "running",
+  "progress": {},
+  "tool_ring_snapshot": [],
+  "sandbox_files": [],
+  "created_at": 1785153464.6126034
+}

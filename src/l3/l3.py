@@ -259,10 +259,6 @@ class CentralController:
         }
 
 
-# Legacy alias for backward compat
-L3Coordinator = CentralController
-
-
 _coordinator: CentralController | None = None
 
 

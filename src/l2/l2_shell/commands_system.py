@@ -147,7 +147,7 @@ def _cmd_config(args: list[str]) -> dict:
 
 def _cmd_tokens(args: list[str]) -> dict:
     from l3.context_pool import all_cell_totals, cell_total, token_usage
-    scope, scope_id, rest = resolve_scope(args)
+    scope, scope_id, rest = _resolve_scope(args)
     sub = rest[0] if rest else "global"
     try:
         if scope == "global" and sub == "global":
@@ -158,7 +158,7 @@ def _cmd_tokens(args: list[str]) -> dict:
             return {"success": True, "agent": token_usage(scope_id)}
         if sub == "cells":
             return {"success": True, "cells": all_cell_totals().get("cells", [])}
-        agents = resolve_agents(scope, scope_id)
+        agents = _resolve_agents(scope, scope_id)
         results = {a: token_usage(a).get(a, 0) for a in agents}
         return {"success": True, "scope": scope, "scope_id": scope_id,
                 "results": results, "agents": len(results)}

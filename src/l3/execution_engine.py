@@ -4,7 +4,7 @@ The layer between HTN Planner (abstract task decomposition) and Tool Executor (g
 Takes a structured ExecutionPlan, executes steps in dependency order,
 handles failures with retry/skip/rollback strategies.
 
-Persistence: Execution results saved to JSON file at EXECUTION_RESULTS_PATH.
+Persistence: Execution results saved to JSON file at get_paths().execution_results.
 
 Flow:
   ExecutionPlan → topological sort → execute each step → collect results
@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
-from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_PATH, EXECUTION_RESULTS_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_AUTO_SAVE
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
 
@@ -170,7 +171,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
         super().__init__("execution_engine")
         self._executions: dict[str, ExecutionResult] = {}
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or EXECUTION_RESULTS_PATH, EXECUTION_RESULTS_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().execution_results, EXECUTION_RESULTS_AUTO_SAVE)
         self._restore()
         if EXECUTION_RESULTS_AUTO_SAVE > 0:
             self._start_auto_save()

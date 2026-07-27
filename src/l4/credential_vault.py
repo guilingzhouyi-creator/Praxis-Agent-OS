@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import PRAXIS_DATA_DIR
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def init_vault(vault_dir: str = "") -> dict:
     Uses a derived key from PRAXIS_DATA_DIR + machine fingerprint.
     """
     global _VAULT_PATH, _VAULT_KEY
-    data_dir = vault_dir or os.environ.get("PRAXIS_DATA_DIR", PRAXIS_DATA_DIR)
+    data_dir = vault_dir or os.environ.get("PRAXIS_DATA_DIR", _gp().data_dir)
     os.makedirs(data_dir, exist_ok=True)
     _VAULT_PATH = os.path.join(data_dir, "credential_vault.enc")
 

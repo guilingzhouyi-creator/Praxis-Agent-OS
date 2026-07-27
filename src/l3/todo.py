@@ -3,7 +3,7 @@
 Each Todo item has priority, status, dependency chain, timing, and result.
 Agents dequeue by priority (not FIFO). Supports blocking dependencies.
 
-Persistence: JSON file at TODO_TABLE_PATH, auto-saved every 30s.
+Persistence: JSON file at get_paths().todo_table, auto-saved every 30s.
 
 Usage:
   todo = TodoTable(agent_id="agent-b")
@@ -23,7 +23,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import TODO_TABLE_PATH, TODO_TABLE_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import TODO_TABLE_AUTO_SAVE
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class TodoTable(PersistableMixin):
         self.agent_id = agent_id
         self._items: dict[str, TodoItem] = {}
         self._lock = threading.Lock()
-        base = persist_path or TODO_TABLE_PATH
+        base = persist_path or _gp().todo_table
         path = base.replace(".json", f"_{agent_id}.json") if agent_id else base
         self._init_persistence(path, TODO_TABLE_AUTO_SAVE)
         self._restore()

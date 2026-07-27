@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal, Signal, SignalType
+from l1.kernel.bus import SystemBus
 from l1.kernel.params.agent import (
     DEFAULT_AGENT_CONFIGS,
     CELL_ROLLBACK_RING_SIZE,
@@ -38,15 +39,13 @@ from ..cell_decompose import decompose_card as _decompose_card, auto_agent_map a
 from ..execution_plan import ExecutionPlan
 from ..think_registry import get_think_registry
 from ..cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
-from ..cell_cache import CellCache
+from ..bus_components import (
+    CellPmuComponent, CellWatchdogComponent, CellICacheComponent,
+    CellMmuComponent, CellInterruptComponent, CellCacheComponent,
+)
 from ..cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
 from ..cell_rollback import rollback_card as _rollback_card
 from ..cell_cross_review import auto_cross_review as _auto_cross_review
-from ..cell_pmu import CellPmu
-from ..cell_watchdog import CellWatchdog, WatchdogState
-from ..cell_icache import ICache
-from ..cell_mmu import CellMmu, CellTlb
-from ..cell_interrupt import InterruptController, IrqPriority
 from ..subagent_spec import BUILTIN_SUBAGENTS
 from ..subagent_framework import get_dispatcher as get_subagent_dispatcher
 from ..cell_orchestrate import SubAgentOrchestrator
@@ -90,17 +89,12 @@ class Cell:
         self._current_user_id: str = ""
         self._emergency: bool = False
         self._conventions: dict[str, Any] = {}
-        # Lifecycle hooks — explicit interception points for Cell boot,
-        # shutdown, agent spawn (add) and agent kill (remove). Each is a
-        # list of callables invoked in registration order; a hook may
-        # veto spawn/kill by returning {"success": False, "error": ...}.
-        # Previously Cell had no explicit lifecycle hooks — callers had
-        # to subscribe to SignalType on the event bus instead.
+        # Lifecycle hooks
         self._boot_hooks: list[Callable] = []
         self._shutdown_hooks: list[Callable] = []
         self._spawn_hooks: list[Callable] = []
         self._kill_hooks: list[Callable] = []
-        # Ring buffers for temp cache — evicted items go to R4 Archive
+        # Ring buffers for temp cache
         self._rollback_ring = CircularBuffer(
             CELL_ROLLBACK_RING_SIZE,
             on_evict=lambda item: self._archive_item("rollback", item),
@@ -109,32 +103,39 @@ class Cell:
             CELL_HISTORY_RING_SIZE,
             on_evict=lambda item: self._archive_item("card_history", item),
         )
-        self._card_snapshots: dict[str, dict] = {}  # card_id → file snapshot (capped below)
+        self._card_snapshots: dict[str, dict] = {}
 
-        # PMU — Performance Monitoring Unit (hardware-style counters)
-        self._pmu: CellPmu = CellPmu(cell_id)
+        # ── SystemBus: register all components ──
+        self._cell_bus = SystemBus(name=cell_id)
+        try:
+            from l1.kernel.bus import get_root_bus
+            root = get_root_bus()
+            root._children[cell_id] = self._cell_bus
+            self._cell_bus.parent = root
+        except Exception:
+            pass
 
-        # Watchdog — per-agent liveness monitoring
-        self._watchdog: CellWatchdog = CellWatchdog(
-            cell_id, pmu=self._pmu,
-            on_timeout=self._watchdog_on_timeout,
-            on_recovery=self._watchdog_on_recovery,
-            on_crash=self._watchdog_on_crash,
-        )
+        self._cell_bus.register(CellPmuComponent(cell_id))
+        self._cell_bus.register(CellWatchdogComponent(cell_id))
+        self._cell_bus.register(CellICacheComponent(cell_id))
+        self._cell_bus.register(CellMmuComponent(cell_id))
+        self._cell_bus.register(CellInterruptComponent(cell_id))
+        self._cell_bus.register(CellCacheComponent(cell_id))
+        self._cell_bus.install()
 
-        # I-Cache — instruction cache (read-mostly, LFU: tools, templates, territory maps)
-        self._icache: ICache = ICache(cell_id, pmu=self._pmu)
+        # Shortcuts for backward-compatible access
+        pmu_comp = self._cell_bus.get("pmu")
+        self._pmu = pmu_comp.pmu if pmu_comp else None
+        self._watchdog = getattr(self._cell_bus.get("watchdog"), "watchdog", None)
+        self._icache = getattr(self._cell_bus.get("icache"), "icache", None)
+        mmu_comp = self._cell_bus.get("mmu")
+        self._mmu = mmu_comp.mmu if mmu_comp else None
+        self._tlb = mmu_comp.tlb if mmu_comp else None
+        self._interrupt = getattr(self._cell_bus.get("interrupt"), "interrupt", None)
+        self._cache = getattr(self._cell_bus.get("cache"), "cache", None)
 
-        # MMU + TLB — territory→agent translation backed by I-Cache
-        self._tlb: CellTlb = CellTlb(pmu=self._pmu)
-        self._mmu: CellMmu = CellMmu(cell_id, tlb=self._tlb, icache=self._icache)
-
-        # InterruptController — priority-based event routing
-        self._interrupt: InterruptController = InterruptController(cell_id, pmu=self._pmu)
+        # Wire interrupt handlers
         self._wire_interrupts()
-
-        # Cell L2 shared cache — agents in this Cell share hot data here
-        self._cache: CellCache = CellCache(cell_id, pmu=self._pmu)
 
         # Register built-in subagent specs
         self._subagent_dispatcher = get_subagent_dispatcher()
@@ -142,6 +143,7 @@ class Cell:
             self._subagent_dispatcher.register_spec(spec)
 
         # Register with ThinkQuotaRegistry
+        if think_quota:
             get_think_registry().set_cell(
                 cell_id, distribution=distribution_mode, **think_quota
             )
@@ -236,8 +238,8 @@ class Cell:
 
     def save_state(self, path: str = "") -> dict:
         """Save Cell state (agents, conventions, snapshots) to JSON."""
-        from l1.kernel.params.system import PRAXIS_CELL_STATE_TEMPLATE
-        path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
+        from l1.kernel.paths import get_paths as _gp
+        path = path or _gp().cell_state_template.format(self.cell_id)
         state = {
             "cell_id": self.cell_id, "territory": self.territory,
             "agents": {},
@@ -263,8 +265,8 @@ class Cell:
 
     def restore_state(self, path: str = "") -> dict:
         """Restore Cell state from JSON."""
-        from l1.kernel.params.system import PRAXIS_CELL_STATE_TEMPLATE
-        path = path or PRAXIS_CELL_STATE_TEMPLATE.format(self.cell_id)
+        from l1.kernel.paths import get_paths as _gp
+        path = path or _gp().cell_state_template.format(self.cell_id)
         if not os.path.exists(path):
             return {"success": False, "error": "no state file"}
         try:
@@ -845,11 +847,69 @@ class Cell:
         return self._interrupt
 
     def _wire_interrupts(self) -> None:
-        """Wire built-in handlers to interrupt IRQs."""
-        self._interrupt.set_handler("task.assign", lambda e: self._pmu.increment("bus.signals_emitted"))
-        self._interrupt.set_handler("token.usage", lambda e: self._pmu.increment("token.consumed"))
-        self._interrupt.set_handler("cache.flush", lambda e: self._cache.flush())
-        self._interrupt.set_handler("constitution.violation", lambda e: self._mmu.flush_all())
+        """Wire built-in handlers to interrupt IRQs + cell bus events."""
+        if self._interrupt:
+            self._interrupt.set_handler("task.assign", lambda e: self._pmu.increment("bus.signals_emitted") if self._pmu else None)
+            self._interrupt.set_handler("token.usage", lambda e: self._pmu.increment("token.consumed") if self._pmu else None)
+            self._interrupt.set_handler("cache.flush", lambda e: self._cache.flush() if self._cache else None)
+            self._interrupt.set_handler("constitution.violation", lambda e: self._mmu.flush_all() if self._mmu else None)
+
+        # Wire cell bus events (watchdog → TLB flush, etc.)
+        try:
+            self._cell_bus.on("watchdog.crash", lambda e: self._bus_watchdog_crash(e))
+            self._cell_bus.on("watchdog.timeout", lambda e: self._bus_watchdog_timeout(e))
+            self._cell_bus.on("watchdog.recovery", lambda e: self._bus_watchdog_recovery(e))
+        except Exception:
+            pass
+
+    def _bus_watchdog_timeout(self, event: dict) -> None:
+        """Bus event: watchdog timeout → pause terminal."""
+        agent_id = event.get("data", {}).get("agent_id", "")
+        if not agent_id:
+            return
+        try:
+            from ..agent_terminal import get_terminal
+            term = get_terminal(agent_id)
+            if term:
+                term.pause()
+        except Exception as e:
+            logger.warning("watchdog pause failed: %s", e)
+
+    def _bus_watchdog_recovery(self, event: dict) -> None:
+        """Bus event: watchdog recovery → resume terminal."""
+        agent_id = event.get("data", {}).get("agent_id", "")
+        if not agent_id:
+            return
+        try:
+            from ..agent_terminal import get_terminal
+            term = get_terminal(agent_id)
+            if term:
+                term.resume()
+        except Exception as e:
+            logger.warning("watchdog resume failed: %s", e)
+
+    def _bus_watchdog_crash(self, event: dict) -> None:
+        """Bus event: watchdog crash → NMI + TLB flush + auto-reboot."""
+        agent_id = event.get("data", {}).get("agent_id", "")
+        if not agent_id:
+            return
+        logger.error("watchdog crash: %s — NMI + auto-reboot", agent_id)
+        if self._pmu:
+            self._pmu.increment("agent.crashes")
+        if self._mmu:
+            self._mmu.flush_agent(agent_id)
+        if self._interrupt:
+            self._interrupt.trigger("watchdog.crash", data={"agent_id": agent_id})
+        try:
+            from ..agent_terminal import get_terminal
+            term = get_terminal(agent_id)
+            if term:
+                term.shutdown()
+                term.boot()
+                if self._pmu:
+                    self._pmu.increment("agent.recoveries")
+        except Exception as e:
+            logger.warning("watchdog reboot failed: %s", e)
 
     def dispatch_pending_interrupts(self, max_per: int = 5) -> int:
         """Dispatch pending queued interrupts. Called periodically."""

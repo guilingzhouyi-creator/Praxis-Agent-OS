@@ -24,7 +24,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from l1.kernel.params.system import PRAXIS_DATA_DIR
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +107,8 @@ class SettingsCenter:
         self._l1: dict[str, Any] = dict(_L1_DEFAULTS)
         self._l2: dict[str, Any] = {}   # loaded from praxis.yaml at boot
         self._l3: dict[str, Any] = {}    # loaded/saved to .praxis_settings.json
-        self._persist_path = persist_path or os.path.join(
-            PRAXIS_DATA_DIR, ".praxis_settings.json"
+        self._persist_path = persist_path or (
+            _gp().settings_file
         )
 
     # ── Three-layer load ──

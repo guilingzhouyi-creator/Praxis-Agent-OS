@@ -1,0 +1,13 @@
+{
+  "agent_id": "integration-cell-default",
+  "task_id": "htn-13d0dde8:s000",
+  "task_status": "running",
+  "progress": {
+    "phase": "list_directory",
+    "step": "s000",
+    "action": "think"
+  },
+  "tool_ring_snapshot": [],
+  "sandbox_files": [],
+  "created_at": 1785153452.2566986
+}

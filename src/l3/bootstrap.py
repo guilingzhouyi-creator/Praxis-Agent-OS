@@ -19,7 +19,7 @@ from typing import Any
 import yaml
 
 from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES
-from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
+from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT, LLM_PROVIDER_URLS
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def get_defaults() -> dict:
             {"name": "openai", "url": "https://api.openai.com/v1", "models": ["gpt-4o", "gpt-4o-mini"]},
             {"name": "anthropic", "url": "https://api.anthropic.com/v1", "models": ["claude-sonnet-4-20250514", "claude-haiku-3-5"]},
             {"name": "deepseek", "url": "https://api.deepseek.com/v1", "models": ["deepseek-v4", "deepseek-chat"]},
-            {"name": "ollama", "url": "http://localhost:11434", "models": ["qwen2.5"]},
+            {"name": "ollama", "url": LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"), "models": ["qwen2.5"]},
             {"name": "mock", "url": "", "models": ["mock"]},
         ],
         "token_presets": [

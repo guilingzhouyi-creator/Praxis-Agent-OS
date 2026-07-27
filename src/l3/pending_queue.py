@@ -24,7 +24,8 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.params.system import PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import PENDING_QUEUE_AUTO_SAVE
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
 
@@ -63,7 +64,7 @@ class PendingQueue(PersistableMixin):
         self._items: dict[str, PendingMessage] = {}
         self._lock = threading.RLock()
         self._on_approve: Any = None  # callback(card_id) → restores placeholder in CardRegistry
-        self._init_persistence(persist_path or PENDING_QUEUE_PATH, PENDING_QUEUE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().pending_queue, PENDING_QUEUE_AUTO_SAVE)
         self._restore()
         if PENDING_QUEUE_AUTO_SAVE > 0:
             self._start_auto_save()

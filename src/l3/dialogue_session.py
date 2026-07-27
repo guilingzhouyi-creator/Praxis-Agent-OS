@@ -29,7 +29,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import DIALOGUE_SESSION_PATH, DIALOGUE_SESSION_AUTO_SAVE, DIALOGUE_IDLE_TIMEOUT
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import DIALOGUE_SESSION_AUTO_SAVE, DIALOGUE_IDLE_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class DialogueSession:
         self._lock = threading.Lock()
         self._created_at = time.time()
         self._last_activity = time.time()
-        self._persist_path = persist_path or DIALOGUE_SESSION_PATH
+        self._persist_path = persist_path or _gp().dialogue_session
         self._auto_save_interval = DIALOGUE_SESSION_AUTO_SAVE
 
     # ── Lifecycle ──
@@ -230,7 +231,7 @@ class DialogueSession:
     def restore_from_json(agent_id: str, session_id: str,
                           persist_path: str = "") -> DialogueSession | None:
         """Restore a session from its JSON file."""
-        base = persist_path or DIALOGUE_SESSION_PATH
+        base = persist_path or _gp().dialogue_session
         path = base.replace(".json", f"_{session_id}.json")
         if not os.path.exists(path):
             return None
@@ -254,7 +255,7 @@ class DialogueSession:
         session._lock = threading.Lock()
         session._created_at = data.get("created_at", 0.0)
         session._last_activity = data.get("last_activity", 0.0)
-        session._persist_path = persist_path or DIALOGUE_SESSION_PATH
+        session._persist_path = persist_path or _gp().dialogue_session
         session._auto_save_interval = DIALOGUE_SESSION_AUTO_SAVE
         for td in data.get("turns", []):
             session._turns.append(TurnRecord(

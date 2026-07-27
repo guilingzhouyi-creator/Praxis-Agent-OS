@@ -147,10 +147,10 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 # ── IPC / RPC ──
 from dataclasses import dataclass
 import os as _os
-from .system import PRAXIS_DATA_DIR
+from ..paths import get_paths as _gp
 from .kernel import IPC_REQUEST_TIMEOUT
 
-IPC_SOCKET_DIR: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sockets")
+IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
 IPC_KERNEL_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
 IPC_LLM_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
 IPC_SANDBOX_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")

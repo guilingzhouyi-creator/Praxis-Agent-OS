@@ -96,7 +96,7 @@ def _run_phase(plan, pname: str, psteps: list[Any], pmode: Any, aggregated: dict
                 aggregated["success"] = False
                 aggregated["error"] = result.get("error", "step failed")
                 break
-        elif pmode == PhaseMode.MULTI:
+        elif pmode == PhaseMode.PARALLEL:
             from l3.execution_verify import execute_scout_verify
             from l3.execution_plan import PlanStep
             step_count = len(psteps)

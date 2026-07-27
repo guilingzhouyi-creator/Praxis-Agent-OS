@@ -185,10 +185,6 @@ KERNEL_VERSION: Final[str] = "0.3.0"
 PRAXIS_CODENAME: Final[str] = "Aether"
 
 
-# ── Config directory ──
-PRAXIS_CONFIG_DIR: Final[str] = ".config/nomos-praxis"
-
-
 # ── Memory ring constants ──
 MEMORY_RING_WORKING_BUDGET: Final[int] = 8192
 MEMORY_RING_SHORT_BUDGET: Final[int] = 32768
@@ -223,6 +219,13 @@ DIRECT_SESSION_TIMEOUT: Final[float] = 3600.0
 ARCHIVE_CHECK_INTERVAL: Final[float] = 86400.0
 CRON_CHECK_INTERVAL: Final[float] = 60.0
 
+# ── Resource buffer (ring file buffer) ──
+RESOURCE_BUFFER_SLOT_CAPACITY: Final[int] = 64
+RESOURCE_BUFFER_SLOT_NAME: Final[str] = "slot_{:04d}.dat"
+RESOURCE_BUFFER_AUTO_EXPAND: Final[bool] = True
+RESOURCE_BUFFER_FLUSH_INTERVAL: Final[float] = 30.0
+RESOURCE_BUFFER_HIDDEN_TTL: Final[float] = 300.0
+
 
 # ── Boot VFS mount paths ──
 BOOT_VFS_TEMP_PATH: Final[str] = "/tmp"
@@ -233,36 +236,8 @@ TOKEN_CELL_QUOTA: Final[int] = 5_000_000
 TOKEN_GLOBAL_QUOTA: Final[int] = 50_000_000
 
 
-# ── Data root directory (XDG-style, overridable via env var) ──
-_DEFAULT_DATA_ROOT: Final[str] = _os.path.join(_tf.gettempdir(), "nomos-praxis-data")
-PRAXIS_DATA_DIR: Final[str] = _os.environ.get("PRAXIS_DATA_DIR", _DEFAULT_DATA_ROOT)
-
-# ── Data file paths (unified under PRAXIS_DATA_DIR) ──
-PRAXIS_EVENTS_DB: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "events.db")
-PRAXIS_STATE_JSON: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "state.json")
-PRAXIS_CARD_REGISTRY: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "card_registry.json")
-PRAXIS_CARD_GATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "card_gate.json")
-PRAXIS_PENDING_QUEUE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "pending_queue.json")
-PRAXIS_MUTE_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "mute_state.json")
-PRAXIS_MODE_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "mode.json")
-PRAXIS_TODO_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "todo_state.json")
-PRAXIS_CHAIN_KEY: Final[str] = _os.path.join(PRAXIS_DATA_DIR, ".chain_key")
-PRAXIS_ISSUE_TABLE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "issue_table.json")
-PRAXIS_APPROVAL_GATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "approval_gate.json")
-PRAXIS_SANDBOX_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sandbox_state.json")
-PRAXIS_TODO_TABLE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "todo_table.json")
-PRAXIS_TRANSACTION_AREA: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "transaction_area.json")
-PRAXIS_STATECHARTS: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "statecharts.json")
-PRAXIS_EXECUTION_RESULTS: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "execution_results.json")
-PRAXIS_DIALOGUE_SESSION: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "dialogue_session.json")
-PRAXIS_MESSAGE_GATE_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "message_gate.json")
-PRAXIS_CELL_STATE_TEMPLATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "cell_{}.json")
-PRAXIS_VAULT_SALT: Final[str] = _os.path.join(PRAXIS_DATA_DIR, ".praxis_vault_salt")
-PRAXIS_SETTINGS_FILE: Final[str] = ".praxis_settings.json"
-PRAXIS_ARCHIVE_DB: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "archive.db")
-PRAXIS_MCP_STATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "mcp_state.json")
-PRAXIS_SEQ_MONITOR_TEMPLATE: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "seq_monitor_{}.json")
-PRAXIS_MONITOR_BUS_LOG: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "monitor_bus.jsonl")
+# NOTE: Path constants moved to l1.kernel.paths.PraxisPaths.
+# Use: from l1.kernel.paths import get_paths; get_paths().<attr>
 
 
 # ── Sandbox ──
@@ -271,7 +246,7 @@ SANDBOX_PROFILE_SAFE_WRITE: Final[str] = "DANGER_1"
 SANDBOX_PROFILE_NETWORK: Final[str] = "DANGER_2"
 SANDBOX_PROFILE_FULL: Final[str] = "DANGER_3"
 SANDBOX_PROFILE_HOST: Final[str] = "DANGER_4"
-SANDBOX_TMP_ROOT: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "sandbox")
+# SANDBOX_TMP_ROOT moved to l1.kernel.paths.get_paths().sandbox_root
 SANDBOX_EXEC_TIMEOUT: Final[float] = 300.0
 
 # ── Fault tolerance ──
@@ -289,36 +264,11 @@ VERIFY_CMDS: Final[frozenset[str]] = frozenset({
 SANDBOX_MAX_OUTPUT: Final[int] = 5000
 
 
-# ── State file naming templates ──
+# ── State file naming templates (format strings, not paths) ──
 SANDBOX_STATE_TEMPLATE: Final[str] = "{cell_id}.state.json"
 SNAPSHOT_PATH_TEMPLATE: Final[str] = "{snapshot_id}.snapshot.json"
 SKILL_LEAN_CASE_TEMPLATE: Final[str] = "{agent_id}_{tool_name}_{ts}.json"
-SKILL_LEAN_DIR: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "skills", "lean")
 AGENT_SESSION_TEMPLATE: Final[str] = "{ts}_{prefix}.json"
-
-
-# ── Backward-compatible aliases for old .praxis_* names ──
-PERSIST_PATH = PRAXIS_STATE_JSON
-PERSIST_DB_PATH = PRAXIS_EVENTS_DB
-CARD_REGISTRY_PATH = PRAXIS_CARD_REGISTRY
-CARD_GATE_PATH = PRAXIS_CARD_GATE
-PENDING_QUEUE_PATH = PRAXIS_PENDING_QUEUE
-ISSUE_TABLE_PATH = PRAXIS_ISSUE_TABLE
-APPROVAL_GATE_PATH = PRAXIS_APPROVAL_GATE
-SANDBOX_STATE_PATH = PRAXIS_SANDBOX_STATE
-TODO_TABLE_PATH = PRAXIS_TODO_TABLE
-TRANSACTION_AREA_PATH = PRAXIS_TRANSACTION_AREA
-STATECHARTS_PATH = PRAXIS_STATECHARTS
-EXECUTION_RESULTS_PATH = PRAXIS_EXECUTION_RESULTS
-DIALOGUE_SESSION_PATH = PRAXIS_DIALOGUE_SESSION
-
-
-# ── R4Agent skill evolution ──
-SKILL_EVOLVED_DIR: Final[str] = _os.path.join(PRAXIS_DATA_DIR, "skills", "evolved")
-
-
-# ── Boot VFS temp path ──
-BOOT_VFS_TEMP_PATH: Final[str] = "/tmp"
 
 
 # ── Think quota (ThinkQuotaRegistry defaults) ──

@@ -29,14 +29,13 @@ import time
 from typing import Any
 
 from .params.system import (
-    PERSIST_PATH,
     PERSIST_AUTO,
     PERSIST_INTERVAL,
     PERSIST_QUERY_LIMIT,
     PERSIST_EXPORT_LIMIT,
     PERSIST_EXPORT_INTERRUPT_LIMIT,
-    PRAXIS_EVENTS_DB,
 )
+from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ _DB_PATH: str = ""
 def _db_path() -> str:
     global _DB_PATH
     if not _DB_PATH:
-        _DB_PATH = PRAXIS_EVENTS_DB
+        _DB_PATH = _gp().events_db
     return _DB_PATH
 
 
@@ -216,104 +215,25 @@ def replay() -> dict:
 # ── Snapshot (backward compat — saves to JSON too) ──
 
 def save() -> dict:
-    """Snapshot current kernel state to JSON (legacy path). Also appends events."""
-    import l1.kernel.process as proc
+    """Snapshot current kernel state via event sourcing (append-only)."""
     import l1.kernel.__init__ as kinit
-    import l1.kernel.interrupt as interr
-    import l1.kernel.device as dev
-
-    # Append audit snapshot events
+    count = 0
     for e in kinit.get_audit_log(limit=PERSIST_EXPORT_LIMIT):
         append("audit.record", {
             "op": e.get("op", ""), "agent_id": e.get("agent_id", ""),
             "success": e.get("success", True), "detail": e.get("detail", ""),
         })
+        count += 1
+    return {"success": True, "events_appended": count}
 
-    state = {
-        "version": 2,
-        "saved_at": time.time(),
-        "event_count": count(),
-        "process_table": proc.get_table().list(),
-        "audit_log": kinit.get_audit_log(limit=PERSIST_EXPORT_LIMIT),
-        "interrupt_counts": interr.get_table().counts(),
-        "interrupt_recent": interr.get_table().recent(limit=PERSIST_EXPORT_INTERRUPT_LIMIT),
-        "devices": dev.get_device_manager().list(),
-    }
+def restore() -> dict:
+    """Restore kernel state from event replay."""
     try:
-        tmp = PERSIST_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2, ensure_ascii=False, default=str)
-        os.replace(tmp, PERSIST_PATH)
-        return {"success": True, "path": PERSIST_PATH, "size": len(json.dumps(state)),
-                "event_count": state["event_count"]}
+        s = replay()
+        return {"success": True, "source": "event_store", **s}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def restore() -> dict:
-    """Restore kernel state from snapshot (legacy path) OR replay events.
+# ── Backward-compatible accessor ──
 
-    Tries event replay first (richer), falls back to JSON snapshot.
-    """
-    # Prefer event replay
-    try:
-        s = replay()
-        if s["events"] > 0:
-            logger.info("replayed %d events: %s", s["events"], s)
-            return {"success": True, "source": "event_store", **s}
-    except Exception as e:
-        logger.warning("event replay failed: %s", e)
-
-    # Fallback: legacy JSON snapshot
-    if not os.path.exists(PERSIST_PATH):
-        return {"success": False, "error": "no state file"}
-    try:
-        with open(PERSIST_PATH, encoding="utf-8") as f:
-            state = json.load(f)
-    except Exception as e:
-        return {"success": False, "error": f"read failed: {e}"}
-
-    import l1.kernel.process as proc
-    import l1.kernel.__init__ as kinit
-    import l1.kernel.interrupt as interr
-    import l1.kernel.device as dev
-
-    results = {}
-    pt = proc.get_table()
-    for p in state.get("process_table", []):
-        if p.get("pid", 0) == 0:
-            continue
-        pt.spawn(p.get("name", "?"), p.get("role", ""), p.get("parent_pid", 0), p.get("ring", 1))
-    results["processes"] = len(state.get("process_table", []))
-
-    dm = dev.get_device_manager()
-    for d in state.get("devices", []):
-        from .device import DeviceType
-        try:
-            dtype = DeviceType[d["type"]]
-            dm.register(d["name"], dtype, d.get("rate_limit", 10), description=d.get("description", ""))
-        except Exception as e:
-            logger.warning("persist restore: %s", e)
-    results["devices"] = len(state.get("devices", []))
-
-    return {"success": True, "source": "snapshot", **results}
-
-
-def clear() -> bool:
-    """Delete persistence files."""
-    global _DB
-    with _DB_LOCK:
-        if _DB:
-            try:
-                _DB.close()
-            except Exception as e:
-                logger.warning("persist restore: %s", e)
-            _DB = None
-    ok = True
-    for path in [PERSIST_PATH, _db_path()]:
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-        except Exception:
-            ok = False
-    return ok

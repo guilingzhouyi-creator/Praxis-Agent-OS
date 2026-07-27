@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel import get_rwlock
-from l1.kernel.params.system import SANDBOX_STATE_PATH, SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class CellSandbox:
         self._agents: dict[str, Path] = {}
         self._entries: dict[str, SandboxEntry] = {}
         self._lock = threading.Lock()
-        self._state_path = state_path or SANDBOX_STATE_PATH
+        self._state_path = state_path or _gp().sandbox_state
         self._restore_state()
         self._ensure_dirs()
 
@@ -275,7 +276,7 @@ class SandboxManager:
             if cell_id in self._cells:
                 return {"success": False, "error": "cell already exists"}
             # Give each cell its own state file so cells don't load
-            # each other's entries via the shared SANDBOX_STATE_PATH.
+            # each other's entries via the shared sandbox_state path.
             state_path = str(self._sandbox_root / SANDBOX_STATE_TEMPLATE.format(cell_id=cell_id))
             sb = CellSandbox(cell_id, project_root, str(self._sandbox_root),
                              state_path=state_path)

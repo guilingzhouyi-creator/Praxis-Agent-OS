@@ -36,11 +36,12 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import MEMORY_INIT_TIMEOUT
-from l1.kernel.params.system import PRAXIS_DATA_DIR, MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
+from l1.kernel.params.system import MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
+from l1.kernel.paths import get_paths as _get_paths
 
 logger = logging.getLogger(__name__)
 
-MEMORIES_DIR = Path(PRAXIS_DATA_DIR) / "memories"
+MEMORIES_DIR = Path(_get_paths().memories_dir)
 AGENT_SESSIONS_DIR = MEMORIES_DIR / "AGENT" / "sessions"
 OPS_DIR = MEMORIES_DIR / "ops"
 PHASE_DIR = MEMORIES_DIR / "PHASE"

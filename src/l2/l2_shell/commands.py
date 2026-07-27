@@ -2,15 +2,19 @@
 
 import logging
 import time
-from typing import Any
+from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.commands import (
-    register_command as _register_handler,
-    get_command, get_handler, list_commands as _list_defs,
-    resolve_scope, resolve_agents,
-)
+from l1.kernel.commands import get_registry
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+
+_registry = get_registry()
+
+def _register_handler(name: str, handler: Callable, metadata: dict | None = None) -> None:
+    _registry.register_system(name, handler, metadata)
+
+def _list_defs() -> list[dict]:
+    return _registry.list()
 
 logger = logging.getLogger(__name__)
 

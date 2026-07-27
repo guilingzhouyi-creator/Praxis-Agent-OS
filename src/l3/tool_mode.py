@@ -19,7 +19,7 @@ import os
 import threading
 from typing import Any
 
-from l1.kernel.params.system import PRAXIS_MODE_STATE
+from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.kernel import RING_2_5, RING_3
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ _WRITE_RINGS = (RING_2_5, RING_3)
 def _mode_path() -> str:
     global _MODE_PATH
     if not _MODE_PATH:
-        _MODE_PATH = os.environ.get("PRAXIS_MODE_PATH", PRAXIS_MODE_STATE)
+        _MODE_PATH = os.environ.get("PRAXIS_MODE_PATH", _gp().mode_state)
     return _MODE_PATH
 
 
