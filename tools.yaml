@@ -253,6 +253,13 @@ layer_1:
       params:
         - {name: query, type: string, required: true, description: "Search keyword"}
         - {name: limit, type: int, optional: true, description: "Max results (default 20)"}
+    subagent:
+      description: "Execute a sub-agent task (review/deploy/scout) with restricted tools"
+      handler: l3.tools._subagent.subagent_tool
+      params:
+        - {name: mode, type: string, optional: true, description: "review|deploy|scout"}
+        - {name: task, type: string, required: true, description: "Task description"}
+        - {name: timeout, type: int, optional: true, description: "Max seconds"}
 
 # ═══════════════════════════════════════════════════════════════
 # Hidden — Not registered in TOOL_REGISTRY, used as references
