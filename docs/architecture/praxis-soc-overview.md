@@ -178,7 +178,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  SubAgent Framework (src/l3/agent/subagent*.py, 6 files, ~750L)   │
+│  SubAgent Framework (src/l3/agent/subagent*.py, 8 files, ~960L)   │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │ subagent_spec.py      — SubAgentSpec dataclass         │  │
@@ -200,6 +200,18 @@
 │  │                         Delivers via CellMessage        │  │
 │  │                         SUBAGENT_RESULT to parent       │  │
 │  ├────────────────────────────────────────────────────────┤  │
+│  │ subagent_gate.py     — SubAgentGate card classifier     │  │
+│  │                        Inspects card phases/tasks for   │  │
+│  │                        write tools → 'explore'|'execute' │  │
+│  │                        build_spec(card_type) → spec     │  │
+│  ├────────────────────────────────────────────────────────┤  │
+│  │ subagent_pool.py     — SubAgentPool async delegation    │  │
+│  │                        Dual-buffer (explore/execute)    │  │
+│  │                        ThreadPoolExecutor per buffer    │  │
+│  │                        commission() → task.start()      │  │
+│  │                        collect() / collect_all()        │  │
+│  │                        Results via CellMessage mailbox  │  │
+│  ├────────────────────────────────────────────────────────┤  │
 │  │ subagent_dispatcher.py — @mention parsing + dispatch    │  │
 │  │                         SubAgentDispatcher singleton   │  │
 │  │                         parse_mentions("fix @arch")     │  │
@@ -211,6 +223,17 @@
 │  │ subagent.py           — Legacy inline SubAgent          │  │
 │  │                         (sync, Ring 1, stateless)      │  │
 │  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  Orchestration (src/l3/services/cell_orchestrate.py):        │
+│    SubAgentOrchestrator uses SubAgentPool instead of         │
+│    old cell.subagent_dispatch() + manual polling.            │
+│    Fork-join via _pool.commission() + collect_all().         │
+│                                                              │
+│  Tool Registry (src/l3/tool_system/tool_registry.py):        │
+│    Rewritten from flat module globals to ToolRegistry class  │
+│    backed by MapRegistry from l1.kernel.registry_base.       │
+│    Mute/plugin/middleware state lives on instance.            │
+│    Backward-compatible module-level functions preserved.      │
 │                                                              │
 │  REST API:                                                   │
 │    POST /api/subagent/dispatch    — Dispatch subagent       │
@@ -374,7 +397,8 @@
 
 ```
 │  ├── tool_pipeline.py (9-step)               ✅                │
-│  ├── tool_spec.py (registry + mute)          ✅                │
+│  ├── tool_spec.py (spec + ring)              ✅                │
+│  ├── tool_registry.py (ToolRegistry class)   🔧                │
 │  ├── tool_config.py (YAML tool config)       ✅                │
 │  ├── tool_policy.py (5-layer visibility)     ✅                │
 │  ├── tool_mode.py (global read/write)        ✅                │
@@ -449,8 +473,10 @@
 │  ├── cell_icache.py (LFU instruction cache)   ✅                │
 │  ├── cell_mmu.py (MMU + TLB)                 ✅                │
 │  ├── cell_interrupt.py (priority IRQ)         ✅                │
-│  ├── cell_orchestrate.py (fork-join)          ✅                │
-│  ├── subagent*.py (6 files, framework)       ✅                │
+│  ├── cell_orchestrate.py (fork-join via pool) ✅                │
+│  ├── subagent*.py (8 files, framework)       ✅                │
+│  ├── subagent_gate.py (explore/execute gate) 🔧                │
+│  ├── subagent_pool.py (async delegation pool) 🔧                │
 │  ├── identity.py (Ed25519 keys)              ✅                │
 │  ├── wiring.py (port→adapter assembly)       ✅                │
 │  ├── acb.py (Agent Control Block)            ✅                │

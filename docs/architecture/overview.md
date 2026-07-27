@@ -215,7 +215,7 @@ flowchart TB
 
 | Subdirectory | Key Files | Purpose |
 |-------------|-----------|---------|
-| **agent/** | `agent_loop.py`, `scout.py`, `subagent*.py` (22 files) | AgentLoop, Scout pool, SubAgent framework, handlers, verifiers |
+| **agent/** | `agent_loop.py`, `scout.py`, `subagent*.py`, `subagent_pool.py`, `subagent_gate.py` (24 files) | AgentLoop, Scout pool, SubAgent framework, SubAgentPool (dual-buffer), SubAgentGate (explore/execute classification), handlers, verifiers |
 | **agent_terminal/** | `__init__.py` | Terminal runtime — per-agent worker process |
 | **boot/** | `boot.py`, `boot_init.py`, `wiring.py` (4 files) | Boot sequence + port/adapter wiring |
 | **bus/** | `monitor_bus.py`, `l3b*.py`, `htn*.py`, `log.py`, `ipc.py` (15 files) | L3B, MonitorBus, HTN planners, IPC, logging buses |
@@ -227,7 +227,7 @@ flowchart TB
 | **resource_buffer/** | `ring.py`, `manager.py`, `api.py` (4 files) | Ring file buffer |
 | **scheduler/** | `scheduler*.py`, `think_registry.py`, `acb.py`, `loop_detectors.py` (11 files) | 5-D scheduler, think quota, agent control block |
 | **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `counter.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
-| **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_policy.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
+| **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_policy.py`, `tool_registry.py` (8 files) | Tool pipeline, spec registry (ToolRegistry class backed by MapRegistry), policy, config, mode |
 | **tools/** | `_files.py`, `_code.py`, `_git.py`, etc. (17 files) | Tool implementations |
 | **discussion/** | `issue_orchestrator.py`, `answer_session.py`, `answer_aggregator.py`, `cell_answer_repo.py`, `supplement_manager.py`, `report_service.py` (6 files) | Multi-Cell discussion orchestration, answer collection, convergence, report generation |
 
@@ -285,6 +285,8 @@ Enforced by `tests/test_layer_imports.py`. 49 pre-existing cross-layer imports a
 | Interrupt controller | InterruptController (priority routing, beyond EventBus) |
 | Watchdog timer | CellWatchdog (per-agent liveness) |
 | Multi-core interconnect | L3B cross-cell routing |
+| **Async task offload** | SubAgentPool (dual-buffer: explore/execute, ThreadPoolExecutor) |
+| **Task classification** | SubAgentGate (card→explore or execute by write-tool analysis) |
 | **Kernel boot → Issue** | IssueOrchestrator + AnswerSession (blank constitution triggers territorial discussion) |
 
 ### Agent = Process

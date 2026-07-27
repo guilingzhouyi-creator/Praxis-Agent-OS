@@ -90,7 +90,9 @@ praxis/
 │   │   │   ├── subagent.py          # Lightweight sub-agent (111 lines)
 │   │   │   ├── subagent_dispatcher.py # @mention parsing (92 lines)
 │   │   │   ├── subagent_framework.py # Facade over spec/task/dispatch/merge (115 lines)
+│   │   │   ├── subagent_gate.py     # Card type gate: explore vs execute (72 lines)
 │   │   │   ├── subagent_merger.py   # ResultMerger (58 lines)
+│   │   │   ├── subagent_pool.py     # Async delegation pool, dual-buffer (134 lines)
 │   │   │   ├── subagent_spec.py     # SubAgentSpec dataclass (142 lines)
 │   │   │   ├── subagent_task.py     # SubAgentTask (AgentLoop execution) (223 lines)
 │   │   │   ├── verifier.py          # Result verification (120 lines)
@@ -170,7 +172,7 @@ praxis/
 │   │   │   │   ├── cell_types.py    # Cell type definitions (100 lines)
 │   │   │   │   └── cell_watchdog.py # Watchdog timer (187 lines)
 │   │   │   └── peers/
-│   │   │       ├── __init__.py
+│   │   │   ├── __init__.py          # Lazy-import facades (34 lines)
 │   │   │       ├── central_collector.py # Token aggregation (149 lines)
 │   │   │       ├── l3.py            # L3 coordinator (224 lines)
 │   │   │       └── l3a.py           # L3A: Human→Card (212 lines)
@@ -231,7 +233,7 @@ praxis/
 │   │   │   ├── __init__.py
 │   │   │   ├── assembly.py          # Constitutional assembly (212 lines)
 │   │   │   ├── bus_components.py    # Bus component registration
-│   │   │   ├── cell_orchestrate.py  # SubAgentOrchestrator (fork-join) (234 lines)
+│   │   │   ├── cell_orchestrate.py  # SubAgentOrchestrator (fork-join via SubAgentPool) (234 lines)
 │   │   │   ├── central_plugin.py    # Plugin lifecycle (152 lines)
 │   │   │   ├── central_security.py  # 6-gate check (166 lines)
 │   │   │   ├── content_trust.py     # Content provenance (367 lines)
@@ -265,7 +267,7 @@ praxis/
 │   │   │   ├── tool_params.py       # Tool parameter definitions
 │   │   │   ├── tool_pipeline.py     # 9-step execution (295 lines)
 │   │   │   ├── tool_policy.py       # Tool visibility policy (241 lines)
-│   │   │   ├── tool_registry.py     # Tool registry
+│   │   │   ├── tool_registry.py     # ToolRegistry class (MapRegistry-backed, 280 lines)
 │   │   │   └── tool_spec.py         # ToolSpec registry (546 lines)
 │   │   │
 │   │   ├── tools/                     # 17 tool implementations
