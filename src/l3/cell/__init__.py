@@ -149,6 +149,11 @@ class Cell:
         for spec in BUILTIN_SUBAGENTS.values():
             self._subagent_dispatcher.register_spec(spec)
 
+        # SubAgent delegation pool (async, ring-limited)
+        from l3.agent.subagent_pool import SubAgentPool
+        pool_config = {}  # populated from cell config in future
+        self._subagent_pool = SubAgentPool(cell_id, config=pool_config)
+
         # Register with ThinkQuotaRegistry
         if think_quota:
             get_think_registry().set_cell(
@@ -868,6 +873,37 @@ class Cell:
             self._cell_bus.on("watchdog.recovery", lambda e: self._bus_watchdog_recovery(e))
         except Exception:
             pass
+
+        # Wire discussion events (Layer 3 integration)
+        try:
+            self._cell_bus.on("discussion.start", lambda e: self._bus_discussion_start(e))
+        except Exception:
+            pass
+
+    def _bus_discussion_start(self, event: dict) -> None:
+        """Bus event: start an AnswerSession for this Cell."""
+        try:
+            from l3.discussion.answer_session import AnswerSession
+            from l3.card.issue import get_table
+            data = event.get("data", {})
+            session_id = data.get("session_id", "")
+            issue_card_id = data.get("issue_card_id", "")
+            if not session_id or not issue_card_id:
+                return
+            card = get_table().get(issue_card_id)
+            if not card:
+                return
+            session = AnswerSession(session_id, self.cell_id, self, card)
+            result = session.run()
+            if result.get("success"):
+                self._cell_bus.emit("discussion.cell_complete", {
+                    "session_id": session_id,
+                    "cell_id": self.cell_id,
+                    "answer_count": result.get("phases", {}).get(5, {}).get("answers", 0),
+                    "supplement_count": result.get("phases", {}).get(3, {}).get("supplements", 0),
+                })
+        except Exception as e:
+            logger.warning("discussion start failed: %s", e)
 
     def _bus_watchdog_timeout(self, event: dict) -> None:
         """Bus event: watchdog timeout → pause terminal."""

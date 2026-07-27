@@ -30,6 +30,16 @@ def execute_card(
     """
     from l3.card.issue import IssueCard as _IssueCard
     if isinstance(card, _IssueCard):
+        # Check if there's an active orchestrated discussion for this issue
+        try:
+            from l3.discussion.issue_orchestrator import get_orchestrator
+            sessions = get_orchestrator().list_sessions(status="in_progress")
+            for s in sessions:
+                if s.get("issue_card_id") == card.id:
+                    # Already handled by orchestrator → AnswerSession will pick it up
+                    return {"success": True, "action": "orchestrated", "session_id": s.get("id")}
+        except Exception:
+            pass
         return cell.convene(card, agent_map)
 
     cell._current_user_id = user_id
@@ -129,6 +139,27 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         role = sl.get("role", "")
         territory = sl.get("territory", [])
         sub_agent_map = sl.get("agent_map", {})
+
+        # ── SubAgent pool route ──
+        subagent_spec = sl.get("subagent_spec", "") or (sub_card.subagent_spec if hasattr(sub_card, "subagent_spec") else "")
+        if subagent_spec:
+            from l3.agent.subagent_pool import SubAgentPool
+            pool = SubAgentPool(cell.cell_id)
+            parallelism = sl.get("parallelism", 1) or (sub_card.parallelism if hasattr(sub_card, "parallelism") else 1)
+            from l3.agent.subagent_spec import SubAgentSpec
+            spec = SubAgentSpec(name=subagent_spec, read_only=True,
+                                description=f"decomposed subagent task: {role}")
+            r = pool.commission(spec, prompt=sub_card.intent if hasattr(sub_card, "intent") else "",
+                                parent_agent_id=agent_id, cell=cell)
+            if r.get("success"):
+                result = pool.collect(r["task_id"], timeout=120)
+                results.append(result)
+            else:
+                results.append(r)
+                all_passed = False
+                break
+            continue
+
         if not agent_id and sub_agent_map:
             agent_id = list(sub_agent_map.values())[0]
         term = get_terminal(agent_id, role=role, territory=territory, cell_id=cell.cell_id)

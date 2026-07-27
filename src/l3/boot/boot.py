@@ -302,6 +302,30 @@ def _load_constitution() -> dict:
         except Exception:
             pass
 
+        # Auto-trigger territory discussion if constitution is blank
+        if result.get("assembly_mode"):
+            try:
+                logger.info("constitution: blank — triggering territory discussion")
+                from l3.card.issue import IssueCard, get_table
+                card = IssueCard(
+                    id=f"issue-boot-{int(time.time())}",
+                    title="Determine Cell territory division",
+                    intent="The constitution has no territory definitions. "
+                           "Each Cell must propose its territory assignment.",
+                    domain="cluster",
+                    cell_id="cell-1",
+                )
+                get_table().submit(card)
+                from l3.discussion.issue_orchestrator import get_orchestrator
+                orch = get_orchestrator()
+                r = orch.start_discussion(card)
+                if r.get("success"):
+                    orch.register_cell(r["session_id"], "cell-1")
+                    result["discussion_session"] = r["session_id"]
+                    logger.info("constitution: started discussion %s", r["session_id"])
+            except Exception as e:
+                logger.warning("constitution: auto-discuss failed: %s", e)
+
         return {"success": True, **result}
     except Exception as e:
         logger.error("constitution load error: %s", e)
