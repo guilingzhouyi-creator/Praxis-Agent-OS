@@ -132,6 +132,35 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v1/agents/config",   "services.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
 
+    # Provider management
+    ("GET",  "/api/v2/providers",              "services.api_handlers_providers.handle_providers_list",           "List all LLM providers"),
+    ("POST", "/api/v2/providers",              "services.api_handlers_providers.handle_providers_register",        "Register a new provider"),
+    ("DELETE","/api/v2/providers/{name}",       "services.api_handlers_providers.handle_providers_remove",          "Unregister a provider"),
+    ("GET",  "/api/v2/providers/{name}/health", "services.api_handlers_providers.handle_providers_health",          "Test provider connectivity"),
+    ("PUT",  "/api/v2/providers/{name}/config", "services.api_handlers_providers.handle_providers_config",          "Update provider configuration"),
+
+    # Model spec viewer / updater
+    ("GET",  "/api/v2/model-spec",              "services.api_handlers_providers.handle_model_spec_list",           "List all model specs"),
+    ("PUT",  "/api/v2/model-spec/{name}",       "services.api_handlers_providers.handle_model_spec_update",          "Update a model spec"),
+
+    # SubAgent platform config
+    ("GET",  "/api/v2/subagent/defaults",       "services.api_handlers_providers.handle_subagent_defaults",          "SubAgent platform defaults"),
+    ("PUT",  "/api/v2/subagent/defaults",       "services.api_handlers_providers.handle_subagent_defaults_update",   "Update subagent defaults"),
+    ("GET",  "/api/v2/subagent/specs/{name}",   "services.api_handlers_providers.handle_subagent_spec_config",       "Per-subagent model config"),
+    ("PUT",  "/api/v2/subagent/specs/{name}",   "services.api_handlers_providers.handle_subagent_spec_config_update","Update per-subagent config"),
+
+    # Scout config
+    ("GET",  "/api/v2/scout/config",            "services.api_handlers_providers.handle_scout_config",               "Scout model config"),
+    ("PUT",  "/api/v2/scout/config",            "services.api_handlers_providers.handle_scout_config_update",         "Update scout config"),
+
+    # R4Agent config
+    ("GET",  "/api/v2/r4/config",               "services.api_handlers_providers.handle_r4_config",                  "R4Agent model config"),
+    ("PUT",  "/api/v2/r4/config",               "services.api_handlers_providers.handle_r4_config_update",            "Update R4Agent config"),
+
+    # Convention config
+    ("GET",  "/api/v2/convention/config",        "services.api_handlers_providers.handle_convention_config",           "Convention model config"),
+    ("PUT",  "/api/v2/convention/config",        "services.api_handlers_providers.handle_convention_config_update",     "Update convention config"),
+
     # StatsCenter (unified metrics)
     ("POST", "/api/v2/stats/query",    "services.api_handlers_stats.handle_stats_query",  "Aggregated metric query"),
     ("GET", "/api/v2/stats/top",       "services.api_handlers_stats.handle_stats_top",    "Cross-Cell metric ranking"),
