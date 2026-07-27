@@ -92,12 +92,10 @@ class CellWatchdogComponent(Component):
         from .cell_watchdog import CellWatchdog
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
-        self._watchdog = CellWatchdog(
-            self.cell_id, pmu=pmu,
-            on_timeout=lambda a, s: bus.emit("watchdog.timeout", {"agent_id": a, "state": s.name}),
-            on_recovery=lambda a: bus.emit("watchdog.recovery", {"agent_id": a}),
-            on_crash=lambda a: bus.emit("watchdog.crash", {"agent_id": a}),
-        )
+        self._watchdog = CellWatchdog(self.cell_id, pmu=pmu)
+        self._watchdog.on_timeout = lambda a, s: bus.emit("watchdog.timeout", {"agent_id": a, "state": s.name})
+        self._watchdog.on_recovery = lambda a: bus.emit("watchdog.recovery", {"agent_id": a})
+        self._watchdog.on_crash = lambda a: bus.emit("watchdog.crash", {"agent_id": a})
         self._bus = bus
 
     def register(self, agent_id: str, timeout: float = 0) -> None:

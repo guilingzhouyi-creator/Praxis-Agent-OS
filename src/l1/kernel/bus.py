@@ -132,17 +132,31 @@ class SystemBus:
             logger.debug("bus %s: registered %s", self.name, name)
         return self
 
-    def get(self, name: str) -> Component | None:
-        """Recursive lookup: this bus → parent bus → child buses."""
+    def get(self, name: str, visited: set[int] | None = None) -> Component | None:
+        """Recursive lookup: local → parent → children.
+
+        Uses ``visited`` set (bus id's) to prevent infinite loops.
+        """
+        if visited is None:
+            visited = set()
+        bus_id = id(self)
+        if bus_id in visited:
+            return None
+        visited.add(bus_id)
+
         with self._lock:
             if name in self._components:
                 return self._components[name]
+
         if self.parent:
-            result = self.parent.get(name)
+            result = self.parent.get(name, visited)
             if result:
                 return result
+
         for child in self.children.values():
-            result = child.get(name)
+            if id(child) in visited:
+                continue
+            result = child.get(name, visited)
             if result:
                 return result
         return None
