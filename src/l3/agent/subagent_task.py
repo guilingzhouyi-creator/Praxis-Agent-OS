@@ -160,7 +160,7 @@ class SubAgentTask:
         ).format(name=self.spec.name, description=self.spec.description)
 
         from .agent_loop import AgentLoop
-        from .tool_system.tool_spec import TOOL_REGISTRY
+        from .tool_system.tool_spec import get_tool
 
         loop = AgentLoop(
             task=self.prompt,
@@ -171,7 +171,7 @@ class SubAgentTask:
         )
 
         for tool_name in self.spec.allowed_tools:
-            spec = TOOL_REGISTRY.get(tool_name)
+            spec = get_tool(tool_name)
             if spec is None:
                 continue
             params = getattr(spec, "parameters", {}) or {}

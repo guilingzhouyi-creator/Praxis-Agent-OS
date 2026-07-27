@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class _Worker(threading.Thread):
     """Internal worker thread — pulls callables from the job queue."""
 
-    def __init__(self, pool: ThreadPoolWorker, idx: int):
+    def __init__(self, pool: ThreadPoolWorker, idx: int) -> None:
         super().__init__(daemon=True, name=f"worker-{idx}")
         self._pool = pool
         self._idx = idx
@@ -81,7 +81,7 @@ class ThreadPoolWorker(WorkerPort):
                  max_workers: int = WORKER_POOL_MAX,
                  queue_size: int = WORKER_POOL_QUEUE_SIZE,
                  idle_timeout: float = WORKER_POOL_IDLE_TIMEOUT,
-                 task_timeout: float = WORKER_POOL_TASK_TIMEOUT):
+                 task_timeout: float = WORKER_POOL_TASK_TIMEOUT) -> None:
         if max_workers < min_workers:
             max_workers = min_workers
         self._min = min_workers

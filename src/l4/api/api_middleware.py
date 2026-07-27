@@ -37,7 +37,7 @@ class Request:
                  body: dict | None = None,
                  query: dict | None = None,
                  raw_body: bytes | None = None,
-                 **kwargs: Any):
+                 **kwargs: Any) -> None:
         self.method = method.upper()
         self.path = path
         self.headers = headers or {}
@@ -57,7 +57,7 @@ class Response:
     """Response object flowing back through middleware chain."""
 
     def __init__(self, data: Any = None, status: int = 200,
-                 headers: dict | None = None):
+                 headers: dict | None = None) -> None:
         self.data = data if data is not None else {}
         self.status = status
         self.headers = headers or {}
@@ -105,7 +105,7 @@ class MiddlewareChain:
         resp = chain.handle(request, handler_fn)
     """
 
-    def __init__(self, middlewares: list[Middleware] | None = None):
+    def __init__(self, middlewares: list[Middleware] | None = None) -> None:
         self._middlewares = middlewares or []
 
     def use(self, mw: Middleware) -> MiddlewareChain:
@@ -234,7 +234,7 @@ class CORSMiddleware(Middleware):
 
     def __init__(self, origin: str = "*",
                  methods: str = "GET,POST,DELETE,OPTIONS",
-                 headers: str = "Content-Type,Authorization"):
+                 headers: str = "Content-Type,Authorization") -> None:
         self._origin = origin
         self._methods = methods
         self._headers = headers
@@ -252,7 +252,7 @@ class CORSMiddleware(Middleware):
 class BodyParserMiddleware(Middleware):
     """Parse JSON body from raw bytes, enforcing size limits."""
 
-    def __init__(self, max_bytes: int = 1_048_576):
+    def __init__(self, max_bytes: int = 1_048_576) -> None:
         self._max_bytes = max_bytes
 
     def process(self, request: Request) -> Request | Response:
@@ -304,7 +304,7 @@ class TimeoutMiddleware(Middleware):
     This middleware sets a deadline marker for observability.
     """
 
-    def __init__(self, timeout: float = 30.0):
+    def __init__(self, timeout: float = 30.0) -> None:
         self._timeout = timeout
 
     def process(self, request: Request) -> Request:

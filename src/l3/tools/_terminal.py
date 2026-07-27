@@ -1,6 +1,8 @@
-"""Terminal handler."""
+"""Terminal handler — cross-platform subprocess execution."""
 
 import subprocess
+
+from l1.kernel.platform import IS_WINDOWS, run_shell
 
 
 def run_in_terminal(args: dict, agent_id: str) -> dict:
@@ -9,9 +11,15 @@ def run_in_terminal(args: dict, agent_id: str) -> dict:
     if not command:
         return {"success": False, "error": "command is required"}
     try:
-        r = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
-        return {"success": r.returncode == 0, "stdout": r.stdout[:5000], "stderr": r.stderr[:2000], "exit_code": r.returncode}
+        proc = run_shell(command, timeout=timeout)
+        return {"success": proc.returncode == 0, "stdout": proc.stdout[:5000] if proc.stdout else "",
+                "stderr": proc.stderr[:2000] if proc.stderr else "", "exit_code": proc.returncode}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "command timed out"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def execute_shell(args: dict, agent_id: str) -> dict:
+    """RING_3 tool: execute system command with witness approval."""
+    return run_in_terminal(args, agent_id)

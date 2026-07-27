@@ -110,11 +110,10 @@ def _show_help() -> None:
 
 def _list_tools() -> None:
     try:
-        from .tool_system.tool_spec import TOOL_REGISTRY
-        tools = sorted(TOOL_REGISTRY.keys())
+        from .tool_system.tool_spec import list_tools as _list_tools
+        tools = _list_tools()
         for t in tools:
-            spec = TOOL_REGISTRY[t]
-            print(f"  {t:<25s} {spec.description[:50]}")
+            print(f"  {t.name:<25s} {t.description[:50]}")
         print(f"\nTotal: {len(tools)} tools")
     except Exception:
         for c in _COMMANDS:
@@ -202,8 +201,8 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
 
     print(f"  [Exec] {tool_name} {args}")
     try:
-        from .tool_system.tool_spec import TOOL_REGISTRY, execute_tool_spec
-        spec = TOOL_REGISTRY.get(tool_name)
+        from .tool_system.tool_spec import get_tool, execute_tool_spec
+        spec = get_tool(tool_name)
         if not spec:
             print(f"  [Error] Unknown tool: {tool_name}")
             return

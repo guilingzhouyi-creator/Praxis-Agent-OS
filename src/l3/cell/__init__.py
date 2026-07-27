@@ -46,8 +46,6 @@ from ..services.bus_components import (
 from ..cell.components.cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
 from ..cell.components.cell_rollback import rollback_card as _rollback_card
 from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
-from ..agent.subagent_spec import BUILTIN_SUBAGENTS
-from ..agent.subagent_framework import get_dispatcher as get_subagent_dispatcher
 from ..services.cell_orchestrate import SubAgentOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -143,11 +141,6 @@ class Cell:
             get_constitution().bind_cell(self._cell_bus)
         except Exception:
             pass
-
-        # Register built-in subagent specs
-        self._subagent_dispatcher = get_subagent_dispatcher()
-        for spec in BUILTIN_SUBAGENTS.values():
-            self._subagent_dispatcher.register_spec(spec)
 
         # SubAgent delegation pool (async, ring-limited)
         from l3.agent.subagent_pool import SubAgentPool
@@ -964,7 +957,7 @@ class Cell:
                           parent_agent_id: str = "",
                           context: dict | None = None,
                           post_actions: list[dict] | None = None) -> dict:
-        """Dispatch a SubAgent task with Cell-wired result delivery.
+        """Dispatch a SubAgent task via SubAgentPool (async, ring-limited).
 
         The SubAgent runs in its own daemon thread.  On completion,
         the result is delivered to the parent Peer Agent via the
@@ -975,38 +968,12 @@ class Cell:
                       SubAgent completes, before delivery.  Each action:
                       {"type": "scout", "prompt": "Verify {result}"}
         """
-        if post_actions:
-            from ..agent.subagent_spec import SubAgentSpec
-            # Create an anonymous spec with the post_actions
-            spec = SubAgentSpec(
-                name=spec_name,
-                description="",
-                read_only=True,
-                post_actions=post_actions,
-            )
-            return self._subagent_dispatcher.dispatch(
-                spec_name, prompt, parent_agent_id, context, cell=self,
-            )
-        return self._subagent_dispatcher.dispatch(
-            spec_name=spec_name,
-            prompt=prompt,
-            parent_agent_id=parent_agent_id,
-            context=context,
-            cell=self,
-        )
-        """Dispatch a SubAgent task with Cell-wired result delivery.
-
-        The SubAgent runs in its own daemon thread.  On completion,
-        the result is delivered to the parent Peer Agent via the
-        CellMessage mailbox (SUBAGENT_RESULT).  If the Peer Agent is
-        busy, the message queues in its mailbox (TTL 1h).
-        """
-        return self._subagent_dispatcher.dispatch(
-            spec_name=spec_name,
-            prompt=prompt,
-            parent_agent_id=parent_agent_id,
-            context=context,
-            cell=self,
+        from ..agent.subagent_spec import SubAgentSpec
+        spec = SubAgentSpec(name=spec_name, read_only=True,
+                            description="",
+                            post_actions=post_actions or [])
+        return self._subagent_pool.commission(
+            spec, prompt, parent_agent_id, context, cell=self,
         )
 
     def subagent_orchestrate(self, sub_tasks: list[dict],
@@ -1034,8 +1001,8 @@ class Cell:
 
     def subagent_dispatch_from_text(self, text: str,
                                      parent_agent_id: str = "") -> dict:
-        """Parse @mention from text and dispatch SubAgent."""
-        return self._subagent_dispatcher.dispatch_from_text(
+        """Parse @mention from text and dispatch via SubAgentPool."""
+        return self._subagent_pool.dispatch_from_text(
             text, parent_agent_id, cell=self,
         )
 

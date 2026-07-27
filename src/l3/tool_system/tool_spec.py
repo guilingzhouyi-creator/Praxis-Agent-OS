@@ -24,7 +24,7 @@ from l1.kernel.registry_base import RegisterableSpec
 
 from .tool_params import ParamSpec, ReturnSpec
 from .tool_registry import (
-    TOOL_REGISTRY, _PLUGIN_REGISTRY, _MIDDLEWARE,
+    TOOL_REGISTRY,
     register, register_plugin, unregister_plugin, register_middleware,
     get_tool, list_tools, list_categories, list_plugins, tool_registry_to_json,
     is_muted, mute_tool, unmute_tool, mute_category, unmute_category,

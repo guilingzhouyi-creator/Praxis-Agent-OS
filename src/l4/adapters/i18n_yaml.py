@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class YamlI18nAdapter(I18nPort):
     """I18nPort implementation — YAML file translations with lazy loading."""
 
-    def __init__(self, locale_dir: str = "", default_locale: str = I18N_DEFAULT_LOCALE):
+    def __init__(self, locale_dir: str = "", default_locale: str = I18N_DEFAULT_LOCALE) -> None:
         self._locale_dir: str = locale_dir
         self._locale: str = default_locale
         self._translations: dict[str, dict[str, str]] = {}  # locale → {key: msg}

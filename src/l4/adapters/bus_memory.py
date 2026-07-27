@@ -31,7 +31,7 @@ class MemoryBusAdapter(EventBusPort):
     (non-blocking contract is met by keeping callbacks cheap).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.RLock()
         self._subscribers: dict[str, tuple[str | None, Callable]] = {}  # sub_id → (pattern, handler)
         self._event_count: int = 0

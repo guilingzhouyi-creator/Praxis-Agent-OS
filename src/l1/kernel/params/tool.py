@@ -46,11 +46,15 @@ BUILD_DETECTORS: Final[list[tuple[str, ...]]] = [
     ("python", "-m", "build"),
     ("cargo", "build"),
     ("npm", "run", "build"),
+    ("msbuild",),                 # Windows: MSBuild
+    ("dotnet", "build"),          # Windows/Linux: .NET
 ]
 TEST_DETECTORS: Final[list[tuple[str, ...]]] = [
     ("python", "-m", "pytest"),
     ("cargo", "test"),
     ("npm", "test"),
+    ("dotnet", "test"),           # Windows/Linux: .NET
+    ("vstest.console",),          # Windows: VS Test Runner
 ]
 
 # ── Tool timeouts (seconds) ──

@@ -45,10 +45,10 @@ class CentralPlugin:
     def install_tool_plugin(self, name: str, tools: list[Any],
                             description: str = "", version: str = "0.1.0") -> dict:
         """Register a tool plugin via tool_spec.register_plugin()."""
-        from .tool_system.tool_spec import register_plugin, TOOL_REGISTRY
+        from .tool_system.tool_spec import register_plugin, list_tools, get_tool
         try:
             register_plugin(name, tools)
-            count = sum(1 for t in tools if t.name in TOOL_REGISTRY)
+            count = sum(1 for t in tools if get_tool(t.name) is not None)
             with self._lock:
                 pi = PluginInfo(name, "tool", description=description, version=version)
                 pi.tool_count = count
@@ -60,14 +60,14 @@ class CentralPlugin:
 
     def remove_tool_plugin(self, name: str) -> dict:
         """Unregister a tool plugin via tool_spec.unregister_plugin()."""
-        from .tool_system.tool_spec import unregister_plugin, TOOL_REGISTRY
+        from .tool_system.tool_spec import unregister_plugin, list_tools
         try:
-            before = len(TOOL_REGISTRY)
+            before = len(list_tools())
             unregister_plugin(name)
             with self._lock:
                 self._plugins.pop(name, None)
             logger.info("central_plugin: removed tool plugin '%s'", name)
-            return {"success": True, "name": name, "removed": before - len(TOOL_REGISTRY)}
+            return {"success": True, "name": name, "removed": before - len(list_tools())}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

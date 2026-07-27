@@ -28,7 +28,7 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, TOOL_REGISTRY, ToolRing
+from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, list_tools, ToolRing
 from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -324,16 +324,16 @@ class MCPBridge:
 
     def remove_server(self, server_name: str) -> dict:
         """Unregister all tools from an MCP server and remove."""
-        from .tool_system.tool_spec import TOOL_REGISTRY, unregister_plugin
+        from .tool_system.tool_spec import list_tools, unregister_plugin, unregister
         with self._lock:
             self._imported_servers.pop(server_name, None)
             self._server_status.pop(server_name, None)
             self._server_error.pop(server_name, None)
             self._server_auth.pop(server_name, None)
         plugin_key = f"{MCP_PLUGIN_PREFIX}{MCP_NAME_SEP}{server_name}"
-        removed = [k for k in list(TOOL_REGISTRY.keys()) if k.startswith(f"mcp:{server_name}:")]
-        for k in removed:
-            TOOL_REGISTRY.pop(k, None)
+        for spec in list_tools():
+            if spec.name.startswith(f"mcp:{server_name}:"):
+                unregister(spec.name)
         unregister_plugin(plugin_key)
         self._persist()
         logger.info("mcp remove %s: %d tools unregistered", server_name, len(removed))

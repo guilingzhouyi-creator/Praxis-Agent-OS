@@ -140,16 +140,16 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         territory = sl.get("territory", [])
         sub_agent_map = sl.get("agent_map", {})
 
-        # ── SubAgent pool route ──
+        # ── SubAgent pool route (through card-type gate) ──
         subagent_spec = sl.get("subagent_spec", "") or (sub_card.subagent_spec if hasattr(sub_card, "subagent_spec") else "")
         if subagent_spec:
             from l3.agent.subagent_pool import SubAgentPool
+            from l3.agent.subagent_gate import classify_card, build_spec
             pool = SubAgentPool(cell.cell_id)
-            parallelism = sl.get("parallelism", 1) or (sub_card.parallelism if hasattr(sub_card, "parallelism") else 1)
-            from l3.agent.subagent_spec import SubAgentSpec
-            spec = SubAgentSpec(name=subagent_spec, read_only=True,
-                                description=f"decomposed subagent task: {role}")
+            card_type = classify_card(sub_card)
+            spec = build_spec(card_type, spec_name=subagent_spec)
             r = pool.commission(spec, prompt=sub_card.intent if hasattr(sub_card, "intent") else "",
+                                card_type=card_type,
                                 parent_agent_id=agent_id, cell=cell)
             if r.get("success"):
                 result = pool.collect(r["task_id"], timeout=120)

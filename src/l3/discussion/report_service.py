@@ -48,18 +48,21 @@ class ReportService:
             "session_id": session_id,
             "status": status,
             "created_at": time.time(),
+            # ── Overview ──
             "overview": {
                 "total_cells": aggregation.get("total_cells", 0),
                 "participating_cells": aggregation.get("participating_cells", []),
                 "total_answers": sum(aggregation.get("answers_by_cell", {}).values()),
                 "status": status,
             },
+            # ── Consistency (agreed points) ──
             "consistency": [
                 {"fingerprint": c.get("fingerprint", ""),
                  "cells": c.get("cells", []),
                  "consensus": True}
                 for c in consistency
             ],
+            # ── Divergences (disputed points) ──
             "divergences": [
                 {"topic": d.get("topic", "?"),
                  "cells": d.get("cells", []),
@@ -68,12 +71,14 @@ class ReportService:
                  "resolution": None}
                 for d in divergences
             ],
+            # ── Supplement issues raised ──
             "supplements": [
                 {"title": s.get("title", ""),
                  "source_cell": s.get("source_cell", ""),
                  "description": s.get("description", "")[:200]}
                 for s in supplements
             ],
+            # ── Coverage & merged answer ──
             "coverage": aggregation.get("coverage", {}),
             "merged_answer": aggregation.get("merged_answer", {}),
         }

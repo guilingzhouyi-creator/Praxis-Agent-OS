@@ -272,3 +272,35 @@ class TestCellAccessors:
         cell = get_cell("cell-ac2", ["."])
         tools = cell.agent_tools("nonexistent")
         assert isinstance(tools, list)
+
+
+class TestCellSubAgentDispatch:
+    """Cell.subagent_dispatch → SubAgentPool integration"""
+
+    def test_subagent_dispatch_returns_task_id(self):
+        from l3.cell import get_cell, reset_cells
+        reset_cells()
+        cell = get_cell("cell-sd1", ["."])
+        r = cell.subagent_dispatch("security-auditor", "review test code",
+                                    parent_agent_id="test-agent")
+        assert isinstance(r, dict)
+        assert r.get("success") is True
+        assert "task_id" in r
+
+    def test_subagent_dispatch_from_text_no_mention(self):
+        from l3.cell import get_cell, reset_cells
+        reset_cells()
+        cell = get_cell("cell-sd2", ["."])
+        r = cell.subagent_dispatch_from_text("plain text without at mention",
+                                              parent_agent_id="test-agent")
+        assert isinstance(r, dict)
+        assert r.get("success") is False
+
+    def test_subagent_orchestrate_returns_dict(self):
+        from l3.cell import get_cell, reset_cells
+        reset_cells()
+        cell = get_cell("cell-sd3", ["."])
+        sub_tasks = [{"spec": "security-auditor", "prompt": "check test.py"}]
+        r = cell.subagent_orchestrate(sub_tasks, parent_agent_id="test-agent")
+        assert isinstance(r, dict)
+        assert "success" in r or "error" in r or "phases" in r

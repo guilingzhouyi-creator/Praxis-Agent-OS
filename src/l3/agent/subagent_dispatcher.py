@@ -1,3 +1,10 @@
+"""DEPRECATED — SubAgentDispatcher has been replaced by SubAgentPool.
+
+The @mention parsing and dispatch logic has been migrated to
+src/l3/agent/subagent_pool.py (SubAgentPool.parse_mentions(),
+SubAgentPool.dispatch_from_text()).  This module is kept for
+backward compatibility with existing tests."""
+
 from __future__ import annotations
 import logging
 import re

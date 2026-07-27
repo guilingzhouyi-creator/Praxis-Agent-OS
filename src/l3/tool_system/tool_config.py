@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, TOOL_REGISTRY, ToolRing
+from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, list_tools, get_tool, ToolRing
 from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,8 @@ class ToolConfig:
     @classmethod
     def reload(cls, yaml_path: str = "") -> int:
         """Hot-reload tools.yaml (dev). Clears registry first."""
-        TOOL_REGISTRY.clear()
+        from .tool_registry import get_registry as _get_tr
+        _get_tr()._registry.clear()
         cls._loaded = False
         return cls.load(yaml_path)
 
@@ -113,6 +114,9 @@ class ToolConfig:
         handler_path = defn.get("handler", "")
         if handler_path:
             handler = _resolve_handler(handler_path)
+            if handler is None:
+                logger.warning("tool_config: skip '%s' — handler not found: %s", name, handler_path)
+                return None
 
         params_raw = defn.get("params", [])
         params = [_parse_param(p) if isinstance(p, dict) else ParamSpec(name=p) for p in params_raw]
@@ -160,15 +164,15 @@ class ToolConfig:
 
     @classmethod
     def all(cls) -> list[ToolSpec]:
-        return list(TOOL_REGISTRY.values())
+        return list_tools()
 
     @classmethod
     def get(cls, name: str) -> ToolSpec | None:
-        return TOOL_REGISTRY.get(name)
+        return get_tool(name)
 
     @classmethod
     def has(cls, name: str) -> bool:
-        return name in TOOL_REGISTRY
+        return get_tool(name) is not None
 
     # ── Filters ──
 

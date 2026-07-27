@@ -2,8 +2,9 @@
 
 Pattern:
   Peer Agent decomposes its card task into N sub-tasks,
-  dispatches N SubAgents in parallel, auto-verifies via Scouts,
-  collects results, runs gap analysis, and feeds back into
+  dispatches N SubAgents in parallel via SubAgentPool,
+  collects results (Future-driven join), auto-verifies via Scouts,
+  runs gap analysis, and feeds back into
   the Peer Agent's TodoTracker self-correction loop.
 
 Buffers:
@@ -13,7 +14,7 @@ Buffers:
 Flow:
   cell.subagent_orchestrate(card_task, sub_tasks, verify_prompt)
     ├─ Phase 1: Fork — dispatch all sub_tasks as parallel SubAgents
-    ├─ Phase 2: Join — wait for all SubAgents to complete → Buffer-1
+    ├─ Phase 2: Join — collect_all via SubAgentPool → Buffer-1
     ├─ Phase 3: Verify — auto-dispatch Scouts for each result → Buffer-2
     ├─ Phase 4: Gap analysis — compare Buffer-1 vs Buffer-2
     └─ Phase 5: Return structured result for Peer Agent self-correction
@@ -24,6 +25,9 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any
+
+from l3.agent.subagent_pool import SubAgentPool
+from l3.agent.subagent_spec import SubAgentSpec
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,7 @@ class SubAgentOrchestrator:
         self.parent_agent_id = parent_agent_id
         self.buffer_1: list[dict] = []   # SubAgent results
         self.buffer_2: list[dict] = []   # Scout verification results
+        self._pool = SubAgentPool(cell.cell_id)
         self._task_ids: list[str] = []
 
     # ── Phase 1+2: Fork-Join ─────────────────────────────────────
@@ -48,51 +53,34 @@ class SubAgentOrchestrator:
                      {"spec": "security-auditor", "prompt": "check auth.py"}]
         Returns buffer-1 with all SubAgent results.
         """
-        # Fork: dispatch all
+        # Fork: dispatch all via SubAgentPool
         for t in sub_tasks:
-            spec = t.get("spec", "")
+            spec_name = t.get("spec", "")
             prompt = t.get("prompt", "")
-            if not spec or not prompt:
-                self.buffer_1.append({"spec": spec, "error": "spec or prompt missing"})
+            card_type = t.get("card_type", "explore")  # 'explore' | 'execute'
+            if not spec_name or not prompt:
+                self.buffer_1.append({"spec": spec_name, "error": "spec or prompt missing"})
                 continue
-            r = self.cell.subagent_dispatch(spec, prompt, self.parent_agent_id)
+            spec = SubAgentSpec(name=spec_name, read_only=(card_type == "explore"), description="")
+            r = self._pool.commission(spec, prompt, card_type=card_type,
+                                      parent_agent_id=self.parent_agent_id, cell=self.cell)
             if r.get("success"):
                 self._task_ids.append(r["task_id"])
             else:
-                self.buffer_1.append({"spec": spec, "error": r.get("error", "dispatch failed")})
+                self.buffer_1.append({"spec": spec_name, "error": r.get("error", "pool full")})
 
-        # Join: poll for completion
-        deadline = time.time() + timeout
-        pending = set(self._task_ids)
-        while pending and time.time() < deadline:
-            done = set()
-            for tid in list(pending):
-                task = self.cell._subagent_dispatcher.get_task(tid)
-                if task is None:
-                    done.add(tid)
-                    self.buffer_1.append({"task_id": tid, "error": "task not found"})
-                    continue
-                if task.status in ("completed", "failed", "cancelled"):
-                    done.add(tid)
-                    self.buffer_1.append({
-                        "task_id": tid,
-                        "spec": task.spec.name,
-                        "status": task.status,
-                        "result": task.get_result().get("result", {}),
-                    })
-            pending -= done
-            if pending:
-                time.sleep(0.5)
+        # Join: Future-driven collect_all
+        if not self._task_ids:
+            return {"success": True, "dispatched": 0, "buffer_1": self.buffer_1}
 
-        # Timeout remaining
-        for tid in pending:
-            self.buffer_1.append({"task_id": tid, "error": "timeout"})
-
+        joined = self._pool.collect_all(self._task_ids, timeout=timeout)
+        self.buffer_1.extend(joined.get("results", []))
         return {
             "success": True,
             "dispatched": len(self._task_ids),
-            "completed": len([r for r in self.buffer_1 if r.get("status") == "completed"]),
-            "failed": len([r for r in self.buffer_1 if r.get("status") == "failed"]),
+            "completed": joined.get("completed", 0),
+            "failed": joined.get("failed", 0),
+            "timed_out": joined.get("timed_out", 0),
             "buffer_1": self.buffer_1,
         }
 

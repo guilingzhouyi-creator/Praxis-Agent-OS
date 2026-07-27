@@ -27,7 +27,7 @@ class RingChannel(ChannelPort):
     Thread-safety: single Lock + two Conditions (not_full, not_empty).
     """
 
-    def __init__(self, capacity: int = 1024, overwrite: bool = False):
+    def __init__(self, capacity: int = 1024, overwrite: bool = False) -> None:
         if capacity < 1:
             raise ValueError(f"capacity must be >= 1, got {capacity}")
         self._capacity: int = capacity

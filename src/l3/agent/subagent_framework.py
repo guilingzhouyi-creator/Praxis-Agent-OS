@@ -1,6 +1,9 @@
-"""SubAgent Framework — @mention scheduling + isolated execution + result merging
+"""DEPRECATED — SubAgentFramework has been replaced by SubAgentPool.
 
-Architecture:
+See src/l3/agent/subagent_pool.py (SubAgentPool).  This module is
+kept for backward compatibility with existing tests.
+
+Architecture (original, now deprecated):
   SubAgentFramework (services/subagent_framework.py)
   ├── SubAgentSpec         — Sub-agent definition (role/tool set/model/timeout)
   ├── SubAgentTask         — Sub-agent task instance (independent session + context)
@@ -8,7 +11,7 @@ Architecture:
   ├── ResultMerger         — Multi sub-agent result conflict detection + merging
   └── API Handlers
 
-API:
+API (still active for backward compat):
   POST /api/subagent/dispatch       — Dispatch subagent
   GET  /api/subagent/:id/result     — Get subagent result
   DELETE /api/subagent/:id          — Cancel subagent

@@ -21,6 +21,7 @@ import time
 from typing import Any
 
 from .cell_answer_repo import CellAnswerRepo, CellAnswer, AnswerCheckpoint
+from l3.agent.agent_loop import AgentLoop
 
 logger = logging.getLogger(__name__)
 
@@ -287,7 +288,6 @@ class AnswerSession:
 
     def _run_agent_loop(self, agent_id: str, prompt: str) -> dict:
         """Run an AgentLoop for a single agent."""
-        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(
             task=prompt,
             agent_id=agent_id,

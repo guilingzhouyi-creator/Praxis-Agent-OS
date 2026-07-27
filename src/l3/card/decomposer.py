@@ -52,7 +52,7 @@ class DecomposeState(Enum):
 
 @dataclass
 class CardSlice:
-    """A sub-card — work unit assigned to one Agent."""
+    """A sub-card — work unit assigned to one Agent or SubAgent pool."""
     card: CardUnified
     role: str
     agent_id: str
@@ -60,6 +60,8 @@ class CardSlice:
     state: DecomposeState = DecomposeState.DRAFT
     result: dict = field(default_factory=dict)
     error: str = ""
+    parallelism: int = 1           # desired SubAgent parallelism
+    subagent_spec: str = ""        # SubAgentSpec name for pool dispatch
 
 
 @dataclass

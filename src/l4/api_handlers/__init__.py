@@ -34,6 +34,17 @@ from ..api_handlers.api_handlers_cluster import (
     cluster_shrink as _cluster_shrink,
 )
 
+from ..api_handlers.api_handlers_discussion import (
+    handle_discussion_start,
+    handle_discussion_get,
+    handle_discussion_answers,
+    handle_discussion_report,
+    handle_discussion_supplement,
+    handle_discussion_sessions,
+    handle_discussion_reports,
+    handle_discussion_push_l3a,
+)
+
 logger = logging.getLogger(__name__)
 from l1.kernel.params.agent import DEFAULT_CELL_ID
 
@@ -41,12 +52,16 @@ from l1.kernel.params.agent import DEFAULT_CELL_ID
 class ApiHandlers:
     """Handler methods for API Gateway. Mixed into ApiGateway."""
 
+    # ── Health / System ──
+
     def _health(self, body: dict | None = None) -> dict:
         try:
             from l1.kernel import health as _health_fn
             return _health_fn()
         except Exception as e:
             return {"status": "FAIL", "error": str(e)}
+
+    # ── Cards ──
 
     def _list_cards(self, body: dict) -> dict:
         return list_cards(body)
@@ -101,6 +116,8 @@ class ApiHandlers:
         except Exception as e:
             return {"error": str(e)}
 
+    # ── Agents / Shell ──
+
     def _agent_list(self, body: dict | None = None) -> dict:
         from ..api_handlers.api_handlers_agent import agent_list as _fn
         return _fn(body)
@@ -147,6 +164,8 @@ class ApiHandlers:
 
     def _network_health(self, body: dict | None = None) -> dict:
         return network_health(body)
+
+    # ── Cells / Cluster ──
 
     def _cell_liveness(self, body: dict | None = None) -> dict:
         from l1.kernel.params.agent import DEFAULT_CELL_ID as _dcid
@@ -210,6 +229,8 @@ class ApiHandlers:
     def _sideload_dispatch(self, body: dict) -> dict:
         return sideload_dispatch(body)
 
+    # ── MCP Bridge ──
+
     def _mcp_import(self, body: dict) -> dict:
         try:
             from ..mcp_bridge import McpClient, get_bridge
@@ -239,6 +260,8 @@ class ApiHandlers:
             return get_bridge().remove_server(server_name)
         except Exception as e:
             return {"error": str(e)}
+
+    # ── Cron Scheduler ──
 
     def _cron_list(self, body: dict | None = None) -> dict:
         try:
@@ -403,6 +426,8 @@ class ApiHandlers:
     def _token_global(self, body: dict | None = None) -> dict:
         return token_global(body)
 
+    # ── Comm / Tools ──
+
     def _comm_stats(self, body: dict | None = None) -> dict:
         return comm_stats(body)
 
@@ -456,6 +481,8 @@ class ApiHandlers:
     def _loops_recent(self, body: dict | None = None) -> dict:
         return loops_recent(body)
 
+    # ── Bootstrap / Export ──
+
     def _bootstrap_status(self, body: dict | None = None) -> dict:
         try:
             from l3.config.bootstrap import needs_bootstrap, _CONFIG_PATH
@@ -482,6 +509,8 @@ class ApiHandlers:
 
     def _export_metrics(self, body: dict | None = None) -> dict:
         return export_metrics(body)
+
+    # ── Credential Vault ──
 
     def _credential_status(self, body: dict | None = None) -> dict:
         try:
@@ -524,6 +553,8 @@ class ApiHandlers:
         from l3.tool_system.tool_mode import set_mode
         return set_mode(body.get("mode", "toggle"))
 
+    # ── Approvals / Pending Queue ──
+
     def _list_approvals(self, body: dict | None = None) -> dict:
         try:
             from l3.card.approval_gate import get_gate
@@ -552,6 +583,8 @@ class ApiHandlers:
                     "snapshot_count": len(cell._card_snapshots)}
         except Exception as e:
             return {"error": str(e)}
+
+    # ── Card Gate ──
 
     def _card_gate_config(self, body: dict | None = None) -> dict:
         try:
@@ -674,6 +707,8 @@ class ApiHandlers:
         except Exception as e:
             return {"error": str(e)}
 
+    # ── Routes / V1 API ──
+
     def _list_endpoints(self, body: dict | None = None) -> dict:
         lines = []
         for r in self._routes:
@@ -705,6 +740,8 @@ class ApiHandlers:
             return {"success": True, "locales": get_available_locales(), "current": get_locale()}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    # ── Loop Control ──
 
     def _loop_config_get(self, body: dict | None = None) -> dict:
         try:
