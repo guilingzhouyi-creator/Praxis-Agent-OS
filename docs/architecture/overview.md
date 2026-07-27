@@ -324,7 +324,7 @@ Each memory entry (`MemEntry`) carries `agent_id`, `cell_id`, `entry_type`, `imp
 2. **GateChain G1-G5** — Non-bypassable tool authorization with `GateStatus` (PASS/WARN/BLOCK/REPORT)
 3. **Tool Pipeline** — 9-step execution (clearance → rate limit → constitution → gatechain → allocator → request pool → file lock → execute → release)
 
-The bare-metal layer providing OS primitives:
+## File Layout
 
 ```
 src/
