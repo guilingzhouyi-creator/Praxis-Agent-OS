@@ -44,9 +44,9 @@ from ..cell.components.cell_execute import execute_card as _execute_card, _raw_t
 from ..cell.components.cell_rollback import rollback_card as _rollback_card
 from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
 from ..services.cell_orchestrate import SubAgentOrchestrator
+from ..card.issue import IssueCard as _IssueCard
 
 logger = logging.getLogger(__name__)
-from ..card.issue import IssueCard as _IssueCard
 
 
 
@@ -107,8 +107,8 @@ class Cell:
             root = get_root_bus()
             root._children[cell_id] = self._cell_bus
             self._cell_bus.parent = root
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
 
         self._cell_bus.register(CellPmuComponent(cell_id))
         self._cell_bus.register(CellWatchdogComponent(cell_id))
@@ -138,8 +138,8 @@ class Cell:
         try:
             from l1.kernel.constitution import get_constitution
             get_constitution().bind_cell(self._cell_bus)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
 
         # SubAgent delegation pool (async, ring-limited)
         from l3.agent.subagent_pool import SubAgentPool
@@ -227,15 +227,15 @@ class Cell:
             term = get_terminals().get(agent_id)
             if term:
                 term.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
         try:
             from ..memory.context_pool import unregister as _unregister_cp
             _unregister_cp(agent_id)
             from l3.memory.memory import get_memory
             get_memory().forget_agent(agent_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
         return {"success": True, "agent_id": agent_id, "action": "removed"}
 
     # ══ Cell state persistence ══
@@ -563,16 +563,16 @@ class Cell:
         try:
             from ..memory.context_pool import unregister as _unreg
             _unreg(agent_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
         # Flush MMU TLB
         self._mmu.flush_agent(agent_id)
         # Re-register context pool
         try:
             from ..memory.context_pool import register as _reg
             _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=4096)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
         # Re-boot
         self.boot_agent(agent_id)
         logger.info("Cell %s restarted agent %s", self.cell_id, agent_id)
@@ -869,14 +869,14 @@ class Cell:
             self._cell_bus.on("watchdog.crash", lambda e: self._bus_watchdog_crash(e))
             self._cell_bus.on("watchdog.timeout", lambda e: self._bus_watchdog_timeout(e))
             self._cell_bus.on("watchdog.recovery", lambda e: self._bus_watchdog_recovery(e))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
 
         # Wire discussion events (Layer 3 integration)
         try:
             self._cell_bus.on("discussion.start", lambda e: self._bus_discussion_start(e))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
 
     def _bus_discussion_start(self, event: dict) -> None:
         """Bus event: start an AnswerSession for this Cell."""

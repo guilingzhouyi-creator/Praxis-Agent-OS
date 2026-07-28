@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.system import LOG_TRUNC_80
 logger = logging.getLogger(__name__)
 
 # ── Built-in defaults ──
@@ -350,7 +351,7 @@ def list_prompts() -> dict:
     return {
         k: {
             "source": "override" if k in _overrides else "default",
-            "preview": (get_prompt(k, "") or "")[:80],
+            "preview": (get_prompt(k, "") or "")[:LOG_TRUNC_80],
         }
         for k in sorted(all_keys)
     }

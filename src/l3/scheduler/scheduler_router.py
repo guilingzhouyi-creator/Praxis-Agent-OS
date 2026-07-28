@@ -7,7 +7,7 @@ import threading
 import time
 from typing import Any, Callable
 
-from .scheduler.scheduler_types import Task, AgentInfo
+from .scheduler_types import Task, AgentInfo
 
 logger = logging.getLogger(__name__)
 

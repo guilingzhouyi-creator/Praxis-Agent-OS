@@ -15,7 +15,6 @@ import os
 import shutil
 import threading
 import time
-import tempfile
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,11 +22,12 @@ from typing import Any
 from l1.kernel import get_rwlock
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE
+from l1.kernel.platform import get_temp_dir as _get_temp_dir
 
 logger = logging.getLogger(__name__)
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
-_DEFAULT_SANDBOX = os.path.join(tempfile.gettempdir(), "nomos-sandbox")
+_DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "nomos-sandbox")
 _SANDBOX_ROOT = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_SANDBOX)
 
 

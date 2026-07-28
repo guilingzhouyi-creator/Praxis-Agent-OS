@@ -4,14 +4,14 @@ Part of the Four-Tier Hierarchical Memory Architecture:
   L0 Register → L1 Working → L2 Short-Term → L3 Long-Term → L4 Archive
 
 Responsibilities:
-  - shutdown: export Ring 3 entries (importance ≥ 0.7) to Archive fonds/series
+  - shutdown: export Ring 3 entries (importance >= 0.7) to Archive fonds/series
   - boot:    restore recent Archive entries back into Ring 3 knowledge
   - classify: derive fonds/series from entry metadata
 """
-
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, ARCHIVE_RESTORE_LIMIT
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def archive_ring3(mem: Any) -> int:
-    """Export Ring 3 entries with importance ≥ threshold to Archive.
+    """Export Ring 3 entries with importance >= threshold to Archive.
 
     Called by shutdown_to_memories() during system shutdown.
     Each qualifying entry becomes an Archive entry under AGENT:{agent_id}/ entry_type.
@@ -63,21 +63,20 @@ def ring3_from_archive(mem: Any) -> int:
     try:
         conn = _get_db()
         rows = conn.execute(
-            "SELECT id, fonds, series, title, content, tags, agent_id, created_at "
-            "FROM archive WHERE (ttl = 0 OR created_at + ttl > ?) "
+            "SELECT fonds, series, content, tags, created_at FROM archive "
             "ORDER BY created_at DESC LIMIT ?",
-            (__import__("time").time(), ARCHIVE_RESTORE_LIMIT),
+            (ARCHIVE_RESTORE_LIMIT,),
         ).fetchall()
-        conn.close()
         for row in rows:
-            entry_id, fonds, series, title, content, tags_str, agent_id, created_at = row
+            fonds, series, content, tags_str, created_at = row
+            agent_id = fonds.replace("AGENT:", "") if fonds.startswith("AGENT:") else "system"
             mem.remember(
                 agent_id=agent_id or "system",
                 entry_type="archive",
-                content=f"[{fonds}/{series}] {title}\n{content[:2000]}",
+                content=f"[{fonds}/{series}] {content[:2000]}",
                 tags=["archive", fonds, series] + ([t for t in tags_str.split(",") if t] if tags_str else []),
                 ring=3,
-                importance=0.6,
+                importance=ARCHIVE_IMPORTANCE_THRESHOLD,
             )
             count += 1
     except Exception as e:
@@ -91,8 +90,8 @@ def _classify(entry: dict) -> tuple[str, str]:
     """Derive fonds/series from MemoryManager entry metadata.
 
     Classification rules:
-      - agent_id → fonds (e.g. "agent-a" → "AGENT:agent-a")
-      - entry_type → series (e.g. "tool_call" → "tool_call")
+      - agent_id -> fonds (e.g. "agent-a" -> "AGENT:agent-a")
+      - entry_type -> series (e.g. "tool_call" -> "tool_call")
       - Unknown entries fall back to "SYSTEM/general"
     """
     agent = entry.get("agent_id", "unknown") or "unknown"

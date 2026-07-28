@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generic, Protocol, TypeVar
 
+from l1.kernel.params.system import LOG_TRUNC_200
 T = TypeVar("T", bound="RegisterableSpec")
 
 
@@ -53,7 +54,7 @@ class RegisterableSpec:
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
-            "description": self.description[:200],
+            "description": self.description[:LOG_TRUNC_200],
             "category": self.category,
             "tags": list(self.tags),
             "version": self.version,

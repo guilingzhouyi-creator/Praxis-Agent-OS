@@ -254,7 +254,7 @@ flowchart TB
 | **memory/** | `memory.py`, `r4_agent.py`, `cache*.py`, `pager*.py` (17 files) | 4-ring memory, context, pager, cache, R4 archive |
 | **resource_buffer/** | `ring.py`, `manager.py`, `api.py` (4 files) | Ring file buffer |
 | **scheduler/** | `scheduler*.py`, `acb.py`, `think_registry.py`, `sequence_monitor.py` (11 files) | 5-D scheduler, think quota, agent control block, anomaly detection |
-| **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
+| **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `model_strategy.py`, `approval_policy.py`, `identity.py` (31 files) | StatsCenter, RecordCenter, ModelService, ModelStrategyEngine, ApprovalPolicy, security, scaffolding |
 | **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_registry.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
 | **tools/** | `_files.py`, `_code.py`, `_git.py`, `_build.py`, etc. (17 files) | Tool implementations — file, code, git, web, search, terminal |
 

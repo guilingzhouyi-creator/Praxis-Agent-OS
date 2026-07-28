@@ -5,6 +5,7 @@ by OpenCode during memory.py refactoring.
 """
 from __future__ import annotations
 
+import heapq
 import logging
 import time
 from collections import deque
@@ -91,22 +92,38 @@ class RingLayer:
         self.default_ttl = ttl
         self._entries: deque[MemEntry] = deque(maxlen=self.max_entries)
         self._token_count = 0
+        # Eviction heap: (importance, timestamp, id(entry)) — lowest importance + oldest first
+        self._evict_heap: list[tuple[float, float, int]] = []
+        # Reverse indexes for O(1) query lookups
+        self._agent_index: dict[str, list[MemEntry]] = {}
+        self._type_index: dict[str, list[MemEntry]] = {}
         self._lock = threading.Lock()
 
     def push(self, entry: MemEntry) -> None:
         with self._lock:
             self._entries.append(entry)
             self._token_count += entry.tokens
+            heapq.heappush(self._evict_heap, (entry.importance, entry.timestamp, id(entry)))
+            # Update reverse indexes
+            self._agent_index.setdefault(entry.agent_id, []).append(entry)
+            self._type_index.setdefault(entry.entry_type, []).append(entry)
             self._evict_if_needed()
 
     def query(self, agent_id: str | None = None, entry_type: str | None = None,
               tag: str | None = None, limit: int = 20) -> list[MemEntry]:
         with self._lock:
-            results = [e for e in self._entries if not e.expired()]
-        if agent_id:
-            results = [e for e in results if e.agent_id == agent_id]
-        if entry_type:
+            # Use reverse indexes for O(1) agent/type lookup; fall back to full scan for tag
+            if agent_id and agent_id in self._agent_index:
+                candidates = self._agent_index[agent_id]
+            elif entry_type and entry_type in self._type_index:
+                candidates = self._type_index[entry_type]
+            else:
+                candidates = self._entries
+            results = [e for e in candidates if not e.expired()]
+        if entry_type and not (agent_id and agent_id in self._agent_index):
             results = [e for e in results if e.entry_type == entry_type]
+        if agent_id and not (agent_id and agent_id in self._agent_index):
+            results = [e for e in results if e.agent_id == agent_id]
         if tag:
             results = [e for e in results if tag in e.tags]
         return results[:limit]
@@ -145,13 +162,26 @@ class RingLayer:
             return [e.to_dict() for e in self._entries]
 
     def _evict_if_needed(self) -> None:
-        while self._token_count > self.max_tokens and self._entries:
-            oldest = min(self._entries, key=lambda e: (e.importance, e.timestamp))
-            self._entries.remove(oldest)
-            self._token_count -= oldest.tokens
+        """O(log n) eviction via heap — pop lowest importance + oldest entries."""
+        while self._token_count > self.max_tokens and self._evict_heap:
+            imp, ts, eid = heapq.heappop(self._evict_heap)
+            # Skip stale heap entries (entry already removed from _entries by other paths)
+            target = next((e for e in self._entries if id(e) == eid), None)
+            if target is None:
+                continue
+            self._entries.remove(target)
+            self._token_count -= target.tokens
 
     def _rebuild_token_count(self) -> None:
         self._token_count = sum(e.tokens for e in self._entries)
+        # Rebuild eviction heap and reverse indexes
+        self._evict_heap = [(e.importance, e.timestamp, id(e)) for e in self._entries]
+        heapq.heapify(self._evict_heap)
+        self._agent_index = {}
+        self._type_index = {}
+        for e in self._entries:
+            self._agent_index.setdefault(e.agent_id, []).append(e)
+            self._type_index.setdefault(e.entry_type, []).append(e)
 
 
 import threading

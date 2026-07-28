@@ -15,11 +15,11 @@ import time
 from typing import Any, Callable
 
 from l1.kernel.params.system import DEFAULT_QUANTUM, MAX_PREEMPT
-from .scheduler.scheduler_types import TaskPriority, Task, AgentInfo, TimeSlice
-from .scheduler.scheduler_router import L3Router, RequestPool
-from .scheduler.scheduler_time import TimeScheduler, get_time_scheduler, reset_time_scheduler
-from .scheduler.scheduler_rate import get_rate_scheduler, agent_can_access
-from .scheduler.scheduler_scope import get_scope_scheduler
+from .scheduler_types import TaskPriority, Task, AgentInfo, TimeSlice
+from .scheduler_router import L3Router, RequestPool
+from .scheduler_time import TimeScheduler, get_time_scheduler, reset_time_scheduler
+from .scheduler_rate import get_rate_scheduler, agent_can_access
+from .scheduler_scope import get_scope_scheduler
 
 logger = logging.getLogger(__name__)
 

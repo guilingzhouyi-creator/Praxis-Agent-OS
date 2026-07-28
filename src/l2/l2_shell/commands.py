@@ -1162,8 +1162,6 @@ def _model_set(role: str, key: str, value: str) -> dict:
 # ── System command registration ──────────────────────────────────
 # Decorator: @system_command marks a function as a system shell command.
 
-import functools as _ft
-
 _SYSTEM_COMMANDS: list[tuple[str, Callable]] = []
 
 

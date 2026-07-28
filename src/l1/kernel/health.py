@@ -13,6 +13,7 @@ import logging
 import time
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_120
 logger = logging.getLogger(__name__)
 
 # Known kernel modules (must be importable at runtime)
@@ -67,7 +68,7 @@ def safe_system_check() -> dict[str, Any]:
             results[mod_name] = {"status": "OK", "detail": "imported"}
             healthy += 1
         except Exception as e:
-            results[mod_name] = {"status": "FAILED", "detail": str(e)[:120]}
+            results[mod_name] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
             failed += 1
             logger.warning("health: %s failed: %s", mod_name, e)
 
@@ -112,7 +113,7 @@ def _check_process_table(results: dict) -> tuple[bool, str]:
         results["kernel.process[table]"] = {"status": "OK", "detail": f"{cnt} processes"}
         return True, f"{cnt} procs"
     except Exception as e:
-        results["kernel.process[table]"] = {"status": "FAILED", "detail": str(e)[:120]}
+        results["kernel.process[table]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
         return False, str(e)
 
 
@@ -125,7 +126,7 @@ def _check_event_bus(results: dict) -> tuple[bool, str]:
                                          "detail": "functional" if ok else "missing methods"}
         return ok, "functional" if ok else "degraded"
     except Exception as e:
-        results["kernel.event[bus]"] = {"status": "FAILED", "detail": str(e)[:120]}
+        results["kernel.event[bus]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
         return False, str(e)
 
 
@@ -136,7 +137,7 @@ def _check_device_manager(results: dict) -> tuple[bool, str]:
         results["kernel.device[manager]"] = {"status": "OK", "detail": type(dm).__name__}
         return True, type(dm).__name__
     except Exception as e:
-        results["kernel.device[manager]"] = {"status": "FAILED", "detail": str(e)[:120]}
+        results["kernel.device[manager]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
         return False, str(e)
 
 
@@ -149,7 +150,7 @@ def _check_constitution(results: dict) -> tuple[bool, str]:
                                                     "detail": "loaded" if ok else "empty/None"}
         return ok, "loaded" if ok else "empty"
     except Exception as e:
-        results["kernel.constitution[loaded]"] = {"status": "FAILED", "detail": str(e)[:120]}
+        results["kernel.constitution[loaded]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
         return False, str(e)
 
 

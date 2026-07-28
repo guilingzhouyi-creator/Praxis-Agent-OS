@@ -7,18 +7,28 @@ No direct import of tool_spec (avoids relative import issues).
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Callable
 
 from l1.kernel import Signal, SignalType, get_event_bus, get_rwlock, get_semaphore
 from l1.kernel.allocator import get_allocator
 from l1.kernel.constitution import get_constitution
+from l1.kernel.gatechain import get_gatechain as _get_gatechain
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1, RING_2_5, RING_NUM_MAP
 from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
 from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT
 from l1.kernel.tool_chain import get_tool_chain
 
+from l3.bus.reference_channel import get_rc as _get_rc
+from l3.card.approval_gate import get_gate as _get_approval_gate
+from l3.error_bus import error_boundary
 from l3.scheduler.scheduler_rate import agent_can_access, get_rate_scheduler
+from l3.services.approval_policy import get_policy as _get_approval_policy
+
+from .tool_policy import ToolPolicy as _ToolPolicy
+from .tool_spec import ToolSpec as _ToolSpec
+from .tool_spec import execute_tool_spec as _execute_tool_spec
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +114,7 @@ class ToolPipeline:
             _executor: execute_tool function (passed by caller)
             _parent_call_id: parent composite tool's call_id for chain tracking
         """
-        import time as _time
-
-        from .tool_spec import ToolSpec as _ToolSpec
-        _start = _time.time()
+        _start = time.time()
         chain = get_tool_chain()
         ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
         spec_raw = (_registry or {}).get(tool_name) if _registry else None
@@ -136,10 +143,8 @@ class ToolPipeline:
 
         # 3b. ToolPolicy approval check
         try:
-            from .tool_policy import ToolPolicy as _TP
-            if _TP.requires_approval(agent_id, tool_name):
-                from l3.card.approval_gate import get_gate as _gg
-                ar = _gg().request(tool_name, agent_id, args or {}, reason="policy requires approval")
+            if _ToolPolicy.requires_approval(agent_id, tool_name):
+                ar = _get_approval_gate().request(tool_name, agent_id, args or {}, reason="policy requires approval")
                 result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
                 status = ar.wait(timeout=APPROVAL_GATE_WAIT_TIMEOUT)
                 if status != "approved":
@@ -169,28 +174,25 @@ class ToolPipeline:
 
         # 5b. GateChain G1-G5 (with ApprovalPolicy danger override)
         try:
-            from l1.kernel.gatechain import get_gatechain as _gc
             # Resolve per-cell/per-agent danger level (agent_id format: cell-role or cell.agent)
             try:
-                from l3.services.approval_policy import get_policy as _ap
                 _parts = agent_id.split("-", 1) if "-" in agent_id else agent_id.split(".", 1)
                 _cid = _parts[0] if len(_parts) > 1 else ""
-                _danger = _ap().resolve(_cid, agent_id, tool_name)
+                _danger = _get_approval_policy().resolve(_cid, agent_id, tool_name)
             except Exception:
                 _danger = None
-            gcr = _gc().check(tool_name, agent_id, target=fpath,
-                              territory=[territory_str] if territory_str else None,
-                              danger=_danger)
+            gcr = _get_gatechain().check(tool_name, agent_id, target=fpath,
+                                         territory=[territory_str] if territory_str else None,
+                                         danger=_danger)
             gc_allowed = gcr.get("allowed", True)
             gc_decision = gcr.get("decision", "?")
             result["steps"].append({"phase": "gatechain", "decision": gc_decision,
                                     "steps": gcr.get("steps", [])})
             # Reference Channel: record tool call for training data
             try:
-                from l3.bus.reference_channel import get_rc as _get_rc
                 _get_rc().tool_call(tool_name, agent_id, allowed=gc_allowed,
-                                    gate="gatechain", reason=gc_decision,
-                                    args=args, trace_id=call_id)
+                                   gate="gatechain", reason=gc_decision,
+                                   args=args, trace_id=call_id)
             except Exception:
                 pass
             if not gc_allowed:
@@ -229,7 +231,7 @@ class ToolPipeline:
                 if tool_ring_str == RING_2_5:
                     get_semaphore(f"pool:{tool_name}").release(agent_id)
                 self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
-                duration = _time.time() - _start
+                duration = time.time() - _start
                 chain.complete(call_id, success=True, duration=duration)
                 result["call_id"] = call_id
                 return result
@@ -254,20 +256,18 @@ class ToolPipeline:
         lock_name = ""
         if fpath:
             lock_name = f"file:{fpath}"
-            lr = get_rwlock(lock_name).write_lock(agent_id) if tool_ring_str != RING_1 else get_rwlock(lock_name).read_lock(agent_id)
+            lr = get_rwlock(lock_name).write_lock(agent_id) if tool_ring_str != _RING_1 else get_rwlock(lock_name).read_lock(agent_id)
             result["steps"].append({"phase": "lock", **lr})
 
         # 8b. Tool-definition hooks (modify spec before execution)
         spec = self.apply_tool_definition_hooks(tool_name, spec)
 
         # 9. Execute (default: execute_tool_spec for middleware/result store/counter)
-        from l3.error_bus import error_boundary
         with error_boundary("tool execute failed", component="services", agent_id=agent_id):
             if _executor:
                 exec_r = _executor(tool_name, args or {}, agent_id=agent_id)
             else:
-                from .tool_spec import execute_tool_spec as _ets
-                exec_r = _ets(tool_name, args or {}, agent_id=agent_id)
+                exec_r = _execute_tool_spec(tool_name, args or {}, agent_id=agent_id)
             result["result"] = exec_r or {}
             result["success"] = (exec_r or {}).get("success", True)
             # PMU: count tool execution by ring
@@ -288,7 +288,7 @@ class ToolPipeline:
         result = self._run_post_execute_hooks(tool_name, agent_id, args or {}, result)
 
         # 10. Complete chain call
-        duration = _time.time() - _start
+        duration = time.time() - _start
         link = chain.get(call_id)
         chain.complete(call_id, success=result.get("success", False),
                        error=result.get("error", ""), duration=duration)

@@ -10,6 +10,7 @@ Tab completion extracted to shell_completer.py
 
 from __future__ import annotations
 
+import os as _os
 import subprocess
 import time
 
@@ -70,8 +71,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
         if line == "exit" or line == "q":
             break
         elif line in ("clear", "clr"):
-            import os as _os
-            _os.system("cls" if IS_WINDOWS else "clear")
+            print("\033[2J\033[H", end="")  # ANSI clear screen (cross-platform)
             continue
         elif line in ("help", "h"):
             _show_help()

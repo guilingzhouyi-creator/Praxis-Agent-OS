@@ -31,6 +31,7 @@ import logging
 import re
 import threading
 import time
+import uuid
 from collections import deque
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
@@ -76,7 +77,11 @@ from .memory_search import search_long_term as _search_long_term
 from l1.kernel.params.system import (
     LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_100, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_500,
     MEMORY_IMPORTANCE_BASE, MEMORY_PROMOTION_THRESHOLD,
+    MEMORY_PERSIST_FILE_RING3,
     MEMORY_PRESSURE_HIGH, MEMORY_PRESSURE_MEDIUM,
+    MEMORY_RECALL_LIMIT, MEMORY_RECALL_LIMIT_LARGE,
+    MEMORY_BUILD_CONTEXT_ENTRIES, MEMORY_PAGER_RECALL_LIMIT,
+    MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
 )
 
 
@@ -84,19 +89,14 @@ class MemoryManager:
     """Agent memory manager — context window + ring tiers."""
 
     def __init__(self, working_budget: int = 8192, short_budget: int = 32768, long_budget: int = 131072):
-        from l1.kernel.params.system import (
-            MEMORY_RECALL_LIMIT,
-            MEMORY_RECALL_LIMIT_LARGE,
-            MEMORY_BUILD_CONTEXT_ENTRIES,
-            MEMORY_PAGER_RECALL_LIMIT,
-            MEMORY_RING_WORKING_TTL,
-            MEMORY_RING_SHORT_TTL,
-            MEMORY_RING_LONG_TTL,
-        )
         self.working = RingLayer("working", working_budget, ttl=MEMORY_RING_WORKING_TTL)
         self.short = RingLayer("short", short_budget, ttl=MEMORY_RING_SHORT_TTL)
         self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL if MEMORY_RING_LONG_TTL else None)
         self._persist_dir: Path | None = None
+        # Dirty-entry tracking: set of entry IDs changed since last persist
+        self._dirty_short: set[str] = set()
+        self._dirty_long: set[str] = set()
+        self._lock = threading.Lock()
 
     def set_persist_dir(self, path: str) -> None:
         """Set the persistence directory for Ring 2 (JSONL) and Ring 3 (SQLite).
@@ -128,7 +128,7 @@ class MemoryManager:
         if importance == MEMORY_IMPORTANCE_BASE:
             importance = _score_importance(content, entry_type)
 
-        eid = f"mem-{int(time.time()*1000)}-{id(content)%10000:04x}"
+        eid = f"mem-{uuid.uuid4().hex[:16]}"
         tok = real_tokens if real_tokens is not None else 0
 
         # Attach provenance if available
@@ -149,9 +149,83 @@ class MemoryManager:
         entry.provenance = provenance
         layer = self._ring(ring)
         layer.push(entry)
+        # Mark as dirty for incremental persist (thread-safe)
+        with self._lock:
+            if ring == 2:
+                self._dirty_short.add(eid)
+            elif ring == 3:
+                self._dirty_long.add(eid)
         logger.debug("memory stored [%s] ring=%d imp=%.2f tokens=%d: %s",
                      entry_type, ring, importance, entry.tokens, content[:LOG_TRUNC_80])
         return eid
+
+    def working(self) -> list[MemEntry]:
+        """Return a snapshot of all Ring 1 (working) entries.
+
+        Used by Swapper for pressure-based swap-out decisions.
+        """
+        with self.working._lock:
+            return list(self.working._entries)
+
+    def short_term(self) -> list[MemEntry]:
+        """Return a snapshot of all Ring 2 (short-term) entries.
+
+        Used by Swapper for compaction decisions.
+        """
+        with self.short._lock:
+            return list(self.short._entries)
+
+    def promote(self, entry_id: str, target_ring: int) -> dict:
+        """Move an entry between memory rings.
+
+        Finds the entry across all rings, copies it to *target_ring*,
+        and removes it from its source ring.
+
+        Returns:
+            {"success": True, "entry_id": str, "from_ring": int, "to_ring": int}
+            or {"success": False, "error": str}
+        """
+        source_entry: MemEntry | None = None
+        source_ring: int = 0
+        for ring_num, layer in ((1, self.working), (2, self.short), (3, self.long)):
+            with layer._lock:
+                for e in layer._entries:
+                    if e.id == entry_id:
+                        source_entry = e
+                        source_ring = ring_num
+                        break
+            if source_entry:
+                break
+        if not source_entry:
+            return {"success": False, "error": f"entry not found: {entry_id}"}
+
+        # Remember in target ring (goes through dirty tracking)
+        new_id = self.remember(
+            agent_id=source_entry.agent_id,
+            entry_type=source_entry.entry_type,
+            content=source_entry.content,
+            tags=source_entry.tags,
+            source=source_entry.source,
+            importance=source_entry.importance,
+            cell_id=source_entry.cell_id,
+            ring=target_ring,
+        )
+
+        # Remove from source ring
+        for layer in (self.working, self.short, self.long):
+            with layer._lock:
+                old_entries = list(layer._entries)
+                removed = [e for e in old_entries if e.id == entry_id]
+                if removed:
+                    layer._entries = deque(
+                        [e for e in layer._entries if e.id != entry_id],
+                        maxlen=layer.max_entries,
+                    )
+                    layer._rebuild_token_count()
+                    break
+
+        return {"success": True, "entry_id": new_id,
+                "from_ring": source_ring, "to_ring": target_ring}
 
     def recall(self, agent_id: str | None = None, entry_type: str | None = None,
                tag: str | None = None, rings: list[int] | None = None,
@@ -262,18 +336,19 @@ class MemoryManager:
                 ring=target_ring,
                 importance=avg_imp,
             )
-            for e in group_entries:
-                layers = [self.working]
-                if target_ring >= 2:
-                    layers.append(self.short)
-                if target_ring >= 3:
-                    layers.append(self.long)
-                for layer in layers:
-                    layer._entries = deque(
-                        [x for x in layer._entries if x.id != e.id],
-                        maxlen=layer.max_entries,
-                    )
-                    layer._rebuild_token_count()
+            # Batch delete: collect all entry IDs, rebuild each layer once
+            remove_ids = {e.id for e in group_entries}
+            affected_layers = {self.working}
+            if target_ring >= 2:
+                affected_layers.add(self.short)
+            if target_ring >= 3:
+                affected_layers.add(self.long)
+            for layer in affected_layers:
+                layer._entries = deque(
+                    [x for x in layer._entries if x.id not in remove_ids],
+                    maxlen=layer.max_entries,
+                )
+                layer._rebuild_token_count()
         return {"merged": merged, "saved_tokens": saved_tokens, "candidates": len(candidates)}
 
     def stub_compact(self, agent_id: str | None = None,
@@ -399,41 +474,67 @@ class MemoryManager:
         conn.close()
 
     def persist(self, path: str | None = None) -> dict:
-        """Persist Ring 2 → JSONL, Ring 3 → SQLite FTS5."""
-        from pathlib import Path
+        """Persist dirty Ring 2 entries → JSONL, Ring 3 → SQLite FTS5.
+
+        Only entries marked as dirty since the last persist are written.
+        """
         p = Path(path) if path else self._persist_dir
         if not p:
             return {"success": False, "error": "no path configured"}
         p.mkdir(parents=True, exist_ok=True)
         self._persist_dir = p
 
-        # Ring 2 → JSONL (append-only)
-        jsonl_path = self._jsonl_path()
-        short_entries = self.short.to_dict()
-        if short_entries:
-            with open(jsonl_path, "a", encoding="utf-8") as f:
-                for e in short_entries:
-                    f.write(json.dumps(e, ensure_ascii=False) + "\n")
+        short_written = 0
+        long_written = 0
 
-        # Ring 3 → SQLite FTS5
-        self._ensure_ring3_db()
-        import sqlite3, tempfile
-        from pathlib import Path
-        from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
-        data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
-        db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
-        conn = sqlite3.connect(str(db_path), check_same_thread=False)
-        long_entries = self.long.to_dict()
-        for e in long_entries:
-            conn.execute(
-                "INSERT OR REPLACE INTO knowledge (id, agent, type, content, tags, importance, ts) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (e["id"], e["agent_id"], e["entry_type"], e["content"],
-                 ",".join(e.get("tags", [])), e.get("importance", MEMORY_IMPORTANCE_BASE), e.get("timestamp", time.time())),
-            )
-        conn.commit()
-        conn.close()
-        return {"success": True, "short_written": len(short_entries), "long_written": len(long_entries)}
+        # Atomically snapshot and clear dirty sets under lock
+        with self._lock:
+            dirty_short_ids = set(self._dirty_short)
+            dirty_long_ids = set(self._dirty_long)
+            self._dirty_short.clear()
+            self._dirty_long.clear()
+
+        # Ring 2 → JSONL (append-only, dirty entries only)
+        if dirty_short_ids:
+            jsonl_path = self._jsonl_path()
+            all_short = self.short.to_dict()
+            dirty_entries = [e for e in all_short if e["id"] in dirty_short_ids]
+            if dirty_entries:
+                with open(jsonl_path, "a", encoding="utf-8") as f:
+                    for e in dirty_entries:
+                        f.write(json.dumps(e, ensure_ascii=False) + "\n")
+                short_written = len(dirty_entries)
+
+        # Ring 3 → SQLite FTS5 (dirty entries only)
+        if dirty_long_ids:
+            import sqlite3
+            self._ensure_ring3_db()
+            db_path = Path(self._persist_dir) / MEMORY_PERSIST_FILE_RING3
+            conn = sqlite3.connect(str(db_path), check_same_thread=False)
+            all_long = self.long.to_dict()
+            dirty_entries = [e for e in all_long if e["id"] in dirty_long_ids]
+            for e in dirty_entries:
+                cur = conn.execute(
+                    "INSERT OR REPLACE INTO knowledge (id, agent, type, content, tags, importance, ts) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (e["id"], e["agent_id"], e["entry_type"], e["content"],
+                     ",".join(e.get("tags", [])), e.get("importance", MEMORY_IMPORTANCE_BASE), e.get("timestamp", time.time())),
+                )
+                # Sync FTS5 index for searchable content
+                try:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO knowledge_fts(rowid, content, tags) VALUES (?, ?, ?)",
+                        (cur.lastrowid, e["content"], ",".join(e.get("tags", []))),
+                    )
+                except Exception:
+                    pass
+            conn.commit()
+            conn.close()
+            long_written = len(dirty_entries)
+            if dirty_entries:
+                self._dirty_long.clear()
+
+        return {"success": True, "short_written": short_written, "long_written": long_written}
 
     def restore(self, path: str | None = None,
                 ring2_limit: int = 0, ring3_limit: int = 0) -> dict:

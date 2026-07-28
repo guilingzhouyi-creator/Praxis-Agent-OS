@@ -24,7 +24,9 @@ from .params.kernel import (
     SWAPPER_PRESSURE_HIGH,
     SWAPPER_SWAP_OUT_IMPORTANCE,
     SWAPPER_COMPACT_IMPORTANCE,
+    SWAPPER_RECALL_LIMIT,
 )
+from l1.kernel.params.system import LOG_TRUNC_100
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +110,7 @@ class Swapper:
                 "id": new_id,
                 "agent_id": entry.agent_id,
                 "entry_type": entry.entry_type,
-                "content": entry.content[:100],
+                "content": entry.content[:LOG_TRUNC_100],
                 "cell_id": entry.cell_id,
                 "importance": entry.importance,
             }}

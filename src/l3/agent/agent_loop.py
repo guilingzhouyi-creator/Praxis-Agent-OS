@@ -56,7 +56,7 @@ from l1.kernel.params.agent import (
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
 
-from l4.llm.llm import get_engine
+from l1.kernel.ports import get_port as _get_port
 from l3.scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
 from .session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
 from l3.services.todo_tracker import TodoTracker
@@ -396,7 +396,7 @@ class AgentLoop:
         self._repeat_detector.reset()
         self._cadence.reset()
 
-        engine = get_engine()
+        engine = _get_port("llm")
         system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
         system = self._inject_extra_context(system)
         deadline = time.time() + timeout if timeout > 0 else float("inf")

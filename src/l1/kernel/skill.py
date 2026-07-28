@@ -24,6 +24,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_2000, LOG_TRUNC_50, LOG_TRUNC_60
 logger = logging.getLogger(__name__)
 
 
@@ -164,11 +165,11 @@ class SkillManager:
         """Create a skill programmatically with structured fields."""
         data = {
             "name": name,
-            "description": description[:200],
+            "description": description[:LOG_TRUNC_200],
             "prompt": prompt,
             "rules": rules or [],
             "procedures": procedures or [],
-            "knowledge": {"evolved": True, "prompt": prompt[:2000]},
+            "knowledge": {"evolved": True, "prompt": prompt[:LOG_TRUNC_2000]},
             "tags": tags or [],
             "source": "evolved",
             "loaded_at": __import__("time").time(),
@@ -191,7 +192,7 @@ class SkillManager:
                     continue
             result.append({
                 "name": n,
-                "description": s.get("description", "")[:60],
+                "description": s.get("description", "")[:LOG_TRUNC_60],
                 "rules": len(s.get("rules", [])),
                 "procedures": len(s.get("procedures", [])),
                 "tags": s.get("tags", []),
@@ -221,7 +222,7 @@ class SkillManager:
                 if at is None or tool_name in at:
                     results.append({
                         "name": name,
-                        "description": skill.get("description", "")[:60],
+                        "description": skill.get("description", "")[:LOG_TRUNC_60],
                     })
         return results
 
@@ -259,7 +260,7 @@ class SkillManager:
         lines = []
         for name in sorted(self._skills.keys()):
             skill = self._skills[name]
-            desc = skill.get("description", "")[:50]
+            desc = skill.get("description", "")[:LOG_TRUNC_50]
             rc = len(skill.get("rules", []))
             lines.append(f"{name:30s} {desc:50s} [{rc} rules]")
         return "\n".join(lines) if lines else "(no skills loaded)"
@@ -287,10 +288,10 @@ class SkillManager:
         name = meta.get("name", os.path.basename(os.path.dirname(path)))
         data = {
             "name": name,
-            "description": meta.get("description", str(meta.get("description", "")))[:200],
+            "description": meta.get("description", str(meta.get("description", "")))[:LOG_TRUNC_200],
             "rules": self._extract_rules(body),
             "procedures": [],
-            "knowledge": {"body": body[:2000]},
+            "knowledge": {"body": body[:LOG_TRUNC_2000]},
             "source": path,
             "allowed_tools": meta.get("allowed_tools"),
             "variables": meta.get("variables"),

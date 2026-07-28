@@ -96,6 +96,7 @@ class CellWatchdog:
 
         If the agent was UNRESPONSIVE, pet() triggers recovery.
         """
+        _recovery_cb = None
         with self._lock:
             slot = self._slots.get(agent_id)
             if slot is None:
@@ -107,13 +108,15 @@ class CellWatchdog:
             if was_unresponsive:
                 slot.state = WatchdogState.HEALTHY
                 logger.info("watchdog: %s recovered (was UNRESPONSIVE)", agent_id)
-                if self.on_recovery:
-                    try:
-                        self.on_recovery(agent_id)
-                    except Exception as e:
-                        logger.warning("watchdog recovery callback failed: %s", e)
+                _recovery_cb = self.on_recovery
             if self._pmu:
                 self._pmu.increment("watchdog.pets")
+        # Callback outside lock to prevent deadlock
+        if _recovery_cb:
+            try:
+                _recovery_cb(agent_id)
+            except Exception as e:
+                logger.warning("watchdog recovery callback failed: %s", e)
 
     # ── Lifecycle ─────────────────────────────────────────────────
 
@@ -151,6 +154,7 @@ class CellWatchdog:
     def _tick(self) -> None:
         """Check all watchdog slots for timeouts."""
         now = time.time()
+        _actions: list[tuple[str, str, Any]] = []  # (agent_id, action_type, callback)
         with self._lock:
             for agent_id, slot in list(self._slots.items()):
                 elapsed = now - slot.last_pet
@@ -168,12 +172,9 @@ class CellWatchdog:
                     )
                     if self._pmu:
                         self._pmu.increment("watchdog.timeouts")
-                    # Fire on_timeout callback
+                    # Collect callback for execution outside lock
                     if self.on_timeout:
-                        try:
-                            self.on_timeout(agent_id, WatchdogState.UNRESPONSIVE)
-                        except Exception as e:
-                            logger.warning("watchdog timeout callback failed: %s", e)
+                        _actions.append((agent_id, "timeout", self.on_timeout))
 
                 elif slot.state == WatchdogState.UNRESPONSIVE:
                     if slot.consecutive_misses >= self._unresponsive_escalation:
@@ -182,12 +183,18 @@ class CellWatchdog:
                             "watchdog: %s CRASHED (%d consecutive misses)",
                             agent_id, slot.consecutive_misses,
                         )
-                        # Fire on_crash callback (e.g. auto-reboot terminal)
                         if self.on_crash:
-                            try:
-                                self.on_crash(agent_id)
-                            except Exception as e:
-                                logger.warning("watchdog crash callback failed: %s", e)
+                            _actions.append((agent_id, "crash", self.on_crash))
+
+        # Execute callbacks outside lock to prevent deadlock
+        for agent_id, action_type, cb in _actions:
+            try:
+                if action_type == "timeout":
+                    cb(agent_id, WatchdogState.UNRESPONSIVE)
+                else:
+                    cb(agent_id)
+            except Exception as e:
+                logger.warning("watchdog %s callback failed for %s: %s", action_type, agent_id, e)
 
     # ── Query ─────────────────────────────────────────────────────
 

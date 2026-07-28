@@ -302,6 +302,72 @@ class MonitorBusPort(ABC):
         ...
 
 
+# ── LLM Port ──
+
+
+@dataclass
+class LLMConfig:
+    """LLM engine configuration — provider, model, parameters."""
+    provider: str = "mock"
+    model: str = ""
+    max_tokens: int = 2048
+    temperature: float = 0.3
+    api_key: str = ""
+    api_url: str = ""
+    device_name: str = "llm"
+    cache_breakpoints: int = 4
+    cache_retention: float = 86400.0
+    tool_search: bool = False
+    use_websocket: bool = False
+    reasoning_effort: str = "none"
+    thinking_budget: int = 0
+
+    def __eq__(self, other):
+        if not isinstance(other, LLMConfig):
+            return False
+        return (self.provider == other.provider and self.model == other.model
+                and self.api_url == other.api_url)
+
+
+class LLMPort(ABC):
+    """Abstract port for LLM operations — generate, tool_use, context management.
+
+    L3 callers use this port instead of importing from l4.llm directly.
+    The adapter is registered at boot by the L4 layer.
+    """
+
+    @abstractmethod
+    def tool_use(self, prompt: str, tools: list,
+                 system: str = "", max_turns: int = 10,
+                 user_id: str = "",
+                 **model_kwargs: Any) -> dict:
+        """Call LLM with tool definitions. Returns result with tool_calls."""
+        ...
+
+    @abstractmethod
+    def generate(self, prompt: str, system: str = "",
+                 user_id: str = "", **model_kwargs: Any) -> dict:
+        """Generate a plain-text response from the LLM (no tools)."""
+        ...
+
+    @abstractmethod
+    def context_window(self, cell_id: str = "",
+                       agent_id: str = "") -> dict:
+        """Return current context window usage stats (tokens used/max)."""
+        ...
+
+    @abstractmethod
+    def optimize_prompt(self, prompt: str,
+                        system: str = "") -> tuple[str, str]:
+        """Optimize prompt structure for token efficiency and cache matching."""
+        ...
+
+    @abstractmethod
+    def provider_status(self) -> dict:
+        """Return provider health status, used by preconnect_enhanced()."""
+        ...
+
+
 # ── Registry (port → adapter mapping, wired at boot) ─────────────────────────
 
 

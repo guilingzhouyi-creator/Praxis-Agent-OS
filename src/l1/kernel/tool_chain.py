@@ -40,6 +40,7 @@ from .params.kernel import (
     TOOLCHAIN_QUERY_LIMIT,
     CHAIN_KEY_ENV_VAR,
 )
+from l1.kernel.params.system import LOG_TRUNC_40
 from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -244,7 +245,7 @@ class ToolChain:
 
     def _compute_fp(self, data: str, prev_fp: str = "") -> str:
         payload = f"{data}:{prev_fp or 'GENESIS'}"
-        return hmac.new(_SECRET_KEY, payload.encode(), hashlib.sha256).hexdigest()[:32]
+        return hmac.new(_SECRET_KEY, payload.encode(), hashlib.sha256).hexdigest()[:LOG_TRUNC_40]
 
     def _trim(self) -> None:
         """Remove oldest calls, preserving parent-child chain integrity.

@@ -449,6 +449,48 @@ class LLMEngine:
                 "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
 
+# ── LLMPort adapter (breaks L3→L4 dependency) ──
+
+
+def _register_llm_port(engine: LLMEngine) -> None:
+    """Wrap LLMEngine as an LLMPort and register it in the kernel port registry.
+
+    Registered as "llm" so L3 callers can use ``get_port("llm")`` instead of
+    importing from ``l4.llm.llm`` directly.
+    """
+    from l1.kernel.ports import register_port, LLMPort
+
+    class _LLMEngineAdapter(LLMPort):
+        """Thin adapter: LLMEngine → LLMPort interface."""
+
+        def tool_use(self, prompt: str, tools: list,
+                     system: str = "", max_turns: int = 10,
+                     user_id: str = "",
+                     **model_kwargs: Any) -> dict:
+            return engine.tool_use(prompt, tools, system=system,
+                                   max_turns=max_turns, user_id=user_id,
+                                   **model_kwargs)
+
+        def generate(self, prompt: str, system: str = "",
+                     user_id: str = "", **model_kwargs: Any) -> dict:
+            return engine.generate(prompt, system=system, user_id=user_id,
+                                   **model_kwargs)
+
+        def context_window(self, cell_id: str = "",
+                           agent_id: str = "") -> dict:
+            cw = engine.context_window(cell_id=cell_id, agent_id=agent_id)
+            return {"context_window": cw, "source": "llm"}
+
+        def optimize_prompt(self, prompt: str,
+                            system: str = "") -> tuple[str, str]:
+            return _optimize_prompt(prompt, system)
+
+        def provider_status(self) -> dict:
+            return {"status": "ok", "provider": str(engine.provider_name())}
+
+    register_port("llm", _LLMEngineAdapter())
+
+
 # ── Module-level convenience ──
 
 _engine: LLMEngine | None = None
@@ -474,6 +516,9 @@ def get_engine(config: LLMConfig | None = None) -> LLMEngine:
             config = LLMConfig()
     if _engine is None or _engine.config != config:
         _engine = LLMEngine(config)
+        # Register as LLMPort so L3 callers can use get_port("llm") instead of
+        # importing from l4.llm directly — breaks the L3→L4 dependency.
+        _register_llm_port(_engine)
     return _engine
 
 

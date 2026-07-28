@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_200
 logger = logging.getLogger(__name__)
 
 
@@ -101,7 +102,7 @@ class PraxisError(Exception):
         if self.context:
             result["context"] = self.context
         if self.cause:
-            result["cause"] = str(self.cause)[:200]
+            result["cause"] = str(self.cause)[:LOG_TRUNC_200]
         return result
 
     def __str__(self) -> str:

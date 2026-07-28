@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from l4.llm.llm import optimize_prompt
+from l1.kernel.ports import get_port as _get_port
 
 # ── Global config (loaded from praxis.yaml at boot) ──
 
@@ -77,7 +77,7 @@ class ConfigCacheStrategy:
         if self._opts.get("anthropic_format", False):
             extra["_anthropic_format"] = True
         if self._opts.get("optimize_prompt", True):
-            prompt, system = optimize_prompt(prompt, system)
+            prompt, system = _get_port("llm").optimize_prompt(prompt, system)
         return prompt, system, extra
 
 

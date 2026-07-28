@@ -18,6 +18,14 @@ Design:
   - Dirty page: write back on modification
   - Prefetch: predict next required Chunk
   - Sharing: multi-agent shared read-only Chunk
+
+Lifecycle:
+  ContextPager inherits BaseService (ServiceManager-managed) rather than
+  using the singleton pattern (get_xxx/reset_xxx) that MemoryManager uses.
+  This is intentional: ContextPager has mutable runtime state (page table,
+  working set) that should be scoped to the Cell lifetime, not global.
+  The two patterns coexist in the memory/ submodule to match each
+  component's effective scope — global vs. Cell-scoped.
 """
 
 from __future__ import annotations

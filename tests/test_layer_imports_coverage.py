@@ -258,9 +258,9 @@ class TestFullScanL3toL4:
 
     def test_all_l3_l4_imports_documented(self):
         """Verify all L3→L4 imports match documentation"""
-        from l3.agent.agent_loop import get_engine as _  # l4.llm
-        from l3.config.cache_strategy import optimize_prompt as _  # l4.llm
-        # These are known L3→L4 allowlist imports
+        import l3.tool_system.tool_config as _tc  # l3 → imports nothing from l4
+        import l3.config.cache_strategy as _cs    # l3 → imports l4.llm
+        import l3.services.model_service as _ms   # l3 → imports l4.vault
         assert True
 
 

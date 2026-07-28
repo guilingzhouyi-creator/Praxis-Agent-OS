@@ -235,3 +235,81 @@ class TestConcurrency:
         for t in threads: t.start()
         for t in threads: t.join()
         assert len(errors) == 0
+
+
+class TestWatchdogCellIntegration:
+    """Cell × Watchdog 集成测试 — Cell 正确接线 watchdog 回调并响应 timeout/crash.
+
+    使用模拟的 Cell 风格回调来验证 Cell 的接线模式，
+    避免创建完整 Cell 对象所需的复杂依赖注入。
+    """
+
+    def test_cell_style_wiring(self):
+        """验证 Cell 风格的 on_timeout/on_crash/on_recovery 接线模式。"""
+        wd = CellWatchdog(cell_id="test-cell", poll_interval=0.05, default_timeout=0.1)
+        calls = {"timeout": [], "crash": [], "recovery": []}
+
+        wd.on_timeout = lambda aid, state: calls["timeout"].append((aid, state.name))
+        wd.on_crash = lambda aid: calls["crash"].append(aid)
+        wd.on_recovery = lambda aid: calls["recovery"].append(aid)
+
+        wd.register("agent-a", timeout=0.05)
+        wd._tick()  # within timeout, should be HEALTHY
+        assert len(calls["timeout"]) == 0, "should not fire timeout yet"
+
+        # 模拟超时
+        wd._slots["agent-a"].last_pet = time.time() - 10
+        wd._tick()
+        assert len(calls["timeout"]) == 1, "on_timeout should fire"
+        assert calls["timeout"][0][0] == "agent-a"
+        assert calls["timeout"][0][1] == "UNRESPONSIVE"
+
+        # 模拟 crash：在 UNRESPONSIVE 基础上继续漏 tick
+        slot = wd._slots["agent-a"]
+        slot.state = WatchdogState.UNRESPONSIVE
+        slot.consecutive_misses = wd._unresponsive_escalation
+        slot.last_pet = time.time() - 10
+        wd._tick()
+        assert len(calls["crash"]) == 1, "on_crash should fire"
+        assert calls["crash"][0] == "agent-a"
+
+        # 模拟 recovery：pet() 在 CRASHED/UNRESPONSIVE 后恢复
+        wd2 = CellWatchdog(cell_id="test-cell")
+        wd2.on_recovery = lambda aid: calls["recovery"].append(aid)
+        wd2.register("agent-b", timeout=60.0)
+        wd2._slots["agent-b"].state = WatchdogState.UNRESPONSIVE
+        wd2.pet("agent-b")
+        assert len(calls["recovery"]) == 1, "on_recovery should fire"
+        assert calls["recovery"][0] == "agent-b"
+        assert wd2._slots["agent-b"].state == WatchdogState.HEALTHY
+
+    def test_timeout_then_pet_recovers(self):
+        """Watchdog timeout 后 pet() 应触发 recovery 并恢复 HEALTHY 状态。"""
+        wd = CellWatchdog(cell_id="test-cell", poll_interval=0.05, default_timeout=0.1)
+        states = []
+        wd.on_timeout = lambda aid, s: states.append(("timeout", aid))
+        wd.on_recovery = lambda aid: states.append(("recovery", aid))
+
+        wd.register("agent-a", timeout=0.05)
+        wd._slots["agent-a"].last_pet = time.time() - 10
+        wd._tick()
+        assert ("timeout", "agent-a") in states
+        assert wd._slots["agent-a"].state == WatchdogState.UNRESPONSIVE
+
+        wd.pet("agent-a")
+        assert ("recovery", "agent-a") in states
+        assert wd._slots["agent-a"].state == WatchdogState.HEALTHY
+
+    def test_crash_then_pet_does_not_recover(self):
+        """CRASHED 状态的 agent pet() 不应自动恢复（需要外部干预）。"""
+        wd = CellWatchdog(cell_id="test-cell", poll_interval=0.05, default_timeout=0.1)
+        wd.register("agent-a", timeout=0.05)
+        slot = wd._slots["agent-a"]
+        slot.last_pet = time.time() - 10
+        slot.state = WatchdogState.UNRESPONSIVE
+        slot.consecutive_misses = wd._unresponsive_escalation
+        wd._tick()
+        assert slot.state == WatchdogState.CRASHED
+
+        wd.pet("agent-a")  # CRASHED 时不触发 recovery
+        assert slot.state == WatchdogState.CRASHED

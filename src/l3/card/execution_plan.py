@@ -27,6 +27,15 @@ from .execution_run import execute as _execute, _run_phase, _execute_step, _exec
 
 logger = logging.getLogger(__name__)
 
+# ── Action scope classification constants ──
+_ACTION_READ_KEYWORDS: tuple[str, ...] = ("read", "inspect", "scout")
+_ACTION_WRITE_KEYWORDS: tuple[str, ...] = ("write", "edit", "create", "replace")
+_ACTION_SHELL_KEYWORDS: tuple[str, ...] = ("run", "execute", "build", "test")
+_ACTION_THINK_KEYWORD: str = "think"
+# Fallback tool sets when ToolConfig is unavailable
+_FALLBACK_READ_TOOLS: set[str] = {"read_file", "grep_search"}
+_FALLBACK_SHELL_TOOLS: set[str] = {"run_shell", "execute_command", "bash"}
+
 
 class ExecutionPlan:
     """A decomposed Card ready for execution.
@@ -68,7 +77,7 @@ class ExecutionPlan:
         else:
             n_phases = len(card.phases)
             n_steps = sum(len(p.steps) for p in card.phases)
-        from .scheduler.scheduler_scope import get_scope_scheduler
+        from l3.scheduler.scheduler_scope import get_scope_scheduler
         self._step_budget = get_scope_scheduler().calc_step_budget(
             n_phases, n_steps,
         )
@@ -165,12 +174,6 @@ class ExecutionPlan:
         """Execute all steps in a single phase. Delegates to execution_run.py."""
         return _run_phase(self, phase_name, phase_steps, mode, aggregated, timeout)
 
-    def _check_memory_and_compact(self, aggregated: dict) -> None:
-        """Check memory pressure; if high, snapshot context → compact → resume.
-
-        Called between sequential phases.  Never raises.
-        """
-
     def execute(self, timeout: float = 300.0) -> dict:
         """Execute all steps. Delegates to execution_run.py."""
         return _execute(self, timeout=timeout)
@@ -265,18 +268,18 @@ class ExecutionPlan:
             write_tools = _TC.write_tool_names()
             shell_tools = _TC.terminal_tool_names()
         except Exception:
-            read_tools = {"read_file", "grep_search"}
+            read_tools = _FALLBACK_READ_TOOLS
             write_tools = set()
-            shell_tools = set()
+            shell_tools = _FALLBACK_SHELL_TOOLS
         all_tools = read_tools | write_tools | shell_tools
         action_lower = action.lower()
-        if action_lower in read_tools or action_lower in ("read", "inspect", "scout"):
+        if action_lower in read_tools or action_lower in _ACTION_READ_KEYWORDS:
             return sorted(read_tools)
-        if action_lower in write_tools or action_lower in ("write", "edit", "create", "replace"):
+        if action_lower in write_tools or action_lower in _ACTION_WRITE_KEYWORDS:
             return sorted(write_tools)
-        if action_lower in shell_tools or action_lower in ("run", "execute", "build", "test"):
+        if action_lower in shell_tools or action_lower in _ACTION_SHELL_KEYWORDS:
             return sorted(shell_tools)
-        if action_lower == "think":
+        if action_lower == _ACTION_THINK_KEYWORD:
             return sorted(all_tools)
         return sorted(all_tools)  # unknown action: full access (conservative)
 

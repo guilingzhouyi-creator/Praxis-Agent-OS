@@ -170,6 +170,10 @@ def shutdown_to_memories() -> dict:
         results["memory_persist"] = f"error: {e}"
 
     # 0b. Archive Ring 3 high-importance entries via ArchiveOrchestrator
+    # NOTE: archive_ring3() reads mem.long.to_dict() directly (not via dirty set),
+    # so it works correctly even after persist() has cleared the dirty tracking.
+    # If a future refactor makes archive_ring3() depend on dirty state, this
+    # ordering will need a separate dirty flag or a combined persist+archive step.
     try:
         from .archive_orchestrator import archive_ring3
         n = archive_ring3(mem)

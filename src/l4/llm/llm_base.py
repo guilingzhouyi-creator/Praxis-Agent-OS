@@ -115,27 +115,9 @@ def list_providers() -> list[str]:
 
 # ── Data types ──
 
-@dataclass
-class LLMConfig:
-    provider: str = "mock"
-    model: str = ""
-    max_tokens: int = 2048
-    temperature: float = 0.3
-    api_key: str = ""
-    api_url: str = ""
-    device_name: str = "llm"
-    cache_breakpoints: int = 4
-    cache_retention: float = 86400.0
-    tool_search: bool = False
-    use_websocket: bool = False
-    reasoning_effort: str = DEFAULT_REASONING_EFFORT
-    thinking_budget: int = DEFAULT_THINKING_BUDGET
-
-    def __eq__(self, other):
-        if not isinstance(other, LLMConfig):
-            return False
-        return (self.provider == other.provider and self.model == other.model
-                and self.api_url == other.api_url)
+# LLMConfig defined in l1.kernel.ports — single source of truth.
+# Re-exported here for L4 internal callers that still import via llm_base.
+from l1.kernel.ports import LLMConfig
 
 
 @dataclass

@@ -22,6 +22,7 @@ import logging
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -96,29 +97,29 @@ def _resolve_boot_order() -> list[str]:
     return ordered
 
 
+_EXECUTOR: ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    """Get the shared thread pool executor for boot step timeouts."""
+    global _EXECUTOR
+    if _EXECUTOR is None:
+        _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="boot")
+    return _EXECUTOR
+
+
 def _exec_with_timeout(fn: Callable, timeout: float = BOOT_STEP_TIMEOUT) -> dict:
-    """Execute a boot step function with a timeout guard."""
-    result = []
-    exception = []
-
-    def _run():
-        try:
-            r = fn()
-            result.append(r)
-        except Exception as e:
-            exception.append(e)
-
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-    t.join(timeout=timeout)
-    if t.is_alive():
-        # Thread timed out — it will eventually exit when daemon=True,
-        # but we cannot get its result. Log and return error.
-        logger.warning("boot step timed out after %ss (thread still running)", timeout)
+    """Execute a boot step function with a timeout guard using a shared thread pool."""
+    executor = _get_executor()
+    future = executor.submit(fn)
+    try:
+        result = future.result(timeout=timeout)
+        return result if isinstance(result, dict) else {"success": True, "result": result}
+    except TimeoutError:
+        logger.warning("boot step timed out after %ss", timeout)
         return {"success": False, "error": f"timed out after {timeout}s"}
-    if exception:
-        return {"success": False, "error": str(exception[0])}
-    return result[0] if result else {"success": False, "error": "no result"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 _WIRED_KERNEL_OS: bool = False

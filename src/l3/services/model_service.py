@@ -21,7 +21,7 @@ import os
 import re
 from typing import Any
 
-from l4.llm.llm_base import LLMConfig
+from l1.kernel.ports import LLMConfig
 
 logger = logging.getLogger(__name__)
 

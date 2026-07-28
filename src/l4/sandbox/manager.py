@@ -148,7 +148,8 @@ class SandboxManager:
         return env
 
     def _resolve_shell(self, command: str) -> list[str]:
-        if sys.platform == "win32":
+        from l1.kernel.platform import IS_WINDOWS
+        if IS_WINDOWS:
             return ["cmd", "/c", command]
         return ["sh", "-c", command]
 

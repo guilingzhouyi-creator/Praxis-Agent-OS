@@ -21,47 +21,47 @@ class TestMemoryQuality:
     """MemoryManager quality gate — _is_good_memory / _score_importance"""
 
     def test_rejects_short_content(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         accepted, reason = _is_good_memory("ab", "observation")
         assert not accepted
         assert "too short" in reason
 
     def test_accepts_long_enough(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         accepted, reason = _is_good_memory(
             "This is a meaningful observation with enough content to be useful.", "observation")
         assert accepted, f"unexpected reject: {reason}"
 
     def test_always_saves_decision_type(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         accepted, reason = _is_good_memory("short", "decision")
         assert accepted, "decision type should always be saved"
 
     def test_always_saves_pattern_type(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         accepted, reason = _is_good_memory("short", "pattern")
         assert accepted
 
     def test_always_saves_fingerprint(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         accepted, reason = _is_good_memory("short", "fingerprint")
         assert accepted
 
     def test_rejects_vague_pattern(self):
-        from l3.memory_quality import _is_good_memory
+        from l3.memory.memory_quality import _is_good_memory
         # Must be >=30 chars to avoid "too short" rejection, but still match vague pattern
         accepted, reason = _is_good_memory("user has a project that they work on every single day.", "observation")
         assert not accepted
         assert "vague" in reason.lower()
 
     def test_score_importance_decision(self):
-        from l3.memory_quality import _score_importance
+        from l3.memory.memory_quality import _score_importance
         score = _score_importance(
             "Use Poetry not pip for dependency management in C:/projects/api", "decision")
         assert score > 0.5, f"decision with path should score high: {score}"
 
     def test_score_importance_short_content(self):
-        from l3.memory_quality import _score_importance
+        from l3.memory.memory_quality import _score_importance
         score = _score_importance("ab", "observation")
         # short content should have reduced score
         assert score < 0.5
@@ -71,14 +71,14 @@ class TestMemoryPressure:
     """MemoryManager.pressure() — per-ring pressure calculation"""
 
     def test_pressure_low_when_empty(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         p = mem.pressure("agent-empty")
         assert p["level"] == "low"
         assert p["working_pct"] < 0.1
 
     def test_pressure_increases_with_data(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager(working_budget=200, short_budget=200, long_budget=200)
         for i in range(5):
             mem.remember("agent-p", "observation",
@@ -91,7 +91,7 @@ class TestMemoryPressure:
         assert "long_pct" in p
 
     def test_pressure_returns_dict(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         p = mem.pressure()
         assert isinstance(p, dict)
@@ -103,7 +103,7 @@ class TestBuildContext:
     """MemoryManager.build_context() — LLM context construction"""
 
     def test_build_context_returns_string(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         ctx = mem.build_context("agent-ctx")
         assert isinstance(ctx, str)
@@ -111,7 +111,7 @@ class TestBuildContext:
         assert "WATERMARK" in ctx
 
     def test_build_context_includes_entries(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-ctx", "decision",
                       "Use Poetry for Python dependency management in this project.",
@@ -124,7 +124,7 @@ class TestBuildContext:
             "context should include stored entries"
 
     def test_build_context_respects_token_budget(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         for i in range(10):
             mem.remember("agent-budget", "observation",
@@ -140,7 +140,7 @@ class TestStubCompact:
     """MemoryManager.stub_compact() — old tool result compression"""
 
     def test_stub_compact_does_not_crash(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-stub", "tool_call",
                       "result: " + "x" * 1000,
@@ -151,7 +151,7 @@ class TestStubCompact:
         assert "stubbed" in r
 
     def test_stub_compact_skips_read_file(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-stub2", "tool_call",
                       "content of read_file: " + "x" * 1000,
@@ -167,7 +167,7 @@ class TestQualityReport:
     """MemoryManager.quality_report() — quality report format"""
 
     def test_quality_report_returns_dict(self):
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-q", "decision",
                       "Use async/await for I/O bound operations in the network layer.",
