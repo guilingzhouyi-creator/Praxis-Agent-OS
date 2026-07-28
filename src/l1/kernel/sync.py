@@ -17,6 +17,7 @@ from .params.kernel import (
     BARRIER_DEFAULT_COUNT,
     BARRIER_DEFAULT_TIMEOUT,
     MUTEX_BOOST_THRESHOLD,
+    MUTEX_CYCLE_DEBOUNCE,
     MUTEX_CYCLE_DETECT_AFTER,
     MUTEX_DEFAULT_PRIORITY,
     MUTEX_DEFAULT_TIMEOUT,
@@ -176,10 +177,16 @@ class Mutex:
                             "boosted": waited > MUTEX_BOOST_THRESHOLD}
 
             if not cycle_reported and waited > MUTEX_CYCLE_DETECT_AFTER:
-                cycle = self._detect_cycle()
-                if cycle:
-                    logger.critical("DEADLOCK CYCLE DETECTED: %s", " -> ".join(cycle))
-                    cycle_reported = True
+                # Lazify cycle detection: run at most once every 60s to avoid O(n) DFS hot path
+                if not hasattr(self, '_last_cycle_check'):
+                    self._last_cycle_check = 0.0
+                now = time.time()
+                if now - self._last_cycle_check > MUTEX_CYCLE_DEBOUNCE:
+                    self._last_cycle_check = now
+                    cycle = self._detect_cycle()
+                    if cycle:
+                        logger.critical("DEADLOCK CYCLE DETECTED: %s", " -> ".join(cycle))
+                        cycle_reported = True
 
         return {"success": False, "error": "timeout", "owner": self._owner,
                 "waited": round(waited, 3), "cycle_detected": cycle_reported}

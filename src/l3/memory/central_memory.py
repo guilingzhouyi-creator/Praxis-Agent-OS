@@ -23,6 +23,7 @@ class CentralMemory:
     """Single entry point for all memory operations across all four rings."""
 
     def __init__(self):
+        """Initialize the central memory coordinator with zeroed statistics."""
         self._stats: dict[str, int] = {"stores": 0, "recalls": 0, "compactions": 0, "archives": 0}
 
     def remember(self, agent_id: str, content: str, *,
@@ -153,6 +154,7 @@ class CentralMemory:
             return {"success": False, "error": str(e)}
 
     def stats(self) -> dict:
+        """Return cumulative operation statistics across all rings."""
         base = dict(self._stats)
         try:
             from .memory import get_memory
@@ -175,6 +177,7 @@ _center: CentralMemory | None = None
 
 
 def get_center() -> CentralMemory:
+    """Return the singleton CentralMemory instance, creating it if needed."""
     global _center
     if _center is None:
         _center = CentralMemory()
@@ -182,5 +185,6 @@ def get_center() -> CentralMemory:
 
 
 def reset_center() -> None:
+    """Reset the singleton CentralMemory instance (for testing)."""
     global _center
     _center = None

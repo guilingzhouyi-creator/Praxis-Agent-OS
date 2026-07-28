@@ -1,3 +1,4 @@
+"""SubAgent task execution — lifecycle management for delegated tasks."""
 from __future__ import annotations
 
 import logging

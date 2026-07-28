@@ -41,15 +41,18 @@ from .params.agent import (
 
 logger = logging.getLogger(__name__)
 
-# ── Audit trail ──
+# ── Audit trail (batch queue for reduced lock contention) ──
 
 _audit_log: deque[dict] = deque(maxlen=SYSCALL_AUDIT_MAX)
 _audit_lock = threading.Lock()
+_thread_audit_buffer = threading.local()
+_AUDIT_FLUSH_SIZE = 32
 
 
 def _audit(op: str, agent_id: str, result: dict, detail: str = "") -> None:
     """Record a syscall in the audit trail.
 
+    Uses a thread-local buffer to batch entries and reduce global lock contention.
     deque(maxlen=SYSCALL_AUDIT_MAX) handles O(1) pruning automatically.
     """
     entry = {
@@ -60,8 +63,27 @@ def _audit(op: str, agent_id: str, result: dict, detail: str = "") -> None:
         "detail": detail[:SYSCALL_AUDIT_DETAIL_MAXLEN],
         "timestamp": time.time(),
     }
-    with _audit_lock:
-        _audit_log.append(entry)
+    buf = getattr(_thread_audit_buffer, "entries", None)
+    if buf is None:
+        _thread_audit_buffer.entries = []
+        buf = _thread_audit_buffer.entries
+    buf.append(entry)
+    if len(buf) >= _AUDIT_FLUSH_SIZE:
+        with _audit_lock:
+            _audit_log.extend(buf)
+        _thread_audit_buffer.entries = []
+
+
+def flush_audit_buffer() -> None:
+    """Flush any remaining thread-local audit entries into the shared log.
+
+    Called by the kernel shutdown sequence to ensure no entries are lost.
+    """
+    buf = getattr(_thread_audit_buffer, "entries", None)
+    if buf:
+        with _audit_lock:
+            _audit_log.extend(buf)
+        _thread_audit_buffer.entries = []
 
 
 def record_audit(op: str, agent_id: str, success: bool = True,
@@ -81,6 +103,7 @@ def get_audit_log(limit: int = SYSCALL_AUDIT_QUERY_LIMIT, agent_id: str = "") ->
 
 
 def clear_audit_log() -> None:
+    """Clear the syscall audit trail entirely."""
     with _audit_lock:
         _audit_log.clear()
 
@@ -228,6 +251,7 @@ _register_builtin_syscalls()
 
 def emit_signal(signal_type: str, sender: str = "system", target: str = "",
                 data: dict | None = None) -> int:
+    """Emit a typed signal onto the kernel event bus."""
     bus = get_event_bus()
     sig = Signal(type=SignalType[signal_type.upper()], sender=sender,
                  target=target, data=data or {})

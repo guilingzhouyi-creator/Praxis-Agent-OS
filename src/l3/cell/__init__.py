@@ -158,6 +158,7 @@ class Cell:
                    max_scouts: int | None = None,
                    model_config: dict | None = None,
                    auto_boot: bool = False) -> dict:
+        """Register a new agent in this Cell."""
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
         info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else 1),
                          territory=territory or [],
@@ -241,12 +242,12 @@ class Cell:
     # ══ Cell state persistence ══
 
     def save_state(self, path: str = "") -> dict:
-        """Save Cell state (agents, conventions, snapshots) to JSON."""
+        """Persist Cell state to disk."""
         from ..cell.components.cell_state import save_state as _save
         return _save(self, path)
 
     def restore_state(self, path: str = "") -> dict:
-        """Restore Cell state from JSON."""
+        """Restore Cell state from disk."""
         from ..cell.components.cell_state import restore_state as _restore
         return _restore(self, path)
 
@@ -260,6 +261,7 @@ class Cell:
 
     def send_message(self, sender: str, target: str,
                      msg_type: MessageType, payload: Any = None) -> dict:
+        """Send a message to an agent within this Cell."""
         with self._lock:
             if target not in self._agents:
                 return {"success": False, "error": f"unknown target: {target}"}
@@ -300,6 +302,7 @@ class Cell:
         return {"success": True, "msg_id": msg.msg_id}
 
     def read_messages(self, agent_id: str, clear: bool = True) -> list[dict]:
+        """Read pending messages for an agent."""
         with self._lock:
             msgs = self._mailbox.get(agent_id, [])
             if clear:
@@ -379,6 +382,7 @@ class Cell:
         }
 
     def agent_status(self, agent_id: str) -> dict:
+        """Return the current status of a specific agent."""
         return _agent_status(self, agent_id)
 
     # ══ Boot / Shutdown ══
@@ -420,6 +424,7 @@ class Cell:
             self._kill_hooks.append(hook)
 
     def boot_agent(self, agent_id: str) -> dict:
+        """Boot (start) a specific agent terminal."""
         # Boot hooks — observe boot (no veto; boot is system-controlled).
         for hook in self._boot_hooks:
             try:
@@ -439,6 +444,7 @@ class Cell:
         return _boot_agent(self, agent_id)
 
     def boot_all(self) -> dict:
+        """Boot all registered agents."""
         results = {}
         with self._lock:
             agent_ids = list(self._agents.keys())
@@ -449,6 +455,7 @@ class Cell:
                 "agents": results}
 
     def shutdown_all(self) -> dict:
+        """Gracefully shut down all agents."""
         self._watchdog.stop()
         # Shutdown hooks — observe shutdown (no veto).
         for hook in self._shutdown_hooks:
@@ -466,6 +473,7 @@ class Cell:
     # ══ Emergency stop & rollback ══
 
     def emergency_stop(self) -> dict:
+        """Emergency stop — halt all agent activity."""
         with self._lock:
             self._emergency = True
             agent_ids = list(self._agents.keys())
@@ -484,6 +492,7 @@ class Cell:
         return {"success": True, "cell_id": self.cell_id, "agents_paused": paused}
 
     def resume(self) -> dict:
+        """Resume normal operation after emergency stop."""
         with self._lock:
             self._emergency = False
             agent_ids = list(self._agents.keys())
@@ -584,6 +593,7 @@ class Cell:
                       target: str = "", params: dict | None = None,
                       mode: TermCardMode = TermCardMode.EXECUTE,
                       sender: str = CELL_L3_SENDER) -> dict:
+        """Dispatch a card to the appropriate agent."""
         term = get_terminal(target_agent)
         if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
             term.boot()
@@ -614,15 +624,18 @@ class Cell:
         return {"success": True, "card_id": card_id}
 
     def convene(self, issue_card: Any, agent_map: dict[str, str] | None = None) -> dict:
+        """Convene a multi-agent discussion on a topic."""
         from ..cell.components.cell_convention import convene as _convene
         return _convene(self, issue_card)
 
     def close_convention(self, issue_card_id: str) -> dict:
+        """Close the currently active convention."""
         from ..cell.components.cell_convention import close_convention as _close
         return _close(self, issue_card_id)
 
     def handle_convention_message(self, agent_id: str, msg_type: MessageType,
                                   payload: dict) -> dict:
+        """Process a message for the active convention."""
         from ..cell.components.cell_convention import handle_convention_message as _handle
         return _handle(self, agent_id, msg_type, payload)
 
@@ -687,6 +700,7 @@ class Cell:
     # ══ Card decomposition engine (delegates to cell_decompose.py) ══
 
     def decompose_card(self, card: Card, domain: str = "") -> list[dict]:
+        """Decompose a card into executable steps."""
         return _decompose_card(domain, card, self.cell_id,
                                ensure_terminal_fn=self._ensure_terminal)
 
@@ -735,6 +749,7 @@ class Cell:
             logger.warning("term pmu wire failed: %s", e)
 
     def agent_tools(self, agent_id: str) -> list[dict]:
+        """List tools available to a specific agent."""
         all_terms = get_terminals()
         term = all_terms.get(agent_id)
         if not term:
@@ -742,6 +757,7 @@ class Cell:
         return term.list_tools()
 
     def cell_tools(self) -> dict[str, list[dict]]:
+        """List tools registered at the Cell level."""
         all_terms = get_terminals()
         result: dict[str, list[dict]] = {}
         for aid, term in all_terms.items():
@@ -751,6 +767,7 @@ class Cell:
         return result
 
     def wait_for_card(self, card_id: str, timeout: float = 30.0) -> dict | None:
+        """Block until a card is dispatched."""
         for term in get_terminals().values():
             result = term.wait_for_result(card_id, timeout)
             if result:
@@ -990,6 +1007,7 @@ class Cell:
 
     def reuse_scout_result(self, template: str, scope: dict | None = None,
                            ttl: float = 0) -> dict | None:
+        """Reuse cached scout results to avoid re-scouting."""
         cached = scout_cache_get(template, scope, ttl or self.max_scout_cache_ttl)
         return cached
 
@@ -997,6 +1015,7 @@ class Cell:
 
     def set_think_quota(self, distribution: str | None = None,
                         **config: Any) -> None:
+        """Set think/reasoning quota for an agent."""
         from ..scheduler.think_registry import get_think_registry
         reg = get_think_registry()
         if distribution:

@@ -68,6 +68,7 @@ class Allocator:
         self._lock = threading.RLock()
 
     def set_limit(self, agent_id: str, resource: str, limit: int) -> dict:
+        """Override an agent's resource limit for a specific resource type."""
         with self._lock:
             self._limits.setdefault(agent_id, dict(self.DEFAULTS))[resource] = limit
         return {"success": True}
@@ -88,6 +89,7 @@ class Allocator:
 
     def alloc(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT,
               purpose: str = "", ttl: float = 0.0) -> dict:
+        """Allocate a resource amount for an agent. Triggers reclamation or OOM kill when limits are exceeded."""
         with self._lock:
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
             allocs = self._allocations.setdefault(agent_id, [])
@@ -116,6 +118,7 @@ class Allocator:
                     "remaining": limit - used - amount}
 
     def free(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT) -> dict:
+        """Release a resource amount back to the agent's pool."""
         with self._lock:
             allocs = self._allocations.get(agent_id, [])
             freed = 0
@@ -127,6 +130,7 @@ class Allocator:
             return {"success": True, "freed": freed}
 
     def usage(self, agent_id: str) -> dict:
+        """Return current resource usage stats for an agent."""
         with self._lock:
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
             allocs = self._allocations.setdefault(agent_id, [])
@@ -138,6 +142,7 @@ class Allocator:
             return result
 
     def pressure(self, threshold: float = ALLOCATOR_PRESSURE_THRESHOLD) -> dict:
+        """Check which agents are above the pressure threshold across all resources."""
         agents_under_pressure = []
         for agent_id in self._limits:
             usage = self.usage(agent_id)
@@ -248,6 +253,7 @@ class Allocator:
             return {"success": True, "moved": moved, "from": resource, "to": target_resource}
 
     def summary(self) -> dict:
+        """Return a full allocation summary across all agents and resources."""
         with self._lock:
             result = {}
             for agent_id in self._limits:
@@ -259,6 +265,7 @@ _allocator: Allocator | None = None
 
 
 def get_allocator() -> Allocator:
+    """Get the singleton Allocator instance."""
     global _allocator
     if _allocator is None:
         _allocator = Allocator()
@@ -266,5 +273,6 @@ def get_allocator() -> Allocator:
 
 
 def reset_allocator() -> None:
+    """Reset the singleton Allocator instance (for testing)."""
     global _allocator
     _allocator = None

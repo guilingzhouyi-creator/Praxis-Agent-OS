@@ -73,6 +73,7 @@ class TestCellCounterQuery:
         assert "by_agent" in r
 
     def test_empty_counter(self):
+        from l3.services.counter import CellCounter
         c = CellCounter()
         assert c.token_summary() == {}
         assert c.tool_summary("nonexistent") == {"total": 0}

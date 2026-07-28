@@ -148,10 +148,12 @@ class StagnationDetector:
         logger.warning("Stagnation [%s] %s: %s", pattern, agent_id, reason)
 
     def clear(self, agent_id: str) -> None:
+        """Clear all stored detection state."""
         with self._lock:
             self._agents.pop(agent_id, None)
 
     def stats(self) -> dict:
+        """Return stagnation detection statistics."""
         with self._lock:
             return {
                 "tracked_agents": len(self._agents),
@@ -184,6 +186,7 @@ _detector: StagnationDetector | None = None
 
 
 def get_detector() -> StagnationDetector:
+    """Get the singleton StagnationDetector instance."""
     global _detector
     if _detector is None:
         _detector = StagnationDetector()
@@ -191,5 +194,6 @@ def get_detector() -> StagnationDetector:
 
 
 def reset_detector() -> None:
+    """Reset the singleton StagnationDetector (for testing)."""
     global _detector
     _detector = None

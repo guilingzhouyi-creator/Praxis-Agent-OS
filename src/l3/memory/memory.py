@@ -424,6 +424,7 @@ class MemoryManager:
         }
 
     def stats(self) -> dict:
+        """Return memory usage stats across all three rings."""
         return {
             "working": {"entries": self.working.count(), "tokens": self.working.token_count(), "budget": self.working.max_tokens},
             "short": {"entries": self.short.count(), "tokens": self.short.token_count(), "budget": self.short.max_tokens},
@@ -605,6 +606,7 @@ class MemoryManager:
         return _search_long_term(self, query, agent_id=agent_id, limit=limit)
 
     def forget_agent(self, agent_id: str, ring: int = 0) -> dict:
+        """Remove all memory entries for a given agent from all rings."""
         if ring == 1:
             return {"working": self.working.clear_agent(agent_id)}
         if ring == 2:
@@ -618,6 +620,7 @@ class MemoryManager:
         }
 
     def forget_cell(self, cell_id: str) -> dict:
+        """Remove all memory entries for a given cell from all rings."""
         return {
             "working": self.working.forget_cell(cell_id),
             "short": self.short.forget_cell(cell_id),
@@ -635,6 +638,7 @@ _memory: MemoryManager | None = None
 
 
 def get_memory() -> MemoryManager:
+    """Get the singleton MemoryManager instance."""
     global _memory
     if _memory is None:
         _memory = MemoryManager()
@@ -642,5 +646,6 @@ def get_memory() -> MemoryManager:
 
 
 def reset_memory() -> None:
+    """Reset the singleton MemoryManager instance (for testing)."""
     global _memory
     _memory = None

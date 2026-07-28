@@ -223,6 +223,7 @@ class CellSandbox:
         return {"success": True, "discarded": count}
 
     def status(self) -> dict:
+        """Return current sandbox status for this cell."""
         with self._lock:
             pending = sum(1 for e in self._entries.values() if e.status == "pending")
             staged = sum(1 for e in self._entries.values() if e.status == "staged")
@@ -272,6 +273,7 @@ class SandboxManager:
         self._lock = threading.Lock()
 
     def create_cell(self, cell_id: str, project_root: str) -> dict:
+        """Create a sandbox for a new cell."""
         with self._lock:
             if cell_id in self._cells:
                 return {"success": False, "error": "cell already exists"}
@@ -284,10 +286,12 @@ class SandboxManager:
             return {"success": True, "cell_id": cell_id, "sandbox_root": str(sb.sandbox_root)}
 
     def get_cell(self, cell_id: str) -> CellSandbox | None:
+        """Get the sandbox for a cell by ID."""
         with self._lock:
             return self._cells.get(cell_id)
 
     def register_agent(self, cell_id: str, agent_id: str) -> dict:
+        """Register an agent under a cell's sandbox."""
         sb = self.get_cell(cell_id)
         if not sb:
             return {"success": False, "error": "cell not found"}
@@ -295,10 +299,12 @@ class SandboxManager:
         return {"success": True, "agent_id": agent_id, "cell_id": cell_id}
 
     def status(self) -> dict:
+        """Return overall sandbox manager status."""
         with self._lock:
             return {cid: sb.status() for cid, sb in self._cells.items()}
 
     def cleanup(self, cell_id: str = "") -> dict:
+        """Clean up stale sandbox directories."""
         with self._lock:
             if cell_id:
                 sb = self._cells.pop(cell_id, None)
@@ -317,6 +323,7 @@ _manager: SandboxManager | None = None
 
 
 def get_manager(sandbox_root: str | None = None) -> SandboxManager:
+    """Get the singleton SandboxManager instance."""
     global _manager
     if _manager is None:
         _manager = SandboxManager(sandbox_root)
@@ -324,6 +331,7 @@ def get_manager(sandbox_root: str | None = None) -> SandboxManager:
 
 
 def reset_manager() -> None:
+    """Reset the singleton SandboxManager (for testing)."""
     global _manager
     if _manager:
         _manager.cleanup()

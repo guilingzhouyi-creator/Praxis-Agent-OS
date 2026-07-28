@@ -59,6 +59,7 @@ class MemEntry:
         return self.ttl > 0 and (time.time() - self.timestamp) > self.ttl
 
     def to_dict(self) -> dict:
+        """Serialize this entry to a plain dict."""
         return asdict(self)
 
     def quality_note(self) -> str:
@@ -100,6 +101,7 @@ class RingLayer:
         self._lock = threading.Lock()
 
     def push(self, entry: MemEntry) -> None:
+        """Push an entry into the ring layer with automatic eviction if over budget."""
         with self._lock:
             self._entries.append(entry)
             self._token_count += entry.tokens
@@ -111,6 +113,7 @@ class RingLayer:
 
     def query(self, agent_id: str | None = None, entry_type: str | None = None,
               tag: str | None = None, limit: int = 20) -> list[MemEntry]:
+        """Query entries from the ring layer with optional filters."""
         with self._lock:
             # Use reverse indexes for O(1) agent/type lookup; fall back to full scan for tag
             if agent_id and agent_id in self._agent_index:
@@ -129,6 +132,7 @@ class RingLayer:
         return results[:limit]
 
     def summarize(self, agent_id: str) -> str:
+        """Return a text summary of recent entries for an agent."""
         with self._lock:
             entries = [e for e in self._entries if e.agent_id == agent_id and not e.expired()]
         if not entries:
@@ -136,14 +140,17 @@ class RingLayer:
         return "\n".join(f"[{e.entry_type}] {e.content[:LOG_TRUNC_200]}" for e in entries[-10:])
 
     def count(self) -> int:
+        """Return the current number of entries."""
         with self._lock:
             return len(self._entries)
 
     def token_count(self) -> int:
+        """Return the current total token count."""
         with self._lock:
             return self._token_count
 
     def clear_agent(self, agent_id: str) -> int:
+        """Remove all entries for a given agent. Returns number removed."""
         with self._lock:
             before = len(self._entries)
             self._entries = deque([e for e in self._entries if e.agent_id != agent_id], maxlen=self.max_entries)
@@ -151,6 +158,7 @@ class RingLayer:
             return before - len(self._entries)
 
     def forget_cell(self, cell_id: str) -> int:
+        """Remove all entries for a given cell. Returns number removed."""
         with self._lock:
             before = len(self._entries)
             self._entries = deque([e for e in self._entries if e.cell_id and e.cell_id != cell_id], maxlen=self.max_entries)
@@ -158,6 +166,7 @@ class RingLayer:
             return before - len(self._entries)
 
     def to_dict(self) -> list[dict]:
+        """Serialize all entries to a list of dicts."""
         with self._lock:
             return [e.to_dict() for e in self._entries]
 

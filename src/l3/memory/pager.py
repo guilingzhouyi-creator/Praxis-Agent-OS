@@ -73,18 +73,22 @@ class PageTable:
         self._lock = threading.RLock()
 
     def map(self, chunk_id: str, ring: int, agent_id: str = "", tags: list[str] | None = None) -> None:
+        """Map a chunk_id to a storage location (ring + agent)."""
         with self._lock:
             self._entries[chunk_id] = {"ring": ring, "agent_id": agent_id, "tags": tags or []}
 
     def unmap(self, chunk_id: str) -> bool:
+        """Remove a chunk_id mapping from the page table."""
         with self._lock:
             return self._entries.pop(chunk_id, None) is not None
 
     def lookup(self, chunk_id: str) -> dict | None:
+        """Look up a chunk_id's storage location."""
         with self._lock:
             return self._entries.get(chunk_id)
 
     def query(self, agent_id: str | None = None, tag: str | None = None, ring: int | None = None) -> list[str]:
+        """Query chunk IDs by agent, tag, or ring filter."""
         with self._lock:
             results = []
             for cid, entry in self._entries.items():

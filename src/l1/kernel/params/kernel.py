@@ -159,6 +159,7 @@ RESOURCE_DEFAULT_COST: Final[int] = 1
 # ── Mutex extras ──
 MUTEX_BOOST_THRESHOLD: Final[float] = 0.5
 MUTEX_CYCLE_DETECT_AFTER: Final[float] = 1.0
+MUTEX_CYCLE_DEBOUNCE: Final[float] = 60.0
 
 # ── VFS ──
 VFS_DEFAULT_MIN_RING: Final[int] = 1

@@ -39,6 +39,7 @@ class SandboxResult:
     elapsed: float = 0.0
 
     def to_dict(self) -> dict:
+        """Serialize sandbox result to a plain dict."""
         return {"success": self.success, "stdout": self.stdout[:LOG_TRUNC_2000],
                 "stderr": self.stderr[:LOG_TRUNC_500], "exit_code": self.exit_code,
                 "sandbox_id": self.sandbox_id, "elapsed": round(self.elapsed, 3)}

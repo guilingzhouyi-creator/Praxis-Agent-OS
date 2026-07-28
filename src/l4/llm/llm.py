@@ -142,6 +142,7 @@ class LLMEngine:
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int | None = None, user_id: str = "",
                  **overrides: Any) -> dict:
+        """Generate a plain-text response from the LLM (no tool calls)."""
         dm = get_device_manager()
         r = dm.check_rate(self.config.device_name)
         if r.get("error", "").startswith("unknown device"):
@@ -207,6 +208,7 @@ class LLMEngine:
 
     @property
     def provider_name(self) -> str:
+        """Return the current provider's name (e.g. 'openai', 'anthropic')."""
         return self.config.provider
 
     @staticmethod
@@ -497,6 +499,7 @@ _engine: LLMEngine | None = None
 
 
 def get_engine(config: LLMConfig | None = None) -> LLMEngine:
+    """Get or create the singleton LLMEngine instance."""
     global _engine
     if config is None:
         try:
@@ -523,6 +526,7 @@ def get_engine(config: LLMConfig | None = None) -> LLMEngine:
 
 
 def reset_engine() -> None:
+    """Reset the singleton LLMEngine (for testing)."""
     global _engine
     _engine = None
 

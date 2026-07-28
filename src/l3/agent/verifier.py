@@ -102,9 +102,11 @@ class Verifier:
         )
 
     def stats(self) -> dict:
+        """Return verifier performance statistics."""
         return dict(self._stats)
 
     def reset_stats(self) -> None:
+        """Reset verifier statistics counters."""
         self._stats = {"checks": 0, "pass": 0, "fail": 0, "corrections": 0}
 
     @staticmethod

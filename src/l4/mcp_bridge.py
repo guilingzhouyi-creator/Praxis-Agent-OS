@@ -582,6 +582,7 @@ _bridge: MCPBridge | None = None
 
 
 def get_bridge() -> MCPBridge:
+    """Get the singleton MCPBridge instance."""
     global _bridge
     if _bridge is None:
         _bridge = MCPBridge()
@@ -589,5 +590,6 @@ def get_bridge() -> MCPBridge:
 
 
 def reset_bridge() -> None:
+    """Reset the singleton MCPBridge (for testing)."""
     global _bridge
     _bridge = None

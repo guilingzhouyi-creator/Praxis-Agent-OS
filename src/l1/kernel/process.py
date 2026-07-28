@@ -130,33 +130,41 @@ class PCB:
         self.identity_verified: bool = False  # Ed25519 keypair generated (#P5)
 
     def touch(self) -> None:
+        """Mark this PCB as recently active (update last_active timestamp)."""
         self.last_active = time.time()
 
     def record_tokens(self, allocated: int, used: int) -> None:
+        """Record token allocation and usage stats."""
         self.resources.tokens_allocated += allocated
         self.resources.tokens_used += used
         self.touch()
 
     def record_card(self) -> None:
+        """Increment the card processing counter."""
         self.resources.cards_processed += 1
         self.touch()
 
     def record_cpu(self, seconds: float) -> None:
+        """Accumulate CPU time for this process."""
         self.resources.cpu_time += seconds
         self.touch()
 
     def record_alloc(self, tokens: int = 0) -> None:
+        """Record a token allocation event."""
         self.resources.tokens_allocated += tokens
 
     def record_use(self, tokens: int = 0, cpu_ms: float = 0) -> None:
+        """Record token usage and optional CPU time."""
         self.resources.tokens_used += tokens
         self.resources.cpu_time += cpu_ms
         self.touch()
 
     def record_scout(self, delta: int = 1) -> None:
+        """Record a scout count delta."""
         self.resources.scouts_active = max(0, self.resources.scouts_active + delta)
 
     def snapshot(self) -> dict:
+        """Return a dict snapshot of current PCB state."""
         return {
             "pid": self.pid,
             "name": self.name,
@@ -224,6 +232,7 @@ class ProcessTable:
 
     def spawn(self, name: str, role: str = "", parent_pid: int = 0,
               ring: int = PROCESS_DEFAULT_RING) -> PCB:
+        """Create a new process with the given identity, return the PCB."""
         with self._lock:
             pid = self._next_pid
             self._next_pid += 1
@@ -235,15 +244,18 @@ class ProcessTable:
             return pcb
 
     def get(self, pid: int) -> PCB | None:
+        """Look up a process by PID, return PCB or None."""
         with self._lock:
             return self._processes.get(pid)
 
     def get_by_name(self, name: str) -> PCB | None:
+        """Look up a process by name, return PCB or None."""
         with self._lock:
             pid = self._name_index.get(name)
             return self._processes.get(pid) if pid else None
 
     def set_state(self, pid: int, state: ProcessState) -> bool:
+        """Transition a process to the given state."""
         with self._lock:
             pcb = self._processes.get(pid)
             if not pcb:
@@ -287,12 +299,14 @@ class ProcessTable:
             return pcb.snapshot()
 
     def list(self, state: ProcessState | None = None) -> list[dict]:
+        """List all processes, optionally filtered by state."""
         with self._lock:
             result = [p.snapshot() for p in self._processes.values()
                       if state is None or p.state == state]
             return sorted(result, key=lambda x: x["pid"])
 
     def resource_summary(self) -> dict:
+        """Return aggregated resource usage across all processes."""
         with self._lock:
             total = {"tokens": 0, "workers": 0, "scouts": 0, "cards": 0}
             for p in self._processes.values():
@@ -309,6 +323,7 @@ class ProcessTable:
         })
 
     def audit_log(self, limit: int = PROCESS_AUDIT_LOG_LIMIT) -> list[dict]:
+        """Return recent process audit log entries."""
         with self._lock:
             # deque does not support [-limit:] slicing; convert to list first
             return list(self._audit_log)[-limit:]
@@ -318,6 +333,7 @@ _table: ProcessTable | None = None
 
 
 def get_table() -> ProcessTable:
+    """Get the singleton ProcessTable instance."""
     global _table
     if _table is None:
         _table = ProcessTable()
@@ -325,5 +341,6 @@ def get_table() -> ProcessTable:
 
 
 def reset_table() -> None:
+    """Reset the singleton ProcessTable instance (for testing)."""
     global _table
     _table = None

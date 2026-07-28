@@ -1,3 +1,4 @@
+"""Tool call ring buffer — records and queries tool execution history per ring."""
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

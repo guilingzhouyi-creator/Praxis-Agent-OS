@@ -4,6 +4,8 @@ Wraps ops_console (alerts) + health (health checks) + counter (metrics)
 + audit (syscall log) into a single observe() interface.
 
 Used by CentralController and other subsystems for unified monitoring.
+"""
+
 from __future__ import annotations
 
 import logging
