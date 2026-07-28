@@ -16,6 +16,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_80, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_500
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,7 +121,7 @@ class AnswerAggregator:
                             parsed["cell_id"] = r.get("cell_id", "")
                             results.append(parsed)
                     except Exception:
-                        results.append({"content": content[:200],
+                        results.append({"content": content[:LOG_TRUNC_200],
                                         "agent_id": r.get("agent_id", ""),
                                         "cell_id": r.get("cell_id", "")})
         except Exception as e:
@@ -139,7 +141,7 @@ class AnswerAggregator:
                         try:
                             results.append(json.loads(content))
                         except Exception:
-                            results.append({"raw": str(content)[:200]})
+                            results.append({"raw": str(content)[:LOG_TRUNC_200]})
             except Exception:
                 pass
 
@@ -169,7 +171,7 @@ class AnswerAggregator:
             content = a.get("content", {})
             if isinstance(content, dict):
                 answer_text = content.get("answer", "")
-                fingerprint = hashlib_md5(answer_text[:100])
+                fingerprint = hashlib_md5(answer_text[:LOG_TRUNC_100])
                 by_cell[cell].add(fingerprint)
                 by_issue[fingerprint].add(cell)
 
@@ -205,7 +207,7 @@ class AnswerAggregator:
             if len(group) < 2:
                 continue
             # Simple heuristic: compare answer lengths and positions
-            positions = [g.get("content", {}).get("answer", "")[:100]
+            positions = [g.get("content", {}).get("answer", "")[:LOG_TRUNC_100]
                          for g in group]
             if len(set(positions)) >= 2:
                 divergences.append({
@@ -213,7 +215,7 @@ class AnswerAggregator:
                     "cells": list({a.get("cell_id", "?") for a in group}),
                     "positions": [{
                         "cell": a.get("cell_id", "?"),
-                        "summary": a.get("content", {}).get("answer", "")[:100],
+                        "summary": a.get("content", {}).get("answer", "")[:LOG_TRUNC_100],
                     } for a in group],
                     "severity": "high" if len(set(positions)) >= 3 else "medium",
                 })
@@ -248,8 +250,8 @@ class AnswerAggregator:
                     supplements.append({
                         "source_cell": a.get("cell_id", "?"),
                         "source_agent": a.get("agent_id", ""),
-                        "title": answer_text[:80],
-                        "description": answer_text[:500],
+                        "title": answer_text[:LOG_TRUNC_80],
+                        "description": answer_text[:LOG_TRUNC_500],
                     })
         # Dedup by title similarity
         seen_titles = set()
@@ -271,7 +273,7 @@ class AnswerAggregator:
             if isinstance(content, dict):
                 text = content.get("answer", "")
                 if text:
-                    all_texts.append(f"[{a.get('cell_id', '?')}] {text[:200]}")
+                    all_texts.append(f"[{a.get('cell_id', '?')}] {text[:LOG_TRUNC_200]}")
         return {
             "merged_text": "\n".join(all_texts[:20]),
             "source_cells": list({a.get("cell_id", "?") for a in answers}),
@@ -281,4 +283,4 @@ class AnswerAggregator:
 
 def hashlib_md5(text: str) -> str:
     import hashlib
-    return hashlib.md5(text.encode()).hexdigest()[:16]
+    return hashlib.md5(text.encode()).hexdigest()[:HASH_TRUNC_LONG]

@@ -19,7 +19,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l3.memory.memory import get_memory
-from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS
+from l1.kernel.params.system import (
+    CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS,
+    LOG_TRUNC_100, LOG_TRUNC_500, LOG_TRUNC_1000,
+    MEMORY_IMPORTANCE_HIGH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +99,7 @@ class ContextManager:
         for tc in tool_calls[-10:]:
             mem.remember(
                 agent_id=self._agent_id, entry_type="tool_call",
-                content=tc.content[:500], tags=["tool_call"],
+                content=tc.content[:LOG_TRUNC_500], tags=["tool_call"],
                 source=tc.source, ring=1,
             )
 
@@ -103,15 +107,15 @@ class ContextManager:
         for d in decisions[-3:]:
             mem.remember(
                 agent_id=self._agent_id, entry_type="decision",
-                content=d.content[:500], tags=["decision", self._current_task],
-                source=d.source, importance=0.7, ring=2,
+                content=d.content[:LOG_TRUNC_500], tags=["decision", self._current_task],
+                source=d.source, importance=MEMORY_IMPORTANCE_HIGH, ring=2,
             )
 
         # Store summary in Ring 3
         if summary:
             mem.remember(
                 agent_id=self._agent_id, entry_type="summary",
-                content=summary[:1000], tags=["summary", self._current_task],
+                content=summary[:LOG_TRUNC_1000], tags=["summary", self._current_task],
                 importance=0.9, ring=3,
             )
 
@@ -127,7 +131,7 @@ class ContextManager:
     def snapshot(self) -> dict:
         """Current register contents (for UI display)."""
         with self._lock:
-            entries = [{"role": e.role, "content": e.content[:100],
+            entries = [{"role": e.role, "content": e.content[:LOG_TRUNC_100],
                         "tokens": e.tokens, "source": e.source}
                        for e in self._register]
             return {

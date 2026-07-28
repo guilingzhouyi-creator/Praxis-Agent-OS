@@ -31,13 +31,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT, SUBAGENT_POOL_EXPLORE_WORKERS, SUBAGENT_POOL_EXECUTE_WORKERS
 from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
 from .subagent_task import SubAgentTask
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_EXPLORE_WORKERS = 4
-_DEFAULT_EXECUTE_WORKERS = 4
+_DEFAULT_EXPLORE_WORKERS = SUBAGENT_POOL_EXPLORE_WORKERS
+_DEFAULT_EXECUTE_WORKERS = SUBAGENT_POOL_EXECUTE_WORKERS
 
 
 class SubAgentPool:
@@ -59,6 +60,8 @@ class SubAgentPool:
             max_workers=cfg.get("execute_workers", _DEFAULT_EXECUTE_WORKERS),
             thread_name_prefix=f"sub-exe-{cell_id}",
         )
+        self._explore_workers = cfg.get("explore_workers", _DEFAULT_EXPLORE_WORKERS)
+        self._execute_workers = cfg.get("execute_workers", _DEFAULT_EXECUTE_WORKERS)
         self._tasks: dict[str, SubAgentTask] = {}
         self._lock = threading.RLock()
         self._total_commissioned = 0
@@ -86,7 +89,7 @@ class SubAgentPool:
                      parent_agent_id, task_id, card_type, self._total_commissioned)
         return {"success": True, "task_id": task_id, "buffer": card_type}
 
-    def collect(self, task_id: str, timeout: float = 120.0) -> dict:
+    def collect(self, task_id: str, timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
         deadline = time.time() + timeout
         while time.time() < deadline:
             task = self._tasks.get(task_id)
@@ -98,10 +101,10 @@ class SubAgentPool:
                 return r
             time.sleep(0.1)
         return {"success": False, "task_id": task_id, "error": "timeout",
-                "status": self._tasks.get(task_id).status if task_id in self._tasks else "unknown"}
+                "status": (t.status if (t := self._tasks.get(task_id)) else "unknown")}
 
     def collect_all(self, task_ids: list[str],
-                    timeout: float = 120.0) -> dict:
+                    timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
         deadline = time.time() + timeout
         results: list[dict] = []
         remaining = set(task_ids)
@@ -130,8 +133,13 @@ class SubAgentPool:
         with self._lock:
             return {"total_commissioned": self._total_commissioned,
                     "tracked": len(self._tasks),
-                    "explore_workers": self._explore_executor._max_workers,
-                    "execute_workers": self._execute_executor._max_workers}
+                    "explore_workers": self._explore_workers,
+                    "execute_workers": self._execute_workers}
+
+    def shutdown(self, wait: bool = False) -> None:
+        """Shut down both executor buffers. Idempotent."""
+        self._explore_executor.shutdown(wait=wait)
+        self._execute_executor.shutdown(wait=wait)
 
     # ── @mention parsing (migrated from SubAgentDispatcher) ──
 

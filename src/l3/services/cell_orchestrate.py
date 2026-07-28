@@ -26,6 +26,8 @@ import logging
 import time
 from typing import Any
 
+from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
+from l1.kernel.params.tool import TOOL_AGENT_COORD_TIMEOUT
 from l3.agent.subagent_pool import SubAgentPool
 from l3.agent.subagent_spec import SubAgentSpec
 
@@ -46,7 +48,7 @@ class SubAgentOrchestrator:
     # ── Phase 1+2: Fork-Join ─────────────────────────────────────
 
     def fork_join(self, sub_tasks: list[dict],
-                  timeout: float = 120.0) -> dict:
+                  timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
         """Dispatch all sub-tasks in parallel and wait for results.
 
         sub_tasks: [{"spec": "architect", "prompt": "review src/"},
@@ -87,7 +89,7 @@ class SubAgentOrchestrator:
     # ── Phase 3: Verify ──────────────────────────────────────────
 
     def verify(self, verify_prompt_template: str,
-               timeout: float = 60.0) -> dict:
+               timeout: float = TOOL_AGENT_COORD_TIMEOUT) -> dict:
         """Auto-dispatch Scouts to verify each SubAgent result.
 
         Each scout prompt receives {spec}, {answer}, {result} substitution.
@@ -224,8 +226,8 @@ class SubAgentOrchestrator:
 
     def run(self, sub_tasks: list[dict],
             verify_prompt: str = "",
-            fork_timeout: float = 120.0,
-            verify_timeout: float = 60.0) -> dict:
+            fork_timeout: float = SUBAGENT_RUN_TIMEOUT,
+            verify_timeout: float = TOOL_AGENT_COORD_TIMEOUT) -> dict:
         """Run the full fork-join-verify-gap cycle.
 
         Args:

@@ -2,11 +2,14 @@
 
 import subprocess
 
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
+from l1.kernel.params.tool import TOOL_GIT_TIMEOUT
 
-def _git(args_list: list[str], timeout: int = 30) -> dict:
+
+def _git(args_list: list[str], timeout: int = TOOL_GIT_TIMEOUT) -> dict:
     try:
         r = subprocess.run(["git"] + args_list, capture_output=True, text=True, timeout=timeout)
-        return {"success": r.returncode == 0, "stdout": r.stdout.strip()[:2000], "stderr": r.stderr.strip()[:500]}
+        return {"success": r.returncode == 0, "stdout": r.stdout.strip()[:LOG_TRUNC_2000], "stderr": r.stderr.strip()[:LOG_TRUNC_500]}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

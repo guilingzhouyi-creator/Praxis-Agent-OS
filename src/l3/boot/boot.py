@@ -28,6 +28,7 @@ from typing import Any, Callable
 from l1.kernel.params.agent import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, DEFAULT_CELL_ID
 from l1.kernel.params.api import LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
 from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION
+from l1.kernel.params.kernel import BOOT_STEP_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -74,15 +75,16 @@ def _resolve_boot_order() -> list[str]:
 
     def _dfs(n: str) -> bool:
         if n in in_stack:
-            return False
+            cycle = " -> ".join(list(in_stack) + [n])
+            raise RuntimeError(f"circular boot dependency: {cycle}")
         if n in visited:
             return True
         in_stack.add(n)
         step = _boot_registry.get(n)
         if step:
             for dep in step.depends_on:
-                if dep in _boot_registry and not _dfs(dep):
-                    return False
+                if dep in _boot_registry:
+                    _dfs(dep)
             ordered.append(n)
         in_stack.discard(n)
         visited.add(n)
@@ -92,6 +94,28 @@ def _resolve_boot_order() -> list[str]:
         if n not in visited:
             _dfs(n)
     return ordered
+
+
+def _exec_with_timeout(fn: Callable, timeout: float = BOOT_STEP_TIMEOUT) -> dict:
+    """Execute a boot step function with a timeout guard."""
+    result = []
+    exception = []
+
+    def _run():
+        try:
+            r = fn()
+            result.append(r)
+        except Exception as e:
+            exception.append(e)
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+    if t.is_alive():
+        return {"success": False, "error": f"timed out after {timeout}s"}
+    if exception:
+        return {"success": False, "error": str(exception[0])}
+    return result[0] if result else {"success": False, "error": "no result"}
 
 
 def _wire_kernel_os() -> None:
@@ -119,6 +143,15 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         interactive: If True, runs bootstrap wizard on first boot.
     """
     global _BOOT_STARTED, _BOOT_RESULT
+
+    # Retry safety: if previous boot failed, reset singletons first
+    if _BOOT_RESULT and not _BOOT_RESULT.get("success"):
+        logger.warning("previous boot failed — resetting singletons for retry")
+        try:
+            from .lifecycle import reset_all_singletons
+            reset_all_singletons()
+        except Exception:
+            logger.warning("singleton reset unavailable, proceeding anyway")
 
     _wire_kernel_os()
 
@@ -211,7 +244,14 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         if not step:
             continue
         try:
-            r = step.fn()
+            # Emit boot step started event
+            try:
+                from .bus.monitor_bus import MonitorEvent as _ME, get_bus as _mb
+                _mb().emit(_ME(type="boot.step", source="boot", severity="info",
+                               message=f"step:{name} status:running"))
+            except Exception:
+                pass
+            r = _exec_with_timeout(step.fn)
             results[name] = r
             _BOOT_STEPS.append(name)
             if not r.get("success", True):
@@ -233,7 +273,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         "steps": list(_BOOT_STEPS),
         "results": results,
         "agent_count": len(agent_config),
-        "cell_id": cell_result.get("cell_id", "cell-1"),
+        "cell_id": cell_result.get("cell_id", DEFAULT_CELL_ID),
         "agents": cell_result.get("agents", []),
     }
     # Save boot snapshot to memories so next restart knows what was running
@@ -245,6 +285,22 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                 _BOOT_RESULT["snapshot"] = path
         except Exception as e:
             logger.warning("boot snapshot save failed: %s", e)
+
+    # Post-boot health check
+    if success:
+        try:
+            _BOOT_RESULT["health"] = _post_boot_health_check()
+        except Exception as e:
+            logger.warning("health check failed: %s", e)
+
+    # Emit boot complete event
+    try:
+        from .bus.monitor_bus import MonitorEvent as _ME2, get_bus as _mb2
+        _mb2().emit(_ME2(type="boot.complete", source="boot", severity="info",
+                         message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s"))
+    except Exception:
+        pass
+
     logger.info("boot %s in %.2fs: %s", "OK" if success else "FAILED", elapsed, _BOOT_STEPS)
     return _BOOT_RESULT
 
@@ -607,6 +663,48 @@ G3: permission_check
 G4: compliance_scan
 G5: report_decision
 """
+
+
+def _post_boot_health_check() -> dict:
+    """Verify core subsystems are operational after boot. Does not block."""
+    checks = {}
+    try:
+        from .memory.memory import get_memory
+        m = get_memory()
+        checks["memory"] = "ok" if m is not None else "unavailable"
+    except Exception as e:
+        checks["memory"] = f"error: {e}"
+    try:
+        from .card.card_registry import get_registry
+        r = get_registry()
+        checks["card_registry"] = "ok" if r is not None else "unavailable"
+    except Exception as e:
+        checks["card_registry"] = f"error: {e}"
+    try:
+        from .scheduler.scheduler import get_time_scheduler
+        s = get_time_scheduler()
+        checks["scheduler"] = "ok" if s is not None else "unavailable"
+    except Exception as e:
+        checks["scheduler"] = f"error: {e}"
+    try:
+        from l1.kernel.device import get_device_manager
+        d = get_device_manager()
+        devs = d.list()
+        checks["devices"] = f"{len(devs)} registered"
+    except Exception as e:
+        checks["devices"] = f"error: {e}"
+    try:
+        from .agent_terminal import get_terminals
+        terms = get_terminals()
+        checks["terminals"] = f"{len(terms)} active"
+    except Exception as e:
+        checks["terminals"] = f"error: {e}"
+    all_ok = all(
+        v.startswith("ok") or v.endswith("registered") or "active" in v
+        for v in checks.values()
+    )
+    checks["_all_ok"] = all_ok
+    return checks
 
 
 def boot_status() -> dict:

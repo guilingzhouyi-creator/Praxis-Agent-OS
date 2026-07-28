@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from l3.subagent_task import SubAgentTask
-from l3.subagent_spec import SubAgentSpec
+from l3.agent.subagent_task import SubAgentTask
+from l3.agent.subagent_spec import SubAgentSpec
 
 
 def test_subagent_task_creation():

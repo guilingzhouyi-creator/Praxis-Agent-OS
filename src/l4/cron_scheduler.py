@@ -30,6 +30,7 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.params.agent import DEFAULT_CELL_ID
 from l1.kernel.params.system import CRON_CHECK_INTERVAL
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ class CronScheduler:
                                 "intent": info["intent"],
                                 "domain": info.get("domain", ""),
                                 "priority": info.get("priority", 5),
-                                "cell_id": info.get("cell_id", "cell-1"),
+                                "cell_id": info.get("cell_id", DEFAULT_CELL_ID),
                             })
                             logger.info("cron: loaded '%s' → %s", name, cron_expr)
         except Exception as e:

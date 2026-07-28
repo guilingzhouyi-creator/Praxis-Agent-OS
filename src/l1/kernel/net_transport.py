@@ -38,14 +38,78 @@ from .params.api import (
     NET_TLS_ENABLED,
     NET_TLS_CERT_PATH,
     NET_TLS_KEY_PATH,
+    TCP_RECV_BUF_SIZE,
+    TCP_LISTEN_BACKLOG,
+    TRANSPORT_VERSION,
+    TRANSPORT_SOCKET_TIMEOUT,
+    TRANSPORT_SOCKET_FAMILY,
 )
 from .params.system import NET_PEER_TIMEOUT
+from .platform import IS_WINDOWS
 from .ports import (
     TransportPort, WorkerPort, ChannelPort,
     Endpoint, Result as PortResult, Message,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ── Fallback implementations (no L4 dependency) ──────────────────────────────
+
+class _FallbackWorker(WorkerPort):
+    """Minimal thread-per-task worker — fallback when l4.adapters unavailable."""
+
+    def __init__(self) -> None:
+        self._threads: list[threading.Thread] = []
+
+    def submit(self, fn: Callable, *args: Any, **kwargs: Any) -> PortResult:
+        t = threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True)
+        t.start()
+        self._threads.append(t)
+        return PortResult.ok(submitted=True)
+
+    def shutdown(self, wait: bool = True, timeout: float | None = None) -> PortResult:
+        if wait:
+            for t in self._threads:
+                t.join(timeout=timeout)
+        return PortResult.ok(shutdown=True)
+
+    def stats(self) -> dict:
+        alive = sum(1 for t in self._threads if t.is_alive())
+        return {"total": len(self._threads), "alive": alive}
+
+
+class _FallbackChannel(ChannelPort):
+    """Simple deque-based channel — fallback when l4.adapters unavailable."""
+
+    _UNBOUNDED_CAPACITY = 1_000_000
+
+    def __init__(self) -> None:
+        from collections import deque
+        self._queue: deque = deque()
+        self._closed = False
+
+    def put(self, item: Any, timeout: float | None = None) -> bool:
+        if self._closed:
+            return False
+        self._queue.append(item)
+        return True
+
+    def get(self, timeout: float | None = None) -> Any | None:
+        # Drain remaining items even after close (matches RingChannel semantics)
+        try:
+            return self._queue.popleft()
+        except IndexError:
+            return None
+
+    def size(self) -> int:
+        return len(self._queue)
+
+    def capacity(self) -> int:
+        return self._UNBOUNDED_CAPACITY
+
+    def close(self) -> None:
+        self._closed = True
 
 
 # ── TransportConfig ──────────────────────────────────────────────────────────
@@ -58,7 +122,7 @@ class TransportConfig:
     discovery_port: int = DISCOVERY_PORT_DEFAULT
     broadcast_interval: float = BROADCAST_INTERVAL
     peer_timeout: float = NET_PEER_TIMEOUT
-    socket_timeout: float = 10.0
+    socket_timeout: float = TRANSPORT_SOCKET_TIMEOUT
     tls_enabled: bool = NET_TLS_ENABLED
     tls_cert_path: str = NET_TLS_CERT_PATH
     tls_key_path: str = NET_TLS_KEY_PATH
@@ -79,17 +143,44 @@ class TcpAdapter(TransportPort):
     def __init__(self,
                  worker_pool: WorkerPort | None = None,
                  msg_channel: ChannelPort | None = None):
-        from l4.adapters.worker_thread import ThreadPoolWorker
-        from l4.adapters.channel_ring import RingChannel
+        if worker_pool:
+            self._worker: WorkerPort = worker_pool
+        else:
+            try:
+                from l4.adapters.worker_thread import ThreadPoolWorker
+                self._worker = ThreadPoolWorker()
+            except ImportError:
+                # Fallback: basic thread-per-task worker (no L4 dependency)
+                self._worker = _FallbackWorker()
 
-        self._worker: WorkerPort = worker_pool or ThreadPoolWorker()
-        self._channel: ChannelPort = msg_channel or RingChannel()
+        if msg_channel:
+            self._channel: ChannelPort = msg_channel
+        else:
+            try:
+                from l4.adapters.channel_ring import RingChannel
+                self._channel = RingChannel()
+            except ImportError:
+                # Fallback: simple deque-based channel (no L4 dependency)
+                self._channel = _FallbackChannel()
+
         self._config: TransportConfig | None = None
         self._node_id: str = ""
         self._running = False
         self._handlers: dict[str, Callable] = {}
         self._lock = threading.Lock()
         self._sockets: list[socket.socket] = []
+
+    # ── Socket factory helpers (centralize address family for dual-stack) ──
+
+    @staticmethod
+    def _new_tcp_socket() -> socket.socket:
+        """Create a TCP socket using the configured address family."""
+        return socket.socket(TRANSPORT_SOCKET_FAMILY, socket.SOCK_STREAM)
+
+    @staticmethod
+    def _new_udp_socket() -> socket.socket:
+        """Create a UDP socket using the configured address family."""
+        return socket.socket(TRANSPORT_SOCKET_FAMILY, socket.SOCK_DGRAM)
 
     # ── Port lifecycle ───────────────────────────────────────────────────
 
@@ -118,12 +209,13 @@ class TcpAdapter(TransportPort):
     def stop(self) -> PortResult:
         self._running = False
         # Close sockets immediately to unblock listener threads
-        for s in list(self._sockets):
-            try:
-                s.close()
-            except Exception:
-                pass
-        self._sockets.clear()
+        with self._lock:
+            for s in list(self._sockets):
+                try:
+                    s.close()
+                except Exception:
+                    pass
+            self._sockets.clear()
         self._channel.close()
         self._worker.shutdown(wait=False)
         logger.info("TcpAdapter stopped: %s", self._node_id)
@@ -144,7 +236,7 @@ class TcpAdapter(TransportPort):
             return PortResult.fail(f"invalid endpoint: {target.address}")
 
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s = self._new_tcp_socket()
             s.settimeout(self._config.socket_timeout if self._config else 10)
             s.connect((host, port))
             s.sendall(data)
@@ -171,8 +263,11 @@ class TcpAdapter(TransportPort):
         config = self._config
         if not config:
             return
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock = self._new_udp_socket()
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except OSError:
+            logger.warning("TcpAdapter: can't set SO_REUSEADDR on UDP socket")
         sock.settimeout(5)
         try:
             sock.bind(("", config.discovery_port))
@@ -180,7 +275,8 @@ class TcpAdapter(TransportPort):
             logger.warning("TcpAdapter: discovery port %d in use",
                            config.discovery_port)
             return
-        self._sockets.append(sock)
+        with self._lock:
+            self._sockets.append(sock)
         while self._running:
             try:
                 data, addr = sock.recvfrom(1024)
@@ -207,20 +303,71 @@ class TcpAdapter(TransportPort):
 
     # ── UDP discovery (announcer) ─────────────────────────────────────────
 
+    @staticmethod
+    def _detect_broadcast_addr() -> str | None:
+        """Attempt to detect the local subnet-directed broadcast address.
+
+        Returns ``255.255.255.255`` on success (limited broadcast), or a
+        subnet-directed address like ``192.168.1.255``, or ``None`` when the
+        address family is not IPv4.
+        """
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            # Very rough subnet guess: keep the first three octets, set the
+            # last to 255.  This works for /24 networks (the most common case)
+            # and fails gracefully (PermissionError) on non-/24 subnets.
+            if local_ip.count(".") == 3:
+                prefix = ".".join(local_ip.split(".")[:3])
+                return f"{prefix}.255"
+        except Exception:
+            pass
+        return None
+
     def _udp_announcer(self) -> None:
         config = self._config
         if not config:
             return
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self._sockets.append(sock)
+        sock = self._new_udp_socket()
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        except OSError:
+            logger.warning("TcpAdapter: SO_BROADCAST not allowed (permissions), "
+                           "peer discovery disabled")
+            sock.close()
+            return
+        with self._lock:
+            self._sockets.append(sock)
         announcement = json.dumps({
             "id": self._node_id, "port": config.port,
-            "cells": 0, "version": "1.0",
+            "cells": 0, "version": TRANSPORT_VERSION,
         }).encode()
+
+        broadcast_addr = "255.255.255.255"
         while self._running:
             try:
-                sock.sendto(announcement, ("255.255.255.255", config.discovery_port))
+                sock.sendto(announcement, (broadcast_addr, config.discovery_port))
+            except PermissionError:
+                logger.warning("TcpAdapter: UDP broadcast on %s requires "
+                               "admin privileges — peer discovery disabled",
+                               broadcast_addr)
+                break
+            except OSError as e:
+                # EPERM, EACCES, or WSAEACCES on Windows; WSAEADDRNOTAVAIL
+                if getattr(e, 'winerror', None) in (10013, 10049, 10051):
+                    logger.debug("TcpAdapter: UDP broadcast blocked "
+                                 "(winerror=%s)", getattr(e, 'winerror', '?'))
+                    break
+                # Invalid argument (e.g. non-/24 subnet with directed bcast)
+                if getattr(e, 'errno', None) in (22,):
+                    # Try subnet-directed broadcast if not already tried
+                    if broadcast_addr == "255.255.255.255":
+                        detected = self._detect_broadcast_addr()
+                        if detected:
+                            broadcast_addr = detected
+                            continue
+                    break
+                logger.warning("TcpAdapter: announce error: %s", e)
             except Exception as e:
                 logger.warning("TcpAdapter: announce error: %s", e)
             time.sleep(config.broadcast_interval)
@@ -231,16 +378,21 @@ class TcpAdapter(TransportPort):
         config = self._config
         if not config:
             return
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock = self._new_tcp_socket()
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except OSError:
+            pass  # Best-effort; may fail on Windows with exclusive port bindings
         sock.settimeout(5)
-        self._sockets.append(sock)
+        with self._lock:
+            self._sockets.append(sock)
         try:
             sock.bind((config.host, config.port))
-            sock.listen(5)
+            sock.listen(TCP_LISTEN_BACKLOG)
         except OSError:
             logger.warning("TcpAdapter: port %d in use", config.port)
-            self._sockets.remove(sock)
+            with self._lock:
+                self._sockets.remove(sock)
             sock.close()
             return
         while self._running:
@@ -253,7 +405,7 @@ class TcpAdapter(TransportPort):
 
     def _handle_conn(self, conn: socket.socket, addr: tuple) -> None:
         try:
-            data = conn.recv(65536)
+            data = conn.recv(TCP_RECV_BUF_SIZE)
             if not data:
                 return
             msg = json.loads(data.decode())

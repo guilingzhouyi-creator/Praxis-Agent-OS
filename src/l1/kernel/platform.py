@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os as _os
 import platform as _platform
+import shutil as _shutil
 import subprocess as _subprocess
 import sys as _sys
 import tempfile as _tempfile
@@ -50,19 +51,19 @@ PING_PARAM: str = "-n" if IS_WINDOWS else "-c"
 PYTHON_EXE: str = _sys.executable
 
 
+# ── IPC transport ──
+
+IPC_USE_UNIX_SOCKET: bool = not IS_WINDOWS
+"""False on Windows — use TCP localhost (127.0.0.1:port) instead of Unix sockets."""
+
+IPC_TRANSPORT: str = "unix" if not IS_WINDOWS else "tcp"
+"""'unix' on POSIX (Unix sockets), 'tcp' on Windows (TCP localhost)."""
+
+
 # ── Path helpers ──
 
 def which(name: str) -> str | None:
-    path = _os.environ.get("PATH", "")
-    for p in path.split(";" if IS_WINDOWS else ":"):
-        candidate = _os.path.join(p, name)
-        if IS_WINDOWS:
-            for ext in (".exe", ".bat", ".cmd", ".ps1"):
-                if _os.path.isfile(candidate + ext):
-                    return candidate + ext
-        elif _os.path.isfile(candidate):
-            return candidate
-    return None
+    return _shutil.which(name)
 
 
 def join_url(*parts: str) -> str:
@@ -160,13 +161,9 @@ def grep_cmd(pattern: str, path: str = ".", *,
         if ignore_case:
             cmd.append("/i")
         if fixed:
+            # /x = exact line match; /c: = literal string (no regex interpretation)
             cmd.append("/x")
-            # Escape regex metacharacters so findstr treats the pattern as a literal string
-            safe = pattern.replace("\\", "\\\\").replace(".", "\\.").replace("*", "\\*")\
-                          .replace("^", "\\^").replace("$", "\\$").replace("|", "\\|")\
-                          .replace("(", "\\(").replace(")", "\\)").replace("+", "\\+")\
-                          .replace("?", "\\?").replace("[", "\\[").replace("]", "\\]")
-            cmd.append(safe)
+            cmd.extend(["/c:" + pattern])
         else:
             cmd.append(pattern)
         if glob_pattern:
@@ -203,6 +200,34 @@ def tail_file(path: str, n_lines: int = 10) -> list[str]:
     except Exception:
         return []
     return [l.rstrip("\n\r") for l in lines[-n_lines:]]
+
+
+# ── Async server helpers ──
+
+_SERVER_COUNTER: int = 0
+
+async def create_ipc_server(handler: Any, socket_path: str, host: str = "127.0.0.1") -> Any:
+    """Create an IPC server — Unix socket on POSIX, TCP on Windows.
+
+    Returns (asyncio.AbstractServer, actual_address).
+    On POSIX the address is the socket_path; on Windows it's (host, port).
+    """
+    import asyncio as _asyncio
+    global _SERVER_COUNTER
+    if IS_WINDOWS:
+        port = 42000 + (_SERVER_COUNTER % 1000)
+        _SERVER_COUNTER += 1
+        server = await _asyncio.start_server(handler, host=host, port=port)
+        return server, (host, port)
+    os.makedirs(os.path.dirname(socket_path) or ".", exist_ok=True)
+    server = await _asyncio.start_unix_server(handler, path=socket_path)
+    return server, socket_path
+
+
+def remove_ipc_socket(socket_path: str) -> None:
+    """Remove a Unix socket file (noop on Windows)."""
+    if not IS_WINDOWS and os.path.exists(socket_path):
+        os.unlink(socket_path)
 
 
 # ── Signal / shutdown ──

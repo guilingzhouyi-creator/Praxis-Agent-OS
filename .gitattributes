@@ -1,0 +1,14 @@
+* text=auto eol=lf
+*.py text diff=python
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.toml text
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.ico binary
+*.db binary
+*.sqlite3 binary

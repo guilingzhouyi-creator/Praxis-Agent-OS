@@ -7,10 +7,13 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, TERMINAL_CONTEXT_RECENT
-from l1.kernel.params.system import POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS
+from l1.kernel.params.system import (
+    POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS,
+    LOG_TRUNC_40, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_1000, LOG_TRUNC_3000, LOG_TRUNC_4000,
+)
 from l1.kernel.params.tool import TOOL_GREP_TIMEOUT
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
-from l1.kernel.platform import SHELL_PATH
+from l1.kernel.platform import grep_cmd as _grep_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +76,7 @@ def handle_read_file(term, card, phases):
     cached = term.file_cache.get(card.target)
     if cached is not None:
         phases.append("cache_hit")
-        return cached[:2000], [], True
+        return cached[:LOG_TRUNC_2000], [], True
     phases.append(f"execute:{card.action}")
     if card.action == "read_file":
         term.file_cache.set(card.target, f"executed {card.action} on {card.target}")
@@ -121,8 +124,8 @@ def handle_shell(term, card, phases):
     try:
         from l1.kernel.platform import run_shell
         r = run_shell(command, timeout=timeout)
-        out = (r.stdout or "")[:3000]
-        err = (r.stderr or "")[:1000]
+        out = (r.stdout or "")[:LOG_TRUNC_3000]
+        err = (r.stderr or "")[:LOG_TRUNC_1000]
         exit_code = r.returncode
         success = exit_code == 0
         result = (f"{prompt_str}{command}\n{out}")
@@ -155,24 +158,25 @@ def handle_write(term, card, phases):
 def _handle_grep(args, agent):
     """Inline grep tool."""
     import subprocess as _sp
-    cmd = _sp.run(["rg", "-rn", args.get("pattern", ""), args.get("path", ".")],
-                   capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT)
-    if cmd.returncode != 0:
-        cmd = _sp.run(["grep", "-rn", args.get("pattern", ""), args.get("path", ".")],
-                       capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT, shell=True, executable=SHELL_PATH)
-    out = cmd.stdout[:4000] or "no matches"
-    return {"success": True, "data": out}
+    cmd_list = _grep_cmd(args.get("pattern", ""), args.get("path", "."))
+    try:
+        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT)
+        out = (r.stdout or "")[:LOG_TRUNC_4000] or "no matches"
+        return {"success": True, "data": out}
+    except FileNotFoundError:
+        return {"success": False, "error": "grep tool not found"}
 
 
 def _handle_shell(args, agent):
     """Inline shell tool."""
     import subprocess as _sp
+    from l1.kernel.platform import run_shell as _run_shell
     cmd = args.get("command", "")
     if not cmd:
         return {"success": False, "error": "command required"}
     try:
-        r = _sp.run(cmd, shell=True, capture_output=True, text=True, timeout=SHELL_CMD_TIMEOUT, executable=SHELL_PATH)
-        return {"success": r.returncode == 0, "stdout": r.stdout[:3000], "stderr": r.stderr[:1000], "exit_code": r.returncode}
+        r = _run_shell(cmd, timeout=SHELL_CMD_TIMEOUT)
+        return {"success": r.returncode == 0, "stdout": r.stdout[:LOG_TRUNC_3000], "stderr": r.stderr[:LOG_TRUNC_1000], "exit_code": r.returncode}
     except _sp.TimeoutExpired:
         return {"success": False, "error": "timeout"}
 
@@ -188,7 +192,7 @@ def _handle_edit(args, agent):
         with open(path, encoding="utf-8") as f:
             content = f.read()
         if old not in content:
-            return {"success": False, "error": f"pattern not found: {old[:40]}"}
+            return {"success": False, "error": f"pattern not found: {old[:LOG_TRUNC_40]}"}
         content = content.replace(old, new)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -215,7 +219,7 @@ def handle_think(term, card, phases):
         recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
         if recent:
             ctx_parts.append("=== Recent Context ===\n" + "\n".join(
-                str(r.get("value", ""))[:200] for r in recent
+                str(r.get("value", ""))[:LOG_TRUNC_200] for r in recent
             ))
         memory_context = "\n\n".join(ctx_parts)
 
@@ -247,7 +251,7 @@ def handle_think(term, card, phases):
             p = args.get("path", ""); full = _resolve(p)
             try:
                 with open(full, encoding="utf-8") as f:
-                    return {"success": True, "data": f.read()[:4000], "resolved": full}
+                    return {"success": True, "data": f.read()[:LOG_TRUNC_4000], "resolved": full}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
@@ -315,12 +319,12 @@ def handle_think(term, card, phases):
         memory.remember(
             agent_id=term.agent_id,
             entry_type="thought",
-            content=f"{task}: {output[:300]}",
+            content=f"{task}: {output[:LOG_TRUNC_300]}",
             tags=["think", card.action],
             ring=1,
         )
         term.context.store(key=f"think:{card.target[:40]}",
-                           value={"agent": term.agent_id, "thought": card.target, "output": output[:200]},
+                           value={"agent": term.agent_id, "thought": card.target, "output": output[:LOG_TRUNC_200]},
                            agent_id=term.agent_id, entry_type="thought")
         phases.append("memory_stored")
         return output, [], True

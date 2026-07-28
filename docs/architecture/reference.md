@@ -51,11 +51,11 @@ praxis/
 │   │
 │   │   └── params/                  # === CONSTANTS ===
 │   │       ├── __init__.py          # Docstring only — no re-exports
-│   │       ├── kernel.py            # 129 constants: allocator, sync, gatechain, process
-│   │       ├── agent.py             # 153 constants: roles, terminal, loop, card, events
-│   │       ├── tool.py              # 33 constants: danger, timeouts, HTN
-│   │       ├── api.py               # 111 constants: API, LLM, network, IPC, env vars
-│   │       └── system.py            # 163 constants: cache, memory rings, data paths
+│   │       ├── kernel.py            # 154 constants: allocator, sync, gatechain, process, boot
+│   │       ├── agent.py             # 181 constants: roles, terminal, loop, card, events, scout
+│   │       ├── tool.py              # 39 constants: danger, timeouts, HTN, package mgr
+│   │       ├── api.py               # 129 constants: API, LLM, network, IPC, env vars
+│   │       └── system.py            # 191 constants: cache, memory rings, data paths, truncation
 │   │
 │   ├── l2/                          # === L2: SHELL ===
 │   │   ├── l2_shell/
@@ -105,10 +105,10 @@ praxis/
 │   │   ├── agent_terminal/          # Terminal runtime
 │   │   │   └── __init__.py          # AgentTerminal, 34 methods (639 lines)
 │   │   │
-│   │   ├── boot/                    # Boot sequence + wiring (4 files)
+│   │   ├── boot/                    # Boot sequence + lifecycle (4 files)
 │   │   │   ├── __init__.py
-│   │   │   ├── boot.py              # 5-step system bootstrap (528 lines)
-│   │   │   ├── boot_init.py         # Memory/shutdown init (107 lines)
+│   │   │   ├── boot.py              # 7-step system bootstrap (681 lines)
+│   │   │   ├── lifecycle.py         # Factory reset + singleton reset + disk wipe (200 lines)
 │   │   │   └── wiring.py            # Port→adapter wiring (210 lines)
 │   │   │
 │   │   ├── bus/                     # IPC, L3B, MonitorBus, HTN (15 files)
@@ -280,6 +280,8 @@ praxis/
 │   │   │   ├── answer_aggregator.py   # Cross-Cell merge + dedup + divergence (284 lines)
 │   │   │   ├── supplement_manager.py  # Supplement classify/route (113 lines)
 │   │   │   └── report_service.py      # Report → MD + L3A + SSE (149 lines)
+│   │   │
+│   │   ├── tools/                     # 17 tool implementations
 │   │   │   ├── _archive.py          # Archive tools (74 lines)
 │   │   │   ├── _build.py            # Build tools (31 lines)
 │   │   │   ├── _code.py             # Code analysis (64 lines)
@@ -306,18 +308,18 @@ praxis/
 │   │   │   ├── api_middleware.py    # Middleware chain (312 lines)
 │   │   │   └── api_handlers_cards.py # Card handlers (93 lines)
 │   │   │
-│   │   ├── api_handlers/            # 9 handler modules
-│   │   │   ├── __init__.py          # Handler mixin (688 lines)
+│   │   ├── api_handlers/            # 11 handler modules
+│   │   │   ├── __init__.py          # Handler mixin (770 lines)
 │   │   │   ├── api_handlers_agent.py # Agent handlers (83 lines)
 │   │   │   ├── api_handlers_cluster.py # Cluster handlers
 │   │   │   ├── api_handlers_commands.py # Command handlers
 │   │   │   ├── api_handlers_config.py # Config handlers (168 lines)
 │   │   │   ├── api_handlers_constitution.py # Constitution API (73 lines)
+│   │   │   ├── api_handlers_discussion.py # Discussion API (8 routes)
 │   │   │   ├── api_handlers_monitor.py # Monitor handlers (188 lines)
 │   │   │   ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
 │   │   │   ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
-│   │   │   ├── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
-│   │   │   └── api_handlers_discussion.py # Discussion API (8 routes)
+│   │   │   └── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
 │   │   │
 │   │   ├── llm/                     # LLM engine + providers
 │   │   │   ├── __init__.py
@@ -346,17 +348,17 @@ praxis/
 │   │   │
 │   │   ├── llm_worker/              # Worker process (104 lines)
 │   │   ├── mcp_bridge.py            # MCP adapter (588 lines)
-│   │   ├── sandbox.py               # Sandbox interface (329 lines)
-│   │   ├── sandbox/                 # Sandbox mgr + server (256 lines)
+│   │   ├── sandbox.py               # Cell COW sandbox (329 lines)
+│   │   ├── sandbox/                 # Execution sandbox: manager + server (256 lines)
 │   │   ├── rpc/                     # RPC protocol + transport (78 lines)
-│   │   ├── supervisor.py            # Process supervisor (217 lines)
+│   │   ├── supervisor.py            # Process supervisor (222 lines)
 │   │   ├── cron_scheduler.py        # Cron scheduling (224 lines)
 │   │   ├── user_session.py          # User sessions (149 lines)
 │   │   ├── notify.py                # Webhooks (99 lines)
 │   │   ├── net_client.py            # HTTP client (83 lines)
-│   │   ├── network.py               # Network
+│   │   ├── network.py               # Network mesh
 │   │   ├── ops_console.py           # Dashboard (289 lines)
-│   │   ├── ci.py                    # CI pipeline (230 lines)
+│   │   ├── ci.py                    # Internal CI pipeline (231 lines)
 │   │   ├── git.py                   # Git ops (149 lines)
 │   │   └── adapters/
 │   │       ├── __init__.py          # Adapter exports (41 lines)
@@ -371,6 +373,9 @@ praxis/
 │   │   ├── cli.py                   # CLI entry (296 lines)
 │   │   └── agent_runtime.py         # Runtime loop (176 lines)
 │   │
+│   ├── main.py                      # REPL + dispatch entry point
+│   ├── tool_ring.py                 # Per-agent tool ring + request pool
+│   ├── tool_approval.py             # Ring 3 approval/witness
 │   └── services/                    # Empty dir (legacy, files migrated to l2/l3/l4)
 │
 ├── tests/
@@ -399,7 +404,7 @@ praxis/
 
 ## Constants Reference
 
-### `params/kernel.py` (129 constants)
+### `params/kernel.py` (154 constants)
 
 | Section | Key Constants |
 |---------|--------------|
@@ -413,66 +418,78 @@ praxis/
 | ToolChain | `TOOLCHAIN_MAX_CALLS=5000` |
 | GateChain | `GATECHAIN_RISK_WARN_THRESHOLD=6.0`, `GATECHAIN_REPEAT_THRESHOLD=5` |
 | VFS | `VFS_DEFAULT_MIN_RING=1` |
-| Syscall | `SYSCALL_AUDIT_MAX=5000` |
+| Syscall | `SYSCALL_AUDIT_MAX=5000`, `SYSCALL_AUDIT_CLI_LIMIT=50` |
 | Stagnation | `STAGNATION_SPIN_THRESHOLD=3` |
+| Watchdog | `WATCHDOG_INTERVAL=15`, `WATCHDOG_ZOMBIE_LIMIT=3`, `WATCHDOG_IDLE_LIMIT=300` |
+| Boot | `BOOT_STEP_TIMEOUT=60.0` |
 | Ring | `RING_1`, `RING_2_5`, `RING_3` + `RING_NUM_MAP` + `RING_NAME_MAP` |
 | GateStatus | `PASS`, `WARN`, `BLOCK`, `REPORT` |
 | WitnessStatus | `PENDING`, `APPROVED`, `REJECTED` |
 
-### `params/agent.py` (153 constants)
+### `params/agent.py` (181 constants)
 
 | Section | Key Constants |
 |---------|--------------|
-| Constitution | `BUILTIN_RULE_DEFS` (15 rules), `CONSTITUTION_FILE_ACTIONS`, `CONSTITUTION_MODIFY_ACTIONS` |
+| Constitution | `BUILTIN_RULE_DEFS` (15 rules), `CONSTITUTION_FILE_ACTIONS`, `CONSTITUTION_MODIFY_ACTIONS`, `CONSTITUTION_SCOUT_BLOCKED` |
 | Agent | `AgentDefaults`, `DEFAULT_AGENT_CONFIGS`, `CENTRAL_ROLES`, `AGENT_CLEARANCE` |
-| Terminal | `TERMINAL_MODE_VALID=("assembly","direct")`, `CACHE_KEEPALIVE_INTERVAL=240.0` |
-| Loop | `AGENT_LOOP_DEFAULT_STEPS=10`, `AGENT_LOOP_DEFAULT_TIMEOUT=120.0` |
-| Scout | `SCOUT_LOOP_STEPS=10`, `SCOUT_LOOP_TIMEOUT=180.0` |
+| Terminal | `TERMINAL_MODE_VALID=("assembly","direct")`, `TERMINAL_CONTEXT_RECENT=5`, `TERMINAL_OUTPUT_MAX_CHARS=4000` |
+| Loop | `AGENT_LOOP_DEFAULT_STEPS=10`, `AGENT_LOOP_DEFAULT_TIMEOUT=120.0`, `AGENT_LOOP_MAX_WORKERS=4` |
+| Scout | `SCOUT_LOOP_STEPS=10`, `SCOUT_LOOP_TIMEOUT=180.0`, `SCOUT_FINDING_TRUNC=500`, `SCOUT_FILE_READ_TRUNC=4000`, `SCOUT_GREP_MAX=20` |
+| SubAgent | `SUBAGENT_LOOP_STEPS=5`, `SUBAGENT_LOOP_TIMEOUT=30.0`, `SUBAGENT_MAX_TOKENS=4096` |
 | Events | `EVENT_TASK_ASSIGN`, `EVENT_REVIEW_REQUESTED`, `EVENT_TOKEN_USAGE`, `EVENT_CROSS_REVIEW`, `EVENT_AGENT_BOOT`, `EVENT_ARCHIVE_ALERT` |
-| Card | `CARD_GATE_APPROVAL_TIMEOUT=3600.0`, `CARD_BUILDER_MODES` |
+| Card | `CARD_TIMEOUT=30.0`, `CARD_WAIT_TIMEOUT=30.0`, `CARD_GATE_APPROVAL_TIMEOUT=3600.0`, `CARD_BUILDER_MODES` |
 | Cell | `CELL_ROLLBACK_RING_SIZE=20`, `CELL_MAILBOX_MAX_PER_AGENT=100` |
 | Agent Status | `AGENT_STATUS_IDLE`, `AGENT_STATUS_PROCESSING`, `AGENT_STATUS_CRASHED`, `AGENT_STATUS_BOOTING` |
 
-### `params/tool.py` (33 constants)
+### `params/tool.py` (39 constants)
 
 | Section | Key Constants |
 |---------|--------------|
 | Danger | `TOOL_DANGER_LEVEL` {0-3}, `DANGER_TO_GATES` |
-| Timeouts | `TOOL_BUILD_TIMEOUT=300`, `TOOL_PIP_TIMEOUT=120`, `TOOL_GIT_TIMEOUT=30`, `TOOL_TERMINAL_TIMEOUT=30.0` |
+| Timeouts | `TOOL_BUILD_TIMEOUT=300`, `TOOL_PIP_INSTALL_TIMEOUT=120`, `TOOL_GIT_TIMEOUT=30`, `TOOL_TERMINAL_TIMEOUT=30.0`, `TOOL_GREP_TIMEOUT=15.0`, `TOOL_PACKAGE_MANAGER_TIMEOUT=120` |
 | Rates | `TOOL_RATE_RING_1=60/min`, `TOOL_RATE_RING_2_5=20/min`, `TOOL_RATE_RING_3=5/min` |
 | HTN | `HTN_DEFAULT_TOOLS` (14 tool mappings) |
+| Build | `BUILD_DETECTORS` (pip/cargo/npm/msbuild/dotnet), `TEST_DETECTORS` (pytest/cargo/npm/dotnet/vstest) |
 
-### `params/api.py` (111 constants)
+### `params/api.py` (129 constants)
 
 | Section | Key Constants |
 |---------|--------------|
 | PAL | `PAL_FRUGAL_COST=1`, `PAL_STANDARD_COST=10`, `PAL_FRONTIER_COST=30` |
-| LLM | `LLM_RATE_LIMIT_WAIT=60`, `LLM_PROVIDER_URLS` (openai/anthropic/ollama) |
-| API | `API_GATEWAY_PORT=8080`, `API_GATEWAY_HOST="127.0.0.1"`, API_CORS_* |
-| Network | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0`, `DISCOVERY_PORT_DEFAULT=42069` |
-| IPC | `IPC_SOCKET_DIR`, `IPC_KERNEL_SOCKET`, `IPC_LLM_SOCKET` |
-| Env Vars | `ENV_OPENAI_KEY`, `ENV_ANTHROPIC_KEY`, `ENV_SANDBOX_ROOT`, 16 total |
+| LLM | `LLM_RATE_LIMIT_WAIT=60`, `LLM_PROVIDER_URLS` (openai/anthropic/ollama/deepseek) |
+| API | `API_GATEWAY_PORT=8080`, `API_GATEWAY_HOST="127.0.0.1"`, `API_MAX_BODY_BYTES`, API_CORS_* |
+| Network | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0`, `DISCOVERY_PORT_DEFAULT=42069`, `MESH_PORT_DEFAULT=42070` |
+| IPC | `IPC_SOCKET_DIR`, `IPC_KERNEL_SOCKET`, `IPC_LLM_SOCKET`, `IPC_SANDBOX_SOCKET` |
+| Env Vars | `ENV_OPENAI_KEY`, `ENV_ANTHROPIC_KEY`, `ENV_SANDBOX_ROOT`, `ENV_DEEPSEEK_KEY`, `ENV_OLLAMA_URL`, `ENV_API_TOKEN` (18 total) |
 | Channel | `CHANNEL_RING_CAPACITY=1024` |
 | Worker | `WORKER_POOL_MIN=4`, `WORKER_POOL_MAX=32` |
+| SubAgent | `SUBAGENT_RUN_TIMEOUT=120.0`, `SUBAGENT_JOIN_TIMEOUT=30.0` |
+| Transport | `TRANSPORT_SOCKET_TIMEOUT=10.0` |
 
-### `params/system.py` (163 constants)
+### `params/system.py` (194 constants)
 
 | Section | Key Constants |
 |---------|--------------|
-| Cache | `FILE_CACHE_MAX_ENTRIES=500`, `FILE_CACHE_TTL=60.0` |
-| Scout Pool | `SCOUT_POOL_MAX_TOTAL=16`, `SCOUT_IDLE_TIMEOUT=60.0` |
-| Persistence | `PERSIST_INTERVAL=30.0`, `CARD_REGISTRY_AUTO_SAVE=30.0` |
+| Cache | `FILE_CACHE_MAX_ENTRIES=500`, `FILE_CACHE_TTL=60.0`, `CELL_CACHE_HOT_SIZE=50` |
+| Scout Pool | `SCOUT_POOL_MAX_TOTAL=16`, `SCOUT_POOL_IDLE_TIMEOUT=60.0`, `SCOUT_CACHE_TTL=30.0`, `SCOUT_POOL_MAX_PER_AGENT=4` |
+| Persistence | `PERSIST_INTERVAL=30.0`, `CARD_REGISTRY_AUTO_SAVE=30.0`, `CARD_GATE_AUTO_SAVE=10.0` |
 | Memory Ring | `RING1_CAPACITY=32`, `RING2_CAPACITY=200`, `RING3_CAPACITY=1000` |
-| Memory Budget | `MEMORY_RING_WORKING_BUDGET=8192`, `SHORT=32768`, `LONG=131072` |
-| Polling | `POLL_INTERVAL_FAST=0.01`, `SLOW=0.05`, `PAUSED=0.5` |
-| Sandbox | `SANDBOX_PROFILE_READ_ONLY="DANGER_0"`, `SANDBOX_EXEC_TIMEOUT=300.0` |
-| Data Paths | `PRAXIS_DATA_DIR`, `PRAXIS_EVENTS_DB`, `PRAXIS_CARD_REGISTRY`, 25+ paths |
+| Memory Budget | `MEMORY_RING_WORKING_BUDGET=8192`, `MEMORY_RING_SHORT_BUDGET=32768`, `MEMORY_RING_LONG_BUDGET=131072` |
+| Memory Importance | `MEMORY_IMPORTANCE_BASE=0.5`, `MEMORY_PRESSURE_HIGH=0.80`, `MEMORY_PROMOTION_THRESHOLD=0.6` |
+| Polling | `POLL_INTERVAL_FAST=0.01`, `POLL_INTERVAL_SLOW=0.05`, `POLL_INTERVAL_PAUSED=0.5` |
+| Sandbox | `SANDBOX_PROFILE_READ_ONLY="DANGER_0"`, `SANDBOX_EXEC_TIMEOUT=300.0`, `SANDBOX_MAX_OUTPUT=5000` |
+| Truncation | `LOG_TRUNC_40` through `LOG_TRUNC_10000` (15 values), `HASH_TRUNC_SHORT=8`, `HASH_TRUNC_MEDIUM=12`, `HASH_TRUNC_LONG=16` |
 | Token | `TOKEN_CELL_QUOTA=5_000_000`, `TOKEN_GLOBAL_QUOTA=50_000_000` |
 | Error Bus | `ERROR_BUS_BUFFER=5000`, `ERROR_BUS_DEDUP_WINDOW=300` |
 | Log | `LOG_MAX_MEMORY_ENTRIES=5000`, `LOG_EXPORT_LIMIT=10000` |
+| Think | `THINK_BUDGET_GLOBAL_DEFAULT=0`, `THINK_REASONING_DEFAULT="none"` |
+| PMU | `PMU_HISTORY_SIZE=3600`, `PMU_SNAPSHOT_INTERVAL=60.0` |
+| ICache | `ICACHE_MAX_ENTRIES=500`, `ICACHE_TTL=3600.0`, `ICACHE_LFU_DECAY=0.95` |
+| Interrupt | `IRQ_TABLE_SIZE=32`, `IRQ_PRIORITY_LEVELS=4` |
+| Stats | `STATS_BUCKET_SIZE=600`, `STATS_HISTORY_BUCKETS=144` |
 | Version | `KERNEL_VERSION="0.3.0"`, `PRAXIS_CODENAME="Aether"` |
 
-## API Routes (157 + 13 = 170 total)
+## API Routes (208 total)
 
 | Category | Routes | Handler Prefix |
 |----------|--------|---------------|
@@ -482,7 +499,7 @@ praxis/
 | Card Types | 2 | `card_types_list`, `card_types_register` |
 | Approvals | 4 | `list_approvals`, `approval_respond`, `gate_pending`, `gate_respond` |
 | Pending | 6 | `pending_list`, `pending_approve`, `pending_reject`, `pending_escalate`, `pending_priority`, `pending_stats` |
-| Cell | 2 | `cell_stop`, `cell_liveness` |
+| Cell/Cluster | 4 | `cell_stop`, `cell_liveness`, `cluster_status`, `cluster_expand`, `cluster_shrink` |
 | Agent | 8 | `agent_list`, `agent_select`, `agent_select_by`, `agent_preconnect`, `agent_reachable`, `agent_direct`, `agent_direct_close`, `agent_review_message` |
 | Settings | 2 | `settings`, `set_settings` |
 | Security | 4 | `security_check`, `security_stats`, `trust_check`, `trust_stats` |
@@ -497,6 +514,7 @@ praxis/
 | Credentials | 3 | `credential_status`, `credential_set`, `credential_delete` |
 | Constitution | 5 | `constitution`, `constitution/rules`, `constitution/summary`, `constitution/reload`, `constitution/custom` |
 | Bootstrap | 3 | `bootstrap_status`, `bootstrap_defaults`, `bootstrap_apply` |
+| **System Lifecycle** | **6** | **`boot`, `shutdown`, `reboot`, `reload`, `reset`, `boot/status`** |
 | Export | 2 | `export_counter`, `export_metrics` |
 | Rollback | 1 | `rollback_context` |
 | Session | 1 | `session_state` |
@@ -507,13 +525,15 @@ praxis/
 | Prompts | 4 | `build`, `context`, `templates`, `template` |
 | LSP | 6 | `diagnostics`, `hover`, `servers`, `start`, `stop`, `feedback` |
 | Search | 5 | `search`, `semantic`, `symbol`, `docs`, `docs/index` |
-| Session | 6 | `export`, `import`, `snapshots`, `snapshot`, `snapshot/restore`, `snapshot/delete` |
+| Session Export | 6 | `export`, `import`, `snapshots`, `snapshot`, `snapshot/restore`, `snapshot/delete` |
 | SSE | 1 | `events` |
 | Buffer | 4 | `buffer/status`, `buffer/commit`, `buffer/diff`, `buffer/discard` |
 | Monitor | 6 | `monitor/events`, `monitor/stats`, `monitor/stream`, `monitor/gate`, `monitor/gate/<id>` |
 | Stats | 3 | `stats/query`, `stats/top`, `stats/live` (SSE) |
 | Records | 4 | `records/query`, `records/stats`, `records/export`, `records/bridge` |
 | Discussion | 8 | `discussion/submit_issue`, `discussion/session`, `discussion/session/<id>`, `discussion/cell`, `/v2/discussion/abort`, `/v2/discussion/sessions`, `/v2/discussion/aggregate`, `/v2/discussion/report` |
+| Loop | 2 | `loop_config`, `loop_config` |
+| Agent Config | 2 | `agent/config`, `agent/config` |
 | V1 | 2 | `v1/tools`, `v1/locales` |
 
 ## Error Codes (20)
@@ -555,18 +575,18 @@ Defined in `l1/kernel/ports.py`:
 | `CardRegistryPort` | `CardRegistryAdapter` | `l4/adapters/card_registry.py` |
 | `MonitorBusPort` | `MonitorBusAdapter` | `l4/adapters/monitor_bus.py` |
 
-## Layer Import Allowlist (49 entries)
+## Layer Import Allowlist (53 entries)
 
-Pre-existing cross-layer imports exempted from the strict one-way rule in `test_layer_imports.py`:
+Pre-existing cross-layer imports exempted from the strict one-way rule in `test_layer_imports.py`. The full allowlist has 172 tuple entries but many are duplicates caused by refactoring (commands.py split into session/system/control/agent sub-files). Unique source-target pairs:
 
-| Pattern | Files | Reason |
-|---------|-------|--------|
-| L1 → L3/L4 | 5 | Adapter ports (settings → adapter, net → worker/channel) |
+| Pattern | Unique Pairs | Reason |
+|---------|-------------|--------|
+| L1 → L3/L4 | 6 | Adapter ports (settings→adapter, net→worker/channel), OS fallback lifecycle imports |
 | L2 → L3/L4 | 3 | Shell accessing L3 services + i18n adapter |
 | L3 → L4 (LLM) | 6 | AgentLoop, cache, card_registry etc. need LLM |
 | L3 → L4 (adapters) | 6 | wiring.py boot-time port assembly |
 | L3 → L4 (services) | 4 | Config handlers, prompt engine, sandbox, notify |
-| L2 → L3 | 2 | Shell think registry + cell access |
+| L2 → L3 | 24 | Shell commands accessing cell, memory, scheduler, security, plugin services |
 | L1 → L4 | 1 | model_registry needs LLM base |
 
 ## Environment Variables (16)
@@ -594,25 +614,27 @@ Defined in `params/api.py`:
 
 ## State File Paths (25+)
 
-All under `PRAXIS_DATA_DIR` (default: `$TMPDIR/nomos-praxis-data/`):
+Persistent state is stored in the project root directory (CWD), not under `PRAXIS_DATA_DIR`:
 
-| Constant | File |
-|----------|------|
-| `PRAXIS_EVENTS_DB` | `events.db` |
-| `PRAXIS_STATE_JSON` | `state.json` |
-| `PRAXIS_CARD_REGISTRY` | `card_registry.json` |
-| `PRAXIS_CARD_GATE` | `card_gate.json` |
-| `PRAXIS_PENDING_QUEUE` | `pending_queue.json` |
-| `PRAXIS_APPROVAL_GATE` | `approval_gate.json` |
-| `PRAXIS_SANDBOX_STATE` | `sandbox_state.json` |
-| `PRAXIS_TODO_TABLE` | `todo_table.json` |
-| `PRAXIS_EXECUTION_RESULTS` | `execution_results.json` |
-| `PRAXIS_DIALOGUE_SESSION` | `dialogue_session.json` |
-| `PRAXIS_ARCHIVE_DB` | `archive.db` |
-| `PRAXIS_MCP_STATE` | `mcp_state.json` |
-| `PRAXIS_MESSAGE_GATE_STATE` | `message_gate.json` |
-| `PRAXIS_MONITOR_BUS_LOG` | `monitor_bus.jsonl` |
-| `PRAXIS_VAULT_SALT` | `.praxis_vault_salt` |
-| `PRAXIS_SETTINGS_FILE` | `.praxis_settings.json` (in CWD) |
+| Pattern / File | Contents | Generated By |
+|----------------|----------|-------------|
+| `.praxis_state.db` | SQLite event store | `l1/kernel/persist.py` |
+| `.praxis_card_registry.json` | Card queue + status | `l3/card/card_registry.py` |
+| `.praxis_pending_queue.json` | Approval queue | `l3/card/pending_queue.py` |
+| `.praxis_approval_gate.json` | Approval gate state | `l3/card/approval_gate.py` |
+| `.praxis_settings.json` | Runtime settings overrides | `l3/config/settings_center.py` |
+| `.praxis_sandbox_state.json` | COW sandbox state | `l4/sandbox.py` |
+| `.praxis_todo_table.json` | Task queue | `l3/services/todo.py` |
+| `.praxis_execution_results.json` | Card execution results | `l3/card/execution_engine.py` |
+| `.praxis_dialogue_session.json` | Dialogue persistence | `l3/card/dialogue_session.py` |
+| `*.chain_key` | Tool call fingerprints | `l1/kernel/tool_chain.py` |
+| `memories/` | Agent memory directory | `l3/memory/` |
+| `memories/AGENT/sessions/` | Boot/shutdown snapshots | `l3/memory/memory_init.py` |
+| `memories/archives/` | R4 agent archives | `l3/memory/r4_agent.py` |
+| `memories/archive.db` | Long-term memory (SQLite FTS5) | `l3/memory/memory.py` |
+| `events.db` | Event store (legacy) | `l1/kernel/persist.py` |
+| `.praxis_seq_monitor_*.json` | Sequence anomaly data | `l3/scheduler/sequence_monitor.py` |
+| `.praxis_monitor_bus.jsonl` | Monitor event log | `l3/bus/monitor_bus.py` |
+| `.praxis/.praxis_reference_channel.jsonl` | Reference channel events | `l3/bus/reference_channel.py` |
 
-Plus template paths: `cell_{}.json`, `seq_monitor_{}.json`, `{}.state.json`, `{}.snapshot.json`.
+Factory reset (`lifecycle.py:wipe_disk_state()`) deletes all of these files.

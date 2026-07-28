@@ -13,6 +13,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.tool import (
+    TOOL_PACKAGE_MANAGER_TIMEOUT, TOOL_PIP_INSTALL_TIMEOUT,
+    TOOL_PACKAGE_LIST_TIMEOUT, TOOL_NPM_INSTALL_TIMEOUT,
+    TOOL_APT_INSTALL_TIMEOUT, TOOL_CARGO_INSTALL_TIMEOUT,
+)
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -42,7 +48,7 @@ class PackageManager(BaseService):
     def _on_stop(self) -> dict:
         return {"success": True}
 
-    def _run(self, cmd: list[str], timeout: int = 60) -> dict:
+    def _run(self, cmd: list[str], timeout: int = TOOL_PACKAGE_MANAGER_TIMEOUT) -> dict:
         """Run a package manager command."""
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -52,8 +58,8 @@ class PackageManager(BaseService):
                     self._failed_operations += 1
             return {
                 "success": r.returncode == 0,
-                "stdout": r.stdout[:2000],
-                "stderr": r.stderr[:500],
+                "stdout": r.stdout[:LOG_TRUNC_2000],
+                "stderr": r.stderr[:LOG_TRUNC_500],
                 "exit_code": r.returncode,
             }
         except FileNotFoundError:
@@ -67,10 +73,10 @@ class PackageManager(BaseService):
 
     def pip_install(self, package: str, version: str = "") -> dict:
         cmd = ["pip", "install"] + ([f"{package}=={version}"] if version else [package])
-        return self._run(cmd, 120)
+        return self._run(cmd, TOOL_PIP_INSTALL_TIMEOUT)
 
     def pip_list(self) -> dict:
-        r = self._run(["pip", "list", "--format=columns"], 30)
+        r = self._run(["pip", "list", "--format=columns"], TOOL_PACKAGE_LIST_TIMEOUT)
         if r["success"]:
             lines = r["stdout"].splitlines()
             packages = []
@@ -82,7 +88,7 @@ class PackageManager(BaseService):
         return r
 
     def pip_uninstall(self, package: str) -> dict:
-        return self._run(["pip", "uninstall", "-y", package], 30)
+        return self._run(["pip", "uninstall", "-y", package], TOOL_PACKAGE_LIST_TIMEOUT)
 
     # ── Npm ──
 
@@ -91,27 +97,27 @@ class PackageManager(BaseService):
         if global_install:
             cmd.append("-g")
         cmd.append(package)
-        return self._run(cmd, 120)
+        return self._run(cmd, TOOL_NPM_INSTALL_TIMEOUT)
 
     def npm_list(self, depth: int = 0) -> dict:
         cmd = ["npm", "list", f"--depth={depth}"]
-        return self._run(cmd, 30)
+        return self._run(cmd, TOOL_PACKAGE_LIST_TIMEOUT)
 
     # ── Apt ──
 
     def apt_install(self, package: str) -> dict:
-        return self._run(["apt-get", "install", "-y", package], 120)
+        return self._run(["apt-get", "install", "-y", package], TOOL_APT_INSTALL_TIMEOUT)
 
     def apt_update(self) -> dict:
-        return self._run(["apt-get", "update"], 120)
+        return self._run(["apt-get", "update"], TOOL_APT_INSTALL_TIMEOUT)
 
     def apt_search(self, pattern: str) -> dict:
-        return self._run(["apt-cache", "search", pattern], 30)
+        return self._run(["apt-cache", "search", pattern], TOOL_APT_SEARCH_TIMEOUT)
 
     # ── Cargo ──
 
     def cargo_install(self, package: str) -> dict:
-        return self._run(["cargo", "install", package], 300)
+        return self._run(["cargo", "install", package], TOOL_CARGO_INSTALL_TIMEOUT)
 
     # ── Unified ──
 

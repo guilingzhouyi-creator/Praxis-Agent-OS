@@ -8,11 +8,21 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
+from l1.kernel.params.system import (
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_40,
+    LOG_TRUNC_100,
+    LOG_TRUNC_120,
+    LOG_TRUNC_200,
+    LOG_TRUNC_300,
+    LOG_TRUNC_500,
+)
 from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
     AGENT_LOOP_FUTURE_TIMEOUT,
     AGENT_LOOP_MAX_WORKERS,
+    AGENT_LOOP_MAX_CONTENT,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
@@ -28,7 +38,7 @@ from .verify_cadence import VerifyCadence
 logger = logging.getLogger(__name__)
 
 # Max accumulated content length across truncation, correction, and nudge appends
-_AGENT_LOOP_MAX_CONTENT: int = 100_000  # chars (~25K tokens)
+_AGENT_LOOP_MAX_CONTENT: int = AGENT_LOOP_MAX_CONTENT  # chars (~25K tokens)
 
 
 # extracted to services/todo_tracker.py
@@ -88,7 +98,7 @@ class AgentLoop:
             content = args.get("content", "")
             status = args.get("status", "in_progress")
             self._todo.update(content, status)
-            return {"success": True, "message": f"todo '{content[:40]}' → {status}"}
+            return {"success": True, "message": f"todo '{content[:LOG_TRUNC_40]}' → {status}"}
         # Only register if not already added
         if not any(t.name == "todowrite" for t in self._tools):
             self._tools.append(ToolSpec(
@@ -104,7 +114,7 @@ class AgentLoop:
                 parallel_safe=False,
             ))
 
-    def _fold_result(self, result: dict, max_chars: int = 500) -> dict:
+    def _fold_result(self, result: dict, max_chars: int = LOG_TRUNC_500) -> dict:
         """Head+tail truncation: keeps both ends, elides middle.
 
         AtomCode-style: when content exceeds max_chars, the first half and
@@ -187,9 +197,9 @@ class AgentLoop:
                 answer = result.get("answer", "")
                 # Use fingerprint of full task text for key uniqueness
                 import hashlib as _hl
-                task_hash = _hl.sha256(self.task.encode()).hexdigest()[:8]
+                task_hash = _hl.sha256(self.task.encode()).hexdigest()[:HASH_TRUNC_SHORT]
                 if result.get("success") and answer:
-                    summary = answer.strip()[:200]
+                    summary = answer.strip()[:LOG_TRUNC_200]
                     key = f"agent:{self.agent_id}:{task_hash}:r{self._run_count}"
                     cell.cache.inject(
                         key=key,
@@ -200,7 +210,7 @@ class AgentLoop:
                         importance=0.6,
                     )
                 elif not result.get("success") and result.get("error"):
-                    error = result["error"][:200]
+                    error = result["error"][:LOG_TRUNC_200]
                     key = f"fail:{self.agent_id}:{task_hash}:r{self._run_count}"
                     cell.cache.inject(
                         key=key,
@@ -217,11 +227,11 @@ class AgentLoop:
         try:
             from l3.agent.agent_persist import append_transcript
             record = {
-                "task": self.task[:100],
+                "task": self.task[:LOG_TRUNC_100],
                 "success": result.get("success", False),
                 "steps": result.get("total_steps", 0),
                 "elapsed": round(elapsed, 2),
-                "summary": str(result.get("answer", ""))[:200],
+                "summary": str(result.get("answer", ""))[:LOG_TRUNC_200],
             }
             append_transcript(self._user_id, record)
         except Exception as e:
@@ -339,7 +349,7 @@ class AgentLoop:
             evolved = r4.get_evolved_skills(agent_id=self.agent_id, limit=2)
             if evolved:
                 for es in evolved:
-                    system += f"\n\n### {es['name']}\n{es['description']}\n{es['prompt'][:300]}"
+                    system += f"\n\n### {es['name']}\n{es['description']}\n{es['prompt'][:LOG_TRUNC_300]}"
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
         try:
@@ -437,9 +447,9 @@ class AgentLoop:
                                 from l3.cell import get_cell as _get_cell
                                 cell = _get_cell(self._cell_id)
                                 cell.cache.inject(
-                                    key=f"correct:{self.agent_id}:{tool_name}:{self.task[:30]}",
-                                    value={"tool": tool_name, "error": v.get("reason", ""), "fix": fix.get("content", "")[:300]},
-                                    summary=f"CORRECT [{self.agent_id}] {tool_name}: {v.get('reason', '')[:120]}",
+                                    key=f"correct:{self.agent_id}:{tool_name}:{self.task[:LOG_TRUNC_40]}",
+                                    value={"tool": tool_name, "error": v.get("reason", ""), "fix": fix.get("content", "")[:LOG_TRUNC_300]},
+                                    summary=f"CORRECT [{self.agent_id}] {tool_name}: {v.get('reason', '')[:LOG_TRUNC_120]}",
                                     agent_id=self.agent_id,
                                     entry_type="correction",
                                     importance=0.5,
@@ -488,7 +498,7 @@ class AgentLoop:
         return self._finish({
             "success": all_passed,
             "answer": result.get("content", ""),
-            "steps": [{"step": i, "action": tc.get("name", "?"), "result": str(tc)[:200]}
+            "steps": [{"step": i, "action": tc.get("name", "?"), "result": str(tc)[:LOG_TRUNC_200]}
                       for i, tc in enumerate(processed_results)],
             "verifier_used": verifier_used,
             "corrections": corrections,

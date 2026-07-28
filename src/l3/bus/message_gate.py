@@ -22,6 +22,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.agent import CARD_GATE_APPROVAL_TIMEOUT
 from .monitor_bus import MonitorEvent
 from l3._persistable import PersistableMixin
 
@@ -38,7 +39,7 @@ class MessageGateRule:
     priority: int = 5
     reason: str = ""
     redirect_target: str = ""
-    hold_timeout: float = 3600.0
+    hold_timeout: float = CARD_GATE_APPROVAL_TIMEOUT
     created_at: float = field(default_factory=time.time)
 
     def matches(self, event: MonitorEvent) -> bool:
@@ -143,7 +144,7 @@ class MessageGateEngine(PersistableMixin):
             self._rules[rid] = MessageGateRule(
                 id=d["id"], pattern=d["pattern"], action=d["action"],
                 depends_on=d.get("depends_on", []), priority=d.get("priority", 5),
-                reason=d.get("reason", ""), hold_timeout=d.get("hold_timeout", 3600.0),
+                reason=d.get("reason", ""), hold_timeout=d.get("hold_timeout", CARD_GATE_APPROVAL_TIMEOUT),
             )
         self._triggered.update(data.get("triggered", {}))
         return True

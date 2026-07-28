@@ -125,7 +125,7 @@ class TestCardBuilder:
 
 
 class TestCardYaml:
-    def test_load_card(self):
+    def test_load_card(self, tmp_path):
         import yaml
         import tempfile
         yaml_content = """
@@ -142,10 +142,10 @@ phases:
         agent: reader
         target: "test"
 """
-        tmp = os.path.join(os.path.dirname(__file__), "_test_card.yaml")
+        tmp = str(tmp_path / "_test_card.yaml")
         with open(tmp, "w") as f:
             f.write(yaml_content)
-        from l3.card_yaml import load_card
+        from l3.card.card_yaml import load_card
         lr = load_card(tmp)
         os.remove(tmp)
         assert lr.get("success"), "yaml card should load"

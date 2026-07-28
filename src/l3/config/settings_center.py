@@ -24,6 +24,14 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from l1.kernel.params.agent import (
+    LOOP_MAX_ATTEMPTS,
+    LOOP_TOOL_REPEAT_WARN,
+    LOOP_COARSE_REPEAT_NUDGE,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+)
+from l1.kernel.params.kernel import GATECHAIN_REPEAT_THRESHOLD, GATECHAIN_HIGH_FREQ_THRESHOLD
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL, LOG_TRUNC_500, CACHE_DEFAULT_TTL
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -50,11 +58,11 @@ _L1_DEFAULTS: dict[str, Any] = {
 
     # ── Scheduler ──
     "scheduler.default_quantum": 15.0,
-    "scheduler.max_preempt": 60.0,
+    "scheduler.max_preempt": PMU_SNAPSHOT_INTERVAL,
 
     # ── Cache ──
-    "cache.max_entries": 500,
-    "cache.ttl": 60.0,
+    "cache.max_entries": LOG_TRUNC_500,
+    "cache.ttl": CACHE_DEFAULT_TTL,
 
     # ── LLM ──
     "llm.max_tokens": 2048,
@@ -70,27 +78,27 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── GateChain ──
     "gatechain.risk_warn_threshold": 6.0,
     "gatechain.escalation_danger": 4,
-    "gatechain.repeat_threshold": 5,
-    "gatechain.high_freq_threshold": 3,
+    "gatechain.repeat_threshold": GATECHAIN_REPEAT_THRESHOLD,
+    "gatechain.high_freq_threshold": GATECHAIN_HIGH_FREQ_THRESHOLD,
 
     # ── TaskBus (webhook dispatch) ──
-    "task_bus.webhook_retries": 3,
+    "task_bus.webhook_retries": LOOP_MAX_ATTEMPTS,
     "task_bus.webhook_timeout": 15,
     "task_bus.webhook_backoff": "1.0,4.0,10.0",
 
     # ── CronScheduler ──
-    "cron.check_interval": 60,
+    "cron.check_interval": PMU_SNAPSHOT_INTERVAL,
     "cron.max_entries": 50,
 
     # ── Loop control (AgentLoop self-correction) ──
     "loop.max_steps": 10,
-    "loop.timeout": 120.0,
+    "loop.timeout": AGENT_LOOP_DEFAULT_TIMEOUT,
     "loop.max_iterations": 50,
-    "loop.max_attempts": 3,
+    "loop.max_attempts": LOOP_MAX_ATTEMPTS,
     "loop.continuation_nudge": True,
-    "loop.tool_repeat_warn": 3,
+    "loop.tool_repeat_warn": LOOP_TOOL_REPEAT_WARN,
     "loop.tool_repeat_stop": 4,
-    "loop.coarse_repeat_nudge": 3,
+    "loop.coarse_repeat_nudge": LOOP_COARSE_REPEAT_NUDGE,
     "loop.coarse_repeat_stop": 6,
     "loop.verify_cadence": True,
 }

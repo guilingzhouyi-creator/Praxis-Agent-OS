@@ -10,7 +10,7 @@ from typing import Any, Callable
 import logging
 import time as _time
 
-from .params.kernel import EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
+from .params.kernel import EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT, EVENT_BUS_WORKERS
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,8 @@ class EventBus:
         self._history: deque[Signal] = deque(maxlen=max_history)
         self._wildcard_listeners: list[Callable] = []
         self._lock = RLock()
-        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="evt")
+        self._executor = ThreadPoolExecutor(max_workers=EVENT_BUS_WORKERS, thread_name_prefix="evt")
+        self._shutdown = False
 
     def on(self, st: SignalType, cb: Callable) -> None:
         with self._lock:
@@ -102,7 +103,20 @@ class EventBus:
 
         Returns the number of callbacks queued. Callbacks run in a thread pool so that
         a slow or blocking callback cannot block the emitter or other subscribers.
+        If the bus has been shut down, callbacks are dispatched synchronously instead.
         """
+        if self._shutdown:
+            # Fall back to synchronous dispatch after shutdown
+            with self._lock:
+                self._history.append(signal)
+                callbacks = list(self._listeners.get(signal.type, []))
+                wildcards = list(self._wildcard_listeners)
+            for cb in callbacks:
+                self._safe_call(cb, signal)
+            for cb in wildcards:
+                self._safe_call(cb, signal)
+            return len(callbacks) + len(wildcards)
+
         with self._lock:
             self._history.append(signal)
             callbacks = list(self._listeners.get(signal.type, []))
@@ -163,9 +177,24 @@ class EventBus:
                 "wildcard_listeners": len(self._wildcard_listeners),
             }
 
+    def shutdown(self) -> None:
+        """Shut down the async dispatch executor. Idempotent."""
+        if self._shutdown:
+            return
+        self._shutdown = True
+        self._executor.shutdown(wait=False)
+
 
 _bus = EventBus()
 
 
 def get_bus() -> EventBus:
     return _bus
+
+
+def reset_bus() -> None:
+    """Reset the global event bus singleton. Used by tests."""
+    global _bus
+    if _bus:
+        _bus.shutdown()
+    _bus = EventBus()

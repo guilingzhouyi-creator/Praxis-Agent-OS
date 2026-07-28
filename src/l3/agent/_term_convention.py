@@ -11,6 +11,7 @@ from typing import Any
 
 from l3.agent._term_types import TerminalCard, CardResult
 from l3.services.model_service import get_service as _get_model_service
+from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.params.agent import (
     CONVENTION_MAX_ROUNDS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
@@ -127,7 +128,7 @@ def _convention_close(term: Any, conv_id: str, payload: dict) -> CardResult:
         loop_obj.run(max_steps=CONVENTION_SUB_MAX_STEPS, timeout=CONVENTION_SUB_TIMEOUT,
                      **_get_model_service().resolve_dict(_MODEL_SPEC))
         answer = getattr(loop_obj, "result", {}).get("answer", "") if hasattr(loop_obj, "result") else ""
-        logger.info("agent %s convention %s final: %s", term.agent_id, conv_id, answer[:200])
+        logger.info("agent %s convention %s final: %s", term.agent_id, conv_id, answer[:LOG_TRUNC_200])
     term._convention_loops.pop(conv_id, None)
     return CardResult(card_id=conv_id, action="convention",
                       success=True, output=answer or "Convention closed")

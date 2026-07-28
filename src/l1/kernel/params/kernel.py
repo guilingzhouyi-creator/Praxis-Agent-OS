@@ -55,6 +55,7 @@ RWLOCK_POLL_INTERVAL: Final[float] = 0.05
 # ── Event bus ──
 EVENT_MAX_HISTORY: Final[int] = 200
 EVENT_QUERY_LIMIT: Final[int] = 20
+EVENT_BUS_WORKERS: Final[int] = 4
 HEARTBEAT_INTERVAL: Final[float] = 15.0
 
 # ── Interrupt table ──
@@ -95,6 +96,10 @@ SWAPPER_COMPACT_MIN_ENTRIES: Final[int] = 10
 SWAPPER_COMPACT_MIN_PER_AGENT: Final[int] = 3
 SWAPPER_COMPACT_IMPORTANCE: Final[float] = 0.3
 SWAPPER_COMPACT_TAGS: Final[tuple[str, ...]] = ("compacted", "auto")
+
+# ── Swapper importance thresholds (magic numbers → named constants) ──
+SWAPPER_SWAP_OUT_IMPORTANCE: Final[float] = 0.3
+SWAPPER_COMPACT_IMPORTANCE: Final[float] = 0.5
 
 
 # ── Resource ──
@@ -259,6 +264,9 @@ class WitnessStatus:
     REJECTED: str = "REJECTED"
 
 
+# ── Boot sequence ──
+BOOT_STEP_TIMEOUT: Final[float] = 60.0
+
 # ── Cadence tracking ──
 CADENCE_MAX_STEPS: Final[int] = 50
 CADENCE_MAX_ATTEMPTS: Final[int] = 3
@@ -271,3 +279,4 @@ RUN_SUBPROCESS_TIMEOUT: Final[int] = 15
 # ── Process / subprocess ──
 ZOMBIE_REAPER_INTERVAL: Final[float] = 60.0
 PROCESS_WAIT_TIMEOUT: Final[int] = 5
+PROCESS_OOM_EXIT_CODE: Final[int] = -9

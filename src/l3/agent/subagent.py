@@ -18,11 +18,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l3.services.model_service import get_service as _get_model_service
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_4000
 from l3.tool_system.tool_spec import ToolRing
 from l1.kernel.params.agent import SUBAGENT_LOOP_TIMEOUT, SUBAGENT_LOOP_STEPS
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
 from l1.kernel.params.system import MOCK_DELAY
-from l1.kernel.platform import SHELL_PATH
+from l1.kernel.platform import grep_cmd as _grep_cmd
 
 _MODEL_SPEC = "subagent"
 
@@ -77,31 +78,21 @@ class SubAgent:
             try:
                 with open(path, encoding="utf-8", errors="replace") as f:
                     content = f.read()
-                return {"success": True, "data": content[:4000], "size": len(content)}
+                return {"success": True, "data": content[:LOG_TRUNC_4000], "size": len(content)}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
         def _grep(args: dict, agent: str = "") -> dict:
-            import subprocess
+            import subprocess as _sp
             pattern = args.get("pattern", "")
             path = args.get("path", ".")
             try:
-                r = subprocess.run(
-                    ["rg", "-rn", pattern, path, "-m", "20"],
-                    capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT,
-                )
-                out = (r.stdout or "")[:4000]
+                cmd = _grep_cmd(pattern, path, max_count=20)
+                r = _sp.run(cmd, capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT)
+                out = (r.stdout or "")[:LOG_TRUNC_4000]
                 return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
             except FileNotFoundError:
-                try:
-                    r = subprocess.run(
-                        ["grep", "-rn", pattern, path],
-                        capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT, shell=True, executable=SHELL_PATH,
-                    )
-                    out = (r.stdout or "")[:4000]
-                    return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
-                except Exception as e:
-                    return {"success": False, "error": str(e)}
+                return {"success": False, "error": "grep tool not found"}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
@@ -109,7 +100,7 @@ class SubAgent:
             path = args.get("path", ".")
             try:
                 entries = _os.listdir(path)
-                return {"success": True, "data": entries[:100], "count": len(entries)}
+                return {"success": True, "data": entries[:LOG_TRUNC_100], "count": len(entries)}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
@@ -121,7 +112,7 @@ class SubAgent:
                       **_get_model_service().resolve_dict(_MODEL_SPEC))
         answer = r.get("answer", "")
         if answer:
-            findings.append({"type": "conclusion", "content": answer[:500]})
+            findings.append({"type": "conclusion", "content": answer[:LOG_TRUNC_500]})
         for step in r.get("steps", []):
             action = step.get("action", "")
             if action.startswith("tool:"):

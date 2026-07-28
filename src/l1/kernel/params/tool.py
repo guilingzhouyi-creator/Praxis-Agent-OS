@@ -61,6 +61,13 @@ TEST_DETECTORS: Final[list[tuple[str, ...]]] = [
 TOOL_TERMINAL_TIMEOUT: Final[float] = 30.0
 TOOL_GREP_TIMEOUT: Final[float] = 15.0
 TOOL_HANDLER_TIMEOUT: Final[float] = 60.0
+TOOL_PACKAGE_MANAGER_TIMEOUT: Final[int] = 120
+TOOL_PACKAGE_LIST_TIMEOUT: Final[int] = 30
+TOOL_APT_SEARCH_TIMEOUT: Final[int] = 30
+TOOL_CARGO_SEARCH_TIMEOUT: Final[int] = 30
+TOOL_CARGO_INSTALL_TIMEOUT: Final[int] = 300
+TOOL_APT_INSTALL_TIMEOUT: Final[int] = 120
+TOOL_NPM_INSTALL_TIMEOUT: Final[int] = 120
 
 # ── Tool rate limiting (calls/minute per ring) ──
 TOOL_RATE_RING_1: Final[int] = 60

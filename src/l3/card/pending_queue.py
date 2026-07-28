@@ -25,7 +25,15 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import PENDING_QUEUE_AUTO_SAVE
+from l1.kernel.params.agent import HUMAN_SENDER
+from l1.kernel.params.system import (
+    PENDING_QUEUE_AUTO_SAVE,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_60,
+    LOG_TRUNC_80,
+    LOG_TRUNC_120,
+    LOG_TRUNC_200,
+)
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
 
@@ -108,7 +116,7 @@ class PendingQueue(PersistableMixin):
     def enqueue(self, card_id: str, intent: str = "", domain: str = "",
                 size: str = "large", priority: int = 5) -> str:
         """Add a card to the pending queue. Returns message id."""
-        mid = f"pend-{uuid.uuid4().hex[:8]}"
+        mid = f"pend-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         msg = PendingMessage(
             id=mid, card_id=card_id, intent=intent, domain=domain,
             size=size, priority=priority,
@@ -116,9 +124,9 @@ class PendingQueue(PersistableMixin):
         with self._lock:
             self._items[mid] = msg
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
-        logger.info("pending enqueued: %s — %s (%s)", mid, intent[:60], size)
+        logger.info("pending enqueued: %s — %s (%s)", mid, intent[:LOG_TRUNC_60], size)
         return mid
 
     def dequeue(self, msg_id: str) -> PendingMessage | None:
@@ -151,13 +159,13 @@ class PendingQueue(PersistableMixin):
                 return {"success": False, "error": f"message {msg.status.name}"}
             msg.status = PendingStatus.APPROVED
             msg.resolved_at = time.time()
-            msg.response = response[:200]
+            msg.response = response[:LOG_TRUNC_200]
             card_id = msg.card_id
             self._persist()
 
         # Stamp approval trail
         if card_id:
-            self._stamp_card(card_id, "human_approved", "human")
+            self._stamp_card(card_id, "human_approved", HUMAN_SENDER)
 
         # Restore placeholder in CardRegistry
         if card_id and self._on_approve:
@@ -166,10 +174,10 @@ class PendingQueue(PersistableMixin):
             except Exception as e:
                 logger.warning("pending_queue on_approve callback failed: %s", e)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "msg_id": msg_id, "event": "approved"})
         return {"success": True, "card_id": card_id,
-                "intent": msg.intent[:60] if msg else "", "size": msg.size if msg else ""}
+                "intent": msg.intent[:LOG_TRUNC_60] if msg else "", "size": msg.size if msg else ""}
 
     def reject(self, msg_id: str, response: str = "") -> dict:
         """Reject a pending card."""
@@ -181,9 +189,9 @@ class PendingQueue(PersistableMixin):
                 return {"success": False, "error": f"message {msg.status.name}"}
             msg.status = PendingStatus.REJECTED
             msg.resolved_at = time.time()
-            msg.response = response[:200]
+            msg.response = response[:LOG_TRUNC_200]
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
                      data={"card_id": msg.card_id, "msg_id": msg_id, "event": "rejected"})
         return {"success": True, "card_id": msg.card_id}
 
@@ -198,7 +206,7 @@ class PendingQueue(PersistableMixin):
             msg.status = PendingStatus.ESCALATED
             msg.resolved_at = time.time()
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
                      data={"card_id": msg.card_id, "msg_id": msg_id, "event": "escalated"})
         return {"success": True, "card_id": msg.card_id, "action": "convention"}
 
@@ -211,7 +219,7 @@ class PendingQueue(PersistableMixin):
                     continue
                 result.append({
                     "id": m.id, "card_id": m.card_id,
-                    "intent": m.intent[:80], "domain": m.domain,
+                    "intent": m.intent[:LOG_TRUNC_80], "domain": m.domain,
                     "size": m.size, "status": m.status.name,
                     "priority": m.priority, "created_at": m.created_at,
                 })
@@ -226,7 +234,7 @@ class PendingQueue(PersistableMixin):
                 return None
             return {
                 "id": m.id, "card_id": m.card_id,
-                "intent": m.intent[:120], "domain": m.domain,
+                "intent": m.intent[:LOG_TRUNC_120], "domain": m.domain,
                 "size": m.size, "status": m.status.name,
                 "priority": m.priority,
                 "created_at": m.created_at, "resolved_at": m.resolved_at,

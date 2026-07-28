@@ -153,7 +153,7 @@ class R4Agent:
             if total_issues > 0:
                 self._total_alerts += total_issues
                 from l1.kernel.params.agent import EVENT_ARCHIVE_ALERT
-                emit_signal(EVENT_ARCHIVE_ALERT, sender="r4-agent", target="l3",
+                emit_signal(EVENT_ARCHIVE_ALERT, sender="r4-agent", target=SIGNAL_TARGET_L3,
                             data={"issues": total_issues, "stale": len(stale),
                                   "contradictions": len(contradictions)})
                 results["alerts"] = total_issues

@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_80, LOG_TRUNC_200, LOG_TRUNC_500
+
 logger = logging.getLogger(__name__)
 
 
@@ -116,7 +118,7 @@ class CardSummary:
     def to_dict(self) -> dict:
         return {
             "title": self.title,
-            "description": self.description[:500],
+            "description": self.description[:LOG_TRUNC_500],
             "columns": dict(self.columns),
         }
 
@@ -139,7 +141,7 @@ class CardTask:
             "target": self.target,
             "agent": self.agent,
             "state": self.state,
-            "error": self.error[:80] if self.error else "",
+            "error": self.error[:LOG_TRUNC_80] if self.error else "",
         }
 
 
@@ -198,8 +200,8 @@ class CardModification:
             "version": self.version,
             "timestamp": self.timestamp,
             "field": self.field,
-            "old_preview": str(self.old_value)[:200] if self.old_value else "",
-            "new_preview": str(self.new_value)[:200] if self.new_value else "",
+            "old_preview": str(self.old_value)[:LOG_TRUNC_200] if self.old_value else "",
+            "new_preview": str(self.new_value)[:LOG_TRUNC_200] if self.new_value else "",
         }
 
 
@@ -207,7 +209,7 @@ class CardModification:
 
 @dataclass
 class CardUnified:
-    id: str = field(default_factory=lambda: f"card-{uuid.uuid4().hex[:8]}")
+    id: str = field(default_factory=lambda: f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     nature: str = "execution"           # card type name from registry
     priority: int = 5                   # 1-10, 1=highest
     state: CardLifecycle = CardLifecycle.DRAFT
@@ -402,12 +404,12 @@ class CardUnified:
             "state": self.state.value,
             "summary": self.summary.to_dict(),
             "phases": [p.to_dict() for p in self.phases],
-            "error": self.error[:80] if self.error else "",
+            "error": self.error[:LOG_TRUNC_80] if self.error else "",
         }
         if include_hidden:
             base["timestamps"] = self.timestamps.to_dict()
             base["modifications"] = [m.to_dict() for m in self.modifications]
-            base["_completion_summary"] = self._completion_summary[:500]
+            base["_completion_summary"] = self._completion_summary[:LOG_TRUNC_500]
             base["_changes"] = list(self._changes)[-20:]
         return base
 

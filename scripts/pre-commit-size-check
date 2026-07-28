@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Pre-commit hook — enforce minimum 1000-line net changes per commit.
+"""Pre-commit hook — warn on large commits, prevent accidentally huge ones.
 
 Usage:
-  git commit -m "msg"                    # blocked if < 1000 lines
-  SKIP_SIZE_CHECK=1 git commit -m "msg"  # bypass (emergency)
+  git commit -m "msg"                    # warns if >500 lines
+  SKIP_SIZE_CHECK=1 git commit -m "msg"  # bypass all checks
   git commit -m "msg" --no-verify        # bypass (git native)
 """
 import os, subprocess, sys
 
-THRESHOLD = 1000
+WARN_THRESHOLD = 500
+BLOCK_THRESHOLD = 10000
 
 if os.environ.get("SKIP_SIZE_CHECK"):
     sys.exit(0)
@@ -41,11 +42,14 @@ for part in last.split(","):
         except (ValueError, IndexError):
             pass
 
-if total < THRESHOLD:
-    print(f"\n  \u26d4 PRE-COMMIT BLOCKED: net change ({total} lines) < threshold ({THRESHOLD} lines)")
-    print(f"  \u251c\u2500\u2500 Break into smaller commits of \u2265{THRESHOLD} lines each")
+if total >= BLOCK_THRESHOLD:
+    print(f"\n  \u26d4 PRE-COMMIT BLOCKED: net change ({total} lines) >= limit ({BLOCK_THRESHOLD} lines)")
+    print(f"  \u251c\u2500\u2500 Split into smaller commits")
     print(f"  \u251c\u2500\u2500 Or use: SKIP_SIZE_CHECK=1 git commit ...")
     print(f"  \u2514\u2500\u2500 Or use: git commit --no-verify ...\n")
     sys.exit(1)
+elif total >= WARN_THRESHOLD:
+    print(f"\n  \u26a0 PRE-COMMIT WARNING: net change = {total} lines (threshold {WARN_THRESHOLD})")
+    print(f"  Consider splitting into smaller focused commits.\n")
 
 sys.exit(0)

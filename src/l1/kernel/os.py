@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import os as _os
-import signal
 import threading
 import time
 from enum import Enum, auto
@@ -94,7 +93,7 @@ class OS:
             if self._boot_handler:
                 r = self._boot_handler(agent_config)
             else:
-                from ..services.boot import boot as _boot
+                from l3.boot.boot import boot as _boot
                 r = _boot(agent_config)
             if r.get("success"):
                 with self._lock:
@@ -136,7 +135,7 @@ class OS:
             if self._shutdown_handler:
                 r = self._shutdown_handler()
             else:
-                from ..services.memory_init import shutdown_to_memories
+                from l3.memory.memory_init import shutdown_to_memories
                 r = shutdown_to_memories()
             results["memories"] = r.get("results", {})
         except Exception as e:
@@ -150,12 +149,12 @@ class OS:
             if self._terminal_reset_handler:
                 self._terminal_reset_handler()
             else:
-                from ..services.agent_terminal import reset_terminals
+                from l3.agent_terminal import reset_terminals
                 reset_terminals()
             if self._cell_reset_handler:
                 self._cell_reset_handler()
             else:
-                from ..services.cell import reset_cells
+                from l3.cell import reset_cells
                 reset_cells()
             results["reset"] = "ok"
         except Exception as e:

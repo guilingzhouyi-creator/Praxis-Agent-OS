@@ -6,7 +6,10 @@ import logging
 import os
 import time
 
-from l1.kernel.params.api import LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS
+from l1.kernel.params.api import (
+    LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS,
+    FALLBACK_MODEL,
+)
 from l1.kernel.params.system import MOCK_DELAY
 from l1.kernel.prompts import get_prompt as _gp
 
@@ -193,9 +196,9 @@ class AnthropicProvider:
                     "tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
                     "cache_hit_tokens": usage.get("cache_read_input_tokens", 0),
                     "cache_miss_tokens": max(0, usage.get("input_tokens", 0) - usage.get("cache_read_input_tokens", 0)),
-                    "model": data.get("model", "claude-3-haiku"), "finish_reason": "stop"}
+                    "model": data.get("model", FALLBACK_MODEL), "finish_reason": "stop"}
         except Exception as e:
-            return {"content": "", "tokens": 0, "model": "claude-3-haiku", "error": str(e)}
+            return {"content": "", "tokens": 0, "model": FALLBACK_MODEL, "error": str(e)}
 
     def health(self) -> dict:
         import time

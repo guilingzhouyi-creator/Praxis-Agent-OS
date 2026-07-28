@@ -50,6 +50,24 @@ logger = logging.getLogger(__name__)
 _CONSTITUTION_FILE = _os.environ.get(CONSTITUTION_ENV_VAR, CONSTITUTION_DEFAULT_PATH)
 CONSTITUTION_FILE = _CONSTITUTION_FILE
 
+# ── Tag constants for built-in descriptors ──
+TAG_TERRITORY_WRITE = frozenset({"territory", "write"})
+TAG_TERRITORY_READ = frozenset({"territory", "read"})
+TAG_GATECHAIN = frozenset({"gatechain"})
+TAG_GATECHAIN_CROSS = frozenset({"gatechain", "cross"})
+TAG_SANDBOX = frozenset({"sandbox"})
+TAG_SANDBOX_REVIEW = frozenset({"sandbox", "review"})
+TAG_CONSTITUTION = frozenset({"constitution"})
+TAG_AUDIT = frozenset({"audit"})
+TAG_MEMORY = frozenset({"memory"})
+TAG_TERRITORY_REVIEW = frozenset({"territory", "review"})
+TAG_L3 = frozenset({"l3"})
+TAG_SCOUT = frozenset({"scout"})
+TAG_SCOUT_AUDIT = frozenset({"scout", "audit"})
+TAG_MEMORY_RING = frozenset({"memory", "ring"})
+
+CONSTITUTION_SOURCE_BLANK = "blank"
+
 BLANK_CONSTITUTION = """# NOMOS Constitution
 # Version: 1
 # Territory definitions — empty, to be decided by Assembly Mode
@@ -159,105 +177,105 @@ _BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
         severity=RuleSeverity.MUST,
         description="Agent must not write outside its territory",
         check_fn=_check_territory,
-        tags=frozenset({"territory", "write"}),
+        tags=TAG_TERRITORY_WRITE,
     ),
     RuleDescriptor(
         id="territory.read_l3", section="§3.1",
         severity=RuleSeverity.MUST,
         description="Agent must not read files outside its territory without L3 approval",
         check_fn=_check_territory,
-        tags=frozenset({"territory", "read"}),
+        tags=TAG_TERRITORY_READ,
     ),
     RuleDescriptor(
         id="gatechain.all", section="§3.3",
         severity=RuleSeverity.MUST,
         description="All tool calls must pass GateChain G1-G5",
         check_fn=_check_gate,
-        tags=frozenset({"gatechain"}),
+        tags=TAG_GATECHAIN,
     ),
     RuleDescriptor(
         id="gatechain.cross", section="§3.4",
         severity=RuleSeverity.MUST,
         description="Cross-unit tool calls require G5 approval",
         check_fn=_check_gate,
-        tags=frozenset({"gatechain", "cross"}),
+        tags=TAG_GATECHAIN_CROSS,
     ),
     RuleDescriptor(
         id="sandbox.writes", section="§4.5",
         severity=RuleSeverity.MUST,
         description="All modifications must go through sandbox (no direct writes)",
         check_fn=_check_sandbox,
-        tags=frozenset({"sandbox"}),
+        tags=TAG_SANDBOX,
     ),
     RuleDescriptor(
         id="sandbox.review", section="§4.6",
         severity=RuleSeverity.MUST,
         description="All modifications must be reviewable by L3 before flush",
         check_fn=_check_sandbox,
-        tags=frozenset({"sandbox", "review"}),
+        tags=TAG_SANDBOX_REVIEW,
     ),
     RuleDescriptor(
         id="constitution.modify", section="§4.7",
         severity=RuleSeverity.MUST,
         description="No Agent may modify the constitution itself",
         check_fn=_check_constitution_mod,
-        tags=frozenset({"constitution"}),
+        tags=TAG_CONSTITUTION,
     ),
     RuleDescriptor(
         id="audit.trail", section="§5.1",
         severity=RuleSeverity.MUST,
         description="All tool calls must be logged with audit trail",
         check_fn=_check_audit,
-        tags=frozenset({"audit"}),
+        tags=TAG_AUDIT,
     ),
     RuleDescriptor(
         id="decision.memory", section="§5.2",
         severity=RuleSeverity.SHOULD,
         description="All decisions must be recorded in memory Ring 2",
         check_fn=None,
-        tags=frozenset({"memory"}),
+        tags=TAG_MEMORY,
     ),
     RuleDescriptor(
         id="territory.cross_review", section="§6.1",
         severity=RuleSeverity.MUST,
         description="Cross-territory changes require peer review",
         check_fn=_check_cross,
-        tags=frozenset({"territory", "review"}),
+        tags=TAG_TERRITORY_REVIEW,
     ),
     RuleDescriptor(
         id="l3.arbiter", section="§6.2",
         severity=RuleSeverity.MUST,
         description="L3 is the final arbiter of all disputes",
         check_fn=None,
-        tags=frozenset({"l3"}),
+        tags=TAG_L3,
     ),
     RuleDescriptor(
         id="scout.readonly", section="§7.1",
         severity=RuleSeverity.MUST,
         description="Scouts are read-only and depth=1",
         check_fn=_check_scout,
-        tags=frozenset({"scout"}),
+        tags=TAG_SCOUT,
     ),
     RuleDescriptor(
         id="scout.log", section="§7.2",
         severity=RuleSeverity.SHOULD,
         description="Scout findings must be logged before disposal",
         check_fn=_check_scout,
-        tags=frozenset({"scout", "audit"}),
+        tags=TAG_SCOUT_AUDIT,
     ),
     RuleDescriptor(
         id="ring.context", section="§8.1",
         severity=RuleSeverity.MUST,
         description="Agent context must be built from Ring memory, not raw output",
         check_fn=None,
-        tags=frozenset({"memory", "ring"}),
+        tags=TAG_MEMORY_RING,
     ),
     RuleDescriptor(
         id="ring.persist", section="§8.2",
         severity=RuleSeverity.SHOULD,
         description="Important decisions must be persisted to Ring 3 (long-term)",
         check_fn=None,
-        tags=frozenset({"memory", "ring"}),
+        tags=TAG_MEMORY_RING,
     ),
 ]
 
@@ -272,7 +290,7 @@ def load_territory(path: str = "") -> TerritoryConstitution:
         path = _CONSTITUTION_FILE
     p = Path(path)
     if not p.exists():
-        return TerritoryConstitution(source="blank")
+        return TerritoryConstitution(source=CONSTITUTION_SOURCE_BLANK)
     return parse_territory(p.read_text(encoding="utf-8"), source=str(p))
 
 
@@ -465,29 +483,6 @@ class Constitution:
         except Exception:
             pass
         return {"success": True, "rules": len(self._rules), "custom": len(custom_rules), "path": path}
-
-    def check(self, action: str, agent_id: str, target: str = "",
-              territory: list[str] | None = None) -> list[CheckReport]:
-        reports: list[CheckReport] = []
-        for rule in self._rules:
-            result = self._evaluate(rule, action, agent_id, target, territory or [])
-            if result != CheckResult.PASS:
-                reports.append(CheckReport(rule=rule, result=result,
-                                           detail=self._describe(rule, action, agent_id, target)))
-        return reports
-
-    def is_allowed(self, action: str, agent_id: str, target: str = "",
-                   territory: list[str] | None = None) -> dict:
-        reports = self.check(action, agent_id, target, territory)
-        blocks = [r for r in reports if r.result == CheckResult.BLOCK]
-        return {
-            "allowed": len(blocks) == 0,
-            "decision": "pass" if not blocks else "block",
-            "blocks": len(blocks),
-            "warns": len([r for r in reports if r.result == CheckResult.WARN]),
-            "details": [{"section": r.rule.section, "result": r.result.name, "detail": r.detail}
-                        for r in reports],
-        }
 
     def reload(self) -> dict:
         """Reload constitution from the same file path (hot-reload)."""

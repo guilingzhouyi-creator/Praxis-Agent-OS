@@ -46,6 +46,12 @@ class Checkpoint:
     progress: dict = field(default_factory=dict)
     tool_ring_snapshot: list = field(default_factory=list)
     sandbox_files: list[str] = field(default_factory=list)
+    agent_state: dict = field(default_factory=dict)
+    """Logical agent state snapshot — status, ring, role, active_scouts."""
+    cell_cache_keys: list[str] = field(default_factory=list)
+    """Keys injected into CellCache during this task (for rollback cleanup)."""
+    mmu_mappings: list[str] = field(default_factory=list)
+    """TLB entries / territory mappings added for this agent."""
     created_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
@@ -147,11 +153,17 @@ class FaultToleranceService(BaseService):
 
     def save_checkpoint(self, agent_id: str, task_id: str = "",
                         progress: dict | None = None,
-                        sandbox_files: list[str] | None = None) -> dict:
+                        sandbox_files: list[str] | None = None,
+                        agent_state: dict | None = None,
+                        cell_cache_keys: list[str] | None = None,
+                        mmu_mappings: list[str] | None = None) -> dict:
         """Save agent checkpoint (§5.1)."""
         cp = Checkpoint(
             agent_id=agent_id, task_id=task_id, task_status="running",
             progress=progress or {}, sandbox_files=sandbox_files or [],
+            agent_state=agent_state or {},
+            cell_cache_keys=cell_cache_keys or [],
+            mmu_mappings=mmu_mappings or [],
         )
         with self._lock:
             self._checkpoints[agent_id] = cp

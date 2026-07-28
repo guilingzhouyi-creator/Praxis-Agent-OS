@@ -1,6 +1,7 @@
 """Constants: API, network, LLM, IPC, transport."""
 
 from typing import Final
+import socket as _socket
 
 
 # ── PAL Router (cost-optimized LLM routing) ──
@@ -42,6 +43,16 @@ LLM_PROVIDER_URLS: Final[dict[str, str]] = {
 ANTHROPIC_DEFAULT_URL: Final[str] = LLM_PROVIDER_URLS["anthropic"]
 ANTHROPIC_API_VERSION: Final[str] = "2023-06-01"
 
+# ── Default model names (single source of truth) ──
+DEFAULT_MODEL_OPENAI: Final[str] = "gpt-4o"
+DEFAULT_MODEL_OPENAI_MINI: Final[str] = "gpt-4o-mini"
+DEFAULT_MODEL_ANTHROPIC_SONNET: Final[str] = "claude-sonnet-4-20250514"
+DEFAULT_MODEL_ANTHROPIC_HAIKU: Final[str] = "claude-haiku-3-5"
+DEFAULT_MODEL_DEEPSEEK_V4: Final[str] = "deepseek-v4"
+DEFAULT_MODEL_DEEPSEEK_CHAT: Final[str] = "deepseek-chat"
+DEFAULT_MODEL_OLLAMA: Final[str] = "qwen2.5"
+DEFAULT_MODEL_MOCK: Final[str] = "mock"
+
 
 # ── LLM reasoning / thinking budget ──
 REASONING_EFFORT_NONE: Final[str] = "none"
@@ -68,6 +79,14 @@ ENV_API_TOKEN: Final[str] = "PRAXIS_API_TOKEN"
 NET_TLS_ENABLED: Final[bool] = False
 NET_TLS_CERT_PATH: Final[str] = ""
 NET_TLS_KEY_PATH: Final[str] = ""
+
+
+# ── Transport magic numbers (was hardcoded in net_transport.py) ──
+TCP_RECV_BUF_SIZE: Final[int] = 65536
+TCP_LISTEN_BACKLOG: Final[int] = 5
+TRANSPORT_VERSION: Final[str] = "1.0"
+TRANSPORT_SOCKET_TIMEOUT: Final[float] = 10.0
+TRANSPORT_SOCKET_FAMILY: Final[int] = _socket.AF_INET  # AF_INET6 for dual-stack
 
 
 # ── Service-level timeouts ──
@@ -123,6 +142,10 @@ WORKER_POOL_QUEUE_SIZE: Final[int] = 256
 WORKER_POOL_IDLE_TIMEOUT: Final[float] = 60.0
 WORKER_POOL_TASK_TIMEOUT: Final[float] = 30.0
 
+# ── SubAgentPool defaults ──
+SUBAGENT_POOL_EXPLORE_WORKERS: Final[int] = 4
+SUBAGENT_POOL_EXECUTE_WORKERS: Final[int] = 4
+
 
 # ── Service timeouts (scattered in code, centralized here) ──
 LSP_MANAGER_TIMEOUT: Final[float] = 5.0
@@ -151,9 +174,19 @@ from ..paths import get_paths as _gp
 from .kernel import IPC_REQUEST_TIMEOUT
 
 IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
-IPC_KERNEL_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
-IPC_LLM_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
-IPC_SANDBOX_SOCKET: Final[str] = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
+
+# Use os.name directly to avoid circular import with platform.py
+_IS_WIN = _os.name == "nt"
+
+if _IS_WIN:
+    # Windows: TCP localhost (Unix sockets not available)
+    IPC_KERNEL_SOCKET: str = "127.0.0.1:42100"
+    IPC_LLM_SOCKET: str = "127.0.0.1:42101"
+    IPC_SANDBOX_SOCKET: str = "127.0.0.1:42102"
+else:
+    IPC_KERNEL_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
+    IPC_LLM_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
+    IPC_SANDBOX_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
 IPC_KEEPALIVE_INTERVAL: Final[float] = 5.0
 
 

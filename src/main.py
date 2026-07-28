@@ -22,7 +22,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR) if _SCRIPT_DIR.endswith("src") else _SCRIPT_DIR
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
-from cli import COMMANDS
+from l5.cli import COMMANDS
 
 
 def repl():

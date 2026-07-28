@@ -7,6 +7,11 @@ from __future__ import annotations
 import logging
 import re
 from typing import Any
+from l1.kernel.params.system import (
+    LOG_TRUNC_2000,
+    MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_DECISION, MEMORY_IMPORTANCE_PATTERN,
+    MEMORY_IMPORTANCE_SUMMARY, MEMORY_IMPORTANCE_OBSERVATION,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +38,12 @@ def _score_importance(content: str, entry_type: str) -> float:
       - Density: high info-per-char ratio
       - Actionability: contains concrete instructions or facts
     """
-    base = 0.5
+    base = MEMORY_IMPORTANCE_BASE
 
     type_bonus = {
-        "decision": 0.3, "pattern": 0.3, "summary": 0.2,
-        "observation": 0.1, "tool_call": 0.0,
+        "decision": MEMORY_IMPORTANCE_DECISION, "pattern": MEMORY_IMPORTANCE_PATTERN,
+        "summary": MEMORY_IMPORTANCE_SUMMARY,
+        "observation": MEMORY_IMPORTANCE_OBSERVATION, "tool_call": 0.0,
     }
     base += type_bonus.get(entry_type, 0.0)
 
@@ -66,7 +72,7 @@ def _is_good_memory(content: str, entry_type: str) -> tuple[bool, str]:
         return False, f"too short ({len(content)} < {_MIN_CONTENT_LEN})"
     if _VAGUE_PATTERNS.search(content):
         return False, "vague pattern"
-    if len(content) > 2000:
+    if len(content) > LOG_TRUNC_2000:
         return False, "too long (>2000 chars), extract key facts instead"
     return True, ""
 

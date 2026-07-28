@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l1.kernel.params.agent import DEFAULT_CELL_ID
 from .htn_planner import HTNPlanner, Task, TaskType
 
 logger = logging.getLogger(__name__)
@@ -221,7 +222,7 @@ def get_shards(root: Task) -> list[dict]:
     primitives = planner.flatten(root)
     shards: dict[str, list[Task]] = {}
     for pt in primitives:
-        cid = pt.agent_id or "cell-1"
+        cid = pt.agent_id or DEFAULT_CELL_ID
         shards.setdefault(cid, []).append(pt)
     return [
         {"cell_id": cid, "tasks": tasks}

@@ -143,7 +143,7 @@ def _cmd_connect(args: list[str]) -> dict:
         r = cell.send_direct_message(agent_id, "Hello")
         if r.get("success"):
             state.switch_to_direct(cell_id, agent_id)
-            emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
+            emit_signal(EVENT_TASK_ASSIGN, sender="shell", target=SIGNAL_TARGET_L3,
                          data={"event": "direct_mode_entered",
                                "cell_id": cell_id, "agent_id": agent_id})
             return {"success": True, "message": f"Connected to {agent_id}",
@@ -164,7 +164,7 @@ def _cmd_disconnect(args: list[str]) -> dict:
         cell = get_cell(state.cell_id)
         r = cell.close_direct_session(state.agent_id)
         state.switch_to_l3a()
-        emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="shell", target=SIGNAL_TARGET_L3,
                      data={"event": "l3a_mode_restored"})
         return {"success": True, "message": "Disconnected, returned to L3A mode"}
     except Exception as e:
@@ -583,7 +583,8 @@ def _cmd_destroy(args: list[str]) -> dict:
 
 
 def _cmd_emergency(args: list[str]) -> dict:
-    cell_id = args[0] if args else "cell-1"
+    from l1.kernel.params.agent import DEFAULT_CELL_ID
+    cell_id = args[0] if args else DEFAULT_CELL_ID
     try:
         from l3.cell import get_cell
         cell = get_cell(cell_id)

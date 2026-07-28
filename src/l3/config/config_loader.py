@@ -27,7 +27,7 @@ from l1.kernel.params.agent import (
 from l1.kernel.params.kernel import ALLOCATOR_DEFAULTS
 from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
 from l1.kernel.device import get_device_manager, DeviceType
-from .config.config_handlers import (
+from .config_handlers import (
     cfg_kernel, cfg_cell, cfg_llm, cfg_constitution, cfg_gatechain,
     cfg_tool_rates, cfg_htn, cfg_cache, cfg_persist, cfg_network,
     cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,

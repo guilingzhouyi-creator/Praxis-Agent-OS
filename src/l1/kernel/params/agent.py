@@ -149,6 +149,10 @@ TERMINAL_POLL_INTERVAL: Final[float] = 0.05
 TERMINAL_MAX_WORKERS: Final[int] = 4
 CARD_WAIT_TIMEOUT: Final[float] = 30.0
 CELL_L3_SENDER: Final[str] = "l3"
+SIGNAL_TARGET_L3: Final[str] = "l3"
+"""Event signal target for L3 coordination. Use this constant everywhere."""
+HUMAN_SENDER: Final[str] = "human"
+"""Sender identifier for human-initiated actions."""
 ISSUE_AUTO_CONSENSUS: Final[bool] = True
 
 
@@ -173,6 +177,9 @@ SANDBOX_ROOT_PATH: Final[str] = _os.environ.get("NOMOS_SANDBOX_ROOT", _SANDBOX_D
 AGENT_STATUS_IDLE: Final[str] = "IDLE"
 AGENT_STATUS_PROCESSING: Final[str] = "PROCESSING"
 AGENT_STATUS_CRASHED: Final[str] = "CRASHED"
+
+# ── AgentLoop defaults ──
+AGENT_LOOP_MAX_CONTENT: Final[int] = 100_000  # chars (~25K tokens)
 AGENT_STATUS_BOOTING: Final[str] = "BOOTING"
 AGENT_STATUS_WAITING_SCOUT: Final[str] = "WAITING_SCOUT"
 AGENT_STATUS_BOOTING_LABEL: Final[str] = "booting"

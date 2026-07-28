@@ -1,0 +1,20 @@
+{
+  "agent_id": "test-agent-1",
+  "task_id": "",
+  "task_status": "running",
+  "progress": {},
+  "tool_ring_snapshot": [],
+  "sandbox_files": [],
+  "agent_state": {
+    "role": "writer",
+    "ring": 2
+  },
+  "cell_cache_keys": [
+    "k1",
+    "k2"
+  ],
+  "mmu_mappings": [
+    "/docs"
+  ],
+  "created_at": 1785205758.0584764
+}

@@ -18,11 +18,14 @@ test = [
 
 [project.scripts]
 praxis = "main:main"
-praxis-kernel = "services.supervisor:start_kernel"
-praxis-api = "services.supervisor:start_api"
-praxis-sandbox = "services.sandbox.server:main"
-praxis-llm = "services.llm_worker.server:main"
-praxis-supervisor = "services.supervisor:main"
+praxis-kernel = "l4.supervisor:start_kernel"
+praxis-api = "l4.supervisor:start_api"
+praxis-sandbox = "l4.sandbox.server:main"
+praxis-llm = "l4.llm_worker.server:main"
+praxis-supervisor = "l4.supervisor:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [build-system]
 requires = ["setuptools>=75"]
@@ -32,7 +35,7 @@ build-backend = "setuptools.build_meta"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src"]
-addopts = "-v --tb=short -W ignore::DeprecationWarning"
+addopts = "-v --tb=short --strict-markers -W ignore::DeprecationWarning"
 
 [tool.ruff]
 target-version = "py311"

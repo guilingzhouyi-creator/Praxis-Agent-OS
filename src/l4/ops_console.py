@@ -207,7 +207,7 @@ class OpsConsole:
             self._alerts.append(alert)
             if len(self._alerts) > self._max_alerts:
                 self._alerts = self._alerts[-self._max_alerts:]
-        emit_signal(EVENT_TASK_ASSIGN, sender="ops", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="ops", target=SIGNAL_TARGET_L3,
                      data={"alert": level, "source": source, "message": message})
 
     def recent_alerts(self, level: str = "", limit: int = 20) -> list[dict]:

@@ -16,6 +16,8 @@ ALLOWLIST = {
     # L1→L3 adapter patterns (ports/adapters — need port interface refactoring)
     ("l1/kernel/settings.py", "l3.settings_adapter"),
     ("l1/kernel/settings.py", "l3.config.settings_adapter"),
+    ("l1/kernel/constitution.py", "l3.config.settings_center"),
+    ("l1/kernel/errors.py", "l3.error_bus"),
     ("l1/kernel/net_transport.py", "l4.adapters.worker_thread"),
     ("l1/kernel/net_transport.py", "l4.adapters.channel_ring"),
     ("l1/kernel/gatechain.py", "l3.stagnation"),
@@ -23,6 +25,11 @@ ALLOWLIST = {
     ("l1/kernel/commands.py", "l3.cell"),
     ("l1/kernel/model_registry.py", "l4.llm.llm_base"),
     ("l1/kernel/model_registry.py", "l4.llm_base"),
+    # L1→L3 OS fallback imports (boot/shutdown lifecycle)
+    ("l1/kernel/os.py", "l3.boot.boot"),
+    ("l1/kernel/os.py", "l3.memory.memory_init"),
+    ("l1/kernel/os.py", "l3.agent_terminal"),
+    ("l1/kernel/os.py", "l3.cell"),
     # L2→L3 shell accessing L3 services
     ("l2/i18n.py", "l4.adapters.i18n_yaml"),
     ("l2/l2_shell/commands.py", "l3.cache"),

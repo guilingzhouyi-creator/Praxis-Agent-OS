@@ -16,6 +16,7 @@ from typing import Any
 from .card.card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 from l3.memory.cache_doc import get_store
 from l3.card.issue import IssueCardStatus
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def to_execution_card(issue_card: IssueCard, summary: str) -> CardUnified:
             work_tasks.append(CardTask(
                 action=action,
                 target=it.domain or it.question,
-                params={"question": it.question, "answer": it.answer[:500]},
+                params={"question": it.question, "answer": it.answer[:LOG_TRUNC_500]},
                 agent=it.assigned_to or "default",
             ))
 
@@ -130,7 +131,7 @@ def _rule_converge(issue_card: IssueCard, doc_text: str = "") -> str:
     unresolved = [it for it in issue_card.items if it.status.name != "RESOLVED"]
     return json.dumps({
         "summary": f"Converged {len(resolved)}/{len(issue_card.items)} issues",
-        "decisions": [f"{it.question}: {it.answer[:200]}" for it in resolved if it.answer],
+        "decisions": [f"{it.question}: {it.answer[:LOG_TRUNC_200]}" for it in resolved if it.answer],
         "unresolved": [it.question for it in unresolved],
         "recommendations": [],
         "confidence": round(len(resolved) / max(len(issue_card.items), 1), 2),
@@ -152,5 +153,5 @@ def _build_fallback_doc(issue_card: IssueCard) -> str:
     for it in issue_card.items:
         lines.append(f"- [{it.status.name}] {it.question} → {it.assigned_to}")
         if it.answer:
-            lines.append(f"  Answer: {it.answer[:200]}")
+            lines.append(f"  Answer: {it.answer[:LOG_TRUNC_200]}")
     return "\n".join(lines)

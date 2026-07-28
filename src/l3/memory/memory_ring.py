@@ -10,6 +10,10 @@ import time
 from collections import deque
 from dataclasses import dataclass, field, asdict
 from typing import Any
+from l1.kernel.params.system import (
+    LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_500,
+    MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_MODERATE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +46,7 @@ class MemEntry:
     tags: list[str] = field(default_factory=list)
     source: str = ""
     fingerprint: str = ""
-    importance: float = 0.5
+    importance: float = MEMORY_IMPORTANCE_BASE
     timestamp: float = field(default_factory=time.time)
     ttl: float = 0.0
 
@@ -62,13 +66,13 @@ class MemEntry:
         score = len(self.content) * 0.3
         if self.tags:
             score += len(self.tags) * 5
-        if self.importance > 0.7:
+        if self.importance > MEMORY_IMPORTANCE_HIGH:
             score += 20
-        elif self.importance > 0.4:
+        elif self.importance > MEMORY_IMPORTANCE_MODERATE:
             score += 10
-        if self.tokens > 500:
+        if self.tokens > LOG_TRUNC_500:
             score += 15
-        elif self.tokens > 100:
+        elif self.tokens > LOG_TRUNC_100:
             score += 5
         if score >= 40:
             return "good"
@@ -112,7 +116,7 @@ class RingLayer:
             entries = [e for e in self._entries if e.agent_id == agent_id and not e.expired()]
         if not entries:
             return ""
-        return "\n".join(f"[{e.entry_type}] {e.content[:200]}" for e in entries[-10:])
+        return "\n".join(f"[{e.entry_type}] {e.content[:LOG_TRUNC_200]}" for e in entries[-10:])
 
     def count(self) -> int:
         with self._lock:

@@ -1,0 +1,48 @@
+services:
+  kernel:
+    build:
+      context: .
+      target: kernel
+    environment:
+      - PRAXIS_ROLE=kernel
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    volumes:
+      - praxis-data:/praxis-data
+    ports:
+      - "8080:8080"
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      - PRAXIS_ROLE=api
+      - PRAXIS_API_TOKEN=${PRAXIS_API_TOKEN:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kernel
+
+  sandbox:
+    build:
+      context: .
+      target: sandbox
+    environment:
+      - PRAXIS_ROLE=sandbox
+    depends_on:
+      - kernel
+
+  llm:
+    build:
+      context: .
+      target: llm
+    environment:
+      - PRAXIS_ROLE=llm
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    deploy:
+      replicas: 4
+    depends_on:
+      - kernel
+
+volumes:
+  praxis-data:

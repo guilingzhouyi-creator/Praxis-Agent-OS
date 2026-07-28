@@ -20,6 +20,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_200
+
 logger = logging.getLogger(__name__)
 
 _agent_root: Path | None = None
@@ -141,7 +143,7 @@ class SnapshotHook:
     def turn_complete(self, result: dict, elapsed: float) -> None:
         save_snapshot(self.agent_id, {
             "status": result.get("success", True),
-            "summary": str(result.get("output", ""))[:200],
+            "summary": str(result.get("output", ""))[:LOG_TRUNC_200],
             "total_steps": result.get("total_steps", 0),
             "elapsed": elapsed,
         })
@@ -149,7 +151,7 @@ class SnapshotHook:
     def on_error(self, error: str) -> None:
         save_snapshot(self.agent_id, {
             "status": False,
-            "error": str(error)[:200],
+            "error": str(error)[:LOG_TRUNC_200],
             "_saved_at": time.time(),
         })
 

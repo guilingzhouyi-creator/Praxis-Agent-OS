@@ -10,26 +10,32 @@ from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
 def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
     """Pure Python search fallback for platforms without rg/grep."""
     results = []
-    if not os.path.isdir(path):
-        path = os.path.dirname(path) or "."
-    try:
+    if os.path.isfile(path):
+        # Search a single file directly
+        files_to_scan = [path]
+    elif os.path.isdir(path):
+        files_to_scan = []
         for root, dirs, files in os.walk(path):
             for fname in files:
-                fp = os.path.join(root, fname)
-                try:
-                    with open(fp, encoding="utf-8", errors="replace") as f:
-                        for lineno, line in enumerate(f, 1):
-                            if fixed:
-                                matched = pattern in line
-                            else:
-                                try:
-                                    matched = re.search(pattern, line)
-                                except re.error:
-                                    continue
-                            if matched:
-                                results.append({"file": fp, "line": lineno, "text": line.rstrip()[:200]})
-                except (OSError, UnicodeDecodeError):
-                    continue
+                files_to_scan.append(os.path.join(root, fname))
+    else:
+        return results
+    try:
+        for fp in files_to_scan:
+            try:
+                with open(fp, encoding="utf-8", errors="replace") as f:
+                    for lineno, line in enumerate(f, 1):
+                        if fixed:
+                            matched = pattern in line
+                        else:
+                            try:
+                                matched = re.search(pattern, line)
+                            except re.error:
+                                continue
+                        if matched:
+                            results.append({"file": fp, "line": lineno, "text": line.rstrip()[:200]})
+            except (OSError, UnicodeDecodeError):
+                continue
     except Exception:
         pass
     return results
@@ -49,7 +55,7 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
         pass
     # Fallback to grep
     try:
-        cmd2 = ["grep", "-rn", pattern, path]
+        cmd2 = ["grep", "-rn"] + (["-F"] if fixed else []) + [pattern, path]
         r = subprocess.run(cmd2, capture_output=True, text=True, timeout=TOOL_SEARCH_TIMEOUT)
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())

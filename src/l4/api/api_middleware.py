@@ -23,6 +23,8 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.params.api import I18N_DEFAULT_LOCALE
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +46,7 @@ class Request:
         self.body = body or {}
         self.query = query or {}
         self.raw_body = raw_body or b""
-        self.locale: str = "en"
+        self.locale: str = I18N_DEFAULT_LOCALE
         self.user_id: str = ""
         self.params: dict = {}           # route path params
         self._extra: dict = kwargs

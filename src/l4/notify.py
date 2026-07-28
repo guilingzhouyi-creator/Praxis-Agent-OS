@@ -13,6 +13,7 @@ from typing import Any
 
 from l3._base import BaseService
 from l1.kernel.params.api import NOTIFY_WEBHOOK_TIMEOUT, HTTP_USER_AGENT
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class NotifyService(BaseService):
         return {"success": True, "channel": "sms", "note": "SMS gateway not configured, logged only"}
 
     def _log_only(self, to: str, subject: str, body: str) -> dict:
-        logger.info("[NOTIFY] %s — %s", subject, body[:200])
+        logger.info("[NOTIFY] %s — %s", subject, body[:LOG_TRUNC_200])
         return {"success": True, "channel": "log"}
 
     def history(self, limit: int = 20) -> dict:

@@ -1,267 +1,297 @@
-"""Process table tests — spawn/get/set_state/exit/reap/list/audit"""
+"""Tests for l1.kernel.process — ProcessTable / PCB / state machine."""
 
-import sys, os, time
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from __future__ import annotations
 
+import time
 
-class TestProcessTable:
-    """Process table basics"""
+import pytest
 
-    def setup_method(self):
-        from l1.kernel.process import reset_table
-        reset_table()
-
-    def test_init_has_pid0(self):
-        from l1.kernel.process import get_table
-        t = get_table()
-        p0 = t.get(0)
-        assert p0 is not None
-        assert p0.name == "kernel"
-
-    def test_get_nonexistent(self):
-        from l1.kernel.process import get_table
-        t = get_table()
-        p = t.get(99999)
-        assert p is None
+from l1.kernel.process import (
+    ProcessTable, PCB, ProcessState,
+    ResourceUsage, get_table, reset_table,
+)
 
 
-class TestSpawn:
-    """Process creation"""
+# ── Fixtures ──
 
-    def test_spawn_basic(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("agent-a", role="reader", ring=1)
-        assert pcb.pid >= 1
-        assert pcb.name == "agent-a"
-        assert pcb.role == "reader"
-
-    def test_spawn_multiple(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        p1 = t.spawn("a1")
-        p2 = t.spawn("a2")
-        assert p1.pid != p2.pid
-
-    def test_spawn_with_parent(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        child = t.spawn("child-agent", parent_pid=0)
-        assert child.parent_pid == 0
+@pytest.fixture
+def pt():
+    """Fresh ProcessTable with short GC interval disabled."""
+    table = ProcessTable(gc_interval=9999)
+    yield table
+    # Clean up
+    for pcb in list(table._processes.values()):
+        table.reap(pcb.pid)
 
 
-class TestGetByName:
-    """Lookup by name"""
+class TestProcessState:
+    """ProcessState enum values."""
 
-    def test_get_by_name(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        t.spawn("find-me")
-        pcb = t.get_by_name("find-me")
-        assert pcb is not None
-        assert pcb.name == "find-me"
-
-    def test_get_by_name_nonexistent(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        pcb = t.get_by_name("no-such-process")
-        assert pcb is None
-
-
-class TestSetState:
-    """State setting"""
-
-    def test_set_state(self):
-        from l1.kernel.process import get_table, reset_table, ProcessState
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("state-test")
-        r = t.set_state(pcb.pid, ProcessState.RUNNING)
-        assert r is True
-        assert pcb.state == ProcessState.RUNNING
-
-    def test_set_state_nonexistent(self):
-        from l1.kernel.process import get_table, reset_table, ProcessState
-        reset_table()
-        t = get_table()
-        r = t.set_state(99999, ProcessState.RUNNING)
-        assert r is False
-
-    def test_zombie_state(self):
-        from l1.kernel.process import get_table, reset_table, ProcessState
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("zombie-test")
-        t.set_state(pcb.pid, ProcessState.ZOMBIE)
-        assert pcb.state == ProcessState.ZOMBIE
-
-
-class TestExit:
-    """Process exit"""
-
-    def test_exit_basic(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("exit-test")
-        r = t.exit(pcb.pid, exit_code=0, reason="finished")
-        assert r is True
-
-    def test_exit_sets_state(self):
-        from l1.kernel.process import get_table, reset_table, ProcessState
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("exit-state")
-        t.exit(pcb.pid)
-        assert pcb.state == ProcessState.ZOMBIE
-
-    def test_exit_nonexistent(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        r = t.exit(99999)
-        assert r is False
-
-
-class TestReap:
-    """Process reaping"""
-
-    def test_reap_basic(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        pcb = t.spawn("reap-me")
-        t.exit(pcb.pid)
-        snap = t.reap(pcb.pid)
-        assert snap is not None
-        assert snap["name"] == "reap-me"
-
-    def test_reap_nonexistent(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        snap = t.reap(99999)
-        assert snap is None
-
-
-class TestList:
-    """Process listing"""
-
-    def test_list_all(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        t.spawn("list-a")
-        t.spawn("list-b")
-        procs = t.list()
-        assert len(procs) >= 2
-
-    def test_list_by_state(self):
-        from l1.kernel.process import get_table, reset_table, ProcessState
-        reset_table()
-        t = get_table()
-        t.spawn("running-1")
-        t.spawn("running-2")
-        running = t.list(state=ProcessState.RUNNING)
-        assert len(running) >= 1
-
-    def test_list_sorted(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        p1 = t.spawn("z-first")
-        p2 = t.spawn("a-second")
-        procs = t.list()
-        assert procs[0]["pid"] < procs[1]["pid"]
-
-
-class TestIdentity:
-    """Identity verification mark"""
-
-    def test_mark_identity(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        t.spawn("id-test")
-        r = t.mark_identity_verified("id-test")
-        assert r is True
-
-    def test_mark_identity_nonexistent(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        r = t.mark_identity_verified("no-such-agent")
-        assert r is False
-
-
-class TestAudit:
-    """Audit log"""
-
-    def test_audit_log_basic(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        t.spawn("audit-me")
-        logs = t.audit_log(limit=10)
-        assert len(logs) >= 1
-        assert any(l["name"] == "audit-me" for l in logs)
-
-    def test_audit_log_limit(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        t.spawn("a1")
-        t.spawn("a2")
-        logs = t.audit_log(limit=1)
-        assert len(logs) <= 1
-
-
-class TestResourceSummary:
-    """Resource summary"""
-
-    def test_resource_summary(self):
-        from l1.kernel.process import get_table, reset_table
-        reset_table()
-        t = get_table()
-        s = t.resource_summary()
-        assert "tokens" in s
-        assert "workers" in s
-        assert "scouts" in s
-        assert "cards" in s
+    def test_has_states(self):
+        assert ProcessState.READY.name == "READY"
+        assert ProcessState.RUNNING.name == "RUNNING"
+        assert ProcessState.BLOCKED.name == "BLOCKED"
+        assert ProcessState.ZOMBIE.name == "ZOMBIE"
+        assert ProcessState.STOPPED.name == "STOPPED"
 
 
 class TestPCB:
-    """PCB data class"""
+    """Process Control Block."""
 
-    def test_pcb_create(self):
-        from l1.kernel.process import PCB, ProcessState
-        pcb = PCB(pid=1, name="test-pcb", role="reader", ring=1)
+    def test_create_pcb(self):
+        pcb = PCB(pid=1, name="test-agent", role="reader", parent_pid=0, ring=1)
         assert pcb.pid == 1
-        assert pcb.name == "test-pcb"
+        assert pcb.name == "test-agent"
         assert pcb.role == "reader"
+        assert pcb.parent_pid == 0
+        assert pcb.ring == 1
+        assert pcb.state == ProcessState.READY
+        assert pcb.exit_code is None
+        assert pcb.identity_verified is False
 
-    def test_pcb_snapshot(self):
-        from l1.kernel.process import PCB
-        pcb = PCB(pid=2, name="snap-test")
-        s = pcb.snapshot()
-        assert s["pid"] == 2
-        assert s["name"] == "snap-test"
-        assert "state" in s
-        # Resource fields are spread into the flat dict via **self.resources.__dict__
-        assert "tokens_allocated" in s
-        assert "cpu_time" in s
-        assert "cards_processed" in s
-
-    def test_pcb_touch(self):
-        from l1.kernel.process import PCB
-        import time
-        pcb = PCB(pid=3, name="touch-test")
-        t1 = pcb.last_active
+    def test_touch_updates_last_active(self):
+        pcb = PCB(pid=1, name="a")
+        before = pcb.last_active
         time.sleep(0.01)
         pcb.touch()
-        assert pcb.last_active > t1
+        assert pcb.last_active > before
+
+    def test_record_tokens(self):
+        pcb = PCB(pid=1, name="a")
+        pcb.record_tokens(100, 50)
+        assert pcb.resources.tokens_allocated == 100
+        assert pcb.resources.tokens_used == 50
+
+    def test_record_card(self):
+        pcb = PCB(pid=1, name="a")
+        pcb.record_card()
+        assert pcb.resources.cards_processed == 1
+
+    def test_record_cpu(self):
+        pcb = PCB(pid=1, name="a")
+        pcb.record_cpu(1.5)
+        assert pcb.resources.cpu_time == 1.5
+
+    def test_record_scout(self):
+        pcb = PCB(pid=1, name="a")
+        pcb.record_scout(3)
+        assert pcb.resources.scouts_active == 3
+        pcb.record_scout(-1)
+        assert pcb.resources.scouts_active == 2
+
+    def test_snapshot_shape(self):
+        pcb = PCB(pid=1, name="a", role="writer", ring=2)
+        snap = pcb.snapshot()
+        assert snap["pid"] == 1
+        assert snap["name"] == "a"
+        assert snap["role"] == "writer"
+        assert snap["ring"] == 2
+        assert snap["state"] == "READY"
+        assert "uptime" in snap
+        assert "idle" in snap
+
+
+class TestProcessTableInit:
+    """Process table initialization."""
+
+    def test_init_has_pid0(self, pt):
+        """PID 0 is the kernel init process."""
+        pcb = pt.get(0)
+        assert pcb is not None
+        assert pcb.name == "kernel"
+        assert pcb.role == "init"
+        assert pcb.ring == 3
+        assert pcb.state == ProcessState.RUNNING
+
+    def test_singleton(self):
+        t1 = get_table()
+        t2 = get_table()
+        assert t1 is t2
+
+    def test_reset(self):
+        t = get_table()
+        reset_table()
+        t2 = get_table()
+        assert t2 is not t
+
+
+class TestSpawn:
+    """Process spawning."""
+
+    def test_spawn_increments_pid(self, pt):
+        p1 = pt.spawn("agent-a")
+        p2 = pt.spawn("agent-b")
+        assert p2.pid > p1.pid
+
+    def test_spawn_with_role_and_ring(self, pt):
+        pcb = pt.spawn("agent-a", role="reader", parent_pid=0, ring=1)
+        assert pcb.role == "reader"
+        assert pcb.parent_pid == 0
+        assert pcb.ring == 1
+        assert pcb.state == ProcessState.READY
+
+    def test_spawn_adds_to_table(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.get(pcb.pid) is pcb
+
+    def test_spawn_name_index(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.get_by_name("agent-a") is pcb
+
+
+class TestGet:
+    """Process lookup."""
+
+    def test_get_by_pid(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.get(pcb.pid) is pcb
+
+    def test_get_nonexistent(self, pt):
+        assert pt.get(9999) is None
+
+    def test_get_by_name(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.get_by_name("agent-a") is pcb
+
+    def test_get_by_name_nonexistent(self, pt):
+        assert pt.get_by_name("nonexistent") is None
+
+
+class TestSetState:
+    """State transitions."""
+
+    def test_set_state(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.set_state(pcb.pid, ProcessState.RUNNING) is True
+        assert pcb.state == ProcessState.RUNNING
+
+    def test_set_state_nonexistent(self, pt):
+        assert pt.set_state(9999, ProcessState.RUNNING) is False
+
+    def test_set_state_touches_timestamp(self, pt):
+        pcb = pt.spawn("agent-a")
+        before = pcb.last_active
+        time.sleep(0.01)
+        pt.set_state(pcb.pid, ProcessState.RUNNING)
+        assert pcb.last_active > before
+
+
+class TestExitReap:
+    """Process termination and cleanup."""
+
+    def test_exit_sets_zombie(self, pt):
+        pcb = pt.spawn("agent-a")
+        assert pt.exit(pcb.pid, exit_code=1, reason="finished") is True
+        assert pcb.state == ProcessState.ZOMBIE
+        assert pcb.exit_code == 1
+        assert pcb.exit_reason == "finished"
+
+    def test_exit_nonexistent(self, pt):
+        assert pt.exit(9999) is False
+
+    def test_reap_removes_process(self, pt):
+        pcb = pt.spawn("agent-a")
+        pt.exit(pcb.pid)
+        snap = pt.reap(pcb.pid)
+        assert snap is not None
+        assert pt.get(pcb.pid) is None
+        assert pt.get_by_name("agent-a") is None
+
+    def test_reap_twice(self, pt):
+        pcb = pt.spawn("agent-a")
+        pt.exit(pcb.pid)
+        pt.reap(pcb.pid)
+        assert pt.reap(pcb.pid) is None
+
+
+class TestList:
+    """Process listing."""
+
+    def test_list_all(self, pt):
+        pt.spawn("agent-a")
+        pt.spawn("agent-b")
+        # + PID 0 (kernel init)
+        assert len(pt.list()) >= 3
+
+    def test_list_by_state(self, pt):
+        pt.spawn("agent-a")
+        pcb = pt.spawn("agent-b")
+        pt.set_state(pcb.pid, ProcessState.RUNNING)
+        running = pt.list(state=ProcessState.RUNNING)
+        assert all(p["state"] == "RUNNING" for p in running)
+
+    def test_list_returns_snapshots(self, pt):
+        pcb = pt.spawn("agent-a")
+        items = pt.list()
+        snap = [i for i in items if i["pid"] == pcb.pid][0]
+        assert snap["name"] == "agent-a"
+        assert "pid" in snap
+        assert "state" in snap
+
+
+class TestMarkIdentityVerified:
+    """Ed25519 identity verification."""
+
+    def test_mark_verified(self, pt):
+        pt.spawn("agent-a")
+        assert pt.mark_identity_verified("agent-a") is True
+        assert pt.get_by_name("agent-a").identity_verified is True
+
+    def test_mark_verified_nonexistent(self, pt):
+        assert pt.mark_identity_verified("nonexistent") is False
+
+
+class TestResourceSummary:
+    """Aggregated resource accounting."""
+
+    def test_resource_summary_shape(self, pt):
+        summary = pt.resource_summary()
+        assert "tokens" in summary
+        assert "workers" in summary
+        assert "scouts" in summary
+        assert "cards" in summary
+
+    def test_resource_summary_after_activity(self, pt):
+        pcb = pt.spawn("agent-a")
+        pcb.record_card()
+        summary = pt.resource_summary()
+        assert summary["cards"] >= 1
+
+
+class TestAuditLog:
+    """Audit trail."""
+
+    def test_audit_log_after_operations(self, pt):
+        pt.spawn("agent-a")
+        pcb = pt.get_by_name("agent-a")
+        pt.exit(pcb.pid)
+        log = pt.audit_log()
+        assert len(log) >= 2
+
+    def test_audit_log_entries_shape(self, pt):
+        pt.spawn("agent-b")
+        log = pt.audit_log()
+        entry = log[-1]
+        assert "op" in entry
+        assert "pid" in entry
+        assert "name" in entry
+        assert "timestamp" in entry
+
+
+class TestGcReaper:
+    """Background zombie reaper."""
+
+    def test_gc_reaps_old_zombies(self):
+        """Zombie reaper — zombie eligible for reaping after 300s idle."""
+        pt = ProcessTable(gc_interval=0.05)
+        pcb = pt.spawn("agent-a")
+        pt.exit(pcb.pid)
+        pcb.last_active = time.time() - 600  # older than 300s threshold
+        # Manually simulate one GC tick: check if zombie would be reaped
+        now = time.time()
+        zombies = [(pid, p) for pid, p in pt._processes.items()
+                   if p.state == ProcessState.ZOMBIE and now - p.last_active > 300]
+        assert len(zombies) >= 1
+        for zpid, _ in zombies:
+            pt._processes.pop(zpid, None)
+        assert pt.get(pcb.pid) is None

@@ -11,6 +11,7 @@ import time
 import uuid
 
 from l1.kernel.params.agent import CELL_SNAPSHOT_MAX
+from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
 
 logger = logging.getLogger(__name__)
@@ -143,16 +144,15 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         # ── SubAgent pool route (through card-type gate) ──
         subagent_spec = sl.get("subagent_spec", "") or (sub_card.subagent_spec if hasattr(sub_card, "subagent_spec") else "")
         if subagent_spec:
-            from l3.agent.subagent_pool import SubAgentPool
             from l3.agent.subagent_gate import classify_card, build_spec
-            pool = SubAgentPool(cell.cell_id)
+            pool = cell._subagent_pool
             card_type = classify_card(sub_card)
             spec = build_spec(card_type, spec_name=subagent_spec)
             r = pool.commission(spec, prompt=sub_card.intent if hasattr(sub_card, "intent") else "",
                                 card_type=card_type,
                                 parent_agent_id=agent_id, cell=cell)
             if r.get("success"):
-                result = pool.collect(r["task_id"], timeout=120)
+                result = pool.collect(r["task_id"], timeout=SUBAGENT_RUN_TIMEOUT)
                 results.append(result)
             else:
                 results.append(r)
@@ -168,7 +168,7 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         if not sc.get("success"):
             return {"success": False, "error": sc.get("error", "dispatch failed"),
                     "results": results}
-        r = term.wait_for_result(sub_card.id, timeout=120)
+        r = term.wait_for_result(sub_card.id, timeout=SUBAGENT_RUN_TIMEOUT)
         if r:
             results.append(r.to_dict() if hasattr(r, "to_dict") else r.to_dict())
             if not r.success:
@@ -179,7 +179,7 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
 
 
 def _snapshot_and_inject(cell, card_id: str, card) -> None:
-    """Snapshot files referenced in card steps, inject rollback context."""
+    """Snapshot files + logical state for rollback recovery."""
     files = {}
     phases = getattr(card, "phases", []) or []
     for phase in phases:
@@ -190,8 +190,33 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
                 file_content = _take_snapshot(cell, path)
                 if file_content is not None:
                     files[path] = file_content
-    cell._card_snapshots[card_id] = {"files": files, "ts": time.time()}
-    logger.debug("snapshots taken for %s: %d files", card_id, len(files))
+
+    # Snapshot logical agent state from Cell._agents
+    agent_snap = {}
+    for aid, info in cell._agents.items():
+        agent_snap[aid] = {
+            "role": info.role, "ring": info.ring,
+            "status": info.status.name,
+            "active_scouts": info.active_scouts,
+        }
+
+    # Snapshot CellCache keys currently visible to agents
+    try:
+        cache_stats = cell._cache.stats() if cell._cache else {}
+        cache_keys = (
+            list(cell._cache._kv.keys())[:100]
+            if hasattr(cell._cache, "_kv") else []
+        )
+    except Exception:
+        cache_keys = []
+
+    cell._card_snapshots[card_id] = {
+        "files": files, "ts": time.time(),
+        "agent_snap": agent_snap,
+        "cache_keys": cache_keys,
+    }
+    logger.debug("snapshots taken for %s: %d files, %d agents, %d cache keys",
+                 card_id, len(files), len(agent_snap), len(cache_keys))
     # Inject rollback context from previous rollbacks
     if cell._rollback_ring:
         from l3.cell.components.cell_buffer import CircularBuffer

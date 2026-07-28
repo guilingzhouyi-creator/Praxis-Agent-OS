@@ -74,6 +74,14 @@ class PraxisError(Exception):
         self.context = context
         super().__init__(self.message)
 
+        # Push to ErrorBus (L3) — lazy import, silently skip if not available
+        try:
+            from l3.error_bus import capture as _capture
+            _capture(self.message, error_code=self.code, component="kernel",
+                     exc=self.cause, context=self.context or None)
+        except Exception:
+            pass
+
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.
 

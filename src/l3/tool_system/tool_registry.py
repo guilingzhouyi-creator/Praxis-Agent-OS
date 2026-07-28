@@ -16,8 +16,6 @@ from l1.kernel.paths import get_paths as _gp
 from l1.kernel.registry_base import MapRegistry
 
 if TYPE_CHECKING:
-    from typing import TYPE_CHECKING
-if TYPE_CHECKING:
     from l3.tool_system.tool_spec import ToolSpec
 
 logger = logging.getLogger(__name__)

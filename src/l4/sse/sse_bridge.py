@@ -23,11 +23,12 @@ logger = logging.getLogger(__name__)
 _sse_clients: list[dict] = []  # [{"queue": Queue, "types": set, "id": str}]
 _sse_lock = threading.RLock()
 _client_counter = 0
+_HAS_LISTENER = False  # guard: register EventBus listener only once
 
 
 def subscribe(event_types: set[str] | None = None) -> dict:
     """Register an SSE client; returns client ID and message queue."""
-    global _client_counter
+    global _client_counter, _HAS_LISTENER
     q: queue.Queue = queue.Queue(maxsize=256)
     with _sse_lock:
         _client_counter += 1
@@ -37,16 +38,18 @@ def subscribe(event_types: set[str] | None = None) -> dict:
             "queue": q,
             "types": event_types or set(),
         })
-    # Subscribe to EventBus
-    try:
-        from l1.kernel import get_event_bus
-        bus = get_event_bus()
-        bus.on_event("sse_bridge", lambda sig: _broadcast(
-            sig.type.name if hasattr(sig.type, 'name') else str(sig.type),
-            sig.data if hasattr(sig, 'data') else {},
-        ))
-    except Exception as e:
-        logger.warning("sse_bridge: event bus subscribe: %s", e)
+        # Register EventBus listener exactly once, not per-client
+        if not _HAS_LISTENER:
+            _HAS_LISTENER = True
+            try:
+                from l1.kernel import get_event_bus
+                bus = get_event_bus()
+                bus.on_event("sse_bridge", lambda sig: _broadcast(
+                    sig.type.name if hasattr(sig.type, 'name') else str(sig.type),
+                    sig.data if hasattr(sig, 'data') else {},
+                ))
+            except Exception as e:
+                logger.warning("sse_bridge: event bus subscribe: %s", e)
     return {"client_id": client_id, "queue": q}
 
 

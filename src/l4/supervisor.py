@@ -32,28 +32,28 @@ class Supervisor:
 
     PROCESSES: dict[str, dict] = {
         ROLE_KERNEL: {
-            "entry": "praxis.kernel:main",
+            "entry": "l4.supervisor",
             "restart": True,
             "depends": [],
             "replicas": 1,
             "health": "/api/health",
         },
         ROLE_API: {
-            "entry": "praxis.api:main",
+            "entry": "l4.api.api_gateway",
             "restart": True,
             "depends": [ROLE_KERNEL],
             "replicas": 1,
             "health": "/api/health",
         },
         ROLE_SANDBOX: {
-            "entry": "praxis.sandbox:main",
+            "entry": "l4.sandbox.server",
             "restart": True,
             "depends": [ROLE_KERNEL],
             "replicas": 2,
             "health": "",
         },
         ROLE_LLM: {
-            "entry": "praxis.llm:main",
+            "entry": "l4.llm_worker.server",
             "restart": True,
             "depends": [],
             "replicas": 4,
@@ -192,8 +192,8 @@ def start_kernel() -> None:
     """praxis-kernel: start the kernel process (Cell + AgentLoop + Memory)."""
     logging.basicConfig(level=logging.INFO)
     os.environ.setdefault("PRAXIS_ROLE", "kernel")
-    import l3.boot
-    r = services.boot.boot(interactive=False)
+    from l3.boot.boot import boot
+    r = boot(interactive=False)
     logger.info("kernel booted: %s", r.get("status", "?"))
 
 
@@ -202,7 +202,11 @@ def start_api() -> None:
     logging.basicConfig(level=logging.INFO)
     os.environ.setdefault("PRAXIS_ROLE", "api")
     from l4.api.api_gateway import start_api as _start_api
-    _start_api()
+    _start_api(
+        host=os.environ.get("PRAXIS_API_HOST", "127.0.0.1"),
+        port=int(os.environ.get("PRAXIS_API_PORT", "8080")),
+        auth_token=os.environ.get("PRAXIS_API_TOKEN", ""),
+    )
 
 
 # ── Singleton ──
@@ -220,3 +224,7 @@ def get_supervisor() -> Supervisor:
 def reset_supervisor() -> None:
     global _supervisor
     _supervisor = None
+
+
+if __name__ == "__main__":
+    main()

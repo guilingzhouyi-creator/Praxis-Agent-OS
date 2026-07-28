@@ -25,7 +25,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from l1.kernel.params.api import (
     LLM_PROVIDER_URLS,
@@ -71,6 +71,19 @@ _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
      "",
      ""),
 ]
+
+
+# ── Provider factory registry ──
+# Maps provider name → callable(LLMProvider_subclass, url, model, key, cache_breakpoints)
+# Registering a new provider type is a one-line addition here; no method changes needed.
+
+_PROVIDER_HANDLERS: dict[str, Callable[..., Any]] = {
+    "ollama":    lambda cls, url, model, key, _c: cls(url, model),
+    "openai":    lambda cls, url, model, key, _c: cls(key, url, model),
+    "deepseek":  lambda cls, url, model, key, _c: cls(key, url, model),
+    "anthropic": lambda cls, url, model, key, cache: cls(key, url, model, cache),
+    "websocket": lambda cls, url, model, key, _c: cls(url, model, key),
+}
 
 
 class ModelRegistry:
@@ -253,20 +266,16 @@ class ModelRegistry:
                 resolved_model = resolved_model or cfg.get("model", "")
 
         try:
-            if provider == "ollama":
-                return cls(resolved_url, resolved_model)
-            elif provider in ("openai", "deepseek"):
-                return cls(resolved_key, resolved_url, resolved_model)
-            elif provider == "anthropic":
-                return cls(resolved_key, resolved_url, resolved_model, cache_breakpoints)
-            elif provider == "websocket":
-                return cls(resolved_url, resolved_model, resolved_key)
-            else:
-                try:
-                    return cls(api_key=resolved_key, api_url=resolved_url,
-                               model=resolved_model)
-                except Exception:
-                    return cls()
+            handler = _PROVIDER_HANDLERS.get(provider)
+            if handler:
+                return handler(cls, resolved_url, resolved_model,
+                               resolved_key, cache_breakpoints)
+            # Fallback for unknown providers: try kwargs, then no-arg
+            try:
+                return cls(api_key=resolved_key, api_url=resolved_url,
+                           model=resolved_model)
+            except Exception:
+                return cls()
         except Exception as e:
             logger.warning("model_registry: failed to build '%s': %s", provider, e)
             return None

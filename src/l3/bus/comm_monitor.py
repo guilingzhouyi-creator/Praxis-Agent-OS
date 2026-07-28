@@ -18,6 +18,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
+
 logger = logging.getLogger(__name__)
 
 # ── Constants ──
@@ -113,7 +116,7 @@ class CommMonitor:
         with self._lock:
             rate = 0.0
             now = time.time()
-            cutoff = now - 60
+            cutoff = now - PMU_SNAPSHOT_INTERVAL
             recent = [t for t in self._timestamps if t > cutoff]
             rate = len(recent)
             avg_latency = (
@@ -153,10 +156,10 @@ class CommMonitor:
         with self._lock:
             now = time.time()
             recent_msg = (
-                sum(1 for t in self._timestamps if t > now - 60)
+                sum(1 for t in self._timestamps if t > now - PMU_SNAPSHOT_INTERVAL)
             )
             return {
-                "status": "ok" if recent_msg > 0 or now - self._started_at < 120 else "idle",
+                "status": "ok" if recent_msg > 0 or now - self._started_at < AGENT_LOOP_DEFAULT_TIMEOUT else "idle",
                 "msg_rate_per_min": recent_msg,
                 "dropped_rate": round(
                     self._stats.total_dropped / max(self._stats.total_messages, 1) * 100, 2

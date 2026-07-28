@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from l1.kernel.params.api import LSP_MANAGER_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class DiagnosticEntry:
             "file": self.file,
             "line": self.line,
             "column": self.column,
-            "message": self.message[:200],
+            "message": self.message[:LOG_TRUNC_200],
             "severity": self.severity,
             "code": self.code,
             "source": self.source,

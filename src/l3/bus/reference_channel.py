@@ -32,6 +32,7 @@ from l1.kernel.params.system import (
     RC_FLUSH_INTERVAL,
     RC_MAX_EVENTS,
     RC_EXPORT_LIMIT,
+    LOG_TRUNC_1000,
 )
 
 logger = logging.getLogger(__name__)
@@ -199,7 +200,7 @@ class ReferenceChannel:
 
     # ── Export ──
 
-    def export(self, limit: int = 1000, offset: int = 0,
+    def export(self, limit: int = LOG_TRUNC_1000, offset: int = 0,
                event_type: str = "") -> list[dict]:
         """Read events from disk. Pure query, no side effects."""
         results: list[dict] = []

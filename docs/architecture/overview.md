@@ -9,7 +9,7 @@ Praxis is an **Agent Operating System** — a five-layer runtime for building, o
 
 ```
                     ┌─────────────────────────────────────┐
-                    │  L5  User Layer  (cli, agent_runtime) │
+                    │  L5  User Layer  (l5/cli.py)         │
                     ├─────────────────────────────────────┤
                     │  L4  Bridge Layer (API, LLM, Sandbox)│
                     ├─────────────────────────────────────┤
@@ -33,35 +33,38 @@ flowchart TB
     end
 
     subgraph L4["L4 — Bridge Layer (src/l4/)"]
-        GW["api/api_gateway.py\n170 HTTP routes"]
-        AH["api_handlers/\n9 Handler Modules"]
+        GW["api/api_gateway.py\n208 HTTP routes"]
+        AH["api_handlers/\n11 Handler Modules"]
         LLM["llm/\nLLM Engine + Providers"]
-        SAND["sandbox/\nCOW Isolation"]
-        ADAPT["adapters/\n7 Port Impls"]
+        SAND["sandbox/\nCOW Isolation + Exec Sandbox"]
+        ADAPT["adapters/\n6 Port Impls"]
         RPC["rpc/\nIPC Framework"]
         SRCH["search/\nSearch Engine"]
         LSP_SVC["lsp/\nLSP Manager"]
         VAULT["vault/\nCredentials + Auth"]
         SSE_BR["sse/\nSSE Bridge"]
         LLMW["llm_worker/\nLLM Worker"]
+        MCP["mcp_bridge.py\nMCP Adapter"]
+        SUPV["supervisor.py\nProcess Supervisor"]
+        CI["ci.py\nInternal CI Pipeline"]
     end
 
     subgraph L3["L3 — Cell Layer (src/l3/)"]
-        CELL["cell/\nAgent Orchestration (18 files)"]
+        CELL["cell/\nAgent Orchestration (22 files)"]
         TERM["agent_terminal/\nWorker Runtime"]
-        BOOT["boot/\n5-Step Bootstrap (4 files)"]
+        BOOT["boot/\n7-Step Bootstrap + Lifecycle"]
         BUS["bus/\nMonitor, L3B, IPC, HTN (15 files)"]
         CARD["card/\nCard Lifecycle + Registry (21 files)"]
         MEM["memory/\n4-Ring + Pager + Cache (17 files)"]
         ERRBUS["error_bus/\nError Capture (2 files)"]
-        SCD["scheduler/\n5D Scheduler (11 files)"]
-        AGT["agent/\nAgentLoop, Scout, SubAgent (22 files)"]
+        SCD["scheduler/\n5D Scheduler + ACB (11 files)"]
+        AGT["agent/\nAgentLoop, Scout, SubAgent (24 files)"]
         TOOLS["tools/\n17 Tool Implementations"]
         TLSYS["tool_system/\nPipeline, Policy, Spec (8 files)"]
         BUF["resource_buffer/\nRing Buffer (4 files)"]
         SVCS["services/\nStats, Records, Model (29 files)"]
         CFG["config/\nConfig Loading (8 files)"]
-        DISC["discussion/\nAnswer+Convergence (6 files)"]
+        DISC["discussion/\nAnswer+Convergence (7 files)"]
     end
 
     subgraph L2["L2 — Shell Layer (src/l2/)"]
@@ -73,29 +76,41 @@ flowchart TB
 
     subgraph L1["L1 — Kernel Layer (src/l1/kernel/)"]
         SYSC["__init__.py\nSyscall Dispatcher"]
-        SYN["sync.py\nMutex/Sem/Barrier"]
-        PROC["process.py\nProcessTable"]
-        ALLOC["allocator.py\nToken Alloc"]
+        SYN["sync.py\nMutex/Sem/Barrier/RWLock"]
+        PROC["process.py\nProcessTable + PCB"]
+        ALLOC["allocator.py\nToken Alloc + GC"]
         EVT["event.py\nEventBus"]
         SBUS["bus.py\nSystemBus"]
         GATE["gatechain.py\nG1-G5"]
         CONST["constitution.py\nRules Engine"]
         VFS["vfs.py\nVirtual FS"]
-        OS["os.py\nLifecycle"]
+        OS["os.py\nLifecycle + Watchdog"]
         IPS["ipc.py\nIPC Channel"]
         PERS["persist.py\nSQLite Store"]
         REP["reputation.py\nTrust Scores"]
         SWAP["swapper.py\nRing Swapper"]
         PORTS["ports.py\nPort Interfaces"]
-        P["params/\n589 Constants"]
+        P["params/\n694 Constants"]
         ERR["errors.py\n20 Error Codes"]
         CMD["commands.py\nCmd Registry"]
         PLAT["platform.py\nCross-Platform"]
+        SKL["skill.py\nSkill Manager"]
+        INT["interrupt.py\nInterrupt Table"]
+        NET["net.py\nCross-Cell Mesh"]
+        NTP["net_transport.py\nTransport + TLS"]
+        REG["registry.py\nSystem Registry"]
+        HLT["health.py\nKernel Health"]
+        RSC["resource.py\nResource Limiter"]
+        PRM["prompts.py\nPrompt Registry"]
+        MDR["model_registry.py\nModel Registry"]
+        RLD["rule_descriptor.py\nRule Definition"]
+        VRS["versioning.py\nSchema Migration"]
+        TC["tool_chain.py\nFingerprint Chain"]
     end
 
     %% L5 → L4/L3/L2/L1
-    CLI -->|"boot()"| BOOT
-    AR -->|"syscall()"| SYSC
+    CLI -->|"boot/shutdown"| BOOT
+    CLI -->|"syscall()"| SYSC
     CLI -->|"API call"| GW
 
     %% L4 → L3
@@ -114,7 +129,6 @@ flowchart TB
 
     %% L3 → L2
     CELL -.->|"dispatch_cmd"| S
-    BOOT -->|"load config"| P
 
     %% L3 → L1
     CELL -->|"emit_signal()"| EVT
@@ -124,7 +138,7 @@ flowchart TB
     TLSYS -->|"lock file"| SYN
     TLSYS -->|"limit check"| REP
     BOOT -->|"init kernel"| SYSC
-    BOOT -->|"load"| CONST
+    BOOT -->|"load constitution"| CONST
     BOOT -->|"VFS mount"| VFS
     BOOT -->|"network"| IPS
     BOOT -->|"register cmds"| CMD
@@ -139,7 +153,8 @@ flowchart TB
     TERM -->|"execute"| TLSYS
     TERM -->|"remember"| MEM
     TERM -->|"tool spec"| TOOLS
-    BOOT -->|"create"| CELL
+    BOOT -->|"create cell"| CELL
+    BOOT -->|"factory reset"| LFC["lifecycle.py"]
     TLSYS -->|"sandbox"| BUF
     CELL -->|"approve/reject"| CARD
     CELL -->|"scale config"| SCD
@@ -161,12 +176,12 @@ flowchart TB
 
 ## Layer Details
 
-### L1 — Kernel (`src/l1/kernel/`) — 37 Files
+### L1 — Kernel (`src/l1/kernel/`) — 38 Files
 
 | Subsystem | File | Purpose |
 |-----------|------|---------|
 | Sync | `sync.py` | Mutex, Semaphore, Barrier, RWLock, Condition |
-| Process | `process.py` | ProcessTable, PCB (identity, state, resources) |
+| Process | `process.py` | ProcessTable + PCB (identity, state, resources) |
 | Allocator | `allocator.py` | Token/ring/sandbox quota allocation, GC, swap |
 | Event | `event.py` | EventBus pub/sub with history |
 | SystemBus | `bus.py` | Component lifecycle, topology, health aggregation |
@@ -176,25 +191,37 @@ flowchart TB
 | IPC | `ipc.py` | Kernel message passing (LockChannel) |
 | Device | `device.py` | Device manager (LLM, DB, network) |
 | Net | `net.py` | Cross-Cell UDP/TCP mesh |
+| Net Transport | `net_transport.py` | Transport layer + TLS |
 | Swapper | `swapper.py` | Background memory pressure management |
 | Reputation | `reputation.py` | Agent trust scores [0.0, 1.0] |
 | ToolChain | `tool_chain.py` | HMAC-SHA256 fingerprint chain |
-| Commands | `commands.py` | CommandRegistry class — system/user command registration, YAML+API metadata layering |
+| Commands | `commands.py` | CommandRegistry — sys/user cmds, YAML+API metadata layering |
 | Prompts | `prompts.py` | YAML-driven prompt template registry |
-| OS | `os.py` | Lifecycle coordinator (boot/shutdown/restart) |
+| OS | `os.py` | Lifecycle coordinator (boot/shutdown/restart/watchdog) |
 | Errors | `errors.py` | Centralized error system — 20 error codes |
 | Ports | `ports.py` | Hexagonal architecture port interfaces (7 ports) |
-| Params | `params/` | 589 Final constants across 5 sub-modules |
+| Params | `params/` | 694 Final constants across 5 sub-modules |
+| Health | `health.py` | Kernel health self-check |
+| Platform | `platform.py` | Cross-platform detection, grep_cmd, run_shell |
+| Settings | `settings.py` | Config store proxy (delegates to SettingsCenter) |
+| Skill | `skill.py` | Skill manager — load/execute built-in skills |
+| Interrupt | `interrupt.py` | Interrupt table with priority routing |
+| Registry | `registry.py` | Central system registry |
+| Resource | `resource.py` | Resource limiter |
+| Model Registry | `model_registry.py` | LLM model registry |
+| Rule Descriptor | `rule_descriptor.py` | Rule definition dataclasses |
+| Versioning | `versioning.py` | Schema migration |
+| Persist | `persist.py` | SQLite event store + auto-save |
 
 **Constants** (`src/l1/kernel/params/`):
 
 | Sub-module | Constants | Coverage |
 |-----------|-----------|----------|
-| `kernel.py` | 129 | Allocator, sync, process, gatechain, vfs, syscall |
-| `agent.py` | 153 | Roles, terminal, loop, scout, card, events |
-| `tool.py` | 33 | Danger levels, timeouts, rate limits, HTN |
-| `api.py` | 111 | API, LLM, network, IPC, env vars, CORS |
-| `system.py` | 163 | Cache, persistence, memory rings, data paths, sandbox |
+| `kernel.py` | 154 | Allocator, sync, process, gatechain, vfs, syscall, boot |
+| `agent.py` | 181 | Roles, terminal, loop, scout, card, events, constitution |
+| `tool.py` | 39 | Danger levels, timeouts, rate limits, HTN, package mgr |
+| `api.py` | 129 | API, LLM, network, IPC, env vars, CORS |
+| `system.py` | 191 | Cache, persistence, memory rings, data paths, sandbox, truncation limits
 
 ### L2 — Shell (`src/l2/`) — 10 Files, 1,583 Lines
 
@@ -211,25 +238,49 @@ flowchart TB
 | `shell_session.py` | 129 | Session lifecycle management |
 | `shell_completer.py` | 34 | Shell auto-completion engine |
 
-### L3 — Cell (`src/l3/`) — 4 Root Files + 15 Subdirectories, ~19,000 Lines
+### L3 — Cell (`src/l3/`) — 3 Root Files + 15 Subdirectories, ~19,000 Lines
 
 | Subdirectory | Key Files | Purpose |
 |-------------|-----------|---------|
-| **agent/** | `agent_loop.py`, `scout.py`, `subagent*.py`, `subagent_pool.py`, `subagent_gate.py` (24 files) | AgentLoop, Scout pool, SubAgent framework, SubAgentPool (dual-buffer), SubAgentGate (explore/execute classification), handlers, verifiers |
-| **agent_terminal/** | `__init__.py` | Terminal runtime — per-agent worker process |
-| **boot/** | `boot.py`, `boot_init.py`, `wiring.py` (4 files) | Boot sequence + port/adapter wiring |
-| **bus/** | `monitor_bus.py`, `l3b*.py`, `htn*.py`, `log.py`, `ipc.py` (15 files) | L3B, MonitorBus, HTN planners, IPC, logging buses |
+| **agent/** | `agent_loop.py`, `scout.py`, `subagent*.py`, `subagent_pool.py` (24 files) | AgentLoop, Scout pool, SubAgent framework, handlers, verifiers |
+| **agent_terminal/** | `__init__.py` | Terminal runtime — per-agent worker process (639 lines) |
+| **boot/** | `boot.py`, `lifecycle.py`, `wiring.py` (3 files) | 7-step bootstrap, factory-reset lifecycle, port wiring |
+| **bus/** | `monitor_bus.py`, `l3b*.py`, `htn*.py`, `log.py`, `ipc.py` (15 files) | L3B, MonitorBus, HTN planners, IPC, logging, message gate |
 | **card/** | `card*.py`, `execution*.py`, `pending_queue.py` (21 files) | Card lifecycle, registry, execution plan, gates, approvals |
-| **cell/** | `__init__.py` + `components/` + `peers/` (22 files) | Cell class, PMU/Watchdog/ICache/MMU/Interrupt, L3A/L3 |
-| **config/** | `config_loader.py`, `config_handlers.py`, `settings_center.py` (8 files) | Config loading + hot-reload + 3-layer settings |
+| **cell/** | `__init__.py` + `components/` + `peers/` (22 files) | Cell class, PMU/Watchdog/ICache/MMU/Interrupt, L3A/L3 coordinator |
+| **config/** | `config_loader.py`, `settings_center.py`, `bootstrap.py` (8 files) | Config loading + hot-reload + 3-layer settings + bootstrap wizard |
+| **discussion/** | `issue_orchestrator.py`, `answer_session.py`, `answer_aggregator.py` (7 files) | Multi-Cell discussion orchestration, answer collection, convergence |
 | **error_bus/** | `__init__.py`, `api.py` (2 files) | Error capture bus with dedup + API |
-| **memory/** | `memory.py`, `context*.py`, `pager*.py`, `cache*.py`, `r4_agent.py` (17 files) | 4-ring memory, context, pager, cache, R4 archive |
+| **memory/** | `memory.py`, `r4_agent.py`, `cache*.py`, `pager*.py` (17 files) | 4-ring memory, context, pager, cache, R4 archive |
 | **resource_buffer/** | `ring.py`, `manager.py`, `api.py` (4 files) | Ring file buffer |
-| **scheduler/** | `scheduler*.py`, `think_registry.py`, `acb.py`, `loop_detectors.py` (11 files) | 5-D scheduler, think quota, agent control block |
-| **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `counter.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
-| **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_policy.py`, `tool_registry.py` (8 files) | Tool pipeline, spec registry (ToolRegistry class backed by MapRegistry), policy, config, mode |
-| **tools/** | `_files.py`, `_code.py`, `_git.py`, etc. (17 files) | Tool implementations |
-| **discussion/** | `issue_orchestrator.py`, `answer_session.py`, `answer_aggregator.py`, `cell_answer_repo.py`, `supplement_manager.py`, `report_service.py` (6 files) | Multi-Cell discussion orchestration, answer collection, convergence, report generation |
+| **scheduler/** | `scheduler*.py`, `acb.py`, `think_registry.py`, `sequence_monitor.py` (11 files) | 5-D scheduler, think quota, agent control block, anomaly detection |
+| **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `identity.py` (29 files) | StatsCenter, RecordCenter, ModelService, security, scaffolding |
+| **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_registry.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
+| **tools/** | `_files.py`, `_code.py`, `_git.py`, `_build.py`, etc. (17 files) | Tool implementations — file, code, git, web, search, terminal |
+
+### L4 — Bridge (`src/l4/`) — 46 Files Across 11 Root Files + 8 Subdirectories, ~6,500 Lines
+
+| Subdirectory / File | Key Modules | Purpose |
+|--------------------|-------------|---------|
+| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 208 routes, middleware |
+| **api_handlers/** | `__init__.py` (770 lines mixin), `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (11 files) | 11 handler modules — agent, providers, config, monitor, records, stats, discussion |
+| **llm/** | `llm.py`, `llm_base.py`, `llm_providers.py` | LLM Engine + ABC + 4 provider implementations |
+| **search/** | `search.py`, `search_engine.py` | Full-text and semantic search |
+| **lsp/** | `lsp.py`, `lsp_manager.py` | LSP client + manager (615 lines) |
+| **vault/** | `credential_vault.py`, `auth.py` | AES-256 vault + authentication |
+| **sse/** | `sse_bridge.py` | SSE event streaming bridge |
+| **sandbox/** | `manager.py`, `server.py` | Execution sandbox with 5 profiles |
+| **rpc/** | `transport.py`, `protocol.py` | IPC framework |
+| **adapters/** | `bus_memory.py`, `channel_ring.py`, `i18n_yaml.py`, etc. (6 files) | Port→adapter wiring |
+| **llm_worker/** | `server.py` | LLM worker process (Unix socket IPC) |
+| Root files | `supervisor.py`, `sandbox.py`, `mcp_bridge.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | Process supervision, COW sandbox, MCP, cron, CI pipeline, git ops, network mesh, webhooks, dashboard |
+
+### L5 — User (`src/l5/`) — 2 Files, ~470 Lines
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `cli.py` | 296 | CLI commands (boot, health, ps, card, tools, audit, chain, interrupts, devices, status, shutdown) |
+| `agent_runtime.py` | 176 | Runtime execution loop |
 
 ### L4 — Bridge (`src/l4/`) — 11 Root Files + 8 Subdirectories, ~6,500 Lines
 
@@ -264,7 +315,7 @@ L2 → can only import L1
 L1 → cannot import any upper layer
 ```
 
-Enforced by `tests/test_layer_imports.py`. 49 pre-existing cross-layer imports are explicitly allowlisted (adapter patterns + LLM calls).
+Enforced by `tests/test_layer_imports.py`. 53 pre-existing cross-layer imports are explicitly allowlisted (adapter patterns, LLM calls, OS fallback lifecycle paths).
 
 ## Core Concepts
 
@@ -288,6 +339,7 @@ Enforced by `tests/test_layer_imports.py`. 49 pre-existing cross-layer imports a
 | **Async task offload** | SubAgentPool (dual-buffer: explore/execute, ThreadPoolExecutor) |
 | **Task classification** | SubAgentGate (card→explore or execute by write-tool analysis) |
 | **Kernel boot → Issue** | IssueOrchestrator + AnswerSession (blank constitution triggers territorial discussion) |
+| **Factory reset** | lifecycle.py: shutdown → reset_all_singletons → wipe_disk → boot |
 
 ### Agent = Process
 
@@ -351,52 +403,54 @@ IssueCard → IssueOrchestrator
 
 ```
 src/
-├── l1/kernel/          # 37 files — OS primitives
-│   └── params/         # 5 sub-modules, 589 constants
-├── l2/                 # 10 files — Shell layer (40 commands)
-├── l3/                 # 4 root files + 15 subdirectories — Cell layer
-│   ├── agent/          # AgentLoop, Scout, SubAgent (22 files)
+├── l1/kernel/          # 38 files — OS primitives
+│   └── params/         # 5 sub-modules, 694 constants
+├── l2/                 # 9 files — Shell layer (40 commands)
+├── l3/                 # 3 root files + 15 subdirectories — Cell layer
+│   ├── agent/          # AgentLoop, Scout, SubAgent (24 files)
 │   ├── agent_terminal/ # Worker runtime
-│   ├── boot/           # Boot sequence (4 files)
+│   ├── boot/           # Boot + lifecycle (3 files)
 │   ├── bus/            # Monitor, L3B, IPC, HTN (15 files)
 │   ├── card/           # Card lifecycle (21 files)
 │   ├── cell/           # Cell orchestration (22 files)
 │   ├── config/         # Config loading (8 files)
+│   ├── discussion/     # Answer + convergence (7 files)
 │   ├── error_bus/      # Error capture (2 files)
 │   ├── memory/         # 4-ring memory (17 files)
 │   ├── resource_buffer/# Ring buffer (4 files)
-│   ├── scheduler/      # 5D scheduler (11 files)
+│   ├── scheduler/      # 5D scheduler + ACB (11 files)
 │   ├── services/       # Stats, Records, Model (29 files)
 │   ├── tool_system/    # Pipeline, policy, spec (8 files)
-│   ├── tools/          # 17 tool implementations
-│   └── discussion/     # Answer + convergence (7 files)
-├── l4/                 # 11 root files + 8 subdirectories — Bridge layer
+│   └── tools/          # 17 tool implementations
+├── l4/                 # 46 files — Bridge layer
 │   ├── api/            # Gateway, routes, middleware
-│   ├── api_handlers/   # 9 handler modules
+│   ├── api_handlers/   # 11 handler modules
 │   ├── llm/            # LLM engine + providers
 │   ├── search/         # Search engine
 │   ├── lsp/            # LSP manager
 │   ├── vault/          # Credentials + auth
 │   ├── sse/            # SSE bridge
 │   ├── sandbox/        # Process isolation
-│   ├── rpc/            # RPC framework
+│   ├── rpc/            # IPC framework
 │   ├── adapters/       # Port implementations
 │   └── llm_worker/     # LLM worker process
 └── l5/                 # 2 files — User layer
-
-tests/
-└── test_layer_imports.py  # Layer constraint enforcement
 ```
 
 ## Quick Start
 
 ```bash
 # Boot the system
-python -m l5.cli boot
+python src/main.py boot
 
 # Enter L2 Shell
 python -m l2.l2_shell
 
 # API (once booted)
 curl http://localhost:8080/api/health
+
+# System lifecycle (via API)
+curl -X POST http://localhost:8080/api/reboot    # warm restart
+curl -X POST http://localhost:8080/api/reset      # factory reset
+curl  http://localhost:8080/api/boot/status       # boot status
 ```

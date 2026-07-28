@@ -19,6 +19,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +44,7 @@ class CellAnswer:
             self.created_at = time.time()
         if not self.fingerprint:
             raw = json.dumps(self.content, sort_keys=True, default=str)
-            self.fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:16]
+            self.fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
 
 @dataclass
@@ -180,7 +182,7 @@ class CellAnswerRepo:
                 "fonds": f"CELL:{self.cell_id}:{self.session_id}",
                 "series": f"phase:{answer.phase}",
                 "title": f"{answer.agent_id}/{answer.answer_type}",
-                "content": json.dumps(answer.content, default=str)[:5000],
+                "content": json.dumps(answer.content, default=str)[:LOG_TRUNC_5000],
                 "tags": ",".join(tags),
             })
         except Exception:
@@ -195,7 +197,7 @@ class CellAnswerRepo:
                 agent_id=answer.agent_id,
                 cell_id=self.cell_id,
                 entry_type=f"discussion.{answer.answer_type}",
-                content=json.dumps(answer.content, default=str)[:2000],
+                content=json.dumps(answer.content, default=str)[:LOG_TRUNC_2000],
                 ring=3,
                 importance=0.7,
                 tags=list(answer.tags or []) + [
@@ -222,7 +224,7 @@ class CellAnswerRepo:
                     "status": cp.status,
                     "completed_agents": cp.completed_agents,
                     "pending_agents": cp.pending_agents,
-                }, default=str)[:2000],
+                }, default=str)[:LOG_TRUNC_2000],
                 ring=3,
                 importance=0.9,
                 tags=["discussion", "checkpoint", self.session_id],

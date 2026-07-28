@@ -87,6 +87,22 @@ def rollback_card(cell, card_id: str = "") -> dict:
     else:
         cell._card_history = CircularBuffer(CELL_HISTORY_RING_SIZE)
 
+    # 7. Clean up CellCache / ICache / MMU-TLB — stale data from rolled-back execution
+    try:
+        if card_id:
+            cell._cache.clear()
+        cell._icache.remove_by_type("card")
+        cell._mmu.flush_all()
+    except Exception as e:
+        logger.warning("rollback cache/icache/mmu cleanup: %s", e)
+    results["caches_cleaned"] = True
+
+    # 8. Trigger rollback event — notify InterruptController + EventBus
+    try:
+        cell._interrupt.trigger("cell.rollback", data={"card_id": card_id})
+    except Exception as e:
+        logger.debug("rollback interrupt: %s", e)
+
     logger.info("Cell %s rollback complete: %s", cell.cell_id, results)
     return {"success": True, "cell_id": cell.cell_id, "results": results,
             "rollback_context": rollback_msg}

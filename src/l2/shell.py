@@ -13,7 +13,7 @@ from __future__ import annotations
 import subprocess
 import time
 
-from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
 from l1.kernel.platform import IS_WINDOWS, run_shell
 from .shell_session import TerminalSession, TerminalManager, get_manager, reset_manager
@@ -22,7 +22,7 @@ from .shell_completer import _COMMANDS, _ALIASES, _COMMAND_HELP, TerminalComplet
 # ── Terminal REPL — Tab completion, command parsing, direct session ──
 
 
-def direct_session(prompt: str = "agent> ", agent_id: str = "l3", cell_id: str = DEFAULT_CELL_ID) -> None:
+def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, cell_id: str = DEFAULT_CELL_ID) -> None:
     """Direct session loop — human input → L3A → execute → output.
 
     Commands:
@@ -34,12 +34,15 @@ def direct_session(prompt: str = "agent> ", agent_id: str = "l3", cell_id: str =
       help                   → Show help
       exit                   → Exit session
     """
-    import readline
-    completer = TerminalCompleter()
-    completer.refresh()
-    readline.set_completer(completer.complete)
-    readline.parse_and_bind("tab: complete")
-    readline.set_completer_delims(' \t\n')
+    try:
+        import readline
+        completer = TerminalCompleter()
+        completer.refresh()
+        readline.set_completer(completer.complete)
+        readline.parse_and_bind("tab: complete")
+        readline.set_completer_delims(' \t\n')
+    except ImportError:
+        pass  # No tab completion (e.g. Windows without pyreadline3)
     history: list[str] = []
     history_pos = 0
 
@@ -67,7 +70,8 @@ def direct_session(prompt: str = "agent> ", agent_id: str = "l3", cell_id: str =
         if line == "exit" or line == "q":
             break
         elif line in ("clear", "clr"):
-            print("\033[2J\033[H", end="")
+            import os as _os
+            _os.system("cls" if IS_WINDOWS else "clear")
             continue
         elif line in ("help", "h"):
             _show_help()
@@ -220,7 +224,7 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
         print(f"  [Error] {e}")
 
 
-def start_repl(agent_id: str = "l3", prompt: str = "") -> None:
+def start_repl(agent_id: str = SIGNAL_TARGET_L3, prompt: str = "") -> None:
     """Start the Agent OS REPL terminal."""
     if not prompt:
         prompt = f"agent@{agent_id}> "

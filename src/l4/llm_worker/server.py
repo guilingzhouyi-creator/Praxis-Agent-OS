@@ -24,19 +24,19 @@ class LLMWorkerServer:
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
-        os.makedirs(os.path.dirname(self._socket_path) or ".", exist_ok=True)
-        self._server = await asyncio.start_unix_server(
-            self._handle_client, path=self._socket_path,
+        from l1.kernel.platform import create_ipc_server
+        self._server, self._address = await create_ipc_server(
+            self._handle_client, self._socket_path,
         )
         logger.info("LLMWorkerServer listening on %s (%d workers)",
-                     self._socket_path, self._workers)
+                     self._address, self._workers)
 
     async def stop(self) -> None:
+        from l1.kernel.platform import remove_ipc_socket
         if self._server:
             self._server.close()
             await self._server.wait_closed()
-        if os.path.exists(self._socket_path):
-            os.unlink(self._socket_path)
+        remove_ipc_socket(self._socket_path)
 
     async def _handle_client(self, reader: asyncio.StreamReader,
                              writer: asyncio.StreamWriter) -> None:

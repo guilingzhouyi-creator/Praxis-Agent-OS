@@ -30,7 +30,16 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import DIALOGUE_SESSION_AUTO_SAVE, DIALOGUE_IDLE_TIMEOUT
+from l1.kernel.params.system import (
+    DIALOGUE_SESSION_AUTO_SAVE,
+    DIALOGUE_IDLE_TIMEOUT,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_60,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_500,
+    LOG_TRUNC_1000,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +78,7 @@ class DialogueSession:
     def __init__(self, agent_id: str, task: str = "",
                  config: SessionConfig | None = None,
                  persist_path: str = ""):
-        self.session_id = f"session-{uuid.uuid4().hex[:8]}"
+        self.session_id = f"session-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         self.agent_id = agent_id
         self.task = task
         self.config = config or SessionConfig()
@@ -95,7 +104,7 @@ class DialogueSession:
             self._context_entries = []
             self._last_activity = time.time()
         logger.info("session %s started: agent=%s task=%s",
-                    self.session_id, self.agent_id, self.task[:60])
+                    self.session_id, self.agent_id, self.task[:LOG_TRUNC_60])
         return {"success": True, "session_id": self.session_id}
 
     def complete(self, summary: str = "") -> dict:
@@ -111,7 +120,7 @@ class DialogueSession:
         """Mark the session as failed."""
         with self._lock:
             self.state = SessionState.FAILED
-        logger.warning("session %s failed: %s", self.session_id, error[:100])
+        logger.warning("session %s failed: %s", self.session_id, error[:LOG_TRUNC_100])
         return {"success": False, "error": error, "turns": len(self._turns)}
 
     # ── Turn management ──
@@ -123,10 +132,10 @@ class DialogueSession:
             turn_num = len(self._turns) + 1
             record = TurnRecord(
                 turn=turn_num,
-                prompt=prompt[:500],
-                response=response[:1000],
+                prompt=prompt[:LOG_TRUNC_500],
+                response=response[:LOG_TRUNC_1000],
                 tool_calls=[{"name": tc.get("name", ""),
-                             "args": str(tc.get("args", {}))[:200]}
+                             "args": str(tc.get("args", {}))[:LOG_TRUNC_200]}
                             for tc in (tool_calls or [])],
                 context_snapshot=list(self._context_entries[-10:]),
                 timestamp=time.time(),
@@ -143,7 +152,7 @@ class DialogueSession:
     def push_context(self, role: str, content: str,
                      source: str = "") -> dict:
         """Inject context for the next inference turn."""
-        entry = {"role": role, "content": content[:500],
+        entry = {"role": role, "content": content[:LOG_TRUNC_500],
                  "source": source, "ts": time.time()}
         with self._lock:
             est_tokens = max(1, len(content) // 4)
@@ -179,8 +188,8 @@ class DialogueSession:
                 "tool_calls": len(t.tool_calls),
                 "elapsed": round(t.elapsed, 2),
                 "ts": t.timestamp,
-                "prompt_preview": t.prompt[:60],
-                "response_preview": t.response[:60],
+                "prompt_preview": t.prompt[:LOG_TRUNC_60],
+                "response_preview": t.response[:LOG_TRUNC_60],
             } for t in self._turns]
 
     def stats(self) -> dict:
@@ -194,7 +203,7 @@ class DialogueSession:
                 "token_budget_used": self.config.max_context_tokens - self._token_budget,
                 "token_budget_max": self.config.max_context_tokens,
                 "elapsed": round(time.time() - self._created_at, 1),
-                "task": self.task[:60],
+                "task": self.task[:LOG_TRUNC_60],
             }
 
     # ── Persistence ──
@@ -282,7 +291,7 @@ class DialogueSession:
                     "turn": t.turn, "prompt": t.prompt, "response": t.response,
                     "tool_calls": t.tool_calls, "elapsed": t.elapsed,
                 } for t in self._turns[-self.config.persist_after:]],
-                "summary": summary[:500],
+                "summary": summary[:LOG_TRUNC_500],
             }
             mem.remember(
                 agent_id=self.agent_id,

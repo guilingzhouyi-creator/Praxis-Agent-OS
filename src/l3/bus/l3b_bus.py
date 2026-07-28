@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from l1.kernel.params.system import SCOUT_POOL_IDLE_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,7 @@ class L3BMessage:
     target: str = ""             # composite_id
     payload: Any = None
     timestamp: float = field(default_factory=time.time)
-    ttl: float = 60.0            # message timeout auto-discard
+    ttl: float = SCOUT_POOL_IDLE_TIMEOUT            # message timeout auto-discard
 
 
 class L3BBus:

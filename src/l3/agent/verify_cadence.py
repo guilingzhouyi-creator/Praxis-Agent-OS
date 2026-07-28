@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 class VerifyCadence:
     """Edit-then-verify with subprocess checks."""
-    from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS
+    from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS, LOG_TRUNC_200, LOG_TRUNC_500
+    from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT
 
     def __init__(self):
         self._edited: set[str] = set()
@@ -53,7 +54,7 @@ class VerifyCadence:
         )
 
     def run_check(self, command: str, cwd: str = "",
-                  timeout: int = 120) -> dict:
+                  timeout: int = TOOL_HANDLER_TIMEOUT) -> dict:
         """Run a verification check via subprocess. Returns result with evidence."""
         import subprocess as _sp
         try:
@@ -62,14 +63,14 @@ class VerifyCadence:
             passed = r.returncode == 0
             evidence = f"exit {r.returncode}"
             if passed:
-                evidence += f" | stdout: {r.stdout[:200].strip()}" if r.stdout.strip() else ""
+                evidence += f" | stdout: {r.stdout[:LOG_TRUNC_200].strip()}" if r.stdout.strip() else ""
             else:
-                evidence += f" | stderr: {r.stderr[:200].strip()}" if r.stderr.strip() else ""
+                evidence += f" | stderr: {r.stderr[:LOG_TRUNC_200].strip()}" if r.stderr.strip() else ""
             entry = {"command": command, "exit_code": r.returncode,
                      "passed": passed, "evidence": evidence}
             self._evidence.append(entry)
             return {"success": passed, "exit_code": r.returncode,
-                    "evidence": evidence, "stdout": r.stdout[:500], "stderr": r.stderr[:500]}
+                    "evidence": evidence, "stdout": r.stdout[:LOG_TRUNC_500], "stderr": r.stderr[:LOG_TRUNC_500]}
         except _sp.TimeoutExpired:
             entry = {"command": command, "exit_code": -1, "passed": False,
                      "evidence": f"timeout ({timeout}s)"}

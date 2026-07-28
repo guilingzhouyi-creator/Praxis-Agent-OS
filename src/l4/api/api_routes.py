@@ -208,6 +208,14 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/bootstrap/defaults", ".bootstrap_defaults", "Get default config"),
     ("POST", "/api/bootstrap/apply",   ".bootstrap_apply",    "Apply config"),
 
+    # System Lifecycle
+    ("POST", "/api/boot",             ".boot",             "Cold boot the system"),
+    ("POST", "/api/shutdown",         ".shutdown",         "Graceful shutdown"),
+    ("POST", "/api/reboot",           ".reboot",           "Warm restart (preserves memories)"),
+    ("POST", "/api/reload",           ".reload",           "Hot-reload constitution/config/tools"),
+    ("POST", "/api/reset",            ".reset",            "Factory reset (wipe all state + reboot)"),
+    ("GET",  "/api/boot/status",      ".boot_status",      "Boot status and OS health"),
+
     # Export
     ("GET", "/api/export",             ".export_counter",     "Export counter data"),
     ("GET", "/api/metrics",            ".export_metrics",     "Export Prometheus metrics"),

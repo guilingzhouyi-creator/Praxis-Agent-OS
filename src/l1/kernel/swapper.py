@@ -22,6 +22,8 @@ from .params.kernel import (
     SWAPPER_SWAP_COUNT,
     SWAPPER_PRESSURE_LOW,
     SWAPPER_PRESSURE_HIGH,
+    SWAPPER_SWAP_OUT_IMPORTANCE,
+    SWAPPER_COMPACT_IMPORTANCE,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +41,10 @@ class Swapper:
         self._total_compactions = 0
 
     def set_memory(self, mem: Any) -> None:
-        """Wire MemoryService to the swapper (called from boot.py)."""
+        """Wire MemoryService to the swapper (called from boot.py).  Idempotent."""
+        if self._mem is not None and self._thread and self._thread.is_alive():
+            logger.warning("swapper already wired, skipping duplicate set_memory")
+            return
         self._mem = mem
         logger.info("swapper wired to memory service")
         self._alloc = get_allocator()
@@ -116,7 +121,7 @@ class Swapper:
         entries = self._mem.working()[:count]
         for e in entries:
             try:
-                target_ring = 3 if e.importance < 0.3 else 2
+                target_ring = 3 if e.importance < SWAPPER_SWAP_OUT_IMPORTANCE else 2
                 self._mem.promote(e.id, target_ring=target_ring)
                 self._total_swapped_out += 1
                 logger.debug("swapped %s ring1 → ring%d (importance=%.2f)", e.id, target_ring, e.importance)
@@ -131,7 +136,7 @@ class Swapper:
         compacted = 0
         for e in entries:
             try:
-                if e.importance < 0.5 and e.ttl > 0 and e.expired():
+                if e.importance < SWAPPER_COMPACT_IMPORTANCE and e.ttl > 0 and e.expired():
                     self._mem.promote(e.id, target_ring=3)
                     compacted += 1
                     self._total_compactions += 1

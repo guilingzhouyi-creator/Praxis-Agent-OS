@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 _DB: sqlite3.Connection | None = None         # write connection
 _READ_DBS: list[sqlite3.Connection] = []       # read connection pool (2)
+_READ_IDX: int = 0                            # round-robin index
 _DB_LOCK = threading.Lock()
 _DB_PATH: str = ""
 
@@ -81,8 +82,8 @@ def _get_write_db() -> sqlite3.Connection:
 
 
 def _get_read_db() -> sqlite3.Connection:
-    """Get or lazily create a read connection from the pool."""
-    global _READ_DBS
+    """Get or lazily create a read connection from the pool (round-robin)."""
+    global _READ_DBS, _READ_IDX
     with _DB_LOCK:
         if not _READ_DBS:
             path = _db_path()
@@ -90,7 +91,9 @@ def _get_read_db() -> sqlite3.Connection:
                 conn = sqlite3.connect(path, check_same_thread=False)
                 conn.execute("PRAGMA query_only=ON")
                 _READ_DBS.append(conn)
-        return _READ_DBS[0]
+        idx = _READ_IDX
+        _READ_IDX = (idx + 1) % len(_READ_DBS)
+        return _READ_DBS[idx]
 
 
 # ── Append ──

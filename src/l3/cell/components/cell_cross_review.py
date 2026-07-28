@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.tool import TOOL_AGENT_COORD_TIMEOUT
 from l3.cell.components.cell_types import MessageType, is_peer
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def auto_cross_review(cell, completed_agent: str, action: str,
                       target: str, card_id: str,
-                      timeout: float = 60.0) -> dict:
+                      timeout: float = TOOL_AGENT_COORD_TIMEOUT) -> dict:
     """After a write/delete/rename, BLOCKING wait for peer agent review.
 
     Sends CROSS_REVIEW_REQ to all peer agents, then blocks until

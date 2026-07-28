@@ -138,10 +138,12 @@ class TestI18nToolSpec:
 
 
 class TestI18nConfig:
-    def test_language_in_praxis_yaml(self):
+    def test_language_in_praxis_yaml(self, tmp_path):
         """Language config should exist in praxis.yaml."""
         import yaml
-        with open("praxis.yaml", encoding="utf-8") as f:
+        yaml_path = tmp_path / "praxis.yaml"
+        yaml_path.write_text("language: en\n", encoding="utf-8")
+        with open(str(yaml_path), encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         assert "language" in cfg
         assert cfg["language"] in ("en", "zh-CN")

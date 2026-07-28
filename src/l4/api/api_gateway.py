@@ -28,8 +28,8 @@ from l1.kernel.params.api import (
     API_MAX_BODY_BYTES,
     API_GATEWAY_QUEUE_TIMEOUT,
 )
-from .api_handlers import ApiHandlers
-from .api.api_middleware import (
+from l4.api_handlers import ApiHandlers
+from l4.api.api_middleware import (
     MiddlewareChain, LocaleMiddleware, CORSMiddleware,
     Request, Response,
 )
@@ -391,3 +391,7 @@ def _resolve_handler(path: str) -> callable:
     if callable(obj):
         return obj
     raise ValueError(f"'{attr_path}' in {module_path} is not callable")
+
+
+if __name__ == "__main__":
+    start_api()

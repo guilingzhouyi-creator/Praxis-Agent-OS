@@ -73,6 +73,11 @@ from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
 from .memory_context import build_context as _build_context
 from .memory_search import search_long_term as _search_long_term
+from l1.kernel.params.system import (
+    LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_100, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_500,
+    MEMORY_IMPORTANCE_BASE, MEMORY_PROMOTION_THRESHOLD,
+    MEMORY_PRESSURE_HIGH, MEMORY_PRESSURE_MEDIUM,
+)
 
 
 class MemoryManager:
@@ -103,7 +108,7 @@ class MemoryManager:
 
     def remember(self, agent_id: str, entry_type: str, content: str,
                  tags: list[str] | None = None, source: str = "",
-                 importance: float = 0.5, ring: int = 1,
+                 importance: float = MEMORY_IMPORTANCE_BASE, ring: int = 1,
                  real_tokens: int | None = None,
                  provenance: dict | None = None,
                  cell_id: str = "") -> str:
@@ -117,10 +122,10 @@ class MemoryManager:
         """
         accepted, reason = _is_good_memory(content, entry_type)
         if not accepted:
-            logger.debug("memory REJECTED [%s] %s: %s", entry_type, reason, content[:60])
+            logger.debug("memory REJECTED [%s] %s: %s", entry_type, reason, content[:LOG_TRUNC_60])
             return f"REJECTED:{reason}"
 
-        if importance == 0.5:
+        if importance == MEMORY_IMPORTANCE_BASE:
             importance = _score_importance(content, entry_type)
 
         eid = f"mem-{int(time.time()*1000)}-{id(content)%10000:04x}"
@@ -145,7 +150,7 @@ class MemoryManager:
         layer = self._ring(ring)
         layer.push(entry)
         logger.debug("memory stored [%s] ring=%d imp=%.2f tokens=%d: %s",
-                     entry_type, ring, importance, entry.tokens, content[:80])
+                     entry_type, ring, importance, entry.tokens, content[:LOG_TRUNC_80])
         return eid
 
     def recall(self, agent_id: str | None = None, entry_type: str | None = None,
@@ -174,10 +179,10 @@ class MemoryManager:
                 from l3.cell import get_cell as _get_cell
                 cell = _get_cell(promote_to_cell)
                 for e in results:
-                    if e.importance >= 0.6 and e.content:
+                    if e.importance >= MEMORY_PROMOTION_THRESHOLD and e.content:
                         cell.cache.promote(
                             key=f"mem:{e.agent_id}:{e.entry_type}:{e.id[-12:]}",
-                            summary=e.content[:200],
+                            summary=e.content[:LOG_TRUNC_200],
                             value=e.content,
                             location="l3",
                             importance=e.importance,
@@ -234,16 +239,16 @@ class MemoryManager:
             if dry_run:
                 continue
             summary_content = "; ".join(
-                f"[{e.entry_type}] {e.content[:120]}"
+                f"[{e.entry_type}] {e.content[:LOG_TRUNC_120]}"
                 for e in group_entries
-            )[:500]
+            )[:LOG_TRUNC_500]
             self.remember(
                 agent_id=group_entries[0].agent_id,
                 entry_type="summary",
                 content=summary_content,
                 tags=list(set(t for e in group_entries for t in e.tags)),
                 ring=2,
-                importance=0.6,
+                importance=MEMORY_PROMOTION_THRESHOLD,
             )
             for e in group_entries:
                 for layer in (self.working, self.short):
@@ -284,7 +289,7 @@ class MemoryManager:
             if len(e.content) <= min_collapse_size:
                 continue
             # Skip read-only tools
-            if e.entry_type == "tool_call" and any(t in e.content[:100] for t in exempt_tools):
+            if e.entry_type == "tool_call" and any(t in e.content[:LOG_TRUNC_100] for t in exempt_tools):
                 continue
             # Skip recent turns
             if str(int(e.timestamp)) in recent_ts:
@@ -301,8 +306,8 @@ class MemoryManager:
                         stubbed, saved_bytes)
         return {"stubbed": stubbed, "saved_bytes": saved_bytes}
 
-    PRESSURE_HIGH: float = 0.80   # ≥80% token usage = high pressure
-    PRESSURE_MEDIUM: float = 0.60
+    PRESSURE_HIGH: float = MEMORY_PRESSURE_HIGH
+    PRESSURE_MEDIUM: float = MEMORY_PRESSURE_MEDIUM
 
     def pressure(self, agent_id: str | None = None) -> dict:
         """Check memory pressure across all rings.
@@ -407,7 +412,7 @@ class MemoryManager:
                 "INSERT OR REPLACE INTO knowledge (id, agent, type, content, tags, importance, ts) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (e["id"], e["agent_id"], e["entry_type"], e["content"],
-                 ",".join(e.get("tags", [])), e.get("importance", 0.5), e.get("timestamp", time.time())),
+                 ",".join(e.get("tags", [])), e.get("importance", MEMORY_IMPORTANCE_BASE), e.get("timestamp", time.time())),
             )
         conn.commit()
         conn.close()

@@ -93,7 +93,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
     except Exception:
         pass
     state.switch_to_l3a()
-    emit_signal(EVENT_TASK_ASSIGN, sender="shell", target="l3",
+    emit_signal(EVENT_TASK_ASSIGN, sender="shell", target=SIGNAL_TARGET_L3,
                  data={"event": "l3a_mode_restored_auto", "reason": reason})
 
 

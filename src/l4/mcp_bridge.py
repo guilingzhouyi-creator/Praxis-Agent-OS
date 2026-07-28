@@ -331,13 +331,15 @@ class MCPBridge:
             self._server_error.pop(server_name, None)
             self._server_auth.pop(server_name, None)
         plugin_key = f"{MCP_PLUGIN_PREFIX}{MCP_NAME_SEP}{server_name}"
+        removed_count = 0
         for spec in list_tools():
             if spec.name.startswith(f"mcp:{server_name}:"):
                 unregister(spec.name)
+                removed_count += 1
         unregister_plugin(plugin_key)
         self._persist()
-        logger.info("mcp remove %s: %d tools unregistered", server_name, len(removed))
-        return {"success": True, "server": server_name, "removed": len(removed)}
+        logger.info("mcp remove %s: %d tools unregistered", server_name, removed_count)
+        return {"success": True, "server": server_name, "removed": removed_count}
 
     def _call_imported(self, client: McpClient, tool: McpTool, args: dict) -> dict:
         """Execute an MCP tool call through the client."""

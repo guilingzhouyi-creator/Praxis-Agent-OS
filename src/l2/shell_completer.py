@@ -16,9 +16,33 @@ def get_tool_names() -> list[str]:
     except Exception:
         pass
     builtins = ["help", "exit", "clear", "history", "tools", "status"]
-    aliases = ["h", "q", "st", "tl", "clr", "hist"]
-    return tool_names + builtins + aliases
+    return tool_names + builtins
 
+
+# ── Shell-level constants (consumed by shell.py REPL) ──
+
+def _load_tool_help() -> dict[str, str]:
+    help_map: dict[str, str] = {}
+    try:
+        from .tool_system.tool_config import ToolConfig as _TC
+        for name, meta in _TC.completions().items():
+            h = meta.get("help", "") if isinstance(meta, dict) else ""
+            help_map[name] = str(h)[:60]
+    except Exception:
+        pass
+    return help_map
+
+
+_ALIASES: dict[str, str] = {
+    "rf": "read_file", "wf": "write_file", "ls": "list_directory",
+    "g": "grep", "glob": "glob", "cat": "read_file",
+    "h": "help", "q": "exit", "st": "status", "tl": "tools",
+    "clr": "clear", "hist": "history",
+}
+_COMMANDS: list[str] = get_tool_names()
+_COMMAND_HELP: dict[str, str] = _load_tool_help()
+
+# ── TerminalCompleter ──
 
 class TerminalCompleter:
     """Tab completion for Agent OS terminal commands."""

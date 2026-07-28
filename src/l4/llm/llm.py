@@ -21,6 +21,8 @@ import time
 from typing import Any
 
 from l1.kernel.device import get_device_manager
+from l1.kernel.params.system import LOG_TRUNC_200
+
 from l1.kernel.params.agent import (
     LLM_CACHE_RETENTION_THRESHOLD,
     LLM_CACHE_RETENTION_STRING,
@@ -335,7 +337,7 @@ class LLMEngine:
             raw = r.read()
         except urllib.error.HTTPError as e:
             code = e.code
-            body_text = e.read().decode()[:200]
+            body_text = e.read().decode()[:LOG_TRUNC_200]
             if code == 429 and retry_count < LLM_MAX_RATE_LIMIT_RETRIES:
                 wait = LLM_RATE_LIMIT_WAIT
                 if hasattr(e, 'headers'):
@@ -368,7 +370,7 @@ class LLMEngine:
             data = json.loads(raw)
         except Exception:
             return {"content": "", "tool_calls": [], "cache_hit_tokens": 0, "cache_miss_tokens": 0,
-                    "error": f"json decode: {raw[:200]}"}
+                    "error": f"json decode: {raw[:LOG_TRUNC_200]}"}
 
         # Empty response detection
         content = ""

@@ -510,6 +510,71 @@ class ApiHandlers:
     def _export_metrics(self, body: dict | None = None) -> dict:
         return export_metrics(body)
 
+    # ── System Lifecycle ──
+
+    def _boot(self, body: dict | None = None) -> dict:
+        try:
+            from l3.boot.boot import boot
+            r = boot()
+            return {"success": r.get("success", False), "elapsed": r.get("elapsed", 0),
+                    "agents": r.get("agents", []), "steps": r.get("steps", [])}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _shutdown(self, body: dict | None = None) -> dict:
+        try:
+            from l1.kernel.os import get_os
+            osys = get_os()
+            r = osys.shutdown()
+            return r
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _reboot(self, body: dict | None = None) -> dict:
+        try:
+            from l1.kernel.os import get_os
+            osys = get_os()
+            r = osys.restart()
+            return {"success": r.get("success", False), "elapsed": r.get("elapsed", 0)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _reload(self, body: dict | None = None) -> dict:
+        try:
+            from l3.boot.boot import _load_constitution, _load_config, _load_tools
+            results = {}
+            for name, fn in [("constitution", _load_constitution),
+                             ("config", _load_config),
+                             ("tools", _load_tools)]:
+                try:
+                    r = fn()
+                    results[name] = "ok" if r.get("success") else r.get("error", "?")
+                except Exception as e:
+                    results[name] = f"error: {e}"
+            return {"success": True, "results": results}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _reset(self, body: dict | None = None) -> dict:
+        try:
+            from l3.boot.lifecycle import factory_reset
+            wipe_config = (body or {}).get("wipe_config", False)
+            r = factory_reset(wipe_config=wipe_config)
+            return r
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _boot_status(self, body: dict | None = None) -> dict:
+        try:
+            from l1.kernel.os import get_os
+            osys = get_os()
+            from l3.boot.boot import boot_status
+            r = boot_status()
+            r["os"] = osys.status()
+            return r
+        except Exception as e:
+            return {"error": str(e)}
+
     # ── Credential Vault ──
 
     def _credential_status(self, body: dict | None = None) -> dict:

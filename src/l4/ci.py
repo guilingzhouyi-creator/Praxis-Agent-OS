@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import CI_SHELL_TIMEOUT
-from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_PIPELINE_CACHE_TTL
+from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_PIPELINE_CACHE_TTL, LOG_TRUNC_500
 from l1.kernel.platform import SHELL_PATH
 from l3._base import BaseService
 
@@ -87,9 +87,12 @@ class CIService(BaseService):
         run.status = PipelineStatus.RUNNING
         run.started_at = time.time()
 
-        thread = threading.Thread(target=self._execute, args=(run_id, timeout), daemon=True)
-        thread.start()
-        thread.join(timeout=timeout)
+        # Execute pipeline synchronously in the current thread.
+        # A daemon thread was used here previously but was redundant because
+        # run_pipeline() joins it immediately, blocking until completion.
+        # Direct synchronous execution is simpler and avoids the pointless
+        # thread creation overhead.
+        self._execute(run_id, timeout)
 
         return {"success": True, "run_id": run_id, "name": name,
                 "status": run.status, "step_count": len(steps)}
@@ -132,7 +135,7 @@ class CIService(BaseService):
                 if r.stdout:
                     run.output.extend(r.stdout.splitlines()[-20:])
                 if r.stderr:
-                    run.output.append(f"STDERR: {r.stderr[:500]}")
+                    run.output.append(f"STDERR: {r.stderr[:LOG_TRUNC_500]}")
                 if r.returncode != 0:
                     run.status = PipelineStatus.FAILED
                     run.error = f"Step {i+1} ({action}) failed with code {r.returncode}"

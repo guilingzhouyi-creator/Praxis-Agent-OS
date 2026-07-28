@@ -4,11 +4,13 @@ Wraps ops_console (alerts) + health (health checks) + counter (metrics)
 + audit (syscall log) into a single observe() interface.
 
 Used by CentralController and other subsystems for unified monitoring.
-"""
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any
+
+from l1.kernel.params.system import OBS_AUDIT_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +19,17 @@ class ObservabilityBus:
     """Unified observability bus — alerts + health + metrics + audit."""
 
     def __init__(self):
+        self._lock = threading.Lock()
         self._initialized = False
 
     def _ensure(self):
         if not self._initialized:
-            self._ops = None
-            self._counter = None
-            self._health = None
-            self._initialized = True
+            with self._lock:
+                if not self._initialized:
+                    self._ops = None
+                    self._counter = None
+                    self._health = None
+                    self._initialized = True
 
     # ── Unified observe point ──
 

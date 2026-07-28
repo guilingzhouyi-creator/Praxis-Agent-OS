@@ -169,7 +169,7 @@ class CardGate(PersistableMixin):
         from .card.pending_queue import get_queue
         get_queue().enqueue(card_id, intent=intent, domain=domain, size=size_name)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="card_gate", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="card_gate", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "event": "held_for_approval",
                            "size": size_name, "intent": intent[:200]})
         return {

@@ -197,7 +197,7 @@ class ConventionProtocol:
         self._completed_at = time.time()
         self._table.set_status(card.id, IssueCardStatus.CONVERGED)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target=SIGNAL_TARGET_L3,
                      data={"card_id": card.id, "event": "converged",
                            "cache_ref": self._cache_ref,
                            "archive_ref": self._archive_ref})

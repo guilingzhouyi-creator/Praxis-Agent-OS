@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import API_GATEWAY_PORT, API_GATEWAY_HOST
+from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, RING1_CAPACITY, RING2_CAPACITY, RING3_CAPACITY, FAULT_CHECK_INTERVAL
+from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
+from l1.kernel.params.agent import LOOP_MAX_ATTEMPTS
 
 from l3._base import BaseService
 
@@ -44,10 +47,10 @@ class ConfigService(BaseService):
     def _load_defaults(self) -> None:
         self._data = {
             "praxis": {"port": API_GATEWAY_PORT, "host": API_GATEWAY_HOST, "debug": False},
-            "agent": {"timeout": 300, "max_retries": 3, "heartbeat_interval": 5},
+            "agent": {"timeout": CI_DEFAULT_TIMEOUT, "max_retries": LOOP_MAX_ATTEMPTS, "heartbeat_interval": FAULT_CHECK_INTERVAL},
             "gate": {"allow_threshold": 3.0, "escalate_threshold": 11.0},
-            "memory": {"ring1_capacity": 32, "ring2_capacity": 200, "ring3_capacity": 1000},
-            "network": {"timeout": 30, "user_agent": "NOMOS-Praxis/1.0"},
+            "memory": {"ring1_capacity": RING1_CAPACITY, "ring2_capacity": RING2_CAPACITY, "ring3_capacity": RING3_CAPACITY},
+            "network": {"timeout": TOOL_SEARCH_TIMEOUT, "user_agent": "NOMOS-Praxis/1.0"},
         }
 
     def load_file(self, path: str) -> dict:

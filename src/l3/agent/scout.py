@@ -129,26 +129,17 @@ class ScoutSession:
             return {"success": False, "error": str(e)}
 
     def _tool_grep(self, args: dict, agent_id: str = "") -> dict:
-        import subprocess
+        import subprocess as _sp
+        from l1.kernel.platform import grep_cmd as _grep_cmd
         pattern = args.get("pattern", "")
         path = args.get("path", ".")
         try:
-            r = subprocess.run(
-                ["rg", "-rn", pattern, path, "-m", "20"],
-                capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT,
-            )
+            cmd = _grep_cmd(pattern, path, max_count=20)
+            r = _sp.run(cmd, capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT)
             out = (r.stdout or "")[:SCOUT_FILE_READ_TRUNC]
             return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
         except FileNotFoundError:
-            try:
-                r = subprocess.run(
-                    ["grep", "-rn", pattern, path],
-                    capture_output=True, text=True, timeout=RUN_SUBPROCESS_TIMEOUT, shell=True, executable=SHELL_PATH,
-                )
-                out = (r.stdout or "")[:SCOUT_FILE_READ_TRUNC]
-                return {"success": True, "data": out} if out else {"success": True, "data": "no matches"}
-            except Exception as e:
-                return {"success": False, "error": f"grep unavailable: {e}"}
+            return {"success": False, "error": "grep tool not found"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -166,7 +157,7 @@ import os  # needed for _try_symbols and _try_path_from_task
 
 # Lazy import to avoid circular import with services._base
 from l3._base import BaseService
-from l1.kernel.platform import IS_NT, IS_WINDOWS, SHELL_PATH
+from l1.kernel.platform import grep_cmd as _grep_cmd
 
 _MODEL_SPEC = "scout"
 

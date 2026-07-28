@@ -951,31 +951,6 @@ class Cell:
         """Dispatch pending queued interrupts. Called periodically."""
         return self._interrupt.dispatch_pending(max_per_priority=max_per)
 
-    # ── SubAgent dispatch (Peer Agent → SubAgent delegation) ──
-
-    def subagent_dispatch(self, spec_name: str, prompt: str,
-                          parent_agent_id: str = "",
-                          context: dict | None = None,
-                          post_actions: list[dict] | None = None) -> dict:
-        """Dispatch a SubAgent task via SubAgentPool (async, ring-limited).
-
-        The SubAgent runs in its own daemon thread.  On completion,
-        the result is delivered to the parent Peer Agent via the
-        CellMessage mailbox (SUBAGENT_RESULT).  If the Peer Agent is
-        busy, the message queues in its mailbox (TTL 1h).
-
-        post_actions: optional list of actions to execute after the
-                      SubAgent completes, before delivery.  Each action:
-                      {"type": "scout", "prompt": "Verify {result}"}
-        """
-        from ..agent.subagent_spec import SubAgentSpec
-        spec = SubAgentSpec(name=spec_name, read_only=True,
-                            description="",
-                            post_actions=post_actions or [])
-        return self._subagent_pool.commission(
-            spec, prompt, parent_agent_id, context, cell=self,
-        )
-
     def subagent_orchestrate(self, sub_tasks: list[dict],
                               parent_agent_id: str = "",
                               verify_prompt: str = "",

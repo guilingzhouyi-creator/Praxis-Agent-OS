@@ -33,6 +33,7 @@ from .params.kernel import (
     RESOURCE_RING3,
     RESOURCE_SANDBOX_KB,
     RESOURCE_PRIORITY,
+    PROCESS_OOM_EXIT_CODE,
 )
 from .interrupt import fire, InterruptType
 
@@ -207,7 +208,7 @@ class Allocator:
             from .process import get_table
             pcb = get_table().get_by_name(victim)
             if pcb:
-                get_table().exit(pcb.pid, exit_code=-9, reason=f"OOM killed for {resource}")
+                get_table().exit(pcb.pid, exit_code=PROCESS_OOM_EXIT_CODE, reason=f"OOM killed for {resource}")
         except Exception as e:
             logger.warning("allocator pcb update: %s", e)
 

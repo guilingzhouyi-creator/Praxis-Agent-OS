@@ -20,6 +20,7 @@ import os
 import re
 import threading
 import time
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,7 +51,7 @@ class SearchResult:
             "path": self.path,
             "line": self.line,
             "column": self.column,
-            "content": self.content[:200],
+            "content": self.content[:LOG_TRUNC_200],
             "score": round(self.score, 3),
             "kind": self.kind,
             "symbol_name": self.symbol_name,
@@ -73,8 +74,8 @@ class DocEntry:
             "package": self.package,
             "module": self.module,
             "name": self.name,
-            "signature": self.signature[:100],
-            "docstring": self.docstring[:200],
+            "signature": self.signature[:LOG_TRUNC_100],
+            "docstring": self.docstring[:LOG_TRUNC_200],
             "url": self.url,
         }
 
@@ -198,7 +199,7 @@ class SymbolSearch:
                         match = SearchResult(
                             path=str(file_path.relative_to(root)),
                             line=node.lineno or 1,
-                            content=ast.unparse(node).splitlines()[0][:200]
+                            content=ast.unparse(node).splitlines()[0][:LOG_TRUNC_200]
                             if hasattr(ast, 'unparse') else f"def {node.name}(...):",
                             score=1.0 if node.name.lower() == term else 0.5,
                             kind="symbol",

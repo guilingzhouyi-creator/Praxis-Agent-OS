@@ -17,6 +17,7 @@ from typing import Any
 from l1.kernel import emit_signal
 from l1.kernel.prompts import get_prompt
 from l1.kernel.params.agent import REVIEW_MAX_ROUNDS
+from l1.kernel.params.system import LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def perform_review(agent_id: str, reviewer_id: str,
     result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)[:3000]
     prompt = get_prompt("review.request").format(
         agent=agent_id,
-        task=task[:500],
+        task=task[:LOG_TRUNC_500],
         result=result_str,
     )
 
@@ -110,7 +111,7 @@ def handle_review_response(verdict: str, reason: str,
     prompt = get_prompt("review.response.ack").format(
         agent="",
         verdict=verdict,
-        reason=reason[:500],
+        reason=reason[:LOG_TRUNC_500],
     )
 
     if verdict == "REJECT" or retry_count >= REVIEW_MAX_ROUNDS:

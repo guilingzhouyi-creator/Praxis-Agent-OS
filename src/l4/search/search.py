@@ -39,20 +39,24 @@ def search(root: str, query: str, include: list[str] | None = None,
         results: list[dict] = []
         files_to_search: list[Path] = []
 
-        for f in p.rglob("*"):
-            if not f.is_file():
-                continue
-            rel = f.relative_to(p)
-            parts = rel.parts
-            if any(part in EXCLUDE_DIRS for part in parts):
-                continue
-            if f.suffix in EXCLUDE_EXTS:
-                continue
-            if include and not any(f.match(pat) for pat in include):
-                continue
-            if exclude and any(f.match(pat) for pat in exclude):
-                continue
-            files_to_search.append(f)
+        # Use os.walk (lazy generator) instead of rglob for memory efficiency
+        for dirpath, dirnames, filenames in os.walk(p):
+            # Skip excluded directories (modify dirnames in-place to prune the walk)
+            rel = os.path.relpath(dirpath, p)
+            if rel != ".":
+                parts = Path(rel).parts
+                if any(part in EXCLUDE_DIRS for part in parts):
+                    dirnames.clear()
+                    continue
+            for filename in filenames:
+                fp = Path(dirpath) / filename
+                if fp.suffix in EXCLUDE_EXTS:
+                    continue
+                if include and not any(fp.match(pat) for pat in include):
+                    continue
+                if exclude and any(fp.match(pat) for pat in exclude):
+                    continue
+                files_to_search.append(fp)
 
         # Parallel search
         compiled = re.compile(query, re.IGNORECASE)

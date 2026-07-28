@@ -18,6 +18,7 @@ from l1.kernel import get_event_bus, emit_signal
 from l1.kernel.constitution import get_constitution
 from l1.kernel.allocator import get_allocator
 from l1.kernel.params.agent import (
+    CARD_WAIT_TIMEOUT,
     DEFAULT_AGENT_CONFIGS,
     AGENT_CLEARANCE,
     AGENT_TERMINAL_MAX_SCOUTS,
@@ -32,7 +33,7 @@ from l1.kernel.params.agent import (
     EVENT_TASK_ASSIGN,
     EVENT_REVIEW_REQUESTED,
 )
-from l1.kernel.params.system import POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_500, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED
 from ..memory.cache import get_file_cache, get_context_register
 from ..agent.scout import get_pool as get_scout_pool
 from ..agent._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
@@ -139,7 +140,7 @@ class AgentTerminal:
             if self.ring >= _RNM.get(sr, 1) and not _is_muted(name):
                 tools.append({"name": name, "ring": sr,
                               "danger": getattr(spec, "danger", 0),
-                              "description": getattr(spec, "description", "")[:80]})
+                              "description": getattr(spec, "description", "")[:LOG_TRUNC_80]})
         return sorted(tools, key=lambda t: (t["ring"], t["name"]))
 
     def boot(self) -> dict:
@@ -174,8 +175,8 @@ class AgentTerminal:
                 parts = ["=== Agent Manual (boot) ==="]
                 for s in all_s:
                     n = getattr(s, 'name', '?')
-                    d = getattr(s, 'description', '')[:120]
-                    p = getattr(s, 'prompt', '')[:300]
+                    d = getattr(s, 'description', '')[:LOG_TRUNC_120]
+                    p = getattr(s, 'prompt', '')[:LOG_TRUNC_300]
                     parts.append(f"[{n}] {d}\n{p}")
                 from ..memory.context import get_context as _gc
                 _gc().store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
@@ -234,7 +235,7 @@ class AgentTerminal:
             with self._lock:
                 self.status = TerminalStatus.PROCESSING if self._active_cards > 0 else TerminalStatus.IDLE
                 self._current_card = card.card_id
-                self._loop_state = f"processing {card.action} on {card.target[:40]}"
+                self._loop_state = f"processing {card.action} on {card.target[:LOG_TRUNC_40]}"
             from l3.error_bus import error_boundary, capture
             with error_boundary("worker card failed", component="services", agent_id=self.agent_id):
                 result = self._process_card(card)
@@ -326,7 +327,7 @@ class AgentTerminal:
                 if findings:
                     from l1.kernel.params.agent import TERMINAL_SCOUT_FINDINGS_LIMIT
                     for f in findings[:TERMINAL_SCOUT_FINDINGS_LIMIT]:
-                        ctx.push("observation", str(f)[:500], source="scout")
+                        ctx.push("observation", str(f)[:LOG_TRUNC_500], source="scout")
                 return {"success": ok, "output": result_output, "findings": result_findings}
             phases.append(f"execute:{tool_name}")
             result_output = f"executed {tool_name} on {card.target}"
@@ -382,7 +383,7 @@ class AgentTerminal:
             from l3.memory.memory import get_memory
             mem = get_memory()
             mem.remember(agent_id=self.agent_id, entry_type="card_result",
-                content=f"{card.action} {card.target}: {result_output[:200]}",
+                content=f"{card.action} {card.target}: {result_output[:LOG_TRUNC_200]}",
                 tags=[card.action], ring=1)
             phases.append("memory_store")
 
@@ -409,7 +410,7 @@ class AgentTerminal:
         try:
             from l1.kernel import record_audit
             record_audit(f"card.{card.action}", self.agent_id, success=True,
-                         detail=f"{card.target}:{result_output[:60]}")
+                         detail=f"{card.target}:{result_output[:LOG_TRUNC_60]}")
         except Exception as e:
             logger.warning("agent terminal keepalive: %s", e)
 
@@ -419,12 +420,12 @@ class AgentTerminal:
                             target=self.cell_id or "cell",
                             data={"type": "cross_review", "action": card.action,
                                   "target": card.target, "created_by": self.agent_id,
-                                  "output_snippet": result_output[:200]})
+                                  "output_snippet": result_output[:LOG_TRUNC_200]})
                 phases.append("cross_review→signal")
             except Exception:
                 phases.append("cross_review:skip")
 
-        ctx.end(success=True, summary=f"{card.action} {card.target}: {result_output[:200]}")
+        ctx.end(success=True, summary=f"{card.action} {card.target}: {result_output[:LOG_TRUNC_200]}")
         phases.append("context_end")
 
         return CardResult(card_id=card.card_id, action=card.action,
@@ -468,7 +469,7 @@ class AgentTerminal:
                 self.status = TerminalStatus.PROCESSING
         return card.card_id
 
-    def wait_for_result(self, card_id: str, timeout: float = 30.0) -> CardResult | None:
+    def wait_for_result(self, card_id: str, timeout: float = CARD_WAIT_TIMEOUT) -> CardResult | None:
         event = threading.Event()
         with self._lock:
             if card_id in self._results:
@@ -520,7 +521,7 @@ class AgentTerminal:
             from ..memory.memory import get_memory
             get_memory().remember(
                 agent_id=self.agent_id, entry_type="direct_message",
-                content=f"{sender}: {text[:200]}\nAgent: {answer[:500]}",
+                content=f"{sender}: {text[:LOG_TRUNC_200]}\nAgent: {answer[:LOG_TRUNC_500]}",
                 tags=["direct_session"], ring=2,
             )
         except Exception:
@@ -529,7 +530,7 @@ class AgentTerminal:
                           success=True, output=answer)
 
     def spawn_scout_async(self, template: str, scope: dict | None = None) -> dict:
-        scout_id = f"async-{self.agent_id}-{uuid.uuid4().hex[:8]}"
+        scout_id = f"async-{self.agent_id}-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             if self._async_scout_count >= self.max_scouts:
                 return {"success": False, "error": f"max async scouts ({self.max_scouts})"}
@@ -625,7 +626,7 @@ class AgentTerminal:
         card = TerminalCard(
             mode=TermCardMode.EXECUTE,
             action="direct_message",
-            target=f"direct-{uuid.uuid4().hex[:8]}",
+            target=f"direct-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}",
             params={"text": text, "sender": sender},
             sender=sender,
         )

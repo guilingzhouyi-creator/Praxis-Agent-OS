@@ -23,10 +23,15 @@ from typing import Any, Callable
 from l3.services.model_service import get_service as _get_model_service
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.agent import DEFAULT_CELL_ID
 from l1.kernel.params.system import (
     CARD_REGISTRY_AUTO_SAVE,
     CARD_DISPATCH_INTERVAL,
     CARD_QUEUE_PENDING_MAX,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_40,
+    LOG_TRUNC_60,
+    LOG_TRUNC_80,
 )
 from l3._persistable import PersistableMixin
 from .card_unified import CardUnified, CardLifecycle, CardSummary
@@ -47,7 +52,7 @@ def _card_to_dict(r: CardUnified) -> dict:
     d["elapsed"] = elapsed
     d["state"] = r.state.value  # CardLifecycle string value directly
     d["has_plan"] = bool(r.summary.columns or r.phases)
-    d["plan_summary"] = r.summary.title[:80] if r.summary.title else ""
+    d["plan_summary"] = r.summary.title[:LOG_TRUNC_80] if r.summary.title else ""
     return d
 
 
@@ -123,7 +128,7 @@ class CardRegistry(PersistableMixin):
                     rec.state = CardLifecycle.CANCELLED
                     if cid in self._queue:
                         self._queue.remove(cid)
-                    emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
+                    emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                                  data={"card_id": cid, "event": "stale_escalated"})
 
     # ── Placeholder system ──
@@ -285,9 +290,9 @@ class CardRegistry(PersistableMixin):
             return plan
         except Exception:
             return {
-                "summary": intent[:80],
-                "steps": [{"action": "think", "target": intent[:40],
-                           "description": f"Process: {intent[:60]}"}],
+                "summary": intent[:LOG_TRUNC_80],
+                "steps": [{"action": "think", "target": intent[:LOG_TRUNC_40],
+                           "description": f"Process: {intent[:LOG_TRUNC_60]}"}],
                 "estimated_files": 1,
                 "estimated_lines": 50,
                 "verification": "manual review",
@@ -316,11 +321,11 @@ class CardRegistry(PersistableMixin):
     def submit(self, intent: str, domain: str = "",
                priority: int = 5, card_id: str = "",
                depends_on: list[str] | None = None) -> str:
-        cid = card_id or f"card-{uuid.uuid4().hex[:8]}"
+        cid = card_id or f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             if len(self._queue) >= CARD_QUEUE_PENDING_MAX:
                 logger.warning("card queue full (%d/%d), rejecting: %s",
-                               len(self._queue), CARD_QUEUE_PENDING_MAX, intent[:40])
+                               len(self._queue), CARD_QUEUE_PENDING_MAX, intent[:LOG_TRUNC_40])
                 return ""
         card = CardUnified(id=cid, priority=priority)
         card.summary = CardSummary(title=intent, description="", columns={"domain": domain})
@@ -330,9 +335,9 @@ class CardRegistry(PersistableMixin):
             self._cards[cid] = card
             self._queue.append(cid)
             self._queue.sort(key=lambda x: self._cards[x].priority if x in self._cards else 5)
-        logger.info("card submitted: %s — %s", cid, intent[:60])
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
-                     data={"card_id": cid, "intent": intent[:60], "event": "submitted"})
+        logger.info("card submitted: %s — %s", cid, intent[:LOG_TRUNC_60])
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
+                     data={"card_id": cid, "intent": intent[:LOG_TRUNC_60], "event": "submitted"})
         try:
             from .bus.reference_channel import get_rc as _rc
             _rc().card_lifecycle(cid, intent, "submitted", nature="", size="")
@@ -353,7 +358,7 @@ class CardRegistry(PersistableMixin):
             if not cell_id and record.summary.columns.get("domain"):
                 cell_id = self._match_cell(record.summary.columns.get("domain", ""))
             if not cell_id:
-                cell_id = next(iter(self._cell_map.keys())) if self._cell_map else "cell-1"
+                cell_id = next(iter(self._cell_map.keys())) if self._cell_map else DEFAULT_CELL_ID
 
             record.summary.columns["cell_id"] = cell_id
             record.dispatch()
@@ -384,7 +389,7 @@ class CardRegistry(PersistableMixin):
                 cell["active_cards"] = max(0, cell["active_cards"] - 1)
             if card_id in self._queue:
                 self._queue.remove(card_id)
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target="l3",
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "state": record.state.value, "event": "completed"})
         # ── Task completion bus: fire webhooks ──
         try:

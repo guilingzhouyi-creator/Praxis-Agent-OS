@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import threading
+from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_100
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -87,7 +88,7 @@ class LocalAnalyzer:
                 if sym and (query == "*" or query.lower() in sym.name.lower() or
                             re.search(query, sym.name, re.I)):
                     results.append(sym)
-        return results[:100]
+        return results[:LOG_TRUNC_100]
 
     def go_to_definition(self, name: str, file_path: str = "") -> Symbol | None:
         for rel, tree in self._walk_python(file_path):
@@ -111,8 +112,8 @@ class LocalAnalyzer:
                 if name in line:
                     refs.append({"file": rel, "line": i,
                                   "column": line.index(name) + 1,
-                                  "content": line.strip()[:100]})
-        return refs[:50]
+                                  "content": line.strip()[:LOG_TRUNC_100]})
+        return refs[:LOG_TRUNC_50]
 
     def hover_info(self, name: str, file_path: str = "") -> dict:
         sym = self.go_to_definition(name, file_path)
@@ -144,7 +145,7 @@ class LocalAnalyzer:
                             "message": d.get("message", ""),
                             "severity": d.get("severity", "warning"),
                         })
-                    return issues[:50]
+                    return issues[:LOG_TRUNC_50]
             except Exception:
                 pass
 

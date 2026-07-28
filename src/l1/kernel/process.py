@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
@@ -179,8 +180,7 @@ class ProcessTable:
         self._processes: dict[int, PCB] = {}
         self._name_index: dict[str, int] = {}
         self._next_pid = 1
-        self._audit_log: list[dict] = []
-        self._audit_max = PROCESS_AUDIT_MAX
+        self._audit_log: deque[dict] = deque(maxlen=PROCESS_AUDIT_MAX)
 
         # PID 0: kernel init
         init = PCB(pid=0, name=PROCESS_INIT_NAME, role=PROCESS_INIT_ROLE, ring=PROCESS_INIT_RING)
@@ -203,7 +203,10 @@ class ProcessTable:
                                if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > 300]
                     for pid, _ in zombies:
                         self._processes.pop(pid, None)
-                        self._name_index = {n: p for n, p in self._name_index.items() if p != pid}
+                        for n, p in list(self._name_index.items()):
+                            if p == pid:
+                                del self._name_index[n]
+                                break
                     # Cap: if > 500 processes, reap oldest STOPPED/ZOMBIE
                     if len(self._processes) > 500:
                         oldest = sorted(
@@ -302,12 +305,11 @@ class ProcessTable:
             "op": op, "pid": pid, "name": name, "detail": detail,
             "timestamp": time.time(),
         })
-        if len(self._audit_log) > self._audit_max:
-            self._audit_log = self._audit_log[-self._audit_max:]
 
     def audit_log(self, limit: int = PROCESS_AUDIT_LOG_LIMIT) -> list[dict]:
         with self._lock:
-            return list(self._audit_log[-limit:])
+            # deque does not support [-limit:] slicing; convert to list first
+            return list(self._audit_log)[-limit:]
 
 
 _table: ProcessTable | None = None

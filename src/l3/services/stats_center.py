@@ -241,9 +241,11 @@ class StatsCenter:
 
     # ── SSE ──────────────────────────────────────────────────────
 
-    def subscribe_sse(self, callback: _SseCallback) -> None:
+    def subscribe_sse(self, callback: _SseCallback) -> Callable[[], None]:
+        """Register an SSE callback. Returns an unsubscribe callable."""
         with self._lock:
             self._sse_listeners.append(callback)
+        return lambda: self.unsubscribe_sse(callback)
 
     def unsubscribe_sse(self, callback: _SseCallback) -> None:
         with self._lock:

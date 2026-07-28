@@ -15,6 +15,7 @@ from typing import Any
 
 from l1.kernel.prompts import get_prompt
 from l1.kernel.params.agent import MAX_SELF_HEAL
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ class Verifier:
             return {"consistent": True, "conflicts": [], "recommendation": ""}
 
         summary = "\n".join(
-            f"Step {i}: {r.get('action', '?')} -> {str(r.get('output', ''))[:200]}"
+            f"Step {i}: {r.get('action', '?')} -> {str(r.get('output', ''))[:LOG_TRUNC_200]}"
             for i, r in enumerate(results)
         )
         prompt = get_prompt("verifier.consistency").format(results=summary, goal=goal[:1000])

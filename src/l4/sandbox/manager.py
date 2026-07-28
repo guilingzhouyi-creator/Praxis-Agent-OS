@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 from l1.kernel.params.system import (
     SANDBOX_PROFILE_READ_ONLY, SANDBOX_PROFILE_SAFE_WRITE,
     SANDBOX_PROFILE_NETWORK, SANDBOX_PROFILE_FULL, SANDBOX_PROFILE_HOST,
+    LOG_TRUNC_500, LOG_TRUNC_2000,
 )
 
 
@@ -38,8 +39,8 @@ class SandboxResult:
     elapsed: float = 0.0
 
     def to_dict(self) -> dict:
-        return {"success": self.success, "stdout": self.stdout[:2000],
-                "stderr": self.stderr[:500], "exit_code": self.exit_code,
+        return {"success": self.success, "stdout": self.stdout[:LOG_TRUNC_2000],
+                "stderr": self.stderr[:LOG_TRUNC_500], "exit_code": self.exit_code,
                 "sandbox_id": self.sandbox_id, "elapsed": round(self.elapsed, 3)}
 
 

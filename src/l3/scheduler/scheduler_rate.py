@@ -11,6 +11,7 @@ import logging
 import threading
 import time as _time
 
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
 from l1.kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
 
 logger = logging.getLogger(__name__)
@@ -39,15 +40,15 @@ class RateScheduler:
         self._counters: dict[str, list[float]] = {}
 
     def check(self, agent_id: str, tool_ring: str) -> dict:
-        rate = _RING_RATE.get(tool_ring, 60)
+        rate = _RING_RATE.get(tool_ring, TOOL_RATE_RING_1)
         key = f"{agent_id}:{tool_ring}"
         now = _time.time()
         with self._lock:
             ts_list = self._counters.setdefault(key, [])
-            cutoff = now - 60.0
+            cutoff = now - PMU_SNAPSHOT_INTERVAL
             ts_list[:] = [t for t in ts_list if t > cutoff]
             if len(ts_list) >= rate:
-                reset_after = ts_list[0] + 60.0 - now if ts_list else 0
+                reset_after = ts_list[0] + PMU_SNAPSHOT_INTERVAL - now if ts_list else 0
                 return {"allowed": False, "remaining": 0, "reset_after": round(reset_after, 1)}
             ts_list.append(now)
             return {"allowed": True, "remaining": rate - len(ts_list), "ring": tool_ring}

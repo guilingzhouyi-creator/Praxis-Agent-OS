@@ -109,7 +109,7 @@ class TerminalManager:
             return
         out: IO[bytes] = s.process.stdout
         set_nonblocking(out)
-        buf = b""
+        buf = bytearray()
         while s.is_alive():
             try:
                 if IS_WINDOWS:
@@ -121,10 +121,12 @@ class TerminalManager:
                     chunk = out.read(4096)
                     if not chunk:
                         break
-                    buf += chunk
+                    buf.extend(chunk)
                     while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        s.output_buffer.append(line.decode("utf-8", errors="replace") + "\n")
+                        idx = buf.index(b"\n")
+                        line = buf[:idx].decode("utf-8", errors="replace") + "\n"
+                        del buf[:idx + 1]
+                        s.output_buffer.append(line)
             except (BlockingIOError, OSError):
                 time.sleep(POLL_INTERVAL_SLOW)
             except Exception:

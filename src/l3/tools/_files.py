@@ -215,6 +215,67 @@ def _detect_encoding(bom: bytes) -> str:
     return "utf-8"
 
 
+def _apply_unified_diff(original: list[str], diff_text: str) -> list[str]:
+    """Apply a unified diff to original lines. Returns the patched lines."""
+    import re
+    result = list(original)
+    lines = diff_text.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Match hunk header: @@ -start,count +start,count @@
+        if line.startswith('@@ '):
+            m = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', line)
+            if not m:
+                i += 1
+                continue
+            orig_start = int(m.group(1)) - 1
+            orig_count = int(m.group(2) or 1)
+            new_start = int(m.group(3)) - 1
+            i += 1
+            removed = 0
+            added = 0
+            before = []
+            after = []
+            while i < len(lines) and not lines[i].startswith('@@ '):
+                cl = lines[i]
+                if cl.startswith('---') or cl.startswith('+++'):
+                    i += 1
+                    continue
+                if cl.startswith('-'):
+                    before.append(cl[1:])
+                    removed += 1
+                elif cl.startswith('+'):
+                    after.append(cl[1:])
+                    added += 1
+                else:
+                    before.append(cl[1:])
+                    after.append(cl[1:])
+                i += 1
+            # Apply the hunk
+            actual_start = orig_start
+            actual_end = actual_start + removed
+            if actual_end <= len(result):
+                result[actual_start:actual_end] = after
+            # Adjust subsequent hunk positions based on diff offset
+            offset = added - removed
+            if offset != 0:
+                for j in range(i, len(lines)):
+                    m2 = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', lines[j])
+                    if m2:
+                        o_start = int(m2.group(1)) + offset
+                        o_new = int(m2.group(3)) + offset
+                        o_old_cnt = m2.group(2) or ""
+                        o_new_cnt = m2.group(4) or ""
+                        if o_old_cnt or o_new_cnt:
+                            lines[j] = f"@@ -{o_start},{o_old_cnt or '1'} +{o_new},{o_new_cnt or '1'} @@\n"
+                        else:
+                            lines[j] = f"@@ -{o_start} +{o_new} @@\n"
+        else:
+            i += 1
+    return result
+
+
 def file_patch(args: dict, agent_id: str) -> dict:
     """RING_2_5: Apply a unified diff patch to a file."""
     path = args.get("path", "")
@@ -222,13 +283,12 @@ def file_patch(args: dict, agent_id: str) -> dict:
     if not path or not diff_text:
         return {"success": False, "error": "path and diff are required"}
     try:
-        import difflib
         with open(path, encoding="utf-8", errors="replace") as f:
             original = f.readlines()
-        patched = list(difflib.restore(difflib.unified_diff(original, original), 1))
-        # Apply patch via unified_diff roundtrip
+        patched = _apply_unified_diff(original, diff_text)
         from l3.resource_buffer.manager import get_manager
         get_manager().stage(path, "".join(patched), op="edit")
-        return {"success": True, "path": path, "buffered": True}
+        return {"success": True, "path": path, "buffered": True,
+                "diff_lines": sum(1 for l in diff_text.splitlines() if l.startswith(('+', '-')))}
     except Exception as e:
         return {"success": False, "error": str(e)}

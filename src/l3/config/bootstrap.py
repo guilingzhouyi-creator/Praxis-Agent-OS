@@ -19,7 +19,13 @@ from typing import Any
 import yaml
 
 from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES
-from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT, LLM_PROVIDER_URLS
+from l1.kernel.params.api import (
+    API_GATEWAY_HOST, API_GATEWAY_PORT, LLM_PROVIDER_URLS,
+    DEFAULT_MODEL_OPENAI, DEFAULT_MODEL_OPENAI_MINI,
+    DEFAULT_MODEL_ANTHROPIC_SONNET, DEFAULT_MODEL_ANTHROPIC_HAIKU,
+    DEFAULT_MODEL_DEEPSEEK_V4, DEFAULT_MODEL_DEEPSEEK_CHAT,
+    DEFAULT_MODEL_OLLAMA, DEFAULT_MODEL_MOCK,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +98,11 @@ def get_defaults() -> dict:
         "agents_per_cell": 3,
         "default_roles": list(CENTRAL_DEFAULT_ROLES),
         "llm_providers": [
-            {"name": "openai", "url": "https://api.openai.com/v1", "models": ["gpt-4o", "gpt-4o-mini"]},
-            {"name": "anthropic", "url": "https://api.anthropic.com/v1", "models": ["claude-sonnet-4-20250514", "claude-haiku-3-5"]},
-            {"name": "deepseek", "url": "https://api.deepseek.com/v1", "models": ["deepseek-v4", "deepseek-chat"]},
-            {"name": "ollama", "url": LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"), "models": ["qwen2.5"]},
-            {"name": "mock", "url": "", "models": ["mock"]},
+            {"name": "openai", "url": "https://api.openai.com/v1", "models": [DEFAULT_MODEL_OPENAI, DEFAULT_MODEL_OPENAI_MINI]},
+            {"name": "anthropic", "url": "https://api.anthropic.com/v1", "models": [DEFAULT_MODEL_ANTHROPIC_SONNET, DEFAULT_MODEL_ANTHROPIC_HAIKU]},
+            {"name": "deepseek", "url": "https://api.deepseek.com/v1", "models": [DEFAULT_MODEL_DEEPSEEK_V4, DEFAULT_MODEL_DEEPSEEK_CHAT]},
+            {"name": "ollama", "url": LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"), "models": [DEFAULT_MODEL_OLLAMA]},
+            {"name": "mock", "url": "", "models": [DEFAULT_MODEL_MOCK]},
         ],
         "token_presets": [
             {"label": f"Small ({MEMORY_RING_WORKING_BUDGET//1024}K/{MEMORY_RING_SHORT_BUDGET//1024}K/{MEMORY_RING_LONG_BUDGET//1024}K)",

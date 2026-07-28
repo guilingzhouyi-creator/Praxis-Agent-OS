@@ -7,6 +7,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from l1.kernel.params.system import LOG_TRUNC_500
+
 logger = logging.getLogger(__name__)
 
 class ResultMerger:
@@ -22,7 +24,7 @@ class ResultMerger:
         for r in completed:
             content = r.get("result", {}).get("content", "")
             if content:
-                contents.append(f"=== {r.get('spec', '?')} ===\n{content[:500]}")
+                contents.append(f"=== {r.get('spec', '?')} ===\n{content[:LOG_TRUNC_500]}")
 
         summary = "\n\n".join(contents) if contents else "(no content)"
 

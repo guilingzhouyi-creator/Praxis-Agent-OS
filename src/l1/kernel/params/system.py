@@ -130,6 +130,9 @@ ERROR_BUS_BUFFER: Final[int] = 5000
 ERROR_BUS_DEDUP_WINDOW: Final[int] = 300
 ERROR_BUS_EXPORT_LIMIT: Final[int] = 10000
 
+# ── Observability Bus defaults ──
+OBS_AUDIT_LIMIT: Final[int] = 20
+
 
 # ── Shell buffer ──
 BUFFER_MAX: Final[int] = 2000
@@ -157,6 +160,28 @@ FAULT_CHECK_INTERVAL: Final[float] = 5.0
 FAULT_RETRY_INTERVAL: Final[float] = 1.0
 EXEC_BACKOFF_INTERVAL: Final[float] = 1.0
 SCOUT_MONITOR_INTERVAL: Final[float] = 5.0
+
+# ── Log/display truncation limits ──
+LOG_TRUNC_40: Final[int] = 40
+LOG_TRUNC_50: Final[int] = 50
+LOG_TRUNC_60: Final[int] = 60
+LOG_TRUNC_80: Final[int] = 80
+LOG_TRUNC_100: Final[int] = 100
+LOG_TRUNC_120: Final[int] = 120
+LOG_TRUNC_200: Final[int] = 200
+LOG_TRUNC_300: Final[int] = 300
+LOG_TRUNC_500: Final[int] = 500
+LOG_TRUNC_1000: Final[int] = 1000
+LOG_TRUNC_2000: Final[int] = 2000
+LOG_TRUNC_3000: Final[int] = 3000
+LOG_TRUNC_4000: Final[int] = 4000
+LOG_TRUNC_5000: Final[int] = 5000
+LOG_TRUNC_10000: Final[int] = 10000
+
+# ── Hash display truncation limits ──
+HASH_TRUNC_SHORT: Final[int] = 8
+HASH_TRUNC_MEDIUM: Final[int] = 12
+HASH_TRUNC_LONG: Final[int] = 16
 
 # ── Scheduler ──
 SCHEDULER_BACKGROUND_PRIORITY: Final[int] = 10
@@ -192,6 +217,18 @@ MEMORY_RING_LONG_BUDGET: Final[int] = 131072
 MEMORY_RING_WORKING_TTL: Final[float] = 1800.0
 MEMORY_RING_SHORT_TTL: Final[float] = 86400.0
 MEMORY_RING_LONG_TTL: Final[float] = 0.0
+
+# ── Memory importance / pressure thresholds ──
+MEMORY_IMPORTANCE_BASE: Final[float] = 0.5
+MEMORY_IMPORTANCE_DECISION: Final[float] = 0.3
+MEMORY_IMPORTANCE_PATTERN: Final[float] = 0.3
+MEMORY_IMPORTANCE_SUMMARY: Final[float] = 0.2
+MEMORY_IMPORTANCE_OBSERVATION: Final[float] = 0.1
+MEMORY_PRESSURE_HIGH: Final[float] = 0.80
+MEMORY_PRESSURE_MEDIUM: Final[float] = 0.60
+MEMORY_PROMOTION_THRESHOLD: Final[float] = 0.6
+MEMORY_IMPORTANCE_HIGH: Final[float] = 0.7
+MEMORY_IMPORTANCE_MODERATE: Final[float] = 0.4
 MEMORY_BUILD_CONTEXT_LIMIT: Final[int] = 10
 MEMORY_RECALL_DEFAULT_LIMIT: Final[int] = 10
 MEMORY_ID_HASH_MOD: Final[int] = 10000
@@ -228,7 +265,7 @@ RESOURCE_BUFFER_HIDDEN_TTL: Final[float] = 300.0
 
 
 # ── Boot VFS mount paths ──
-BOOT_VFS_TEMP_PATH: Final[str] = "/tmp"
+BOOT_VFS_TEMP_PATH: Final[str] = _tf.gettempdir()
 
 
 # ── Token monitoring (CentralCollector quotas) ──

@@ -7,6 +7,7 @@ try:
 except ImportError:
     HAS_URLLIB = False
 
+from l1.kernel.params.system import LOG_TRUNC_10000
 from l1.kernel.params.tool import TOOL_WEB_TIMEOUT
 
 
@@ -19,7 +20,7 @@ def web_fetch(args: dict, agent_id: str) -> dict:
     try:
         r = req.urlopen(url, timeout=TOOL_WEB_TIMEOUT)
         content = r.read().decode("utf-8", errors="replace")
-        return {"success": True, "data": content[:10000], "url": url, "truncated": len(content) > 10000}
+        return {"success": True, "data": content[:LOG_TRUNC_10000], "url": url, "truncated": len(content) > LOG_TRUNC_10000}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
