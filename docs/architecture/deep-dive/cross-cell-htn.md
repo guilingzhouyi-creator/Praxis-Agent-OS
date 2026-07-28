@@ -1,8 +1,8 @@
 # Cross-Cell Architecture & L3 Decomposition
 
-> **Sources:** `l3/l3.py`, `l3/l3a.py`, `l3/l3b.py`, `l3/l3b_bus.py`, `l3/l3b_message_pool.py`,  
-> `l3/htn_a.py`, `l3/htn_b.py`, `l3/htn_planner.py`, `l3/cell_cache.py`,  
-> `l3/cell_types.py`, `l1/kernel/params/system.py`
+> **Sources:** `l3/cell/peers/l3.py`, `l3/cell/peers/l3a.py`, `l3/bus/l3b.py`, `l3/bus/l3b_bus.py`, `l3/bus/l3b_message_pool.py`,  
+> `l3/bus/htn_a.py`, `l3/bus/htn_b.py`, `l3/bus/htn_planner.py`, `l3/cell/components/cell_cache.py`,  
+> `l3/cell/components/cell_types.py`, `l1/kernel/params/system.py`
 
 ## L3 Architecture Overview
 
@@ -96,7 +96,7 @@ flowchart LR
 ### L3B Bus
 
 ```python
-# l3b_bus.py — 5 message types
+# l3/bus/l3b_bus.py — 5 message types
 class L3BMessageType(Enum):
     CARD_FORWARD = auto()   # Forward card shard
     RESULT_BACK = auto()    # Return execution result backward
@@ -110,7 +110,7 @@ class L3BMessageType(Enum):
 The message channel reuses the memory system's ring buffer + persistence design:
 
 ```python
-# l3b_message_pool.py
+# l3/bus/l3b_message_pool.py
 _HOT_RING_SIZE = 200                # Hot ring buffer
 _PERSIST_HIGH_WATERMARK = 0.8       # Hot Ring usage ≥80% → enable persist
 _BACKPRESSURE_THRESHOLD = 1000      # Persist backlog ≥1000 → send backpressure
@@ -198,7 +198,7 @@ Agent produces data → CellCache.inject()
 ### Cross-Cell L2 Cache Read
 
 ```python
-# l3b.py — L3BComposite.read_prev_cache()
+# l3/bus/l3b.py — L3BComposite.read_prev_cache()
 # Only read predecessor Cell's L2 cache, don't query global L3
 cell = get_cell(self.prev_cell)
 hits = cell.cache.search(query, limit=limit)

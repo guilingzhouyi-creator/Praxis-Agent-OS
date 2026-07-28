@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TerminalSession:
+    """A single interactive shell session — wraps a subprocess with output buffer."""
+
     id: str
     pid: int
     process: subprocess.Popen | None = None
@@ -27,6 +29,7 @@ class TerminalSession:
     created_at: float = field(default_factory=time.time)
 
     def write(self, data: str) -> None:
+        """Write data to the session's stdin."""
         if self.process and self.process.stdin:
             try:
                 self.process.stdin.write(data.encode("utf-8"))
@@ -35,27 +38,47 @@ class TerminalSession:
                 logger.warning("shell_session: %s", e)
 
     def resize(self, cols: int, rows: int) -> None:
-        pass
+        """Resize the terminal. No-op — PTY resize not yet implemented."""
 
     def is_alive(self) -> bool:
+        """Check if the underlying subprocess is still running."""
         return self.process is not None and self.process.poll() is None
 
     def kill(self) -> None:
+        """Terminate the session. Sends SIGTERM, escalates to SIGKILL on timeout.
+
+        Closes stdout/stderr/stdin pipes afterward so the reader thread's
+        blocking ``readline()`` (Windows) returns immediately.
+        """
         if self.process:
             self.process.terminate()
             try:
                 self.process.wait(timeout=SHELL_SESSION_TIMEOUT)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+            # Close pipes to unblock reader thread on all platforms
+            for fd_name in ("stdout", "stderr", "stdin"):
+                fd = getattr(self.process, fd_name, None)
+                if fd:
+                    try:
+                        fd.close()
+                    except OSError:
+                        pass
 
 
 class TerminalManager:
+    """Manages multiple shell sessions — create, write, kill, list.
+
+    Each session runs in a background daemon thread (``_reader``) that
+    captures stdout into a bounded ``deque`` buffer.
+    """
     def __init__(self) -> None:
         self._sessions: dict[str, TerminalSession] = {}
         self._lock = threading.Lock()
         self._next_id = 0
 
     def create(self, cwd: str | None = None) -> dict:
+        """Create a new interactive shell session. Returns {"success": True, "id": sid}."""
         sid = f"term-{self._next_id}"
         self._next_id += 1
         try:
@@ -72,10 +95,12 @@ class TerminalManager:
         return {"success": True, "id": sid}
 
     def get(self, sid: str) -> TerminalSession | None:
+        """Get a session by ID. Returns None if not found."""
         with self._lock:
             return self._sessions.get(sid)
 
     def write(self, sid: str, data: str) -> dict:
+        """Write data to a session's stdin."""
         s = self.get(sid)
         if not s:
             return {"success": False, "error": "session not found"}
@@ -85,10 +110,12 @@ class TerminalManager:
         return {"success": True}
 
     def list(self) -> list[str]:
+        """List all active session IDs."""
         with self._lock:
             return list(self._sessions.keys())
 
     def kill(self, sid: str) -> bool:
+        """Kill a session by ID."""
         with self._lock:
             s = self._sessions.pop(sid, None)
         if s:
@@ -97,6 +124,7 @@ class TerminalManager:
         return False
 
     def killall(self) -> int:
+        """Kill all active sessions. Returns the number killed."""
         n = 0
         for sid in list(self.list()):
             if self.kill(sid):
@@ -104,6 +132,12 @@ class TerminalManager:
         return n
 
     def _reader(self, sid: str) -> None:
+        """Background thread: reads session stdout into a bounded deque buffer.
+
+        Cross-platform:
+          Windows — blocking ``readline()`` (no non-blocking pipe support)
+          Unix    — non-blocking ``read(4096)`` with ``bytearray`` line assembly
+        """
         s = self.get(sid)
         if not s or not s.process or not s.process.stdout:
             return
@@ -135,6 +169,7 @@ class TerminalManager:
             s.output_buffer.append(buf.decode("utf-8", errors="replace"))
 
     def get_output(self, sid: str) -> dict:
+        """Get buffered output for a session. Returns {"success", "lines", "alive"}."""
         s = self.get(sid)
         if not s:
             return {"success": False, "error": "session not found"}
@@ -145,6 +180,7 @@ _manager: TerminalManager | None = None
 
 
 def get_manager() -> TerminalManager:
+    """Get the singleton TerminalManager instance."""
     global _manager
     if _manager is None:
         _manager = TerminalManager()
@@ -152,6 +188,7 @@ def get_manager() -> TerminalManager:
 
 
 def reset_manager() -> None:
+    """Reset the singleton — kills all sessions and clears the instance."""
     global _manager
     if _manager:
         _manager.killall()

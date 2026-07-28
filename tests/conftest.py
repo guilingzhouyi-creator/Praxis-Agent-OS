@@ -19,6 +19,7 @@ _RESETS = {
     "services.agent_terminal": ("reset_terminals", None),
     "services.cell": ("reset_cells", None),
     "services.error_bus": ("reset_bus", None),
+    "l1.kernel.event": ("reset_bus", None),
     "services.lsp_manager": ("reset_manager", None),
     "services.file_editor": (None, None),
     "services.sse_bridge": (None, None),

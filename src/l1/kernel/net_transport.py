@@ -15,7 +15,7 @@ Usage:
     from l4.adapters.channel_ring import RingChannel
 
     adapter = TcpAdapter(worker_pool=ThreadPoolWorker(), msg_channel=RingChannel(CHANNEL_RING_CAPACITY))
-    adapter.start("node-1", TransportConfig(port=42070))
+    adapter.start("node-1", TransportConfig(port=PRAXIS_PORT_DEFAULT))
 """
 
 from __future__ import annotations
@@ -187,7 +187,7 @@ class TcpAdapter(TransportPort):
     def start(self, node_id: str, config: Any) -> PortResult:
         self._node_id = node_id
         self._config = config if isinstance(config, TransportConfig) \
-            else TransportConfig(port=int(config) if isinstance(config, (int, str)) else 42070)
+            else TransportConfig(port=int(config) if isinstance(config, (int, str)) else PRAXIS_PORT_DEFAULT)
         self._running = True
         cfg = self._config
 

@@ -33,7 +33,7 @@ class CellPmuComponent(Component):
         self._pmu = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_pmu import CellPmu
+        from l3.cell.components.cell_pmu import CellPmu
         self._pmu = CellPmu(self.cell_id, **self._pmu_kwargs)
         self._bus = bus
 
@@ -304,3 +304,33 @@ class CellCacheComponent(Component):
     @property
     def cache(self):
         return self._cache
+
+
+# ════════════════════════════════════════════════════════════════
+# CellPermissionComponent
+# ════════════════════════════════════════════════════════════════
+
+class CellPermissionComponent(Component):
+    """Wraps SubAgentRegistry — state-gated delegation permission."""
+
+    meta = ComponentMeta(name="permission", tags=["cell", "security"])
+
+    def __init__(self, cell_id: str):
+        super().__init__()
+        self.cell_id = cell_id
+        self._permission = None
+
+    def bus_init(self, bus: SystemBus) -> None:
+        from .cell.components.cell_permission import SubAgentRegistry
+        self._permission = SubAgentRegistry(self.cell_id)
+
+    @property
+    def permission(self):
+        """Return the SubAgentRegistry — state-gated delegation permission."""
+        return self._permission
+
+    def bus_health(self) -> dict:
+        """Health check for the permission component."""
+        if not self._permission:
+            return {"status": "not_inited"}
+        return {"status": "ok", "specs": len(self._permission._specs)}

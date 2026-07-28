@@ -128,7 +128,7 @@ class TestMutex:
         m = Mutex(name="status-mutex")
         m.acquire("a")
         s = m.status()
-        assert s.get("holder") == "a"
+        assert s.get("owner") == "a"
 
 
 class TestSemaphore:
@@ -246,7 +246,7 @@ class TestGateChain:
     def test_gate_ledger(self):
         from l1.kernel.gatechain import get_gatechain
         gc = get_gatechain()
-        led = gc.ledger()
+        led = gc.ledger.recent()
         assert isinstance(led, list)
 
 

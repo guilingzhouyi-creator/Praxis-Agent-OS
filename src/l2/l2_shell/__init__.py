@@ -24,8 +24,39 @@ from .state import get_state, reset_state, ShellState  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+# ── Alias reverse index (built once, refreshed on registry change) ──
+_ALIAS_REVERSE_INDEX: dict[str, str] = {}
+_ALIAS_INDEX_STALE: bool = True
+
+
+def _rebuild_alias_index() -> None:
+    """Build a reverse index mapping alias → command name."""
+    global _ALIAS_REVERSE_INDEX, _ALIAS_INDEX_STALE
+    idx: dict[str, str] = {}
+    for c in _get_cmd_reg().list():
+        for alias in c.get("aliases", []):
+            idx[alias] = c["name"]
+    _ALIAS_REVERSE_INDEX = idx
+    _ALIAS_INDEX_STALE = False
+
+
+def _lookup_alias(alias: str) -> str | None:
+    """Resolve an alias to its canonical command name."""
+    global _ALIAS_INDEX_STALE
+    if _ALIAS_INDEX_STALE:
+        _rebuild_alias_index()
+    return _ALIAS_REVERSE_INDEX.get(alias)
+
 
 def dispatch(text: str) -> dict:
+    """Route user input to the active shell mode.
+
+    Parser order:
+      1. ``|`` in text → pipeline (``_pipeline``)
+      2. ``/`` prefix  → shell command (CommandRegistry lookup)
+      3. Direct mode active → ``_direct_message``
+      4. Default → ``_l3a_intent`` (L3A natural language processing)
+    """
     if "|" in text:
         segments = [s.strip() for s in text.split("|")]
         if len(segments) >= 2:
@@ -42,13 +73,12 @@ def dispatch(text: str) -> dict:
             handler = get_handler(cmd)
             if handler:
                 return handler(args)
-        # Check aliases
-        for c in _get_cmd_reg().list():
-            if cmd in c.get("aliases", []):
-                handler = get_handler(c["name"])
-                if handler:
-                    return handler(args)
-                break
+        # Check aliases via reverse index (O(1) instead of O(n))
+        resolved = _lookup_alias(cmd)
+        if resolved:
+            handler = get_handler(resolved)
+            if handler:
+                return handler(args)
         try:
             from l2.i18n import t as _t
             err = _t("shell.error.unknown_command", cmd=cmd)
@@ -64,6 +94,11 @@ def dispatch(text: str) -> dict:
 
 
 def _direct_message(state: ShellState, text: str) -> dict:
+    """Send a direct message to the currently connected agent.
+
+    On failure, automatically disconnects and falls back to L3A mode.
+    Passes the response through ``guard_output``.
+    """
     try:
         from .cell import get_cell
         cell = get_cell(state.cell_id)
@@ -83,6 +118,10 @@ def _direct_message(state: ShellState, text: str) -> dict:
 
 
 def _auto_disconnect(state: ShellState, reason: str) -> None:
+    """Auto-disconnect from Direct mode on error and fall back to L3A.
+
+    Emits ``EVENT_TASK_ASSIGN`` so the L3 coordinator knows the mode changed.
+    """
     if not state.is_direct():
         return
     logger.warning("auto-disconnect from %s: %s", state.agent_id, reason)
@@ -98,6 +137,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
 
 
 def _l3a_intent(text: str) -> dict:
+    """Send a natural-language intent to the L3 coordinator for processing."""
     try:
         from .cell.peers.l3 import get_coordinator
         coord = get_coordinator()

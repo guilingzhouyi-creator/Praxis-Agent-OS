@@ -167,14 +167,32 @@ class ToolPipeline:
         if not cc["allowed"]:
             return {"success": False, "error": "constitution blocked", "steps": result["steps"]}
 
-        # 5b. GateChain G1-G5
+        # 5b. GateChain G1-G5 (with ApprovalPolicy danger override)
         try:
             from l1.kernel.gatechain import get_gatechain as _gc
+            # Resolve per-cell/per-agent danger level (agent_id format: cell-role or cell.agent)
+            try:
+                from l3.services.approval_policy import get_policy as _ap
+                _parts = agent_id.split("-", 1) if "-" in agent_id else agent_id.split(".", 1)
+                _cid = _parts[0] if len(_parts) > 1 else ""
+                _danger = _ap().resolve(_cid, agent_id, tool_name)
+            except Exception:
+                _danger = None
             gcr = _gc().check(tool_name, agent_id, target=fpath,
-                              territory=[territory_str] if territory_str else None)
+                              territory=[territory_str] if territory_str else None,
+                              danger=_danger)
             gc_allowed = gcr.get("allowed", True)
-            result["steps"].append({"phase": "gatechain", "decision": gcr.get("decision", "?"),
+            gc_decision = gcr.get("decision", "?")
+            result["steps"].append({"phase": "gatechain", "decision": gc_decision,
                                     "steps": gcr.get("steps", [])})
+            # Reference Channel: record tool call for training data
+            try:
+                from l3.bus.reference_channel import get_rc as _get_rc
+                _get_rc().tool_call(tool_name, agent_id, allowed=gc_allowed,
+                                    gate="gatechain", reason=gc_decision,
+                                    args=args, trace_id=call_id)
+            except Exception:
+                pass
             if not gc_allowed:
                 return {"success": False, "error": "gatechain blocked",
                         "gate_result": gcr, "steps": result["steps"]}

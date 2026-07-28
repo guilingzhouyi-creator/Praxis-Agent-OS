@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
-from l1.kernel.params.system import DIRECT_SESSION_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +187,7 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
 # ── Internal ──
 
 def _select_by_id(agent_id: str) -> dict:
+    """Find an agent by ID across all Cells.  Returns {"success", "cell_id", "agent_id"}."""
     from .cell import get_cells
     for cell_id, cell in get_cells().items():
         try:
@@ -251,6 +251,4 @@ def _scan_injection(message: str) -> float:
     if len(message) > 2000 and score > 0:
         score = min(1.0, score + 0.2)
     return min(1.0, score)
-
-
 

@@ -1,12 +1,22 @@
 """Auto-completion for L2 Shell."""
 
 from l1.kernel.commands import get_command, list_commands as _list_defs
+from l1.kernel.params.system import SHELL_AUTOCOMPLETE_LIMIT, SHELL_AUTOCOMPLETE_AGENT_LIMIT
 
 
 def autocomplete(line: str) -> list[dict]:
-    results = []
+    """Return auto-completion suggestions for a partial L2 Shell command line.
+
+    Matches:
+      - ``/`` or empty → all commands
+      - ``/prefix`` → commands starting with prefix
+      - ``/cmd arg`` → agent / role completions for known commands
+
+    Returns list of ``{"type", "value", "help", ...}`` dicts.
+    """
     stripped = line.lstrip()
     cmds = _list_defs()
+    results: list[dict] = []
 
     if not stripped or stripped == "/":
         for c in cmds:
@@ -14,7 +24,7 @@ def autocomplete(line: str) -> list[dict]:
                 "type": "command", "value": f"/{c['name']}",
                 "help": c["help"], "args": len(c.get("args", [])),
             })
-        return results[:15]
+        return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
     if stripped.startswith("/"):
         parts = stripped[1:].split()
@@ -27,7 +37,7 @@ def autocomplete(line: str) -> list[dict]:
                 "type": "command", "value": f"/{c['name']}",
                 "help": c["help"],
             })
-        return results[:15]
+        return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
     cmd_name = parts[0].lower()
     cmd_info = get_command(cmd_name)
@@ -40,7 +50,7 @@ def autocomplete(line: str) -> list[dict]:
                     "type": "command", "value": f"/{c['name']}",
                     "help": c["help"], "args": len(c.get("args", [])),
                 })
-        return results[:15]
+        return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
     if cmd_info and cmd_name in ("connect", "spawn", "kill", "destroy", "card", "memory", "tokens"):
         arg_idx = len(parts) - 1
@@ -50,17 +60,18 @@ def autocomplete(line: str) -> list[dict]:
             suggestions = _complete_agent(partial, cmd_name)
             results.extend(suggestions)
             if results:
-                return results[:10]
+                return results[:SHELL_AUTOCOMPLETE_AGENT_LIMIT]
 
         if arg_idx == 2:
             role_suggestions = _complete_role(partial)
             results.extend(role_suggestions)
-            return results[:10]
+            return results[:SHELL_AUTOCOMPLETE_AGENT_LIMIT]
 
     return []
 
 
 def _complete_agent(partial: str, cmd_name: str = "") -> list[dict]:
+    """Complete agent IDs matching *partial*.  Falls back to current state agent."""
     from .state import get_state
     state = get_state()
     results = []
@@ -79,6 +90,7 @@ def _complete_agent(partial: str, cmd_name: str = "") -> list[dict]:
 
 
 def _complete_role(partial: str) -> list[dict]:
+    """Complete role names matching *partial* from CENTRAL_ROLES."""
     from l1.kernel.params.agent import CENTRAL_ROLES
     return [{"type": "role", "value": r, "help": f"role: {r}"}
             for r in CENTRAL_ROLES if not partial or r.startswith(partial)]

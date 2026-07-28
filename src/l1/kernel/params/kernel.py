@@ -278,5 +278,7 @@ RUN_SUBPROCESS_TIMEOUT: Final[int] = 15
 
 # ── Process / subprocess ──
 ZOMBIE_REAPER_INTERVAL: Final[float] = 60.0
+ZOMBIE_MAX_AGE: Final[float] = 300.0
+PROCESS_TABLE_MAX: Final[int] = 500
 PROCESS_WAIT_TIMEOUT: Final[int] = 5
 PROCESS_OOM_EXIT_CODE: Final[int] = -9

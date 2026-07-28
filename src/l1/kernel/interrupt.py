@@ -1,5 +1,6 @@
 """Kernel interrupt table — interrupt handling for ops_console."""
 from __future__ import annotations
+from collections import deque
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -35,8 +36,7 @@ class InterruptTable:
     def __init__(self):
         self._handlers: dict[InterruptType, list[Callable]] = {}
         self._counts: dict[str, int] = {}
-        self._history: list[dict] = []
-        self._max_history = INTERRUPT_MAX_HISTORY
+        self._history: deque[dict] = deque(maxlen=INTERRUPT_MAX_HISTORY)
 
     def register(self, itype: InterruptType, handler: Callable) -> None:
         self._handlers.setdefault(itype, []).append(handler)
@@ -50,8 +50,7 @@ class InterruptTable:
             "type": name, "agent": agent_id, "reason": reason,
             "data": data or {}, "seq": self._counts[name],
         })
-        if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+        # deque(maxlen=INTERRUPT_MAX_HISTORY) prunes oldest entry automatically
         for cb in self._handlers.get(itype, []):
             try:
                 cb(intr)

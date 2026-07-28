@@ -15,11 +15,8 @@ Architecture:
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
-import uuid
-from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal, Signal, SignalType
@@ -36,12 +33,12 @@ from ..cell.components.cell_agent import add_agent, _boot_agent
 from ..agent.scout import get_pool as get_scout_pool
 from l3.cell.components.cell_buffer import CircularBuffer
 from ..cell.components.cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
-from ..card.execution_plan import ExecutionPlan
 from ..scheduler.think_registry import get_think_registry
 from ..cell.components.cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
 from ..services.bus_components import (
     CellPmuComponent, CellWatchdogComponent, CellICacheComponent,
     CellMmuComponent, CellInterruptComponent, CellCacheComponent,
+    CellPermissionComponent,
 )
 from ..cell.components.cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
 from ..cell.components.cell_rollback import rollback_card as _rollback_card
@@ -119,6 +116,7 @@ class Cell:
         self._cell_bus.register(CellMmuComponent(cell_id))
         self._cell_bus.register(CellInterruptComponent(cell_id))
         self._cell_bus.register(CellCacheComponent(cell_id))
+        self._cell_bus.register(CellPermissionComponent(cell_id))
         self._cell_bus.install()
 
         # Shortcuts for backward-compatible access
@@ -131,6 +129,7 @@ class Cell:
         self._tlb = mmu_comp.tlb if mmu_comp else None
         self._interrupt = getattr(self._cell_bus.get("interrupt"), "interrupt", None)
         self._cache = getattr(self._cell_bus.get("cache"), "cache", None)
+        self._permission = getattr(self._cell_bus.get("permission"), "permission", None)
 
         # Wire interrupt handlers
         self._wire_interrupts()
@@ -243,61 +242,13 @@ class Cell:
 
     def save_state(self, path: str = "") -> dict:
         """Save Cell state (agents, conventions, snapshots) to JSON."""
-        from l1.kernel.paths import get_paths as _gp
-        path = path or _gp().cell_state_template.format(self.cell_id)
-        state = {
-            "cell_id": self.cell_id, "territory": self.territory,
-            "agents": {},
-            "card_history": [h for h in self._card_history],
-        }
-        with self._lock:
-            for aid, info in self._agents.items():
-                state["agents"][aid] = {
-                    "role": info.role, "ring": info.ring,
-                    "territory": info.territory,
-                    "max_concurrent_scouts": info.max_concurrent_scouts,
-                    "status": info.status.name,
-                }
-        try:
-            import json as _json
-            tmp = path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                _json.dump(state, f, indent=2, ensure_ascii=False, default=str)
-            os.replace(tmp, path)
-            return {"success": True, "path": path}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+        from ..cell.components.cell_state import save_state as _save
+        return _save(self, path)
 
     def restore_state(self, path: str = "") -> dict:
         """Restore Cell state from JSON."""
-        from l1.kernel.paths import get_paths as _gp
-        path = path or _gp().cell_state_template.format(self.cell_id)
-        if not os.path.exists(path):
-            return {"success": False, "error": "no state file"}
-        try:
-            import json as _json
-            with open(path, encoding="utf-8") as f:
-                state = _json.load(f)
-            self.cell_id = state.get("cell_id", self.cell_id)
-            with self._lock:
-                for aid, d in state.get("agents", {}).items():
-                    if aid not in self._agents:
-                        from ..cell.components.cell_types import AgentStatus
-                        from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS
-                        cfg = DEFAULT_AGENT_CONFIGS.get(d.get("role", ""))
-                        info = AgentInfo(
-                            role=d.get("role", ""),
-                            ring=d.get("ring", cfg.ring if cfg else 1),
-                            territory=d.get("territory", []),
-                            max_concurrent_scouts=d.get("max_concurrent_scouts",
-                                                         cfg.max_scouts if cfg else 3),
-                            status=AgentStatus[d.get("status", "IDLE")],
-                        )
-                        self._agents[aid] = info
-                        self._mailbox[aid] = []
-            return {"success": True, "agents": len(state.get("agents", {}))}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+        from ..cell.components.cell_state import restore_state as _restore
+        return _restore(self, path)
 
     # ══ Agent-to-Agent Messaging ══
 
@@ -585,6 +536,48 @@ class Cell:
         logger.info("Cell %s reset context for agent %s", self.cell_id, agent_id)
         return {"success": True, "cell_id": self.cell_id, "agent_id": agent_id, "action": "context_reset"}
 
+    def restart_agent(self, agent_id: str) -> dict:
+        """Restart an agent: shutdown terminal → clear memory → re-boot.
+
+        Used by L2 Shell /restart command for manual recovery when
+        an agent is stuck or its context is polluted beyond refresh.
+        """
+        from ..agent_terminal import get_terminals
+        with self._lock:
+            if agent_id not in self._agents:
+                return {"success": False, "error": f"agent {agent_id} not found"}
+            info = self._agents[agent_id]
+        # Shutdown terminal
+        term = get_terminals().get(agent_id)
+        if term:
+            term.shutdown()
+        # Clear memory rings (R1 + R2)
+        try:
+            from ..memory.memory import get_memory
+            mem = get_memory()
+            mem.forget_agent(agent_id)
+            mem.compact(agent_id)
+        except Exception as e:
+            logger.warning("restart_agent memory clear: %s", e)
+        # Clear context pool
+        try:
+            from ..memory.context_pool import unregister as _unreg
+            _unreg(agent_id)
+        except Exception:
+            pass
+        # Flush MMU TLB
+        self._mmu.flush_agent(agent_id)
+        # Re-register context pool
+        try:
+            from ..memory.context_pool import register as _reg
+            _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=4096)
+        except Exception:
+            pass
+        # Re-boot
+        self.boot_agent(agent_id)
+        logger.info("Cell %s restarted agent %s", self.cell_id, agent_id)
+        return {"success": True, "agent_id": agent_id, "action": "restarted"}
+
     # ══ Card Dispatch ══
 
     def dispatch_card(self, target_agent: str, action: str,
@@ -735,6 +728,11 @@ class Cell:
             get_pipeline().set_pmu(self._pmu)
         except Exception as e:
             logger.warning("pipeline pmu wire failed: %s", e)
+        # Wire PMU to the AgentTerminal (→ AgentLoop for compression telemetry)
+        try:
+            term.set_pmu(self._pmu)
+        except Exception as e:
+            logger.warning("term pmu wire failed: %s", e)
 
     def agent_tools(self, agent_id: str) -> list[dict]:
         all_terms = get_terminals()
@@ -851,6 +849,13 @@ class Cell:
         """Access the Cell InterruptController — priority-based event routing."""
         return self._interrupt
 
+    # ── PermissionController (Delegation Control) ──
+
+    @property
+    def permission(self):
+        """Access the Cell PermissionController — delegation authorization."""
+        return self._permission
+
     def _wire_interrupts(self) -> None:
         """Wire built-in handlers to interrupt IRQs + cell bus events."""
         if self._interrupt:
@@ -949,7 +954,7 @@ class Cell:
 
     def dispatch_pending_interrupts(self, max_per: int = 5) -> int:
         """Dispatch pending queued interrupts. Called periodically."""
-        return self._interrupt.dispatch_pending(max_per_priority=max_per)
+        return self._interrupt.dispatch_pending(max_total=max_per)
 
     def subagent_orchestrate(self, sub_tasks: list[dict],
                               parent_agent_id: str = "",

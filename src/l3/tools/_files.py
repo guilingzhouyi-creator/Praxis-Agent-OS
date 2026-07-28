@@ -116,6 +116,21 @@ def file_delete(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def destroy_file(args: dict, agent_id: str) -> dict:
+    """RING_3: Permanently delete a file or directory (bypassing buffer)."""
+    path = args.get("path", "")
+    if not path:
+        return {"success": False, "error": "path is required"}
+    try:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+        return {"success": True, "destroyed": path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def file_mkdir(args: dict, agent_id: str) -> dict:
     path = args.get("path", "")
     parents = args.get("parents", False)

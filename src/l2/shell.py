@@ -105,6 +105,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
 
 
 def _show_help() -> None:
+    """Print command list (first 15 commands) and hint for more."""
     print("Commands:")
     for cmd in _COMMANDS[:15]:
         h = _COMMAND_HELP.get(cmd, "")
@@ -113,8 +114,9 @@ def _show_help() -> None:
 
 
 def _list_tools() -> None:
+    """List all registered tools with descriptions.  Falls back to command names on error."""
     try:
-        from .tool_system.tool_spec import list_tools as _list_tools
+        from l3.tool_system.tool_spec import list_tools as _list_tools
         tools = _list_tools()
         for t in tools:
             print(f"  {t.name:<25s} {t.description[:50]}")
@@ -128,7 +130,7 @@ def _handle_direct(intent: str, agent_id: str) -> None:
     """Handle a direct session intent (! prefix)."""
     print(f"  [L3A] Parsing: {intent}")
     try:
-        from .tools_l3 import execute_l3_tool
+        from l3.tools_l3 import execute_l3_tool
         r = execute_l3_tool("intent_parse", {"text": intent}, agent_id)
         if r.get("success"):
             card = r.get("data", {})
@@ -149,7 +151,14 @@ def _handle_scout(task: str, agent_id: str, cell_id: str) -> None:
         return
     print(f"  [Scout] Commissioning: {task}")
     try:
-        from .agent.scout import get_pool
+        from l3.cell import get_cell
+        cell = get_cell(cell_id)
+        # Check delegation permission gate
+        if hasattr(cell, 'permission') and cell.permission:
+            if not cell.permission.is_visible("scout", agent_id):
+                print(f"  [Scout] Delegation disabled: scout is not available to {agent_id}")
+                return
+        from l3.agent.scout import get_pool
         pool = get_pool()
         r = pool.commission(agent_id, task)
         print(f"  [Scout] Status: {r.get('status', '?')}")
@@ -205,7 +214,7 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
 
     print(f"  [Exec] {tool_name} {args}")
     try:
-        from .tool_system.tool_spec import get_tool, execute_tool_spec
+        from l3.tool_system.tool_spec import get_tool, execute_tool_spec
         spec = get_tool(tool_name)
         if not spec:
             print(f"  [Error] Unknown tool: {tool_name}")

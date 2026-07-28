@@ -2,6 +2,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+
+def _default_tools() -> list[str]:
+    return ["read_file", "grep_search"]
+
 @dataclass
 class SubAgentSpec:
     """Sub-agent spec definition."""
@@ -45,109 +49,146 @@ class SubAgentSpec:
 
 
 # ── Built-in subagent specs (loaded by SubAgentDispatcher) ──
+# Config-driven via commands.yaml subagent_specs section.
 
-BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = {
-    "security-auditor": SubAgentSpec(
-        name="security-auditor",
-        description="Security code review — scan for OWASP Top 10, hardcoded secrets, injection vectors",
-        system_prompt="You are a senior security auditor. Review the provided code for vulnerabilities. "
-                      "Check for: SQL injection, XSS, path traversal, hardcoded secrets, insecure crypto, "
-                      "authorization bypasses. Rate each finding as CRITICAL/HIGH/MEDIUM/LOW.",
-        allowed_tools=["read_file", "grep_search", "list_dir"],
-        max_steps=8,
-        timeout=120.0,
-        read_only=True,
-        tags=["security", "review"],
-    ),
-    "code-reviewer": SubAgentSpec(
-        name="code-reviewer",
-        description="General code review — logic errors, style, test coverage, edge cases",
-        system_prompt="You are a senior engineer reviewing code. Check for: logic errors, "
-                      "edge cases, style guide violations, missing error handling, "
-                      "test coverage gaps, performance issues.",
-        allowed_tools=["read_file", "grep_search", "list_dir"],
-        max_steps=8,
-        timeout=120.0,
-        read_only=True,
-        tags=["review"],
-    ),
-    "documenter": SubAgentSpec(
-        name="documenter",
-        description="Generate documentation from code — docstrings, README, API reference",
-        system_prompt="You are a technical writer. Read the code and generate documentation. "
-                      "Focus on: public API surface, usage examples, edge cases, parameter descriptions.",
-        allowed_tools=["read_file", "list_dir"],
-        max_steps=6,
-        timeout=90.0,
-        read_only=True,
-        tags=["docs"],
-    ),
-    "data-analyst": SubAgentSpec(
-        name="data-analyst",
-        description="Analyze data files, logs, or structured output for patterns and anomalies",
-        system_prompt="You are a data analyst. Read the provided data, identify patterns, "
-                      "anomalies, and trends. Summarize findings with specific evidence.",
-        allowed_tools=["read_file", "grep_search"],
-        max_steps=6,
-        timeout=90.0,
-        read_only=True,
-        tags=["data"],
-    ),
-    "architect": SubAgentSpec(
-        name="architect",
-        description="Architecture review — dependency analysis, module boundaries, design patterns",
-        system_prompt="You are a software architect. Review the codebase structure. "
-                      "Check for: circular dependencies, violation of layer boundaries, "
-                      "missing abstractions, over-engineering, architectural drift.",
-        allowed_tools=["read_file", "grep_search", "list_dir"],
-        max_steps=10,
-        timeout=180.0,
-        read_only=True,
-        tags=["architecture", "review"],
-    ),
-    "helper": SubAgentSpec(
-        name="helper",
-        description="General-purpose assistant — answer questions, explain code, suggest fixes",
-        system_prompt="You are a helpful engineering assistant. Answer questions, explain code, "
-                      "suggest fixes, and provide examples. Be concise and specific.",
-        allowed_tools=["read_file", "grep_search", "list_dir"],
-        max_steps=5,
-        timeout=60.0,
-        read_only=False,
-        tags=["general"],
-    ),
-    "refactor-agent": SubAgentSpec(
-        name="refactor-agent",
-        description="Refactor code — rename symbols, extract methods, split files, apply patterns",
-        system_prompt="You are a senior software engineer performing code refactoring. "
-                      "Read the target code, plan the refactoring steps, then execute them. "
-                      "Ensure all tests still pass after each change.",
-        allowed_tools=["read_file", "grep_search", "list_dir", "edit", "write_file"],
-        max_steps=12,
-        timeout=180.0,
-        read_only=False,
-        sandbox_profile="safe",
-        tags=["refactor", "write"],
-        post_actions=[{"type": "scout", "prompt": "Verify the refactoring in {spec}:\n"
-                       "1. Did any test break? {result}\n"
-                       "2. Are there any syntax errors?\n"
-                       "3. Does the change preserve existing behavior?"}],
-    ),
-    "fixer": SubAgentSpec(
-        name="fixer",
-        description="Fix bugs and issues — read error, locate cause, apply fix, verify",
-        system_prompt="You are a debug technician. Read the error description, locate the root cause "
-                      "in the codebase, apply the minimal fix, and verify the fix doesn't break tests. "
-                      "Explain what caused the bug and how your fix resolves it.",
-        allowed_tools=["read_file", "grep_search", "list_dir", "edit", "write_file", "shell"],
-        max_steps=10,
-        timeout=180.0,
-        read_only=False,
-        sandbox_profile="safe",
-        tags=["fix", "write"],
-        post_actions=[{"type": "scout", "prompt": "Verify the fix for {spec}:\n"
-                       "1. Does the fix actually address {answer}?\n"
-                       "2. Are there any side effects?\n"
-                       "3. Do existing tests pass?"}],
-    ),
+_BUILTIN_SPECS: dict[str, dict] = {
+    "security-auditor": {"description": "Security code review — scan for OWASP Top 10, hardcoded secrets, injection vectors",
+        "system_prompt": "You are a senior security auditor. Review the provided code for vulnerabilities. "
+                         "Check for: SQL injection, XSS, path traversal, hardcoded secrets, insecure crypto, "
+                         "authorization bypasses. Rate each finding as CRITICAL/HIGH/MEDIUM/LOW.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir"],
+        "max_steps": 8, "timeout": 120.0, "tags": ["security", "review"]},
+    "code-reviewer": {"description": "General code review — logic errors, style, test coverage, edge cases",
+        "system_prompt": "You are a senior engineer reviewing code. Check for: logic errors, "
+                         "edge cases, style guide violations, missing error handling, "
+                         "test coverage gaps, performance issues.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir"],
+        "max_steps": 8, "timeout": 120.0, "tags": ["review"]},
+    "documenter": {"description": "Generate documentation from code — docstrings, README, API reference",
+        "system_prompt": "You are a technical writer. Read the code and generate documentation. "
+                         "Focus on: public API surface, usage examples, edge cases, parameter descriptions.",
+        "allowed_tools": ["read_file", "list_dir"],
+        "max_steps": 6, "timeout": 90.0, "tags": ["docs"]},
+    "data-analyst": {"description": "Analyze data files, logs, or structured output for patterns and anomalies",
+        "system_prompt": "You are a data analyst. Read the provided data, identify patterns, "
+                         "anomalies, and trends. Summarize findings with specific evidence.",
+        "allowed_tools": ["read_file", "grep_search"],
+        "max_steps": 6, "timeout": 90.0, "tags": ["data"]},
+    "architect": {"description": "Architecture review — dependency analysis, module boundaries, design patterns",
+        "system_prompt": "You are a software architect. Review the codebase structure. "
+                         "Check for: circular dependencies, violation of layer boundaries, "
+                         "missing abstractions, over-engineering, architectural drift.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir"],
+        "max_steps": 10, "timeout": 180.0, "tags": ["architecture", "review"]},
+    "helper": {"description": "General-purpose assistant — answer questions, explain code, suggest fixes",
+        "system_prompt": "You are a helpful engineering assistant. Answer questions, explain code, "
+                         "suggest fixes, and provide examples. Be concise and specific.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir"],
+        "max_steps": 5, "timeout": 60.0, "read_only": False, "tags": ["general"]},
+    "refactor-agent": {"description": "Refactor code — rename symbols, extract methods, split files, apply patterns",
+        "system_prompt": "You are a senior software engineer performing code refactoring. "
+                         "Read the target code, plan the refactoring steps, then execute them. "
+                         "Ensure all tests still pass after each change.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir", "edit", "write_file"],
+        "max_steps": 12, "timeout": 180.0, "read_only": False,
+        "sandbox_profile": "safe", "tags": ["refactor", "write"],
+        "post_actions": [{"type": "scout", "prompt": "Verify that the refactoring preserves behavior and all tests pass."}]},
+    "fixer": {"description": "Fix bugs and issues — read error, locate cause, apply fix, verify",
+        "system_prompt": "You are a debug technician. Read the error description, locate the root cause "
+                         "in the codebase, apply the minimal fix, and verify the fix doesn't break tests. "
+                         "Explain what caused the bug and how your fix resolves it.",
+        "allowed_tools": ["read_file", "grep_search", "list_dir", "edit", "write_file", "shell"],
+        "max_steps": 10, "timeout": 180.0, "read_only": False,
+        "sandbox_profile": "safe", "tags": ["fix", "write"],
+        "post_actions": [{"type": "scout", "prompt": "Verify that the fix resolves the issue without side effects."}]},
 }
+
+
+def load_specs() -> dict[str, SubAgentSpec]:
+    """Load subagent specs from commands.yaml, falling back to built-in defaults.
+
+    YAML section ``subagent_specs:`` overrides individual specs by name.
+    Specs not present in YAML retain their built-in definitions.
+    """
+    import yaml
+    import os
+    specs: dict[str, SubAgentSpec] = {}
+
+    # Start from built-in defaults
+    for name, raw in _BUILTIN_SPECS.items():
+        specs[name] = SubAgentSpec(name=name, **raw)
+
+    # Apply YAML overrides
+    yaml_path = os.path.join(os.getcwd(), "config", "commands.yaml")
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        yaml_specs = cfg.get("subagent_specs", {})
+        for name, overrides in yaml_specs.items():
+            if name in specs:
+                # Merge: override individual fields, keep non-overridden fields from built-in
+                for k, v in overrides.items():
+                    if hasattr(specs[name], k):
+                        setattr(specs[name], k, v)
+            else:
+                specs[name] = SubAgentSpec(name=name, **overrides)
+    except Exception:
+        pass
+
+    return specs
+
+
+# Re-export for backward compat — lazy dict defers YAML loading until first access
+
+class _LazyBuiltins(dict):
+    """Dict subclass that loads specs on first access, not at import time.
+
+    All dict operations (``__getitem__``, ``__iter__``, ``dict()``, etc.)
+    trigger a single call to ``load_specs()`` on first use.
+    """
+    _loaded = False
+    _data: dict[str, SubAgentSpec] = {}
+
+    def _ensure(self) -> None:
+        if not self._loaded:
+            self._data = load_specs()
+            self.__class__._loaded = True
+
+    def __getitem__(self, key):
+        self._ensure()
+        return self._data[key]
+
+    def __iter__(self):
+        self._ensure()
+        return iter(self._data)
+
+    def __len__(self):
+        self._ensure()
+        return len(self._data)
+
+    def __contains__(self, key):
+        self._ensure()
+        return key in self._data
+
+    def keys(self):
+        self._ensure()
+        return self._data.keys()
+
+    def values(self):
+        self._ensure()
+        return self._data.values()
+
+    def items(self):
+        self._ensure()
+        return self._data.items()
+
+    def get(self, key, default=None):
+        self._ensure()
+        return self._data.get(key, default)
+
+    def copy(self):
+        self._ensure()
+        return dict(self._data)
+
+
+BUILTIN_SUBAGENTS: dict[str, SubAgentSpec] = _LazyBuiltins()

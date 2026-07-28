@@ -19,7 +19,7 @@ from typing import Any
 from l1.kernel.prompts import get_prompt
 from l3.services.model_service import get_service as _get_model_service
 from l1.kernel.params.agent import L3A_MAX_STEPS, L3A_TIMEOUT
-from .card.card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
+from l3.card.card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
 

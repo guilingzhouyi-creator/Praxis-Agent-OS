@@ -238,12 +238,15 @@ CARD_GATE_HISTORY_LIMIT: Final[int] = 50
 PLAN_GENERATION_MAX_TOKENS: Final[int] = 1024
 SKILL_ARCHITECT_MAX_TOKENS: Final[int] = 2048
 SUBAGENT_MAX_TOKENS: Final[int] = 4096
+SUBAGENT_SESSION_TTL: Final[float] = 300.0
+"""SubAgent session retention after completion (seconds).  0 = no retention."""
 MEMORY_CONTEXT_MAX_TOKENS: Final[int] = 1024
 
 # ── Convergence truncation ──
 CONVERGENCE_ANSWER_TRUNC: Final[int] = 500
 CONVERGENCE_DOC_TRUNC: Final[int] = 8000
 SESSION_COMPRESSION_THRESHOLD: Final[float] = 0.85
+COMPACT_RING2_IMPORTANCE: Final[float] = 0.4
 
 # ── Agent ID prefix constants ──
 AGENT_ID_PREFIXES: Final[frozenset[str]] = frozenset({"agent-", "l3", "human"})

@@ -452,7 +452,7 @@ class TestTaskBusLoadFromConfig:
         bus = TaskBus()
         # Manually trigger load with our data
         try:
-            from l3.config_loader import load_config
+            from l3.config.config_loader import load_config
         except ImportError:
             # config_loader not available, but we can still test the parsing logic
             import yaml as _yaml

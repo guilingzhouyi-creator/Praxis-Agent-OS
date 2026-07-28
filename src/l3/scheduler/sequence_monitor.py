@@ -139,6 +139,16 @@ class SequenceMonitor:
         geo_mean = product ** (1.0 / len(probs))
         anomaly = geo_mean < self._anomaly_threshold
 
+        # Reference Channel: record anomaly for training data
+        if anomaly:
+            try:
+                from l3.bus.reference_channel import get_rc as _rc
+                _rc().anomaly("", {"context": context, "probability": round(geo_mean, 4),
+                            "transitions": len(step_details), "cell_id": self.cell_id},
+                              cell_id=self.cell_id)
+            except Exception:
+                pass
+
         return {
             "probability": round(geo_mean, 4),
             "anomaly": anomaly,

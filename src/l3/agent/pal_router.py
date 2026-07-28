@@ -28,6 +28,9 @@ from l1.kernel.params.api import (
     PAL_ESCALATE_AFTER,
     PAL_DOWNGRADE_AFTER,
     PAL_DEFAULT_TIER,
+    PAL_COMPLEXITY_MAX_TOKENS,
+    PAL_COMPLEXITY_MAX_TOOLS,
+    PAL_COMPLEXITY_MAX_DEPTH,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,9 +41,9 @@ TIER_COST = {"frugal": PAL_FRUGAL_COST, "standard": PAL_STANDARD_COST, "frontier
 
 def complexity_score(tokens: int = 0, tools: int = 0, depth: int = 0) -> float:
     """Score task complexity (0.0–1.0)."""
-    norm_tokens = min(tokens / 4000, 1.0)
-    norm_tools = min(tools / 5, 1.0)
-    norm_depth = min(depth / 5, 1.0)
+    norm_tokens = min(tokens / PAL_COMPLEXITY_MAX_TOKENS, 1.0)
+    norm_tools = min(tools / PAL_COMPLEXITY_MAX_TOOLS, 1.0)
+    norm_depth = min(depth / PAL_COMPLEXITY_MAX_DEPTH, 1.0)
     return 0.30 * norm_tokens + 0.30 * norm_tools + 0.40 * norm_depth
 
 

@@ -111,6 +111,13 @@ class AgentTerminal:
         self._loop_mode: str = TERMINAL_MODE_DEFAULT
         self._loop_state: str = TERMINAL_STATE_DEFAULT
         self._paused: bool = False
+        # Persistent AgentLoop — reuse across cards for conversational continuity
+        self._persistent_loop: bool = False
+        self._active_loop: Any = None
+        self._active_loop_lock: Any = threading.Lock()
+        # Card timeout guard — interrupt stuck cards
+        self._card_timeout: float = 0.0
+        self._card_deadline: float = 0.0
         self._current_card: str = ""
         self._cards_since_pressure_check: int = 0
         # ── AgentLoop instance budget (reserved, not yet enforced) ──
@@ -121,6 +128,11 @@ class AgentTerminal:
         self.todo = TodoTable(agent_id)
         # Watchdog pet callback (set by Cell)
         self._watchdog_pet: Any = None
+        # PMU reference (set by Cell._inject_tools)
+        self._pmu: Any = None
+
+    def set_pmu(self, pmu: Any) -> None:
+        self._pmu = pmu
 
     def set_tool_registry(self, registry: dict[str, Any]) -> None:
         self._tool_registry = registry
@@ -224,11 +236,30 @@ class AgentTerminal:
             if self._paused:
                 time.sleep(POLL_INTERVAL_PAUSED)
                 continue
+            # Stuck card detection: if card_timeout is set and a card exceeded deadline,
+            # mark it as failed and skip to next card
+            if self._card_timeout > 0 and self._card_deadline > 0 and time.time() > self._card_deadline:
+                with self._lock:
+                    stuck_id = self._current_card
+                    if stuck_id:
+                        logger.warning("agent %s: card %s timed out (%.1fs), cancelling",
+                                       self.agent_id, stuck_id, self._card_timeout)
+                        self._results[stuck_id] = CardResult(
+                            card_id=stuck_id, action="timeout",
+                            success=False, error=f"card timed out after {self._card_timeout}s",
+                        )
+                        ev = self._pending.pop(stuck_id, None)
+                        if ev:
+                            ev.set()
+                        self._current_card = ""
+                        self._card_deadline = 0
             card = None
             with self._lock:
                 if self.stdin:
                     card = self.stdin.popleft()
                     self._active_cards += 1
+                    if self._card_timeout > 0:
+                        self._card_deadline = time.time() + self._card_timeout
             if card is None:
                 time.sleep(POLL_INTERVAL_FAST)
                 continue
@@ -297,7 +328,60 @@ class AgentTerminal:
             return self._handle_direct(card)
         if card.mode == CardMode.ISSUE:
             return self._issue_card(card)
+        # Persistent AgentLoop: reuse across cards for conversational continuity
+        if self._persistent_loop and card.action == "think":
+            with self._active_loop_lock:
+                if self._active_loop is not None:
+                    return self._execute_with_existing_loop(card)
         return self._execute_card(card)
+
+    def _execute_with_existing_loop(self, card: TerminalCard) -> CardResult:
+        """Execute a card using the persistent AgentLoop, adding to existing conversation."""
+        import time as _time
+        t0 = _time.time()
+        task = card.params.get("prompt", card.target)
+        try:
+            from ..agent.agent_persist import append_transcript
+            ar = self._active_loop.continue_run(task=task)
+        except Exception as e:
+            ar = {"success": False, "error": str(e), "answer": ""}
+        answer = ar.get("answer", "") or ""
+        success = ar.get("success", False)
+        # Inject result into Cell L2 cache
+        try:
+            self._inject_loop_result(card, answer, success)
+        except Exception:
+            pass
+        try:
+            from l1.kernel.params.agent import LOG_TRUNC_200 as _T200
+            append_transcript(self.agent_id, {
+                "task": task[:_T200],
+                "success": success,
+                "elapsed": round(_time.time() - t0, 2),
+                "summary": answer[:_T200],
+            })
+        except Exception:
+            pass
+        return CardResult(
+            card_id=card.card_id, action=card.action,
+            success=success, output=answer, error=ar.get("error", ""),
+            elapsed=round(_time.time() - t0, 3),
+        )
+
+    def _inject_loop_result(self, card: TerminalCard, answer: str, success: bool) -> None:
+        """Inject AgentLoop result into Cell L2 cache for cross-agent sharing."""
+        from .cell import get_cell as _get_cell
+        cell = _get_cell(self.cell_id)
+        import hashlib as _hl
+        key = f"persistent:{self.agent_id}:{_hl.sha256(answer.encode()).hexdigest()[:8]}"
+        summary = answer.strip()[:200]
+        if success and answer:
+            cell.cache.inject(key=key, value=answer, summary=summary,
+                              agent_id=self.agent_id, entry_type="decision", importance=0.6)
+        elif not success:
+            cell.cache.inject(key=key, value=ar.get("error", ""),
+                              summary=f"FAIL [{self.agent_id}]: {summary}",
+                              agent_id=self.agent_id, entry_type="failure", importance=0.3)
 
     def _execute_card(self, card: TerminalCard) -> CardResult:
         phases = ["start"]
@@ -575,6 +659,30 @@ class AgentTerminal:
             results = [self._async_scouts.pop(sid) for sid in ids]
             self._async_pending.clear()
             return results
+
+    def set_persistent_loop(self, enabled: bool = True) -> dict:
+        """Enable or disable persistent AgentLoop mode.
+
+        When enabled, the AgentTerminal reuses the same AgentLoop instance
+        across multiple cards, preserving LLM conversational context.
+        Call ``reset_persistent_loop()`` to force a fresh start.
+        """
+        self._persistent_loop = enabled
+        logger.info("agent %s: persistent_loop=%s", self.agent_id, enabled)
+        return {"success": True, "persistent_loop": enabled}
+
+    def reset_persistent_loop(self) -> dict:
+        """Force-reset the persistent AgentLoop, discarding accumulated context."""
+        with self._active_loop_lock:
+            self._active_loop = None
+        logger.info("agent %s: persistent loop reset", self.agent_id)
+        return {"success": True, "action": "persistent_loop_reset"}
+
+    def set_card_timeout(self, timeout: float) -> dict:
+        """Set per-card execution timeout in seconds (0 = disabled)."""
+        self._card_timeout = timeout
+        logger.info("agent %s: card_timeout=%.1fs", self.agent_id, timeout)
+        return {"success": True, "card_timeout": timeout}
 
     def set_mode(self, mode: str) -> dict:
         from l1.kernel.params.agent import TERMINAL_MODE_VALID

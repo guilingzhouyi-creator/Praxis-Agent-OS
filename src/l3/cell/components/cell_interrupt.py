@@ -166,8 +166,12 @@ class InterruptController:
             self._pending[slot.priority].append(event)
             return {"success": True, "delivery": "queued"}
 
-    def dispatch_pending(self, max_per_priority: int = 5) -> int:
+    def dispatch_pending(self, max_total: int = 5) -> int:
         """Dispatch pending interrupts, highest priority first.
+
+        Args:
+            max_total: Global cap on total events dispatched across all
+                       priority levels (not per-priority).
 
         Returns number of events dispatched.
         """

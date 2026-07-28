@@ -19,28 +19,28 @@ class TestCardRegistrySubmit:
     """submit() — card creation and enqueue"""
 
     def test_submit_returns_card_id(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("test intent", ".")
         assert cid.startswith("card-"), f"unexpected card id: {cid}"
 
     def test_submit_with_domain(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("fix login bug", "src/auth")
         assert cid.startswith("card-")
 
     def test_submit_multiple_cards(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         ids = [cr.submit(f"task {i}", ".") for i in range(5)]
         assert len(set(ids)) == 5, "each card_id must be unique"
 
     def test_submit_with_priority(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("high priority task", ".", priority=1)
@@ -51,7 +51,7 @@ class TestCardRegistryList:
     """list() — query queue by state"""
 
     def test_list_all_returns_pending(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cr.submit("task A", ".")
@@ -61,7 +61,7 @@ class TestCardRegistryList:
         assert len(cards) >= 2
 
     def test_list_by_state(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("cancellable", ".")
@@ -79,7 +79,7 @@ class TestCardRegistryCancel:
     """cancel() — card cancellation"""
 
     def test_cancel_pending_card(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("cancel me", ".")
@@ -88,7 +88,7 @@ class TestCardRegistryCancel:
         assert r is not False and r is not None, f"cancel returned {r}"
 
     def test_cancel_nonexistent(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         r = cr.cancel("no-such-card")
@@ -100,7 +100,7 @@ class TestCardRegistryGet:
     """get() — single card query"""
 
     def test_get_existing_card(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("get me", ".")
@@ -108,7 +108,7 @@ class TestCardRegistryGet:
         assert card is not None, f"card {cid} not found"
 
     def test_get_nonexistent(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         card = cr.get("ghost-card")
@@ -119,7 +119,7 @@ class TestCardRegistryComplete:
     """complete() — mark as done"""
 
     def test_complete_existing_card(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("complete me", ".")
@@ -131,7 +131,7 @@ class TestCardRegistrySmoke:
     """Smoke test — basic flow does not crash"""
 
     def test_submit_list_cancel_cycle(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("full cycle", ".")

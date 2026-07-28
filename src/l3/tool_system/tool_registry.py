@@ -56,7 +56,7 @@ class ToolRegistry:
     def list(self, category: str = "", include_muted: bool = False) -> list[ToolSpec]:
         tools = self._registry.list(category=category)
         if not include_muted:
-            tools = [t for t in tools if not self._is_muted(t.name)]
+            tools = [t for t in tools if not self.is_muted(t.name)]
         return tools
 
     def all_names(self) -> list[str]:

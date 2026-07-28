@@ -1,6 +1,6 @@
 # Security Architecture
 
-> **Sources:** `l1/kernel/constitution.py`, `l1/kernel/gatechain.py`, `l3/tool_pipeline.py`, `l3/tool_spec.py`, `l3/approval_gate.py`, `l3/content_trust.py`, `l4/sandbox/`, `tests/test_layer_imports.py`
+> **Sources:** `l1/kernel/constitution.py`, `l1/kernel/gatechain.py`, `l3/tool_system/tool_pipeline.py`, `l3/tool_system/tool_spec.py`, `l3/card/approval_gate.py`, `l3/services/content_trust.py`, `l4/sandbox/`, `tests/test_layer_imports.py`
 
 ## Three-Layer Security
 
@@ -87,7 +87,7 @@ Sandbox (temp dir) → ResourceBuffer (ring buffer) → Real File System
    crash = lost        crash = recoverable             final target
 ```
 
-## 4. Content Trust (`l3/content_trust.py`)
+## 4. Content Trust (`l3/services/content_trust.py`)
 
 Provenance system for all memory entries and messages:
 

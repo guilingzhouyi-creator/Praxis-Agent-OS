@@ -32,7 +32,7 @@ class TestCardLifecycleIntegration:
 
     def test_submit_dispatch_complete_cycle(self):
         """基本生命周期：submit → 获取 → complete"""
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("Complete this card lifecycle integration test task", ".")
@@ -44,7 +44,7 @@ class TestCardLifecycleIntegration:
 
     def test_submit_cancel_cycle(self):
         """submit → cancel 流程"""
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         cr = get_registry()
         cid = cr.submit("Cancellable integration test task", ".")

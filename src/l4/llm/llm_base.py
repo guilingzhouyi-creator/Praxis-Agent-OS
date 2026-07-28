@@ -21,13 +21,50 @@ logger = logging.getLogger(__name__)
 
 # ── Provider ABC ──
 
+# ── Provider capability keys ──
+
+CAP_MAX_TOKENS = "max_tokens"
+CAP_TEMPERATURE = "temperature"
+CAP_REASONING_EFFORT = "reasoning_effort"
+CAP_THINKING_BUDGET = "thinking_budget"
+CAP_CONTEXT_WINDOW = "context_window"
+CAP_TOOL_USE = "tool_use"
+CAP_VISION = "vision"
+CAP_STREAMING = "streaming"
+
+_BASE_CAPABILITIES = {CAP_MAX_TOKENS, CAP_TEMPERATURE}
+
+
 class LLMProvider(ABC):
     """Abstract base for all LLM providers.
 
-    Subclasses MUST implement generate() and may override name and health().
-    Register with register_provider() for discovery.
+    Subclasses MUST implement generate() and may override name, health(),
+    capabilities, and probe(). Register with register_provider() for discovery.
     """
     name: str = ""
+
+    @property
+    def capabilities(self) -> set[str]:
+        """Capabilities this provider supports. Used by ModelStrategyEngine
+        to filter out unsupported parameters before passing to generate().
+
+        Override in subclasses to add provider-specific capabilities.
+        """
+        return set(_BASE_CAPABILITIES)
+
+    def probe(self) -> dict:
+        """Probe the provider+model to dynamically detect capabilities.
+
+        Returns:
+            {"supports": {"max_tokens", "temperature", ...},
+             "context_window": 128000,
+             "model": "gpt-4o"}
+        """
+        return {
+            "supports": self.capabilities,
+            "context_window": 0,
+            "model": getattr(self, "model", ""),
+        }
 
     @abstractmethod
     def generate(self, prompt: str, system: str = "",

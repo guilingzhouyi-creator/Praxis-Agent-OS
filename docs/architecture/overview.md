@@ -282,29 +282,6 @@ flowchart TB
 | `cli.py` | 296 | CLI commands (boot, health, ps, card, tools, audit, chain, interrupts, devices, status, shutdown) |
 | `agent_runtime.py` | 176 | Runtime execution loop |
 
-### L4 — Bridge (`src/l4/`) — 11 Root Files + 8 Subdirectories, ~6,500 Lines
-
-| Subdirectory / File | Key Modules | Purpose |
-|--------------------|-------------|---------|
-| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 170 routes, middleware, card handlers |
-| **api_handlers/** | `__init__.py`, `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (10 files) | API handler modules — agent, providers, config, monitor, records, stats, discussion |
-| **llm/** | `llm.py`, `llm_base.py`, `llm_providers.py` | LLM Engine + ABC + 4 provider implementations |
-| **search/** | `search.py`, `search_engine.py` | Full-text and semantic search |
-| **lsp/** | `lsp.py`, `lsp_manager.py` | LSP client + manager |
-| **vault/** | `credential_vault.py`, `auth.py` | AES-256 vault + authentication |
-| **sse/** | `sse_bridge.py` | SSE event streaming bridge |
-| Root files | `mcp_bridge.py`, `sandbox.py`, `supervisor.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | MCP adapter, sandbox isolation, process supervision, cron, CI, git, network |
-| **llm_worker/** | worker process | LLM worker process |
-| **rpc/** | protocol + transport | IPC framework |
-| **adapters/** | 6 port implementations | Port→adapter wiring |
-
-### L5 — User (`src/l5/`) — 2 Files, 401 Lines
-
-| File | Lines | Purpose |
-|------|-------|---------|
-| `cli.py` | 259 | Typer-based CLI (boot, status, execute) |
-| `agent_runtime.py` | 142 | Runtime execution loop |
-
 ## Layer Import Rules
 
 ```
@@ -331,7 +308,7 @@ Enforced by `tests/test_layer_imports.py`. 53 pre-existing cross-layer imports a
 | MMU + TLB | CellMmu + CellTlb (territory→agent translation) |
 | System calls | tool_pipeline.execute() (9 steps) |
 | Device drivers | ToolSpec middleware + plugin system |
-| PMU | CellPmu (28 performance counters) |
+| PMU | CellPmu (49 counters across 12 groups: cards/tools/cache/scouts/bus/token/memory/agent/watchdog/icache/tlb/interrupt) |
 | I-Cache | ICache (LFU, separate from CellCache/D-Cache) |
 | Interrupt controller | InterruptController (priority routing, beyond EventBus) |
 | Watchdog timer | CellWatchdog (per-agent liveness) |
@@ -374,7 +351,9 @@ Each memory entry (`MemEntry`) carries `agent_id`, `cell_id`, `entry_type`, `imp
    - SettingsCenter persistence: custom rules survive restart via L3
    - API: GET/PUT/DELETE `/api/v2/constitution/*` (5 routes)
 2. **GateChain G1-G5** — Non-bypassable tool authorization with `GateStatus` (PASS/WARN/BLOCK/REPORT)
+   - Cell/Agent override via `ApprovalPolicy` (three-layer: Global > Cell > Agent)
 3. **Tool Pipeline** — 9-step execution (clearance → rate limit → constitution → gatechain → allocator → request pool → file lock → execute → release)
+4. **ModelStrategyEngine** — Three-layer (Global > Cell > Agent) think config with automatic provider capability filtering via `CapabilityDetector` (async thread pool probes each LLM provider for supported parameters)
 
 ### Discussion & Convergence (Layer 3)
 

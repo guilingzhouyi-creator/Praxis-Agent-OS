@@ -106,6 +106,11 @@ class MapRegistry(Registry[T]):
         reg = MapRegistry[RegisterableSpec]()
         reg.register(spec)
         assert reg.get("my-tool") is spec
+
+    Extensions:
+      - on_register(name, spec)  — called after each successful registration
+      - on_unregister(name)      — called after each successful unregistration
+      Both accept a Callable[[str, T | None], None] signature.
     """
 
     def __init__(self, allow_overwrite: bool = False):
@@ -113,6 +118,16 @@ class MapRegistry(Registry[T]):
         self._lock = threading.RLock()
         self._allow_overwrite = allow_overwrite
         self._stats: dict[str, int] = {"registers": 0, "unregisters": 0}
+        self._on_register: Callable[[str, T], None] | None = None
+        self._on_unregister: Callable[[str], None] | None = None
+
+    def set_on_register(self, cb: Callable[[str, T], None]) -> None:
+        """Set a callback invoked after each successful registration."""
+        self._on_register = cb
+
+    def set_on_unregister(self, cb: Callable[[str], None]) -> None:
+        """Set a callback invoked after each successful unregistration."""
+        self._on_unregister = cb
 
     def register(self, spec: T, *, source: str = "code") -> bool:
         with self._lock:
@@ -120,7 +135,10 @@ class MapRegistry(Registry[T]):
                 return False
             self._items[spec.name] = spec
             self._stats["registers"] += 1
-            return True
+            cb = self._on_register
+        if cb:
+            cb(spec.name, spec)
+        return True
 
     def unregister(self, name: str) -> bool:
         with self._lock:
@@ -128,7 +146,10 @@ class MapRegistry(Registry[T]):
                 return False
             del self._items[name]
             self._stats["unregisters"] += 1
-            return True
+            cb = self._on_unregister
+        if cb:
+            cb(name)
+        return True
 
     def get(self, name: str) -> T | None:
         with self._lock:

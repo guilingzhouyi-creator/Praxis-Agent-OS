@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS
+from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS, SUBAGENT_SESSION_TTL
 from .subagent_spec import SubAgentSpec
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,23 @@ class SubAgentTask:
     def __init__(self, task_id: str, spec: SubAgentSpec,
                  prompt: str, parent_agent_id: str = "",
                  context: dict | None = None,
-                 cell=None):
+                 cell=None,
+                 territory: list[str] | None = None,
+                 session_id: str = "",
+                 ttl: float = SUBAGENT_SESSION_TTL):
         self.id = task_id
         self.spec = spec
         self.prompt = prompt
         self.parent_agent_id = parent_agent_id
         self.context = context or {}
         self.cell = cell
+        self.territory = territory or []
+        # ExploreCard: no territory restriction (read-only can go anywhere).
+        # ExecuteCard: inherit parent Peer Agent's territory.
+        if self.spec.read_only:
+            self.territory = []
+        self.session_id = session_id or task_id
+        self.ttl = ttl
         self.status: str = "pending"
         self.result: dict = {}
         self.started_at: float = 0

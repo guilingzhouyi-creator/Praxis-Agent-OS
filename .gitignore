@@ -90,6 +90,9 @@ _scan_*.py
 node_modules/
 .opencode/
 
+# ── Config / runtime artifacts (test checkpoints, keys) ──
+.config/
+
 # ── Skill system (generated artifacts) ──
 .skill_cache/
 skills/__pycache__/

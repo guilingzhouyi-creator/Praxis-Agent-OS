@@ -14,6 +14,11 @@ PAL_ESCALATE_AFTER: Final[int] = 2
 PAL_DOWNGRADE_AFTER: Final[int] = 5
 PAL_DEFAULT_TIER: Final[str] = "frugal"
 
+# ── PAL complexity scoring constants ──
+PAL_COMPLEXITY_MAX_TOKENS: Final[int] = 4000
+PAL_COMPLEXITY_MAX_TOOLS: Final[int] = 5
+PAL_COMPLEXITY_MAX_DEPTH: Final[int] = 5
+
 
 # ── Device rate limit defaults ──
 DEVICE_RATE_LIMIT_LLM: Final[int] = 10

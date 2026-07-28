@@ -224,6 +224,11 @@ _COUNTER_NAMES_BY_GROUP: dict[str, list[str]] = {
     "token": [
         "consumed", "estimated",
     ],
+    "memory": [
+        "compacts", "compact.merges", "compact.saved_tokens",
+        "stub_compacts", "stub_compact.saved_bytes",
+        "context.warnings", "context.critical",
+    ],
     "agent": [
         "seconds_active", "boots", "crashes", "recoveries",
     ],

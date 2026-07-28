@@ -80,6 +80,20 @@ def _parse_grep_output(lines: list[str]) -> list[dict]:
     return results
 
 
+def file_search(args: dict, agent_id: str) -> dict:
+    """Search file names by pattern (not content)."""
+    pattern = args.get("pattern", "")
+    path = args.get("path", ".")
+    if not pattern:
+        return {"success": False, "error": "pattern is required"}
+    results = []
+    for root, dirs, files in os.walk(path):
+        for fname in files:
+            if pattern in fname or re.search(pattern, fname):
+                results.append(os.path.join(root, fname))
+    return {"success": True, "results": results[:200], "total": len(results)}
+
+
 def grep_search(args: dict, agent_id: str) -> dict:
     pattern = args.get("pattern", "")
     path = args.get("path", ".")

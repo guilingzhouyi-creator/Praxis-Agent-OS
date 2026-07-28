@@ -20,6 +20,13 @@ class MockProvider:
     """Built-in mock LLM — no API key needed, for testing."""
     name = "mock"
 
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature"}
+
+    def probe(self) -> dict:
+        return {"supports": self.capabilities, "context_window": 128000, "model": "mock"}
+
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int = 512, user_id: str = "",
                  cache_retention: str = "", **kwargs) -> dict:
@@ -38,6 +45,37 @@ class MockProvider:
 class OpenAIProvider:
     """OpenAI-compatible API (GPT, DeepSeek, etc.)."""
     name = "openai"
+
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature", "reasoning_effort", "context_window", "tool_use", "streaming"}
+
+    def probe(self) -> dict:
+        caps = {"max_tokens", "temperature", "tool_use"}
+        # Probe reasoning_effort with a minimal request
+        try:
+            self.generate("ping", reasoning_effort="low", max_tokens=1)
+            caps.add("reasoning_effort")
+        except Exception:
+            pass
+        # Probe thinking_budget — OpenAI does NOT support it
+        try:
+            self.generate("ping", thinking_budget=1, max_tokens=1)
+            caps.add("thinking_budget")
+        except Exception:
+            pass
+        context_window = self._probe_context_window()
+        return {"supports": caps, "context_window": context_window, "model": self.model}
+
+    def _probe_context_window(self) -> int:
+        model_lower = self.model.lower()
+        if "128k" in model_lower:
+            return 128000
+        if "32k" in model_lower or "long" in model_lower:
+            return 32768
+        if "16k" in model_lower:
+            return 16384
+        return 128000  # default for modern OpenAI models
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
         self.api_key = api_key or self._vault_key("openai") or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
@@ -123,6 +161,35 @@ class OpenAIProvider:
 class AnthropicProvider:
     """Anthropic API (Claude)."""
     name = "anthropic"
+
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature", "thinking_budget", "context_window", "tool_use", "vision"}
+
+    def probe(self) -> dict:
+        caps = {"max_tokens", "temperature", "tool_use", "vision"}
+        # Probe thinking_budget
+        try:
+            self.generate("ping", thinking_budget=1, max_tokens=1)
+            caps.add("thinking_budget")
+        except Exception:
+            pass
+        # Probe reasoning_effort — Anthropic does NOT support it
+        try:
+            self.generate("ping", reasoning_effort="low", max_tokens=1)
+            caps.add("reasoning_effort")
+        except Exception:
+            pass
+        cl = self._probe_context_window()
+        return {"supports": caps, "context_window": cl, "model": self.model}
+
+    def _probe_context_window(self) -> int:
+        ml = self.model.lower()
+        if "200k" in ml:
+            return 200000
+        if "100k" in ml:
+            return 100000
+        return 200000
 
     def _vault_key(self, provider: str, key: str = "api_key") -> str:
         try:
@@ -220,6 +287,24 @@ class AnthropicProvider:
 class OllamaProvider:
     """Local Ollama model via native API."""
     name = "ollama"
+
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature", "context_window"}
+
+    def probe(self) -> dict:
+        caps = {"max_tokens", "temperature"}
+        try:
+            self.generate("ping", reasoning_effort="low", max_tokens=1)
+            caps.add("reasoning_effort")
+        except Exception:
+            pass
+        try:
+            self.generate("ping", thinking_budget=1, max_tokens=1)
+            caps.add("thinking_budget")
+        except Exception:
+            pass
+        return {"supports": caps, "context_window": 32768, "model": self.model}
 
     def __init__(self, api_url: str = "", model: str = ""):
         self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["ollama"]))

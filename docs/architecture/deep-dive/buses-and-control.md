@@ -1,9 +1,9 @@
 # Central Control Systems & Buses
 
-> **Sources:** `l3/l3.py`, `l3/scheduler*.py`, `l3/observability_bus.py`, `l3/r4_agent.py`, `l3/cell_monitor.py`,  
-> `l3/l3b.py`, `l3/central_security.py`, `l3/central_memory.py`, `l3/central_plugin.py`, `l3/central_collector.py`,  
-> `l1/kernel/event.py`, `l3/monitor_bus.py`, `l3/error_bus/`, `l3/message_gate.py`, `l3/log.py`,  
-> `l4/sse_bridge.py`, `l3/reference_channel.py`, `l3/observability_bus.py`
+> **Sources:** `l3/cell/peers/l3.py`, `l3/scheduler/scheduler*.py`, `l3/bus/observability_bus.py`, `l3/memory/r4_agent.py`, `l3/cell/components/cell_monitor.py`,  
+> `l3/bus/l3b.py`, `l3/services/central_security.py`, `l3/memory/central_memory.py`, `l3/services/central_plugin.py`, `l3/cell/peers/central_collector.py`,  
+> `l1/kernel/event.py`, `l3/bus/monitor_bus.py`, `l3/error_bus/`, `l3/bus/message_gate.py`, `l3/bus/log.py`,  
+> `l4/sse_bridge.py`, `l3/bus/reference_channel.py`, `l3/bus/observability_bus.py`
 
 ## Overview
 
@@ -11,26 +11,26 @@
 flowchart TB
     subgraph Buses["Message Buses / Event Channels"]
         EB["EventBus\nl1/kernel/event.py\nKernel pub/sub\nSignalType events"]
-        MB["MonitorBus\nl3/monitor_bus.py\nUnified event bus\nJSONL persist + SSE"]
+        MB["MonitorBus\nl3/bus/monitor_bus.py\nUnified event bus\nJSONL persist + SSE"]
         ERR["ErrorBus\nl3/error_bus/\nError logging\nDedup + API + SSE"]
-        LOG["LogService\nl3/log.py\nLog rotation\nQuery + Export"]
+        LOG["LogService\nl3/bus/log.py\nLog rotation\nQuery + Export"]
         SSE["SSE Bridge\nl4/sse_bridge.py\nServer-Sent Events\nStreaming"]
-        RC["ReferenceChannel\nl3/reference_channel.py\nAsync event recorder\nJSONL buffered"]
-        OB["ObservabilityBus\nl3/observability_bus.py\nAlert / Health / Metric"]
-        MG["MessageGate\nl3/message_gate.py\nPolicy engine\nDependency-aware filter"]
+        RC["ReferenceChannel\nl3/bus/reference_channel.py\nAsync event recorder\nJSONL buffered"]
+        OB["ObservabilityBus\nl3/bus/observability_bus.py\nAlert / Health / Metric"]
+        MG["MessageGate\nl3/bus/message_gate.py\nPolicy engine\nDependency-aware filter"]
     end
 
     subgraph Centers["10 Central Control Systems"]
-        CC["CentralController\nl3/l3.py\nIntent lifecycle"]
-        CS["CentralScheduler\nscheduler*.py\n5D scheduling"]
-        OBS["ObservabilityBus\nobservability_bus.py\nAlert/Health/Metric"]
-        R4["R4Agent\nr4_agent.py\nArchive + Skills"]
-        CM["CellMonitor\ncell_monitor.py\nHealth events"]
-        LB["L3B\nl3b.py\nCross-cell routing"]
-        CSEC["CentralSecurity\ncentral_security.py\n6-gate unified check"]
-        CMEM["CentralMemory\ncentral_memory.py\nR1-R4 coordinator"]
-        CPLUG["CentralPlugin\ncentral_plugin.py\nPlugin lifecycle"]
-        CCOL["CentralCollector\ncentral_collector.py\nToken aggregation"]
+        CC["CentralController\nl3/cell/peers/l3.py\nIntent lifecycle"]
+        CS["CentralScheduler\nl3/scheduler/scheduler*.py\n5D scheduling"]
+        OBS["ObservabilityBus\nl3/bus/observability_bus.py\nAlert/Health/Metric"]
+        R4["R4Agent\nl3/memory/r4_agent.py\nArchive + Skills"]
+        CM["CellMonitor\nl3/cell/components/cell_monitor.py\nHealth events"]
+        LB["L3B\nl3/bus/l3b.py\nCross-cell routing"]
+        CSEC["CentralSecurity\nl3/services/central_security.py\n6-gate unified check"]
+        CMEM["CentralMemory\nl3/memory/central_memory.py\nR1-R4 coordinator"]
+        CPLUG["CentralPlugin\nl3/services/central_plugin.py\nPlugin lifecycle"]
+        CCOL["CentralCollector\nl3/cell/peers/central_collector.py\nToken aggregation"]
     end
 
     Buses -->|"feed into"| Centers
@@ -62,12 +62,12 @@ bus.subscribe(lambda s: print(s.type, s.data))
 | Query | `EVENT_QUERY_LIMIT=20` |
 | Constants | `EVENT_TASK_ASSIGN`, `EVENT_REVIEW_REQUESTED`, `EVENT_TOKEN_USAGE`, `EVENT_CROSS_REVIEW`, `EVENT_AGENT_BOOT`, `EVENT_ARCHIVE_ALERT` |
 
-### MonitorBus (`l3/monitor_bus.py`)
+### MonitorBus (`l3/bus/monitor_bus.py`)
 
 Unified monitoring event bus with JSONL persistence and streaming:
 
 ```python
-from l3.monitor_bus import get_bus, MonitorEvent
+from l3.bus.monitor_bus import get_bus, MonitorEvent
 
 bus = get_bus()
 bus.emit(MonitorEvent(
@@ -118,12 +118,12 @@ with error_boundary("loading config", component="boot"):
 | Export | `ERROR_BUS_EXPORT_LIMIT=10000` |
 | API | 6 routes (`/api/logs/errors/*`) |
 
-### LogService (`l3/log.py`)
+### LogService (`l3/bus/log.py`)
 
 OS-level logging service with rotation and bridging:
 
 ```python
-from l3.log import get_service
+from l3.bus.log import get_service
 log = get_service()
 log.info("Cell booted", service="cell", agent_id="agent-1")
 log.install_handler()  # captures all logging.getLogger() calls
@@ -146,12 +146,12 @@ Server-Sent Events streaming bridge for real-time UI updates:
 data: {"type": "cell.step", "payload": {...}, "timestamp": ...}
 ```
 
-### Reference Channel (`l3/reference_channel.py`)
+### Reference Channel (`l3/bus/reference_channel.py`)
 
 Non-blocking async event recorder for audit trail:
 
 ```python
-from l3.reference_channel import get_channel
+from l3.bus.reference_channel import get_channel
 ch = get_channel()
 ch.record("tool_call", {"tool": "read_file", "path": "/etc/config"})
 ```
@@ -162,22 +162,22 @@ ch.record("tool_call", {"tool": "read_file", "path": "/etc/config"})
 | Flush | `RC_FLUSH_INTERVAL=5.0s` or `RC_MAX_EVENTS=100` |
 | Export | `RC_EXPORT_LIMIT=999999` |
 
-### ObservabilityBus (`l3/observability_bus.py`)
+### ObservabilityBus (`l3/bus/observability_bus.py`)
 
 Unified alert/health/metric bus:
 
 ```python
-from l3.observability_bus import get_obs_bus
+from l3.bus.observability_bus import get_obs_bus
 bus = get_obs_bus()
 bus.observe("health", "cell", {"status": "healthy"})
 ```
 
-### MessageGate (`l3/message_gate.py`)
+### MessageGate (`l3/bus/message_gate.py`)
 
 Dependency-aware message policy engine for MonitorBus events:
 
 ```python
-from l3.message_gate import get_gate, MessageGateRule
+from l3.bus.message_gate import get_gate, MessageGateRule
 gate = get_gate()
 gate.add(MessageGateRule(
     pattern="token.*",
@@ -196,37 +196,37 @@ gate.add(MessageGateRule(
 
 ## Central Control Systems
 
-### 1. CentralController (`l3/l3.py`)
+### 1. CentralController (`l3/cell/peers/l3.py`)
 
 Intent lifecycle controller — translates user intent to cards:
 
 ```python
-from l3.l3 import get_coordinator
+from l3.cell.peers.l3 import get_coordinator
 coord = get_coordinator()
 result = coord.process_intent("fix the login bug")
 # → creates Card, submits to CardRegistry
 ```
 
-### 2. CentralScheduler (`l3/scheduler*.py`)
+### 2. CentralScheduler (`l3/scheduler/scheduler*.py`)
 
 Five-dimensional scheduling across 5 files:
 
 | File | Function |
 |------|----------|
-| `scheduler.py` | Unified scheduler (L3Router + RequestPool + TimeScheduler) |
-| `scheduler_rate.py` | Rate-limit scheduler (per ring: 60/20/5 calls/min) |
-| `scheduler_scope.py` | Scope-based scheduling (global/cell/agent) |
-| `scheduler_time.py` | Time-slice scheduler (preemptive: `DEFAULT_QUANTUM=15s`) |
-| `scheduler_router.py` | L3Router: intent → best agent routing |
+| `scheduler/scheduler.py` | Unified scheduler (L3Router + RequestPool + TimeScheduler) |
+| `scheduler/scheduler_rate.py` | Rate-limit scheduler (per ring: 60/20/5 calls/min) |
+| `scheduler/scheduler_scope.py` | Scope-based scheduling (global/cell/agent) |
+| `scheduler/scheduler_time.py` | Time-slice scheduler (preemptive: `DEFAULT_QUANTUM=15s`) |
+| `scheduler/scheduler_router.py` | L3Router: intent → best agent routing |
 
 ```python
-from l3.scheduler import get_scheduler
+from l3.scheduler.scheduler import get_scheduler
 sched = get_scheduler()
 sched.stats()
 # → {"rate": {...}, "time": {...}, "scope": {...}, "queue": {...}}
 ```
 
-### 3. R4Agent (`l3/r4_agent.py`)
+### 3. R4Agent (`l3/memory/r4_agent.py`)
 
 Archive agent — manages Ring 4 cold storage + skill evolution:
 
@@ -238,34 +238,34 @@ Archive agent — manages Ring 4 cold storage + skill evolution:
 | `evolve_skill(intent)` | Evolve a new skill from archived patterns |
 | `stats()` | Archive statistics |
 
-### 4. CellMonitor (`l3/cell_monitor.py`)
+### 4. CellMonitor (`l3/cell/components/cell_monitor.py`)
 
 Cell health monitoring and event logging:
 
 ```python
-from l3.cell_monitor import get_cell_monitor
+from l3.cell.components.cell_monitor import get_cell_monitor
 cm = get_cell_monitor()
 cm.record("cell-1", "agent_crashed", agent_id="agent-writer")
 cm.get_events(cell_id="cell-1", limit=20)
 cm.stats()
 ```
 
-### 5. L3B (`l3/l3b.py`)
+### 5. L3B (`l3/bus/l3b.py`)
 
 Cross-cell routing — coordinates multiple Cells:
 
 ```python
-from l3.l3b import get_l3b
+from l3.bus.l3b import get_l3b
 l3b = get_l3b()
 l3b.route(card_id="card-123", target_cell="cell-2")
 ```
 
-### 6. CentralSecurity (`l3/central_security.py`)
+### 6. CentralSecurity (`l3/services/central_security.py`)
 
 Six-gate unified security check:
 
 ```python
-from l3.central_security import get_center
+from l3.services.central_security import get_center
 sec = get_center()
 sec.check_all(action="write_file", agent_id="agent-writer",
               target="src/main.py", tool_name="edit")
@@ -274,28 +274,28 @@ sec.check_all(action="write_file", agent_id="agent-writer",
 
 6 gates: Tool whitelist → Identity → Territory + Risk → Rate Limit → Allocator → Resource
 
-### 7. CentralMemory (`l3/central_memory.py`)
+### 7. CentralMemory (`l3/memory/central_memory.py`)
 
 R1-R4 memory lifecycle coordinator (see [memory.md](deep-dive/memory.md)).
 
-### 8. CentralPlugin (`l3/central_plugin.py`)
+### 8. CentralPlugin (`l3/services/central_plugin.py`)
 
 Plugin lifecycle manager:
 
 ```python
-from l3.central_plugin import get_center
+from l3.services.central_plugin import get_center
 plug = get_center()
 plug.install_tool_plugin(name="docker", tools=[...])
 plug.list_plugins()
 plug.remove_tool_plugin("docker")
 ```
 
-### 9. CentralCollector (`l3/central_collector.py`)
+### 9. CentralCollector (`l3/cell/peers/central_collector.py`)
 
 Token aggregation and quota enforcement:
 
 ```python
-from l3.central_collector import get_center
+from l3.cell.peers.central_collector import get_center
 col = get_center()
 col.stats()
 # → {"tokens": {...}, "cells": {...}, "quotas": {...}}

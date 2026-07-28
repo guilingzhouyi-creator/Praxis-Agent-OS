@@ -42,7 +42,7 @@ class CellTokenMerger:
                 logger.warning("CellTokenMerger %s: %s", self.cell_id, e)
 
     def _emit(self) -> None:
-        from .memory.context_pool import cell_total
+        from l3.memory.context_pool import cell_total
         data = cell_total(self.cell_id)
         total = data.get("total_tokens", 0)
 
@@ -58,7 +58,7 @@ class CellTokenMerger:
 
         # → MonitorBus
         try:
-            from .bus.monitor_bus import MonitorEvent, get_bus
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
             get_bus().emit(MonitorEvent(
                 type="token.cell.usage", source="cell_token_merger",
                 severity="info", cell_id=self.cell_id,

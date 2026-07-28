@@ -180,13 +180,22 @@ class GateChain:
     def check(self, tool: str, agent_id: str, target: str = "",
               territory: list[str] | None = None,
               territory_map: dict[str, list[str]] | None = None,
-              reputation: float = -1.0) -> dict:
+              reputation: float = -1.0,
+              danger: int | None = None) -> dict:
+        """Run G1-G5 gate checks.
+
+        Args:
+            danger: Optional override for the tool's danger level.
+                    If None, uses GATECHAIN_DANGER_LEVELS from params.
+                    Set by ApprovalPolicy in the tool pipeline.
+        """
         steps: list[dict] = []
         overall = GateResult.PASS
         context = {
             "tool": tool, "agent_id": agent_id, "target": target,
             "territory": territory, "territory_map": territory_map,
             "reputation": reputation, "steps": steps,
+            "danger_override": danger,
         }
         for name, fn in self._gates:
             if overall == GateResult.BLOCK:
@@ -253,7 +262,8 @@ def _gate_g2(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
 def _gate_g3(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
-    danger = GATECHAIN_DANGER_LEVELS.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
+    override = ctx.get("danger_override")
+    danger = override if override is not None else GATECHAIN_DANGER_LEVELS.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
     if ctx["target"] and ctx["territory"]:
         in_territory = any(ctx["target"].startswith(t) for t in ctx["territory"])
         if not in_territory:

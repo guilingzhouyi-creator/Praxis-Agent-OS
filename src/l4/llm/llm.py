@@ -72,6 +72,30 @@ class LLMEngine:
         from l3.config.cache_strategy import get_strategy
         return get_strategy(self.config.provider)
 
+    def context_window(self, cell_id: str = "", agent_id: str = "") -> int:
+        """Query the effective context window for the current provider+model.
+
+        Resolution chain:
+          1. ModelStrategyEngine.resolve() → check strategy config for context_window
+          2. CapabilityDetector probe cache → detected context_window
+          3. Return 0 = unknown (no compression, caller uses fallback)
+
+        Args:
+            cell_id: Cell identifier for strategy resolution.
+            agent_id: Agent identifier for strategy resolution.
+        """
+        try:
+            from l3.services.model_strategy import get_engine as _strat
+            strat = _strat()
+            pname = getattr(self._provider, "name", "")
+            pmodel = getattr(self._provider, "model", "")
+            resolved = strat.resolve(cell_id, agent_id,
+                                     provider_name=pname, model=pmodel)
+            cw = resolved.get("context_window", 0)
+            return cw if cw > 0 else 0
+        except Exception:
+            return 0
+
     def _build_provider(self) -> LLMProvider:
         """Construct a provider instance using ModelRegistry.
 
@@ -99,6 +123,22 @@ class LLMEngine:
         from .llm_providers import MockProvider
         return MockProvider()
 
+    def _apply_strategy(self, overrides: dict) -> dict:
+        """Apply ModelStrategyEngine filtering: remove params the provider doesn't support."""
+        try:
+            from l3.services.model_strategy import get_engine as _strat
+            strat = _strat()
+            provider_name = getattr(self._provider, "name", "")
+            model = getattr(self._provider, "model", "")
+            filtered = strat.resolve("", "", provider_name=provider_name, model=model)
+            # Take only strategy keys from filtered; keep override keys
+            for k in filtered:
+                if k in overrides:
+                    filtered[k] = overrides[k]
+            return filtered
+        except Exception:
+            return overrides
+
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int | None = None, user_id: str = "",
                  **overrides: Any) -> dict:
@@ -123,13 +163,16 @@ class LLMEngine:
                 logger.warning("services/llm: %s", e)
 
         prompt, system, cache_extra = self._get_strategy().optimize(prompt, system, user_id)
-        merged = {**cache_extra, **overrides}
+        merged = {**cache_extra, **overrides,
+                  "reasoning_effort": overrides.get("reasoning_effort", self.config.reasoning_effort),
+                  "thinking_budget": overrides.get("thinking_budget", self.config.thinking_budget)}
+        # Filter by provider capabilities
+        strategy_params = self._apply_strategy(merged)
 
         result = self._provider.generate(
             prompt, system, mt, user_id=user_id,
             cache_retention=self.config.cache_retention,
-            reasoning_effort=merged.get("reasoning_effort", self.config.reasoning_effort),
-            thinking_budget=merged.get("thinking_budget", self.config.thinking_budget),
+            **strategy_params,
         )
 
         # Post-call hooks
@@ -226,11 +269,13 @@ class LLMEngine:
 
             # Build request with tool definitions
             merged = {**cache_extra, **overrides}
-            model_name = merged.get("model", self.config.model) if self.config and self.config.model else FALLBACK_MODEL
-            max_tok = merged.get("max_tokens", self.config.max_tokens)
-            temp = merged.get("temperature", self.config.temperature)
-            reff = merged.get("reasoning_effort", self.config.reasoning_effort)
-            tbud = merged.get("thinking_budget", self.config.thinking_budget)
+            # Apply provider capability filtering
+            strategy_params = self._apply_strategy(merged)
+            model_name = strategy_params.get("model", self.config.model) if self.config and self.config.model else FALLBACK_MODEL
+            max_tok = strategy_params.get("max_tokens", self.config.max_tokens)
+            temp = strategy_params.get("temperature", self.config.temperature)
+            reff = strategy_params.get("reasoning_effort", "")
+            tbud = strategy_params.get("thinking_budget", 0)
 
             body_dict: dict = {
                 "model": model_name,
@@ -535,7 +580,7 @@ def _counter_hook(result, prompt="", system="", max_tokens=0, user_id="", **kwar
 try:
     import importlib as _il
     import inspect as _inspect
-    _prov_mod = _il.import_module("l4.llm_providers")
+    _prov_mod = _il.import_module(".llm_providers", __package__)
     for _name, _cls in _inspect.getmembers(_prov_mod, _inspect.isclass):
         # Duck-type check: any class with .name (str) and .generate() is a provider
         if hasattr(_cls, "name") and isinstance(getattr(_cls, "name", None), str) and hasattr(_cls, "generate"):

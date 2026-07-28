@@ -15,9 +15,9 @@ import threading
 import time
 from typing import Any
 
-from .cell.peers.l3a import L3A, TaskCard
-from .bus.l3b import L3B
-from .bus.l3b_bus import get_bus as get_l3b_bus
+from l3.cell.peers.l3a import L3A, TaskCard
+from l3.bus.l3b import L3B
+from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)

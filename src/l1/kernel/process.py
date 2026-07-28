@@ -33,6 +33,8 @@ from .params.kernel import (
     PROCESS_DEFAULT_RING,
     PROCESS_AUDIT_LOG_LIMIT,
     ZOMBIE_REAPER_INTERVAL,
+    ZOMBIE_MAX_AGE,
+    PROCESS_TABLE_MAX,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,22 +195,22 @@ class ProcessTable:
                          name="zombie-reaper").start()
 
     def _gc_loop(self) -> None:
-        """Background zombie reaper: reap zombies older than 300s, cap total processes."""
+        """Background zombie reaper: reap zombies older than ZOMBIE_MAX_AGE, cap total processes."""
         while self._gc_running:
             time.sleep(ZOMBIE_REAPER_INTERVAL)
             try:
                 with self._lock:
                     now = time.time()
                     zombies = [(pid, pcb) for pid, pcb in self._processes.items()
-                               if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > 300]
+                               if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > ZOMBIE_MAX_AGE]
                     for pid, _ in zombies:
                         self._processes.pop(pid, None)
                         for n, p in list(self._name_index.items()):
                             if p == pid:
                                 del self._name_index[n]
                                 break
-                    # Cap: if > 500 processes, reap oldest STOPPED/ZOMBIE
-                    if len(self._processes) > 500:
+                    # Cap: if > PROCESS_TABLE_MAX processes, reap oldest STOPPED/ZOMBIE
+                    if len(self._processes) > PROCESS_TABLE_MAX:
                         oldest = sorted(
                             [(pid, pcb) for pid, pcb in self._processes.items()
                              if pcb.state in (ProcessState.ZOMBIE, ProcessState.STOPPED)],

@@ -1,4 +1,28 @@
 """AgentLoop — LLM tool calling with loop detection, retry, and parallel tools.
+
+Architecture:
+  AgentLoop reads a Card, calls LLM in a loop, executes tools returned
+  by the LLM, and verifies results.  The loop terminates when the goal
+  is achieved, a max step count is reached, or a fatal error occurs.
+
+Flow per turn:
+  1. Build prompt (system + context + history + tool definitions)
+  2. Call LLM (with tool-use / tool_choice)
+  3. Parse tool calls from response
+  4. Execute each tool (parallel via ThreadPoolExecutor)
+  5. Collect results → append to conversation
+  6. Self-verification check (verifier.py)
+  7. If not done → goto 1
+
+Loop detection (loop_detectors.py):
+  - Stagnation: same action repeated without progress
+  - Oscillation: A→B→A→B pattern
+  - Diminishing returns: score not improving
+
+Integration:
+  - Card → AgentLoop → tools → results → CardRegistry
+  - AgentLoop → Verifier (self-check) → correction → AgentLoop
+  - AgentLoop → Review (peer-review) → feedback → AgentLoop
 """
 
 from __future__ import annotations
@@ -16,6 +40,11 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
     LOG_TRUNC_300,
     LOG_TRUNC_500,
+    CONTEXT_PRESSURE_WARN,
+    CONTEXT_PRESSURE_MEDIUM,
+    CONTEXT_PRESSURE_CRITICAL,
+    CONTEXT_BUILD_MAX_TOKENS,
+    CONTEXT_BUILD_MIN_TOKENS,
 )
 from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
@@ -69,6 +98,93 @@ class AgentLoop:
         self._cadence = VerifyCadence()
         self._chat_params_hooks: list[Callable] = []
         self._run_count = 0
+        self._pmu: Any = None
+
+    def set_pmu(self, pmu: Any) -> None:
+        """Attach a Performance Monitoring Unit for counter tracking."""
+        self._pmu = pmu
+
+    def _build_run_context(self, max_steps: int, model_config: dict | None, engine: Any) -> tuple[str, list, list, dict]:
+        """Build system prompt, wrap tools, and prepare model kwargs."""
+        model_kwargs: dict = {}
+        if model_config:
+            for key in ("model", "max_tokens", "temperature",
+                        "reasoning_effort", "thinking_budget"):
+                if key in model_config and model_config[key] is not None:
+                    model_kwargs[key] = model_config[key]
+
+        for hook in self._chat_params_hooks:
+            try:
+                override = hook(self.task, self.agent_id, dict(model_kwargs))
+                if isinstance(override, dict):
+                    model_kwargs.update(override)
+            except Exception as e:
+                logger.warning("chat params hook failed: %s", e)
+        self._register_todowrite()
+        todo_reminder = self._todo.reminder()
+
+        if self._system:
+            system = self._system
+        else:
+            pk = self._prompt_key
+            if not pk and self._role:
+                pk = f"agent_loop.system.{self._role}"
+            if not pk:
+                pk = "agent_loop.system"
+            template = get_prompt(pk, get_prompt("agent_loop.system", ""))
+            system = template.format(task=self.task) + get_prompt(
+                "agent_loop.turn_budget", "\nYou have up to {max_steps} tool-calling turns. Use them wisely."
+            ).format(max_steps=max_steps)
+        vc = get_prompt("agent_loop.verification_culture", "")
+        if vc:
+            system = (system + "\n\n" + vc) if system else vc
+        if todo_reminder:
+            system = (system + "\n\n" + todo_reminder) if system else todo_reminder
+
+        try:
+            from l1.kernel.constitution import get_constitution
+            const_summary = get_constitution().summary(for_agent=self.agent_id)
+            system = (system + "\n\n" + const_summary) if system else const_summary
+        except Exception:
+            pass
+
+        wrapped_tools = []
+        read_only_tools = []
+        for t in self._tools:
+            wrapped = ToolSpec(
+                name=t.name, description=t.description, category=t.category,
+                ring=t.ring, danger=t.danger,
+                parameters=t.parameters, handler=self._wrap_handler(t.handler),
+                parallel_safe=t.parallel_safe,
+            )
+            wrapped_tools.append(wrapped)
+            if t.parallel_safe:
+                read_only_tools.append(wrapped)
+        return system, wrapped_tools, read_only_tools, model_kwargs
+
+    def _inject_extra_context(self, system: str) -> str:
+        """Inject R4 lean cases, evolved skills, and cross-cell rules into system prompt."""
+        try:
+            from .memory.r4_agent import get_r4_agent
+            r4 = get_r4_agent()
+            lean = r4.get_lean_cases(agent_id=self.agent_id, limit=3)
+            if lean:
+                lines = "\n".join(f"  {i}. {lc}" for i, lc in enumerate(lean, 1))
+                system += f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
+            evolved = r4.get_evolved_skills(agent_id=self.agent_id, limit=2)
+            if evolved:
+                for es in evolved:
+                    system += f"\n\n### {es['name']}\n{es['description']}\n{es['prompt'][:LOG_TRUNC_300]}"
+        except Exception as e:
+            logger.warning("agent_loop context injection failed: %s", e)
+        try:
+            from .cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            if getattr(coord, '_cross_cell_active', False):
+                system += get_prompt("agent_loop.cross_cell_rules", "")
+        except Exception as e:
+            logger.warning("agent_loop context injection failed: %s", e)
+        return system
 
     def register_chat_params_hook(self, hook: Callable) -> None:
         """Register a hook that modifies LLM call parameters.
@@ -95,6 +211,7 @@ class AgentLoop:
     def _register_todowrite(self) -> None:
         """Register the todowrite tool for task-list management."""
         def _todowrite_handler(args: dict, agent_id: str = "") -> dict:
+            """Handle a todowrite tool call — update todo item status."""
             content = args.get("content", "")
             status = args.get("status", "in_progress")
             self._todo.update(content, status)
@@ -147,9 +264,11 @@ class AgentLoop:
         return folded
 
     def _wrap_handler(self, fn: Any) -> Any:
+        """Wrap a tool handler with the tool pipeline (clearance, rate, alloc gates)."""
         pipeline = get_pipeline()
 
         def wrapped(args, agent):
+            """Execute the handler through the pipeline and log failures."""
             pr = pipeline.execute(
                 tool_name=fn.__name__ if hasattr(fn, '__name__') else "unknown",
                 agent_id=self.agent_id,
@@ -241,6 +360,26 @@ class AgentLoop:
         result["total_steps"] = turns + corrections
         return result
 
+    def continue_run(self, task: str, timeout: float | None = None,
+                     model_config: dict | None = None) -> dict:
+        """Continue the AgentLoop with a new task, preserving the existing system prompt.
+
+        Used by persistent AgentLoop mode (AgentTerminal._persistent_loop).
+        The system prompt, tools, and constitution context are reused from
+        the initial ``run()`` call.
+
+        Note: this does NOT share LLM conversation context between calls.
+        Each ``continue_run()`` issues a fresh ``engine.tool_use()`` call.
+        For true conversational continuity across cards, enable memory recall
+        via ``memory.build_context()`` in the system prompt.
+        """
+        self.task = task
+        return self.run(
+            max_steps=AGENT_LOOP_DEFAULT_STEPS,
+            timeout=timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
+            model_config=model_config,
+        )
+
     def run(self, max_steps: int = AGENT_LOOP_DEFAULT_STEPS, timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
             verifier: Any | None = None,
             model_config: dict | None = None) -> dict:
@@ -258,107 +397,94 @@ class AgentLoop:
         self._cadence.reset()
 
         engine = get_engine()
-        model_kwargs: dict = {}
-        if model_config:
-            for key in ("model", "max_tokens", "temperature",
-                        "reasoning_effort", "thinking_budget"):
-                if key in model_config and model_config[key] is not None:
-                    model_kwargs[key] = model_config[key]
-
-        # Chat params hooks: allow external code to modify LLM parameters
-        for hook in self._chat_params_hooks:
-            try:
-                override = hook(self.task, self.agent_id, dict(model_kwargs))
-                if isinstance(override, dict):
-                    model_kwargs.update(override)
-            except Exception as e:
-                logger.warning("chat params hook failed: %s", e)
-        self._register_todowrite()
-        todo_reminder = self._todo.reminder()
-
-        if self._system:
-            system = self._system
-        else:
-            pk = self._prompt_key
-            if not pk and self._role:
-                pk = f"agent_loop.system.{self._role}"
-            if not pk:
-                pk = "agent_loop.system"
-            template = get_prompt(pk, get_prompt("agent_loop.system", ""))
-            system = template.format(task=self.task) + get_prompt(
-                "agent_loop.turn_budget", "\nYou have up to {max_steps} tool-calling turns. Use them wisely."
-            ).format(max_steps=max_steps)
-        vc = get_prompt("agent_loop.verification_culture", "")
-        if vc:
-            system = (system + "\n\n" + vc) if system else vc
-        if todo_reminder:
-            system = (system + "\n\n" + todo_reminder) if system else todo_reminder
-
-        # Inject constitution rules into system prompt
-        try:
-            from l1.kernel.constitution import get_constitution
-            const_summary = get_constitution().summary(for_agent=self.agent_id)
-            system = (system + "\n\n" + const_summary) if system else const_summary
-        except Exception:
-            pass
-
-        wrapped_tools = []
-        read_only_tools = []
-        for t in self._tools:
-            wrapped = ToolSpec(
-                name=t.name, description=t.description, category=t.category,
-                ring=t.ring, danger=t.danger,
-                parameters=t.parameters, handler=self._wrap_handler(t.handler),
-                parallel_safe=t.parallel_safe,
-            )
-            wrapped_tools.append(wrapped)
-            if t.parallel_safe:
-                read_only_tools.append(wrapped)
-
+        system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
+        system = self._inject_extra_context(system)
         deadline = time.time() + timeout if timeout > 0 else float("inf")
 
-        # ── Pre-send compression guard ──
+        # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──
         ctx_window = 0
+        mem = None
         try:
-            ctx_window = engine.context_window() if hasattr(engine, 'context_window') else 0
+            ctx_window = engine.context_window(cell_id=self._cell_id, agent_id=self.agent_id)
+        except Exception:
+            pass
+        entity = self.agent_id
+
+        def _emit_memory_event(etype: str, data: dict) -> None:
+            """Emit a memory event to the monitor bus for cross-Cell observability."""
+            try:
+                from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _MB
+                _MB().emit(_ME(type=etype, source="agent_loop", severity="info",
+                               agent_id=self.agent_id, cell_id=self._cell_id, data=data))
+            except Exception:
+                pass
+            try:
+                from l3.bus.reference_channel import get_rc as _rc
+                _rc().event("memory_compression", {**data, "type": etype,
+                            "agent_id": self.agent_id, "cell_id": self._cell_id},
+                            source="agent_loop", trace_id=getattr(self, '_last_card_id', ''))
+            except Exception:
+                pass
+
+        if ctx_window > 0:
             est_tokens = len(self.task) // 4
-            if should_compress(est_tokens, ctx_window):
-                logger.info("pre-send compression: %d/%d tokens", est_tokens, ctx_window)
-                from .memory.memory import get_memory
-                mem = get_memory()
-                mem.compact(self.agent_id)
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
+            est_total = est_tokens + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+            ratio = est_total / ctx_window
+
+            if ratio >= CONTEXT_PRESSURE_CRITICAL:
+                logger.error("context exhausted: ~%d/%d tokens — aborting", est_total, ctx_window)
+                if self._pmu:
+                    self._pmu.increment("memory.context.critical")
+                _emit_memory_event("memory.pressure.critical", {"ratio": ratio, "est_total": est_total, "ctx_window": ctx_window})
+                return self._finish({
+                    "success": False, "answer": "",
+                    "error": f"context window exhausted (~{est_total}/{ctx_window} tokens)",
+                    "steps": [], "verifier_used": False, "corrections": 0, "loop_stopped": False,
+                }, t0=t0)
+
+            if ratio >= CONTEXT_PRESSURE_MEDIUM:
+                try:
+                    from .memory.memory import get_memory as _gm
+                    mem = _gm()
+                    cr = mem.compact(self.agent_id)
+                    mem.forget_agent(self.agent_id, ring=1)
+                    logger.info("pre-send L2 compact+forget_R1: ~%d/%d (%.0f%%)",
+                                est_total, ctx_window, ratio * 100)
+                    if self._pmu:
+                        self._pmu.increment("memory.context.warnings")
+                        self._pmu.increment("memory.compacts")
+                        self._pmu.increment("memory.compact.merges", cr.get("merged", 0))
+                        self._pmu.increment("memory.compact.saved_tokens", cr.get("saved_tokens", 0))
+                    _emit_memory_event("memory.compact", {"ratio": ratio, "merges": cr.get("merged", 0), "saved_tokens": cr.get("saved_tokens", 0)})
+                except Exception as e:
+                    logger.warning("agent_loop L2 compact failed: %s", e)
+
+            if ratio >= CONTEXT_PRESSURE_WARN:
+                try:
+                    if mem is None:
+                        from .memory.memory import get_memory as _gm2
+                        mem = _gm2()
+                    sr = mem.stub_compact(self.agent_id)
+                    logger.info("pre-send L1 stub_compact: ~%d/%d (%.0f%%)",
+                                est_total, ctx_window, ratio * 100)
+                    if self._pmu:
+                        self._pmu.increment("memory.stub_compacts")
+                        self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
+                    _emit_memory_event("memory.stub_compact", {"ratio": ratio, "stubbed": sr.get("stubbed", 0), "saved_bytes": sr.get("saved_bytes", 0)})
+                except Exception as e:
+                    logger.warning("agent_loop L1 stub_compact failed: %s", e)
+
         # Fallback: when ctx_window is unknown (0), compress every 3 runs
-        if ctx_window <= 0 and self._run_count % 3 == 0:
+        if ctx_window <= 0 and self._run_count > 0 and self._run_count % 3 == 0:
             try:
                 from .memory.memory import get_memory
-                get_memory().stub_compact(self.agent_id)
+                sr = get_memory().stub_compact(self.agent_id)
+                if self._pmu:
+                    self._pmu.increment("memory.stub_compacts")
+                    self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
             except Exception as e:
                 logger.warning("agent_loop stub_compact fallback failed: %s", e)
         self._run_count += 1
-
-        # ── Context injection block (R4 lean cases, evolved skills, Cell-B rules) ──
-        try:
-            from .memory.r4_agent import get_r4_agent
-            r4 = get_r4_agent()
-            lean = r4.get_lean_cases(agent_id=self.agent_id, limit=3)
-            if lean:
-                lines = "\n".join(f"  {i}. {lc}" for i, lc in enumerate(lean, 1))
-                system += f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
-            evolved = r4.get_evolved_skills(agent_id=self.agent_id, limit=2)
-            if evolved:
-                for es in evolved:
-                    system += f"\n\n### {es['name']}\n{es['description']}\n{es['prompt'][:LOG_TRUNC_300]}"
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
-        try:
-            from .cell.peers.l3 import get_coordinator
-            coord = get_coordinator()
-            if getattr(coord, '_cross_cell_active', False):
-                system += get_prompt("agent_loop.cross_cell_rules", "")
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
 
         # ── Main LLM tool_use call ──
         from l3.error_bus import error_boundary
@@ -430,6 +556,26 @@ class AgentLoop:
                     self._cadence.record_check((step_result.get("args", {}) if isinstance(step_result, dict) else {}).get("command", ""))
             except Exception as e:
                 logger.warning("agent_loop cadence tracking failed: %s", e)
+
+            # PMU: tool call counter
+            if self._pmu:
+                ring_label = "ring_1"
+                from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
+                try:
+                    ts = get_pipeline()._specs.get(tool_name) if hasattr(get_pipeline(), '_specs') else None
+                    ts_r = getattr(ts, "ring", None) if ts else None
+                    if ts_r:
+                        ring_label = _RNM.get(ts_r, "ring_1")
+                    self._pmu.increment(f"tools.executed.{ring_label}")
+                except Exception:
+                    self._pmu.increment("tools.executed.ring_1")
+            # CellCounter: record tool call (success inferred from no error key)
+            try:
+                from .services.counter import get_counter as _gc
+                _gc().record_tool(self.agent_id, tool_name,
+                                  success="error" not in (step_result.get("result", {}) if isinstance(step_result, dict) else {}))
+            except Exception:
+                pass
 
             if verifier is not None:
                 v = verifier.check(step_result, self.task)

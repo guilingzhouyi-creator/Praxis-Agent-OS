@@ -213,7 +213,8 @@ def handle_think(term, card, phases):
         # ── Inject OS-managed context from memory rings + context register ──
         memory = get_memory()
         ctx_parts = []
-        ring_context = memory.build_context(term.agent_id, max_tokens=1024)
+        from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
+        ring_context = memory.build_context(term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
         if ring_context:
             ctx_parts.append(ring_context)
         recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
@@ -237,6 +238,8 @@ def handle_think(term, card, phases):
         human_user = card.params.get("user_id", "")
         loop = AgentLoop(task=task, agent_id=term.agent_id, system=system_prompt,
                          user_id=human_user or term.agent_id, cell_id=term.cell_id)
+        if getattr(term, '_pmu', None):
+            loop.set_pmu(term._pmu)
         from l3.tool_system.tool_spec import is_muted as _is_muted
 
         _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
@@ -297,6 +300,11 @@ def handle_think(term, card, phases):
 
         ar = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
                       model_config=term.model_config)
+
+        # Store loop for persistent mode (reuse across cards)
+        if getattr(term, '_persistent_loop', False):
+            with term._active_loop_lock:
+                term._active_loop = loop
 
         # Pet watchdog again after AgentLoop returns (before post-processing)
         if getattr(term, '_watchdog_pet', None):

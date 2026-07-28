@@ -26,7 +26,7 @@ class TestPipelineBasic:
         assert hasattr(pipe, 'execute')
 
     def test_execute_unknown_tool_returns_error(self):
-        from l3.tool_spec import execute_tool_spec
+        from l3.tool_system.tool_spec import execute_tool_spec
         r = execute_tool_spec("__nonexistent_tool__", {}, "test-agent")
         assert not r.get("success", True)
 

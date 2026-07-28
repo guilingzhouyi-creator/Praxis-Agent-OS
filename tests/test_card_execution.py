@@ -64,7 +64,7 @@ class TestCardRegistry:
     """CardRegistry"""
 
     def test_submit_card(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         reg = get_registry()
         cid = reg.submit("fix auth bug", domain="src/auth")
@@ -72,7 +72,7 @@ class TestCardRegistry:
         assert cid.startswith("card-")
 
     def test_get_card(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         reg = get_registry()
         cid = reg.submit("test card", domain=".")
@@ -81,7 +81,7 @@ class TestCardRegistry:
         assert card.id == cid
 
     def test_list_cards(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         reg = get_registry()
         reg.submit("card one", domain=".")
@@ -90,7 +90,7 @@ class TestCardRegistry:
         assert len(cards) >= 2
 
     def test_list_by_domain(self):
-        from l3.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         reset_registry()
         reg = get_registry()
         reg.submit("auth fix", domain="src/auth")

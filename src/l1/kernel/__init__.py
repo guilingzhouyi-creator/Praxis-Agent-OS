@@ -13,6 +13,7 @@ Architecture:
 import logging
 import threading
 import time
+from collections import deque
 from typing import Any
 
 from .sync import get_mutex, get_semaphore, get_barrier, get_rwlock, get_condition, get_lock_bus, registry_status as sync_status
@@ -42,13 +43,15 @@ logger = logging.getLogger(__name__)
 
 # ── Audit trail ──
 
-_audit_log: list[dict] = []
+_audit_log: deque[dict] = deque(maxlen=SYSCALL_AUDIT_MAX)
 _audit_lock = threading.Lock()
-_AUDIT_MAX = SYSCALL_AUDIT_MAX
 
 
 def _audit(op: str, agent_id: str, result: dict, detail: str = "") -> None:
-    """Record a syscall in the audit trail."""
+    """Record a syscall in the audit trail.
+
+    deque(maxlen=SYSCALL_AUDIT_MAX) handles O(1) pruning automatically.
+    """
     entry = {
         "op": op,
         "agent_id": agent_id,
@@ -59,8 +62,6 @@ def _audit(op: str, agent_id: str, result: dict, detail: str = "") -> None:
     }
     with _audit_lock:
         _audit_log.append(entry)
-        if len(_audit_log) > _AUDIT_MAX:
-            _audit_log[:] = _audit_log[-_AUDIT_MAX:]
 
 
 def record_audit(op: str, agent_id: str, success: bool = True,
@@ -202,18 +203,24 @@ def _sys_alloc(agent_id: str, kw: dict) -> dict:
 
 
 def _register_builtin_syscalls() -> None:
-    """Register all built-in syscall handlers into _SYSCALL_REGISTRY."""
-    import re
-    _groups = {
-        "mutex": _sys_mutex, "semaphore": _sys_semaphore,
-        "barrier": _sys_barrier, "condition": _sys_condition,
-        "signal": _sys_signal, "resource": _sys_resource,
-        "process": _sys_process, "alloc": _sys_alloc,
+    """Register only valid sub-command combinations into _SYSCALL_REGISTRY.
+
+    Each handler group registers only the sub-commands it actually implements,
+    eliminating ~109 phantom entries (136 → 27) and returning EINVAL
+    for unrecognized operations instead of ENOSYS/AttributeError.
+    """
+    _groups: dict[str, tuple[Any, list[str]]] = {
+        "mutex":     (_sys_mutex,     ["acquire", "release", "status"]),
+        "semaphore": (_sys_semaphore, ["acquire", "release", "status"]),
+        "barrier":   (_sys_barrier,   ["wait", "reset"]),
+        "condition": (_sys_condition, ["wait", "signal", "broadcast"]),
+        "signal":    (_sys_signal,    ["emit", "on", "off"]),
+        "resource":  (_sys_resource,  ["check", "release", "usage"]),
+        "process":   (_sys_process,   ["spawn", "exit", "list"]),
+        "alloc":     (_sys_alloc,     ["alloc", "free", "usage"]),
     }
-    for group, handler in _groups.items():
-        for sub in ("acquire", "release", "status", "wait", "reset",
-                     "signal", "broadcast", "spawn", "exit", "list",
-                     "alloc", "free", "usage", "check", "emit", "on", "off"):
+    for group, (handler, subs) in _groups.items():
+        for sub in subs:
             _SYSCALL_REGISTRY[f"{group}.{sub}"] = handler
 
 

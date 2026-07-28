@@ -124,7 +124,7 @@ class TestI18nKernelErrors:
 class TestI18nToolSpec:
     def test_list_tools_with_locale(self):
         """list_tools with locale should localize descriptions."""
-        from l3.tool_spec import list_tools, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import list_tools, TOOL_REGISTRY
         if not TOOL_REGISTRY:
             # Register at least one tool for testing
             return

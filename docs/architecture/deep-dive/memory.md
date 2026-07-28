@@ -1,7 +1,7 @@
 # Memory System
 
-> **Source:** `src/l3/memory.py` (562 lines), `memory_ring.py` (153 lines), `memory_quality.py` (92 lines),  
-> `central_memory.py` (169 lines), `archive_orchestrator.py` (104 lines), `r4_agent.py` (443 lines)
+> **Source:** `src/l3/memory/memory.py` (480 lines), `memory/memory_ring.py` (153 lines), `memory/memory_quality.py` (92 lines),  
+> `memory/central_memory.py` (169 lines), `memory/archive_orchestrator.py` (104 lines), `memory/r4_agent.py` (443 lines)
 
 ## Four-Ring Architecture
 
@@ -63,7 +63,7 @@ class MemEntry:
 
 ## MemoryManager (singleton)
 
-All memory operations go through `get_memory()` in `l3/memory.py`.
+All memory operations go through `get_memory()` in `l3/memory/memory.py`.
 
 ### Key Methods
 
@@ -108,7 +108,7 @@ entries = memory.search_long_term(query="port configuration",
 
 ### Ring 4: Archive (R4Agent)
 
-The R4 agent (`l3/r4_agent.py`) manages cold storage with `archive_orchestrator.py`:
+The R4 agent (`l3/memory/r4_agent.py`) manages cold storage with `memory/archive_orchestrator.py`:
 
 | Function | Description |
 |----------|-------------|
@@ -117,7 +117,7 @@ The R4 agent (`l3/r4_agent.py`) manages cold storage with `archive_orchestrator.
 | `get_lean_cases()` | Retrieve lean case examples from archive |
 | `evolve_skill(intent)` | Evolve a new skill from archived patterns |
 
-Standalone function in `archive_orchestrator.py`:
+Standalone function in `memory/archive_orchestrator.py`:
 
 | Function | Description |
 |----------|-------------|
@@ -125,7 +125,7 @@ Standalone function in `archive_orchestrator.py`:
 
 ## CentralMemory (coordinator)
 
-`l3/central_memory.py` wraps `MemoryManager` with quality gate and archive orchestration:
+`l3/memory/central_memory.py` wraps `MemoryManager` with quality gate and archive orchestration:
 
 | Method | Description |
 |--------|-------------|
@@ -177,7 +177,7 @@ Each memory entry carries a `cell_id` for Cell-scoped queries:
 
 ### ContextPool
 
-`l3/context_pool.py` provides per-agent `ContextManager` instances with Cell mapping:
+`l3/memory/context_pool.py` provides per-agent `ContextManager` instances with Cell mapping:
 
 | Function | Description |
 |----------|-------------|
@@ -190,7 +190,7 @@ Each memory entry carries a `cell_id` for Cell-scoped queries:
 
 ### CellTokenMerger
 
-`l3/cell_token_merger.py` runs a background thread per Cell that polls `cell_total()` every 60s and emits token usage signals:
+`l3/cell/components/cell_token_merger.py` runs a background thread per Cell that polls `cell_total()` every 60s and emits token usage signals:
 
 - → **CentralCollector** via EventBus (`EVENT_TOKEN_USAGE`)
 - → **MonitorBus** as `MonitorEvent(type="token.cell.usage")`
@@ -198,7 +198,7 @@ Each memory entry carries a `cell_id` for Cell-scoped queries:
 ## Memory → AgentLoop Bridge
 
 ```python
-# In _term_handlers.py — every think action auto-injects context:
+# In l3/agent/_term_handlers.py — every think action auto-injects context:
 memory = get_memory()
 ring_context = memory.build_context(agent_id, max_tokens=1024)
 system_prompt = f"You are {agent_id} in NOMOS Praxis.\n"

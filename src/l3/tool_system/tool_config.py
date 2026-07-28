@@ -20,7 +20,7 @@ from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "tools.yaml")
+_DEFAULT_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "config", "tools.yaml")
 
 
 def _resolve_handler(handler_path: str) -> Any:
@@ -97,6 +97,12 @@ class ToolConfig:
                         logger.warning("tool_config: skip '%s': %s", name, e)
 
         cls._loaded = True
+        total = sum(1 for d in data.values() if isinstance(d, dict)
+                    for v in d.values() if isinstance(v, dict)
+                    for _ in v.values() if isinstance(_, dict))
+        if count < total:
+            logger.warning("tool_config: loaded %d/%d tools (%d skipped — check handler paths)",
+                           count, total, total - count)
         logger.info("tool_config: loaded %d tools from %s", count, path)
         return count
 

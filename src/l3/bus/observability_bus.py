@@ -1,4 +1,4 @@
-"""ObservabilityBus — unified observability bus.
+"""ObservabilityBus -- unified observability bus.
 
 Wraps ops_console (alerts) + health (health checks) + counter (metrics)
 + audit (syscall log) into a single observe() interface.
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class ObservabilityBus:
-    """Unified observability bus — alerts + health + metrics + audit."""
+    """Unified observability bus -- alerts + health + metrics + audit."""
 
     def __init__(self):
         self._lock = threading.Lock()

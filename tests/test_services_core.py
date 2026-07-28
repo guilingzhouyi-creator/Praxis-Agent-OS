@@ -143,24 +143,24 @@ class TestPALRouter:
 
 class TestToolSpec:
     def test_param_validation_required(self):
-        from l3.tool_spec import ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec
         p = ParamSpec(name="path", type="string", required=True)
         assert p.validate("/valid/path") is None
         # None for required param: falls through type check, str(None) != "string"
 
     def test_param_validation_optional(self):
-        from l3.tool_spec import ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec
         p = ParamSpec(name="count", type="int", required=False, default=5)
         assert p.validate(None) is None
         assert p.validate(3) is None
 
     def test_param_validation_type_mismatch(self):
-        from l3.tool_spec import ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec
         p = ParamSpec(name="count", type="int")
         assert p.validate("bad") is not None  # string not int
 
     def test_tool_spec_gates(self):
-        from l3.tool_spec import ToolSpec, ToolRing
+        from l3.tool_system.tool_spec import ToolSpec, ToolRing
         t1 = ToolSpec(name="r1", description="", category="t", ring=ToolRing.RING_1, danger=0)
         assert t1.gates == ["G1", "G2"]
         t2 = ToolSpec(name="r25", description="", category="t", ring=ToolRing.RING_2_5, danger=1)
@@ -169,7 +169,7 @@ class TestToolSpec:
         assert "G5" in t3.gates
 
     def test_register_and_get(self):
-        from l3.tool_spec import ToolSpec, register, get_tool, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import ToolSpec, register, get_tool, TOOL_REGISTRY
         saved = TOOL_REGISTRY.copy()
         TOOL_REGISTRY.clear()
         register(ToolSpec(name="t1", description="", category="g", ring="ring_1", danger=0))
@@ -178,7 +178,7 @@ class TestToolSpec:
         TOOL_REGISTRY.update(saved)
 
     def test_list_by_category(self):
-        from l3.tool_spec import list_tools, ToolSpec, register, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import list_tools, ToolSpec, register, TOOL_REGISTRY
         saved = TOOL_REGISTRY.copy()
         TOOL_REGISTRY.clear()
         register(ToolSpec(name="a", description="", category="alpha", ring="ring_1", danger=0))

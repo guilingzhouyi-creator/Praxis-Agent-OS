@@ -85,6 +85,14 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
                        "cache_ref": close_r.get("cache_ref", ""),
                        "archive_ref": close_r.get("archive_ref", "")})
 
+    try:
+        from l3.bus.reference_channel import get_rc as _rc
+        _rc().convention(issue_card_id, "completed",
+                         participants=list(conv._participants) if hasattr(conv, '_participants') else [],
+                         summary=conv_r.get("summary", "")[:200])
+    except Exception:
+        pass
+
     return {
         "success": True,
         "issue_card_id": issue_card_id,

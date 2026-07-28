@@ -1,14 +1,33 @@
 """L2 Shell command handlers."""
 
+import functools as _ft
 import logging
+import re
+import shlex
 import time
 from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
+from l1.kernel.commands import get_handler as _gh
 from l1.kernel.commands import get_registry
-from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
+from l1.kernel.params.system import SHELL_HISTORY_MAX_LIMIT
+
+logger = logging.getLogger(__name__)
 
 _registry = get_registry()
+
+# ── Pre-compiled regex patterns ──
+_PIPELINE_SUBST_RE = re.compile(r"\{\.(\w+)\}")
+
+
+def _parse_agent_ref(arg: str) -> tuple[str, str]:
+    """Parse 'cell.agent' or bare 'agent' into (cell_id, agent_id)."""
+    if "." in arg:
+        parts = arg.split(".", 1)
+        return parts[0], parts[1]
+    return DEFAULT_CELL_ID, arg
+
 
 def _register_handler(name: str, handler: Callable, metadata: dict | None = None) -> None:
     _registry.register_system(name, handler, metadata)
@@ -261,8 +280,25 @@ def _cmd_cross(args: list[str]) -> dict:
 
 
 def _cmd_cluster(args: list[str]) -> dict:
-    """/cluster [status|composites|expand|shrink]"""
+    """/cluster [status|list|composites|expand|shrink]"""
     sub = args[0].lower() if args else "status"
+
+    if sub == "list":
+        try:
+            from l3.cell import get_cell
+            from l3.cell.components.cell_monitor import get_cell_monitor
+            cm = get_cell_monitor()
+            cells = getattr(cm, 'list_cells', lambda: [])()
+            agents = {}
+            for cid in cells:
+                try:
+                    cell = get_cell(cid)
+                    agents[cid] = list(cell._agents.keys()) if hasattr(cell, '_agents') else []
+                except Exception:
+                    agents[cid] = []
+            return {"success": True, "cells": cells, "agents": agents, "count": len(cells)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     if sub == "status":
         from l3.cell.peers.l3 import get_coordinator
@@ -393,6 +429,38 @@ def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
     return {"agent": agent_id, "error": f"unknown op: {op}"}
 
 
+def resolve_scope(args: list[str]) -> tuple[str, str, list[str]]:
+    """Parse args to determine scope: global, cell <id>, agent <id>.
+    Returns (scope_type, scope_id, remaining_args).
+    """
+    if not args:
+        return ("global", "", [])
+    head = args[0]
+    if head == "global" or head.startswith("--"):
+        return ("global", "", args)
+    if head == "cell" and len(args) >= 2:
+        return ("cell", args[1], args[2:])
+    if head == "agent" and len(args) >= 2:
+        return ("agent", args[1], args[2:])
+    return ("agent", head, args[1:])
+
+
+def resolve_agents(scope: str, scope_id: str) -> list[str]:
+    """Resolve scope to a list of agent_ids."""
+    if scope == "global":
+        from l3.agent_terminal import get_terminals
+        return list(get_terminals().keys())
+    if scope == "cell":
+        from l3.cell import get_cell, get_cells
+        cells = get_cells()
+        if scope_id and scope_id in cells:
+            return list(cells[scope_id]._agents.keys())
+        return [f"{cid}-agent" for cid in cells]
+    if scope == "agent" and scope_id:
+        return [scope_id]
+    return []
+
+
 def _cmd_memory(args: list[str]) -> dict:
     scope, scope_id, rest = resolve_scope(args)
     op = rest[0] if rest else "stats"
@@ -503,7 +571,7 @@ def _cmd_clear(args: list[str]) -> dict:
 def _cmd_history(args: list[str]) -> dict:
     limit = 20
     if args and args[0].isdigit():
-        limit = min(int(args[0]), 200)
+        limit = min(int(args[0]), SHELL_HISTORY_MAX_LIMIT)
     try:
         from l2.shell_session import get_manager
         mgr = get_manager()
@@ -558,14 +626,13 @@ def _cmd_spawn(args: list[str]) -> dict:
 
 def _cmd_kill(args: list[str]) -> dict:
     if not args:
-        return {"success": False, "error": "usage: /kill <agent_id>"}
-    agent_id = args[0]
+        return {"success": False, "error": "usage: /kill <agent_id>  or  /kill <cell_id>.<agent_id>"}
+    cell_id, agent_id = _parse_agent_ref(args[0])
     try:
         from l3.cell import get_cell
-        cell_id = DEFAULT_CELL_ID
         cell = get_cell(cell_id)
         cell.remove_agent(agent_id)
-        return {"success": True, "message": f"Agent '{agent_id}' terminated"}
+        return {"success": True, "message": f"Agent '{agent_id}' terminated in {cell_id}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -583,7 +650,6 @@ def _cmd_destroy(args: list[str]) -> dict:
 
 
 def _cmd_emergency(args: list[str]) -> dict:
-    from l1.kernel.params.agent import DEFAULT_CELL_ID
     cell_id = args[0] if args else DEFAULT_CELL_ID
     try:
         from l3.cell import get_cell
@@ -593,23 +659,6 @@ def _cmd_emergency(args: list[str]) -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-
-def _cmd_cluster(args: list[str]) -> dict:
-    try:
-        from l3.cell import get_cell
-        from l3.cell.components.cell_monitor import get_cell_monitor
-        cm = get_cell_monitor()
-        cells = getattr(cm, 'list_cells', lambda: [])()
-        agents = {}
-        for cid in cells:
-            try:
-                cell = get_cell(cid)
-                agents[cid] = list(cell._agents.keys()) if hasattr(cell, '_agents') else []
-            except Exception:
-                agents[cid] = []
-        return {"success": True, "cells": cells, "agents": agents, "count": len(cells)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 
 def _cmd_audit(args: list[str]) -> dict:
@@ -760,13 +809,25 @@ def _cmd_card(args: list[str]) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def _cmd_agent_refresh(args: list[str]) -> dict:
+def _cmd_agent_restart(args: list[str]) -> dict:
     if not args:
-        return {"success": False, "error": "usage: /agent refresh <agent_id>"}
-    agent_id = args[0]
+        return {"success": False, "error": "usage: /restart <agent_id>  or  /restart <cell_id>.<agent_id>"}
+    cell_id, agent_id = _parse_agent_ref(args[0])
     try:
         from l3.cell import get_cell
-        cell = get_cell()
+        cell = get_cell(cell_id)
+        return cell.restart_agent(agent_id)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _cmd_agent_refresh(args: list[str]) -> dict:
+    if not args:
+        return {"success": False, "error": "usage: /agent refresh <agent_id>  or  /agent refresh <cell_id>.<agent_id>"}
+    cell_id, agent_id = _parse_agent_ref(args[0])
+    try:
+        from l3.cell import get_cell
+        cell = get_cell(cell_id)
         return cell.reset_agent_context(agent_id)
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -794,8 +855,6 @@ def _cmd_tokens(args: list[str]) -> dict:
 
 
 def _pipeline(segments: list[str]) -> dict:
-    from l1.kernel.commands import get_handler as _gh
-    import shlex
     parts = [shlex.split(s.strip()) for s in segments]
 
     def _subst(args: list[str], ctx: dict) -> list[str]:
@@ -804,8 +863,7 @@ def _pipeline(segments: list[str]) -> dict:
             if not isinstance(a, str) or "{" not in a:
                 out.append(a)
                 continue
-            import re
-            a = re.sub(r"\{\.(\w+)\}", lambda m: str(ctx.get(m.group(1), m.group(0))), a)
+            a = _PIPELINE_SUBST_RE.sub(lambda m: str(ctx.get(m.group(1), m.group(0))), a)
             a = a.format(**ctx)
             out.append(a)
         return out
@@ -1133,9 +1191,15 @@ except Exception:
 
 # Apply @system_command decorators to all _cmd_* functions.
 # This must run AFTER all _cmd_* functions are defined.
+# Filter: only register module-level callable functions, skip inner/nested ones.
 for _cmd_name in dir():
     if _cmd_name.startswith("_cmd_"):
-        _fn = locals()[_cmd_name]
+        _fn = locals().get(_cmd_name)
+        if not callable(_fn):
+            continue
+        # Skip inner/nested functions whose __name__ differs from the module name
+        if getattr(_fn, "__name__", "") != _cmd_name:
+            continue
         # Only auto-register if NOT already registered via @system_command
         _already = any(n == _cmd_name[5:] for n, _, _ in _SYSTEM_COMMANDS)
         if not _already:

@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 
-from l3.tool_config import ToolConfig
-from l3.tool_spec import TOOL_REGISTRY, ToolRing
+from l3.tool_system.tool_config import ToolConfig
+from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolRing
 
 
 @pytest.fixture(autouse=True)

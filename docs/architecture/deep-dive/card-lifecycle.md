@@ -1,6 +1,6 @@
 # Card Lifecycle
 
-> **Sources:** `l3/card_registry.py`, `l3/card_gate.py`, `l3/card_unified.py`, `l3/pending_queue.py`
+> **Sources:** `l3/card/card_registry.py`, `l3/card/card_gate.py`, `l3/card/card_unified.py`, `l3/card/pending_queue.py`
 
 ## State Machine
 
@@ -91,7 +91,7 @@ approval_by:     agent_id or "auto"
 
 ## Card Types
 
-Registered via `card_unified.py`. Each card type defines phases, steps, and verification chain.
+Registered via `card/card_unified.py`. Each card type defines phases, steps, and verification chain.
 
 ```python
 card = CardUnified(nature="execution", priority=5)

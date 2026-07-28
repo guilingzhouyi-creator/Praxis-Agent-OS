@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestToolMute:
     def test_mute_unmute_tool(self):
-        from l3.tool_spec import mute_tool, unmute_tool, is_muted, clear_mutes
+        from l3.tool_system.tool_spec import mute_tool, unmute_tool, is_muted, clear_mutes
         clear_mutes()
         mute_tool("run_in_terminal")
         assert is_muted("run_in_terminal")
@@ -15,8 +15,8 @@ class TestToolMute:
         assert not is_muted("run_in_terminal")
 
     def test_mute_category(self):
-        from l3.tool_spec import mute_category, unmute_category, is_muted, clear_mutes
-        from l3.tool_spec import register, ToolSpec
+        from l3.tool_system.tool_spec import mute_category, unmute_category, is_muted, clear_mutes
+        from l3.tool_system.tool_spec import register, ToolSpec
         clear_mutes()
         spec = ToolSpec(name="test_net_tool", description="test", category="network",
                         ring="ring_1", danger=0, handler=lambda a, b: {"ok": True})
@@ -27,8 +27,8 @@ class TestToolMute:
         assert not is_muted("test_net_tool")
 
     def test_mute_ring(self):
-        from l3.tool_spec import mute_ring, unmute_ring, is_muted, clear_mutes
-        from l3.tool_spec import register, ToolSpec
+        from l3.tool_system.tool_spec import mute_ring, unmute_ring, is_muted, clear_mutes
+        from l3.tool_system.tool_spec import register, ToolSpec
         clear_mutes()
         spec = ToolSpec(name="test_danger_tool", description="test", category="generic",
                         ring="ring_3", danger=5, handler=lambda a, b: {"ok": True})
@@ -39,8 +39,8 @@ class TestToolMute:
         assert not is_muted("test_danger_tool")
 
     def test_execute_muted_returns_error(self):
-        from l3.tool_spec import mute_tool, clear_mutes, execute_tool_spec
-        from l3.tool_spec import register, ToolSpec
+        from l3.tool_system.tool_spec import mute_tool, clear_mutes, execute_tool_spec
+        from l3.tool_system.tool_spec import register, ToolSpec
         clear_mutes()
         def handler(args, agent):
             return {"success": True, "data": "ok"}
@@ -55,7 +55,7 @@ class TestToolMute:
         assert r.get("muted")
 
     def test_list_muted(self):
-        from l3.tool_spec import mute_tool, mute_category, clear_mutes, list_muted
+        from l3.tool_system.tool_spec import mute_tool, mute_category, clear_mutes, list_muted
         clear_mutes()
         mute_tool("foo")
         mute_category("bar")

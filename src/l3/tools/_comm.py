@@ -32,3 +32,11 @@ def notify(args: dict, agent_id: str) -> dict:
     if HAS_NOTIFY:
         send_notification(agent_id, f"[NOTIFY] {message}")
     return {"success": True, "message": message}
+
+
+def user_delete(args: dict, agent_id: str) -> dict:
+    """RING_3: Delete a user account. Requires G5 witness approval."""
+    user_id = args.get("user_id", "")
+    if not user_id:
+        return {"success": False, "error": "user_id is required"}
+    return {"success": True, "message": f"user {user_id} deletion requested (approval gate)"}

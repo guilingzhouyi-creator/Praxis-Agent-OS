@@ -71,6 +71,8 @@ class VFS:
         self._lock = threading.Lock()
         self._cache: dict[str, tuple[str, float]] = {}  # path → (content, expires_at)
         self._virtual_files: dict[str, str] = {}
+        # Pre-sorted prefix list (longest-first) for O(1) _resolve.
+        self._sorted_prefixes: list[str] = []
 
     def mount(self, name: str, mount_type: MountType, real_path: str = "",
               min_ring: int = VFS_DEFAULT_MIN_RING, read_only: bool = False,
@@ -83,14 +85,21 @@ class VFS:
                 name=name, mount_type=mount_type, real_path=real_path,
                 min_ring=min_ring, read_only=read_only, description=description,
             )
+            # Rebuild sorted cache: longest prefix first, so _resolve matches
+            # the most specific mount point without runtime sorting.
+            self._sorted_prefixes = sorted(self._mounts, key=lambda p: -len(p))
             return {"success": True, "mount": name, "real_path": real_path}
 
     def _resolve(self, path: str) -> tuple[MountPoint | None, str, str]:
         """Resolve a VFS path to (mount, relative_path, real_path).
 
+        Uses self._sorted_prefixes (longest-first) instead of sorting on each call.
         Returns (None, _, _) if no mount matches.
         """
-        for prefix, mp in sorted(self._mounts.items(), key=lambda x: -len(x[0])):
+        for prefix in self._sorted_prefixes:
+            mp = self._mounts.get(prefix)
+            if mp is None:
+                continue  # stale entry from dynamic unmount; skip
             if path == prefix or path.startswith(prefix + "/"):
                 rel = path[len(prefix):].lstrip("/")
                 real = os.path.join(mp.real_path, rel) if mp.real_path else ""

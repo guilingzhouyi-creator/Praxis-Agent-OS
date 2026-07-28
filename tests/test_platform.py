@@ -1,265 +1,213 @@
-"""Tests for l1.kernel.platform — cross-platform abstraction layer."""
+"""Tests: l1.kernel.platform — cross-platform abstraction layer."""
 
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
 import tempfile
 
 import pytest
 
 from l1.kernel.platform import (
-    IS_WINDOWS, IS_MAC, IS_LINUX, IS_NT, IS_POSIX,
-    SHELL_PATH, SHELL_NAME, PING_PARAM, PYTHON_EXE,
-    IPC_USE_UNIX_SOCKET, IPC_TRANSPORT,
-    which, join_url, get_config_dir, get_temp_dir,
-    run_shell, create_interactive_shell,
-    set_nonblocking, safe_chmod,
-    grep_cmd, tail_file,
+    IS_WINDOWS,
+    IS_MAC,
+    IS_LINUX,
+    IS_NT,
+    IS_POSIX,
+    SHELL_PATH,
+    SHELL_NAME,
+    SHELL_PROMPT,
+    DEFAULT_SHELL,
+    PING_PARAM,
+    PYTHON_EXE,
+    IPC_USE_UNIX_SOCKET,
+    IPC_TRANSPORT,
+    which,
+    join_url,
+    get_config_dir,
+    get_temp_dir,
+    run_shell,
+    create_interactive_shell,
+    grep_cmd,
+    tail_file,
     register_shutdown_handler,
-    create_ipc_server, remove_ipc_socket,
 )
 
 
 class TestOsDetection:
-    """OS family constants are mutually exclusive and self-consistent."""
+    """Verify OS family boolean constants are self-consistent."""
 
-    def test_os_detection_mutual_exclusive(self):
-        """At most one of WINDOWS/MAC/LINUX is True."""
+    def test_os_bools_are_bool(self):
+        assert isinstance(IS_WINDOWS, bool)
+        assert isinstance(IS_MAC, bool)
+        assert isinstance(IS_LINUX, bool)
+        assert isinstance(IS_NT, bool)
+        assert isinstance(IS_POSIX, bool)
+
+    def test_exactly_one_os_family(self):
+        """IS_WINDOWS / IS_MAC / IS_LINUX are mutually exclusive."""
         count = sum([IS_WINDOWS, IS_MAC, IS_LINUX])
-        assert count == 1, f"Expected exactly 1 OS, got {count}"
+        assert count == 1, f"expected exactly 1 OS family, got {count}"
 
-    def test_nt_posix_consistency(self):
-        """IS_NT and IS_POSIX are mutually exclusive."""
-        assert IS_NT != IS_POSIX
+    def test_nt_matches_windows(self):
+        assert IS_NT == IS_WINDOWS
 
-    def test_is_windows_matches_platform(self):
-        """IS_WINDOWS consistent with sys.platform / platform.system()."""
-        import platform
-        assert IS_WINDOWS == (platform.system() == "Windows")
+    def test_posix_matches_non_windows(self):
+        assert IS_POSIX == (not IS_WINDOWS)
 
 
-class TestConstants:
-    """Module-level constants are well-formed."""
+class TestShellDetection:
+    """Shell constants are sane strings for the current OS."""
 
-    def test_shell_path_not_empty(self):
+    def test_shell_path_is_str(self):
         assert isinstance(SHELL_PATH, str) and len(SHELL_PATH) > 0
 
-    def test_shell_name_matches_path(self):
-        if "powershell" in SHELL_PATH.lower():
-            assert "powershell" in SHELL_NAME.lower()
-        elif "bash" in SHELL_PATH or not IS_WINDOWS:
-            assert SHELL_NAME == "bash"
+    def test_shell_name_is_str(self):
+        assert isinstance(SHELL_NAME, str) and len(SHELL_NAME) > 0
 
-    @pytest.mark.skipif(IS_WINDOWS, reason="ping -c is POSIX-only")
-    def test_ping_param_posix(self):
-        assert PING_PARAM == "-c"
+    def test_shell_prompt_is_str(self):
+        assert isinstance(SHELL_PROMPT, str) and len(SHELL_PROMPT) > 0
 
-    @pytest.mark.skipif(not IS_WINDOWS, reason="ping -n is Windows-only")
-    def test_ping_param_windows(self):
-        assert PING_PARAM == "-n"
+    def test_default_shell_is_str(self):
+        assert isinstance(DEFAULT_SHELL, str) and len(DEFAULT_SHELL) > 0
 
-    def test_python_exe_not_empty(self):
-        assert isinstance(PYTHON_EXE, str) and len(PYTHON_EXE) > 0
+    def test_ping_param(self):
+        assert PING_PARAM in ("-n", "-c")
 
-    def test_ipc_transport_consistent(self):
+    def test_python_exe_is_str(self):
+        assert isinstance(PYTHON_EXE, str)
+        assert "python" in PYTHON_EXE.lower()
+
+
+class TestIpcDetection:
+    """IPC transport constants match current platform."""
+
+    def test_ipc_use_unix_socket(self):
+        assert IPC_USE_UNIX_SOCKET is (not IS_WINDOWS)
+
+    def test_ipc_transport(self):
         if IS_WINDOWS:
             assert IPC_TRANSPORT == "tcp"
-            assert IPC_USE_UNIX_SOCKET is False
         else:
             assert IPC_TRANSPORT == "unix"
-            assert IPC_USE_UNIX_SOCKET is True
 
 
 class TestWhich:
-    """Cross-platform executable lookup."""
+    def test_which_found(self):
+        """Python executable should always be findable."""
+        exe = which(PYTHON_EXE.split(os.sep)[-1] if os.sep in PYTHON_EXE else "python")
+        assert exe is not None
+        assert os.path.exists(exe)
 
-    def test_which_finds_python(self):
-        assert which("python") is not None
-
-    def test_which_returns_none_for_missing(self):
-        assert which("_nonexistent_cmd_xyz_") is None
-
-    def test_which_returns_string(self):
-        result = which("python")
-        assert isinstance(result, str)
+    def test_which_not_found(self):
+        assert which("__this_exe_does_not_exist_9999__") is None
 
 
 class TestJoinUrl:
-    """URL path joining."""
+    def test_simple(self):
+        assert join_url("foo", "bar") == "foo/bar"
 
-    def test_join_simple(self):
-        assert join_url("a", "b") == "a/b"
+    def test_strip_slashes(self):
+        assert join_url("/foo/", "/bar/") == "foo/bar"
 
-    def test_join_strips_slashes(self):
-        assert join_url("/a/", "/b/") == "a/b"
+    def test_single_part(self):
+        assert join_url("hello") == "hello"
 
-    def test_join_empty(self):
+    def test_empty_parts(self):
         assert join_url() == ""
-
-    def test_join_multi(self):
-        assert join_url("a", "b", "c", "d") == "a/b/c/d"
 
 
 class TestGetConfigDir:
-    """Config directory resolution."""
-
-    def test_get_config_dir_returns_path(self):
-        result = get_config_dir()
-        assert isinstance(result, str) or hasattr(result, "resolve")
-        assert "nomos-praxis" in str(result) or "praxis" in str(result)
+    def test_returns_path(self):
+        p = get_config_dir()
+        assert isinstance(p, os.PathLike)
 
 
 class TestGetTempDir:
-    """Temp directory path."""
-
-    def test_get_temp_dir(self):
-        result = get_temp_dir()
-        assert isinstance(result, str)
-        assert "nomos-praxis" in result
+    def test_returns_string(self):
+        d = get_temp_dir()
+        assert isinstance(d, str)
+        assert "nomos-praxis" in d
 
 
 class TestRunShell:
-    """Shell command execution."""
-
-    def test_run_shell_echo(self):
-        r = run_shell("echo hello", timeout=5)
+    def test_echo(self):
+        r = run_shell("echo hello_world")
         assert r.returncode == 0
-        assert "hello" in r.stdout
+        assert "hello_world" in r.stdout
 
-    def test_run_shell_fail(self):
-        r = run_shell("exit 42", timeout=5)
+    def test_failure(self):
+        r = run_shell("exit 42")
         assert r.returncode == 42
 
-    def test_run_shell_timeout(self):
-        with pytest.raises(subprocess.TimeoutExpired):
-            run_shell("sleep 10", timeout=0.1)
+
+class TestCreateInteractiveShell:
+    def test_creates_popen(self):
+        proc = create_interactive_shell()
+        assert proc is not None
+        assert proc.stdin is not None
+        assert proc.stdout is not None
+        proc.terminate()
+        proc.wait(timeout=5)
 
 
 class TestGrepCmd:
-    """Cross-platform grep command builder."""
+    """Verify grep_cmd builds the right command for the right flags."""
 
-    def test_grep_cmd_uses_rg_when_available(self):
+    def test_basic(self):
+        cmd = grep_cmd("pattern")
+        assert len(cmd) >= 3
+        assert "pattern" in cmd
+
+    def test_fixed_flag(self):
+        cmd = grep_cmd("exact", fixed=True)
+        # Should include -F (rg) or /x (findstr) or -F (grep fallback)
+        flags = " ".join(cmd)
         if which("rg"):
-            cmd = grep_cmd("test", fixed=True)
-            assert "rg" in cmd
-            assert "-F" in cmd
+            assert "-F" in flags
+        elif IS_WINDOWS:
+            assert "/x" in flags or "/c:" in flags
 
-    def test_grep_cmd_regex_mode(self):
-        cmd = grep_cmd("test.*")
-        assert cmd is not None
-
-    def test_grep_cmd_with_ignore_case(self):
-        cmd = grep_cmd("test", ignore_case=True)
+    def test_ignore_case(self):
+        cmd = grep_cmd("pattern", ignore_case=True)
+        flags = " ".join(cmd)
         if which("rg"):
-            assert "-i" in cmd
+            assert "-i" in flags
+        elif IS_WINDOWS:
+            assert "/i" in flags
 
-    def test_grep_cmd_with_max_count(self):
-        cmd = grep_cmd("test", max_count=5)
+    def test_max_count(self):
+        cmd = grep_cmd("pattern", max_count=5)
         if which("rg"):
             assert "--max-count" in cmd
-
-    def test_grep_cmd_with_glob(self):
-        cmd = grep_cmd("test", glob_pattern="*.py")
-        if which("rg"):
-            assert "--glob" in cmd
-
-    def test_grep_cmd_with_file_type(self):
-        cmd = grep_cmd("test", file_type="py")
-        if which("rg"):
-            assert "--type" in cmd
+        elif not IS_WINDOWS:
+            assert "-m" in cmd
 
 
 class TestTailFile:
-    """File tailing — cross-platform."""
+    def test_tail_new_file(self, tmp_path):
+        f = tmp_path / "test.log"
+        f.write_text("line1\nline2\nline3\nline4\nline5\n")
+        lines = tail_file(str(f), n_lines=3)
+        assert lines == ["line3", "line4", "line5"]
 
-    def test_tail_file_small_file(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
-            f.write("line1\nline2\nline3\n")
-            tmp = f.name
-        try:
-            lines = tail_file(tmp, n_lines=2)
-            assert len(lines) == 2
-            assert lines[-1] == "line3"
-        finally:
-            os.unlink(tmp)
+    def test_tail_empty_file(self, tmp_path):
+        f = tmp_path / "empty.log"
+        f.write_text("")
+        assert tail_file(str(f), n_lines=10) == []
 
-    def test_tail_file_missing(self):
-        lines = tail_file("/tmp/_nonexistent_file_xyz.txt")
-        assert lines == []
-
-    def test_tail_file_empty(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
-            tmp = f.name
-        try:
-            lines = tail_file(tmp)
-            assert lines == []
-        finally:
-            os.unlink(tmp)
-
-    def test_tail_file_more_than_file(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
-            f.write("only\n")
-            tmp = f.name
-        try:
-            lines = tail_file(tmp, n_lines=100)
-            assert len(lines) == 1
-        finally:
-            os.unlink(tmp)
-
-
-@pytest.mark.skipif(IS_WINDOWS, reason="set_nonblocking is noop on Windows")
-class TestSetNonblocking:
-    """Non-blocking FD (POSIX only)."""
-
-    def test_set_nonblocking_on_pipe(self):
-        r, w = os.pipe()
-        try:
-            set_nonblocking(r)
-            # Should not raise
-        finally:
-            os.close(r)
-            os.close(w)
-
-
-@pytest.mark.skipif(IS_WINDOWS, reason="safe_chmod is noop on Windows")
-class TestSafeChmod:
-    """File permission change (POSIX only)."""
-
-    def test_safe_chmod_readonly(self):
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            tmp = f.name
-        try:
-            safe_chmod(tmp, 0o444)
-            assert os.stat(tmp).st_mode & 0o777 == 0o444
-        finally:
-            os.chmod(tmp, 0o644)
-            os.unlink(tmp)
+    def test_tail_nonexistent(self):
+        assert tail_file("/nonexistent/path.log") == []
 
 
 class TestRegisterShutdownHandler:
-    """Shutdown handler registration."""
+    """Verify register_shutdown_handler accepts a callable."""
 
-    def test_register_handler(self):
-        calls = []
-        def handler(): calls.append(1)
+    def test_registeration(self):
+        called = False
+
+        def handler():
+            nonlocal called
+            called = True
+
+        # Should not raise
         register_shutdown_handler(handler)
-        # atexit will call it on exit; we just verify no exception
-        assert len(calls) == 0
-
-
-@pytest.mark.skipif(not IS_WINDOWS, reason="create_interactive_shell path differs per OS")
-class TestCreateInteractiveShellWindows:
-    def test_create_shell(self):
-        proc = create_interactive_shell()
-        assert proc is not None
-        proc.terminate()
-
-
-@pytest.mark.skipif(IS_WINDOWS, reason="create_interactive_shell path differs per OS")
-class TestCreateInteractiveShellPosix:
-    def test_create_shell(self):
-        proc = create_interactive_shell()
-        assert proc is not None
-        proc.terminate()

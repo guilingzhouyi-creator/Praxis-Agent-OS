@@ -112,15 +112,27 @@ def _exec_with_timeout(fn: Callable, timeout: float = BOOT_STEP_TIMEOUT) -> dict
     t.start()
     t.join(timeout=timeout)
     if t.is_alive():
+        # Thread timed out — it will eventually exit when daemon=True,
+        # but we cannot get its result. Log and return error.
+        logger.warning("boot step timed out after %ss (thread still running)", timeout)
         return {"success": False, "error": f"timed out after {timeout}s"}
     if exception:
         return {"success": False, "error": str(exception[0])}
     return result[0] if result else {"success": False, "error": "no result"}
 
 
+_WIRED_KERNEL_OS: bool = False
+
+
 def _wire_kernel_os() -> None:
     """Register service-layer callbacks with the kernel OS so shutdown
-    does NOT need to import from services/ directly."""
+    does NOT need to import from services/ directly.
+
+    Idempotent — only wires once even if called multiple times.
+    """
+    global _WIRED_KERNEL_OS
+    if _WIRED_KERNEL_OS:
+        return
     try:
         from l1.kernel.os import get_os
         from .memory.memory_init import shutdown_to_memories
@@ -130,6 +142,7 @@ def _wire_kernel_os() -> None:
         osys.register_shutdown_handler(shutdown_to_memories)
         osys.register_terminal_reset(reset_terminals)
         osys.register_cell_reset(reset_cells)
+        _WIRED_KERNEL_OS = True
     except Exception as e:
         logger.warning("kernel OS wiring skipped: %s", e)
 
@@ -451,7 +464,7 @@ def _init_kernel_and_vfs() -> dict:
     dm.register("llm", DeviceType.LLM, rate_limit=LLM_RATE_LIMIT_DEFAULT, version=KERNEL_VERSION)
     dm.register("filesystem", DeviceType.STORAGE, rate_limit=FILESYSTEM_RATE_LIMIT_DEFAULT, version=KERNEL_VERSION)
     dm.start_health_checks()
-    return results
+    return {"success": True, "results": results}
 
 
 def _load_tools() -> dict:
@@ -479,7 +492,7 @@ def _init_record_center() -> dict:
 
 
 def _init_skills_and_network() -> dict:
-    """Init skills, network kernel, HTN planner."""
+    """Init skills, network kernel, HTN planner, capability detector."""
     results = {}
     from l1.kernel.skill import get_skill_manager
     n = get_skill_manager().load_builtin()
@@ -490,6 +503,15 @@ def _init_skills_and_network() -> dict:
     try:
         from .bus.htn_planner import get_service as get_htn; get_htn(); results["htn_planner"] = "ok"
     except Exception as e: results["htn_planner"] = f"error: {e}"
+    # Warm capability detector — async probe all registered providers
+    try:
+        from l1.kernel.model_registry import get_registry
+        from l3.services.model_strategy import get_detector
+        det = get_detector()
+        n_probed = det.probe_all_registered(get_registry())
+        results["capability_detector"] = f"{n_probed} providers submitted"
+    except Exception as e:
+        results["capability_detector"] = f"skip: {e}"
     return results
 
 

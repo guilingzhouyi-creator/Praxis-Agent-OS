@@ -74,12 +74,19 @@ def _import_layer(module: str) -> int:
 # ── Known cross-layer allowlist (consistent with test_layer_imports.py, 49 entries) ──
 # Format: (src_layer, dst_layer, module_pattern)
 ALLOWLIST = [
-    # L1 → L3/L4: adapter patterns, model registry, settings
+    # L1 → L3/L4: adapter patterns, model registry, settings, OS lifecycle
     (1, 3, "l3.cell"),
     (1, 3, "l3.stagnation"),
     (1, 3, "l3.settings_adapter"),
     (1, 3, "l3.monitor_bus"),
     (1, 3, "l3.cache"),
+    (1, 3, "l3.config"),
+    (1, 3, "l3.error_bus"),
+    (1, 3, "l3.agent"),
+    (1, 3, "l3.boot"),
+    (1, 3, "l3.memory"),
+    (1, 3, "l3.agent_terminal"),
+    (1, 4, "l4.llm"),
     (1, 4, "l4.llm_base"),
     (1, 4, "l4.adapters"),
     # L2 → L3/L4/L2: shell accessing L3 services + i18n adapter + own subpackages
@@ -119,13 +126,17 @@ ALLOWLIST = [
     (2, 4, "l4.mcp_bridge"),
     (2, 4, "l4.cron_scheduler"),
     (2, 4, "l4.adapters"),
-    # L3 → L4 (LLM + sandbox + api + notify + lsp)
+    # L3 → L4 (LLM + sandbox + api + notify + lsp + vault)
     (3, 4, "l4.llm"),
     (3, 4, "l4.adapters"),
     (3, 4, "l4.sandbox"),
+    (3, 4, "l4.api"),
     (3, 4, "l4.api_gateway"),
     (3, 4, "l4.notify"),
     (3, 4, "l4.lsp"),
+    (3, 4, "l4.vault"),
+    # L2 → L4 (shell accessing bridge services)
+    (2, 4, "l4.vault"),
     # L4 → L3 (BaseService pattern)
     (4, 3, "l3._base"),
     (4, 3, "l3.tool_spec"),
@@ -247,9 +258,9 @@ class TestFullScanL3toL4:
 
     def test_all_l3_l4_imports_documented(self):
         """Verify all L3→L4 imports match documentation"""
-        from l3.agent_loop import get_engine as _  # l4.llm
-        from l3.cache_strategy import optimize_prompt as _  # l4.llm
-        # These two are known L3→L4 allowlist imports
+        from l3.agent.agent_loop import get_engine as _  # l4.llm
+        from l3.config.cache_strategy import optimize_prompt as _  # l4.llm
+        # These are known L3→L4 allowlist imports
         assert True
 
 

@@ -63,10 +63,12 @@ IPC_TRANSPORT: str = "unix" if not IS_WINDOWS else "tcp"
 # ── Path helpers ──
 
 def which(name: str) -> str | None:
+    """Find executable in PATH.  Wraps ``shutil.which()``."""
     return _shutil.which(name)
 
 
 def join_url(*parts: str) -> str:
+    """Join URL parts with ``/``, stripping leading/trailing slashes."""
     return "/".join(p.strip("/") for p in parts)
 
 

@@ -25,12 +25,14 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from typing import Any
 
 from l1.kernel.params.system import (
     RC_PATH,
     RC_FLUSH_INTERVAL,
-    RC_MAX_EVENTS,
+    RC_RING_SIZE,
+    RC_SHA256_TRUNC,
     RC_EXPORT_LIMIT,
     LOG_TRUNC_1000,
 )
@@ -39,7 +41,15 @@ logger = logging.getLogger(__name__)
 
 
 class ReferenceChannel:
-    """Append-only event recorder. Does not block or modify execution.
+    """Append-only event recorder with ring buffer + periodic flush thread.
+
+    Events are serialized and pushed into a fixed-size ring buffer.
+    A background daemon thread drains the buffer to disk every
+    ``flush_interval`` seconds.  The ring buffer bounds memory usage;
+    if the flush thread is starved, oldest events are silently dropped.
+
+    All public methods are non-blocking (O(1) append).  Disk writes
+    happen exclusively on the background thread.
 
     Usage (from any component):
       from l3.bus.reference_channel import get_rc
@@ -50,16 +60,17 @@ class ReferenceChannel:
     """
 
     def __init__(self, path: str = "", flush_interval: float = RC_FLUSH_INTERVAL,
-                 max_events: int = RC_MAX_EVENTS):
+                 ring_size: int = RC_RING_SIZE):
         self._path = path or os.environ.get("PRAXIS_RC_PATH", RC_PATH)
         self._flush_interval = flush_interval
-        self._max_events = max_events
-        self._buffer: list[str] = []
+        # Ring buffer: fixed-size deque, oldest drops when full
+        self._ring: deque = deque(maxlen=ring_size)
         self._lock = threading.Lock()
         self._total = 0
-        self._last_flush = time.time()
+        self._running = False
+        self._thread: threading.Thread | None = None
         self._ensure_path()
-        self._load_count()
+        self._start_flusher()
 
     def _ensure_path(self) -> None:
         d = os.path.dirname(self._path)
@@ -69,18 +80,46 @@ class ReferenceChannel:
             except Exception:
                 pass
 
-    def _load_count(self) -> None:
+    def _start_flusher(self) -> None:
+        """Start the periodic flush daemon thread."""
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._flush_loop, name="rc-flusher", daemon=True,
+        )
+        self._thread.start()
+
+    def _flush_loop(self) -> None:
+        """Background loop: drain ring buffer to disk every flush_interval."""
+        while self._running:
+            time.sleep(self._flush_interval)
+            try:
+                self._flush()
+            except Exception as e:
+                logger.warning("rc flush_loop: %s", e)
+
+    def _flush(self) -> int:
+        """Drain all events from the ring buffer and write to disk."""
+        lines: list[str] = []
+        with self._lock:
+            while self._ring:
+                lines.append(self._ring.popleft())
+        if not lines:
+            return 0
         try:
-            if os.path.exists(self._path):
-                with open(self._path, encoding="utf-8") as f:
-                    for _ in f:
-                        self._total += 1
-        except Exception:
-            pass
+            with open(self._path, "a", encoding="utf-8") as f:
+                for line in lines:
+                    f.write(line + "\n")
+            return len(lines)
+        except Exception as e:
+            logger.warning("rc flush failed: %s", e)
+            # Re-queue on failure so events are not lost
+            with self._lock:
+                self._ring.extendleft(reversed(lines))
+            return 0
 
     def event(self, event_type: str, data: dict,
               source: str = "", trace_id: str = "") -> None:
-        """Record a single event. Async-friendly, never blocks execution.
+        """Record a single event. O(1) ring buffer append, never blocks.
 
         Args:
             event_type: "tool_call" | "card_lifecycle" | "gatechain" |
@@ -96,35 +135,20 @@ class ReferenceChannel:
             "timestamp": time.time(),
             "data": data,
         }
-        # Content hash for dedup + provenance
         content = json.dumps(record, sort_keys=True, ensure_ascii=False, default=str)
-        record["sha256"] = hashlib.sha256(content.encode()).hexdigest()[:16]
+        record["sha256"] = hashlib.sha256(content.encode()).hexdigest()[:RC_SHA256_TRUNC]
         line = json.dumps(record, ensure_ascii=False, default=str)
 
         with self._lock:
-            self._buffer.append(line)
+            self._ring.append(line)
             self._total += 1
-            now = time.time()
-            if (len(self._buffer) >= self._max_events
-                    or now - self._last_flush >= self._flush_interval):
-                self._flush()
 
-    def _flush(self) -> None:
-        if not self._buffer:
-            return
-        try:
-            with open(self._path, "a", encoding="utf-8") as f:
-                for line in self._buffer:
-                    f.write(line + "\n")
-            self._buffer.clear()
-            self._last_flush = time.time()
-        except Exception as e:
-            logger.warning("rc flush failed: %s", e)
+    def flush(self) -> int:
+        """Force an immediate flush of the ring buffer to disk.
 
-    def flush(self) -> None:
-        """Force flush buffered events to disk."""
-        with self._lock:
-            self._flush()
+        Returns the number of events flushed (0 if already empty).
+        """
+        return self._flush()
 
     # ── Convenience helpers ──
 
@@ -230,16 +254,26 @@ class ReferenceChannel:
         return self._total
 
     def stats(self) -> dict:
+        with self._lock:
+            buffered = len(self._ring)
         return {
             "path": self._path,
             "total_events": self._total,
-            "buffered": len(self._buffer),
-            "max_events_per_flush": self._max_events,
+            "buffered": buffered,
+            "ring_size": self._ring.maxlen,
             "flush_interval_s": self._flush_interval,
+            "flusher_alive": self._thread is not None and self._thread.is_alive(),
         }
 
+    def stop(self) -> None:
+        """Stop the flusher thread and flush remaining events."""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=2)
+        self._flush()
 
-# ── Global singleton (no init needed — lazy on first event) ──
+
+# ── Global singleton (lazy init on first get_rc()) ──
 
 _rc: ReferenceChannel | None = None
 _rc_lock = threading.Lock()
@@ -257,5 +291,5 @@ def get_rc() -> ReferenceChannel:
 def reset_rc() -> None:
     global _rc
     if _rc is not None:
-        _rc.flush()
+        _rc.stop()
     _rc = None

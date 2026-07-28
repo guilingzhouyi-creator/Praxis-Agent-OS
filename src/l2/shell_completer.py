@@ -11,7 +11,7 @@ def get_tool_names() -> list[str]:
     """Get all registered tool names from ToolConfig + built-in commands."""
     tool_names = []
     try:
-        from .tool_system.tool_config import ToolConfig as _TC
+        from l3.tool_system.tool_config import ToolConfig as _TC
         tool_names = sorted(_TC.completions().keys())
     except Exception:
         pass
@@ -22,9 +22,10 @@ def get_tool_names() -> list[str]:
 # ── Shell-level constants (consumed by shell.py REPL) ──
 
 def _load_tool_help() -> dict[str, str]:
+    """Load help text for all registered tools. Returns {tool_name: help_text}."""
     help_map: dict[str, str] = {}
     try:
-        from .tool_system.tool_config import ToolConfig as _TC
+        from l3.tool_system.tool_config import ToolConfig as _TC
         for name, meta in _TC.completions().items():
             h = meta.get("help", "") if isinstance(meta, dict) else ""
             help_map[name] = str(h)[:60]
@@ -49,11 +50,19 @@ class TerminalCompleter:
 
     def __init__(self):
         self._commands: list[str] = []
+        self._matches: list[str] = []
 
     def refresh(self) -> None:
+        """Reload the command list from the tool registry."""
         self._commands = get_tool_names()
 
     def complete(self, text: str, state: int) -> str | None:
+        """readline tab completer — matches commands or filesystem paths.
+
+        Called by ``readline.set_completer`` on each tab press.
+        ``state == 0`` builds the candidate list; subsequent calls
+        return candidates one by one until ``None`` signals end.
+        """
         try:
             import readline
             if state == 0:

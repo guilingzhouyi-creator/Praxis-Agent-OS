@@ -343,6 +343,14 @@ agent_refresh:
   examples:
     - "/agent_refresh agent-writer — reset agent context"
 
+agent_restart:
+  category: agent
+  help: "Restart an agent (shutdown + clear memory + reboot)"
+  args:
+    - {name: agent_id, description: "Agent ID"}
+  examples:
+    - "/restart agent-writer — full agent restart"
+
 model:
   category: control
   help: "Manage LLM model providers and model specs"
@@ -369,3 +377,57 @@ tokens:
     - "/tokens --cell cell-1    — per-cell"
     - "/tokens --agent agent-w  — per-agent"
     - "/status | /tokens --agent {scope_id} — pipeline"
+
+# ── SubAgent spec definitions (loaded by subagent_spec.py) ──
+# Each entry maps to a SubAgentSpec dataclass.
+# Overrides the built-in defaults in subagent_spec.py.
+
+subagent_specs:
+  security-auditor:
+    description: "Security code review — scan for OWASP Top 10, hardcoded secrets, injection vectors"
+    allowed_tools: [read_file, grep_search, list_dir]
+    max_steps: 8
+    timeout: 120.0
+    tags: [security, review]
+  code-reviewer:
+    description: "General code review — logic errors, style, test coverage, edge cases"
+    allowed_tools: [read_file, grep_search, list_dir]
+    max_steps: 8
+    timeout: 120.0
+    tags: [review]
+  documenter:
+    description: "Generate documentation from code — docstrings, README, API reference"
+    allowed_tools: [read_file, list_dir]
+    max_steps: 6
+    timeout: 90.0
+    tags: [docs]
+  data-analyst:
+    description: "Analyze data files, logs, or structured output for patterns and anomalies"
+    allowed_tools: [read_file, grep_search]
+    max_steps: 6
+    timeout: 90.0
+    tags: [data]
+  architect:
+    description: "Architecture review — dependency analysis, module boundaries, design patterns"
+    allowed_tools: [read_file, grep_search, list_dir]
+    max_steps: 10
+    timeout: 180.0
+    tags: [architecture, review]
+  helper:
+    description: "General-purpose assistant — answer questions, explain code, suggest fixes"
+    allowed_tools: [read_file, grep_search, list_dir]
+    max_steps: 5
+    timeout: 60.0
+    tags: [general]
+  refactor-agent:
+    description: "Refactor code — rename symbols, extract methods, split files, apply patterns"
+    allowed_tools: [read_file, grep_search, list_dir, edit, write_file]
+    max_steps: 12
+    timeout: 180.0
+    tags: [refactor, write]
+  fixer:
+    description: "Fix bugs and issues — read error, locate cause, apply fix, verify"
+    allowed_tools: [read_file, grep_search, list_dir, edit, write_file, shell]
+    max_steps: 10
+    timeout: 180.0
+    tags: [fix, write]

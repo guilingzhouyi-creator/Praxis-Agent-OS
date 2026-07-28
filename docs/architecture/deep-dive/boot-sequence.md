@@ -1,6 +1,6 @@
 # Boot Sequence
 
-> **Source:** `src/l3/boot.py` (529 lines)  
+> **Source:** `src/l3/boot/boot.py` (650 lines)  
 > **Entry:** `boot(agent_config, interactive) -> dict`
 
 ## Phases
@@ -9,8 +9,8 @@
 sequenceDiagram
     participant CLI as l5/cli.py
     participant OS as l1/kernel/os.py:OS
-    participant BOOT as l3/boot.py
-    participant CFG as l3/config_loader.py
+    participant BOOT as l3/boot/boot.py
+    participant CFG as l3/config/config_loader.py
     participant K as Kernel Modules
     participant CELL as l3/cell/
     participant REG as CardRegistry
@@ -53,7 +53,7 @@ Registered in `_register_default_boot_steps()` (line 252):
 ## Extensibility
 
 ```python
-from l3.boot import register_boot_step
+from l3.boot.boot import register_boot_step
 register_boot_step("my_step", my_fn, depends_on=["init_services"])
 ```
 

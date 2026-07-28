@@ -33,12 +33,12 @@ src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP
 src/l3/ — Cell layer (~19K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l2/ — Shell: 40 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — 589 constants across 5 sub-modules (kernel/agent/tool/api/system)
+src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/api/system)
 ```
 
 ### Import rules (enforced by `tests/test_layer_imports.py`)
 - L5 → L4/L3/L2/L1; L4 → L3/L2/L1; L3 → L2/L1; L2 → L1 only; L1 cannot import upper layers
-- 49 pre-existing cross-layer imports are allowlisted in that test
+- 53 pre-existing cross-layer imports are allowlisted in that test
 
 ## Key conventions
 
@@ -92,4 +92,5 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l1/kernel/constitution.py` — Constitutional rules engine (highest authority)
 - `src/l3/tool_system/tool_pipeline.py` — 9-step tool execution pipeline
 - `src/l3/card/card_registry.py` — Card lifecycle management
-- `src/l3/boot/boot.py` — 5-step system bootstrap
+- `src/l3/boot/boot.py` — 7-step system bootstrap
+- `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe

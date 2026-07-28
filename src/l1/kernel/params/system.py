@@ -41,10 +41,11 @@ SEQ_MONITOR_MIN_SAMPLES: Final[int] = 5
 SEQ_MONITOR_ANOMALY_THRESHOLD: Final[float] = 0.05
 SEQ_MONITOR_PATH: Final[str] = _os.environ.get("NOMOS_SEQ_MONITOR_PATH", ".praxis_seq_monitor.json")
 
-# ── Reference Channel (async event recorder, non-blocking) ──
+# ── Reference Channel (ring buffer + periodic flush) ──
 RC_PATH: Final[str] = _os.environ.get("NOMOS_RC_PATH", ".praxis/.praxis_reference_channel.jsonl")
 RC_FLUSH_INTERVAL: Final[float] = 5.0
-RC_MAX_EVENTS: Final[int] = 100
+RC_RING_SIZE: Final[int] = 1000
+RC_SHA256_TRUNC: Final[int] = 16
 RC_EXPORT_LIMIT: Final[int] = 999999
 
 
@@ -136,6 +137,9 @@ OBS_AUDIT_LIMIT: Final[int] = 20
 
 # ── Shell buffer ──
 BUFFER_MAX: Final[int] = 2000
+SHELL_AUTOCOMPLETE_LIMIT: Final[int] = 15
+SHELL_AUTOCOMPLETE_AGENT_LIMIT: Final[int] = 10
+SHELL_HISTORY_MAX_LIMIT: Final[int] = 200
 
 # ── Token budget ──
 DEFAULT_TOKEN_BUDGET: Final[int] = 73000
@@ -300,6 +304,12 @@ VERIFY_CMDS: Final[frozenset[str]] = frozenset({
 })
 SANDBOX_MAX_OUTPUT: Final[int] = 5000
 
+# ── Permission defaults ──
+PERMISSION_DEFAULT_POLICY: Final[str] = "allow_all"
+"""Default Cell delegation policy (legacy). 'allow_all' = any Peer Agent can delegate any SubAgent."""
+GLOBAL_SUBAGENT_ENABLED: Final[bool] = False
+"""Global kill switch for all SubAgent delegation. False = all specs invisible system-wide."""
+
 
 # ── State file naming templates (format strings, not paths) ──
 SANDBOX_STATE_TEMPLATE: Final[str] = "{cell_id}.state.json"
@@ -326,6 +336,13 @@ ICACHE_MAX_ENTRIES: Final[int] = 500
 ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes slowly
 ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
 
+
+# ── Context governance / compression thresholds ──
+CONTEXT_PRESSURE_WARN: Final[float] = 0.60
+CONTEXT_PRESSURE_MEDIUM: Final[float] = 0.80
+CONTEXT_PRESSURE_CRITICAL: Final[float] = 0.95
+CONTEXT_BUILD_MAX_TOKENS: Final[int] = 4096
+CONTEXT_BUILD_MIN_TOKENS: Final[int] = 1024
 
 # ── MMU + TLB (Memory Management Unit) defaults ──
 TLB_MAX_ENTRIES: Final[int] = 64

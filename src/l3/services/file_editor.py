@@ -22,13 +22,14 @@ API (via LOG_ROUTES registration):
 
 from __future__ import annotations
 
-import difflib
 import hashlib
 import json
 import logging
 import os
 import threading
 import time
+
+from l1.kernel.params.system import LOG_TRUNC_100
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -60,8 +61,8 @@ class DiffEdit:
     def to_dict(self) -> dict:
         return {
             "path": self.path,
-            "old_str": self.old_str[:100],
-            "new_str": self.new_str[:100],
+            "old_str": self.old_str[:LOG_TRUNC_100],
+            "new_str": self.new_str[:LOG_TRUNC_100],
             "description": self.description,
             "start_line": self.start_line,
             "end_line": self.end_line,
@@ -193,6 +194,13 @@ class EditEngine:
         )
         self._push(op)
 
+        # Reference Channel: record human correction for training data
+        try:
+            from l3.bus.reference_channel import get_rc as _rc
+            _rc().human_correction("", "", "content", old, new, reason=f"edit {path.name}")
+        except Exception:
+            pass
+
         return {
             "success": True,
             "path": str(path),
@@ -272,7 +280,7 @@ class EditEngine:
                 applied.append({
                     "path": edit.path,
                     "old": edit.old_str,
-                    "new": edit.new_str[:100],
+                    "new": edit.new_str[:LOG_TRUNC_100],
                     "line": edit.start_line or 1,
                 })
         except Exception as e:

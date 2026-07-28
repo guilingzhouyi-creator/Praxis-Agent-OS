@@ -22,7 +22,7 @@ import os as _os
 import threading
 import time
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Callable
 
 from .params.kernel import (
     WATCHDOG_INTERVAL,
@@ -57,25 +57,25 @@ class OS:
         self._watchdog_running = False
         self._lock = threading.Lock()
         self._boot_result: dict = {}
-        self._shutdown_hooks: list[callable] = []
-        self._boot_handler: callable | None = None
-        self._shutdown_handler: callable | None = None
-        self._terminal_reset_handler: callable | None = None
-        self._cell_reset_handler: callable | None = None
+        self._shutdown_hooks: list[Callable] = []
+        self._boot_handler: Callable | None = None
+        self._shutdown_handler: Callable | None = None
+        self._terminal_reset_handler: Callable | None = None
+        self._cell_reset_handler: Callable | None = None
 
-    def register_boot_handler(self, handler: callable) -> None:
+    def register_boot_handler(self, handler: Callable) -> None:
         """Register a boot function from the services layer."""
         self._boot_handler = handler
 
-    def register_shutdown_handler(self, handler: callable) -> None:
+    def register_shutdown_handler(self, handler: Callable) -> None:
         """Register a shutdown persistence function from the services layer."""
         self._shutdown_handler = handler
 
-    def register_terminal_reset(self, handler: callable) -> None:
+    def register_terminal_reset(self, handler: Callable) -> None:
         """Register a terminal reset function from the services layer."""
         self._terminal_reset_handler = handler
 
-    def register_cell_reset(self, handler: callable) -> None:
+    def register_cell_reset(self, handler: Callable) -> None:
         """Register a cell reset function from the services layer."""
         self._cell_reset_handler = handler
 
@@ -227,7 +227,7 @@ class OS:
 
     # ── Register shutdown hook ──
 
-    def on_shutdown(self, hook: callable) -> None:
+    def on_shutdown(self, hook: Callable) -> None:
         """Register a function to be called during shutdown."""
         self._shutdown_hooks.append(hook)
 

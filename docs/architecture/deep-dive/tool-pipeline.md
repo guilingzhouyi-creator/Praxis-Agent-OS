@@ -1,6 +1,6 @@
 # Tool Pipeline
 
-> **Source:** `src/l3/tool_pipeline.py` (251 lines), `src/l3/tool_spec.py` (449 lines)  
+> **Source:** `src/l3/tool_system/tool_pipeline.py` (270 lines), `src/l3/tool_system/tool_spec.py` (449 lines)  
 > **Constants:** `params/tool.py`
 
 ## 9-Step Execution Pipeline
@@ -9,7 +9,7 @@ Every tool call passes through 9 sequential steps before execution:
 
 ```mermaid
 flowchart TB
-    subgraph Pipeline["Tool Pipeline (tool_pipeline.py)"]
+    subgraph Pipeline["Tool Pipeline (tool_system/tool_pipeline.py)"]
         S1["1. Clearance Check
         agent.ring >= tool.ring"]
         S2["2. Rate Limit
@@ -57,7 +57,7 @@ flowchart TB
 
 ## ToolSpec Registry
 
-Tools are registered in a global `TOOL_REGISTRY: dict[str, ToolSpec]` in `l3/tool_spec.py`.
+Tools are registered in a global `TOOL_REGISTRY: dict[str, ToolSpec]` in `l3/tool_system/tool_spec.py`.
 
 ### ToolSpec
 

@@ -42,3 +42,33 @@ def config_list(args: dict, agent_id: str) -> dict:
         return {"success": True, "items": items, "count": len(items)}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def clear_caches(args: dict, agent_id: str) -> dict:
+    """RING_3: Flush all runtime caches."""
+    flushed = []
+    try:
+        from l3.memory.cache import reset_caches
+        reset_caches()
+        flushed.append("memory_cache")
+    except Exception:
+        pass
+    try:
+        from l3.cell import get_cells
+        for cell in get_cells().values():
+            cache = getattr(cell, 'cache', None)
+            if cache:
+                cache.clear()
+            icache = getattr(cell, 'icache', None)
+            if icache:
+                icache.clear()
+        flushed.append("cell_caches")
+    except Exception:
+        pass
+    try:
+        from l3.tool_system.tool_registry import clear_mutes
+        clear_mutes()
+        flushed.append("tool_mutes")
+    except Exception:
+        pass
+    return {"success": True, "flushed": flushed}

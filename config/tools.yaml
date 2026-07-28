@@ -12,152 +12,152 @@ layer_1:
   file:
     read_file:
       description: "Read file content"
-      handler: tools._files.read_file
+      handler: l3.tools._files.read_file
       params: [{name: path, type: string, required: true}]
     list_dir:
       description: "List directory contents"
-      handler: tools._files.list_dir
+      handler: l3.tools._files.list_dir
       params: [{name: path, type: string, required: true}]
     file_stat:
       description: "Query file metadata"
-      handler: tools._files.file_stat
+      handler: l3.tools._files.file_stat
       params: [{name: path, type: string, required: true}]
     file_diff:
       description: "Diff two files or a file against a string"
-      handler: tools._files.file_diff
+      handler: l3.tools._files.file_diff
       params: [{name: path_a, type: string, required: true}, {name: path_b, type: string, optional: true}, {name: content_b, type: string, optional: true}]
     read_binary:
       description: "Read binary file metadata and hex preview"
-      handler: tools._files.read_binary
+      handler: l3.tools._files.read_binary
       params: [{name: path, type: string, required: true}, {name: max_bytes, type: int, optional: true}]
     file_encoding_detect:
       description: "Detect file encoding using BOM + heuristics"
-      handler: tools._files.file_encoding_detect
+      handler: l3.tools._files.file_encoding_detect
       params: [{name: path, type: string, required: true}]
     file_search:
       description: "Search file content by pattern"
-      handler: tools._search.file_search
+      handler: l3.tools._search.file_search
       params: [{name: pattern, type: string, required: true}, {name: path, type: string, default: "."}]
 
   search:
     grep_search:
       description: "Search text with regex"
-      handler: tools._search.grep_search
+      handler: l3.tools._search.grep_search
       params: [{name: pattern, type: string, required: true}, {name: path, type: string, default: "."}]
     content_search:
       description: "Search file content"
-      handler: tools._search.content_search
+      handler: l3.tools._search.content_search
       params: [{name: query, type: string, required: true}, {name: path, type: string, default: "."}]
 
   code:
     symbol_search:
       description: "Search symbol definitions in code"
-      handler: tools._code.symbol_search
+      handler: l3.tools._code.symbol_search
       params: [{name: symbol, type: string, required: true}, {name: path, type: string, default: "."}]
     find_imports:
       description: "Find import statements in files"
-      handler: tools._code.find_imports
+      handler: l3.tools._code.find_imports
       params: [{name: path, type: string, default: "."}]
     review_code:
       description: "Review code quality"
-      handler: tools._code.review_code
+      handler: l3.tools._code.review_code
       params: [{name: path, type: string, required: true}]
     list_functions:
       description: "List all function/class definitions in a Python file"
-      handler: tools._code.list_functions
+      handler: l3.tools._code.list_functions
       params: [{name: path, type: string, required: true}]
     ast_parse:
       description: "Parse a Python file into top-level AST structure"
-      handler: tools._code.ast_parse
+      handler: l3.tools._code.ast_parse
       params: [{name: path, type: string, required: true}]
     find_callees:
       description: "Extract function/method call expressions from a Python file"
-      handler: tools._code.find_callees
+      handler: l3.tools._code.find_callees
       params: [{name: path, type: string, required: true}]
 
   web:
     web_fetch:
       description: "Fetch web page content"
-      handler: tools._web.web_fetch
+      handler: l3.tools._web.web_fetch
       params: [{name: url, type: string, required: true}]
     web_search:
       description: "Search web via DuckDuckGo"
-      handler: tools._web.web_search
+      handler: l3.tools._web.web_search
       params: [{name: query, type: string, required: true}]
 
   config:
     config_get:
       description: "Read configuration value"
-      handler: tools._config.config_get
+      handler: l3.tools._config.config_get
       params: [{name: key, type: string, required: true}]
     config_list:
       description: "List all configuration items"
-      handler: tools._config.config_list
+      handler: l3.tools._config.config_list
 
   env:
     env_get:
       description: "Get environment variable"
-      handler: tools._env.env_get
+      handler: l3.tools._env.env_get
       params: [{name: name, type: string, required: true}]
     env_list:
       description: "List environment variables"
-      handler: tools._env.env_list
+      handler: l3.tools._env.env_list
 
   memory:
     memory_retrieve:
       description: "Retrieve memory by key"
-      handler: tools._memory.memory_retrieve
+      handler: l3.tools._memory.memory_retrieve
       params: [{name: key, type: string, required: true}]
     memory_search:
       description: "Search memory content"
-      handler: tools._memory.memory_search
+      handler: l3.tools._memory.memory_search
       params: [{name: query, type: string, required: true}]
     archive_search:
       description: "Search archive content"
-      handler: tools._archive.archive_search
+      handler: l3.tools._archive.archive_search
       params: [{name: query, type: string, required: true}]
 
   logging:
     log_info:
       description: "Write INFO log"
-      handler: tools._logging.log_info
+      handler: l3.tools._logging.log_info
       params: [{name: message, type: string, required: true}]
     log_error:
       description: "Write ERROR log"
-      handler: tools._logging.log_error
+      handler: l3.tools._logging.log_error
       params: [{name: message, type: string, required: true}]
 
   communication:
     ask_user:
       description: "Ask user a question and wait for reply"
-      handler: tools._comm.ask_user
+      handler: l3.tools._comm.ask_user
       params: [{name: question, type: string, required: true}]
     confirm:
       description: "Request user confirmation"
-      handler: tools._comm.confirm
+      handler: l3.tools._comm.confirm
       params: [{name: message, type: string, required: true}]
     notify:
       description: "Send notification to user"
-      handler: tools._comm.notify
+      handler: l3.tools._comm.notify
       params: [{name: message, type: string, required: true}]
 
   peer:
     agent_list:
       description: "List all agents and their status"
-      handler: tools._peer.agent_list
+      handler: l3.tools._peer.agent_list
     agent_heartbeat:
       description: "Send heartbeat and query agent liveness"
-      handler: tools._peer.agent_heartbeat
+      handler: l3.tools._peer.agent_heartbeat
       params: [{name: target, type: string, default: ""}]
     agent_message:
       description: "Send message to a specific agent"
-      handler: tools._peer.agent_message
+      handler: l3.tools._peer.agent_message
       params: [{name: target, type: string, required: true}, {name: message, type: string, required: true}]
 
   dependency:
     check_version:
       description: "Check installed package version"
-      handler: tools._deps.check_version
+      handler: l3.tools._deps.check_version
       params: [{name: package, type: string, required: true}]
 
 # ═══════════════════════════════════════════════════════════════
@@ -169,87 +169,82 @@ layer_2:
     create_file:
       description: "Create a new file with content"
       danger: 1
-      handler: tools._files.create_file
+      handler: l3.tools._files.create_file
       params: [{name: path, type: string, required: true}, {name: content, type: string, default: ""}]
     file_append:
       description: "Append content to file"
       danger: 1
-      handler: tools._files.file_append
+      handler: l3.tools._files.file_append
       params: [{name: path, type: string, required: true}, {name: content, type: string, required: true}]
     file_patch:
       description: "Apply a unified diff patch to a file"
       danger: 1
-      handler: tools._files.file_patch
+      handler: l3.tools._files.file_patch
       params: [{name: path, type: string, required: true}, {name: diff, type: string, required: true}]
     file_move:
       description: "Move/rename file"
       danger: 1
-      handler: tools._files.file_move
+      handler: l3.tools._files.file_move
       params: [{name: source, type: string, required: true}, {name: destination, type: string, required: true}]
     file_copy:
       description: "Copy file or directory"
       danger: 1
-      handler: tools._files.file_copy
+      handler: l3.tools._files.file_copy
       params: [{name: source, type: string, required: true}, {name: destination, type: string, required: true}]
     file_mkdir:
       description: "Create directory"
       danger: 1
-      handler: tools._files.file_mkdir
+      handler: l3.tools._files.file_mkdir
       params: [{name: path, type: string, required: true}, {name: parents, type: boolean, default: false}]
-    file_delete:
-      description: "Delete file or directory"
-      danger: 3
-      handler: tools._files.file_delete
-      params: [{name: path, type: string, required: true}]
 
   terminal:
     run_in_terminal:
       description: "Run a command in terminal"
       danger: 2
       sandbox_profile: "DANGER_2"
-      handler: tools._terminal.run_in_terminal
+      handler: l3.tools._terminal.run_in_terminal
       params: [{name: command, type: string, required: true}, {name: timeout, type: integer, default: 30}]
 
   config:
     config_set:
       description: "Set configuration value"
       danger: 1
-      handler: tools._config.config_set
+      handler: l3.tools._config.config_set
       params: [{name: key, type: string, required: true}, {name: value, type: string, required: true}]
 
   build:
     build_project:
       description: "Build project"
       danger: 1
-      handler: tools._build.build_project
+      handler: l3.tools._build.build_project
       params: [{name: path, type: string, default: "."}]
     test_project:
       description: "Run project tests"
       danger: 1
-      handler: tools._build.test_project
+      handler: l3.tools._build.test_project
       params: [{name: path, type: string, default: "."}]
 
   git:
     git_commit:
       description: "Commit code changes"
       danger: 2
-      handler: tools._git.git_commit
+      handler: l3.tools._git.git_commit
       params: [{name: message, type: string, required: true}]
     git_push:
       description: "Push commits to remote"
       danger: 2
-      handler: tools._git.git_push
+      handler: l3.tools._git.git_push
     git_branch:
       description: "Create/switch/delete branch"
       danger: 2
-      handler: tools._git.git_branch
+      handler: l3.tools._git.git_branch
       params: [{name: action, type: string, required: true}, {name: name, type: string, required: true}]
 
   memory:
     memory_store:
       description: "Store memory entry"
       danger: 1
-      handler: tools._memory.memory_store
+      handler: l3.tools._memory.memory_store
       params: [{name: key, type: string, required: true}, {name: content, type: string, required: true}]
 
 # ═══════════════════════════════════════════════════════════════
@@ -258,8 +253,13 @@ layer_2:
 
 layer_3:
   system:
+    file_delete:
+      description: "Delete file or directory via buffer (requires witness approval)"
+      danger: 3
+      handler: l3.tools._files.file_delete
+      params: [{name: path, type: string, required: true}]
     destroy_file:
-      description: "Permanently delete a file or directory (requires witness approval)"
+      description: "Permanently delete a file or directory, bypassing buffer (requires witness approval)"
       handler: l3.tools._files.destroy_file
       params: [{name: path, type: string, required: true, description: "File or directory path"}]
     deploy:
@@ -294,10 +294,9 @@ layer_3:
       params: [{name: workspace, type: string, required: true}]
 
 # ═══════════════════════════════════════════════════════════════
-# Layer 1 — Skills (RING_1, danger=0)
+# Skills (RING_1, danger=0) — part of Layer 1
 # ═══════════════════════════════════════════════════════════════
 
-layer_1:
   skills:
     list_skills:
       description: "List available skills, optionally filtered by tag or tool name"
@@ -313,7 +312,7 @@ layer_1:
         - {name: "*", type: string, optional: true, description: "Variable key=value pairs for $VAR expansion"}
     recall:
       description: "Search past execution transcript by keyword"
-      handler: l3.agent_persist.recall
+      handler: l3.agent.agent_persist.recall
       params:
         - {name: query, type: string, required: true, description: "Search keyword"}
         - {name: limit, type: int, optional: true, description: "Max results (default 20)"}

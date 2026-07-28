@@ -223,9 +223,14 @@ class MemoryManager:
         """Merge low-importance entries into summaries.
 
         Finds groups of 3+ related entries (same agent + overlapping tags)
-        and replaces them with a single summary entry in Ring 2.
+        and replaces them with a single summary entry.
+        Target ring is chosen by group average importance:
+          ≥ ARCHIVE_IMPORTANCE_THRESHOLD (0.7) → Ring 3 (Long-term)
+          ≥ 0.4 → Ring 2 (Short-term)
+          < 0.4 → Ring 1 (Working)
         """
         from l1.kernel.params.agent import SCOUT_RECALL_LIMIT
+        from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, COMPACT_RING2_IMPORTANCE
         entries = self.recall(agent_id=agent_id, rings=[1, 2], limit=SCOUT_RECALL_LIMIT)
         candidates = _suggest_compact(entries)
         merged = 0
@@ -238,6 +243,13 @@ class MemoryManager:
             saved_tokens += c["total_tokens"]
             if dry_run:
                 continue
+            avg_imp = sum(e.importance for e in group_entries) / len(group_entries)
+            if avg_imp >= ARCHIVE_IMPORTANCE_THRESHOLD:
+                target_ring = 3
+            elif avg_imp >= COMPACT_RING2_IMPORTANCE:
+                target_ring = 2
+            else:
+                target_ring = 1
             summary_content = "; ".join(
                 f"[{e.entry_type}] {e.content[:LOG_TRUNC_120]}"
                 for e in group_entries
@@ -247,11 +259,16 @@ class MemoryManager:
                 entry_type="summary",
                 content=summary_content,
                 tags=list(set(t for e in group_entries for t in e.tags)),
-                ring=2,
-                importance=MEMORY_PROMOTION_THRESHOLD,
+                ring=target_ring,
+                importance=avg_imp,
             )
             for e in group_entries:
-                for layer in (self.working, self.short):
+                layers = [self.working]
+                if target_ring >= 2:
+                    layers.append(self.short)
+                if target_ring >= 3:
+                    layers.append(self.long)
+                for layer in layers:
                     layer._entries = deque(
                         [x for x in layer._entries if x.id != e.id],
                         maxlen=layer.max_entries,
@@ -486,7 +503,13 @@ class MemoryManager:
         """FTS5 full-text search across Ring 3 knowledge base. Delegates to memory_search.py."""
         return _search_long_term(self, query, agent_id=agent_id, limit=limit)
 
-    def forget_agent(self, agent_id: str) -> dict:
+    def forget_agent(self, agent_id: str, ring: int = 0) -> dict:
+        if ring == 1:
+            return {"working": self.working.clear_agent(agent_id)}
+        if ring == 2:
+            return {"short": self.short.clear_agent(agent_id)}
+        if ring == 3:
+            return {"long": self.long.clear_agent(agent_id)}
         return {
             "working": self.working.clear_agent(agent_id),
             "short": self.short.clear_agent(agent_id),

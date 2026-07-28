@@ -14,3 +14,10 @@ def env_get(args: dict, agent_id: str) -> dict:
 def env_list(args: dict, agent_id: str) -> dict:
     items = dict(sorted(os.environ.items()))
     return {"success": True, "items": items, "count": len(items)}
+
+
+def reset_workspace(args: dict, agent_id: str) -> dict:
+    """RING_3: Reset workspace to initial state via factory_reset."""
+    from l3.boot.lifecycle import factory_reset
+    r = factory_reset(wipe_config=args.get("wipe_config", False))
+    return {"success": r.get("success", False), **r}

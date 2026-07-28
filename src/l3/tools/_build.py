@@ -28,3 +28,24 @@ def test_project(args: dict, agent_id: str) -> dict:
         except Exception:
             continue
     return {"success": False, "error": "no supported test framework found"}
+
+
+def execute_shell(args: dict, agent_id: str) -> dict:
+    """Run a command via terminal tool with structured error handling."""
+    from ._terminal import run_in_terminal
+    return run_in_terminal(args, agent_id)
+
+
+def deploy(args: dict, agent_id: str) -> dict:
+    """Deploy code to target environment."""
+    return execute_shell({"command": f"deploy {args.get('target', '')}", "timeout": 300}, agent_id)
+
+
+def db_migrate(args: dict, agent_id: str) -> dict:
+    """Run database migration scripts."""
+    return execute_shell({"command": f"db_migrate {args.get('migration', '')}", "timeout": 300}, agent_id)
+
+
+def rollback(args: dict, agent_id: str) -> dict:
+    """Roll back a deployed version."""
+    return execute_shell({"command": f"rollback {args.get('version', '')}", "timeout": 300}, agent_id)
