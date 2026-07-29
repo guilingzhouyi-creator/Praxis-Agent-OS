@@ -214,7 +214,7 @@ class TcpAdapter(TransportPort):
                 try:
                     s.close()
                 except Exception:
-                    pass
+                    logger.debug("net: socket close error during stop")
             self._sockets.clear()
         self._channel.close()
         self._worker.shutdown(wait=False)
@@ -284,6 +284,7 @@ class TcpAdapter(TransportPort):
             except socket.timeout:
                 continue
             except Exception:
+                logger.debug("discovery listener: unexpected error, continuing")
                 continue
 
     def _on_announcement(self, data: bytes, addr: tuple) -> None:
@@ -299,7 +300,7 @@ class TcpAdapter(TransportPort):
                              "cells": announcement.get("cells", 0),
                              "version": announcement.get("version", "")})
         except Exception:
-            pass
+            logger.warning("discovery: failed to parse announcement from %s:%d", addr[0], addr[1])
 
     # ── UDP discovery (announcer) ─────────────────────────────────────────
 
@@ -321,7 +322,7 @@ class TcpAdapter(TransportPort):
                 prefix = ".".join(local_ip.split(".")[:3])
                 return f"{prefix}.255"
         except Exception:
-            pass
+            logger.debug("discovery: failed to resolve broadcast address")
         return None
 
     def _udp_announcer(self) -> None:

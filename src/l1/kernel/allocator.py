@@ -66,6 +66,8 @@ class Allocator:
         self._limits: dict[str, dict[str, int]] = {}
         self._allocations: dict[str, list[Allocation]] = {}
         self._lock = threading.RLock()
+        self._pressure_cache: tuple[float, dict] | None = None
+        """Cached pressure result — invalidated on alloc/free, TTL-bound."""
 
     def set_limit(self, agent_id: str, resource: str, limit: int) -> dict:
         """Override an agent's resource limit for a specific resource type."""
@@ -91,6 +93,7 @@ class Allocator:
               purpose: str = "", ttl: float = 0.0) -> dict:
         """Allocate a resource amount for an agent. Triggers reclamation or OOM kill when limits are exceeded."""
         with self._lock:
+            self._pressure_cache = None
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
             allocs = self._allocations.setdefault(agent_id, [])
             used = sum(a.amount for a in allocs if a.resource == resource)
@@ -120,6 +123,7 @@ class Allocator:
     def free(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT) -> dict:
         """Release a resource amount back to the agent's pool."""
         with self._lock:
+            self._pressure_cache = None
             allocs = self._allocations.get(agent_id, [])
             freed = 0
             for a in list(allocs):
@@ -142,15 +146,25 @@ class Allocator:
             return result
 
     def pressure(self, threshold: float = ALLOCATOR_PRESSURE_THRESHOLD) -> dict:
-        """Check which agents are above the pressure threshold across all resources."""
+        """Check which agents are above the pressure threshold across all resources.
+
+        Uses a dirty-flag cache invalidated by alloc/free to skip O(N×M) full scan
+        when no allocations have changed since the last check.
+        """
+        with self._lock:
+            if self._pressure_cache is not None:
+                return self._pressure_cache
         agents_under_pressure = []
         for agent_id in self._limits:
             usage = self.usage(agent_id)
             for resource, stats in usage.items():
                 if stats["pct"] >= threshold:
                     agents_under_pressure.append({"agent_id": agent_id, "resource": resource, **stats})
-        return {"under_pressure": len(agents_under_pressure) > 0,
-                "agents": agents_under_pressure, "count": len(agents_under_pressure)}
+        result = {"under_pressure": len(agents_under_pressure) > 0,
+                  "agents": agents_under_pressure, "count": len(agents_under_pressure)}
+        with self._lock:
+            self._pressure_cache = (threshold, result)
+        return result
 
     def _reclaim_locked(self, agent_id: str, resource: str, needed: int) -> int:
         allocs = self._allocations.setdefault(agent_id, [])

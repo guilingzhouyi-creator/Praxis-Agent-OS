@@ -19,8 +19,6 @@ import tempfile as _tempfile
 from pathlib import Path as _Path
 from typing import Any
 
-from .params.api import SUBPROCESS_SHORT_TIMEOUT
-
 
 # ── OS family detection ──
 
@@ -187,6 +185,7 @@ def grep_cmd(pattern: str, path: str = ".", *,
 
 def tail_file(path: str, n_lines: int = 10) -> list[str]:
     """Return the last n_lines of a file, cross-platform."""
+    from .params.api import SUBPROCESS_SHORT_TIMEOUT
     if not IS_WINDOWS and which("tail"):
         try:
             r = _subprocess.run(["tail", "-n", str(n_lines), path],
@@ -194,7 +193,7 @@ def tail_file(path: str, n_lines: int = 10) -> list[str]:
             if r.returncode == 0:
                 return r.stdout.splitlines()
         except Exception:
-            pass
+            logger.debug("platform: tail subprocess failed, falling back to Python read")
     lines = []
     try:
         with open(path, encoding="utf-8", errors="replace") as f:

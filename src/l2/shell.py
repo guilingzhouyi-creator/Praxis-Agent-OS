@@ -16,6 +16,13 @@ import time
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
+from l1.kernel.params.system import (
+    LOG_TRUNC_50, LOG_TRUNC_100, LOG_TRUNC_200,
+    SCOUT_FINDINGS_DISPLAY_LIMIT,
+    SHELL_AUTOCOMPLETE_DISPLAY_LIMIT,
+    TERMINAL_OUTPUT_MAX_LINES,
+    TOOL_RESULT_DISPLAY_LIMIT,
+)
 from l1.kernel.platform import IS_WINDOWS, run_shell
 from l3.agent.scout import get_pool as _get_scout_pool
 from l3.cell import get_cell as _get_cell
@@ -84,7 +91,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
             _list_tools()
             continue
         elif line in ("history", "hist"):
-            for i, h in enumerate(history[-50:], 1):
+            for i, h in enumerate(history[-TERMINAL_OUTPUT_MAX_LINES:], 1):
                 print(f"  {i:3d}  {h}")
             continue
         elif line in ("status", "st"):
@@ -111,10 +118,10 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
 def _show_help() -> None:
     """Print command list (first 15 commands) and hint for more."""
     print("Commands:")
-    for cmd in _COMMANDS[:15]:
+    for cmd in _COMMANDS[:SHELL_AUTOCOMPLETE_DISPLAY_LIMIT]:
         h = _COMMAND_HELP.get(cmd, "")
         print(f"  {cmd:<20s} {h}")
-    print(f"  ... and {len(_COMMANDS) - 15} more tools (type 'tools' to list all)")
+    print(f"  ... and {len(_COMMANDS) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)")
 
 
 def _list_tools() -> None:
@@ -122,9 +129,10 @@ def _list_tools() -> None:
     try:
         tools = _list_tools_()
         for t in tools:
-            print(f"  {t.name:<25s} {t.description[:50]}")
+            print(f"  {t.name:<25s} {t.description[:LOG_TRUNC_50]}")
         print(f"\nTotal: {len(tools)} tools")
     except Exception:
+        logger.warning("shell: list_tools failed, falling back to command list")
         for c in _COMMANDS:
             print(f"  {c}")
 
@@ -165,8 +173,8 @@ def _handle_scout(task: str, agent_id: str, cell_id: str) -> None:
         findings = r.get("findings", [])
         if findings:
             print(f"  [Scout] Findings ({len(findings)}):")
-            for f in findings[:5]:
-                print(f"    - {str(f)[:200]}")
+            for f in findings[:SCOUT_FINDINGS_DISPLAY_LIMIT]:
+                print(f"    - {str(f)[:LOG_TRUNC_200]}")
         if r.get("error"):
             print(f"  [Scout] Error: {r['error']}")
     except Exception as e:
@@ -222,10 +230,10 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
         if r.get("success"):
             result = r.get("data", r.get("result", r))
             if isinstance(result, dict):
-                for k, v in list(result.items())[:5]:
-                    print(f"  {k}: {str(v)[:100]}")
+                for k, v in list(result.items())[:TOOL_RESULT_DISPLAY_LIMIT]:
+                    print(f"  {k}: {str(v)[:LOG_TRUNC_100]}")
             else:
-                print(f"  Result: {str(result)[:200]}")
+                print(f"  Result: {str(result)[:LOG_TRUNC_200]}")
         else:
             print(f"  [Error] {r.get('error', 'execution failed')}")
     except Exception as e:

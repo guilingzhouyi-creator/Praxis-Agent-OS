@@ -66,9 +66,10 @@ if not os.environ.get(CHAIN_KEY_ENV_VAR):
                 os.close(fd)
             # Restrict parent dir as well on POSIX (best-effort, ignore failures)
             try:
-                os.chmod(_KEY_PATH, 0o600)
-            except OSError:
-                pass
+                from l1.kernel.platform import safe_chmod
+                safe_chmod(_KEY_PATH, 0o600)
+            except Exception:
+                logger.debug("tool_chain: safe_chmod failed")
             _SECRET_KEY = key_bytes
     except Exception as e:
             logger.warning("kernel/tool_chain: %s", e)

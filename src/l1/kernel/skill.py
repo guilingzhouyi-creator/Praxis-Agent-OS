@@ -147,9 +147,9 @@ class SkillManager:
                 if ev != _gp().skill_evolved_dir and os.path.isdir(ev):
                     count += self.load_dir(ev)
             except Exception:
-                pass
+                logger.debug("skill: evolved dir check failed")
         except Exception:
-            pass
+            logger.debug("skill: evolved skills load failed")
         return count
 
     def register(self, name: str, data: dict) -> dict:

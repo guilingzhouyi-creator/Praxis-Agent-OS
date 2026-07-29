@@ -224,9 +224,13 @@ class ProcessTable:
                              if pcb.state in (ProcessState.ZOMBIE, ProcessState.STOPPED)],
                             key=lambda x: x[1].last_active
                         )
+                        # Build reverse index once to avoid O(N) dict comprehension per reap
+                        pid_to_name = {p: n for n, p in self._name_index.items()}
                         for pid, _ in oldest[:len(self._processes) - 500]:
                             self._processes.pop(pid, None)
-                            self._name_index = {n: p for n, p in self._name_index.items() if p != pid}
+                            name = pid_to_name.pop(pid, None)
+                            if name:
+                                del self._name_index[name]
             except Exception as e:
                 logger.warning("process gc: %s", e)
 

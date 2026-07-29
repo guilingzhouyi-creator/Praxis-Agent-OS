@@ -11,7 +11,18 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.commands import get_handler as _gh
 from l1.kernel.commands import get_registry
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
-from l1.kernel.params.system import SHELL_HISTORY_MAX_LIMIT
+from l1.kernel.params.system import (
+    CELL_EVENTS_LIMIT,
+    CRON_DEFAULT_PRIORITY,
+    DEFAULT_CELL_INITIAL_ROLES,
+    LOG_TRUNC_60,
+    LOG_TRUNC_2000,
+    MEMORY_RECALL_DEFAULT_LIMIT,
+    SHELL_HISTORY_DEFAULT_LIMIT,
+    SHELL_HISTORY_MAX_LIMIT,
+    SKILL_LEAN_CASES_LIMIT,
+)
+from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +264,7 @@ def _cmd_skills(args: list[str]) -> dict:
     r4 = get_r4_agent()
     sub = args[0] if args else "list"
     if sub == "lean":
-        cases = getattr(r4, 'get_lean_cases', lambda: [])("", limit=20)
+        cases = getattr(r4, 'get_lean_cases', lambda: [])("", limit=SKILL_LEAN_CASES_LIMIT)
         return {"success": True, "lean_cases": cases}
     elif sub == "evolve":
         intent = " ".join(args[1:]) if len(args) > 1 else ""
@@ -270,7 +281,7 @@ def _cmd_cells(args: list[str]) -> dict:
     sub = args[0] if args else "list"
     if sub == "list":
         return {"success": True, "cells": getattr(cm, 'list_cells', lambda: [])()}
-    return cm.get_events(cell_id=sub, limit=20)
+    return cm.get_events(cell_id=sub, limit=CELL_EVENTS_LIMIT)
 
 
 def _cmd_cross(args: list[str]) -> dict:
@@ -403,7 +414,7 @@ def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
         return {"agent": agent_id, "stats": mem.stats()}
     if op == "recall":
         query = " ".join(op_args) if op_args else ""
-        results = mem.recall(agent_id=agent_id, query=query, limit=10) if query else []
+        results = mem.recall(agent_id=agent_id, query=query, limit=MEMORY_RECALL_DEFAULT_LIMIT) if query else []
         return {"agent": agent_id, "results": results, "count": len(results)}
     if op == "store":
         ring = int(op_args[0]) if op_args else 1
@@ -471,7 +482,7 @@ def _cmd_memory(args: list[str]) -> dict:
     if op == "recall" and scope == "global":
         from l3.memory.central_memory import get_center as _mem
         query = " ".join(op_args)
-        results = _mem().recall(query=query, limit=10)
+        results = _mem().recall(query=query, limit=MEMORY_RECALL_DEFAULT_LIMIT)
         return {"success": True, "results": results, "count": len(results), "scope": "global"}
     agents = resolve_agents(scope, scope_id)
     results = {}
@@ -536,7 +547,7 @@ def _cmd_vfs(args: list[str]) -> dict:
                     "count": len(r.get("entries", []))}
         r2 = vfs.read(path)
         if r2.get("success"):
-            return {"success": True, "path": path, "content": r2.get("content", "")[:2000]}
+            return {"success": True, "path": path, "content": r2.get("content", "")[:LOG_TRUNC_2000]}
         return {"success": False, "error": r.get("error", f"cannot list {path}")}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -569,7 +580,7 @@ def _cmd_clear(args: list[str]) -> dict:
 
 
 def _cmd_history(args: list[str]) -> dict:
-    limit = 20
+    limit = SHELL_HISTORY_DEFAULT_LIMIT
     if args and args[0].isdigit():
         limit = min(int(args[0]), SHELL_HISTORY_MAX_LIMIT)
     try:
@@ -596,7 +607,8 @@ def _cmd_lang(args: list[str]) -> dict:
         from l1.kernel.errors import set_locale as _ke_set
         _ke_set(target)
     except Exception:
-        pass
+        logger.warning("_cmd_locale: failed to set kernel locale: %s", target)
+        capture("set kernel locale failed", error_code="E_LOCALE", component="l2", context={"target": target})
     return {"success": True, "locale": target, "available": available}
 
 
@@ -696,7 +708,7 @@ def _cmd_tools(args: list[str]) -> dict:
         category = args[0] if args else None
         locale = get_locale()
         tools = list_tools(category=category, locale=locale)
-        return {"success": True, "tools": [{"name": t.name, "description": t.description[:60],
+        return {"success": True, "tools": [{"name": t.name, "description": t.description[:LOG_TRUNC_60],
                                               "ring": t.ring, "category": t.category} for t in tools],
                 "count": len(tools)}
     except Exception as e:
@@ -732,7 +744,7 @@ def _cmd_cron(args: list[str]) -> dict:
         return {"success": True, "schedules": s.list()}
     if sub == "add" and len(args) >= 4:
         eid = args[1]; cron_expr = args[2]; intent = " ".join(args[3:])
-        domain = ""; priority = 5
+        domain = ""; priority = CRON_DEFAULT_PRIORITY
         if "--domain" in args:
             di = args.index("--domain")
             if di + 1 < len(args): domain = args[di + 1]
@@ -759,7 +771,7 @@ def _cmd_cell_create(args: list[str]) -> dict:
         now = int(time.time())
         agent_config = [
             (f"agent-{now}-{i}", role, [territory])
-            for i, role in enumerate(CENTRAL_DEFAULT_ROLES[:3] or [default_role])
+            for i, role in enumerate(CENTRAL_DEFAULT_ROLES[:DEFAULT_CELL_INITIAL_ROLES] or [default_role])
         ]
         r = _boot_create_cell(agent_config)
         return {"success": True, "action": "create_cell", "agents": agent_config,
@@ -858,12 +870,15 @@ def _pipeline(segments: list[str]) -> dict:
     parts = [shlex.split(s.strip()) for s in segments]
 
     def _subst(args: list[str], ctx: dict) -> list[str]:
+        """Variable substitution: {.key} → ctx[key], {key} → format()."""
+        def _replace(m: re.Match) -> str:
+            return str(ctx.get(m.group(1), m.group(0)))
         out = []
         for a in args:
             if not isinstance(a, str) or "{" not in a:
                 out.append(a)
                 continue
-            a = _PIPELINE_SUBST_RE.sub(lambda m: str(ctx.get(m.group(1), m.group(0))), a)
+            a = _PIPELINE_SUBST_RE.sub(_replace, a)
             a = a.format(**ctx)
             out.append(a)
         return out
@@ -979,7 +994,8 @@ def _cmd_think(args: list[str]) -> dict:
                     if hasattr(cell, 'set_think_quota'):
                         cell.set_think_quota(distribution=dist, **cfg)
                 except Exception:
-                    pass
+                    logger.warning("think cell %s set_think_quota failed", cell_id)
+                    capture("set_think_quota failed", error_code="E_THINK", component="l2", context={"cell_id": cell_id})
             return {"success": True, "cell": cell_id,
                     "config": reg.get_cell(cell_id)}
 
@@ -1109,7 +1125,8 @@ def _model_switch(role: str, provider: str, model: str = "") -> dict:
         from l1.kernel import get_event_bus
         get_event_bus().emit_event("settings.updated", data={"key": key_prefix, "provider": provider, "model": model})
     except Exception:
-        pass
+        logger.warning("_cmd_model: failed to emit settings.updated event")
+        capture("emit settings.updated failed (model)", error_code="E_EMIT", component="l2", context={"role": role})
 
     return {"success": True, "output": f"Switched {role} to provider={provider} model={model or '(unchanged)'}"}
 
@@ -1154,7 +1171,8 @@ def _model_set(role: str, key: str, value: str) -> dict:
         from l1.kernel import get_event_bus
         get_event_bus().emit_event("settings.updated", data={"prefix": prefix, "key": key, "value": value})
     except Exception:
-        pass
+        logger.warning("_cmd_config: failed to emit settings.updated event")
+        capture("emit settings.updated failed (config)", error_code="E_EMIT", component="l2", context={"prefix": prefix, "key": key})
 
     return {"success": True, "output": f"Set {role}.{key} = {value}"}
 
@@ -1185,7 +1203,8 @@ try:
     _reg = get_registry()
     _reg.load_defaults()
 except Exception:
-    pass
+    logger.warning("failed to load default commands from commands.yaml")
+    capture("load default commands failed", error_code="E_CMD_INIT", component="l2")
 
 # Apply @system_command decorators to all _cmd_* functions.
 # This must run AFTER all _cmd_* functions are defined.

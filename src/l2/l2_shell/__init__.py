@@ -83,6 +83,7 @@ def dispatch(text: str) -> dict:
             from l2.i18n import t as _t
             err = _t("shell.error.unknown_command", cmd=cmd)
         except Exception:
+            logger.warning("i18n translation failed for shell.error.unknown_command")
             err = f"unknown command: /{cmd}"
         return {"success": False, "error": err,
                 "suggestions": [c["name"] for c in _get_cmd_reg().list()]}
@@ -130,7 +131,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
         cell = get_cell(state.cell_id)
         cell.close_direct_session(state.agent_id)
     except Exception:
-        pass
+        logger.warning("auto-disconnect: close_direct_session failed for %s", state.agent_id)
     state.switch_to_l3a()
     emit_signal(EVENT_TASK_ASSIGN, sender="shell", target=SIGNAL_TARGET_L3,
                  data={"event": "l3a_mode_restored_auto", "reason": reason})

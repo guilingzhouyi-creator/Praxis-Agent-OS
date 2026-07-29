@@ -55,6 +55,7 @@ class Mutex:
         self.timeout = timeout
         self.ipc_enabled = ipc_enabled
         self._lock = threading.Lock()
+        self._cond = threading.Condition(self._lock)
         self._owner: str = ""
         self._recursion: int = 0
         self._waiters: list[tuple[str, float, float, float]] = []
@@ -67,8 +68,11 @@ class Mutex:
             self._ipc_channel = get_lock_bus().get_channel(f"mutex:{name}")
             self._ipc_channel.register_handler(self._handle_ipc)
 
-    def _detect_cycle(self) -> list[str] | None:
-        """DFS cycle detection. Returns cycle path or None."""
+    def _detect_cycle(self, max_depth: int = 20) -> list[str] | None:
+        """DFS cycle detection. Returns cycle path or None.
+
+        *max_depth* bounds traversal to prevent O(N) blowout on large _registry.
+        """
         visited: dict[str, str | None] = {}
         stack: list[str] = []
         queue = [self._owner] if self._owner else []
@@ -85,6 +89,8 @@ class Mutex:
                         adjacency[mtx._owner].append(w[0])
 
         def dfs(node: str, depth: int = 0) -> list[str] | None:
+            if depth > max_depth:
+                return None
             if node in stack:
                 idx = stack.index(node)
                 return stack[idx:] + [node]
@@ -160,11 +166,19 @@ class Mutex:
             self._waiters.append((agent_id, priority, time.time(), 0.0))
             self._waiters.sort(key=lambda w: w[1])
 
+        _start = time.time()
         waited = 0.0
         cycle_reported = False
+        self._state = LockState.CONTENDED
+        self._waiters.append((agent_id, priority, time.time(), 0.0))
+        self._waiters.sort(key=lambda w: w[1])
+
         while time.time() < deadline:
-            time.sleep(MUTEX_POLL_INTERVAL)
-            waited += MUTEX_POLL_INTERVAL
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            self._cond.wait(timeout=min(remaining, 0.5))
+            waited = time.time() - _start
             with self._lock:
                 if self._state == LockState.FREE or self._owner == agent_id:
                     self._state = LockState.LOCKED
@@ -173,7 +187,8 @@ class Mutex:
                     self._effective_priority = priority
                     self._base_priority = priority
                     self._waiters = [w for w in self._waiters if w[0] != agent_id]
-                    return {"success": True, "owner": agent_id, "waited": round(waited, 3),
+                    waited = round(time.time() - (deadline - self.timeout), 3)
+                    return {"success": True, "owner": agent_id, "waited": waited,
                             "boosted": waited > MUTEX_BOOST_THRESHOLD}
 
             if not cycle_reported and waited > MUTEX_CYCLE_DETECT_AFTER:
@@ -203,6 +218,7 @@ class Mutex:
             self._effective_priority = self._base_priority
             self._state = LockState.FREE
             self._owner = ""
+            self._cond.notify(1)
             return {"success": True, "priority_restored": restored,
                     "from": old, "to": self._base_priority}
 
@@ -215,6 +231,7 @@ class Mutex:
             self._effective_priority = MUTEX_DEFAULT_PRIORITY
             self._base_priority = MUTEX_DEFAULT_PRIORITY
             self._waiters.clear()
+            self._cond.notify_all()
         return {"success": True}
 
     def status(self) -> dict:
@@ -239,6 +256,7 @@ class Semaphore:
         self.max_count = max_count
         self._count = max_count
         self._lock = threading.Lock()
+        self._cond = threading.Condition(self._lock)
         self._waiters: list[str] = []
 
     def acquire(self, agent_id: str, blocking: bool = True) -> dict:
@@ -252,9 +270,10 @@ class Semaphore:
                     return {"success": False, "error": "no capacity"}
                 if agent_id not in self._waiters:
                     self._waiters.append(agent_id)
-            if time.time() > deadline:
+            remaining = deadline - time.time()
+            if remaining <= 0:
                 return {"success": False, "error": "timeout"}
-            time.sleep(SEMAPHORE_POLL_INTERVAL)
+            self._cond.wait(timeout=min(remaining, SEMAPHORE_POLL_INTERVAL * 10))
 
     def release(self, agent_id: str) -> dict:
         with self._lock:
@@ -262,6 +281,7 @@ class Semaphore:
                 self._count += 1
                 if self._waiters:
                     self._waiters.pop(0)
+                self._cond.notify(1)
             return {"success": True, "remaining": self._count}
 
     def status(self) -> dict:

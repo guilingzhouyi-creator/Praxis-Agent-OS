@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.system import LOG_TRUNC_60
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,7 +16,7 @@ def get_tool_names() -> list[str]:
         from l3.tool_system.tool_config import ToolConfig as _TC
         tool_names = sorted(_TC.completions().keys())
     except Exception:
-        pass
+        logger.warning("shell_completer: get_tool_names failed")
     builtins = ["help", "exit", "clear", "history", "tools", "status"]
     return tool_names + builtins
 
@@ -28,9 +30,9 @@ def _load_tool_help() -> dict[str, str]:
         from l3.tool_system.tool_config import ToolConfig as _TC
         for name, meta in _TC.completions().items():
             h = meta.get("help", "") if isinstance(meta, dict) else ""
-            help_map[name] = str(h)[:60]
+            help_map[name] = str(h)[:LOG_TRUNC_60]
     except Exception:
-        pass
+        logger.warning("shell_completer: get_help_map failed")
     return help_map
 
 
@@ -74,4 +76,5 @@ class TerminalCompleter:
                     self._matches = [c for c in self._commands if c.startswith(text)]
             return self._matches[state] if state < len(self._matches) else None
         except Exception:
+            logger.warning("shell_completer: complete() failed")
             return None

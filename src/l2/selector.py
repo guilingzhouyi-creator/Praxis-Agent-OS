@@ -8,6 +8,7 @@ Flow:
 
 from __future__ import annotations
 
+import copy
 import logging
 import re
 import time
@@ -15,8 +16,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
+from l1.kernel.params.system import TLB_DEFAULT_RING
+from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
+
+# ── Role-based reverse index: role → [(cell_id, agent_id)]
+# Built by preselect(), consumed by _select_best() for O(1) role lookup.
+_role_index: dict[str, list[tuple[str, str]]] = {}
+_role_index_stale: bool = True
 
 # ── Known injection patterns (rule-based, expand over time) ──
 
@@ -38,16 +46,16 @@ def set_llm_reviewer(callback: Any) -> None:
     logger.info("llm_reviewer registered")
 
 
-_INJECTION_PATTERNS: list[re.Pattern] = [
-    re.compile(r"ignore\s+(all\s+)?(previous|above|system)\s+(instructions|prompts)", re.I),
-    re.compile(r"forget\s+(all\s+)?(previous|above|system)", re.I),
-    re.compile(INJECTION_PATTERN_ZH1, re.I),
-    re.compile(r"disregard\s+(all\s+)?(previous|above)", re.I),
-    re.compile(INJECTION_PATTERN_ZH2, re.I),
-    re.compile(r"new\s+instructions?:?\s*$", re.I),
-    re.compile(r"system\s+(prompt|message):", re.I),
-    re.compile(r"<\s*system\s*>", re.I),
-    re.compile(r"role\s*:\s*system", re.I),
+_INJECTION_PATTERNS: list[tuple[re.Pattern, float]] = [
+    (re.compile(r"ignore\s+(all\s+)?(previous|above|system)\s+(instructions|prompts)", re.I), 0.5),
+    (re.compile(r"forget\s+(all\s+)?(previous|above|system)", re.I), 0.5),
+    (re.compile(INJECTION_PATTERN_ZH1, re.I), 0.5),
+    (re.compile(r"disregard\s+(all\s+)?(previous|above)", re.I), 0.4),
+    (re.compile(INJECTION_PATTERN_ZH2, re.I), 0.4),
+    (re.compile(r"new\s+instructions?:?\s*$", re.I), 0.3),
+    (re.compile(r"system\s+(prompt|message):", re.I), 0.2),
+    (re.compile(r"<\s*system\s*>", re.I), 0.2),
+    (re.compile(r"role\s*:\s*system", re.I), 0.2),
 ]
 
 
@@ -60,7 +68,7 @@ class AgentIdentity:
     agent_id: str = ""
     role: str = ""
     pid: int = 0
-    ring: int = 1
+    ring: int = TLB_DEFAULT_RING
     territory: list[str] = field(default_factory=list)
     status: str = ""
     reachable: bool = False
@@ -98,8 +106,31 @@ def preselect() -> dict:
                 })
         except Exception as e:
             logger.warning("preselect cell %s: %s", cell_id, e)
+            capture("preselect cell failed", error_code="E_PRESELECT", component="l2", context={"cell_id": cell_id})
+
+    # Build role index for O(1) subsequent lookups
+    if agents:
+        _rebuild_role_index(cells)
 
     return {"agents": agents, "cells": cell_ids, "total": len(agents)}
+
+
+def _rebuild_role_index(cells: dict) -> None:
+    """Build reverse index: role → [(cell_id, agent_id)] for O(1) lookup."""
+    global _role_index, _role_index_stale
+    idx: dict[str, list[tuple[str, str]]] = {}
+    for cell_id, cell in cells.items():
+        try:
+            liveness = cell.liveness()
+            for aid, ainfo in liveness.get("agents", {}).items():
+                role = ainfo.get("role", ainfo.get("status", "?")).lower()
+                idx.setdefault(role, []).append((cell_id, aid))
+        except Exception as e:
+            logger.warning("preselect cell %s: %s", cell_id, e)
+            capture("preselect cell role_index failed", error_code="E_PRESELECT", component="l2", context={"cell_id": cell_id})
+            continue
+    _role_index = idx
+    _role_index_stale = False
 
 
 # ── Selector: route to specific agent ──
@@ -176,6 +207,7 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
                     injection_risk = max(0.0, injection_risk - 0.2)
             except Exception as e:
                 logger.warning("llm_review failed: %s", e)
+                capture("llm_review failed", error_code="E_LLM_REVIEW", component="l2")
 
     return {
         "allowed": len(reasons) == 0,
@@ -196,7 +228,9 @@ def _select_by_id(agent_id: str) -> dict:
                 return {
                     "success": True, "cell_id": cell_id, "agent_id": agent_id,
                 }
-        except Exception:
+        except Exception as e:
+            logger.warning("select_by_id %s/%s: %s", cell_id, agent_id, e)
+            capture("select_by_id failed", error_code="E_SELECT", component="l2", context={"cell_id": cell_id, "agent_id": agent_id})
             continue
     return {"success": False, "error": f"agent {agent_id} not found or unreachable"}
 
@@ -209,24 +243,63 @@ def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
         for aid, info in liveness.get("agents", {}).items():
             if info.get("role", info.get("status", "")).lower() == role.lower():
                 return {"success": True, "cell_id": cell_id, "agent_id": aid}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("select_by_role %s/%s: %s", cell_id, role, e)
+        capture("select_by_role failed", error_code="E_SELECT", component="l2", context={"cell_id": cell_id, "role": role})
     return {"success": False, "error": f"no agent with role {role} in {cell_id}"}
 
 
 def _select_best(role: str, domain: str) -> dict:
+    global _role_index, _role_index_stale
     from .cell import get_cells
     best = None
     best_score = -1
-    for cell_id, cell in get_cells().items():
-        lv = cell.liveness()
-        agents_data = lv.get("agents", {})
-        cell_territory = getattr(cell, 'territory', [])
-        for aid, info_dict in agents_data.items():
-            score = 0
-            info_role = info_dict.get("role", "")
-            if role and info_role.lower() == role.lower():
-                score += 2
+
+    # Use role index for O(1) initial candidate selection
+    if role:
+        role_lower = role.lower()
+        if _role_index_stale:
+            try:
+                _rebuild_role_index(get_cells())
+            except Exception as e:
+                logger.warning("_rebuild_role_index failed: %s", e)
+                capture("_rebuild_role_index failed", error_code="E_PRESELECT", component="l2")
+        candidates = _role_index.get(role_lower, [])
+    else:
+        candidates = []
+
+    if not candidates:
+        # Fallback: scan all cells × agents (O(C×A))
+        for cell_id, cell in get_cells().items():
+            lv = cell.liveness()
+            agents_data = lv.get("agents", {})
+            cell_territory = getattr(cell, 'territory', [])
+            for aid, info_dict in agents_data.items():
+                score = 0
+                info_role = info_dict.get("role", "")
+                if role and info_role.lower() == role.lower():
+                    score += 2
+                if domain:
+                    for t in cell_territory:
+                        if domain.startswith(t):
+                            score += 1
+                if score > best_score:
+                    best_score = score
+                    best = (cell_id, aid)
+    else:
+        # Index hit: only score candidates matching the role
+        cell_cache: dict[str, Any] = {}
+        for cell_id, aid in candidates:
+            if cell_id not in cell_cache:
+                try:
+                    cell = get_cells().get(cell_id)
+                    cell_cache[cell_id] = getattr(cell, 'territory', []) if cell else []
+                except Exception as e:
+                    logger.warning("cell_cache territory for %s: %s", cell_id, e)
+                    capture("cell_cache territory failed", error_code="E_CACHE", component="l2", context={"cell_id": cell_id})
+                    cell_cache[cell_id] = []
+            cell_territory = cell_cache[cell_id]
+            score = 2  # role match
             if domain:
                 for t in cell_territory:
                     if domain.startswith(t):
@@ -234,6 +307,7 @@ def _select_best(role: str, domain: str) -> dict:
             if score > best_score:
                 best_score = score
                 best = (cell_id, aid)
+
     if best:
         return {"success": True, "cell_id": best[0], "agent_id": best[1]}
     return {"success": False, "error": "no matching agent"}
@@ -244,9 +318,9 @@ def _scan_injection(message: str) -> float:
     if not message:
         return 0.0
     score = 0.0
-    for pattern in _INJECTION_PATTERNS:
+    for pattern, weight in _INJECTION_PATTERNS:
         if pattern.search(message):
-            score += 0.3
+            score += weight
     # Length heuristic: very long messages with injection-like patterns
     if len(message) > 2000 and score > 0:
         score = min(1.0, score + 0.2)

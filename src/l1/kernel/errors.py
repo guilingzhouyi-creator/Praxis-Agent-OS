@@ -42,7 +42,7 @@ def set_locale(locale: str) -> None:
         adapter = _gp("i18n")
         adapter.set_locale(locale)
     except Exception:
-        pass
+        logger.debug("errors: set_locale failed — I18nPort not available")
 
 
 def get_locale() -> str:
@@ -81,7 +81,7 @@ class PraxisError(Exception):
             _capture(self.message, error_code=self.code, component="kernel",
                      exc=self.cause, context=self.context or None)
         except Exception:
-            pass
+            logger.critical("ErrorBus capture failed — exception reporting chain broken: %s", self.message)
 
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.
@@ -97,7 +97,7 @@ class PraxisError(Exception):
                 if localized != f"error.{self.code}":
                     msg = localized
             except Exception:
-                pass
+                logger.debug("errors: i18n localization lookup failed")
         result: dict = {"success": False, "error": msg, "error_code": self.code}
         if self.context:
             result["context"] = self.context
@@ -214,4 +214,4 @@ try:
         f"error.{E_SANDBOX_ERROR}": "Sandbox operation failed",
     })
 except Exception:
-    pass  # I18nPort may not be registered yet — translations loaded later
+    logger.debug("errors: i18n translations not yet available — using defaults")

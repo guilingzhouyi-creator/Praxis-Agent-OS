@@ -312,11 +312,11 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
              + (len(history) * GATECHAIN_HISTORY_WEIGHT)
              + (same_tool_count * GATECHAIN_FREQ_WEIGHT))
     g3_result = next((s["result"] for s in steps if s.get("gate") == "G3"), "PASS")
-    if rep >= 0.9 and g3_result == "WARN":
+    if rep >= GATECHAIN_REP_HIGH_THRESHOLD and g3_result == "WARN":
         steps.append({"gate": "G5", "result": "PASS",
                       "reason": f"high reputation ({rep:.2f}) tolerates G3 warn, score={score:.1f}",
                       "reputation": round(rep, 2)})
-    elif rep < 0.7 and g3_result == "WARN":
+    elif rep < GATECHAIN_REP_LOW_THRESHOLD and g3_result == "WARN":
         steps.append({"gate": "G5", "result": "BLOCK",
                       "reason": f"low reputation ({rep:.2f}) + risk, score={score:.1f}",
                       "reputation": round(rep, 2)})
@@ -332,7 +332,7 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     elif repeated:
         from l3.agent.stagnation import get_detector
         _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "OSCILLATION"})
-        outcome = "REPORT" if rep < 0.7 else "WARN"
+        outcome = "REPORT" if rep < GATECHAIN_REP_LOW_THRESHOLD else "WARN"
         steps.append({"gate": "G5", "result": outcome,
                       "reason": f"{len(history)} calls, rep={rep:.2f}, score={score:.1f}",
                       "reputation": round(rep, 2),

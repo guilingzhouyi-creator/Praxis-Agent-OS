@@ -22,6 +22,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from l1.kernel.params.api import (
+    DEFAULT_REASONING_EFFORT,
+    DEFAULT_THINKING_BUDGET,
+    LLM_DEFAULT_CACHE_BREAKPOINTS,
+    LLM_DEFAULT_MAX_TOKENS,
+    LLM_DEFAULT_TEMPERATURE,
+)
+from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
+
 
 # ── Shared value types ──────────────────────────────────────────────────────
 
@@ -310,13 +319,13 @@ class LLMConfig:
     """LLM engine configuration — provider, model, parameters."""
     provider: str = "mock"
     model: str = ""
-    max_tokens: int = 2048
-    temperature: float = 0.3
+    max_tokens: int = LLM_DEFAULT_MAX_TOKENS
+    temperature: float = LLM_DEFAULT_TEMPERATURE
     api_key: str = ""
     api_url: str = ""
     device_name: str = "llm"
-    cache_breakpoints: int = 4
-    cache_retention: float = 86400.0
+    cache_breakpoints: int = LLM_DEFAULT_CACHE_BREAKPOINTS
+    cache_retention: float = LLM_CACHE_RETENTION_THRESHOLD
     tool_search: bool = False
     use_websocket: bool = False
     reasoning_effort: str = "none"

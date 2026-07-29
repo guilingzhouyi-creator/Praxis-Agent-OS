@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
 
+from .params.api import DEVICE_RATE_LIMIT_LLM
 from .params.kernel import (
     DEVICE_HEALTH_INTERVAL,
     DEVICE_DEGRADED_THRESHOLD,
@@ -80,7 +81,7 @@ class Device:
     name: str
     device_type: DeviceType
     health: DeviceHealth = DeviceHealth.HEALTHY
-    rate_limit: int = 10
+    rate_limit: int = DEVICE_RATE_LIMIT_LLM
     rate_window: float = 1.0
     description: str = ""
     capabilities: list[DeviceCapability] = field(default_factory=list)

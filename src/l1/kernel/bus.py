@@ -326,7 +326,7 @@ class SystemBus:
                     for k, v in comp.bus_stats().items():
                         result[f"{self.name}.{name}.{k}"] = v
                 except Exception:
-                    pass
+                    logger.debug("bus: failed to collect stats from %s", name)
         for cname, child in self.children.items():
             for k, v in child.stats().items():
                 result[f"{self.name}.bus:{cname}.{k}"] = v

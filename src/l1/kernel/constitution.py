@@ -40,8 +40,10 @@ from .params.agent import (
     CONSTITUTION_SCOUT_AGENT_NAME,
     CONSTITUTION_SCOUT_BLOCKED,
     CONSTITUTION_SHARED_KEYWORD,
+    REP_DEFAULT_REPUTATION,
     SANDBOX_ROOT_PATH,
 )
+from .params.system import DEFAULT_TOKEN_BUDGET
 from .rule_descriptor import RuleDescriptor, RuleSeverity, CheckResult, str_to_severity
 
 logger = logging.getLogger(__name__)
@@ -101,8 +103,8 @@ class TerritoryConstitution:
     """Lightweight constitution data for territory management."""
     territories: dict[str, list[str]] = field(default_factory=dict)
     gate_rules: dict[str, str] = field(default_factory=dict)
-    default_reputation: float = 0.85
-    token_budget: int = 73000
+    default_reputation: float = REP_DEFAULT_REPUTATION
+    token_budget: int = DEFAULT_TOKEN_BUDGET
     version: int = 1
     source: str = ""
 
@@ -418,7 +420,7 @@ class Constitution:
                          "target": target, "rule_id": rule_id},
             })
         except Exception:
-            pass
+            logger.warning("constitution: cell bus emit failed — violation event lost")
         # Also emit EventBus signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus
@@ -428,7 +430,7 @@ class Constitution:
                 "target": target, "rule_id": rule_id,
             })
         except Exception:
-            pass
+            logger.warning("constitution: event bus emit failed — violation event lost")
 
     # ── LLM-readable summary (injected into AgentLoop system prompt) ──
 
@@ -481,7 +483,7 @@ class Constitution:
                 "rules": len(self._rules), "custom": len(custom_rules), "path": path,
             })
         except Exception:
-            pass
+            logger.warning("constitution: failed to emit loaded event")
         return {"success": True, "rules": len(self._rules), "custom": len(custom_rules), "path": path}
 
     def reload(self) -> dict:
@@ -519,14 +521,14 @@ class Constitution:
             sc.set("constitution.custom_rules", custom_rules)
             sc.set("constitution.custom_rule_count", count)
         except Exception:
-            pass
+            logger.warning("constitution: failed to persist custom rules to SettingsCenter")
         # Emit signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus
             bus = get_event_bus()
             bus.emit_event("constitution.updated", data={"count": count})
         except Exception:
-            pass
+            logger.warning("constitution: failed to emit updated event")
         return {"success": True, "updated": count, "total": len(self._rules)}
 
     def clear_custom_rules(self) -> dict:

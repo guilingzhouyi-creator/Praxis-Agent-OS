@@ -17,17 +17,19 @@ import logging
 import threading
 import time
 
-logger = logging.getLogger(__name__)
+from l1.kernel.params.agent import (
+    REP_DEFAULT_REPUTATION,
+    REP_MIN,
+    REP_MAX,
+    REP_TASK_SUCCESS,
+    REP_TASK_FAILURE,
+    REP_REVIEW_APPROVED,
+    REP_REVIEW_REJECTED,
+    REP_DISPUTE_UPHELD,
+    REP_DISPUTE_DISMISSED,
+)
 
-DEFAULT_REPUTATION = 0.85
-REP_MIN = 0.0
-REP_MAX = 1.0
-REP_TASK_SUCCESS = 0.02
-REP_TASK_FAILURE = -0.05
-REP_REVIEW_APPROVED = 0.01
-REP_REVIEW_REJECTED = -0.03
-REP_DISPUTE_UPHELD = 0.03
-REP_DISPUTE_DISMISSED = -0.02
+logger = logging.getLogger(__name__)
 
 
 class ReputationSystem:
@@ -39,7 +41,7 @@ class ReputationSystem:
 
     def get(self, agent_id: str) -> float:
         with self._lock:
-            return self._reputations.get(agent_id, DEFAULT_REPUTATION)
+            return self._reputations.get(agent_id, REP_DEFAULT_REPUTATION)
 
     def set(self, agent_id: str, score: float) -> None:
         clamped = max(REP_MIN, min(REP_MAX, score))
@@ -48,7 +50,7 @@ class ReputationSystem:
 
     def adjust(self, agent_id: str, delta: float) -> float:
         with self._lock:
-            current = self._reputations.get(agent_id, DEFAULT_REPUTATION)
+            current = self._reputations.get(agent_id, REP_DEFAULT_REPUTATION)
             new = max(REP_MIN, min(REP_MAX, current + delta))
             self._reputations[agent_id] = new
             return new

@@ -29,7 +29,7 @@ from .vfs import get_vfs
 from .skill import get_skill_manager
 from .tool_chain import get_tool_chain
 from .params.kernel import (
-    SYSCALL_AUDIT_MAX, SYSCALL_AUDIT_DETAIL_MAXLEN, SYSCALL_AUDIT_QUERY_LIMIT,
+    SYSCALL_AUDIT_MAX, SYSCALL_AUDIT_DETAIL_MAXLEN, SYSCALL_AUDIT_QUERY_LIMIT, AUDIT_FLUSH_SIZE,
     SYSCALL_DEFAULT_FALLBACK, SYSCALL_DEFAULT_SIGNAL_TYPE, SYSCALL_DEFAULT_COST,
     SYSCALL_DEFAULT_RING, SYSCALL_DEFAULT_RESOURCE, SYSCALL_REGISTER_DEFAULT_AGENT,
     BARRIER_DEFAULT_COUNT, GateStatus,
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 _audit_log: deque[dict] = deque(maxlen=SYSCALL_AUDIT_MAX)
 _audit_lock = threading.Lock()
 _thread_audit_buffer = threading.local()
-_AUDIT_FLUSH_SIZE = 32
+_AUDIT_FLUSH_SIZE = AUDIT_FLUSH_SIZE
 
 
 def _audit(op: str, agent_id: str, result: dict, detail: str = "") -> None:
@@ -94,12 +94,16 @@ def record_audit(op: str, agent_id: str, success: bool = True,
 
 
 def get_audit_log(limit: int = SYSCALL_AUDIT_QUERY_LIMIT, agent_id: str = "") -> list[dict]:
-    """Query the syscall audit trail. Filter by agent_id if given."""
+    """Query the syscall audit trail. Filter by agent_id if given.
+
+    Optimization: slice first (O(k)), filter second — avoids O(N) full copy.
+    """
     with _audit_lock:
-        results = list(_audit_log)
+        # Take a generous slice first to minimize lock hold + copy time
+        safe_slice = list(_audit_log)[-limit * 4:] if not agent_id else list(_audit_log)
     if agent_id:
-        results = [e for e in results if e["agent_id"] == agent_id]
-    return results[-limit:]
+        return [e for e in safe_slice if e["agent_id"] == agent_id][-limit:]
+    return safe_slice[-limit:]
 
 
 def clear_audit_log() -> None:
