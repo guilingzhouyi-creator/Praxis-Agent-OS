@@ -1,4 +1,4 @@
-# Praxis — Agent OS (v0.3.0 "Aether")
+# Praxis — Agent OS (v0.4.0 "Aether")
 
 Python 3.11+ Agent OS for orchestrating LLM-based agents. Five-layer architecture from bare-metal kernel to user CLI.
 
