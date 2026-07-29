@@ -285,13 +285,13 @@ class ApiGateway(ApiHandlers):
                 except (BrokenPipeError, ConnectionResetError):
                     pass
                 except Exception:
-                    pass
+                    logger.debug("api_gateway: sse handler failed")
                 finally:
                     try:
                         from l4.sse.sse_bridge import unsubscribe as _unsub
                         _unsub(client.get("client_id", ""))
                     except Exception:
-                        pass
+                        logger.debug("api_gateway: sse unsubscribe failed")
 
             def do_POST(self):
                 self._handle_via_middleware("POST")

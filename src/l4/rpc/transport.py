@@ -17,6 +17,7 @@ import logging
 import os
 import struct
 
+from l1.kernel.params.api import TRANSPORT_SOCKET_TIMEOUT
 from l1.kernel.platform import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,6 @@ logger = logging.getLogger(__name__)
 # ── Wire format constants ──
 _RPC_HDR_FMT: str = "!I"
 _RPC_HDR_SIZE: int = struct.calcsize(_RPC_HDR_FMT)
-_RPC_CONNECT_TIMEOUT: float = 10.0
 
 
 def _is_tcp_address(path: str) -> bool:
@@ -68,11 +68,11 @@ async def rpc_call(socket_path: str, method: str,
             host, port_str = socket_path.rsplit(":", 1)
             port = int(port_str)
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=_RPC_CONNECT_TIMEOUT,
+                asyncio.open_connection(host, port), timeout=TRANSPORT_SOCKET_TIMEOUT,
             )
         else:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_unix_connection(socket_path), timeout=_RPC_CONNECT_TIMEOUT,
+                asyncio.open_unix_connection(socket_path), timeout=TRANSPORT_SOCKET_TIMEOUT,
             )
         await RpcTransport.send(writer, req.to_dict())
         raw = await asyncio.wait_for(RpcTransport.recv(reader), timeout=timeout)

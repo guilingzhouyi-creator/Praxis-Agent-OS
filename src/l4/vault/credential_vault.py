@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import VAULT_FILENAME, VAULT_KEY_BYTES, VAULT_NONCE_LENGTH, VAULT_SALT_FILENAME
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def init_vault(vault_dir: str = "") -> dict:
     global _VAULT_PATH, _VAULT_KEY
     data_dir = vault_dir or os.environ.get("PRAXIS_DATA_DIR", _gp().data_dir)
     os.makedirs(data_dir, exist_ok=True)
-    _VAULT_PATH = os.path.join(data_dir, "credential_vault.enc")
+    _VAULT_PATH = os.path.join(data_dir, VAULT_FILENAME)
 
     # Derive encryption key from machine-local secret
     _VAULT_KEY = _derive_key(data_dir)
@@ -178,19 +179,19 @@ def _derive_key(seed_dir: str) -> bytes:
     and persists it alongside the vault. This ensures the key is unique
     per installation and not derivable from public info alone.
     """
-    salt_path = os.path.join(os.path.dirname(seed_dir) or ".", ".praxis_vault_salt")
+    salt_path = os.path.join(os.path.dirname(seed_dir) or ".", VAULT_SALT_FILENAME)
     try:
         if os.path.exists(salt_path):
             with open(salt_path, "rb") as f:
                 salt = f.read()
         else:
-            salt = os.urandom(32)
+            salt = os.urandom(VAULT_KEY_BYTES)
             with open(salt_path, "wb") as f:
                 f.write(salt)
         return hashlib.sha256(salt).digest()
     except Exception:
         # Fallback: ephemeral random key (vault unusable after restart)
-        return hashlib.sha256(os.urandom(32)).digest()
+        return hashlib.sha256(os.urandom(VAULT_KEY_BYTES)).digest()
 
 
 def _load_vault() -> None:
@@ -200,7 +201,7 @@ def _load_vault() -> None:
         return
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        nonce_len = 12
+        nonce_len = VAULT_NONCE_LENGTH
         with open(_VAULT_PATH, "rb") as fh:
             data = fh.read()
         nonce = data[:nonce_len]
@@ -219,7 +220,7 @@ def _save_vault() -> bool:
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         import os as _os
-        nonce = _os.urandom(12)
+        nonce = _os.urandom(VAULT_NONCE_LENGTH)
         aesgcm = AESGCM(_VAULT_KEY[:32])
         plain = json.dumps(_vault, indent=2, ensure_ascii=False).encode()
         ciphertext = nonce + aesgcm.encrypt(nonce, plain, None)

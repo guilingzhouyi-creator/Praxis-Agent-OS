@@ -10,77 +10,15 @@ from l1.kernel.params.api import (
     LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS,
     FALLBACK_MODEL,
 )
-from l1.kernel.params.system import MOCK_DELAY
+from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
+from l1.kernel.params.system import LLM_DEFAULT_CONTEXT_WINDOW, LOG_TRUNC_60, MOCK_DELAY
 from l1.kernel.prompts import get_prompt as _gp
 
 logger = logging.getLogger(__name__)
 
 
-class MockProvider:
-    """Built-in mock LLM — no API key needed, for testing."""
-    name = "mock"
-
-    @property
-    def capabilities(self) -> set[str]:
-        return {"max_tokens", "temperature"}
-
-    def probe(self) -> dict:
-        return {"supports": self.capabilities, "context_window": 128000, "model": "mock"}
-
-    def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
-                 cache_retention: str = "", **kwargs) -> dict:
-        time.sleep(MOCK_DELAY)
-        return {
-            "content": f"[mock] analyzed: {prompt[:60]}...",
-            "tokens": len(prompt) // 4,
-            "model": "mock",
-            "finish_reason": "stop",
-        }
-
-    def health(self) -> dict:
-        return {"status": "ok", "model": "mock", "latency_ms": 0.0}
-
-
-class OpenAIProvider:
-    """OpenAI-compatible API (GPT, DeepSeek, etc.)."""
-    name = "openai"
-
-    @property
-    def capabilities(self) -> set[str]:
-        return {"max_tokens", "temperature", "reasoning_effort", "context_window", "tool_use", "streaming"}
-
-    def probe(self) -> dict:
-        caps = {"max_tokens", "temperature", "tool_use"}
-        # Probe reasoning_effort with a minimal request
-        try:
-            self.generate("ping", reasoning_effort="low", max_tokens=1)
-            caps.add("reasoning_effort")
-        except Exception:
-            pass
-        # Probe thinking_budget — OpenAI does NOT support it
-        try:
-            self.generate("ping", thinking_budget=1, max_tokens=1)
-            caps.add("thinking_budget")
-        except Exception:
-            pass
-        context_window = self._probe_context_window()
-        return {"supports": caps, "context_window": context_window, "model": self.model}
-
-    def _probe_context_window(self) -> int:
-        model_lower = self.model.lower()
-        if "128k" in model_lower:
-            return 128000
-        if "32k" in model_lower or "long" in model_lower:
-            return 32768
-        if "16k" in model_lower:
-            return 16384
-        return 128000  # default for modern OpenAI models
-
-    def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
-        self.api_key = api_key or self._vault_key("openai") or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
-        self.api_url = api_url or self._vault_key("openai", "api_url") or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
-        self.model = model or self._vault_key("openai", "model") or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
+class _ProviderHelperMixin:
+    """Shared helpers for LLM provider classes — eliminates duplicate _vault_key / _get_setting."""
 
     def _vault_key(self, provider: str, key: str = "api_key") -> str:
         try:
@@ -96,6 +34,73 @@ class OpenAIProvider:
         except Exception:
             return default
 
+
+class MockProvider:
+    """Built-in mock LLM — no API key needed, for testing."""
+    name = "mock"
+
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature"}
+
+    def probe(self) -> dict:
+        return {"supports": self.capabilities, "context_window": LLM_DEFAULT_CONTEXT_WINDOW, "model": "mock"}
+
+    def generate(self, prompt: str, system: str = "",
+                 max_tokens: int = 512, user_id: str = "",
+                 cache_retention: str = "", **kwargs) -> dict:
+        time.sleep(MOCK_DELAY)
+        return {
+            "content": f"[mock] analyzed: {prompt[:LOG_TRUNC_60]}...",
+            "tokens": len(prompt) // 4,
+            "model": "mock",
+            "finish_reason": "stop",
+        }
+
+    def health(self) -> dict:
+        return {"status": "ok", "model": "mock", "latency_ms": 0.0}
+
+
+class OpenAIProvider(_ProviderHelperMixin):
+    """OpenAI-compatible API (GPT, DeepSeek, etc.)."""
+    name = "openai"
+
+    @property
+    def capabilities(self) -> set[str]:
+        return {"max_tokens", "temperature", "reasoning_effort", "context_window", "tool_use", "streaming"}
+
+    def probe(self) -> dict:
+        caps = {"max_tokens", "temperature", "tool_use"}
+        # Probe reasoning_effort with a minimal request
+        try:
+            self.generate("ping", reasoning_effort="low", max_tokens=1)
+            caps.add("reasoning_effort")
+        except Exception:
+            logger.debug("llm_providers: reasoning_effort probe failed")
+        # Probe thinking_budget — OpenAI does NOT support it
+        try:
+            self.generate("ping", thinking_budget=1, max_tokens=1)
+            caps.add("thinking_budget")
+        except Exception:
+            logger.debug("llm_providers: thinking_budget probe failed")
+        context_window = self._probe_context_window()
+        return {"supports": caps, "context_window": context_window, "model": self.model}
+
+    def _probe_context_window(self) -> int:
+        model_lower = self.model.lower()
+        if "128k" in model_lower:
+            return 128000
+        if "32k" in model_lower or "long" in model_lower:
+            return 32768
+        if "16k" in model_lower:
+            return 16384
+        return LLM_DEFAULT_CONTEXT_WINDOW  # default for modern OpenAI models
+
+    def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
+        self.api_key = api_key or self._vault_key("openai") or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
+        self.api_url = api_url or self._vault_key("openai", "api_url") or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
+        self.model = model or self._vault_key("openai", "model") or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
+
     def _api_call(self, messages: list[dict], tools: list[dict] | None = None,
                    max_tokens: int = 512, user_id: str = "",
                    cache_retention: float = 0) -> dict:
@@ -105,7 +110,7 @@ class OpenAIProvider:
             body_dict["tools"] = tools
         if user_id:
             body_dict["user_id"] = user_id
-        if cache_retention >= 86400:
+        if cache_retention >= LLM_CACHE_RETENTION_THRESHOLD:
             body_dict["prompt_cache_retention"] = "24h"
         body = json.dumps(body_dict, ensure_ascii=False).encode()
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
@@ -158,7 +163,7 @@ class OpenAIProvider:
                     "latency_ms": round(elapsed, 1), "error": str(e)}
 
 
-class AnthropicProvider:
+class AnthropicProvider(_ProviderHelperMixin):
     """Anthropic API (Claude)."""
     name = "anthropic"
 
@@ -173,13 +178,13 @@ class AnthropicProvider:
             self.generate("ping", thinking_budget=1, max_tokens=1)
             caps.add("thinking_budget")
         except Exception:
-            pass
+            logger.debug("llm_providers: thinking_budget probe failed")
         # Probe reasoning_effort — Anthropic does NOT support it
         try:
             self.generate("ping", reasoning_effort="low", max_tokens=1)
             caps.add("reasoning_effort")
         except Exception:
-            pass
+            logger.debug("llm_providers: reasoning_effort probe failed")
         cl = self._probe_context_window()
         return {"supports": caps, "context_window": cl, "model": self.model}
 
@@ -190,13 +195,6 @@ class AnthropicProvider:
         if "100k" in ml:
             return 100000
         return 200000
-
-    def _vault_key(self, provider: str, key: str = "api_key") -> str:
-        try:
-            from l4.vault.credential_vault import get_credential
-            return get_credential(provider, key)
-        except Exception:
-            return ""
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = "", cache_breakpoints: int = 4):
         self.api_key = api_key or self._vault_key("anthropic") or os.environ.get(ENV_ANTHROPIC_KEY, "")
@@ -284,7 +282,7 @@ class AnthropicProvider:
                     "latency_ms": round(elapsed, 1), "error": str(e)}
 
 
-class OllamaProvider:
+class OllamaProvider(_ProviderHelperMixin):
     """Local Ollama model via native API."""
     name = "ollama"
 
@@ -298,24 +296,17 @@ class OllamaProvider:
             self.generate("ping", reasoning_effort="low", max_tokens=1)
             caps.add("reasoning_effort")
         except Exception:
-            pass
+            logger.debug("llm_providers: reasoning_effort probe failed")
         try:
             self.generate("ping", thinking_budget=1, max_tokens=1)
             caps.add("thinking_budget")
         except Exception:
-            pass
+            logger.debug("llm_providers: thinking_budget probe failed")
         return {"supports": caps, "context_window": 32768, "model": self.model}
 
     def __init__(self, api_url: str = "", model: str = ""):
         self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["ollama"]))
         self.model = model or os.environ.get(ENV_OLLAMA_MODEL, self._get_setting("llm.model", "<model>"))
-
-    def _get_setting(self, key: str, default: str) -> str:
-        try:
-            from l1.kernel.settings import get_settings
-            return get_settings().get(key, default)
-        except Exception:
-            return default
 
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int = 512, user_id: str = "",
@@ -354,20 +345,13 @@ class OllamaProvider:
                     "latency_ms": round(elapsed, 1), "error": str(e)}
 
 
-class WebSocketProvider:
+class WebSocketProvider(_ProviderHelperMixin):
     """WebSocket-based LLM provider."""
     name = "websocket"
 
     def __init__(self, url: str = "", model: str = ""):
         self.url = url or os.environ.get(ENV_LLM_WS_URL, self._get_setting("llm.api_url", ""))
         self.model = model or os.environ.get(ENV_LLM_WS_MODEL, self._get_setting("llm.model", ""))
-
-    def _get_setting(self, key: str, default: str) -> str:
-        try:
-            from l1.kernel.settings import get_settings
-            return get_settings().get(key, default)
-        except Exception:
-            return default
 
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int = 512, user_id: str = "",

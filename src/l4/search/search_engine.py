@@ -20,7 +20,7 @@ import os
 import re
 import threading
 import time
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200
+from l1.kernel.params.system import DOC_SEARCH_RESULTS, LOG_TRUNC_100, LOG_TRUNC_200, SEARCH_DEFAULT_RESULTS, SYMBOL_SEARCH_RESULTS
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,7 +92,7 @@ class SemanticSearch:
         self._lock = threading.Lock()
 
     def search(self, query: str, root_dir: str = ".",
-               file_pattern: str = "*.py", max_results: int = 20,
+               file_pattern: str = "*.py", max_results: int = SEARCH_DEFAULT_RESULTS,
                include_content: bool = True) -> dict:
         """Search code content by keyword, ranked by TF-IDF."""
         root = Path(root_dir).resolve()
@@ -340,7 +340,7 @@ class DocSearch:
     def __init__(self):
         self._custom_index: dict[str, DocEntry] = {}
 
-    def search(self, query: str, max_results: int = 10) -> dict:
+    def search(self, query: str, max_results: int = DOC_SEARCH_RESULTS) -> dict:
         """Search API documentation."""
         q = query.lower()
         results: list[DocEntry] = []
@@ -417,7 +417,7 @@ class SearchEngine:
         self._lock = threading.Lock()
 
     def search(self, query: str, mode: str = "auto",
-               root_dir: str = ".", max_results: int = 20) -> dict:
+               root_dir: str = ".", max_results: int = SEARCH_DEFAULT_RESULTS) -> dict:
         """Unified search entry.
 
         mode:
@@ -449,14 +449,14 @@ class SearchEngine:
 
     def semantic_search(self, query: str, root_dir: str = ".",
                         file_pattern: str = "*.py",
-                        max_results: int = 20) -> dict:
+                        max_results: int = SEARCH_DEFAULT_RESULTS) -> dict:
         return self._semantic.search(query, root_dir, file_pattern, max_results)
 
     def symbol_search(self, name: str, kind: str = "",
-                      root_dir: str = ".", max_results: int = 30) -> dict:
+               root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
         return self._symbol.search(name, kind, root_dir, max_results)
 
-    def doc_search(self, query: str, max_results: int = 10) -> dict:
+    def doc_search(self, query: str, max_results: int = DOC_SEARCH_RESULTS) -> dict:
         return self._docs.search(query, max_results)
 
     def index_doc(self, package: str, module: str, name: str,
@@ -492,7 +492,7 @@ def handle_search(body: dict | None = None) -> dict:
     query = b.get("query", "")
     mode = b.get("mode", "auto")
     root = b.get("root", ".")
-    max_results = b.get("max_results", 20)
+    max_results = b.get("max_results", SEARCH_DEFAULT_RESULTS)
     if not query:
         return {"success": False, "error": "query required"}
     return get_engine().search(query, mode=mode, root_dir=root,
@@ -505,7 +505,7 @@ def handle_search_semantic(body: dict | None = None) -> dict:
     query = b.get("query", "")
     root = b.get("root", ".")
     pattern = b.get("pattern", "*.py")
-    max_results = b.get("max_results", 20)
+    max_results = b.get("max_results", SEARCH_DEFAULT_RESULTS)
     if not query:
         return {"success": False, "error": "query required"}
     return get_engine().semantic_search(query, root, pattern, max_results)
@@ -517,7 +517,7 @@ def handle_search_symbol(body: dict | None = None) -> dict:
     name = b.get("name", "")
     kind = b.get("kind", "")
     root = b.get("root", ".")
-    max_results = b.get("max_results", 30)
+    max_results = b.get("max_results", SYMBOL_SEARCH_RESULTS)
     if not name:
         return {"success": False, "error": "name required"}
     return get_engine().symbol_search(name, kind, root, max_results)
@@ -527,7 +527,7 @@ def handle_search_docs(body: dict | None = None) -> dict:
     """POST /api/search/docs — API documentation search"""
     b = body or {}
     query = b.get("query", "")
-    max_results = b.get("max_results", 10)
+    max_results = b.get("max_results", DOC_SEARCH_RESULTS)
     if not query:
         return {"success": False, "error": "query required"}
     return get_engine().doc_search(query, max_results)

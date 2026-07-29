@@ -22,7 +22,8 @@ import os
 import re
 import subprocess
 import threading
-from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_100
+from l1.kernel.params.api import LSP_DIAG_TIMEOUT, SUBPROCESS_SHORT_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_300, LOG_TRUNC_50, LSP_PYTHON_EXT
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -57,7 +58,7 @@ class LocalAnalyzer:
 
     def _parse(self, path: str) -> ast.AST | None:
         full = os.path.join(self.root, path) if not os.path.isabs(path) else path
-        if not os.path.exists(full) or not full.endswith(".py"):
+        if not os.path.exists(full) or not full.endswith(LSP_PYTHON_EXT):
             return None
         try:
             with open(full, encoding="utf-8") as f:
@@ -71,7 +72,7 @@ class LocalAnalyzer:
         search_dir = os.path.join(self.root, file_path) if file_path else self.root
         for root_dir, dirs, files in os.walk(search_dir):
             for f in files:
-                if not f.endswith(".py"):
+                if not f.endswith(LSP_PYTHON_EXT):
                     continue
                 fp = os.path.join(root_dir, f)
                 rel = os.path.relpath(fp, self.root)
@@ -120,7 +121,7 @@ class LocalAnalyzer:
         if not sym:
             return {"symbol": name, "found": False}
         return {"symbol": sym.name, "kind": sym.kind, "file": sym.file,
-                "line": sym.line, "docstring": sym.docstring[:300] if sym.docstring else "",
+                "line": sym.line, "docstring": sym.docstring[:LOG_TRUNC_300] if sym.docstring else "",
                 "parent": sym.parent, "found": True}
 
     def workspace_symbols(self, query: str = "") -> list[Symbol]:
@@ -147,7 +148,7 @@ class LocalAnalyzer:
                         })
                     return issues[:LOG_TRUNC_50]
             except Exception:
-                pass
+                logger.debug("lsp: pyright parse failed")
 
         # AST fallback
         full = os.path.join(self.root, file_path) if not os.path.isabs(file_path) else file_path

@@ -28,6 +28,8 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.event import get_bus, Signal, SignalType
 from l1.kernel.interrupt import get_table as get_int_table, InterruptType, register_handler
+from l1.kernel.params.agent import AGENT_STATUS_CRASHED
+from l1.kernel.params.system import AGENT_UNRESPONSIVE_TIMEOUT, INTERRUPT_HIGH_COUNT, OPS_MAX_ALERTS
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ class OpsConsole:
     def __init__(self):
         self._cells: dict[str, CellStatus] = {}
         self._alerts: list[Alert] = []
-        self._max_alerts = 200
+        self._max_alerts = OPS_MAX_ALERTS
         self._lock = threading.RLock()
         self._running = False
         self._monitor_thread: threading.Thread | None = None
@@ -122,7 +124,7 @@ class OpsConsole:
         with self._lock:
             cell = self._cells.get(cell_id)
             if cell:
-                cell.agent_status[agent_id] = "CRASHED"
+                cell.agent_status[agent_id] = AGENT_STATUS_CRASHED
                 cell.healthy = False
         self._alert(AlertLevel.CRIT, f"cell/{cell_id}",
                      f"Agent {agent_id} crashed: {reason}",
@@ -167,8 +169,8 @@ class OpsConsole:
             for cell_id, cell in list(self._cells.items()):
                 # Check agent heartbeats — use individual agent uptime, not cell.last_seen
                 for aid, uptime in list(cell.agent_uptime.items()):
-                    if uptime > 0 and now - uptime > 60:
-                        if cell.agent_status.get(aid) != "CRASHED":
+                    if uptime > 0 and now - uptime > AGENT_UNRESPONSIVE_TIMEOUT:
+                        if cell.agent_status.get(aid) != AGENT_STATUS_CRASHED:
                             cell.agent_status[aid] = "UNRESPONSIVE"
                             self._alert(AlertLevel.WARN, f"cell/{cell_id}",
                                          f"Agent {aid} unresponsive for 60s",
@@ -191,7 +193,7 @@ class OpsConsole:
             it = get_int_table()
             counts = it.counts()
             for iname, count in counts.items():
-                if count > 100:
+                if count > INTERRUPT_HIGH_COUNT:
                     self._alert(AlertLevel.WARN, "kernel/interrupt",
                                  f"High interrupt count: {iname} = {count}",
                                  {"type": iname, "count": count})

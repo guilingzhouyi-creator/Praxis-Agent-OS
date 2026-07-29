@@ -12,9 +12,10 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
-_DEFAULT_TIMEOUT = 15.0
 _USER_AGENT = "Praxis-NetClient/1.0"
 
 
@@ -22,7 +23,7 @@ class NetClient:
     """Generic HTTP client for Praxis internal network requests."""
 
     @staticmethod
-    def get(url: str, timeout: float = _DEFAULT_TIMEOUT,
+    def get(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT,
             headers: dict | None = None) -> dict:
         """GET JSON from URL. Returns {"success": True, "data": ...} or error."""
         try:
@@ -48,7 +49,7 @@ class NetClient:
             return {"success": False, "error": str(e)}
 
     @staticmethod
-    def post(url: str, data: dict, timeout: float = _DEFAULT_TIMEOUT,
+    def post(url: str, data: dict, timeout: float = NETWORK_DEFAULT_TIMEOUT,
              headers: dict | None = None) -> dict:
         """POST JSON to URL, return JSON response."""
         try:
@@ -71,7 +72,7 @@ class NetClient:
             return {"success": False, "error": str(e)}
 
     @staticmethod
-    def download(url: str, timeout: float = _DEFAULT_TIMEOUT) -> dict:
+    def download(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT) -> dict:
         """Download raw content from URL (for .card.yaml files)."""
         try:
             req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})

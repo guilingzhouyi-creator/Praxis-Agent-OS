@@ -214,6 +214,7 @@ class LocaleMiddleware(Middleware):
                 from l1.kernel.ports import get_port as _gp
                 locale = _gp("i18n").get_locale()
             except Exception:
+                logger.debug("api_middleware: get_locale failed, falling back to 'en'")
                 locale = "en"
 
         request.locale = locale
@@ -223,7 +224,7 @@ class LocaleMiddleware(Middleware):
             from l1.kernel.ports import get_port as _gp
             _gp("i18n").set_locale(locale)
         except Exception:
-            pass
+            logger.debug("api_middleware: locale set failed")
 
         return request
 

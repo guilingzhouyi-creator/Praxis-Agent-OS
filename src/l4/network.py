@@ -19,6 +19,7 @@ from typing import Any
 
 from l3._base import BaseService
 from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT, NETWORK_FETCH_MAX_CHARS, HTTP_USER_AGENT
+from l1.kernel.params.system import NETWORK_RECV_BUF_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ class NetworkService(BaseService):
             req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
             to = timeout or self._timeout
             with urllib.request.urlopen(req, timeout=to) as resp:
-                content = resp.read().decode("utf-8", errors="replace")[:8192]
+                content = resp.read().decode("utf-8", errors="replace")[:NETWORK_RECV_BUF_SIZE]
                 with self._lock:
                     self._total_requests += 1
                 return {

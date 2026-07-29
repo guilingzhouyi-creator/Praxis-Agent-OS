@@ -14,12 +14,16 @@ import sys
 import threading
 import time
 
-logger = logging.getLogger(__name__)
+from l1.kernel.params.system import (
+    SUPERVISOR_DEFAULT_REPLICAS,
+    SUPERVISOR_IDLE_INTERVAL,
+    SUPERVISOR_LLM_REPLICAS,
+    SUPERVISOR_MONITOR_INTERVAL,
+    SUPERVISOR_SANDBOX_REPLICAS,
+    SUPERVISOR_WAIT_TIMEOUT,
+)
 
-# Supervisor timing defaults
-_SUPERVISOR_WAIT_TIMEOUT: float = 5.0       # process wait timeout on stop
-_SUPERVISOR_MONITOR_INTERVAL: float = 10.0  # health check interval
-_SUPERVISOR_IDLE_INTERVAL: float = 60.0     # main loop idle interval
+logger = logging.getLogger(__name__)
 
 
 class Supervisor:
@@ -35,28 +39,28 @@ class Supervisor:
             "entry": "l4.supervisor",
             "restart": True,
             "depends": [],
-            "replicas": 1,
+            "replicas": SUPERVISOR_DEFAULT_REPLICAS,
             "health": "/api/health",
         },
         ROLE_API: {
             "entry": "l4.api.api_gateway",
             "restart": True,
             "depends": [ROLE_KERNEL],
-            "replicas": 1,
+            "replicas": SUPERVISOR_DEFAULT_REPLICAS,
             "health": "/api/health",
         },
         ROLE_SANDBOX: {
             "entry": "l4.sandbox.server",
             "restart": True,
             "depends": [ROLE_KERNEL],
-            "replicas": 2,
+            "replicas": SUPERVISOR_SANDBOX_REPLICAS,
             "health": "",
         },
         ROLE_LLM: {
             "entry": "l4.llm_worker.server",
             "restart": True,
             "depends": [],
-            "replicas": 4,
+            "replicas": SUPERVISOR_LLM_REPLICAS,
             "health": "",
         },
     }
@@ -96,15 +100,15 @@ class Supervisor:
                 try:
                     p.terminate()
                 except Exception:
-                    pass
+                    logger.debug("supervisor: proc terminate failed")
             for p in procs:
                 try:
-                    p.wait(timeout=_SUPERVISOR_WAIT_TIMEOUT)
+                    p.wait(timeout=SUPERVISOR_WAIT_TIMEOUT)
                 except Exception:
                     try:
                         p.kill()
                     except Exception:
-                        pass
+                        logger.debug("supervisor: proc kill failed")
         return {"success": True, "stopped": sum(len(v) for v in self._procs.values())}
 
     def scale(self, role: str, n: int) -> dict:
@@ -124,7 +128,7 @@ class Supervisor:
                 try:
                     p.terminate()
                 except Exception:
-                    pass
+                    logger.debug("supervisor: proc terminate failed")
             self._procs[role] = self._procs[role][:n]
         return {"success": True, "role": role, "replicas": n}
 
@@ -155,7 +159,7 @@ class Supervisor:
     def _monitor_loop(self) -> None:
         """Health check + auto restart."""
         while self._running:
-            time.sleep(_SUPERVISOR_MONITOR_INTERVAL)
+            time.sleep(SUPERVISOR_MONITOR_INTERVAL)
             for role, procs in list(self._procs.items()):
                 if not self.PROCESSES[role]["restart"]:
                     continue
@@ -183,7 +187,7 @@ def main() -> None:
     logger.info("supervisor started: %s", r)
     try:
         while True:
-            time.sleep(_SUPERVISOR_IDLE_INTERVAL)
+            time.sleep(SUPERVISOR_IDLE_INTERVAL)
     except KeyboardInterrupt:
         sv.stop()
 

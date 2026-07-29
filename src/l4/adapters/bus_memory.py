@@ -19,6 +19,7 @@ import uuid
 from typing import Any, Callable
 
 from l1.kernel.ports import EventBusPort, Event
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class MemoryBusAdapter(EventBusPort):
         If *handler* is None, a no-op handler is used (for placeholder subs).
         Returns a subscription ID for later ``unsubscribe()``.
         """
-        sub_id = uuid.uuid4().hex[:12]
+        sub_id = uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]
         actual_handler = handler or (lambda _: None)
         with self._lock:
             self._subscribers[sub_id] = (pattern, actual_handler)

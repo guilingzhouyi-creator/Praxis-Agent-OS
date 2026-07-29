@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from l1.kernel.params.api import DEFAULT_REASONING_EFFORT, DEFAULT_THINKING_BUDGET
+from l1.kernel.params.system import LLM_PROBE_MAX_TOKENS, TOOL_SEARCH_MAX_RESULTS, TOOL_SEARCH_MAX_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class LLMProvider(ABC):
         import time
         t0 = time.perf_counter()
         try:
-            result = self.generate("Respond with OK", max_tokens=5)
+            result = self.generate("Respond with OK", max_tokens=LLM_PROBE_MAX_TOKENS)
             elapsed = (time.perf_counter() - t0) * 1000
             if result.get("error"):
                 return {"status": "degraded", "model": getattr(self, "model", ""),
@@ -156,7 +157,7 @@ class ToolResult:
 class ToolSearch:
     """Deferred tool loading — only send relevant tool definitions to LLM."""
 
-    def __init__(self, max_tools: int = 20):
+    def __init__(self, max_tools: int = TOOL_SEARCH_MAX_TOOLS):
         self._tools: dict[str, Any] = {}
         self._max_tools = max_tools
 
@@ -167,7 +168,7 @@ class ToolSearch:
         for t in tools:
             self._tools[t.name] = t
 
-    def search(self, query: str, max_results: int = 10) -> list[Any]:
+    def search(self, query: str, max_results: int = TOOL_SEARCH_MAX_RESULTS) -> list[Any]:
         if not query or not self._tools:
             return list(self._tools.values())[:max_results]
         query_lower = query.lower()

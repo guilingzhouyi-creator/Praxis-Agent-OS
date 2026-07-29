@@ -15,13 +15,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Default patterns to exclude
-EXCLUDE_DIRS = {".git", "__pycache__", "node_modules", ".venv", ".pytest_cache", "dist", "build"}
-EXCLUDE_EXTS = {".pyc", ".pyo", ".exe", ".dll", ".so", ".dylib", ".png", ".jpg", ".gif", ".ico", ".woff", ".woff2"}
+from l1.kernel.params.system import SEARCH_EXCLUDE_DIRS, SEARCH_EXCLUDE_EXTS, SEARCH_MAX_RESULTS
 
 
 def search(root: str, query: str, include: list[str] | None = None,
-           exclude: list[str] | None = None, max_results: int = 200) -> dict[str, Any]:
+           exclude: list[str] | None = None, max_results: int = SEARCH_MAX_RESULTS) -> dict[str, Any]:
     """Search for query in root directory.
 
     Args:
@@ -45,12 +43,12 @@ def search(root: str, query: str, include: list[str] | None = None,
             rel = os.path.relpath(dirpath, p)
             if rel != ".":
                 parts = Path(rel).parts
-                if any(part in EXCLUDE_DIRS for part in parts):
+                if any(part in SEARCH_EXCLUDE_DIRS for part in parts):
                     dirnames.clear()
                     continue
             for filename in filenames:
                 fp = Path(dirpath) / filename
-                if fp.suffix in EXCLUDE_EXTS:
+                if fp.suffix in SEARCH_EXCLUDE_EXTS:
                     continue
                 if include and not any(fp.match(pat) for pat in include):
                     continue

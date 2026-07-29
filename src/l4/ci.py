@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import CI_SHELL_TIMEOUT
-from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_PIPELINE_CACHE_TTL, LOG_TRUNC_500
+from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_DEFAULT_LIST_LIMIT, CI_DEFAULT_LOG_LINES, CI_MAX_RUNS, CI_PIPELINE_CACHE_TTL, HASH_TRUNC_SHORT, LOG_TRUNC_20, LOG_TRUNC_500
 from l1.kernel.platform import SHELL_PATH
 from l3._base import BaseService
 
@@ -51,7 +51,7 @@ class PipelineRun:
 class CIService(BaseService):
     """CI service — manages pipeline runs."""
 
-    def __init__(self, max_runs: int = 50):
+    def __init__(self, max_runs: int = CI_MAX_RUNS):
         super().__init__("ci")
         self._runs: dict[str, PipelineRun] = {}
         self._lock = threading.RLock()
@@ -75,7 +75,7 @@ class CIService(BaseService):
            {"action": "test", "cmd": "pytest tests/"},
            {"action": "lint", "cmd": "flake8 ."}]
         """
-        run_id = f"ci-{uuid.uuid4().hex[:8]}"
+        run_id = f"ci-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id)
         with self._lock:
             self._runs[run_id] = run
@@ -133,7 +133,7 @@ class CIService(BaseService):
                 )
                 step["exit_code"] = r.returncode
                 if r.stdout:
-                    run.output.extend(r.stdout.splitlines()[-20:])
+                    run.output.extend(r.stdout.splitlines()[-LOG_TRUNC_20:])
                 if r.stderr:
                     run.output.append(f"STDERR: {r.stderr[:LOG_TRUNC_500]}")
                 if r.returncode != 0:
@@ -178,7 +178,7 @@ class CIService(BaseService):
                       for s in run.steps],
         }
 
-    def get_logs(self, run_id: str, max_lines: int = 100) -> dict:
+    def get_logs(self, run_id: str, max_lines: int = CI_DEFAULT_LOG_LINES) -> dict:
         """Get pipeline run logs."""
         with self._lock:
             run = self._runs.get(run_id)
@@ -190,7 +190,7 @@ class CIService(BaseService):
             "line_count": min(len(run.output), max_lines),
         }
 
-    def list_runs(self, status: str | None = None, limit: int = 20) -> dict:
+    def list_runs(self, status: str | None = None, limit: int = CI_DEFAULT_LIST_LIMIT) -> dict:
         """List pipeline runs."""
         with self._lock:
             runs = list(self._runs.values())

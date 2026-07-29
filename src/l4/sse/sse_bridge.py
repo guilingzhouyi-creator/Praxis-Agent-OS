@@ -17,6 +17,8 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.params.api import SSE_QUEUE_MAXSIZE
+
 logger = logging.getLogger(__name__)
 
 # SSE client registry
@@ -29,7 +31,7 @@ _HAS_LISTENER = False  # guard: register EventBus listener only once
 def subscribe(event_types: set[str] | None = None) -> dict:
     """Register an SSE client; returns client ID and message queue."""
     global _client_counter, _HAS_LISTENER
-    q: queue.Queue = queue.Queue(maxsize=256)
+    q: queue.Queue = queue.Queue(maxsize=SSE_QUEUE_MAXSIZE)
     with _sse_lock:
         _client_counter += 1
         client_id = f"sse-{_client_counter}"
@@ -84,7 +86,7 @@ def push_event(event_type: str, data: Any) -> None:
         from l1.kernel import emit_event
         emit_event(event_type, data, source="sse_bridge")
     except Exception:
-        pass
+        logger.debug("sse_bridge: kernel emit failed")
     _broadcast(event_type, data)
 
 

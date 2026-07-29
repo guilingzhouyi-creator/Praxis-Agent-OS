@@ -520,7 +520,7 @@ class LspManager:
             ls._process.stdin.write(header + content)
             ls._process.stdin.flush()
         except Exception:
-            pass
+            logger.debug("lsp_manager: lsp stdin write failed")
 
 
 # ══════════════════════════════════════════════════════════════════════

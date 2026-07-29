@@ -66,6 +66,7 @@ class YamlI18nAdapter(I18nPort):
                 if f.endswith((".yaml", ".yml"))
             })
         except Exception:
+            logger.warning("i18n_yaml: list_locales failed, falling back to ['en']")
             return ["en"]
 
     def register(self, locale: str, data: dict[str, str | dict]) -> None:

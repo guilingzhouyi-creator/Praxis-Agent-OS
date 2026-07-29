@@ -21,12 +21,14 @@ import time
 from typing import Any
 
 from l1.kernel.device import get_device_manager
-from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.params.system import CONTEXT_TRAIL_TRUNC, HASH_TRUNC_SHORT, LOG_TRUNC_200, LOG_TRUNC_60
 
 from l1.kernel.params.agent import (
+    LLM_ANALYZE_MAX_TOKENS,
     LLM_CACHE_RETENTION_THRESHOLD,
     LLM_CACHE_RETENTION_STRING,
     LLM_THINKING_BUFFER,
+    LLM_TOOL_RESULT_TRUNCATION,
     LOOP_TURN_WARNING_THRESHOLD,
 )
 from l1.kernel.params.api import (
@@ -34,6 +36,7 @@ from l1.kernel.params.api import (
     DEFAULT_THINKING_BUDGET,
     FALLBACK_LLM_API_URL,
     FALLBACK_MODEL,
+    LLM_DEFAULT_MAX_TOKENS,
     LLM_EMPTY_RESPONSE_WAITS,
     LLM_HTTP_TIMEOUT,
     LLM_MAX_EMPTY_RETRIES,
@@ -43,7 +46,7 @@ from l1.kernel.params.api import (
     LLM_RATE_LIMIT_WAIT,
     LLM_TRANSIENT_BACKOFF_BASE,
 )
-from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT
+from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT, TOOL_SEARCH_MIN_COUNT, TOOL_SEARCH_MAX_RESULTS
 
 # Base types extracted to llm_base.py
 from .llm_base import (
@@ -246,11 +249,11 @@ class LLMEngine:
         messages.append({"role": "user", "content": prompt})
 
         # ToolSearch: defer loading — only send relevant tools (saves ~10-18% tokens)
-        if self.config.tool_search and len(tools) > 10:
+        if self.config.tool_search and len(tools) > TOOL_SEARCH_MIN_COUNT:
             ts = ToolSearch()
             ts.register_many(tools)
-            active_tools = ts.search(prompt, max_results=10)
-            logger.debug("tool_search: %d → %d tools for prompt[:60]",
+            active_tools = ts.search(prompt, max_results=TOOL_SEARCH_MAX_RESULTS)
+            logger.debug("tool_search: %d → %d tools for prompt[:LOG_TRUNC_60]",
                         len(tools), len(active_tools))
         else:
             active_tools = tools
@@ -304,7 +307,7 @@ class LLMEngine:
 
                 if not tool_calls:
                     # LLM finished — no more tool calls
-                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1, "context_trail": messages[-30:]}
+                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1, "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
                 # Execute tool calls in parallel with per-handler timeout
                 assistant_msg = {"role": "assistant", "content": content, "tool_calls": [tc for tc in tool_calls]}
@@ -315,7 +318,7 @@ class LLMEngine:
                     for tc in tool_calls:
                         fn_name = tc.get("function", {}).get("name", "")
                         fn_args = _json.loads(tc.get("function", {}).get("arguments", "{}"))
-                        call_id = tc.get("id", uuid.uuid4().hex[:8])
+                        call_id = tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT])
                         tool_def = tool_map.get(fn_name)
                         futures[pool.submit(LLMEngine._execute_one_tool, tool_def, fn_args, call_id, fn_name)] = tc
 
@@ -327,19 +330,19 @@ class LLMEngine:
                             call_record = {
                                 "name": tc.get("function", {}).get("name", ""),
                                 "arguments": {}, "error": "timeout",
-                                "call_id": tc.get("id", uuid.uuid4().hex[:8]),
+                                "call_id": tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT]),
                             }
                         except Exception as e:
                             call_record = {
                                 "name": tc.get("function", {}).get("name", ""),
                                 "arguments": {}, "error": str(e),
-                                "call_id": tc.get("id", uuid.uuid4().hex[:8]),
+                                "call_id": tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT]),
                             }
                         all_calls.append(call_record)
                         result_str = _json.dumps(
                             call_record.get("result", call_record.get("error", "")),
                             ensure_ascii=False,
-                        )[:8000]
+                        )[:LLM_TOOL_RESULT_TRUNCATION]
                         messages.append({
                             "role": "tool",
                             "tool_call_id": call_record["call_id"],
@@ -347,9 +350,9 @@ class LLMEngine:
                         })
 
             except Exception as e:
-                return {"content": "", "tool_calls": all_calls, "turns": turn + 1, "error": str(e), "context_trail": messages[-30:]}
+                return {"content": "", "tool_calls": all_calls, "turns": turn + 1, "error": str(e), "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
-        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns, "context_trail": messages[-30:]}
+        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns, "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
     def _call_api(self, body: bytes, retry_count: int = 0) -> dict:
         """Low-level API call with retry layers. Returns parsed response dict with cache stats.
@@ -368,7 +371,7 @@ class LLMEngine:
         if provider_name == "mock":
             data = json.loads(body)
             prompt = data["messages"][-1]["content"]
-            return {"content": f"[mock] tool_use: {prompt[:60]}...", "tool_calls": [],
+            return {"content": f"[mock] tool_use: {prompt[:LOG_TRUNC_60]}...", "tool_calls": [],
                     "cache_hit_tokens": 0, "cache_miss_tokens": 0}
 
         provider = self._provider
@@ -399,7 +402,7 @@ class LLMEngine:
                     from .memory.memory import get_memory
                     get_memory().compact("system")
                 except Exception:
-                    pass
+                    logger.debug("llm: memory compact failed")
                 return self._call_api(body, retry_count + 1)
             return {"content": "", "tool_calls": [], "cache_hit_tokens": 0, "cache_miss_tokens": 0,
                     "error": f"HTTP {code}: {body_text}"}
@@ -531,7 +534,7 @@ def reset_engine() -> None:
     _engine = None
 
 
-def think(prompt: str, system: str = "", max_tokens: int = 2048,
+def think(prompt: str, system: str = "", max_tokens: int = LLM_DEFAULT_MAX_TOKENS,
           user_id: str = "") -> dict:
     """Convenience: one-shot LLM inference."""
     return get_engine().generate(prompt, system, max_tokens, user_id=user_id)
@@ -544,7 +547,7 @@ def analyze(findings: list, context: str = "", user_id: str = "") -> dict:
     from l1.kernel.prompts import get_prompt as _gp
     prompt += _gp("llm.analyze_suffix", "")
     return get_engine().generate(prompt, system=_gp("llm.analyze_system", "You are a code analysis expert."),
-                                 max_tokens=1024, user_id=user_id)
+                                 max_tokens=LLM_ANALYZE_MAX_TOKENS, user_id=user_id)
 
 
 def optimize_prompt(prompt: str, system: str = "") -> tuple[str, str]:
@@ -573,7 +576,7 @@ def optimize_prompt(prompt: str, system: str = "") -> tuple[str, str]:
 #
 #   @on_llm_call("pre")
 #   def log_prompt(prompt, system, **kwargs):
-#       logger.info("LLM call: %s", prompt[:60])
+#       logger.info("LLM call: %s", prompt[:LOG_TRUNC_60])
 #
 #   @on_llm_call("post")
 #   def log_result(result, **kwargs):

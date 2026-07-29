@@ -30,6 +30,7 @@ from typing import Any, Callable
 
 from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, list_tools, ToolRing
 from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
+from l1.kernel.params.system import MCP_STATE_FILENAME
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ def _mcp_state_path() -> str:
             from l1.kernel.paths import get_paths as _gp
             MCP_STATE_PATH = _gp().mcp_state
         except Exception:
-            MCP_STATE_PATH = os.environ.get("PRAXIS_MCP_STATE", "mcp_state.json")
+            MCP_STATE_PATH = os.environ.get("PRAXIS_MCP_STATE", MCP_STATE_FILENAME)
     return MCP_STATE_PATH
 
 
@@ -431,7 +432,7 @@ class MCPBridge:
                     wk_data = json.loads(wk.read())
                     token_url = wk_data.get("token_endpoint", "")
                 except Exception:
-                    pass
+                    logger.debug("mcp_bridge: token endpoint parse failed")
 
         if not token_url:
             return {"success": False, "error": "token_url not found. Set via set_oauth_token_url()"}

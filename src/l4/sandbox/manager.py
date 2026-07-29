@@ -18,6 +18,7 @@ from l1.kernel.params.system import (
     SANDBOX_PROFILE_READ_ONLY, SANDBOX_PROFILE_SAFE_WRITE,
     SANDBOX_PROFILE_NETWORK, SANDBOX_PROFILE_FULL, SANDBOX_PROFILE_HOST,
     LOG_TRUNC_500, LOG_TRUNC_2000,
+    HASH_TRUNC_SHORT, SANDBOX_DEFAULT_TIMEOUT,
 )
 
 
@@ -56,6 +57,11 @@ class SandboxManager:
         HOST: direct execution, no isolation.
     """
 
+    # Reused event loop — asyncio.run() creates a new loop on every call,
+    # which adds ~5ms overhead per invocation. Caching the loop eliminates
+    # this for all calls after the first.
+    _loop: asyncio.AbstractEventLoop | None = None
+
     def __init__(self, sandbox_root: str = ""):
         from l1.kernel.params.system import SANDBOX_TMP_ROOT
         self._sandbox_root = Path(sandbox_root or SANDBOX_TMP_ROOT)
@@ -65,12 +71,12 @@ class SandboxManager:
         self,
         command: str,
         profile: SandboxProfile = SandboxProfile.READ_ONLY,
-        timeout: float = 300.0,
+        timeout: float = SANDBOX_DEFAULT_TIMEOUT,
         agent_id: str = "",
         tool_name: str = "",
     ) -> SandboxResult:
         """Execute a command in an isolated sandbox."""
-        sandbox_id = f"sbox-{uuid.uuid4().hex[:8]}"
+        sandbox_id = f"sbox-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         workdir = self._sandbox_root / sandbox_id
         workdir.mkdir(parents=True)
 
@@ -95,7 +101,7 @@ class SandboxManager:
                 try:
                     proc.kill()
                 except Exception:
-                    pass
+                    logger.debug("sandbox_manager: proc kill failed")
                 elapsed = time.time() - t0
                 self._audit(sandbox_id, agent_id, tool_name, False, "timeout", elapsed)
                 return SandboxResult(
@@ -128,12 +134,17 @@ class SandboxManager:
         self,
         command: str,
         profile: SandboxProfile = SandboxProfile.READ_ONLY,
-        timeout: float = 300.0,
+        timeout: float = SANDBOX_DEFAULT_TIMEOUT,
         agent_id: str = "",
         tool_name: str = "",
     ) -> SandboxResult:
-        """Synchronous wrapper for tool_pipeline use."""
-        return asyncio.run(self.run(command, profile, timeout, agent_id, tool_name))
+        """Synchronous wrapper for tool_pipeline use — reuses cached event loop."""
+        if self.__class__._loop is None or self.__class__._loop.is_closed():
+            self.__class__._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.__class__._loop)
+        return self.__class__._loop.run_until_complete(
+            self.run(command, profile, timeout, agent_id, tool_name),
+        )
 
     def _build_env(self, profile: SandboxProfile, workdir: Path) -> dict:
         env = dict(os.environ)
@@ -172,4 +183,4 @@ class SandboxManager:
                       "success": success, "error": error, "elapsed": round(elapsed, 3)},
             ))
         except Exception:
-            pass
+            logger.debug("sandbox_manager: monitor event failed")

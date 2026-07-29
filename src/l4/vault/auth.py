@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from l1.kernel.params.system import AUTH_SIGN_KEY_BYTES
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class AuthService(BaseService):
     def __init__(self):
         super().__init__("auth")
         self._vault = KeyVault()
-        self._sign_key = os.urandom(32)
+        self._sign_key = os.urandom(AUTH_SIGN_KEY_BYTES)
 
     def _on_start(self) -> dict:
         # Initialize default keys
