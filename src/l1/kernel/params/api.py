@@ -69,6 +69,14 @@ DEFAULT_THINKING_BUDGET: Final[int] = 0
 THINK_MAX_BUDGET: Final[int] = 32768
 THINK_MAX_REASONING: Final[str] = "high"
 
+# ── LLMConfig defaults (was hardcoded in ports.py) ──
+LLM_DEFAULT_MAX_TOKENS: Final[int] = 2048
+"""Default max_tokens in LLMConfig."""
+LLM_DEFAULT_TEMPERATURE: Final[float] = 0.3
+"""Default temperature in LLMConfig."""
+LLM_DEFAULT_CACHE_BREAKPOINTS: Final[int] = 4
+"""Default cache_breakpoints in LLMConfig."""
+
 
 # ── Kernel network ──
 BROADCAST_INTERVAL: Final[float] = 15.0
@@ -152,6 +160,10 @@ SUBAGENT_POOL_EXPLORE_WORKERS: Final[int] = 4
 SUBAGENT_POOL_EXECUTE_WORKERS: Final[int] = 4
 
 
+# ── SSE bridge ──
+SSE_QUEUE_MAXSIZE: Final[int] = 256
+
+
 # ── Service timeouts (scattered in code, centralized here) ──
 LSP_MANAGER_TIMEOUT: Final[float] = 5.0
 LSP_MANAGER_LONG_TIMEOUT: Final[float] = 30.0
@@ -176,12 +188,10 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 from dataclasses import dataclass
 import os as _os
 from ..paths import get_paths as _gp
+from ..platform import IS_NT as _IS_WIN
 from .kernel import IPC_REQUEST_TIMEOUT
 
 IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
-
-# Use os.name directly to avoid circular import with platform.py
-_IS_WIN = _os.name == "nt"
 
 if _IS_WIN:
     # Windows: TCP localhost (Unix sockets not available)

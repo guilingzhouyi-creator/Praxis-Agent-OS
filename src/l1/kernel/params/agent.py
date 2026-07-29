@@ -137,6 +137,25 @@ AGENT_REPUTATION_DEFAULTS: Final[dict[str, float]] = {
     "reader":   0.70,
 }
 
+# ── Reputation delta constants (moved from reputation.py) ──
+REP_DEFAULT_REPUTATION: Final[float] = 0.85
+"""Default reputation score for new agents."""
+REP_MIN: Final[float] = 0.0
+"""Minimum allowed reputation (floor)."""
+REP_MAX: Final[float] = 1.0
+"""Maximum allowed reputation (ceiling)."""
+REP_TASK_SUCCESS: Final[float] = 0.02
+"""Reputation delta on successful task completion."""
+REP_TASK_FAILURE: Final[float] = -0.05
+"""Reputation delta on task failure."""
+REP_REVIEW_APPROVED: Final[float] = 0.01
+"""Reputation delta on cross-review approval."""
+REP_REVIEW_REJECTED: Final[float] = -0.03
+"""Reputation delta on cross-review rejection."""
+REP_DISPUTE_UPHELD: Final[float] = 0.03
+"""Reputation delta on dispute upheld."""
+REP_DISPUTE_DISMISSED: Final[float] = -0.02
+"""Reputation delta on dispute dismissed."""
 
 CARD_TIMEOUT: Final[float] = 30.0
 

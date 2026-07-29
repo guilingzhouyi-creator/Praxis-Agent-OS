@@ -140,6 +140,14 @@ BUFFER_MAX: Final[int] = 2000
 SHELL_AUTOCOMPLETE_LIMIT: Final[int] = 15
 SHELL_AUTOCOMPLETE_AGENT_LIMIT: Final[int] = 10
 SHELL_HISTORY_MAX_LIMIT: Final[int] = 200
+SHELL_HISTORY_DEFAULT_LIMIT: Final[int] = 20
+SHELL_AUTOCOMPLETE_DISPLAY_LIMIT: Final[int] = 15  # commands shown in help
+TOOL_RESULT_DISPLAY_LIMIT: Final[int] = 5
+SCOUT_FINDINGS_DISPLAY_LIMIT: Final[int] = 5
+SKILL_LEAN_CASES_LIMIT: Final[int] = 20
+CELL_EVENTS_LIMIT: Final[int] = 20
+CRON_DEFAULT_PRIORITY: Final[int] = 5
+DEFAULT_CELL_INITIAL_ROLES: Final[int] = 3  # max default roles when creating a Cell
 
 # ── Token budget ──
 DEFAULT_TOKEN_BUDGET: Final[int] = 73000
@@ -166,12 +174,15 @@ EXEC_BACKOFF_INTERVAL: Final[float] = 1.0
 SCOUT_MONITOR_INTERVAL: Final[float] = 5.0
 
 # ── Log/display truncation limits ──
+LOG_TRUNC_20: Final[int] = 20
+LOG_TRUNC_30: Final[int] = 30
 LOG_TRUNC_40: Final[int] = 40
 LOG_TRUNC_50: Final[int] = 50
 LOG_TRUNC_60: Final[int] = 60
 LOG_TRUNC_80: Final[int] = 80
 LOG_TRUNC_100: Final[int] = 100
 LOG_TRUNC_120: Final[int] = 120
+LOG_TRUNC_150: Final[int] = 150
 LOG_TRUNC_200: Final[int] = 200
 LOG_TRUNC_300: Final[int] = 300
 LOG_TRUNC_500: Final[int] = 500
@@ -181,6 +192,14 @@ LOG_TRUNC_3000: Final[int] = 3000
 LOG_TRUNC_4000: Final[int] = 4000
 LOG_TRUNC_5000: Final[int] = 5000
 LOG_TRUNC_10000: Final[int] = 10000
+
+# ── Tool result display limits ──
+TOOL_RESULTS_LIMIT_DEFAULT: Final[int] = 100
+TOOL_RESULTS_LIMIT_LARGE: Final[int] = 200
+TOOL_ISSUES_LIMIT: Final[int] = 50
+TOOL_MEMORY_RESULTS_LIMIT: Final[int] = 20
+TOOL_WEB_RESULTS_LIMIT: Final[int] = 10
+TOOL_LSP_SYMBOL_LIMIT: Final[int] = 50
 
 # ── Hash display truncation limits ──
 HASH_TRUNC_SHORT: Final[int] = 8
@@ -203,6 +222,14 @@ TUI_CARD_LIST_LIMIT_WIDE: Final[int] = 8
 
 # ── Context pager ──
 CHUNK_SIZE_TOKENS: Final[int] = 512
+
+# ── Search engine defaults (L4 search/) ──
+SEARCH_DEFAULT_RESULTS: Final[int] = 20
+SYMBOL_SEARCH_RESULTS: Final[int] = 30
+DOC_SEARCH_RESULTS: Final[int] = 10
+SEARCH_MAX_RESULTS: Final[int] = 200
+SEARCH_EXCLUDE_DIRS: Final[set[str]] = {"__pycache__", ".git", "node_modules", ".venv", "target", "build", "dist", ".tox"}
+SEARCH_EXCLUDE_EXTS: Final[set[str]] = {".pyc", ".pyo", ".so", ".dll", ".dylib", ".exe", ".bin", ".class", ".o", ".a", ".lib"}
 
 
 # ── User session ──
@@ -232,6 +259,8 @@ MEMORY_PRESSURE_HIGH: Final[float] = 0.80
 MEMORY_PRESSURE_MEDIUM: Final[float] = 0.60
 MEMORY_PROMOTION_THRESHOLD: Final[float] = 0.6
 MEMORY_IMPORTANCE_HIGH: Final[float] = 0.7
+MEMORY_IMPORTANCE_VERY_HIGH: Final[float] = 0.85
+MEMORY_IMPORTANCE_CRITICAL: Final[float] = 0.9
 MEMORY_IMPORTANCE_MODERATE: Final[float] = 0.4
 MEMORY_BUILD_CONTEXT_LIMIT: Final[int] = 10
 MEMORY_RECALL_DEFAULT_LIMIT: Final[int] = 10
@@ -263,9 +292,54 @@ CRON_CHECK_INTERVAL: Final[float] = 60.0
 # ── Resource buffer (ring file buffer) ──
 RESOURCE_BUFFER_SLOT_CAPACITY: Final[int] = 64
 RESOURCE_BUFFER_SLOT_NAME: Final[str] = "slot_{:04d}.dat"
+RESOURCE_BUFFER_SLOT_GLOB: Final[str] = "slot_*.dat"
 RESOURCE_BUFFER_AUTO_EXPAND: Final[bool] = True
 RESOURCE_BUFFER_FLUSH_INTERVAL: Final[float] = 30.0
 RESOURCE_BUFFER_HIDDEN_TTL: Final[float] = 300.0
+RESOURCE_BUFFER_PENDING_DIR: Final[str] = "_pending"
+RESOURCE_BUFFER_HIDDEN_DIR: Final[str] = "_hidden"
+RESOURCE_BUFFER_CHECKPOINT_FILE: Final[str] = "_checkpoint.dat"
+RESOURCE_BUFFER_JOURNAL_FILE: Final[str] = "_journal.jsonl"
+RESOURCE_BUFFER_ROOT_DIR: Final[str] = "resource_buffer"
+
+
+# ── L3B Message Pool ──
+L3B_HOT_RING_SIZE: Final[int] = 200
+L3B_PERSIST_HIGH_WATERMARK: Final[float] = 0.8
+L3B_BACKPRESSURE_THRESHOLD: Final[int] = 1000
+L3B_BACKPRESSURE_COOLDOWN: Final[float] = 30.0
+L3B_MESSAGE_DIR: Final[str] = "l3b_messages"
+L3B_MESSAGE_DB: Final[str] = "messages.db"
+
+
+# ── File naming templates ──
+LOG_EXPORT_FILE: Final[str] = "export_{ts}.json"
+LOG_ROTATE_FILE: Final[str] = "log_{ts}.json"
+ERROR_EXPORT_FILE: Final[str] = "error_export_{ts}.json"
+RECORDS_EXPORT_FILE: Final[str] = "records_{ts}.json"
+AGENT_SNAPSHOT_FILE: Final[str] = "snapshot.json"
+AGENT_TRANSCRIPT_FILE: Final[str] = "transcript.jsonl"
+CARD_YAML_EXPORT: Final[str] = "{name}.card.yaml"
+CHECKPOINT_JSON_FILE: Final[str] = "{agent_id}.json"
+ALERTS_FILE: Final[str] = "alerts.json"
+BOOT_SNAPSHOT_GLOB: Final[str] = "*_boot.json"
+SNAPSHOT_GLOB: Final[str] = "*.snapshot.json"
+LOG_ROTATE_GLOB: Final[str] = "log_*.json"
+PATCH_JSON_FILE: Final[str] = "{patch_id}.json"
+
+
+# ── Config file path templates (for discovery / fallback) ──
+TOOLS_CONFIG_PATH: Final[str] = "config/tools.yaml"
+COMMANDS_CONFIG_PATH: Final[str] = "config/commands.yaml"
+
+
+# ── Memory subdirectory names ──
+MEMORY_AGENT_SESSIONS_DIR: Final[str] = "AGENT/sessions"
+MEMORY_OPS_DIR: Final[str] = "ops"
+MEMORY_PHASE_DIR: Final[str] = "PHASE"
+MEMORY_DSL_DIR: Final[str] = "DSL"
+MEMORY_DSL_COMPILER: Final[str] = "compiler.py"
+MEMORY_WORKSPACES_FILE: Final[str] = "workspaces.json"
 
 
 # ── Boot VFS mount paths ──
@@ -303,6 +377,55 @@ VERIFY_CMDS: Final[frozenset[str]] = frozenset({
     "go build", "go test", "cargo check", "cargo test",
 })
 SANDBOX_MAX_OUTPUT: Final[int] = 5000
+
+# ── Permission defaults ──
+# ── Vault / credential vault ──
+VAULT_FILENAME: Final[str] = "credential_vault.enc"
+VAULT_SALT_FILENAME: Final[str] = ".praxis_vault_salt"
+VAULT_KEY_BYTES: Final[int] = 32
+VAULT_NONCE_LENGTH: Final[int] = 12
+AUTH_SIGN_KEY_BYTES: Final[int] = 32
+MCP_STATE_FILENAME: Final[str] = "mcp_state.json"
+
+
+# ── Ops console defaults ──
+OPS_MAX_ALERTS: Final[int] = 200
+AGENT_UNRESPONSIVE_TIMEOUT: Final[float] = 60.0
+INTERRUPT_HIGH_COUNT: Final[int] = 100
+
+
+# ── Supervisor defaults ──
+SUPERVISOR_WAIT_TIMEOUT: Final[float] = 5.0
+SUPERVISOR_MONITOR_INTERVAL: Final[float] = 10.0
+SUPERVISOR_IDLE_INTERVAL: Final[float] = 60.0
+SUPERVISOR_DEFAULT_REPLICAS: Final[int] = 1
+SUPERVISOR_SANDBOX_REPLICAS: Final[int] = 2
+SUPERVISOR_LLM_REPLICAS: Final[int] = 4
+
+
+# ── CI defaults ──
+CI_MAX_RUNS: Final[int] = 50
+CI_DEFAULT_LOG_LINES: Final[int] = 100
+CI_DEFAULT_LIST_LIMIT: Final[int] = 20
+
+
+# ── LLM defaults (shared between L3 and L4) ──
+LLM_DEFAULT_CONTEXT_WINDOW: Final[int] = 128000
+LLM_PROBE_MAX_TOKENS: Final[int] = 5
+TOOL_SEARCH_MIN_COUNT: Final[int] = 10
+TOOL_SEARCH_MAX_RESULTS: Final[int] = 10
+TOOL_SEARCH_MAX_TOOLS: Final[int] = 20
+CONTEXT_TRAIL_TRUNC: Final[int] = 30
+NETWORK_RECV_BUF_SIZE: Final[int] = 8192
+
+
+# ── Sandbox defaults ──
+SANDBOX_DEFAULT_TIMEOUT: Final[float] = 300.0
+
+
+# ── LSP ──
+LSP_PYTHON_EXT: Final[str] = ".py"
+
 
 # ── Permission defaults ──
 PERMISSION_DEFAULT_POLICY: Final[str] = "allow_all"

@@ -123,7 +123,7 @@ ALLOCATOR_SWAP_SOURCE: Final[str] = "ring1"
 ALLOCATOR_SWAP_TARGET: Final[str] = "ring2"
 ALLOCATOR_SWAP_COUNT: Final[int] = 5
 ALLOCATOR_DISK_RESOURCE: Final[str] = "disk"
-ALLOCATE_AMOUNT: Final[int] = 200
+ALLOCATOR_ALLOCATE_AMOUNT: Final[int] = 200
 ALLOCATOR_DEFAULT_PRIORITY: Final[int] = 5
 
 # ── Allocator resource keys (magic strings) ──
@@ -171,6 +171,8 @@ SYSCALL_AUDIT_MAX: Final[int] = 5000
 SYSCALL_AUDIT_DETAIL_MAXLEN: Final[int] = 200
 SYSCALL_AUDIT_QUERY_LIMIT: Final[int] = 100
 SYSCALL_AUDIT_CLI_LIMIT: Final[int] = 20
+AUDIT_FLUSH_SIZE: Final[int] = 32
+"""Thread-local audit buffer flush threshold (was hardcoded in __init__.py)."""
 SYSCALL_DEFAULT_FALLBACK: Final[str] = "default"
 SYSCALL_DEFAULT_SIGNAL_TYPE: Final[str] = "TASK_ASSIGN"
 SYSCALL_DEFAULT_COST: Final[int] = 1
@@ -215,6 +217,11 @@ GATECHAIN_PATTERN_TEMPLATE: Final[str] = "G1-{g1}_G3-{g3}"
 
 # ── GateChain default query limit ──
 GATECHAIN_LEDGER_LIMIT: Final[int] = 100
+# GateChain G5 reputation thresholds (was hardcoded 0.9 / 0.7)
+GATECHAIN_REP_HIGH_THRESHOLD: Final[float] = 0.9
+"""Reputation ≥ this value: high-trust pass (tolerates G3 WARN)."""
+GATECHAIN_REP_LOW_THRESHOLD: Final[float] = 0.7
+"""Reputation < this value: block on escalation (G5)."""
 
 
 # ── Tool chain ──
