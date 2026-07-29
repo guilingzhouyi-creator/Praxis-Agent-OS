@@ -64,9 +64,6 @@ def _register_handler(name: str, handler: Callable, metadata: dict | None = None
 def _list_defs() -> list[dict]:
     return _registry.list()
 
-logger = logging.getLogger(__name__)
-
-
 
 def preconnect_enhanced(cell_id: str, agent_id: str,
                         message: str = "") -> dict:
@@ -346,7 +343,8 @@ def _cmd_cluster(args: list[str]) -> dict:
                 try:
                     cell = get_cell(cid)
                     agents[cid] = list(cell._agents.keys()) if hasattr(cell, '_agents') else []
-                except Exception:
+                except Exception as e:
+                    logger.warning("_cmd_cluster: cell %s agents failed: %s", cid, e)
                     agents[cid] = []
             return {"success": True, "data": {"cells": cells, "agents": agents}, "count": len(cells)}
 
@@ -377,14 +375,8 @@ def _cmd_cluster(args: list[str]) -> dict:
             cell_id = args[1]
             from l3.cell.peers.l3 import get_coordinator
             coord = get_coordinator()
-            coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
-            from l3.bus.l3b import L3B
-            new_l3b = L3B()
-            for c in coord._cells:
-                new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
-            coord.b = new_l3b
-            coord._cross_cell_active = len(coord._cells) >= 2
-            return {"success": True, "data": {"removed": cell_id, "remaining": len(coord._cells)}}
+            r = coord.remove_cell(cell_id)
+            return {"success": True, "data": r}
 
         return {"success": False, "error": "usage: /cluster [status|composites|expand <id>|shrink <id>]"}
     except Exception as e:
@@ -632,7 +624,8 @@ def _cmd_history(args: list[str]) -> dict:
         lines = mgr.list()
         data = lines[-limit:]
         return {"success": True, "data": data, "count": len(data)}
-    except Exception:
+    except Exception as e:
+        logger.warning("_cmd_history: get_manager failed: %s", e)
         return {"success": True, "data": [], "count": 0}
 
 
@@ -697,9 +690,10 @@ def _cmd_destroy(args: list[str]) -> dict:
         return {"success": False, "error": "usage: /destroy <cell_id>"}
     cell_id = args[0]
     try:
-        from l3.cell import reset_cells
-        reset_cells()
-        return {"success": True, "message": f"Cell '{cell_id}' destroyed (all cells reset)"}
+        from l3.cell import get_cell
+        cell = get_cell(cell_id)
+        cell.destroy()
+        return {"success": True, "message": f"Cell '{cell_id}' destroyed"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -720,7 +714,8 @@ def _cmd_audit(args: list[str]) -> dict:
     try:
         from l1.kernel.registry import get_registry
         reg = get_registry()
-        limit = int(args[0]) if args and args[0].isdigit() else 20
+        from l1.kernel.params.kernel import REGISTRY_QUERY_LIMIT
+        limit = int(args[0]) if args and args[0].isdigit() else REGISTRY_QUERY_LIMIT
         return {"success": True, "data": reg.audit(limit=limit), "count": limit}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -962,14 +957,15 @@ def _cmd_stats(args: list[str]) -> dict:
                 cell = get_cell(scope_id)
                 pmu = getattr(cell, "pmu", None)
                 pmu_stats = pmu.stats() if pmu else None
-            except Exception:
-                logger.debug("commands: PMU stats unavailable for %s", scope_id)
+            except Exception as e:
+                logger.warning("commands: PMU stats unavailable for %s: %s", scope_id, e)
             return {"success": True, "cell": scope_id, "window": window,
                     "data": {"metrics": results, "pmu_live": pmu_stats},
                     "count": len(results)}
         if sub == "top":
             metric = sub_args[0] if sub_args else "tools.executed.ring_1"
-            limit = int(sub_args[1]) if len(sub_args) > 1 else 10
+            from l1.kernel.params.system import TOOL_SEARCH_MAX_RESULTS
+            limit = int(sub_args[1]) if len(sub_args) > 1 else TOOL_SEARCH_MAX_RESULTS
             top_window = sub_args[2] if len(sub_args) > 2 else window
             results = sc.top(metric=metric, limit=limit, window=top_window)
             return {"success": True, "metric": metric, "window": top_window,

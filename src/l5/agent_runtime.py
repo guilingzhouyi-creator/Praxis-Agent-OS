@@ -34,6 +34,7 @@ from l1.kernel import (
 )
 from l1.kernel.constitution import get_constitution
 from l3.memory.memory import get_memory as _get_mem
+from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +96,9 @@ class AgentRuntime:
         # ─── 1. Memory refeed (auto-load context before inference) ───
         if action.type in (_ACTION_THINK, _ACTION_TOOL_CALL):
             self._inference_id += 1
-            ctx = _get_mem().build_context(self.agent_id, max_tokens=2048)
+            ctx = _get_mem().build_context(self.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
             if ctx:
-                self._task_context = ctx[:500]
+                self._task_context = ctx[:LOG_TRUNC_500]
                 result["ticks"].append({"phase": "refeed", "tokens": len(ctx) // 4})
 
         # ─── 2. Resource check (workers) ───
