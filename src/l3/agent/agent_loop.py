@@ -624,7 +624,7 @@ class AgentLoop:
                     self._pmu.increment("tools.executed.ring_1")
             # CellCounter: record tool call (success inferred from no error key)
             try:
-                from .services.counter import get_counter as _gc
+                from l3.services.counter import get_counter as _gc
                 _gc().record_tool(self.agent_id, tool_name,
                                   success="error" not in (step_result.get("result", {}) if isinstance(step_result, dict) else {}))
             except Exception:
