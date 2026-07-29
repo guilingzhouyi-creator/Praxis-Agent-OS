@@ -247,6 +247,44 @@ layer_2:
       handler: l3.tools._memory.memory_store
       params: [{name: key, type: string, required: true}, {name: content, type: string, required: true}]
 
+  package:
+    pip_install:
+      description: "Install Python package via pip"
+      danger: 1
+      handler: l3.tools._package.pip_install
+      params: [{name: package, type: string, required: true}, {name: version, type: string, optional: true}]
+    pip_list:
+      description: "List installed Python packages"
+      danger: 0
+      handler: l3.tools._package.pip_list
+    npm_install:
+      description: "Install npm package"
+      danger: 1
+      handler: l3.tools._package.npm_install
+      params: [{name: package, type: string, required: true}, {name: global, type: bool, optional: true}]
+    apt_install:
+      description: "Install system package via apt"
+      danger: 1
+      handler: l3.tools._package.apt_install
+      params: [{name: package, type: string, required: true}]
+
+  lsp:
+    hover_info:
+      description: "Get hover documentation for a symbol"
+      danger: 0
+      handler: l3.tools._lsp.hover_info
+      params: [{name: path, type: string, required: true}, {name: line, type: int, optional: true}, {name: column, type: int, optional: true}]
+    diagnostics:
+      description: "Get diagnostics (errors/warnings) for a file"
+      danger: 0
+      handler: l3.tools._lsp.diagnostics
+      params: [{name: path, type: string, required: true}]
+    workspace_symbols:
+      description: "Search for symbols across the workspace"
+      danger: 0
+      handler: l3.tools._lsp.workspace_symbols
+      params: [{name: query, type: string, required: true}]
+
 # ═══════════════════════════════════════════════════════════════
 # Layer 3 — Destructive (RING_3, danger >= 4)
 # ═══════════════════════════════════════════════════════════════

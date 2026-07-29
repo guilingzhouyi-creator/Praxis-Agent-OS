@@ -23,6 +23,9 @@ python -m pytest tests/test_kernel.py -x -q                                 # si
 python tests/runner.py test_kernel                                           # single via runner
 python -m pytest tests/ -k "kernel" -x -q                                   # keyword filter
 python -m pytest tests/test_layer_imports.py -x -q                          # layer import constraint
+python -m pytest tests/test_params_compliance.py -x -q                      # params constant compliance (strict)
+python -m pytest tests/test_params_compliance.py -k "not strict" -x -q     # params constant compliance (soft)
+python -m pytest tests/test_hardcoded_fixes_regression.py -x -q             # regression: hardcoded fixes
 ```
 
 ## Architecture

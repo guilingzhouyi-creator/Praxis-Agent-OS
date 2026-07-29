@@ -62,3 +62,6 @@ check_untyped_defs = false
 [tool.coverage.run]
 source = ["src"]
 omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 60
