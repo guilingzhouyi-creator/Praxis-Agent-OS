@@ -10,7 +10,7 @@ from typing import Any, Callable
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.commands import get_handler as _gh
 from l1.kernel.commands import get_registry
-from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
+from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3, AGENT_ROLE_TYPES
 from l1.kernel.params.system import (
     CELL_EVENTS_LIMIT,
     CRON_DEFAULT_PRIORITY,
@@ -75,7 +75,7 @@ def preconnect_enhanced(cell_id: str, agent_id: str,
         return {"allowed": False, "checks": checks,
                 "reason": basic.get("reason", "preconnect_failed")}
     try:
-        from l4.llm.llm import get_engine
+        from l3.services.adapter_bridge import get_llm_engine
         engine = get_engine()
         provider_status = engine.provider_status() if hasattr(engine, 'provider_status') else {}
         checks["llm_provider"] = provider_status
@@ -342,7 +342,7 @@ def _cmd_cluster(args: list[str]) -> dict:
             for cid in cells:
                 try:
                     cell = get_cell(cid)
-                    agents[cid] = list(cell._agents.keys()) if hasattr(cell, '_agents') else []
+                    agents[cid] = cell.get_agent_ids()
                 except Exception as e:
                     logger.warning("_cmd_cluster: cell %s agents failed: %s", cid, e)
                     agents[cid] = []
@@ -352,11 +352,11 @@ def _cmd_cluster(args: list[str]) -> dict:
             from l3.cell.peers.l3 import get_coordinator
             coord = get_coordinator()
             state = "SINGLE"
-            if len(coord._cells) >= 2 and getattr(coord, '_cross_cell_active', False):
+            if coord.get_cell_count() >= 2 and coord.is_cross_cell_active():
                 state = "MULTI"
-            elif len(coord._cells) >= 2:
+            elif coord.get_cell_count() >= 2:
                 state = "TRANSITIONING"
-            return {"success": True, "data": {"state": state, "cells": len(coord._cells), "composites": len(coord.b.composites), "cross_cell_active": getattr(coord, '_cross_cell_active', False)}}
+            return {"success": True, "data": {"state": state, "cells": coord.get_cell_count(), "composites": len(coord.b.composites), "cross_cell_active": coord.is_cross_cell_active()}}
 
         if sub == "composites":
             from l3.cell.peers.l3 import get_coordinator
@@ -391,7 +391,7 @@ def _cmd_htn(args: list[str]) -> dict:
         if sub == "a":
             from l3.bus.htn_a import get_htn_a
             h = get_htn_a()
-            return {"success": True, "data": {"htn": "A", "methods": len(h._methods)}}
+            return {"success": True, "data": {"htn": "A", "methods": len(getattr(h, "_methods", []))}}
 
         if sub == "b":
             from l3.cell.peers.l3 import get_coordinator
@@ -406,7 +406,7 @@ def _cmd_htn(args: list[str]) -> dict:
         if sub == "c":
             from l3.bus.htn_planner import get_service
             h = get_service()
-            return {"success": True, "data": {"htn": "C", "methods": len(h._methods)}}
+            return {"success": True, "data": {"htn": "C", "methods": len(getattr(h, "_methods", []))}}
 
         return {"success": False, "error": "usage: /htn [a|b|c]"}
     except Exception as e:
@@ -459,8 +459,13 @@ def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
         return {"agent": agent_id, "result": r}
     if op == "ring":
         ring_n = int(op_args[0]) if op_args else 1
-        r = mm._ring(ring_n).status() if hasattr(mm, '_ring') else {"error": "not available"}
-        return {"agent": agent_id, "ring": ring_n, "status": r}
+        ring_fn = getattr(mm, "_ring", None)
+        if ring_fn:
+            ring = ring_fn(ring_n)
+            status = ring.status() if hasattr(ring, "status") else str(ring)
+        else:
+            status = {"error": "not available"}
+        return {"agent": agent_id, "ring": ring_n, "status": status}
     return {"agent": agent_id, "error": f"unknown op: {op}"}
 
 
@@ -489,7 +494,7 @@ def resolve_agents(scope: str, scope_id: str) -> list[str]:
         from l3.cell import get_cell, get_cells
         cells = get_cells()
         if scope_id and scope_id in cells:
-            return list(cells[scope_id]._agents.keys())
+            return cells[scope_id].get_agent_ids()
         return [f"{cid}-agent" for cid in cells]
     if scope == "agent" and scope_id:
         return [scope_id]
@@ -537,8 +542,8 @@ def _cmd_plugins(args: list[str]) -> dict:
 
 def _cmd_mcp(args: list[str]) -> dict:
     try:
-        from l4.mcp_bridge import get_bridge, McpClient
-        bridge = get_bridge()
+        from l3.services.adapter_bridge import get_mcp_bridge
+        bridge, McpClient = get_mcp_bridge()
         sub = args[0].lower() if args else "status"
         if sub in ("status", "list"):
             return {"success": True, "data": bridge.status()}
@@ -774,7 +779,7 @@ def _cmd_config(args: list[str]) -> dict:
 
 def _cmd_cron(args: list[str]) -> dict:
     try:
-        from l4.cron_scheduler import get_scheduler as _get_cron
+        from l3.services.adapter_bridge import get_cron_scheduler
         s = get_scheduler()
         sub = args[0].lower() if args else "list"
         if sub == "list":
@@ -1163,7 +1168,7 @@ def _model_list() -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-    from l4.vault.credential_vault import export_vault_status
+    from l3.services.adapter_bridge import export_vault_status
     vault = export_vault_status()
 
     lines = [f"Providers ({len(providers)} registered):"]
@@ -1194,7 +1199,7 @@ def _model_status() -> dict:
 
     lines.append("")
     lines.append("Resolved Configs:")
-    for role in ["peer_agent", "subagent.default", "scout", "r4_agent", "convention", "card_planner", "l3a"]:
+    for role in AGENT_ROLE_TYPES:
         try:
             cfg = ms.resolve(role)
             lines.append(f"  {role:25s} → provider={cfg.provider:15s} model={cfg.model}")

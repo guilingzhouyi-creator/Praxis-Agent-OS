@@ -1064,6 +1064,16 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                 "interrupt": self._interrupt.stats(),
             }
 
+    def get_agent_ids(self) -> list[str]:
+        """Return list of agent IDs registered in this cell."""
+        with self._lock:
+            return list(self._agents.keys())
+
+    def get_agent_count(self) -> int:
+        """Return number of agents registered in this cell."""
+        with self._lock:
+            return len(self._agents)
+
     def pmu_snapshot(self) -> dict | None:
         """Take a PMU snapshot and return it as a dict."""
         snap = self._pmu.snapshot()

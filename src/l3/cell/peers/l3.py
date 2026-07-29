@@ -78,6 +78,15 @@ class CentralController:
         else:
             self._cross_cell_active = False
 
+    def get_cell_count(self) -> int:
+        """Return number of registered Cells."""
+        with self._lock:
+            return len(self._cells)
+
+    def is_cross_cell_active(self) -> bool:
+        """Return whether cross-cell routing is active."""
+        return bool(getattr(self, '_cross_cell_active', False))
+
     def remove_cell(self, cell_id: str) -> dict:
         """Atomically remove a Cell and rebuild L3B. Returns removed cell info."""
         with self._lock:
