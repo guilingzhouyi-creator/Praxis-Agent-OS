@@ -23,8 +23,9 @@ def go_to_definition(args: dict, agent_id: str) -> dict:
     if not path:
         return {"success": False, "error": "path is required"}
     try:
-        mgr = _get_mgr()
-        result = mgr.hover(path, line=int(line), column=int(column))
+        from l4.lsp.lsp import get_lsp
+        lsp = get_lsp()
+        result = lsp.definition(path, line=int(line), column=int(column))
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
