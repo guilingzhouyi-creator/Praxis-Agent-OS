@@ -518,7 +518,7 @@
 │  ├── api_middleware.py (CORS/Locale/Body)    ✅                │
 │  ├── llm.py / llm_base / llm_providers       ✅                │
 │  ├── llm_worker/ (RPC worker)                ✅                │
-│  ├── sandbox/ (COW isolation + server)       ✅                │
+│  ├── sandbox/ (COW isolation + structured diff)       ✅                │
 │  ├── mcp_bridge.py (MCP adapter)             ✅                │
 │  ├── rpc/ (protocol + transport)             ✅                │
 │  ├── supervisor.py (process supervisor)      ✅                │
@@ -1003,9 +1003,9 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │    9 steps: clearance → rate → constitution → gatechain     │
 │         → alloc → pool → lock → execute → release          │
 │                                                             │
-│  Isolation Layer: Sandbox (l4/sandbox.py)                   │
+│  Isolation Layer: Sandbox (l4/sandbox/cell_sandbox.py)                   │
 │    Copy-on-Write, 5 config files (DANGER_0 ~ DANGER_4)     │
-│     Write to sandbox → L3 approval → flush back to project file            │
+│     Write to sandbox + compute hunks → L3 approval → flush back to project file            │
 │                                                             │
 │  Layer Import Constraints (test_layer_imports.py):          │
 │    L5 → L4/L3/L2/L1  ✅                                    │

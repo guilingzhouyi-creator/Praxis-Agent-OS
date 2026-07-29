@@ -269,11 +269,11 @@ flowchart TB
 | **lsp/** | `lsp.py`, `lsp_manager.py` | LSP client + manager (615 lines) |
 | **vault/** | `credential_vault.py`, `auth.py` | AES-256 vault + authentication |
 | **sse/** | `sse_bridge.py` | SSE event streaming bridge |
-| **sandbox/** | `manager.py`, `server.py` | Execution sandbox with 5 profiles |
+| **sandbox/** | `cell_sandbox.py`, `manager.py`, `server.py` | Per-Cell COW sandbox with structured diff + command-execution sandbox |
 | **rpc/** | `transport.py`, `protocol.py` | IPC framework |
 | **adapters/** | `bus_memory.py`, `channel_ring.py`, `i18n_yaml.py`, etc. (6 files) | Port→adapter wiring |
 | **llm_worker/** | `server.py` | LLM worker process (Unix socket IPC) |
-| Root files | `supervisor.py`, `sandbox.py`, `mcp_bridge.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | Process supervision, COW sandbox, MCP, cron, CI pipeline, git ops, network mesh, webhooks, dashboard |
+| Root files | `supervisor.py`, `mcp_bridge.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | Process supervision, MCP, cron, CI pipeline, git ops, network mesh, webhooks, dashboard |
 
 ### L5 — User (`src/l5/`) — 2 Files, ~470 Lines
 
@@ -293,6 +293,33 @@ L1 → cannot import any upper layer
 ```
 
 Enforced by `tests/test_layer_imports.py`. 53 pre-existing cross-layer imports are explicitly allowlisted (adapter patterns, LLM calls, OS fallback lifecycle paths).
+
+## Structured Diff System (Sandbox)
+
+The sandbox provides copy-on-write isolation for Agent file operations with structured diff tracking.
+
+### Diff Views
+
+| Mode | Value | Use Case |
+|------|-------|----------|
+| `agent` | Raw hunks (full structure) | LLM review |
+| `human` | Unified diff text | Terminal |
+| `summary` | Lightweight aggregation (cached) | Dashboard |
+| `colored` | Unified diff + ANSI colors per semantic type | Terminal with syntax |
+
+### Color Scheme
+
+Configurable at three levels (config file / settings center / runtime API):
+
+Default mapping: `logic_change`(red), `reformat`(blue), `comment_only`(green), `import_change`(yellow), `rename`(cyan), `structural`(gray).
+
+### Key Design Decisions
+
+- **Copy-on-write**: Reads hit the project; writes go to per-Agent sandbox subdirectory.
+- **Cross-agent dependency routing**: `read()` resolves via `depends_on` chain.
+- **Per-hunk attribution**: Each hunk records `agent_id`, `tool_name`, `timestamp`.
+- **Multi-agent entry storage**: Entries keyed by `path::agent_id`.
+- **Three-layer summary cache**: L1 (entry) / L2 (CellSandbox dict) / L3 (disk).
 
 ## Core Concepts
 
