@@ -605,6 +605,20 @@ Persistent state is stored in the project root directory (CWD), not under `PRAXI
 | `memories/archive.db` | Long-term memory (SQLite FTS5) | `l3/memory/memory.py` |
 | `events.db` | Event store (legacy) | `l1/kernel/persist.py` |
 | `.praxis_seq_monitor_*.json` | Sequence anomaly data | `l3/scheduler/sequence_monitor.py` |
+
+## Configuration Files
+
+See `docs/configuration/overview.md` for the complete reference.
+
+| File | System | Contents |
+|------|--------|----------|
+| `config/praxis.yaml` | `config_loader.py` | Main deployment config — kernel, cell, LLM, diff, gatechain, API, etc. |
+| `config/commands.yaml` | `commands.py` | L2 Shell command metadata and SubAgent specs |
+| `config/tools.yaml` | `tool_config.py` | Tool definitions by ring layer |
+| `config/.mcp.json` | `mcp_bridge.py` | MCP server definitions |
+| `config/.praxis-rules.md` | `constitution.py` | Constitution rules |
+| `config/discovery/` | `discovery.py` | Auto-discovered structural config (5 YAML files) |
+| `.praxis_settings.json` | `settings_center.py` | Runtime settings overrides (auto-persisted) |
 | `.praxis_monitor_bus.jsonl` | Monitor event log | `l3/bus/monitor_bus.py` |
 | `.praxis/.praxis_reference_channel.jsonl` | Reference channel events | `l3/bus/reference_channel.py` |
 

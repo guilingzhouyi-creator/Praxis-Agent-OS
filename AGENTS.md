@@ -57,6 +57,8 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 ## L3 + L4 conventions (enforced during code review)
 
 - **Use `l1.kernel.platform` abstractions** for all OS-specific operations: `grep_cmd()`, `run_shell()`, `IS_WINDOWS`, `IS_POSIX`. Never self-implement platform-specific subprocess calls (e.g., `rg` → `grep` fallback with `shell=True`).
+- **ConfigDiscovery** — structural configuration goes in `config/discovery/*.yaml`, auto-discovered at boot. See `docs/configuration/overview.md`.
+- **Three-layer config**: `params/*.py` (compile-time defaults) ← `config/discovery/*.yaml` (structural overrides) ← `config/praxis.yaml` (deployment config).
 - **Truncation literals**: use `LOG_TRUNC_*` constants from `params/system.py` (`LOG_TRUNC_40` through `LOG_TRUNC_10000`). Never write `[:40]`, `[:3000]` etc. directly.
 - **Hash truncation**: use `HASH_TRUNC_SHORT` (8), `HASH_TRUNC_MEDIUM` (12), `HASH_TRUNC_LONG` (16).
 - **Memory importance weights**: use `MEMORY_IMPORTANCE_*` and `MEMORY_PRESSURE_*` constants from `params/system.py`.
