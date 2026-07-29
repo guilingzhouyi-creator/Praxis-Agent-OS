@@ -51,7 +51,7 @@ def get_action_handler(term, action: str):
         if handler:
             return lambda t, c, p: (handler(c.params or {}, t.agent_id), [], handler(c.params or {}, t.agent_id).get("success", True))
     except Exception:
-        pass
+        logger.debug("_term_handlers: handler resolution failed")
     direct_fn = _FUNC_HANDLERS.get(action)
     if direct_fn:
         return direct_fn
@@ -331,7 +331,7 @@ def handle_think(term, card, phases):
             tags=["think", card.action],
             ring=1,
         )
-        term.context.store(key=f"think:{card.target[:40]}",
+        term.context.store(key=f"think:{card.target[:LOG_TRUNC_40]}",
                            value={"agent": term.agent_id, "thought": card.target, "output": output[:LOG_TRUNC_200]},
                            agent_id=term.agent_id, entry_type="thought")
         phases.append("memory_stored")

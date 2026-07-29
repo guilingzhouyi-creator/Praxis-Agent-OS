@@ -7,6 +7,7 @@ import os
 import time
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_500
 from l1.kernel.paths import get_paths as _gp
 
 
@@ -93,7 +94,7 @@ def archive_search(args: dict, agent_id: str) -> dict:
         rows = conn.execute(sql, params).fetchall()
         return {"success": True, "results": [{
             "id": r[0], "fonds": r[1], "series": r[2],
-            "content": r[3][:500], "tags": r[4].split(",") if r[4] else [],
+            "content": r[3][:LOG_TRUNC_500], "tags": r[4].split(",") if r[4] else [],
             "created_at": r[5],
         } for r in rows], "total": len(rows)}
     except Exception as e:

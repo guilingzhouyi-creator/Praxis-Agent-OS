@@ -12,6 +12,8 @@ import logging
 import os
 import time
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_40
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class TodoTracker:
     TASK_STATUSES = frozenset({"pending", "in_progress", "verifying", "verified", "escalated", "waived"})
 
     def __init__(self, state_path: str = ""):
-        self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE", ".praxis/.praxis_todo_state.json")
+        self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE") or os.path.join(_gp().data_dir, "todo_state.json")
         self._items: list[dict] = []
         self._read_cfg()
         self._iteration: int = 0
@@ -106,11 +108,11 @@ class TodoTracker:
         if old == "verified" and status == "verified":
             return "verified"
         if old == "verified":
-            return f"error: task '{content[:40]}' is already verified"
+            return f"error: task '{content[:LOG_TRUNC_40]}' is already verified"
         if old == "escalated" and status != "waived":
-            return f"error: task '{content[:40]}' is escalated"
+            return f"error: task '{content[:LOG_TRUNC_40]}' is escalated"
         if old == "waived" and status not in ("verified", "waived"):
-            return f"error: task '{content[:40]}' is waived"
+            return f"error: task '{content[:LOG_TRUNC_40]}' is waived"
         if old == "in_progress" and status == "verifying":
             task["status"] = "verifying"
             self._persist()
@@ -127,7 +129,7 @@ class TodoTracker:
                        evidence: str = "") -> dict:
         task = self._find(content)
         if task is None:
-            return {"action": "error", "detail": f"unknown task: {content[:40]}"}
+            return {"action": "error", "detail": f"unknown task: {content[:LOG_TRUNC_40]}"}
         if self._status == "closed":
             return {"action": "error", "detail": "loop is closed"}
         if task["status"] in ("verified", "escalated", "waived"):
@@ -145,7 +147,7 @@ class TodoTracker:
             if ok:
                 task["status"] = "verifying"
                 self._persist()
-                return {"action": "verify", "task": content[:40], "detail": "run verification checks"}
+                return {"action": "verify", "task": content[:LOG_TRUNC_40], "detail": "run verification checks"}
             return self._fail_task(task)
         if phase == "verify":
             if task["status"] != "verifying":
@@ -155,7 +157,7 @@ class TodoTracker:
                     return {"action": "error", "detail": "passing verify requires --evidence"}
                 task["status"] = "verified"
                 self._persist()
-                return {"action": "done", "task": content[:40], "detail": "verified", "evidence": evidence}
+                return {"action": "done", "task": content[:LOG_TRUNC_40], "detail": "verified", "evidence": evidence}
             return self._fail_task(task)
         return {"action": "error", "detail": f"unknown phase: {phase}"}
 
@@ -174,11 +176,11 @@ class TodoTracker:
     def waive(self, content: str, reason: str = "") -> dict:
         task = self._find(content)
         if task is None:
-            return {"action": "error", "detail": f"unknown task: {content[:40]}"}
+            return {"action": "error", "detail": f"unknown task: {content[:LOG_TRUNC_40]}"}
         task["status"] = "waived"
         task["evidence"].append({"phase": "waive", "reason": reason})
         self._persist()
-        return {"action": "waived", "task": content[:40], "detail": reason}
+        return {"action": "waived", "task": content[:LOG_TRUNC_40], "detail": reason}
 
     def can_close(self) -> tuple[bool, list[str]]:
         blocked = [t["content"][:60] for t in self._items
@@ -242,7 +244,7 @@ class TodoTracker:
             try:
                 os.remove(self._state_path)
             except Exception:
-                pass
+                logger.debug("todo_tracker: state file cleanup failed")
 
     def _find(self, content: str) -> dict | None:
         for t in self._items:

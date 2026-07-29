@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.platform import get_config_dir
-from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_EXPORT_LIMIT
+from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class RecordCenter:
                 from .services.stats_center import get_center
                 self._stats_center = get_center()
             except Exception:
-                pass
+                logger.debug("record_center: stats center init failed")
         return self._stats_center
 
     # ── Unified query ────────────────────────────────────────────
@@ -147,7 +147,7 @@ class RecordCenter:
                     e["_source"] = "reference"
                     results.append(e)
             except Exception:
-                pass
+                logger.debug("record_center: reference recall failed")
 
         # Keyword filter
         if q.keyword:
@@ -251,7 +251,7 @@ class RecordCenter:
                             all_records.append(e)
                     counts["reference"] = len(r)
             except Exception:
-                pass
+                logger.debug("record_center: reference aggregate failed")
 
         export_data = {
             "exported_at": datetime.now(tz=timezone.utc).isoformat(),
@@ -309,7 +309,7 @@ class RecordCenter:
 
     def _auto_export_path(self) -> str:
         ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        return os.path.join(self._export_dir, f"records_{ts}.json")
+        return os.path.join(self._export_dir, RECORDS_EXPORT_FILE.format(ts=ts))
 
     def _apply_retention(self) -> int:
         """Remove export files older than retention_days.  Returns count removed."""

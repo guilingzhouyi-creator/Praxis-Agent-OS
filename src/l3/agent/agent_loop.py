@@ -45,6 +45,9 @@ from l1.kernel.params.system import (
     CONTEXT_PRESSURE_CRITICAL,
     CONTEXT_BUILD_MAX_TOKENS,
     CONTEXT_BUILD_MIN_TOKENS,
+    MEMORY_PROMOTION_THRESHOLD,
+    MEMORY_IMPORTANCE_DECISION,
+    MEMORY_IMPORTANCE_BASE,
 )
 from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
@@ -98,6 +101,12 @@ class AgentLoop:
         self._cadence = VerifyCadence()
         self._chat_params_hooks: list[Callable] = []
         self._run_count = 0
+        self._context_trail: list[dict] | None = None
+        # Cached state for continue_run() — built once on first run(), reused thereafter.
+        # Maintaining identical system prompt + tools across calls enables LLM
+        # provider prompt caching (Anthropic/DeepSeek) and avoids redundant work.
+        self._cached_system: str = ""
+        self._cached_tools: tuple[list, list] = ([], [])
         self._pmu: Any = None
 
     def set_pmu(self, pmu: Any) -> None:
@@ -146,7 +155,7 @@ class AgentLoop:
             const_summary = get_constitution().summary(for_agent=self.agent_id)
             system = (system + "\n\n" + const_summary) if system else const_summary
         except Exception:
-            pass
+            logger.debug("agent_loop: constitution summary failed")
 
         wrapped_tools = []
         read_only_tools = []
@@ -326,7 +335,7 @@ class AgentLoop:
                         summary=summary,
                         agent_id=self.agent_id,
                         entry_type="decision",
-                        importance=0.6,
+                        importance=MEMORY_PROMOTION_THRESHOLD,
                     )
                 elif not result.get("success") and result.get("error"):
                     error = result["error"][:LOG_TRUNC_200]
@@ -337,7 +346,7 @@ class AgentLoop:
                         summary=f"FAIL [{self.agent_id}]: {error}",
                         agent_id=self.agent_id,
                         entry_type="failure",
-                        importance=0.3,
+                        importance=MEMORY_IMPORTANCE_DECISION,
                     )
             except Exception as e:
                 logger.debug("cell cache inject: %s", e)
@@ -397,8 +406,18 @@ class AgentLoop:
         self._cadence.reset()
 
         engine = _get_port("llm")
-        system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
-        system = self._inject_extra_context(system)
+        if self._cached_system:
+            # continue_run() path: reuse cached system prompt and tools.
+            # The identical system string enables LLM prompt caching across calls.
+            system = self._cached_system
+            wrapped_tools, read_only_tools = self._cached_tools
+            model_kwargs = self._build_model_kwargs(model_config or {}, engine)
+        else:
+            # First run: build fresh, cache for subsequent calls.
+            system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
+            system = self._inject_extra_context(system)
+            self._cached_system = system
+            self._cached_tools = (wrapped_tools, read_only_tools)
         deadline = time.time() + timeout if timeout > 0 else float("inf")
 
         # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──
@@ -407,7 +426,7 @@ class AgentLoop:
         try:
             ctx_window = engine.context_window(cell_id=self._cell_id, agent_id=self.agent_id)
         except Exception:
-            pass
+            logger.debug("agent_loop: context window failed")
         entity = self.agent_id
 
         def _emit_memory_event(etype: str, data: dict) -> None:
@@ -417,14 +436,14 @@ class AgentLoop:
                 _MB().emit(_ME(type=etype, source="agent_loop", severity="info",
                                agent_id=self.agent_id, cell_id=self._cell_id, data=data))
             except Exception:
-                pass
+                logger.debug("agent_loop: monitor bus emit failed")
             try:
                 from l3.bus.reference_channel import get_rc as _rc
                 _rc().event("memory_compression", {**data, "type": etype,
                             "agent_id": self.agent_id, "cell_id": self._cell_id},
                             source="agent_loop", trace_id=getattr(self, '_last_card_id', ''))
             except Exception:
-                pass
+                logger.debug("agent_loop: reference channel event failed")
 
         if ctx_window > 0:
             est_tokens = len(self.task) // 4
@@ -491,7 +510,8 @@ class AgentLoop:
         with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
             result = engine.tool_use(
                 prompt=self.task, tools=wrapped_tools, system=system,
-                max_turns=max_steps, user_id=self._user_id, **model_kwargs,
+                max_turns=max_steps, user_id=self._user_id,
+                context_trail=self._context_trail, **model_kwargs,
             )
         if not result:
             return self._finish({
@@ -500,6 +520,17 @@ class AgentLoop:
                 "verifier_used": False, "corrections": 0, "loop_stopped": False,
             }, t0=t0)
 
+        self._context_trail = result.get("context_trail")
+        # Persist context_trail to snapshot so it survives agent restart.
+        # Only save when we have actual messages and an agent_id to key on.
+        if self._context_trail and self._user_id:
+            try:
+                from .agent_persist import save_snapshot
+                save_snapshot(self._user_id, {
+                    "context_trail": self._context_trail,
+                })
+            except Exception:
+                pass
         turns = result.get("turns", 1)
         tool_results = result.get("tool_call_results", []) or []
 
@@ -575,7 +606,7 @@ class AgentLoop:
                 _gc().record_tool(self.agent_id, tool_name,
                                   success="error" not in (step_result.get("result", {}) if isinstance(step_result, dict) else {}))
             except Exception:
-                pass
+                logger.debug("agent_loop: tool counter record failed")
 
             if verifier is not None:
                 v = verifier.check(step_result, self.task)
@@ -598,10 +629,10 @@ class AgentLoop:
                                     summary=f"CORRECT [{self.agent_id}] {tool_name}: {v.get('reason', '')[:LOG_TRUNC_120]}",
                                     agent_id=self.agent_id,
                                     entry_type="correction",
-                                    importance=0.5,
+                                    importance=MEMORY_IMPORTANCE_BASE,
                                 )
                             except Exception:
-                                pass
+                                logger.debug("agent_loop: correction memory failed")
                     except Exception as e:
                         logger.warning("agent_loop verifier correction failed: %s", e)
 

@@ -54,7 +54,7 @@ class CellTokenMerger:
                         data={"cell_id": self.cell_id, "input_tokens": total,
                               "agent_count": len(data.get("per_agent", {}))})
         except Exception:
-            pass
+            logger.debug("cell_token_merger: emit token usage signal failed")
 
         # → MonitorBus
         try:
@@ -65,4 +65,4 @@ class CellTokenMerger:
                 data={"token_total": total, "per_agent": data.get("per_agent", {})},
             ))
         except Exception:
-            pass
+            logger.debug("cell_token_merger: emit monitor bus event failed")

@@ -12,6 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 logger = logging.getLogger(__name__)
 logger.warning("DEPRECATED: import from services.card — use services.card_unified instead")
@@ -55,7 +56,7 @@ class Phase:
 @dataclass
 class Card:
     """DEPRECATED: use CardUnified instead."""
-    id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     intent: str = ""
     domain: str = ""
     mode: CardMode = CardMode.EXECUTE

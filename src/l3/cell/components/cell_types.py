@@ -60,6 +60,7 @@ class MessageType(Enum):
 
 
 from l1.kernel.params.agent import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 def is_peer(agent_id: str) -> bool:
@@ -91,7 +92,7 @@ class AgentInfo:
 
 @dataclass
 class CellMessage:
-    msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     msg_type: MessageType = MessageType.CONSULT
     sender: str = ""
     target: str = ""

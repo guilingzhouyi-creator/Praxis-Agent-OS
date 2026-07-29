@@ -17,6 +17,7 @@ import logging
 from typing import Any
 
 from .htn_planner import HTNPlanner, Task, TaskType
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ def route_from_htn_a(
         task_type=TaskType.COMPOUND,
         domain=subtask.domain,
         agent_id=next_cell,
-        description=f"Route: {subtask.name} → {next_cell} | Prev summary: {prev_summary[:200]}",
+        description=f"Route: {subtask.name} → {next_cell} | Prev summary: {prev_summary[:LOG_TRUNC_200]}",
     )
     decomposed = htn_b.decompose(f"route {subtask.name} to {next_cell}", subtask.domain)
     return decomposed.sub_tasks if decomposed.sub_tasks else []

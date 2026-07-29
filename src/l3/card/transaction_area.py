@@ -21,7 +21,7 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import TRANSACTION_AREA_AUTO_SAVE
+from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, TRANSACTION_AREA_AUTO_SAVE
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
 
@@ -178,16 +178,16 @@ class TransactionArea(BaseService, PersistableMixin):
         if can_auto and size == "small":
             card.status = CardStatus.APPROVED
             card.approved_at = time.time()
-            logger.info("card auto-approved (small): %s — %s", card_id, intent[:50])
+            logger.info("card auto-approved (small): %s — %s", card_id, intent[:LOG_TRUNC_50])
             return {"success": True, "card_id": card_id, "status": "approved", "auto": True}
         
         if can_auto and size == "medium":
             card.status = CardStatus.APPROVED
             card.approved_at = time.time()
-            logger.info("card auto-approved (medium): %s — %s", card_id, intent[:50])
+            logger.info("card auto-approved (medium): %s — %s", card_id, intent[:LOG_TRUNC_50])
             return {"success": True, "card_id": card_id, "status": "approved", "auto": True}
         
-        logger.info("card enqueued: %s — %s (%s, waiting human)", card_id, intent[:50], size)
+        logger.info("card enqueued: %s — %s (%s, waiting human)", card_id, intent[:LOG_TRUNC_50], size)
         return {"success": True, "card_id": card_id, "status": "pending"}
 
     def approve(self, card_id: str) -> dict:
@@ -267,7 +267,7 @@ class TransactionArea(BaseService, PersistableMixin):
                 cards = [c for c in cards if c.status == status_enum]
         return {
             "success": True,
-            "cards": [{"card_id": c.card_id, "intent": c.intent[:60],
+            "cards": [{"card_id": c.card_id, "intent": c.intent[:LOG_TRUNC_60],
                        "domain": c.domain, "size": c.size, "priority": c.priority,
                        "status": c.status.name, "created_at": c.created_at}
                       for c in sorted(cards, key=lambda x: -x.priority)],

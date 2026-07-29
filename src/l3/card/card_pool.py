@@ -16,6 +16,8 @@ import logging
 import os
 from typing import Any
 
+from l1.kernel.params.system import CARD_YAML_EXPORT
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +31,6 @@ class CardPool:
     def _load_registries_from_config(self) -> None:
         """Load remote registry URLs from praxis.yaml card_pool.registries."""
         try:
-            from l1.kernel.params.system import PRAXIS_CONFIG_DIR
             import yaml
             cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "praxis.yaml")
             if os.path.exists(cfg_path):
@@ -108,7 +109,7 @@ class CardPool:
                        for p in defn.get("phases", [])],
             "metadata_schema": defn.get("metadata_schema", {}),
         }
-        out = path or f"{name}.card.yaml"
+        out = path or CARD_YAML_EXPORT.format(name=name)
         try:
             with open(out, "w", encoding="utf-8") as f:
                 yaml.dump(export, f, default_flow_style=False, allow_unicode=True)

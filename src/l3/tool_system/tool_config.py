@@ -17,10 +17,12 @@ import yaml
 
 from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, list_tools, get_tool, ToolRing
 from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
+from l1.kernel.params.system import LOG_TRUNC_60, TOOLS_CONFIG_PATH
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "config", "tools.yaml")
+_DEFAULT_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), TOOLS_CONFIG_PATH)
 
 
 def _resolve_handler(handler_path: str) -> Any:
@@ -238,7 +240,7 @@ class ToolConfig:
 
     @classmethod
     def completions(cls) -> dict[str, str]:
-        return {t.name: t.description[:60] for t in cls.all()}
+        return {t.name: t.description[:LOG_TRUNC_60] for t in cls.all()}
 
     # ── LLM integration ──
 

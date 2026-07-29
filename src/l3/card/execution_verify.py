@@ -6,6 +6,7 @@ Extracted from execution_plan.py for modularity.
 from __future__ import annotations
 
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_200
 
 
 def execute_scout_verify(ps: Any, spec: dict, phase: str) -> dict:
@@ -72,7 +73,7 @@ class Verifier:
         passed = result.get("success", False)
         return {
             "pass": passed,
-            "reason": "Goal met" if passed else f"Failed to achieve: {goal[:200]}",
+            "reason": "Goal met" if passed else f"Failed to achieve: {goal[:LOG_TRUNC_200]}",
             "suggestions": [] if passed else ["Review the error and retry"],
         }
 

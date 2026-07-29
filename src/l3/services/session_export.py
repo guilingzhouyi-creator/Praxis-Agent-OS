@@ -23,7 +23,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from l1.kernel.platform import get_config_dir
-from l1.kernel.params.system import SNAPSHOT_PATH_TEMPLATE
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM, HASH_TRUNC_SHORT, SNAPSHOT_GLOB, SNAPSHOT_PATH_TEMPLATE
 
 _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 
@@ -84,7 +84,7 @@ class SessionExport:
 @dataclass
 class Snapshot:
     """Session snapshot (includes full state)."""
-    id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     session_id: str = ""
     created_at: float = field(default_factory=time.time)
     label: str = ""
@@ -92,7 +92,7 @@ class Snapshot:
 
     def file_path(self) -> Path:
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-        return _SNAPSHOT_DIR / f"{self.id}.snapshot.json"
+        return _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=self.id)
 
     def save(self) -> dict:
         path = self.file_path()
@@ -150,7 +150,7 @@ class SessionExportManager:
                        metadata: dict = None) -> dict:
         """Export session as shareable JSON."""
         export = SessionExport(
-            session_id=session_id or f"session-{uuid.uuid4().hex[:8]}",
+            session_id=session_id or f"session-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}",
             agent_id=agent_id,
             messages=messages or [],
             turn_count=len(messages or []),
@@ -209,7 +209,7 @@ class SessionExportManager:
             return {"success": True, "snapshots": [], "count": 0}
 
         snapshots = []
-        for f in sorted(_SNAPSHOT_DIR.glob("*.snapshot.json"),
+        for f in sorted(_SNAPSHOT_DIR.glob(SNAPSHOT_GLOB),
                         key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))

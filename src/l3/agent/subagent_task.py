@@ -9,6 +9,7 @@ from typing import Any
 
 from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS, SUBAGENT_SESSION_TTL
 from .subagent_spec import SubAgentSpec
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_2000
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ class SubAgentTask:
 
     def _exec_post_scout(self, prompt_template: str) -> dict:
         prompt = prompt_template.format(
-            result=str(self.result)[:2000],
+            result=str(self.result)[:LOG_TRUNC_2000],
             answer=str(self.result.get("answer", ""))[:1000],
             task_id=self.id,
         )
@@ -118,7 +119,7 @@ class SubAgentTask:
                 return {"type": "scout", "error": "no scout available"}
             result = session.run(prompt)
             pool.put(session)
-            return {"type": "scout", "result": str(result)[:2000]}
+            return {"type": "scout", "result": str(result)[:LOG_TRUNC_2000]}
         except Exception as e:
             return {"type": "scout", "error": str(e)}
 
@@ -251,7 +252,7 @@ class SubAgentTask:
                 "task_id": self.id,
                 "spec": self.spec.name,
                 "status": self.status,
-                "prompt": self.prompt[:100],
+                "prompt": self.prompt[:LOG_TRUNC_100],
                 "result": self.result,
                 "elapsed_seconds": round(elapsed, 1),
                 "started_at": self.started_at,
@@ -274,7 +275,7 @@ def _resolve_tool_handler(tool_name: str) -> Any:
             _HANDLER_CACHE[tool_name] = handler
             return handler
     except Exception:
-        pass
+        logger.debug("subagent_task: handler cache failed")
     def _generic(tool_name, args, agent_id):
         return {"success": True, "output": f"executed {tool_name}"}
     _HANDLER_CACHE[tool_name] = _generic

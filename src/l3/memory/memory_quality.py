@@ -11,6 +11,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_2000,
     MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_DECISION, MEMORY_IMPORTANCE_PATTERN,
     MEMORY_IMPORTANCE_SUMMARY, MEMORY_IMPORTANCE_OBSERVATION,
+    MEMORY_MIN_CONTENT_LEN,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ _VAGUE_PATTERNS = re.compile(
 )
 
 # Minimum content length for actionable memory
-_MIN_CONTENT_LEN = 30
+_MIN_CONTENT_LEN = MEMORY_MIN_CONTENT_LEN  # re-export alias for backward compat
 
 
 def _score_importance(content: str, entry_type: str) -> float:
@@ -58,7 +59,7 @@ def _score_importance(content: str, entry_type: str) -> float:
         specifics += 0.05  # substantive
     if len(content) > 500:
         specifics -= 0.1   # too verbose
-    if len(content) < _MIN_CONTENT_LEN:
+    if len(content) < MEMORY_MIN_CONTENT_LEN:
         specifics -= 0.2
 
     return max(0.0, min(1.0, base + specifics))
@@ -68,8 +69,8 @@ def _is_good_memory(content: str, entry_type: str) -> tuple[bool, str]:
     """Validate memory quality. Returns (accepted, reason)."""
     if entry_type in _ALWAYS_SAVE:
         return True, ""
-    if len(content) < _MIN_CONTENT_LEN:
-        return False, f"too short ({len(content)} < {_MIN_CONTENT_LEN})"
+    if len(content) < MEMORY_MIN_CONTENT_LEN:
+        return False, f"too short ({len(content)} < {MEMORY_MIN_CONTENT_LEN})"
     if _VAGUE_PATTERNS.search(content):
         return False, "vague pattern"
     if len(content) > LOG_TRUNC_2000:

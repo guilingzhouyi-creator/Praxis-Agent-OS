@@ -24,6 +24,7 @@ from .models import Card, CardMode, PhaseMode, Step
 from l3.agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
 from .plan_step_types import StepState, PlanStep
 from .execution_run import execute as _execute, _run_phase, _execute_step, _execute_agent, _execute_scout
+from l1.kernel.params.system import LOG_TRUNC_80, SANDBOX_EXEC_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ class ExecutionPlan:
         """Execute all steps in a single phase. Delegates to execution_run.py."""
         return _run_phase(self, phase_name, phase_steps, mode, aggregated, timeout)
 
-    def execute(self, timeout: float = 300.0) -> dict:
+    def execute(self, timeout: float = SANDBOX_EXEC_TIMEOUT) -> dict:
         """Execute all steps. Delegates to execution_run.py."""
         return _execute(self, timeout=timeout)
 
@@ -302,7 +303,7 @@ class ExecutionPlan:
     def summary(self) -> dict:
         return {
             "card_id": self.card.id,
-            "intent": self._card_intent()[:80],
+            "intent": self._card_intent()[:LOG_TRUNC_80],
             "domain": self._card_domain(),
             "mode": self._card_mode(),
             "total_steps": len(self.steps),

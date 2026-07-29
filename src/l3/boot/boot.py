@@ -264,7 +264,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                 _mb().emit(_ME(type="boot.step", source="boot", severity="info",
                                message=f"step:{name} status:running"))
             except Exception:
-                pass
+                logger.debug("boot: boot step event emit failed")
             r = _exec_with_timeout(step.fn)
             results[name] = r
             _BOOT_STEPS.append(name)
@@ -313,7 +313,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         _mb2().emit(_ME2(type="boot.complete", source="boot", severity="info",
                          message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s"))
     except Exception:
-        pass
+        logger.debug("boot: boot complete event emit failed")
 
     logger.info("boot %s in %.2fs: %s", "OK" if success else "FAILED", elapsed, _BOOT_STEPS)
     return _BOOT_RESULT
@@ -370,7 +370,7 @@ def _load_constitution() -> dict:
                 result["restored"] = r.get("updated", 0)
                 logger.info("constitution: restored %d custom rules from L3", r.get("updated", 0))
         except Exception:
-            pass
+            logger.debug("boot: constitution restore failed")
 
         # Auto-trigger territory discussion if constitution is blank
         if result.get("assembly_mode"):
@@ -616,7 +616,7 @@ def _init_services() -> dict:
         from .bus.monitor_bus import MonitorEvent, get_bus as _mb
         _mb().emit(MonitorEvent(type="system.boot", source="boot", severity="info", message="System booted"))
     except Exception:
-        pass
+        logger.debug("boot: boot event emit failed")
     # Initialize ResourceBuffer (crash recovery + background flush)
     try:
         from .resource_buffer.manager import get_manager

@@ -17,7 +17,7 @@ from l1.kernel.gatechain import get_gatechain as _get_gatechain
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1, RING_2_5, RING_NUM_MAP
 from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
-from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT
+from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT, LOG_TRUNC_200
 from l1.kernel.tool_chain import get_tool_chain
 
 from l3.bus.reference_channel import get_rc as _get_rc
@@ -194,7 +194,7 @@ class ToolPipeline:
                                    gate="gatechain", reason=gc_decision,
                                    args=args, trace_id=call_id)
             except Exception:
-                pass
+                logger.debug("tool_pipeline: gatechain record failed")
             if not gc_allowed:
                 return {"success": False, "error": "gatechain blocked",
                         "gate_result": gcr, "steps": result["steps"]}
@@ -215,7 +215,7 @@ class ToolPipeline:
                 result["steps"].append({"phase": "sandbox", "sandbox_id": _sb_r.sandbox_id,
                                         "success": _sb_r.success, "elapsed": _sb_r.elapsed})
                 if not _sb_r.success:
-                    return {"success": False, "error": f"sandbox: {_sb_r.stderr[:200]}",
+                    return {"success": False, "error": f"sandbox: {_sb_r.stderr[:LOG_TRUNC_200]}",
                             "sandbox": _sb_r.to_dict(), "steps": result["steps"]}
                 # Sandbox succeeded: record result and skip execute step
                 result["result"] = _sb_r.to_dict()
@@ -224,7 +224,7 @@ class ToolPipeline:
                     try:
                         _hook(tool_name, agent_id, args or {}, result)
                     except Exception:
-                        pass
+                        logger.debug("tool_pipeline: post-exec hook failed")
                 # Release and signal
                 if lock_name:
                     get_rwlock(lock_name).unlock(agent_id)

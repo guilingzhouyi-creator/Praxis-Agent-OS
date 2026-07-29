@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_4000
 
 
 def read_file(args: dict, agent_id: str) -> dict:
@@ -164,7 +165,7 @@ def file_diff(args: dict, agent_id: str) -> dict:
         import difflib
         diff = list(difflib.unified_diff(lines_a, lines_b,
                                          fromfile=path_a, tofile=path_b or "<inline>"))
-        return {"success": True, "diff": "".join(diff[:200]), "total_lines": len(diff),
+        return {"success": True, "diff": "".join(diff[:LOG_TRUNC_200]), "total_lines": len(diff),
                 "changed": sum(1 for d in diff if d.startswith("+") or d.startswith("-"))}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -181,7 +182,7 @@ def read_binary(args: dict, agent_id: str) -> dict:
         with open(path, "rb") as f:
             raw = f.read(min(max_bytes, 4096))
         return {"success": True, "size": s.st_size,
-                "preview_hex": raw.hex()[:4000],
+                "preview_hex": raw.hex()[:LOG_TRUNC_4000],
                 "preview_ascii": "".join(chr(b) if 32 <= b < 127 else "." for b in raw),
                 "mime": _detect_mime(path)}
     except Exception as e:

@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 class TerminalStatus(Enum):
@@ -21,7 +22,7 @@ class CardMode(Enum):
 
 @dataclass
 class TerminalCard:
-    card_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    card_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     mode: CardMode = CardMode.EXECUTE
     action: str = ""
     target: str = ""

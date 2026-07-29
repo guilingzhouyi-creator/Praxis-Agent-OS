@@ -29,7 +29,7 @@ from typing import Any
 
 from l1.kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT, SCOUT_FINDING_TRUNC, SCOUT_RESULT_TRUNC, SCOUT_FILE_READ_TRUNC
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
-from l1.kernel.params.system import SCOUT_MONITOR_INTERVAL, SCOUT_CACHE_TTL, SCOUT_CACHE_MAX_ENTRIES, MAX_SCOUTS_PER_AGENT, SCOUT_TIMEOUT, SCOUT_POOL_MAX
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_150, LOG_TRUNC_40, MAX_SCOUTS_PER_AGENT, SCOUT_CACHE_MAX_ENTRIES, SCOUT_CACHE_TTL, SCOUT_MONITOR_INTERVAL, SCOUT_POOL_MAX, SCOUT_TIMEOUT
 
 from l3.services.model_service import get_service as _get_model_service
 from l3.tool_system.tool_spec import ToolRing, execute_tool_spec, get_tool
@@ -263,15 +263,15 @@ class ScoutPool(BaseService):
                 cell = _get_cell(cell_id)
                 findings_text = str(result["findings"])[:SCOUT_FINDING_TRUNC]
                 cell.cache.inject(
-                    key=f"scout:{agent_id}:{task[:40]}",
+                    key=f"scout:{agent_id}:{task[:LOG_TRUNC_40]}",
                     value=result["findings"],
-                    summary=f"Scout [{agent_id}]: {len(result['findings'])} findings — {findings_text[:150]}",
+                    summary=f"Scout [{agent_id}]: {len(result['findings'])} findings — {findings_text[:LOG_TRUNC_150]}",
                     agent_id=agent_id,
                     entry_type="scout_result",
                     importance=0.5,
                 )
             except Exception:
-                pass  # best-effort
+                logger.debug("scout: scout result memory failed")
 
         return result
 
@@ -349,7 +349,7 @@ def scout_cache_get(template: str, scope: dict | None, ttl: float = 30.0) -> dic
     """Module-level cache lookup — delegates to pool's cache."""
     import hashlib, json
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
-    key = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     return get_pool()._get_cached(key)
 
 
@@ -357,7 +357,7 @@ def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float 
     """Module-level cache store — delegates to pool's cache."""
     import hashlib, json
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
-    key = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     get_pool()._set_cached(key, result)
 
 

@@ -22,6 +22,8 @@ from typing import Any
 
 from .cell_answer_repo import CellAnswerRepo, CellAnswer, AnswerCheckpoint
 from l3.agent.agent_loop import AgentLoop
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +295,7 @@ class AnswerSession:
             agent_id=agent_id,
             cell_id=self.cell_id,
         )
-        result = loop.run(max_steps=5, timeout=120.0)
+        result = loop.run(max_steps=5, timeout=AGENT_LOOP_DEFAULT_TIMEOUT)
         return {
             "answer": result.get("answer", ""),
             "steps": result.get("steps", []),
@@ -303,6 +305,6 @@ class AnswerSession:
         """Build a text summary from all answers."""
         parts = []
         for a in answers:
-            text = a.content.get("answer", str(a.content)[:200])
-            parts.append(f"[{a.agent_id}/{a.answer_type}] {text[:200]}")
+            text = a.content.get("answer", str(a.content)[:LOG_TRUNC_200])
+            parts.append(f"[{a.agent_id}/{a.answer_type}] {text[:LOG_TRUNC_200]}")
         return "\n".join(parts)

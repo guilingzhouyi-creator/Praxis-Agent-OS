@@ -29,7 +29,7 @@ import os
 import threading
 import time
 
-from l1.kernel.params.system import LOG_TRUNC_100
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -72,7 +72,7 @@ class DiffEdit:
 @dataclass
 class EditOperation:
     """A single executed edit operation (used for history stack)."""
-    id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:12])
+    id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:HASH_TRUNC_MEDIUM])
     timestamp: float = field(default_factory=time.time)
     edits: list[dict] = field(default_factory=list)   # [{"path", "old", "new", "line"}, ...]
     description: str = ""
@@ -93,7 +93,7 @@ class EditOperation:
 @dataclass
 class Patch:
     """Structured patch, serializable to file."""
-    id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:12])
+    id: str = field(default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()[:HASH_TRUNC_MEDIUM])
     created_at: float = field(default_factory=time.time)
     description: str = ""
     author: str = ""
@@ -199,7 +199,7 @@ class EditEngine:
             from l3.bus.reference_channel import get_rc as _rc
             _rc().human_correction("", "", "content", old, new, reason=f"edit {path.name}")
         except Exception:
-            pass
+            logger.debug("file_editor: rc correction failed")
 
         return {
             "success": True,
@@ -513,7 +513,7 @@ class PatchManager:
     def _save(self, patch: Patch) -> None:
         """Persist patch to disk."""
         try:
-            path = self._patch_dir / f"{patch.id}.json"
+            path = self._patch_dir / PATCH_JSON_FILE.format(patch_id=patch.id)
             path.write_text(patch.to_json(), encoding="utf-8")
         except Exception as e:
             logger.warning("patch save failed: %s", e)

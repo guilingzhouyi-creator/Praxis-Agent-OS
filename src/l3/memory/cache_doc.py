@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import CACHE_DOC_MAX_ENTRIES, CACHE_DOC_TTL
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class CacheDocumentStore:
             metadata: dict | None = None,
             tags: list[str] | None = None,
             archive_ref: str = "") -> str:
-        buffer_id = f"cache-{uuid.uuid4().hex[:12]}"
+        buffer_id = f"cache-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
         doc = CacheDocument(
             buffer_id=buffer_id, title=title, content=content,
             metadata=metadata or {}, tags=tags or [],

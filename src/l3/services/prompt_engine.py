@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
-from l1.kernel.params.system import KERNEL_VERSION, PRAXIS_CODENAME
+from l1.kernel.params.system import KERNEL_VERSION, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_80, PRAXIS_CODENAME
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class ContextItem:
 
     def to_dict(self) -> dict:
         return {
-            "content": self.content[:200],
+            "content": self.content[:LOG_TRUNC_200],
             "source": self.source,
             "priority": self.priority,
             "tokens": self.tokens,
@@ -77,11 +77,11 @@ class PromptTemplate:
 
     def to_dict(self) -> dict:
         return {
-            "role": self.role[:100],
-            "task": self.task[:100],
-            "constraints": self.constraints[:100],
+            "role": self.role[:LOG_TRUNC_100],
+            "task": self.task[:LOG_TRUNC_100],
+            "constraints": self.constraints[:LOG_TRUNC_100],
             "context_len": len(self.context),
-            "tools": self.tools[:100],
+            "tools": self.tools[:LOG_TRUNC_100],
             "total_tokens": self.estimate_tokens(),
         }
 
@@ -286,14 +286,14 @@ class PromptBuilder:
     def register_template(self, name: str, template: str) -> dict:
         """Register custom system prompt template."""
         self._custom_templates[name] = template
-        return {"success": True, "name": name, "preview": template[:80]}
+        return {"success": True, "name": name, "preview": template[:LOG_TRUNC_80]}
 
     def list_templates(self) -> dict:
         templates = dict(self._custom_templates)
         return {
             "success": True,
             "count": len(templates),
-            "templates": {k: v[:80] for k, v in templates.items()},
+            "templates": {k: v[:LOG_TRUNC_80] for k, v in templates.items()},
         }
 
 

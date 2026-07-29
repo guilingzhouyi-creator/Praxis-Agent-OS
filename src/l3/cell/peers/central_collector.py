@@ -96,7 +96,7 @@ class CentralCollector:
                                   tags={"cell": cell_id, "agent": agent_id},
                                   timestamp=ts, metric_type="counter"))
         except Exception:
-            pass
+            logger.debug("central_collector: stats center ingest failed")
 
     def cell_summary(self) -> list[dict]:
         """Return per-Cell aggregated token usage."""

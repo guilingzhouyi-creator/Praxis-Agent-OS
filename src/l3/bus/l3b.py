@@ -262,7 +262,7 @@ class L3B:
                         "location": entry.location,
                     })
             except Exception:
-                pass
+                logger.debug("l3b: memory aggregate failed")
         results.sort(key=lambda r: r["importance"], reverse=True)
         return results[:limit]
 
@@ -292,7 +292,7 @@ class L3B:
                 total["hits"] += s["hits"]
                 total["misses"] += s["misses"]
             except Exception:
-                pass
+                logger.debug("l3b: stats aggregate failed")
         total["per_cell"] = per_cell
         total["cell_count"] = len(self._cells)
         return total

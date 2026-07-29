@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 from typing import Any
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class ToolLoopDetector:
                 except Exception:
                     continue
         except Exception:
-            pass
+            logger.debug("loop_detectors: loop detect failed")
 
     def _persist_fingerprint(self, fp: str) -> None:
         """Persist a fingerprint to CellCache so other instances can see it."""
@@ -99,14 +100,14 @@ class ToolLoopDetector:
                 importance=0.2,
             )
         except Exception:
-            pass
+            logger.debug("loop_detectors: fingerprint persist failed")
 
     @staticmethod
     def _fingerprint(tool_name: str, args: dict, result: Any) -> str:
         arg_str = json.dumps(args, sort_keys=True, default=str)
-        result_str = str(result)[:200] if result else ""
+        result_str = str(result)[:LOG_TRUNC_200] if result else ""
         raw = f"{tool_name}|{arg_str}|{result_str}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+        return hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
 
 class CoarseRepeatDetector:
@@ -161,7 +162,7 @@ class CoarseRepeatDetector:
                 except Exception:
                     continue
         except Exception:
-            pass
+            logger.debug("loop_detectors: coarse detect failed")
 
     def _persist_name(self, tool_name: str) -> None:
         """Persist tool name to CellCache."""
@@ -177,4 +178,4 @@ class CoarseRepeatDetector:
                 importance=0.2,
             )
         except Exception:
-            pass
+            logger.debug("loop_detectors: coarse name persist failed")

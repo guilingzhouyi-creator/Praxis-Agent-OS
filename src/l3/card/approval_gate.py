@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT
+from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT, HASH_TRUNC_SHORT, LOG_TRUNC_100, LOG_TRUNC_200
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ TIMEOUT = "timeout"
 
 @dataclass
 class ApprovalRequest:
-    id: str = field(default_factory=lambda: f"apr-{uuid.uuid4().hex[:8]}")
+    id: str = field(default_factory=lambda: f"apr-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     tool_name: str = ""
     agent_id: str = ""
     args: dict = field(default_factory=dict)
@@ -79,7 +79,7 @@ class ApprovalGate(PersistableMixin):
         return {
             "requests": {rid: {
                 "id": r.id, "tool_name": r.tool_name, "agent_id": r.agent_id,
-                "args": {k: str(v)[:200] for k, v in r.args.items()},
+                "args": {k: str(v)[:LOG_TRUNC_200] for k, v in r.args.items()},
                 "reason": r.reason, "status": r.status,
                 "created_at": r.created_at, "responded_at": r.responded_at,
                 "response": r.response,
@@ -130,7 +130,7 @@ class ApprovalGate(PersistableMixin):
             return [
                 {"id": r.id, "tool_name": r.tool_name, "agent_id": r.agent_id,
                  "reason": r.reason, "created_at": r.created_at,
-                 "args": {k: str(v)[:100] for k, v in r.args.items()}}
+                 "args": {k: str(v)[:LOG_TRUNC_100] for k, v in r.args.items()}}
                 for r in self._requests.values() if r.status == PENDING
             ]
 

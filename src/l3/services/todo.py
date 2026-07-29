@@ -24,7 +24,7 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import TODO_TABLE_AUTO_SAVE
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_50, TODO_TABLE_AUTO_SAVE
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ class TodoTable(PersistableMixin):
 
     def add(self, intent: str, domain: str = "", priority: int = 5,
             depends_on: list[str] | None = None, todo_id: str = "") -> str:
-        tid = todo_id or f"{self.agent_id}-{uuid.uuid4().hex[:8]}"
+        tid = todo_id or f"{self.agent_id}-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         item = TodoItem(id=tid, intent=intent, domain=domain,
                         priority=priority,
                         depends_on=depends_on or [])
@@ -176,11 +176,11 @@ class TodoTable(PersistableMixin):
                 elif it.started_at:
                     elapsed = round(time.time() - it.started_at, 1)
                 result.append({
-                    "id": it.id, "intent": it.intent[:50],
+                    "id": it.id, "intent": it.intent[:LOG_TRUNC_50],
                     "domain": it.domain, "priority": it.priority,
                     "status": it.status.name,
                     "depends_on": it.depends_on,
-                    "error": it.error[:40] if it.error else "",
+                    "error": it.error[:LOG_TRUNC_40] if it.error else "",
                     "elapsed": elapsed,
                 })
                 if len(result) >= limit:

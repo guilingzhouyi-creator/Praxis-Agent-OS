@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_60
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ def use_skill(args: dict, agent_id: str) -> dict:
         "success": True,
         "skill": name,
         "prompt": expanded,
-        "description": skill_data.get("description", "")[:60],
+        "description": skill_data.get("description", "")[:LOG_TRUNC_60],
         "variables": variables or [],
         "allowed_tools": allowed_tools or [],
     }

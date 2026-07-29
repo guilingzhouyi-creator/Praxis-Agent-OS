@@ -26,8 +26,9 @@ import time
 from collections import deque
 from typing import Any
 
-from l1.kernel.params.system import CELL_CACHE_HOT_SIZE, CELL_CACHE_INDEX_SIZE, CELL_CACHE_KV_SIZE
+from l1.kernel.params.system import CELL_CACHE_HOT_SIZE, CELL_CACHE_INDEX_SIZE, CELL_CACHE_KV_SIZE, LOG_TRUNC_200
 from l1.kernel.params.system import CELL_CACHE_HOT_TTL, CELL_CACHE_INDEX_TTL, CELL_CACHE_KV_TTL
+from l1.kernel.params.system import MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_DECISION, MEMORY_IMPORTANCE_MODERATE, MEMORY_MIN_CONTENT_LEN
 from l3.cell.components.cell_types import CellCacheEntry, IndexEntry
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class CellCache:
         summary: str,
         agent_id: str,
         entry_type: str,
-        importance: float = 0.5,
+        importance: float = MEMORY_IMPORTANCE_BASE,
         ttl: float = 0,
     ) -> dict:
         """Inject an entry into the Cell L2 cache.
@@ -101,7 +102,7 @@ class CellCache:
             return {"success": False, "error": "key and summary required"}
 
         # Truncate summary to 200 chars
-        summary = summary[:200]
+        summary = summary[:LOG_TRUNC_200]
         now = time.time()
         hot_ttl = ttl or self._hot_ttl
         kv_ttl = ttl or self._kv_ttl
@@ -208,7 +209,7 @@ class CellCache:
         Called when memory.recall() finds data relevant to this Cell.
         """
         entry = CellCacheEntry(
-            key=key, value=value, summary=summary[:200],
+            key=key, value=value, summary=summary[:LOG_TRUNC_200],
             agent_id="system", entry_type="promoted",
             cell_id=self.cell_id, tokens=max(1, len(str(value)) // 4),
             importance=importance, ttl=self._kv_ttl,
@@ -282,13 +283,13 @@ class CellCache:
 
         # Hot Ring (newest)
         for e in self._hot:
-            if not e.expired(now) and e.importance >= 0.3:
+            if not e.expired(now) and e.importance >= MEMORY_IMPORTANCE_DECISION:
                 candidates.append(e)
 
         # Index chain — fill remaining with high-importance entries
         existing_keys = {e.key for e in candidates}
         for e in self._index.values():
-            if not e.expired(now) and e.key not in existing_keys and e.importance >= 0.4:
+            if not e.expired(now) and e.key not in existing_keys and e.importance >= MEMORY_IMPORTANCE_MODERATE:
                 candidates.append(e)
 
         # Sort by importance desc, timestamp desc
@@ -346,7 +347,7 @@ class CellCache:
         from l3.memory.memory import get_memory
         content = entry.value if isinstance(entry.value, str) else json.dumps(entry.value, default=str)
         # Skip if content would be rejected by MemoryManager quality gate (<30 chars)
-        if len(content) < 30:
+        if len(content) < MEMORY_MIN_CONTENT_LEN:
             logger.debug("CellCache flush skip: content too short (%d chars)", len(content))
             return False
         try:

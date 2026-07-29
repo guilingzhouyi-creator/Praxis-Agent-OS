@@ -36,6 +36,7 @@ from l1.kernel.params.agent import (
 )
 from .card_unified import CardUnified, CardPhase, CardTask, CardSummary
 from .card_builder import build_card as _build_card
+from l1.kernel.params.system import LOG_TRUNC_60
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ class Decomposer:
         logger.info("decomposed: %s → %d slices for roles %s",
                      plan_id, len(slices), list(seen_roles))
         emit_signal(EVENT_TASK_ASSIGN, sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
-                     data={"plan_id": plan_id, "intent": intent[:60],
+                     data={"plan_id": plan_id, "intent": intent[:LOG_TRUNC_60],
                            "slices": len(slices), "event": DECOMPOSER_EVENT_DECOMPOSED})
         return plan
 
@@ -244,7 +245,7 @@ class Decomposer:
 
     def list_plans(self, limit: int = 20) -> list[dict]:
         return [{
-            "id": p.id, "intent": p.intent[:60], "domain": p.domain,
+            "id": p.id, "intent": p.intent[:LOG_TRUNC_60], "domain": p.domain,
             "state": p.state.name, "slices": p.total_slices,
             "done": p.completed_slices, "failed": p.failed_slices,
             "created_at": p.created_at,

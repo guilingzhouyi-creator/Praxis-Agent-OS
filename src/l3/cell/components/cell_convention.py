@@ -8,6 +8,7 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l3.cell.components.cell_types import MessageType
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +90,9 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
         from l3.bus.reference_channel import get_rc as _rc
         _rc().convention(issue_card_id, "completed",
                          participants=list(conv._participants) if hasattr(conv, '_participants') else [],
-                         summary=conv_r.get("summary", "")[:200])
+                         summary=conv_r.get("summary", "")[:LOG_TRUNC_200])
     except Exception:
-        pass
+        logger.debug("cell_convention: reference channel convention event failed")
 
     return {
         "success": True,

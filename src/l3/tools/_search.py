@@ -1,10 +1,14 @@
 """Search tool handlers — cross-platform with pure Python fallback."""
 
+import logging
 import os
 import re
 import subprocess
 
 from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
+
+logger = logging.getLogger(__name__)
 
 
 def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
@@ -33,11 +37,11 @@ def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
                             except re.error:
                                 continue
                         if matched:
-                            results.append({"file": fp, "line": lineno, "text": line.rstrip()[:200]})
+                            results.append({"file": fp, "line": lineno, "text": line.rstrip()[:LOG_TRUNC_200]})
             except (OSError, UnicodeDecodeError):
                 continue
     except Exception:
-        pass
+        logger.debug("_search: _py_grep walk failed")
     return results
 
 
@@ -50,9 +54,9 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
     except FileNotFoundError:
-        pass
+        logger.debug("_search: rg not found, trying grep")
     except Exception:
-        pass
+        logger.debug("_search: rg run failed")
     # Fallback to grep
     try:
         cmd2 = ["grep", "-rn"] + (["-F"] if fixed else []) + [pattern, path]
@@ -60,7 +64,7 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
     except Exception:
-        pass
+        logger.debug("_search: grep run failed, falling back to pure Python")
     # Pure Python fallback (works on all platforms)
     return _py_grep(pattern, path, fixed=fixed)
 
@@ -74,7 +78,7 @@ def _parse_grep_output(lines: list[str]) -> list[dict]:
             try:
                 lineno = int(parts[1])
                 text = parts[2] if len(parts) > 2 else ""
-                results.append({"file": parts[0], "line": lineno, "text": text[:200]})
+                results.append({"file": parts[0], "line": lineno, "text": text[:LOG_TRUNC_200]})
             except ValueError:
                 continue
     return results
@@ -91,7 +95,7 @@ def file_search(args: dict, agent_id: str) -> dict:
         for fname in files:
             if pattern in fname or re.search(pattern, fname):
                 results.append(os.path.join(root, fname))
-    return {"success": True, "results": results[:200], "total": len(results)}
+    return {"success": True, "results": results[:TOOL_RESULTS_LIMIT_LARGE], "total": len(results)}
 
 
 def grep_search(args: dict, agent_id: str) -> dict:
@@ -100,7 +104,7 @@ def grep_search(args: dict, agent_id: str) -> dict:
     if not pattern:
         return {"success": False, "error": "pattern is required"}
     results = _run_grep(pattern, path)
-    return {"success": True, "results": results[:200], "total": len(results)}
+    return {"success": True, "results": results[:TOOL_RESULTS_LIMIT_LARGE], "total": len(results)}
 
 
 def content_search(args: dict, agent_id: str) -> dict:
@@ -109,4 +113,4 @@ def content_search(args: dict, agent_id: str) -> dict:
     if not query:
         return {"success": False, "error": "query is required"}
     results = _run_grep(query, path, fixed=True)
-    return {"success": True, "results": results[:100], "total": len(results)}
+    return {"success": True, "results": results[:TOOL_RESULTS_LIMIT_DEFAULT], "total": len(results)}

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
 from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
+from l1.kernel.params.system import LOG_TRUNC_60, LOG_TRUNC_200
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.registry_base import RegisterableSpec
 
@@ -298,7 +299,7 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
         _fp = _rs.fingerprint(tool_name, args)
         _cached = _rs.get(_fp)
         if _cached is not None:
-            logger.debug("result_store HIT: %s %s", tool_name, str(args)[:60])
+            logger.debug("result_store HIT: %s %s", tool_name, str(args)[:LOG_TRUNC_60])
             return dict(_cached)  # return a copy
     else:
         _fp = ""
@@ -356,12 +357,12 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     try:
         from l3.bus.reference_channel import get_rc as _rc
         actual_ok = result.get("success", False)
-        pred_summary = result.get("data", result.get("output", ""))[:200]
+        pred_summary = result.get("data", result.get("output", ""))[:LOG_TRUNC_200]
         _rc().tool_call(tool_name, agent_id, allowed=actual_ok,
                         gate="", reason="", args=args,
                         predicted_success=True,
                         predicted_summary=pred_summary)
     except Exception:
-        pass
+        logger.debug("tool_spec: prediction record failed")
 
     return result

@@ -9,6 +9,7 @@ Two modes:
 
 import logging
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +87,9 @@ def _run_sync(mode: str, task: str, agent_id: str,
             return {
                 "success": True,
                 "mode": mode,
-                "task": task[:100],
+                "task": task[:LOG_TRUNC_100],
                 "findings": [
-                    {"content": f.get("content", "")[:200], "type": f.get("type", "")}
+                    {"content": f.get("content", "")[:LOG_TRUNC_200], "type": f.get("type", "")}
                     for f in (result.findings or [])
                 ],
                 "error": result.error or "",
@@ -97,7 +98,7 @@ def _run_sync(mode: str, task: str, agent_id: str,
         return {
             "success": False,
             "mode": mode,
-            "task": task[:100],
+            "task": task[:LOG_TRUNC_100],
             "error": result.error or "subagent failed",
             "elapsed": round(elapsed, 2),
         }
@@ -140,14 +141,14 @@ def _run_scout(task: str, agent_id: str, timeout: float) -> dict:
             return {
                 "success": r.get("success", False),
                 "mode": "scout",
-                "task": task[:100],
+                "task": task[:LOG_TRUNC_100],
                 "findings": r.get("findings", r.get("results", [])),
                 "elapsed": round(elapsed, 2),
             }
         return {
             "success": False,
             "mode": "scout",
-            "task": task[:100],
+            "task": task[:LOG_TRUNC_100],
             "error": "scout did not complete in time",
             "elapsed": round(timeout, 2),
         }

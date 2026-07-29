@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.constitution import TerritoryConstitution, merge_proposal, render_territory, save_territory, load_territory
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_50
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class AssemblyMode:
 
     def start_issue(self, title: str) -> dict:
         """Start a new issue discussion."""
-        issue_id = f"issue-{uuid.uuid4().hex[:8]}"
+        issue_id = f"issue-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         doc = IssueDocument(issue_id=issue_id, title=title)
         self._issues[issue_id] = doc
         self._current_issue_id = issue_id
@@ -111,7 +112,7 @@ class AssemblyMode:
         doc = self._issues[self._current_issue_id]
         c = Challenge(from_agent=from_agent, to_agent=to_agent, question=question)
         doc.challenges.append(c)
-        logger.info("assembly: %s challenges %s — %s", from_agent, to_agent, question[:50])
+        logger.info("assembly: %s challenges %s — %s", from_agent, to_agent, question[:LOG_TRUNC_50])
         return {"success": True, "challenge_id": len(doc.challenges) - 1}
 
     def respond(self, agent_id: str, challenge_id: int, answer: str) -> dict:
@@ -124,7 +125,7 @@ class AssemblyMode:
         doc.challenges[challenge_id].answered = True
         r = Response(agent_id=agent_id, challenge_id=challenge_id, answer=answer)
         doc.responses.append(r)
-        logger.info("assembly: %s responds to #%d — %s", agent_id, challenge_id, answer[:50])
+        logger.info("assembly: %s responds to #%d — %s", agent_id, challenge_id, answer[:LOG_TRUNC_50])
         return {"success": True}
 
     def converge(self) -> dict:

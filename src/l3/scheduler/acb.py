@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from l3._base import BaseService
+from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
 from l1.kernel.params.system import DEFAULT_TOKEN_BUDGET
 
 logger = logging.getLogger(__name__)
@@ -193,7 +194,7 @@ class AgentControlBlock:
                 "task": self.get("task_state", "IDLE"),
                 "health": self.get("health_state", "HEALTHY"),
             },
-            "reputation": self.get("reputation", 0.85),
+            "reputation": self.get("reputation", REP_DEFAULT_REPUTATION),
             "token_usage": f'{self.get("token_consumed", 0)}/{self.get("token_budget", DEFAULT_TOKEN_BUDGET)}',
             "current_card": self.get("current_card", ""),
             "uptime": time.time() - self.created_at,
@@ -304,9 +305,9 @@ class ACBService(BaseService):
 
 register_slot("task_state", "IDLE", "Statecharts task region state")
 register_slot("health_state", "HEALTHY", "Statecharts health region state")
-register_slot("reputation", 0.85, "Agent reputation 0-1")
+register_slot("reputation", REP_DEFAULT_REPUTATION, "Agent reputation 0-1")
 register_slot("priority", 3, "Scheduling priority 1-5")
-register_slot("token_budget", 73000, "Token budget")
+register_slot("token_budget", DEFAULT_TOKEN_BUDGET, "Token budget")
 register_slot("token_consumed", 0, "Tokens consumed")
 register_slot("current_card", "", "Current card ID")
 register_slot("last_heartbeat", 0.0, "Last heartbeat timestamp")

@@ -15,6 +15,7 @@ import threading
 import time
 import uuid
 from typing import Any
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class ReportService:
           - Supplements: new issues raised
           - Coverage: which issues each cell answered
         """
-        report_id = f"rpt-{uuid.uuid4().hex[:12]}"
+        report_id = f"rpt-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
 
         status = aggregation.get("status", "unknown")
         consistency = aggregation.get("consistency", [])
@@ -75,7 +76,7 @@ class ReportService:
             "supplements": [
                 {"title": s.get("title", ""),
                  "source_cell": s.get("source_cell", ""),
-                 "description": s.get("description", "")[:200]}
+                 "description": s.get("description", "")[:LOG_TRUNC_200]}
                 for s in supplements
             ],
             # ── Coverage & merged answer ──

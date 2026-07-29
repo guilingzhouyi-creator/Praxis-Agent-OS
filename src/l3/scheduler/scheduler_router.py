@@ -7,6 +7,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
 from .scheduler_types import Task, AgentInfo
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class L3Router:
         self._lock = threading.Lock()
 
     def register(self, agent_id: str, territory: list[str],
-                 reputation: float = 0.85, affinity: list[str] | None = None) -> None:
+                 reputation: float = REP_DEFAULT_REPUTATION, affinity: list[str] | None = None) -> None:
         with self._lock:
             self._agents[agent_id] = AgentInfo(
                 id=agent_id, territory=territory, reputation=reputation,

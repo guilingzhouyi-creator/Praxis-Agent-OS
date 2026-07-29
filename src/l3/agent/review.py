@@ -17,7 +17,7 @@ from typing import Any
 from l1.kernel import emit_signal
 from l1.kernel.prompts import get_prompt
 from l1.kernel.params.agent import REVIEW_MAX_ROUNDS
-from l1.kernel.params.system import LOG_TRUNC_500
+from l1.kernel.params.system import LOG_TRUNC_3000, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def perform_review(agent_id: str, reviewer_id: str,
     Uses config-driven prompt from kernel.prompts.
     Returns dict with verdict/reason/suggestions.
     """
-    result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)[:3000]
+    result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)[:LOG_TRUNC_3000]
     prompt = get_prompt("review.request").format(
         agent=agent_id,
         task=task[:LOG_TRUNC_500],

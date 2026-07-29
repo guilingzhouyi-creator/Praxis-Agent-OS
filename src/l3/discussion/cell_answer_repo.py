@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000, MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_CRITICAL
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class CellAnswerRepo:
                 entry_type=f"discussion.{answer.answer_type}",
                 content=json.dumps(answer.content, default=str)[:LOG_TRUNC_2000],
                 ring=3,
-                importance=0.7,
+                importance=MEMORY_IMPORTANCE_HIGH,
                 tags=list(answer.tags or []) + [
                     "discussion", self.session_id,
                     f"phase:{answer.phase}",
@@ -226,7 +226,7 @@ class CellAnswerRepo:
                     "pending_agents": cp.pending_agents,
                 }, default=str)[:LOG_TRUNC_2000],
                 ring=3,
-                importance=0.9,
+                importance=MEMORY_IMPORTANCE_CRITICAL,
                 tags=["discussion", "checkpoint", self.session_id],
             )
         except Exception:

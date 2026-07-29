@@ -52,7 +52,7 @@ class CentralMemory:
                 if importance == 0.5:
                     importance = _score_importance(content, entry_type)
             except Exception:
-                pass
+                logger.debug("central_memory: quality score failed")
 
         if ring == 4:
             # Archive directly to fonds/series store
@@ -122,7 +122,7 @@ class CentralMemory:
                                 "_ring": ring,
                             })
                 except Exception:
-                    pass
+                    logger.debug("central_memory: ring recall failed")
         except Exception as e:
             logger.warning("central_memory recall: %s", e)
 
@@ -162,14 +162,14 @@ class CentralMemory:
             ms = mem.stats() if hasattr(mem, 'stats') else {}
             base["memory_stats"] = ms
         except Exception:
-            pass
+            logger.debug("central_memory: memory stats failed")
         try:
             from .r4_agent import get_r4_agent
             r4 = get_r4_agent()
             r4s = r4.stats() if hasattr(r4, 'stats') else {}
             base["r4_stats"] = r4s
         except Exception:
-            pass
+            logger.debug("central_memory: r4 stats failed")
         return base
 
 

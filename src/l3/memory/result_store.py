@@ -25,7 +25,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from l1.kernel.params.system import RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL
+from l1.kernel.params.system import HASH_TRUNC_LONG, RESULT_STORE_MAX_ENTRIES, RESULT_STORE_TTL
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class ResultStore:
         Returns SHA256 hex digest for collision-resistant identification.
         """
         raw = f"{tool_name}|{_canonical_json(args)}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+        return hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
     def get(self, fp: str) -> dict | None:
         """Get cached result by fingerprint. Returns None on miss or expiry."""

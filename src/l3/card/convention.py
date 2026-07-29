@@ -28,6 +28,7 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
 from l3.cell.components.cell_types import CellProtocol, MessageType
 from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
+from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class ConventionProtocol:
         ok = self._table.answer_item(card.id, item_id, answer, agent_id)
         if not ok:
             return {"success": False, "error": f"item {item_id} not assigned to {agent_id}"}
-        self._add_transcript(agent_id, "", "rebut", f"answers {item_id}: {answer[:200]}")
+        self._add_transcript(agent_id, "", "rebut", f"answers {item_id}: {answer[:LOG_TRUNC_200]}")
         return {"success": True}
 
     def propose(self, agent_id: str, question: str, domain: str = "") -> dict:
@@ -116,7 +117,7 @@ class ConventionProtocol:
         iid = self._table.supplement(card.id, question, domain, agent_id)
         if not iid:
             return {"success": False, "error": "card not found"}
-        self._add_transcript(agent_id, "", "propose", f"proposes new issue: {question[:200]}")
+        self._add_transcript(agent_id, "", "propose", f"proposes new issue: {question[:LOG_TRUNC_200]}")
         emit_signal(EVENT_TASK_ASSIGN, sender=agent_id, target="cell",
                      data={"card_id": card.id, "event": "propose_issue", "item_id": iid})
         return {"success": True, "item_id": iid}
@@ -272,7 +273,7 @@ class ConventionProtocol:
             lines.append(f"\n### Round {r.round_num}")
             for t in r.transcripts:
                 target_str = f" → {t.target}" if t.target else ""
-                lines.append(f"  [{t.msg_type}] {t.speaker}{target_str}: {t.statement[:200]}")
+                lines.append(f"  [{t.msg_type}] {t.speaker}{target_str}: {t.statement[:LOG_TRUNC_200]}")
 
         return "\n".join(lines)
 

@@ -33,7 +33,7 @@ from l1.kernel.params.agent import (
     EVENT_TASK_ASSIGN,
     EVENT_REVIEW_REQUESTED,
 )
-from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_500, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_500, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED, MEMORY_PROMOTION_THRESHOLD, MEMORY_IMPORTANCE_DECISION
 from ..memory.cache import get_file_cache, get_context_register
 from ..agent.scout import get_pool as get_scout_pool
 from ..agent._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
@@ -305,7 +305,7 @@ class AgentTerminal:
                             logger.info("periodic compact for %s: pressure=%s",
                                         self.agent_id, p.get("level"))
                     except Exception:
-                        pass
+                        logger.debug("agent_terminal: memory pressure check failed")
                 ev = self._pending.pop(card.card_id, None)
                 if ev:
                     ev.set()
@@ -340,6 +340,15 @@ class AgentTerminal:
         import time as _time
         t0 = _time.time()
         task = card.params.get("prompt", card.target)
+        # Restore context_trail from snapshot if loop has none (e.g. after restart)
+        if self._active_loop and not self._active_loop._context_trail:
+            try:
+                from ..agent.agent_persist import load_snapshot
+                snap = load_snapshot(self.agent_id)
+                if snap and "context_trail" in snap:
+                    self._active_loop._context_trail = snap["context_trail"]
+            except Exception:
+                pass
         try:
             from ..agent.agent_persist import append_transcript
             ar = self._active_loop.continue_run(task=task)
@@ -351,7 +360,7 @@ class AgentTerminal:
         try:
             self._inject_loop_result(card, answer, success)
         except Exception:
-            pass
+            logger.debug("agent_terminal: inject loop result failed")
         try:
             from l1.kernel.params.agent import LOG_TRUNC_200 as _T200
             append_transcript(self.agent_id, {
@@ -361,7 +370,7 @@ class AgentTerminal:
                 "summary": answer[:_T200],
             })
         except Exception:
-            pass
+            logger.debug("agent_terminal: append transcript failed")
         return CardResult(
             card_id=card.card_id, action=card.action,
             success=success, output=answer, error=ar.get("error", ""),
@@ -373,15 +382,15 @@ class AgentTerminal:
         from .cell import get_cell as _get_cell
         cell = _get_cell(self.cell_id)
         import hashlib as _hl
-        key = f"persistent:{self.agent_id}:{_hl.sha256(answer.encode()).hexdigest()[:8]}"
-        summary = answer.strip()[:200]
+        key = f"persistent:{self.agent_id}:{_hl.sha256(answer.encode()).hexdigest()[:HASH_TRUNC_SHORT]}"
+        summary = answer.strip()[:LOG_TRUNC_200]
         if success and answer:
             cell.cache.inject(key=key, value=answer, summary=summary,
-                              agent_id=self.agent_id, entry_type="decision", importance=0.6)
+                              agent_id=self.agent_id, entry_type="decision", importance=MEMORY_PROMOTION_THRESHOLD)
         elif not success:
             cell.cache.inject(key=key, value=ar.get("error", ""),
                               summary=f"FAIL [{self.agent_id}]: {summary}",
-                              agent_id=self.agent_id, entry_type="failure", importance=0.3)
+                              agent_id=self.agent_id, entry_type="failure", importance=MEMORY_IMPORTANCE_DECISION)
 
     def _execute_card(self, card: TerminalCard) -> CardResult:
         phases = ["start"]
@@ -609,7 +618,7 @@ class AgentTerminal:
                 tags=["direct_session"], ring=2,
             )
         except Exception:
-            pass
+            logger.debug("agent_terminal: direct message remember failed")
         return CardResult(card_id=card.card_id, action="direct_message",
                           success=True, output=answer)
 
@@ -674,6 +683,8 @@ class AgentTerminal:
     def reset_persistent_loop(self) -> dict:
         """Force-reset the persistent AgentLoop, discarding accumulated context."""
         with self._active_loop_lock:
+            if self._active_loop is not None:
+                self._active_loop._context_trail = None
             self._active_loop = None
         logger.info("agent %s: persistent loop reset", self.agent_id)
         return {"success": True, "action": "persistent_loop_reset"}
@@ -713,7 +724,7 @@ class AgentTerminal:
                 try:
                     loop_obj.task = "Convention closed by agent shutdown."
                 except Exception:
-                    pass
+                    logger.debug("agent_terminal: convention loop cleanup failed")
         self._convention_loops.clear()
         self._results.clear()
         self.status = TerminalStatus.STOPPED

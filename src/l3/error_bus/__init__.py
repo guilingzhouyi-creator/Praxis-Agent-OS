@@ -31,12 +31,13 @@ from pathlib import Path
 from typing import Any, Generator
 
 from l3._base import BaseService
-from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT
+from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT, ERROR_EXPORT_FILE, HASH_TRUNC_LONG, LOG_ROTATE_GLOB, LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, LOG_TRUNC_500
+from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_config_dir
 
 logger = logging.getLogger(__name__)
 
-_LOG_DIR = Path(get_config_dir()) / "logs"
+_LOG_DIR = Path(_gp().config_dir) / "logs"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -90,7 +91,7 @@ class ErrorLogEntry:
             "error_code": self.error_code,
             "component": self.component,
             "service": self.service,
-            "message": self.message[:500],
+            "message": self.message[:LOG_TRUNC_500],
             "source": self.source,
             "timestamp": self.timestamp,
             "datetime": datetime.fromtimestamp(
@@ -107,9 +108,9 @@ class ErrorLogEntry:
 def _compute_fingerprint(
     level: str, error_code: str, source: str, message: str,
 ) -> str:
-    """Compute deduplication fingerprint — sha256(level + error_code + source + message[:100]) → hex[:16]"""
-    raw = f"{level}|{error_code}|{source}|{message[:100]}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+    """Compute deduplication fingerprint — sha256(level + error_code + source + message[:LOG_TRUNC_100]) → hex[:16]"""
+    raw = f"{level}|{error_code}|{source}|{message[:LOG_TRUNC_100]}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
 
 def _caller_source(depth: int = 2) -> str:
@@ -124,7 +125,7 @@ def _caller_source(depth: int = 2) -> str:
         if frame:
             return f"{Path(frame.f_code.co_filename).name}:{frame.f_lineno}"
     except Exception:
-        pass
+        logger.debug("error_bus: caller resolve failed")
     return "unknown"
 
 
@@ -135,7 +136,7 @@ def _format_exc(exc: Exception | None) -> str:
     lines = "".join(
         traceback.format_exception(type(exc), exc, exc.__traceback__)
     )
-    return lines[:1000]
+    return lines[:LOG_TRUNC_1000]
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -287,7 +288,7 @@ class ErrorBus(BaseService):
         """
         stack_trace = _format_exc(exc)
         _source = source or _caller_source(depth=3)
-        _message = message or str(exc)[:200]
+        _message = message or str(exc)[:LOG_TRUNC_200]
         return self.error(
             message=_message,
             error_code=error_code,
@@ -356,7 +357,7 @@ class ErrorBus(BaseService):
             log_svc = get_log_service()
             log_svc._log(
                 level=level,
-                message=f"[{error_code}] {message[:200]}",
+                message=f"[{error_code}] {message[:LOG_TRUNC_200]}",
                 service=service,
                 agent_id=agent_id,
                 task_id=task_id,
@@ -506,10 +507,10 @@ class ErrorBus(BaseService):
         try:
             log_dir = _LOG_DIR
             if log_dir.exists():
-                result["disk_files"] = len(list(log_dir.glob("log_*.json")))
+                result["disk_files"] = len(list(log_dir.glob(LOG_ROTATE_GLOB)))
                 result["log_dir"] = str(log_dir)
         except Exception:
-            pass
+            logger.debug("error_bus: stats disk check failed")
 
         self._stats_cache = result
         self._stats_ts = now
@@ -580,7 +581,7 @@ class ErrorBus(BaseService):
         with self._lock:
             entries = [e.to_dict() for e in self._buffer]
 
-        out_path = path or str(_LOG_DIR / f"error_export_{int(time.time())}.json")
+        out_path = path or str(_LOG_DIR / ERROR_EXPORT_FILE.format(ts=int(time.time())))
         try:
             Path(out_path).write_text(
                 json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"

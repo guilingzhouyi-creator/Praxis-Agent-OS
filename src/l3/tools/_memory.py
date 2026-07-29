@@ -1,5 +1,7 @@
 """Memory tool handlers."""
 
+from l1.kernel.params.system import TOOL_MEMORY_RESULTS_LIMIT
+
 try:
     from l3.memory.memory import get_memory
     HAS_MEMORY = True
@@ -45,6 +47,6 @@ def memory_search(args: dict, agent_id: str) -> dict:
     try:
         mem = get_memory()
         results = mem.recall(agent_id=agent_id, query=query)
-        return {"success": True, "results": results[:20], "total": len(results) if isinstance(results, list) else 0}
+        return {"success": True, "results": results[:TOOL_MEMORY_RESULTS_LIMIT], "total": len(results) if isinstance(results, list) else 0}
     except Exception as e:
         return {"success": False, "error": str(e)}

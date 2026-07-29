@@ -13,6 +13,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class IssueOrchestrator:
 
     def start_discussion(self, issue_card: Any) -> dict:
         """Start a new discussion session for an issue card."""
-        session_id = f"disc-{uuid.uuid4().hex[:12]}"
+        session_id = f"disc-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
 
         with self._lock:
             session = DiscussionSession(
@@ -151,7 +152,7 @@ class IssueOrchestrator:
                     "supplements": len(supplements),
                 })
             except Exception:
-                pass
+                logger.debug("issue_orchestrator: session collect failed")
 
         except Exception as e:
             logger.error("orchestrator: finalize failed: %s", e)

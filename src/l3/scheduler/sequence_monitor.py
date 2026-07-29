@@ -147,7 +147,7 @@ class SequenceMonitor:
                             "transitions": len(step_details), "cell_id": self.cell_id},
                               cell_id=self.cell_id)
             except Exception:
-                pass
+                logger.debug("sequence_monitor: anomaly emit failed")
 
         return {
             "probability": round(geo_mean, 4),
@@ -204,7 +204,7 @@ class SequenceMonitor:
             try:
                 os.remove(self._persist_path)
             except Exception:
-                pass
+                logger.debug("sequence_monitor: persist file cleanup failed")
 
     # ── Persistence ──
 

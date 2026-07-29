@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_40
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ class SupplementManager:
                     domain=supplement.get("domain", "cross-cell"),
                 )
                 logger.info("supplement routed: %s → %s",
-                            supplement.get("title", "?")[:40], issue_card.id)
+                            supplement.get("title", "?")[:LOG_TRUNC_40], issue_card.id)
         except Exception as e:
             logger.warning("supplement route: %s", e)
 
@@ -109,5 +110,5 @@ class SupplementManager:
                     if c.metadata.get("session_id") == session_id:
                         return c
         except Exception:
-            pass
+            logger.debug("supplement_manager: supplement lookup failed")
         return None

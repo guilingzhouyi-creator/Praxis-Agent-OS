@@ -1,5 +1,9 @@
 """Config tool handlers."""
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 try:
     from l3.config.settings_center import get_center
     HAS_SETTINGS = True
@@ -52,7 +56,7 @@ def clear_caches(args: dict, agent_id: str) -> dict:
         reset_caches()
         flushed.append("memory_cache")
     except Exception:
-        pass
+        logger.debug("_config: memory cache reset failed")
     try:
         from l3.cell import get_cells
         for cell in get_cells().values():
@@ -64,11 +68,11 @@ def clear_caches(args: dict, agent_id: str) -> dict:
                 icache.clear()
         flushed.append("cell_caches")
     except Exception:
-        pass
+        logger.debug("_config: cell caches clear failed")
     try:
         from l3.tool_system.tool_registry import clear_mutes
         clear_mutes()
         flushed.append("tool_mutes")
     except Exception:
-        pass
+        logger.debug("_config: tool mutes clear failed")
     return {"success": True, "flushed": flushed}

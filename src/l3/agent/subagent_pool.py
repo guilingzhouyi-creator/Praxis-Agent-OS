@@ -35,6 +35,7 @@ from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT, SUBAGENT_POOL_EXPLORE_WOR
 from l1.kernel.params.agent import SUBAGENT_SESSION_TTL
 from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS, load_specs
 from .subagent_task import SubAgentTask
+from l1.kernel.params.system import LOG_TRUNC_100
 
 logger = logging.getLogger(__name__)
 
@@ -219,14 +220,14 @@ class SubAgentPool:
         if cell and hasattr(cell, 'permission') and cell.permission:
             visible_names = cell.permission.list_visible_specs(agent_id, agent_ring)
             return [
-                {"name": n, "description": all_specs[n].description[:100],
+                {"name": n, "description": all_specs[n].description[:LOG_TRUNC_100],
                  "read_only": all_specs[n].read_only,
                  "tools": all_specs[n].allowed_tools[:5]}
                 for n in visible_names if n in all_specs
             ]
         # Fallback: all specs visible
         return [
-            {"name": n, "description": s.description[:100],
+            {"name": n, "description": s.description[:LOG_TRUNC_100],
              "read_only": s.read_only,
              "tools": s.allowed_tools[:5]}
             for n, s in all_specs.items()

@@ -23,7 +23,7 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import CARD_GATE_AUTO_SAVE
+from l1.kernel.params.system import CARD_GATE_AUTO_SAVE, LOG_TRUNC_200
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
 
@@ -139,7 +139,7 @@ class CardGate(PersistableMixin):
                 card.approval_at = time.time()
                 card.approval_by = by
         except Exception:
-            pass
+            logger.debug("card_gate: approval set failed")
 
     def evaluate(self, card_id: str, intent: str = "", domain: str = "",
                  file_count: int = 0, estimated_lines: int = 0,
@@ -171,7 +171,7 @@ class CardGate(PersistableMixin):
 
         emit_signal(EVENT_TASK_ASSIGN, sender="card_gate", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "event": "held_for_approval",
-                           "size": size_name, "intent": intent[:200]})
+                           "size": size_name, "intent": intent[:LOG_TRUNC_200]})
         return {
             "card_id": card_id, "size": size_name,
             "auto_approve": False,

@@ -86,7 +86,7 @@ class ApprovalMiddleware(ToolMiddleware):
             if not ToolPolicy.requires_approval(agent_id, tool_name):
                 return BeforeOutcome.PROCEED
         except Exception:
-            pass
+            logger.debug("middleware: tool policy check failed")
 
         # Check if auto-approved in this session
         key = f"{agent_id}:{tool_name}"
@@ -106,7 +106,7 @@ class ApprovalMiddleware(ToolMiddleware):
             if spec and getattr(spec, "danger", 0) < threshold:
                 return BeforeOutcome.PROCEED
         except Exception:
-            pass
+            logger.debug("middleware: tool spec check failed")
 
         # Request approval
         try:

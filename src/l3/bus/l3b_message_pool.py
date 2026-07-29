@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 import threading
 import time
@@ -24,13 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from l1.kernel.params.system import L3B_BACKPRESSURE_COOLDOWN, L3B_BACKPRESSURE_THRESHOLD, L3B_HOT_RING_SIZE, L3B_MESSAGE_DB, L3B_MESSAGE_DIR, L3B_PERSIST_HIGH_WATERMARK
+from l1.kernel.paths import get_paths as _gp
 
-# ── Default Config ──
-_HOT_RING_SIZE = 200             # Hot ring buffer size
-_PERSIST_HIGH_WATERMARK = 0.8    # Hot Ring usage ≥ 80% triggers persist
-_BACKPRESSURE_THRESHOLD = 1000   # Persist queue backlog ≥ 1000 triggers backpressure
-_BACKPRESSURE_COOLDOWN = 30.0    # Do not repeat backpressure within 30s after last signal
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,10 +70,11 @@ class L3BMessagePool:
         self._last_bp_time = 0.0
 
         # Persist directory
-        persist_dir = persist_dir or str(Path(".praxis/l3b_messages") / composite_id.replace("-", "_"))
+        _msg_dir = os.path.join(_gp().data_dir, L3B_MESSAGE_DIR)
+        persist_dir = persist_dir or os.path.join(_msg_dir, composite_id.replace("-", "_"))
         self._persist_path = Path(persist_dir)
         self._persist_path.mkdir(parents=True, exist_ok=True)
-        self._db_path = str(self._persist_path / "messages.db")
+        self._db_path = os.path.join(_msg_dir, L3B_MESSAGE_DB)
         self._init_db()
 
     # ── Persist Initialization ──
@@ -279,5 +278,5 @@ class L3BMessagePool:
             import shutil
             shutil.rmtree(str(self._persist_path), ignore_errors=True)
         except Exception:
-            pass
+            logger.debug("l3b_message_pool: persist dir cleanup failed")
         logger.info("L3BMessagePool %s: closed", self.composite_id)

@@ -27,6 +27,7 @@ from l1.kernel.params.agent import (
     CELL_HISTORY_RING_SIZE,
     CELL_SNAPSHOT_MAX,
     CELL_L3_SENDER,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
 )
 from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
 from ..cell.components.cell_agent import add_agent, _boot_agent
@@ -45,6 +46,7 @@ from ..cell.components.cell_rollback import rollback_card as _rollback_card
 from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
 from ..services.cell_orchestrate import SubAgentOrchestrator
 from ..card.issue import IssueCard as _IssueCard
+from l1.kernel.params.system import LOG_TRUNC_5000, LOG_TRUNC_80, SCOUT_CACHE_TTL
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class Cell:
     """
 
     def __init__(self, cell_id: str, territory: list[str] | None = None,
-                 max_scout_cache_ttl: float = 30.0,
+                 max_scout_cache_ttl: float = SCOUT_CACHE_TTL,
                  think_quota: dict | None = None,
                  distribution_mode: str = "inherit"):
         self.cell_id = cell_id
@@ -679,13 +681,13 @@ class Cell:
             from tools._archive import archive_store
             import json as _json
             content = _json.dumps(item, default=str, ensure_ascii=False) if not isinstance(item, str) else item
-            title = item.get("intent", str(item)[:80]) if isinstance(item, dict) else str(item)[:80]
+            title = item.get("intent", str(item)[:LOG_TRUNC_80]) if isinstance(item, dict) else str(item)[:LOG_TRUNC_80]
             card_id = item.get("card_id", "evicted") if isinstance(item, dict) else "evicted"
             archive_store(
                 fonds=f"CELL:RING:{kind}",
                 series=f"evicted:{kind}",
                 title=title,
-                content=content[:5000],
+                content=content[:LOG_TRUNC_5000],
                 tags=["ring_eviction", kind, card_id],
                 agent_id="system",
             )
@@ -976,7 +978,7 @@ class Cell:
     def subagent_orchestrate(self, sub_tasks: list[dict],
                               parent_agent_id: str = "",
                               verify_prompt: str = "",
-                              fork_timeout: float = 120.0,
+                               fork_timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
                               verify_timeout: float = 60.0) -> dict:
         """Full fork-join orchestration: SubAgents + Scout verify + gap analysis.
 

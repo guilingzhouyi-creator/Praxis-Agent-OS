@@ -23,18 +23,13 @@ from pathlib import Path
 from typing import Any
 
 from l3._base import BaseService
-from l1.kernel.params.system import (
-    LOG_MAX_MEMORY_ENTRIES,
-    LOG_MAX_FILE_SIZE,
-    LOG_MAX_FILES,
-    LOG_EXPORT_LIMIT,
-)
+from l1.kernel.params.system import LOG_EXPORT_FILE, LOG_EXPORT_LIMIT, LOG_MAX_FILES, LOG_MAX_FILE_SIZE, LOG_MAX_MEMORY_ENTRIES, LOG_ROTATE_FILE, LOG_ROTATE_GLOB, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import PRAXIS_CONFIG_DIR
+from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_config_dir
-_LOG_DIR = Path(get_config_dir()) / "logs"
+_LOG_DIR = Path(_gp().config_dir) / "logs"
 
 
 @dataclass
@@ -50,7 +45,7 @@ class LogEntry:
         return {
             "level": self.level,
             "service": self.service,
-            "message": self.message[:500],
+            "message": self.message[:LOG_TRUNC_500],
             "timestamp": self.timestamp,
             "agent_id": self.agent_id,
             "task_id": self.task_id,
@@ -143,7 +138,7 @@ class LogService(BaseService):
         """Export logs to JSON file."""
         r = self.query(level=level, limit=LOG_EXPORT_LIMIT) if level else self.recent(LOG_EXPORT_LIMIT)
         entries = r.get("entries", [])
-        out_path = path or str(self._log_dir / f"export_{int(time.time())}.json")
+        out_path = path or str(self._log_dir / LOG_EXPORT_FILE.format(ts=int(time.time())))
         try:
             Path(out_path).write_text(
                 json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -162,10 +157,10 @@ class LogService(BaseService):
                 entries = list(self._entries)
                 self._current_size = 0
             # Rotate if max files reached
-            log_files = sorted(self._log_dir.glob("log_*.json"))
+            log_files = sorted(self._log_dir.glob(LOG_ROTATE_GLOB))
             if len(log_files) >= LOG_MAX_FILES:
                 log_files[0].unlink()
-            fname = f"log_{int(time.time())}.json"
+            fname = LOG_ROTATE_FILE.format(ts=int(time.time()))
             path = self._log_dir / fname
             path.write_text(json.dumps([e.to_dict() for e in entries[-500:]], indent=2),
                            encoding="utf-8")
@@ -197,13 +192,13 @@ class LogService(BaseService):
 
             def emit(self, record: _logging.LogRecord) -> None:
                 level = record.levelname
-                msg = record.getMessage()[:500]
+                msg = record.getMessage()[:LOG_TRUNC_500]
                 try:
                     self._svc._log(level, msg, record.name,
                                    getattr(record, 'agent_id', ''),
                                    getattr(record, 'task_id', ''))
                 except Exception:
-                    pass
+                    logger.debug("log: log handler emit failed")
 
         root = logging.getLogger()
         # Avoid duplicates
@@ -227,7 +222,7 @@ class LogService(BaseService):
                 "by_level": levels,
                 "by_service": services,
                 "agents": len(agents),
-                "log_files": len(list(self._log_dir.glob("log_*.json"))),
+                "log_files": len(list(self._log_dir.glob(LOG_ROTATE_GLOB))),
                 "log_dir": str(self._log_dir),
             }
 

@@ -15,7 +15,7 @@ from typing import Any
 
 from l1.kernel.prompts import get_prompt
 from l1.kernel.params.agent import MAX_SELF_HEAL
-from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class Verifier:
         """
         self._stats["checks"] += 1
         prompt = get_prompt("verifier.self_check").format(
-            goal=goal[:1000], result=str(result.get("output", ""))[:2000]
+            goal=goal[:LOG_TRUNC_1000], result=str(result.get("output", ""))[:2000]
         )
 
         if self._llm_call:
@@ -78,7 +78,7 @@ class Verifier:
             f"Step {i}: {r.get('action', '?')} -> {str(r.get('output', ''))[:LOG_TRUNC_200]}"
             for i, r in enumerate(results)
         )
-        prompt = get_prompt("verifier.consistency").format(results=summary, goal=goal[:1000])
+        prompt = get_prompt("verifier.consistency").format(results=summary, goal=goal[:LOG_TRUNC_1000])
 
         if self._llm_call:
             try:
@@ -90,14 +90,14 @@ class Verifier:
                     "recommendation": parsed.get("recommendation", ""),
                 }
             except Exception:
-                pass
+                logger.debug("verifier: consistency check parse failed")
         return {"consistent": True, "conflicts": [], "recommendation": ""}
 
     def correction_prompt(self, goal: str, errors: list[str]) -> str:
         """Generate a corrective prompt when verification fails."""
         self._stats["corrections"] += 1
         return get_prompt("verifier.correction").format(
-            goal=goal[:1000],
+            goal=goal[:LOG_TRUNC_1000],
             errors="\n".join(errors),
         )
 
@@ -118,6 +118,6 @@ class Verifier:
             return False
         output = result.get("output", "")
         if isinstance(output, str) and ("error" in output.lower() or "fail" in output.lower()):
-            if "error" in output.lower()[:100]:
+            if "error" in output.lower()[:LOG_TRUNC_100]:
                 return False
         return True

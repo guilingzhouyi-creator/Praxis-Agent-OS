@@ -33,6 +33,7 @@ from l1.kernel.params.system import (
     FAULT_CHECK_INTERVAL,
     FAULT_RETRY_INTERVAL,
     FAULT_AUTONOMOUS_RECONNECT_INTERVAL,
+    CHECKPOINT_JSON_FILE,
 )
 AUTONOMOUS_RECONNECT_INTERVAL = FAULT_AUTONOMOUS_RECONNECT_INTERVAL  # Autonomous mode reconnect interval
 
@@ -192,14 +193,14 @@ class FaultToleranceService(BaseService):
 
     def _persist_checkpoint(self, cp: Checkpoint) -> None:
         try:
-            path = CHECKPOINT_DIR / f"{cp.agent_id}.json"
+            path = CHECKPOINT_DIR / CHECKPOINT_JSON_FILE.format(agent_id=cp.agent_id)
             path.write_text(json.dumps(cp.to_dict(), indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning("checkpoint persist failed: %s", e)
 
     def _load_checkpoint(self, agent_id: str) -> Checkpoint | None:
         try:
-            path = CHECKPOINT_DIR / f"{agent_id}.json"
+            path = CHECKPOINT_DIR / CHECKPOINT_JSON_FILE.format(agent_id=agent_id)
             if path.exists():
                 data = json.loads(path.read_text(encoding="utf-8"))
                 return Checkpoint.from_dict(data)
@@ -209,7 +210,7 @@ class FaultToleranceService(BaseService):
 
     def _delete_checkpoint(self, agent_id: str) -> None:
         try:
-            path = CHECKPOINT_DIR / f"{agent_id}.json"
+            path = CHECKPOINT_DIR / CHECKPOINT_JSON_FILE.format(agent_id=agent_id)
             if path.exists():
                 path.unlink()
         except Exception as e:

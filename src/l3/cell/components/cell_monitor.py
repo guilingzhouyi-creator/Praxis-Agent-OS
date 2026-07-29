@@ -191,7 +191,7 @@ class CellMonitor:
                 message=message or event, data=data or {},
             ))
         except Exception:
-            pass
+            logger.debug("cell_monitor: monitor event emit failed")
 
 
 _cell_monitor: CellMonitor | None = None

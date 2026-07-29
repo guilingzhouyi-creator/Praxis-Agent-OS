@@ -35,6 +35,7 @@ from l3._base import BaseService
 logger = logging.getLogger(__name__)
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 class MessageType(Enum):
@@ -80,7 +81,7 @@ class MessageType(Enum):
 @dataclass
 class IPCMessage:
     """Unified IPC message format (§2.2)."""
-    msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     sender: str = ""
     receiver: str = ""
     msg_type: MessageType = MessageType.HEARTBEAT

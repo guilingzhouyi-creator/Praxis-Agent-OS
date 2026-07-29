@@ -35,6 +35,9 @@ from l1.kernel.params.api import (
 
 logger = logging.getLogger(__name__)
 
+from l1.kernel.params.agent import LOOP_FOLD_LIST_TRUNCATION
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_40
+
 TIERS = ("frugal", "standard", "frontier")
 TIER_COST = {"frugal": PAL_FRUGAL_COST, "standard": PAL_STANDARD_COST, "frontier": PAL_FRONTIER_COST}
 
@@ -69,12 +72,12 @@ class PALRouter:
     def _pattern_key(self, task_description: str) -> str:
         """Hash task into a similarity pattern key."""
         norm = task_description.strip().lower()
-        return hashlib.sha256(norm.encode()).hexdigest()[:16]
+        return hashlib.sha256(norm.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
     def _jaccard_similarity(self, a: str, b: str) -> float:
         """Compare two task descriptions for pattern matching."""
-        set_a = set(a.strip().lower().split()[:20])
-        set_b = set(b.strip().lower().split()[:20])
+        set_a = set(a.strip().lower().split()[:LOOP_FOLD_LIST_TRUNCATION])
+        set_b = set(b.strip().lower().split()[:LOOP_FOLD_LIST_TRUNCATION])
         if not set_a or not set_b:
             return 0.0
         return len(set_a & set_b) / len(set_a | set_b)
@@ -138,7 +141,7 @@ class PALRouter:
                         entry["tier"] = TIERS[current - 1]
                         entry["successes"] = 0
                         self._downgrades += 1
-                        logger.info("PAL downgraded %s→%s (%s)", TIERS[current], entry["tier"], task[:40])
+                        logger.info("PAL downgraded %s→%s (%s)", TIERS[current], entry["tier"], task[:LOG_TRUNC_40])
             else:
                 entry["failures"] += 1
                 entry["successes"] = 0
@@ -149,7 +152,7 @@ class PALRouter:
                         entry["tier"] = TIERS[current + 1]
                         entry["failures"] = 0
                         self._escalations += 1
-                        logger.info("PAL escalated %s→%s (%s)", TIERS[current], entry["tier"], task[:40])
+                        logger.info("PAL escalated %s→%s (%s)", TIERS[current], entry["tier"], task[:LOG_TRUNC_40])
 
     def stats(self) -> dict:
         with self._lock:

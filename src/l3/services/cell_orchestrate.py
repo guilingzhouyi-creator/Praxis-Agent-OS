@@ -30,6 +30,7 @@ from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l1.kernel.params.tool import TOOL_AGENT_COORD_TIMEOUT
 from l3.agent.subagent_pool import SubAgentPool
 from l3.agent.subagent_spec import SubAgentSpec
+from l1.kernel.params.system import LOG_TRUNC_1000, LOG_TRUNC_2000, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +111,8 @@ class SubAgentOrchestrator:
             result_str = str(item.get("result", {}))
             prompt = verify_prompt_template.format(
                 spec=spec,
-                answer=answer[:1000],
-                result=result_str[:2000],
+                answer=answer[:LOG_TRUNC_1000],
+                result=result_str[:LOG_TRUNC_2000],
             )
             try:
                 session = scout_pool.get(self.parent_agent_id)
@@ -122,7 +123,7 @@ class SubAgentOrchestrator:
                 scout_pool.put(session)
                 self.buffer_2.append({
                     "spec": spec,
-                    "result": str(scout_result)[:2000],
+                    "result": str(scout_result)[:LOG_TRUNC_2000],
                 })
             except Exception as e:
                 self.buffer_2.append({"spec": spec, "error": str(e)})
@@ -186,7 +187,7 @@ class SubAgentOrchestrator:
                     "spec": spec,
                     "reason": f"verification flagged: {', '.join(found_issues)}",
                     "severity": "HIGH",
-                    "scout_findings": scout_text[:500],
+                    "scout_findings": scout_text[:LOG_TRUNC_500],
                 })
             else:
                 verified.append({

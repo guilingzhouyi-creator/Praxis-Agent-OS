@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
 from l1.kernel.params.system import SCHEDULER_BACKGROUND_PRIORITY, DEFAULT_QUANTUM, MAX_PREEMPT
 
 
@@ -38,7 +39,7 @@ class Task:
 class AgentInfo:
     id: str
     territory: list[str]
-    reputation: float = 0.85
+    reputation: float = REP_DEFAULT_REPUTATION
     load: float = 0.0
     active_tasks: int = 0
     last_seen: float = field(default_factory=time.time)

@@ -29,9 +29,11 @@ from l1.kernel.params.agent import (
     LOOP_TOOL_REPEAT_WARN,
     LOOP_COARSE_REPEAT_NUDGE,
     AGENT_LOOP_DEFAULT_TIMEOUT,
+    AGENT_LOOP_DEFAULT_STEPS,
+    LOOP_MAX_ITERATIONS,
 )
 from l1.kernel.params.kernel import GATECHAIN_REPEAT_THRESHOLD, GATECHAIN_HIGH_FREQ_THRESHOLD
-from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL, LOG_TRUNC_500, CACHE_DEFAULT_TTL
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL, LOG_TRUNC_500, CACHE_DEFAULT_TTL, SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -50,8 +52,8 @@ _L1_DEFAULTS: dict[str, Any] = {
     "memory.short_ttl": 86400,
 
     # ── Scout pool ──
-    "scout.max_total": 16,
-    "scout.max_per_agent": 4,
+    "scout.max_total": SCOUT_POOL_MAX_TOTAL,
+    "scout.max_per_agent": SCOUT_POOL_MAX_PER_AGENT,
 
     # ── Agent terminal ──
     "terminal.max_workers": 4,
@@ -59,6 +61,9 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── Scheduler ──
     "scheduler.default_quantum": 15.0,
     "scheduler.max_preempt": PMU_SNAPSHOT_INTERVAL,
+
+    # ── Scout cache ──
+    "scout.cache_ttl": SCOUT_CACHE_TTL,
 
     # ── Cache ──
     "cache.max_entries": LOG_TRUNC_500,
@@ -91,9 +96,9 @@ _L1_DEFAULTS: dict[str, Any] = {
     "cron.max_entries": 50,
 
     # ── Loop control (AgentLoop self-correction) ──
-    "loop.max_steps": 10,
+    "loop.max_steps": AGENT_LOOP_DEFAULT_STEPS,
     "loop.timeout": AGENT_LOOP_DEFAULT_TIMEOUT,
-    "loop.max_iterations": 50,
+    "loop.max_iterations": LOOP_MAX_ITERATIONS,
     "loop.max_attempts": LOOP_MAX_ATTEMPTS,
     "loop.continuation_nudge": True,
     "loop.tool_repeat_warn": LOOP_TOOL_REPEAT_WARN,

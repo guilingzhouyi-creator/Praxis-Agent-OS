@@ -29,7 +29,13 @@ from l1.kernel.params.api import (
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = "config/praxis.yaml"
+
+def _config_path() -> str:
+    from l1.kernel.paths import get_paths
+    return get_paths().config_file
+
+
+_CONFIG_PATH = _config_path()
 _BACKUP_SUFFIX = ".bak"
 
 # ── Default configuration template ──

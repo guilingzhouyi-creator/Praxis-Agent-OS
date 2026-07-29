@@ -48,7 +48,7 @@ class CellPmuComponent(Component):
             try:
                 get_center().ingest_pmu_snapshot(self.cell_id, snap.counters, snap.timestamp)
             except Exception:
-                pass
+                logger.debug("bus_components: stats ingest failed")
             self._bus.emit("pmu.snapshot", {"cell_id": self.cell_id, "counters": snap.counters})
         return snap
 

@@ -24,6 +24,7 @@ from enum import Enum, auto
 from typing import Any, Callable
 
 from l3._base import BaseService
+from l1.kernel.params.system import HASH_TRUNC_SHORT
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,7 @@ class HTNPlanner(BaseService):
     def decompose(self, intent: str, domain: str = "",
                   priority: int = 5, agent_id: str = "") -> Task:
         """Decompose a high-level intent into a task hierarchy."""
-        task_id = f"htn-{uuid.uuid4().hex[:8]}"
+        task_id = f"htn-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         root = Task(
             id=task_id, name=intent, task_type=TaskType.COMPOUND,
             domain=domain, priority=priority, agent_id=agent_id,
@@ -361,7 +362,7 @@ class HTNPlanner(BaseService):
         # Late import to avoid circular dependency at module level
         from .card.card_unified import CardUnified, CardPhase, CardTask, CardSummary
 
-        cid = task_id or f"htn-{uuid.uuid4().hex[:8]}"
+        cid = task_id or f"htn-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         intent = root.name
         dom = domain or root.domain
 
@@ -427,7 +428,7 @@ class HTNPlanner(BaseService):
             if spec:
                 return AGENT_ROLE_MAP.get(spec.ring, "default")
         except Exception:
-            pass
+            logger.debug("htn_planner: tool role lookup failed")
         return "default"
 
     def stats(self) -> dict:

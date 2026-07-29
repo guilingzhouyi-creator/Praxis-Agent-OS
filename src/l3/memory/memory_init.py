@@ -36,17 +36,17 @@ from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import MEMORY_INIT_TIMEOUT
-from l1.kernel.params.system import MEMORY_ALERT_EXPORT_LIMIT, AGENT_SESSION_TEMPLATE
+from l1.kernel.params.system import AGENT_SESSION_TEMPLATE, ALERTS_FILE, BOOT_SNAPSHOT_GLOB, LOG_TRUNC_200, MEMORY_AGENT_SESSIONS_DIR, MEMORY_ALERT_EXPORT_LIMIT, MEMORY_DSL_COMPILER, MEMORY_DSL_DIR, MEMORY_OPS_DIR, MEMORY_PHASE_DIR
 from l1.kernel.paths import get_paths as _get_paths
 
 logger = logging.getLogger(__name__)
 
 MEMORIES_DIR = Path(_get_paths().memories_dir)
-AGENT_SESSIONS_DIR = MEMORIES_DIR / "AGENT" / "sessions"
-OPS_DIR = MEMORIES_DIR / "ops"
-PHASE_DIR = MEMORIES_DIR / "PHASE"
-DSL_DIR = MEMORIES_DIR / "DSL"
-COMPILER_PATH = DSL_DIR / "compiler.py"
+AGENT_SESSIONS_DIR = MEMORIES_DIR / MEMORY_AGENT_SESSIONS_DIR
+OPS_DIR = MEMORIES_DIR / MEMORY_OPS_DIR
+PHASE_DIR = MEMORIES_DIR / MEMORY_PHASE_DIR
+DSL_DIR = MEMORIES_DIR / MEMORY_DSL_DIR
+COMPILER_PATH = DSL_DIR / MEMORY_DSL_COMPILER
 
 _SHUTDOWN_IN_PROGRESS = False
 
@@ -66,7 +66,7 @@ def _snapshot_path(prefix: str) -> str:
 
 def _latest_snapshot() -> str | None:
     """Find the most recent boot snapshot in memories/AGENT/sessions/."""
-    pattern = "*_boot.json"
+    pattern = BOOT_SNAPSHOT_GLOB
     files = sorted(AGENT_SESSIONS_DIR.glob(pattern), reverse=True)
     return str(files[0]) if files else None
 
@@ -217,7 +217,7 @@ def shutdown_to_memories() -> dict:
         ops = get_ops()
         alerts = ops.recent_alerts(limit=MEMORY_ALERT_EXPORT_LIMIT)
         if alerts:
-            path = str(OPS_DIR / "alerts.json")
+            path = str(OPS_DIR / ALERTS_FILE)
             _write_json(path, {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "alerts": alerts,
@@ -262,7 +262,7 @@ def shutdown_to_memories() -> dict:
                 capture_output=True, text=True, timeout=MEMORY_INIT_TIMEOUT,
                 cwd=str(MEMORIES_DIR.parent),
             )
-            results["compiler"] = "ok" if compiler_result.returncode == 0 else compiler_result.stderr[:200]
+            results["compiler"] = "ok" if compiler_result.returncode == 0 else compiler_result.stderr[:LOG_TRUNC_200]
         except Exception as e:
             results["compiler"] = f"error: {e}"
     else:

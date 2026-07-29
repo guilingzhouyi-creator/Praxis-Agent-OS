@@ -15,6 +15,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, ARCHIVE_RESTORE_LIMIT
+from l1.kernel.params.system import LOG_TRUNC_2000
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def ring3_from_archive(mem: Any) -> int:
             mem.remember(
                 agent_id=agent_id or "system",
                 entry_type="archive",
-                content=f"[{fonds}/{series}] {content[:2000]}",
+                content=f"[{fonds}/{series}] {content[:LOG_TRUNC_2000]}",
                 tags=["archive", fonds, series] + ([t for t in tags_str.split(",") if t] if tags_str else []),
                 ring=3,
                 importance=ARCHIVE_IMPORTANCE_THRESHOLD,

@@ -7,11 +7,15 @@ from __future__ import annotations
 
 import time
 import logging
+from l1.kernel.params.system import LOG_TRUNC_300
 
 logger = logging.getLogger(__name__)
 
 
-def build_context(mem, agent_id: str, max_tokens: int = 4096) -> str:
+from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
+
+
+def build_context(mem, agent_id: str, max_tokens: int = CONTEXT_BUILD_MAX_TOKENS) -> str:
     """Build an LLM context string from all rings, token-budgeted.
 
     Context watermarks are injected for traceability.
@@ -46,7 +50,7 @@ def build_context(mem, agent_id: str, max_tokens: int = 4096) -> str:
     from l1.kernel.params.system import MEMORY_BUILD_CONTEXT_LIMIT
     l_entries = mem.long.query(agent_id=agent_id, limit=MEMORY_BUILD_CONTEXT_LIMIT)
     if l_entries:
-        l_text = "\n".join(f"[{e.entry_type}] {e.content[:300]}" for e in l_entries)
+        l_text = "\n".join(f"[{e.entry_type}] {e.content[:LOG_TRUNC_300]}" for e in l_entries)
         tok = _estimate_tokens(l_text)
         if tok <= remaining:
             parts.append("=== Knowledge ===\n" + l_text)

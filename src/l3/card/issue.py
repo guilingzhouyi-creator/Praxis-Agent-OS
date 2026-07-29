@@ -23,7 +23,7 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import ISSUE_TABLE_AUTO_SAVE
+from l1.kernel.params.system import HASH_TRUNC_SHORT, ISSUE_TABLE_AUTO_SAVE, LOG_TRUNC_120, LOG_TRUNC_500, LOG_TRUNC_80
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -61,10 +61,10 @@ class IssueItem:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "question": self.question[:120],
+            "id": self.id, "question": self.question[:LOG_TRUNC_120],
             "domain": self.domain, "proposed_by": self.proposed_by,
             "assigned_to": self.assigned_to, "status": self.status.name,
-            "answer": self.answer[:500] if self.answer else "",
+            "answer": self.answer[:LOG_TRUNC_500] if self.answer else "",
             "answered_at": self.answered_at,
         }
 
@@ -73,7 +73,7 @@ class IssueItem:
 class IssueCard:
     """Issue card - discussion agenda produced by L3A."""
 
-    id: str = field(default_factory=lambda: f"issue-{uuid.uuid4().hex[:8]}")
+    id: str = field(default_factory=lambda: f"issue-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     title: str = ""
     intent: str = ""
     domain: str = ""
@@ -103,8 +103,8 @@ class IssueCard:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "title": self.title[:80],
-            "intent": self.intent[:120], "domain": self.domain,
+            "id": self.id, "title": self.title[:LOG_TRUNC_80],
+            "intent": self.intent[:LOG_TRUNC_120], "domain": self.domain,
             "status": self.status.name,
             "items": [it.to_dict() for it in self.items],
             "agent_ids": self.agent_ids,
@@ -284,4 +284,4 @@ def reset_table() -> None:
             try:
                 os.remove(pp)
             except Exception:
-                pass
+                logger.debug("issue: draft delete failed")

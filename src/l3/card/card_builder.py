@@ -18,6 +18,7 @@ from typing import Any, Callable
 
 from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 from l1.kernel.params.agent import CARD_BUILDER_MODES
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_80
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def build_card(task_id: str, intent: str, domain: str = "",
     Extensible: call register_detector() to add custom card types.
     """
     intent_lower = intent.lower()
-    card_id = task_id or f"card-{uuid.uuid4().hex[:8]}"
+    card_id = task_id or f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
 
     for det in _DETECTORS:
         if any(p in intent_lower for p in det["patterns"]):
@@ -149,7 +150,7 @@ def _build_fix_card(card_id: str, intent: str, domain: str,
                   params={"template": "structure", "path": domain or "."}),
         ], mode=PhaseMode.MULTI),
         _phase("diagnose", [
-            _step("think", f"diagnose {intent[:40]}"),
+            _step("think", f"diagnose {intent[:LOG_TRUNC_40]}"),
         ]),
         _phase("fix", [
             _step("think", f"fix {domain}"),
@@ -190,7 +191,7 @@ def _build_feature_card(card_id: str, intent: str, domain: str,
                   params={"template": "read", "path": f"{domain or '.'}/"}),
         ], mode=PhaseMode.MULTI),
         _phase("implement", [
-            _step("think", f"implement {intent[:40]}"),
+            _step("think", f"implement {intent[:LOG_TRUNC_40]}"),
             _step("think", f"review {domain}"),
         ], mode=PhaseMode.MULTI),
     ])
@@ -218,7 +219,7 @@ def _build_default_card(card_id: str, intent: str, domain: str,
                         priority: int) -> CardUnified:
     return _build_card_unified(card_id, intent, domain, priority, [
         _phase("execute", [
-            _step("think", intent[:80]),
+            _step("think", intent[:LOG_TRUNC_80]),
         ]),
     ])
 

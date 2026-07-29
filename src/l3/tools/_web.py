@@ -7,7 +7,7 @@ try:
 except ImportError:
     HAS_URLLIB = False
 
-from l1.kernel.params.system import LOG_TRUNC_10000
+from l1.kernel.params.system import LOG_TRUNC_10000, TOOL_WEB_RESULTS_LIMIT
 from l1.kernel.params.tool import TOOL_WEB_TIMEOUT
 
 
@@ -39,7 +39,7 @@ def web_search(args: dict, agent_id: str) -> dict:
         content = fetch.get("data", "")
         import re
         results = re.findall(r'<a rel="nofollow" href="([^"]+)"[^>]*>([^<]+)</a>', content)
-        items = [{"title": t, "url": u} for u, t in results[:10]]
+        items = [{"title": t, "url": u} for u, t in results[:TOOL_WEB_RESULTS_LIMIT]]
         return {"success": True, "results": items, "query": query}
     except Exception as e:
         return {"success": False, "error": str(e)}

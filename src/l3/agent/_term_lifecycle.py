@@ -48,4 +48,4 @@ def run_cache_keepalive(term: Any) -> None:
                 logger.warning("keepalive cache miss for %s: hit_rate=%.1f%%",
                                term.agent_id, result.get("cache_hit_rate", 0))
         except Exception:
-            pass
+            logger.debug("_term_lifecycle: keepalive check failed")

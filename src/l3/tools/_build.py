@@ -38,14 +38,14 @@ def execute_shell(args: dict, agent_id: str) -> dict:
 
 def deploy(args: dict, agent_id: str) -> dict:
     """Deploy code to target environment."""
-    return execute_shell({"command": f"deploy {args.get('target', '')}", "timeout": 300}, agent_id)
+    return execute_shell({"command": f"deploy {args.get('target', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)
 
 
 def db_migrate(args: dict, agent_id: str) -> dict:
     """Run database migration scripts."""
-    return execute_shell({"command": f"db_migrate {args.get('migration', '')}", "timeout": 300}, agent_id)
+    return execute_shell({"command": f"db_migrate {args.get('migration', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)
 
 
 def rollback(args: dict, agent_id: str) -> dict:
     """Roll back a deployed version."""
-    return execute_shell({"command": f"rollback {args.get('version', '')}", "timeout": 300}, agent_id)
+    return execute_shell({"command": f"rollback {args.get('version', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)

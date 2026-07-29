@@ -34,12 +34,14 @@ from l1.kernel.params.kernel import (
     STAGNATION_MAX_ITERATIONS,
 )
 
+from l1.kernel.params.system import HASH_TRUNC_LONG, HASH_TRUNC_SHORT
+
 logger = logging.getLogger(__name__)
 
 
 @staticmethod
 def _content_hash(content: str) -> str:
-    return hashlib.sha256(content.encode()).hexdigest()[:16]
+    return hashlib.sha256(content.encode()).hexdigest()[:HASH_TRUNC_LONG]
 
 
 class StagnationDetector:
@@ -102,7 +104,7 @@ class StagnationDetector:
                 if last_4[0] == last_4[2] and last_4[1] == last_4[3] and last_4[0] != last_4[1]:
                     self._total_stagnations += 1
                     self._fire(agent_id, "OSCILLATION",
-                               f"A→B→A→B pattern: {last_4[0][:8]}↔{last_4[1][:8]}")
+                               f"A→B→A→B pattern: {last_4[0][:HASH_TRUNC_SHORT]}↔{last_4[1][:HASH_TRUNC_SHORT]}")
                     return {"stagnant": True, "pattern": "OSCILLATION",
                             "hash_a": last_4[0], "hash_b": last_4[1]}
 

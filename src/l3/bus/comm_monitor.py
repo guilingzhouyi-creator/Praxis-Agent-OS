@@ -18,14 +18,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, COMM_HISTORY_MAX
 from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
 
 logger = logging.getLogger(__name__)
 
 # ── Constants ──
-_COMM_HISTORY_MAX: int = 500
-_TRACE_SAMPLE_RATE: float = 0.1  # 10% of messages get latency sampling
 
 
 # ── Data types ──
@@ -94,7 +92,7 @@ class CommMonitor:
             if latency_ms > 0:
                 self._stats.latency_samples.append(latency_ms)
             self._history.append(sample)
-            if len(self._history) > _COMM_HISTORY_MAX:
+            if len(self._history) > COMM_HISTORY_MAX:
                 self._history.pop(0)
 
     def record_dropped(self, channel: str = "ipc", count: int = 1) -> None:

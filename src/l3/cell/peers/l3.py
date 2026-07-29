@@ -19,6 +19,7 @@ from l3.cell.peers.l3a import L3A, TaskCard
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l1.kernel.params.kernel import WitnessStatus
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_80
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class CentralController:
                     "card": None, "card_id": cid or "", "status": status.upper(),
                     "created_at": time.time(), "result": parsed,
                 }
-            return {"success": bool(cid), "card_id": cid, "intent": text[:80],
+            return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80],
                     "status": status, "answer": answer}
 
         # TaskCard result (rule engine fallback)
@@ -156,7 +157,7 @@ class CentralController:
                     # Find composite that routes to this Cell
                     for composite in self.b.composites:
                         if composite.next_cell == shard_cell:
-                            summary = "\n".join(f"[{t.name}] {t.description[:100]}" for t in tasks)
+                            summary = "\n".join(f"[{t.name}] {t.description[:LOG_TRUNC_100]}" for t in tasks)
                             composite.dispatch_to_next({
                                 "intent": f"{card.intent} — {shard_cell}",
                                 "domain": domain,
@@ -249,7 +250,7 @@ class CentralController:
                 "created_at": time.time(), "result": result,
             }
         return {"success": result.get("success", False), "card_id": cid,
-                "intent": intent[:80], "status": status, "result": result}
+                "intent": intent[:LOG_TRUNC_80], "status": status, "result": result}
 
     def status(self) -> dict:
         return {

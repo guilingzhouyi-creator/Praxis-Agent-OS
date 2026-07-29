@@ -74,21 +74,13 @@ from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
 from .memory_context import build_context as _build_context
 from .memory_search import search_long_term as _search_long_term
-from l1.kernel.params.system import (
-    LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_100, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_500,
-    MEMORY_IMPORTANCE_BASE, MEMORY_PROMOTION_THRESHOLD,
-    MEMORY_PERSIST_FILE_RING3,
-    MEMORY_PRESSURE_HIGH, MEMORY_PRESSURE_MEDIUM,
-    MEMORY_RECALL_LIMIT, MEMORY_RECALL_LIMIT_LARGE,
-    MEMORY_BUILD_CONTEXT_ENTRIES, MEMORY_PAGER_RECALL_LIMIT,
-    MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL, MEMORY_RING_LONG_TTL,
-)
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_100, LOG_TRUNC_120, LOG_TRUNC_150, LOG_TRUNC_200, LOG_TRUNC_500, LOG_TRUNC_60, LOG_TRUNC_80, CONTEXT_BUILD_MAX_TOKENS, MEMORY_BUILD_CONTEXT_ENTRIES, MEMORY_IMPORTANCE_BASE, MEMORY_PAGER_RECALL_LIMIT, MEMORY_PERSIST_FILE_RING3, MEMORY_PRESSURE_HIGH, MEMORY_PRESSURE_MEDIUM, MEMORY_PROMOTION_THRESHOLD, MEMORY_RECALL_LIMIT, MEMORY_RECALL_LIMIT_LARGE, MEMORY_RING_LONG_BUDGET, MEMORY_RING_LONG_TTL, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_SHORT_TTL, MEMORY_RING_WORKING_BUDGET, MEMORY_RING_WORKING_TTL
 
 
 class MemoryManager:
     """Agent memory manager — context window + ring tiers."""
 
-    def __init__(self, working_budget: int = 8192, short_budget: int = 32768, long_budget: int = 131072):
+    def __init__(self, working_budget: int = MEMORY_RING_WORKING_BUDGET, short_budget: int = MEMORY_RING_SHORT_BUDGET, long_budget: int = MEMORY_RING_LONG_BUDGET):
         self.working = RingLayer("working", working_budget, ttl=MEMORY_RING_WORKING_TTL)
         self.short = RingLayer("short", short_budget, ttl=MEMORY_RING_SHORT_TTL)
         self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL if MEMORY_RING_LONG_TTL else None)
@@ -128,7 +120,7 @@ class MemoryManager:
         if importance == MEMORY_IMPORTANCE_BASE:
             importance = _score_importance(content, entry_type)
 
-        eid = f"mem-{uuid.uuid4().hex[:16]}"
+        eid = f"mem-{uuid.uuid4().hex[:HASH_TRUNC_LONG]}"
         tok = real_tokens if real_tokens is not None else 0
 
         # Attach provenance if available
@@ -262,11 +254,11 @@ class MemoryManager:
                             importance=e.importance,
                         )
             except Exception:
-                pass  # promote is best-effort
+                logger.debug("memory: promote failed")  # best-effort
 
         return results
 
-    def build_context(self, agent_id: str, max_tokens: int = 4096) -> str:
+    def build_context(self, agent_id: str, max_tokens: int = CONTEXT_BUILD_MAX_TOKENS) -> str:
         """Build an LLM context string from all rings, token-budgeted.
 
         Context watermarks are injected for traceability.
@@ -353,7 +345,7 @@ class MemoryManager:
 
     def stub_compact(self, agent_id: str | None = None,
                       keep_recent_turns: int = 1,
-                      min_collapse_size: int = 500,
+                      min_collapse_size: int = LOG_TRUNC_500,
                       exempt_tools: tuple[str, ...] = ("read_file",)) -> dict:
         """Stub-compact old tool results: replace full output with summary.
 
@@ -387,7 +379,7 @@ class MemoryManager:
             if str(int(e.timestamp)) in recent_ts:
                 continue
             # Stub: replace content with summary
-            head = e.content[:150]
+            head = e.content[:LOG_TRUNC_150]
             e.content = f"[stubbed] {head}... ({len(e.content)} chars elided)"
             e.tokens = _estimate_tokens(e.content)
             saved_bytes += len(e.content)
@@ -528,7 +520,7 @@ class MemoryManager:
                         (cur.lastrowid, e["content"], ",".join(e.get("tags", []))),
                     )
                 except Exception:
-                    pass
+                    logger.debug("memory: fts update failed")
             conn.commit()
             conn.close()
             long_written = len(dirty_entries)
@@ -631,7 +623,7 @@ class MemoryManager:
         return {1: self.working, 2: self.short, 3: self.long}.get(n, self.working)
 
     def _ttl_for(self, ring: int) -> float:
-        return {1: 1800, 2: 86400, 3: 0}.get(ring, 0)
+        return {1: MEMORY_RING_WORKING_TTL, 2: MEMORY_RING_SHORT_TTL, 3: MEMORY_RING_LONG_TTL}.get(ring, 0)
 
 
 _memory: MemoryManager | None = None

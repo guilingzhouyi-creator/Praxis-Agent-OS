@@ -29,7 +29,7 @@ from l3.services.model_service import get_service as _get_model_service
 
 from l1.kernel import emit_signal
 from l1.kernel.params.agent import R4_AGENT_ID, R4_ROLE, R4_TERRITORY
-from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL
+from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200
 
 _MODEL_SPEC = "r4_agent"
 
@@ -280,7 +280,7 @@ class R4Agent:
             lean_dir = _gp().skill_lean_dir
             entry = {
                 "agent_id": agent_id, "tool": tool_name, "args": args,
-                "error": error[:200], "timestamp": time.time(),
+                "error": error[:LOG_TRUNC_200], "timestamp": time.time(),
                 "turn_count": len(turn_log),
                 "resolved": False,
             }

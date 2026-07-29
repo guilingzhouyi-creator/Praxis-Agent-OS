@@ -1,7 +1,11 @@
 """SubAgent specification definitions — built-in specs, lazy loading, YAML integration."""
 from __future__ import annotations
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_100
+
+logger = logging.getLogger(__name__)
 
 
 def _default_tools() -> list[str]:
@@ -35,7 +39,7 @@ class SubAgentSpec:
     def to_dict(self) -> dict:
         return {
             "name": self.name,
-            "description": self.description[:100],
+            "description": self.description[:LOG_TRUNC_100],
             "allowed_tools": self.allowed_tools,
             "model": self.model,
             "max_steps": self.max_steps,
@@ -120,7 +124,8 @@ def load_specs() -> dict[str, SubAgentSpec]:
         specs[name] = SubAgentSpec(name=name, **raw)
 
     # Apply YAML overrides
-    yaml_path = os.path.join(os.getcwd(), "config", "commands.yaml")
+    from l1.kernel.params.system import COMMANDS_CONFIG_PATH
+    yaml_path = os.path.join(os.getcwd(), COMMANDS_CONFIG_PATH)
     try:
         with open(yaml_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
@@ -134,7 +139,7 @@ def load_specs() -> dict[str, SubAgentSpec]:
             else:
                 specs[name] = SubAgentSpec(name=name, **overrides)
     except Exception:
-        pass
+        logger.debug("subagent_spec: YAML override load failed")
 
     return specs
 

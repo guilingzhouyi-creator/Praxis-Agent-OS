@@ -10,10 +10,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import PRAXIS_CONFIG_DIR, WORKSPACE_MAX_RECENT
-from l1.kernel.platform import get_config_dir
-CONFIG_DIR = Path(get_config_dir())
-CONFIG_FILE = CONFIG_DIR / "workspaces.json"
+from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import MEMORY_WORKSPACES_FILE, WORKSPACE_MAX_RECENT
+
+CONFIG_DIR = Path(_gp().config_dir)
+CONFIG_FILE = CONFIG_DIR / MEMORY_WORKSPACES_FILE
 
 
 def _ensure_config() -> None:

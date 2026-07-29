@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from l3._base import BaseService
+from l1.kernel.params.system import LOG_TRUNC_80
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class AIService(BaseService):
             for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.FunctionDef):
                     docstring = ast.get_docstring(node) or ""
-                    summary_parts.append(f"function `{node.name}`: {docstring[:80] if docstring else f'{len(node.body)} statements'}")
+                    summary_parts.append(f"function `{node.name}`: {docstring[:LOG_TRUNC_80] if docstring else f'{len(node.body)} statements'}")
                 elif isinstance(node, ast.ClassDef):
                     methods = [n.name for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
                     summary_parts.append(f"class `{node.name}`: {len(methods)} methods")

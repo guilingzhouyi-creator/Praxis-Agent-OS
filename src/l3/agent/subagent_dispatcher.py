@@ -15,6 +15,7 @@ from typing import Any
 
 from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
 from .subagent_task import SubAgentTask
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class SubAgentDispatcher:
             if not spec:
                 return {"success": False, "error": f"unknown subagent: {spec_name}"}
 
-            task_id = f"sub-{uuid.uuid4().hex[:12]}"
+            task_id = f"sub-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
             task = SubAgentTask(
                 task_id=task_id,
                 spec=spec,

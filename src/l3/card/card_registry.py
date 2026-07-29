@@ -117,7 +117,7 @@ class CardRegistry(PersistableMixin):
                 if gate_r.get("auto_approve", False):
                     logger.info("card %s un-held by card gate, re-queued", cid)
             except Exception:
-                pass
+                logger.debug("card_registry: gate auto-approve failed")
 
     def _escalate_stale(self) -> None:
         now = time.time()
@@ -342,7 +342,7 @@ class CardRegistry(PersistableMixin):
             from .bus.reference_channel import get_rc as _rc
             _rc().card_lifecycle(cid, intent, "submitted", nature="", size="")
         except Exception:
-            pass
+            logger.debug("card_registry: rc lifecycle submit failed")
         return cid
 
     # ── Dispatch ──
@@ -408,7 +408,7 @@ class CardRegistry(PersistableMixin):
             _rc().card_lifecycle(card_id, record.summary.title if record.summary else "",
                                  record.state.value, error=error)
         except Exception:
-            pass
+            logger.debug("card_registry: rc lifecycle update failed")
         return True
 
     def cancel(self, card_id: str) -> bool:

@@ -22,6 +22,7 @@ from l1.kernel.params.agent import L3A_MAX_STEPS, L3A_TIMEOUT
 from l3.card.card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.system import LOG_TRUNC_60
 
 _MODEL_SPEC = "l3a"
 
@@ -108,7 +109,7 @@ def _cardwrite_handler(args: dict, agent_id: str = "") -> dict:
         # Store the full card in registry
         with reg._lock:
             reg._cards[cid] = card
-        logger.info("L3A cardwrite: %s — %s", card.id, title[:60])
+        logger.info("L3A cardwrite: %s — %s", card.id, title[:LOG_TRUNC_60])
         return {"success": True, "card_id": card.id, "nature": nature,
                 "phases": len(phases_data), "message": f"Card {card.id} submitted"}
     except Exception as e:

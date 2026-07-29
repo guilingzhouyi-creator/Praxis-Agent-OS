@@ -13,6 +13,7 @@ import uuid
 from l1.kernel.params.agent import CELL_SNAPSHOT_MAX
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_60, LOG_TRUNC_80
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def execute_card(
                     # Already handled by orchestrator → AnswerSession will pick it up
                     return {"success": True, "action": "orchestrated", "session_id": s.get("id")}
         except Exception:
-            pass
+            logger.debug("cell_execute: orchestrated session lookup failed")
         return cell.convene(card, agent_map)
 
     cell._current_user_id = user_id
@@ -62,7 +63,7 @@ def execute_card(
         if len(slices) > 1:
             result = _execute_decomposed(cell, slices)
             result["card_id"] = card.id
-            result["intent"] = card.intent[:80]
+            result["intent"] = card.intent[:LOG_TRUNC_80]
             return result
 
     if agent_map is None:
@@ -79,7 +80,7 @@ def execute_card(
     if cell._emergency:
         return {"success": False, "error": "Cell emergency stopped", "cell_id": cell.cell_id}
 
-    card_id = card.id if hasattr(card, "id") else f"card-{uuid.uuid4().hex[:8]}"
+    card_id = card.id if hasattr(card, "id") else f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
     _snapshot_and_inject(cell, card_id, card)
 
     from l3.card.execution_plan import ExecutionPlan
@@ -94,11 +95,11 @@ def execute_card(
     result["card_id"] = card_id
     cell._card_history.push({
         "card_id": card_id,
-        "intent": card.intent[:60] if hasattr(card, "intent") else str(card)[:60],
+        "intent": card.intent[:LOG_TRUNC_60] if hasattr(card, "intent") else str(card)[:LOG_TRUNC_60],
         "completed_at": time.time(),
         "success": result.get("success", False),
     })
-    result["intent"] = card.intent[:80] if hasattr(card, "intent") else str(card)[:80]
+    result["intent"] = card.intent[:LOG_TRUNC_80] if hasattr(card, "intent") else str(card)[:LOG_TRUNC_80]
     result["agent_map"] = agent_map
     # PMU counters
     if result.get("success"):
@@ -122,7 +123,7 @@ def _raw_to_card(cell, raw_intent: str, domain: str, skip_htn: bool = False):
             logger.warning("HTN decompose failed: %s", e)
     from l3.card.card_builder import build_card as _build_structured_card
     return _build_structured_card(
-        task_id=f"auto-{uuid.uuid4().hex[:8]}",
+        task_id=f"auto-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}",
         intent=raw_intent,
         domain=raw_domain,
     )
@@ -222,7 +223,7 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
         from l3.cell.components.cell_buffer import CircularBuffer
         for item in list(cell._rollback_ring._data):
             if isinstance(item, str) and item.startswith("Card "):
-                logger.info("rollback context injected for %s: %s", card_id, item[:80])
+                logger.info("rollback context injected for %s: %s", card_id, item[:LOG_TRUNC_80])
                 break
 
 
@@ -249,4 +250,4 @@ def _cleanup_snapshot(cell, files: dict) -> None:
             try:
                 os.remove(tmp_path)
             except Exception:
-                pass
+                logger.debug("cell_execute: temp snapshot file cleanup failed")

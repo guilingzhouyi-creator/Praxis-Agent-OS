@@ -143,7 +143,7 @@ class AnswerAggregator:
                         except Exception:
                             results.append({"raw": str(content)[:LOG_TRUNC_200]})
             except Exception:
-                pass
+                logger.debug("answer_aggregator: answer aggregate failed")
 
         return results
 

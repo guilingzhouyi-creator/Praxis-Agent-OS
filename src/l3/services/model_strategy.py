@@ -106,7 +106,7 @@ class CapabilityDetector:
                 self.discover(name, cls)
                 count += 1
         except Exception:
-            pass
+            logger.debug("model_strategy: registry discover failed")
         return count
 
     def stats(self) -> dict:

@@ -127,7 +127,7 @@ class CellPmu:
                 from .services.stats_center import get_center
                 get_center().ingest_pmu_snapshot(self.cell_id, snap.counters, now)
             except Exception:
-                pass
+                logger.debug("cell_pmu: stats center ingest failed")
             return snap
 
     def query_history(

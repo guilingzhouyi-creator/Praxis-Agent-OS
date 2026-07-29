@@ -146,7 +146,7 @@ class PendingQueue(PersistableMixin):
                 card.approval_at = time.time()
                 card.approval_by = by
         except Exception:
-            pass
+            logger.debug("pending_queue: approval set failed")
 
     def approve(self, msg_id: str, response: str = "") -> dict:
         """Approve a pending card. Restores placeholder in CardRegistry."""

@@ -1,7 +1,11 @@
 """Code analysis handlers."""
 
+import logging
 import os
 import re
+from l1.kernel.params.system import LOG_TRUNC_30, LOG_TRUNC_100, LOG_TRUNC_200, TOOL_ISSUES_LIMIT, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
+
+logger = logging.getLogger(__name__)
 
 
 def symbol_search(args: dict, agent_id: str) -> dict:
@@ -20,10 +24,10 @@ def symbol_search(args: dict, agent_id: str) -> dict:
                 with open(fp, encoding="utf-8") as fh:
                     for lineno, line in enumerate(fh, 1):
                         if pattern.search(line):
-                            results.append({"file": fp, "line": lineno, "text": line.strip()[:200]})
+                            results.append({"file": fp, "line": lineno, "text": line.strip()[:LOG_TRUNC_200]})
             except Exception:
-                pass
-    return {"success": True, "results": results[:100], "total": len(results)}
+                logger.debug("_code: symbol_search file read failed")
+    return {"success": True, "results": results[:TOOL_RESULTS_LIMIT_DEFAULT], "total": len(results)}
 
 
 def find_imports(args: dict, agent_id: str) -> dict:
@@ -40,8 +44,8 @@ def find_imports(args: dict, agent_id: str) -> dict:
                         if line.startswith("import ") or line.startswith("from "):
                             results.append({"file": fp, "line": lineno, "text": line.strip()})
             except Exception:
-                pass
-    return {"success": True, "results": results[:200], "total": len(results)}
+                logger.debug("_code: find_imports file read failed")
+    return {"success": True, "results": results[:TOOL_RESULTS_LIMIT_LARGE], "total": len(results)}
 
 
 def review_code(args: dict, agent_id: str) -> dict:
@@ -58,10 +62,10 @@ def review_code(args: dict, agent_id: str) -> dict:
         if len(line) > 120:
             issues.append({"line": i, "type": "line_length", "message": f"Line too long ({len(line)} chars)"})
         if "TODO" in line:
-            issues.append({"line": i, "type": "todo", "message": line.strip()[:100]})
+            issues.append({"line": i, "type": "todo", "message": line.strip()[:LOG_TRUNC_100]})
         if line.strip().startswith("except:") or line.strip().startswith("except :"):
             issues.append({"line": i, "type": "bare_except", "message": "Bare except clause"})
-    return {"success": True, "issues": issues[:50], "total": len(issues), "file": path}
+    return {"success": True, "issues": issues[:TOOL_ISSUES_LIMIT], "total": len(issues), "file": path}
 
 
 def list_functions(args: dict, agent_id: str) -> dict:
@@ -121,12 +125,12 @@ def find_callees(args: dict, agent_id: str) -> dict:
                 if isinstance(node.func, ast.Name):
                     self.calls.append({"name": node.func.id, "line": node.lineno})
                 elif isinstance(node.func, ast.Attribute):
-                    self.calls.append({"name": f"{node.func.attr}", "obj": ast.unparse(node.func.value)[:30],
+                    self.calls.append({"name": f"{node.func.attr}", "obj": ast.unparse(node.func.value)[:LOG_TRUNC_30],
                                        "line": node.lineno})
                 self.generic_visit(node)
         visitor = _CallVisitor()
         visitor.visit(tree)
-        return {"success": True, "calls": visitor.calls[:100], "total": len(visitor.calls), "file": path}
+        return {"success": True, "calls": visitor.calls[:TOOL_RESULTS_LIMIT_DEFAULT], "total": len(visitor.calls), "file": path}
     except SyntaxError as e:
         return {"success": False, "error": f"syntax error: {e}"}
     except Exception as e:

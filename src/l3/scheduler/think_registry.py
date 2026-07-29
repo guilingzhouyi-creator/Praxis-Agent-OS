@@ -26,6 +26,7 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.params.api import THINK_MAX_BUDGET
 from l1.kernel.params.system import (
     THINK_BUDGET_GLOBAL_DEFAULT,
     THINK_REASONING_DEFAULT,
@@ -153,10 +154,10 @@ class ThinkQuotaRegistry:
         try:
             from l3.config.settings_center import get_center
             center = get_center()
-            max_budget = center.get("think.max_budget", 32768)
+            max_budget = center.get("think.max_budget", THINK_MAX_BUDGET)
             max_reasoning = center.get("think.max_reasoning", "high")
         except Exception:
-            max_budget = 32768
+            max_budget = THINK_MAX_BUDGET
             max_reasoning = "high"
 
         _EFFORT_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3}

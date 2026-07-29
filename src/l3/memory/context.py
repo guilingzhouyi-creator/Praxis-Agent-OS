@@ -23,6 +23,7 @@ from l1.kernel.params.system import (
     CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS,
     LOG_TRUNC_100, LOG_TRUNC_500, LOG_TRUNC_1000,
     MEMORY_IMPORTANCE_HIGH,
+    MEMORY_IMPORTANCE_CRITICAL,
 )
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class ContextManager:
             mem.remember(
                 agent_id=self._agent_id, entry_type="summary",
                 content=summary[:LOG_TRUNC_1000], tags=["summary", self._current_task],
-                importance=0.9, ring=3,
+                importance=MEMORY_IMPORTANCE_CRITICAL, ring=3,
             )
 
         with self._lock:

@@ -28,14 +28,7 @@ import time
 from collections import deque
 from typing import Any
 
-from l1.kernel.params.system import (
-    RC_PATH,
-    RC_FLUSH_INTERVAL,
-    RC_RING_SIZE,
-    RC_SHA256_TRUNC,
-    RC_EXPORT_LIMIT,
-    LOG_TRUNC_1000,
-)
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, RC_EXPORT_LIMIT, RC_FLUSH_INTERVAL, RC_PATH, RC_RING_SIZE, RC_SHA256_TRUNC
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +71,7 @@ class ReferenceChannel:
             try:
                 os.makedirs(d, exist_ok=True)
             except Exception:
-                pass
+                logger.debug("reference_channel: makedirs failed")
 
     def _start_flusher(self) -> None:
         """Start the periodic flush daemon thread."""
@@ -175,7 +168,7 @@ class ReferenceChannel:
             "tool_name": tool_name, "agent_id": agent_id,
             "allowed": allowed, "gate": gate, "reason": reason,
             "predicted_success": predicted_success,
-            "predicted_summary": predicted_summary[:200],
+            "predicted_summary": predicted_summary[:LOG_TRUNC_200],
             "deviation": deviation,
             "args_keys": list((args or {}).keys()),
         }, source="tool_pipeline", trace_id=trace_id)
@@ -191,9 +184,9 @@ class ReferenceChannel:
         elif predicted_state == "failed" and state == "completed":
             deviation = "unexpected_completion"
         self.event("card_lifecycle", {
-            "card_id": card_id, "intent": intent[:100],
+            "card_id": card_id, "intent": intent[:LOG_TRUNC_100],
             "state": state, "nature": nature, "size": size,
-            "error": error[:100],
+            "error": error[:LOG_TRUNC_100],
             "predicted_state": predicted_state,
             "deviation": deviation,
         }, source="card_registry", trace_id=card_id)
@@ -203,8 +196,8 @@ class ReferenceChannel:
                          new_value: str, reason: str = "") -> None:
         self.event("human_correction", {
             "card_id": card_id, "agent_id": agent_id,
-            "field": field, "old_preview": str(old_value)[:200],
-            "new_preview": str(new_value)[:200], "reason": reason[:200],
+            "field": field, "old_preview": str(old_value)[:LOG_TRUNC_200],
+            "new_preview": str(new_value)[:LOG_TRUNC_200], "reason": reason[:200],
         }, source="l2_shell", trace_id=card_id)
 
     def anomaly(self, card_id: str, detection: dict,
@@ -219,7 +212,7 @@ class ReferenceChannel:
         self.event("convention", {
             "card_id": card_id, "outcome": outcome,
             "participant_count": len(participants),
-            "summary": summary[:200],
+            "summary": summary[:LOG_TRUNC_200],
         }, source="convention", trace_id=card_id)
 
     # ── Export ──
@@ -243,7 +236,7 @@ class ReferenceChannel:
                             continue
                         results.append(ev)
                     except Exception:
-                        pass
+                        logger.debug("reference_channel: event export failed")
         except Exception as e:
             logger.warning("rc export: %s", e)
         return results

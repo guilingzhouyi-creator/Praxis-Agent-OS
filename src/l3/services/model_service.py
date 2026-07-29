@@ -239,7 +239,7 @@ class ModelService:
             if key:
                 config["api_key"] = key
         except Exception:
-            pass
+            logger.debug("model_service: vault key lookup failed")
 
 
 # ── Singleton ──
