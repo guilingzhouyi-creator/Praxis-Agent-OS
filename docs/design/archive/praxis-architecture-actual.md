@@ -889,7 +889,7 @@ flowchart TB
 | **Process** | `params/kernel.py` | `PROCESS_AUDIT_MAX=1000`, `PROCESS_INIT_RING=3` |
 | **Network** | `params/api.py` | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0` |
 | **Cell ID** | `params/agent.py` | `DEFAULT_CELL_ID="cell-1"` |
-| **Config Dir** | `params/system.py` | `PRAXIS_CONFIG_DIR=".config/nomos-praxis"` |
+| **Config Dir** | `params/system.py` | `PRAXIS_CONFIG_DIR=".config/praxis"` |
 | **LLM URLs** | `params/api.py` | `ANTHROPIC_DEFAULT_URL="https://api.anthropic.com/v1/messages"` |
 | **Memory Budget** | `params/system.py` | `working=8192, short=32768, long=131072` |
 | **Memory Pressure** | `params/kernel.py` | `PRESSURE_HIGH=0.80, PRESSURE_MEDIUM=0.60` |
@@ -897,7 +897,7 @@ flowchart TB
 | **Process** | `PROCESS_AUDIT_MAX=1000`, `PROCESS_INIT_RING=3` |
 | **Network** | `BROADCAST_INTERVAL=15.0`, `PEER_TIMEOUT=60.0` |
 | **Cell ID** | `DEFAULT_CELL_ID="cell-1"` |
-| **Config Dir** | `PRAXIS_CONFIG_DIR=".config/nomos-praxis"` |
+| **Config Dir** | `PRAXIS_CONFIG_DIR=".config/praxis"` |
 | **LLM URLs** | `ANTHROPIC_DEFAULT_URL="https://api.anthropic.com/v1/messages"` |
 | **Memory Budget** | `working=8192, short=32768, long=131072` |
 | **Memory Pressure** | `PRESSURE_HIGH=0.80, PRESSURE_MEDIUM=0.60` |
@@ -910,7 +910,7 @@ flowchart TB
 praxis/
 ├── pyproject.toml              # Project config
 ├── praxis.yaml                  # System config
-├── .nomos-rules.md              # Constitution rules
+├── .praxis-rules.md              # Constitution rules
 ├── .gitignore
 ├── commands.yaml                # L2 Shell command definitions
 ├── tools.yaml                   # Tool metadata registry

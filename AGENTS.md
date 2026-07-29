@@ -81,11 +81,11 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | `config/praxis.yaml` | Main config (kernel, cell, LLM, constitution, gatechain, API) |
 | `config/commands.yaml` | 40 L2 shell command definitions |
 | `config/tools.yaml` | 70+ tool definitions by ring layer |
-| `config/.nomos-rules.md` | Constitution rules (parsed by `constitution.py`) |
+| `config/.praxis-rules.md` | Constitution rules (parsed by `constitution.py`) |
 | `config/.mcp.json` | MCP server definitions |
 | `locales/` | i18n: en, zh-CN, ja, ko |
 | `memories/` | Runtime agent memory persistence |
-| `.opencode/skills/` | 7 Praxis-specific OpenCode skills (architecture, card, cell, kernel, scout, self, tool-pipeline) |
+| `.praxis/skills/` | 7 Praxis-specific OpenCode skills (architecture, card, cell, kernel, scout, self, tool-pipeline) |
 
 ## Key files
 

@@ -82,7 +82,7 @@ def reset_color_scheme() -> None:
 _PING_PONG_TIMEOUT = 300  # seconds: detect ping-pong file flipping
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
-_DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "nomos-sandbox")
+_DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "praxis-sandbox")
 _SANDBOX_ROOT = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_SANDBOX)
 
 
@@ -617,7 +617,7 @@ class CellSandbox:
         return "none"
 
     def read(self, rel_path: str, agent_id: str,
-             depends_on: list[str]) -> dict:
+             depends_on: list[str] | None = None) -> dict:
         """Read a file with cross-agent version routing.
 
         Resolution order:
@@ -673,8 +673,8 @@ class CellSandbox:
         return {"success": False, "error": "file not found"}
 
     def write(self, rel_path: str, content: str, agent_id: str,
-              task_id: str, tool_name: str,
-              depends_on: list[str]) -> dict:
+              task_id: str = "", tool_name: str = "",
+              depends_on: list[str] | None = None) -> dict:
         """Write to sandbox with structured diff, conflict detection, and event broadcast.
 
         Args:

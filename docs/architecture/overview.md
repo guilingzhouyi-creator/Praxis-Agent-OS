@@ -371,7 +371,7 @@ Each memory entry (`MemEntry`) carries `agent_id`, `cell_id`, `entry_type`, `imp
 
 ### Security = Three Layers
 
-1. **Constitution** — `constitution.py` parses `.nomos-rules.md`, enforces 14+ built-in rules.
+1. **Constitution** — `constitution.py` parses `.praxis-rules.md`, enforces 14+ built-in rules.
    - Runtime CRUD: `reload()`, `update_rules()`, `clear_custom_rules()`
    - AgentLoop injection: `summary()` auto-injected into every system prompt
    - NMI emission: on BLOCK → fires NMI (NMI_VIOLATION) + EventBus signal

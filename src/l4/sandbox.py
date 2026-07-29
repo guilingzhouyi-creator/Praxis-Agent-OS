@@ -27,7 +27,7 @@ from l1.kernel.platform import get_temp_dir as _get_temp_dir
 logger = logging.getLogger(__name__)
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
-_DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "nomos-sandbox")
+_DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "praxis-sandbox")
 _SANDBOX_ROOT = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_SANDBOX)
 
 

@@ -8,7 +8,7 @@
 flowchart LR
     subgraph Outer["Outer — Constitution"]
         C1["Territory rules
-        .nomos-rules.md"]
+        .praxis-rules.md"]
         C2["R1-R3 access control
         Ring-based"]
     end
@@ -33,7 +33,7 @@ flowchart LR
 
 ## 1. Constitution (`l1/kernel/constitution.py`)
 
-The **highest authority** in Agent OS. Parses `.nomos-rules.md` and enforces 14+ built-in rules.
+The **highest authority** in Agent OS. Parses `.praxis-rules.md` and enforces 14+ built-in rules.
 
 ### 14 Built-in Rule Descriptors
 

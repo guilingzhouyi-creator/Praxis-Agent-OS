@@ -60,6 +60,7 @@ class IssueItem:
     answered_at: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this issue item to a dictionary representation."""
         return {
             "id": self.id, "question": self.question[:LOG_TRUNC_120],
             "domain": self.domain, "proposed_by": self.proposed_by,
@@ -90,6 +91,7 @@ class IssueCard:
     def add_item(self, question: str, domain: str = "",
                  proposed_by: str = "",
                  assigned_to: str = "") -> str:
+        """Add a new issue item to the card and return its id."""
         item = IssueItem(
             id=f"{self.id}-{uuid.uuid4().hex[:6]}",
             question=question, domain=domain or self.domain,
@@ -99,9 +101,11 @@ class IssueCard:
         return item.id
 
     def all_resolved(self) -> bool:
+        """Return True if every item in the card is resolved."""
         return all(it.status == IssueStatus.RESOLVED for it in self.items)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this issue card to a dictionary representation."""
         return {
             "id": self.id, "title": self.title[:LOG_TRUNC_80],
             "intent": self.intent[:LOG_TRUNC_120], "domain": self.domain,
@@ -163,15 +167,18 @@ class IssueTable(PersistableMixin):
         return True
 
     def submit(self, card: IssueCard) -> str:
+        """Register a new issue card in the table and return its id."""
         with self._lock:
             self._cards[card.id] = card
         return card.id
 
     def get(self, card_id: str) -> IssueCard | None:
+        """Return the issue card with the given id, or None if absent."""
         with self._lock:
             return self._cards.get(card_id)
 
     def set_status(self, card_id: str, status: IssueCardStatus) -> bool:
+        """Transition a card to the given status; stamp converged_at on CONVERGED."""
         with self._lock:
             card = self._cards.get(card_id)
             if not card:
@@ -183,6 +190,7 @@ class IssueTable(PersistableMixin):
 
     def answer_item(self, card_id: str, item_id: str,
                     answer: str, agent_id: str) -> bool:
+        """Record an agent's answer to an assigned issue item."""
         with self._lock:
             card = self._cards.get(card_id)
             if not card:
@@ -197,6 +205,7 @@ class IssueTable(PersistableMixin):
 
     def supplement(self, card_id: str, question: str, domain: str,
                    proposed_by: str) -> str | None:
+        """Add a supplementary issue item to a card and return its id."""
         with self._lock:
             card = self._cards.get(card_id)
             if not card:
@@ -209,6 +218,7 @@ class IssueTable(PersistableMixin):
             return iid
 
     def resolve_item(self, card_id: str, item_id: str) -> bool:
+        """Mark a specific issue item as resolved."""
         with self._lock:
             card = self._cards.get(card_id)
             if not card:
@@ -221,6 +231,7 @@ class IssueTable(PersistableMixin):
 
     def assign_item(self, card_id: str, item_id: str,
                     agent_id: str) -> bool:
+        """Assign an issue item to a specific agent for answering."""
         with self._lock:
             card = self._cards.get(card_id)
             if not card:
@@ -232,11 +243,13 @@ class IssueTable(PersistableMixin):
             return False
 
     def list_by_status(self, status: IssueCardStatus | None = None) -> list[dict]:
+        """List cards as dicts, optionally filtered by card status."""
         with self._lock:
             return [c.to_dict() for c in self._cards.values()
                     if status is None or c.status == status]
 
     def list_items_by_agent(self, agent_id: str) -> list[dict]:
+        """List all issue items assigned to a given agent, annotated with card id."""
         with self._lock:
             result = []
             for card in self._cards.values():
@@ -246,6 +259,7 @@ class IssueTable(PersistableMixin):
             return result
 
     def summary(self) -> dict:
+        """Return aggregate counts of cards, items, and resolved items."""
         with self._lock:
             statuses = {}
             for c in self._cards.values():
@@ -267,6 +281,7 @@ _table: IssueTable | None = None
 
 
 def get_table() -> IssueTable:
+    """Return the singleton IssueTable, creating it on first access."""
     global _table
     if _table is None:
         _table = IssueTable()
@@ -274,6 +289,7 @@ def get_table() -> IssueTable:
 
 
 def reset_table() -> None:
+    """Stop auto-save, clear the singleton table and remove its persist file."""
     global _table
     if _table is not None:
         _table._stop_auto_save()

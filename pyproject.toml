@@ -1,5 +1,5 @@
 [project]
-name = "nomos-praxis"
+name = "praxis"
 version = "0.3.0"
 description = "NOMOS Praxis — Agent OS (headless core)"
 requires-python = ">=3.11"

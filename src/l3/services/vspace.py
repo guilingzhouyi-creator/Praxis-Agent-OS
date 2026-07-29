@@ -25,7 +25,7 @@ from l1.kernel.params.agent import TERRITORY_MAP as PARAMS_TERRITORY, TERRITORY_
 logger = logging.getLogger(__name__)
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
-_DEFAULT_VSPACE = os.path.join(tempfile.gettempdir(), "nomos-vspace")
+_DEFAULT_VSPACE = os.path.join(tempfile.gettempdir(), "praxis-vspace")
 _VSPACE_SANDBOX = os.environ.get(ENV_SANDBOX_ROOT, _DEFAULT_VSPACE)
 
 # Territory → agent mapping (single source: kernel/params.py)

@@ -108,6 +108,12 @@ class AgentLoop:
         self._cached_system: str = ""
         self._cached_tools: tuple[list, list] = ([], [])
         self._pmu: Any = None
+        # Persistent thread pool for parallel read-only tool execution
+        # (avoids creating/destroying ThreadPoolExecutor on every loop iteration)
+        self._parallel_executor = ThreadPoolExecutor(
+            max_workers=AGENT_LOOP_MAX_WORKERS,
+            thread_name_prefix=f"parallel-{agent_id}",
+        )
 
     def set_pmu(self, pmu: Any) -> None:
         """Attach a Performance Monitoring Unit for counter tracking."""
@@ -385,22 +391,37 @@ class AgentLoop:
         """
         self.task = task
         return self.run(
-            max_steps=AGENT_LOOP_DEFAULT_STEPS,
+            max_steps=0,
             timeout=timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
             model_config=model_config,
         )
 
-    def run(self, max_steps: int = AGENT_LOOP_DEFAULT_STEPS, timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
+    def run(self, max_steps: int = 0, timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
             verifier: Any | None = None,
             model_config: dict | None = None) -> dict:
         """Run the tool-calling loop.
 
         Args:
+            max_steps: If 0 (default), queries SettingsCenter for ``loop.max_steps``.
+                       If > 0, overrides SettingsCenter value.
+                       If < 0 (e.g. -1), runs with no step limit (unlimited mode).
             model_config: Per-call overrides for LLM config.
                 Keys: provider, model, max_tokens, temperature,
                       reasoning_effort, thinking_budget
                 None = use global LLM engine config.
         """
+        # Resolve max_steps: SettingsCenter >= caller override > compile-time default
+        if max_steps == 0:
+            try:
+                from l3.config.settings_center import get_center
+                max_steps = get_center().get("loop.max_steps", AGENT_LOOP_DEFAULT_STEPS)
+            except Exception:
+                max_steps = AGENT_LOOP_DEFAULT_STEPS
+        # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
+        _UNLIMITED = 999999
+        if max_steps <= 0:
+            max_steps = _UNLIMITED
+        self._max_steps = max_steps
         t0 = time.time()
         self._loop_detector.reset()
         self._repeat_detector.reset()
@@ -656,14 +677,13 @@ class AgentLoop:
         # ── Parallel read-only tool execution ──
         if read_only_tools and processed_results:
             try:
-                with ThreadPoolExecutor(max_workers=AGENT_LOOP_MAX_WORKERS) as executor:
-                    fs = {}
-                    for rt in read_only_tools:
-                        for sr in processed_results:
-                            if isinstance(sr, dict) and sr.get("name") == rt.name:
-                                fs[executor.submit(rt.handler, sr.get("args", {}), self.agent_id)] = rt.name
-                    for f in as_completed(fs):
-                        f.result(timeout=AGENT_LOOP_FUTURE_TIMEOUT)
+                fs = {}
+                for rt in read_only_tools:
+                    for sr in processed_results:
+                        if isinstance(sr, dict) and sr.get("name") == rt.name:
+                            fs[self._parallel_executor.submit(rt.handler, sr.get("args", {}), self.agent_id)] = rt.name
+                for f in as_completed(fs):
+                    f.result(timeout=AGENT_LOOP_FUTURE_TIMEOUT)
             except Exception as e:
                 logger.warning("parallel execution failed: %s", e)
 

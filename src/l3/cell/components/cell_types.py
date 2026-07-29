@@ -31,7 +31,9 @@ class CellProtocol(Protocol):
     territory: list[str]
 
     def send_message(self, sender: str, target: str,
-                     msg_type: Any, payload: Any = None) -> dict: ...
+                     msg_type: Any, payload: Any = None) -> dict:
+        """Send a message to another agent in the cell."""
+        ...
 
 
 class AgentStatus(Enum):
@@ -64,14 +66,17 @@ from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 def is_peer(agent_id: str) -> bool:
+    """Return True if the agent_id prefix identifies a peer agent."""
     return any(agent_id.startswith(prefix) for prefix in AGENT_ID_PREFIXES)
 
 
 def is_scout(agent_id: str) -> bool:
+    """Return True if the agent_id starts with the scout prefix."""
     return agent_id.startswith(SCOUT_PREFIX)
 
 
 def is_subagent(agent_id: str) -> bool:
+    """Return True if the agent_id starts with the subagent prefix."""
     return agent_id.startswith(SUB_PREFIX)
 
 
@@ -131,6 +136,7 @@ class CellCacheEntry:
     timestamp: float = field(default_factory=time.time)
 
     def expired(self, now: float | None = None) -> bool:
+        """Return True if the entry's TTL has elapsed relative to the given or current time."""
         if self.ttl <= 0:
             return False
         return (now or time.time()) - self.timestamp > self.ttl
@@ -153,6 +159,7 @@ class IndexEntry:
     ttl: float = 900.0               # index survives longer (15 min)
 
     def expired(self, now: float | None = None) -> bool:
+        """Return True if the index entry's TTL has elapsed."""
         if self.ttl <= 0:
             return False
         return (now or time.time()) - self.timestamp > self.ttl

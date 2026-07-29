@@ -75,6 +75,21 @@ injection_patterns:
   zh1: "你(现在|必须|要).*忽略(之前|系统)(指令|设定)"
   zh2: "你是.*(忽略|无视).*(指令|规则)"
 
+# ── Shell aliases (tool name shortcuts) ──
+shell_aliases:
+  rf: read_file
+  wf: write_file
+  ls: list_directory
+  g: grep
+  glob: glob
+  cat: read_file
+  h: help
+  q: exit
+  st: status
+  tl: tools
+  clr: clear
+  hist: history
+
 # ── Terminal valid modes ──
 terminal_valid_modes: [assembly, direct]
 
@@ -84,8 +99,8 @@ constitution:
   modify_actions: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format, run, run_in_terminal]
   gate_actions: [run_in_terminal, deploy, db_migrate, user_delete, delete_user, destroy]
   scout_blocked: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format]
-  file_extension: ".nomos-rules.md"
-  default_path: ".nomos-rules.md"
+  file_extension: ".praxis-rules.md"
+  default_path: ".praxis-rules.md"
 
 # ── Resource keys ──
 resource_keys: [workers, scouts, memory, tokens]
@@ -177,6 +192,12 @@ resource_buffer:
   checkpoint_file: "_checkpoint.dat"
   journal_file: "_journal.jsonl"
   root_dir: "resource_buffer"
+
+# ── Skill discovery directories ──
+skill_dirs:
+  - ".praxis/skills"
+  - "skills"
+  - ".skills"
 
 # ── Monitoring ──
 monitoring:

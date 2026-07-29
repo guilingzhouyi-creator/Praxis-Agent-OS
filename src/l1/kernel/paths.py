@@ -6,7 +6,7 @@ Architecture:
          ├─ data_dir          — root for all data files
          ├─ config_dir        — config file directory
          ├─ config_file       — praxis.yaml path
-         ├─ constitution_file — .nomos-rules.md path
+         ├─ constitution_file — .praxis-rules.md path
          ├─ skill_dirs        — skill discovery paths (list, prioritized)
          ├─ skill_evolved_dir — evolved skills write target
          ├─ skill_lean_dir    — lean case storage
@@ -17,7 +17,7 @@ Usage:
   from l1.kernel.paths import get_paths
   paths = get_paths()  # singleton, auto-detects deploy mode
   paths.data_dir       # → "/home/user/.praxis/"
-  paths.skill_dirs     # → ["/home/user/.praxis/skills", ".opencode/skills"]
+  paths.skill_dirs     # → ["/home/user/.praxis/skills", ".praxis/skills"]
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def _get_config_dir(mode: DeployMode) -> str:
     if env_val:
         return env_val
     if mode == DeployMode.CLI_PROJECT:
-        return ".config/nomos-praxis"
+        return ".config/praxis"
     return _get_data_dir(mode)
 
 
@@ -109,7 +109,7 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
     project = Path.cwd()
     base: dict[DeployMode, list[str]] = {
         DeployMode.CLI_PROJECT: [
-            ".opencode/skills",
+            ".praxis/skills",
             ".praxis/skills",
             "skills",
             ".skills",
@@ -157,7 +157,7 @@ class PraxisPaths:
 
     # ── Config files ──
     config_file: str = "config/praxis.yaml"
-    constitution_file: str = ".nomos-rules.md"
+    constitution_file: str = ".praxis-rules.md"
     settings_file: str = ".praxis_settings.json"
 
     # ── Skill system ──

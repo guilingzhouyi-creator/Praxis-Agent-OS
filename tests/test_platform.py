@@ -126,7 +126,7 @@ class TestGetTempDir:
     def test_returns_string(self):
         d = get_temp_dir()
         assert isinstance(d, str)
-        assert "nomos-praxis" in d
+        assert "praxis" in d
 
 
 class TestRunShell:

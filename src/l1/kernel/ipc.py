@@ -58,6 +58,7 @@ class LockChannel:
         self._handlers: list[Callable[[LockMessage], Any]] = []
 
     def send(self, msg: LockMessage) -> str:
+        """Enqueue a lock message and notify registered handlers."""
         with self._lock:
             self._queue.append(msg)
             for handler in self._handlers:
@@ -73,6 +74,7 @@ class LockChannel:
         return msg.msg_id
 
     def request(self, msg: LockMessage, timeout: float = IPC_REQUEST_TIMEOUT) -> Any:
+        """Send a message and block until a response arrives or timeout elapses."""
         event = threading.Event()
         with self._lock:
             self._response_events[msg.msg_id] = event
@@ -85,6 +87,7 @@ class LockChannel:
             return self._responses.pop(msg.msg_id, {})
 
     def respond(self, msg_id: str, data: Any) -> None:
+        """Store a response for the given message id and wake the waiting requester."""
         with self._lock:
             self._responses[msg_id] = data
             ev = self._response_events.pop(msg_id, None)
@@ -92,10 +95,12 @@ class LockChannel:
                 ev.set()
 
     def register_handler(self, handler: Callable[[LockMessage], Any]) -> None:
+        """Append a callback invoked for each message sent on this channel."""
         with self._lock:
             self._handlers.append(handler)
 
     def pending_count(self) -> int:
+        """Return the number of messages currently waiting in the queue."""
         with self._lock:
             return len(self._queue)
 
@@ -108,16 +113,19 @@ class LockBus:
         self._lock = threading.Lock()
 
     def get_channel(self, name: str) -> LockChannel:
+        """Return the named channel, creating it on first access."""
         with self._lock:
             if name not in self._channels:
                 self._channels[name] = LockChannel(name)
             return self._channels[name]
 
     def channel_exists(self, name: str) -> bool:
+        """Return True if a channel with the given name has been registered."""
         with self._lock:
             return name in self._channels
 
     def stats(self) -> dict:
+        """Return a mapping of channel name to pending message count."""
         with self._lock:
             return {n: ch.pending_count() for n, ch in self._channels.items()}
 

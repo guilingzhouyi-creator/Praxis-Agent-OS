@@ -36,12 +36,24 @@ def _load_tool_help() -> dict[str, str]:
     return help_map
 
 
-_ALIASES: dict[str, str] = {
-    "rf": "read_file", "wf": "write_file", "ls": "list_directory",
-    "g": "grep", "glob": "glob", "cat": "read_file",
-    "h": "help", "q": "exit", "st": "status", "tl": "tools",
-    "clr": "clear", "hist": "history",
-}
+def _load_aliases() -> dict[str, str]:
+    """Load shell aliases from config, fall back to built-in."""
+    try:
+        from l1.kernel.discovery import get_config
+        cfg = get_config("shell_aliases")
+        if cfg and isinstance(cfg, dict):
+            return cfg
+    except Exception:
+        pass
+    return {
+        "rf": "read_file", "wf": "write_file", "ls": "list_directory",
+        "g": "grep", "glob": "glob", "cat": "read_file",
+        "h": "help", "q": "exit", "st": "status", "tl": "tools",
+        "clr": "clear", "hist": "history",
+    }
+
+
+_ALIASES: dict[str, str] = _load_aliases()
 _COMMANDS: list[str] = get_tool_names()
 _COMMAND_HELP: dict[str, str] = _load_tool_help()
 

@@ -34,18 +34,21 @@ class ApprovalRequest:
     _event: threading.Event = field(default_factory=threading.Event, repr=False, compare=False)
 
     def approve(self, response: str = "") -> None:
+        """Mark this request approved and wake any waiters."""
         self.status = APPROVED
         self.responded_at = time.time()
         self.response = response
         self._event.set()
 
     def reject(self, response: str = "") -> None:
+        """Mark this request rejected and wake any waiters."""
         self.status = REJECTED
         self.responded_at = time.time()
         self.response = response
         self._event.set()
 
     def wait(self, timeout: float = APPROVAL_GATE_WAIT_TIMEOUT) -> str:
+        """Block until the request is answered or timeout, returning final status."""
         self._event.wait(timeout=timeout)
         if self.status == PENDING:
             self.status = TIMEOUT
@@ -103,6 +106,7 @@ class ApprovalGate(PersistableMixin):
 
     def request(self, tool_name: str, agent_id: str, args: dict,
                 reason: str = "") -> ApprovalRequest:
+        """Create and persist a new approval request, returning it."""
         ar = ApprovalRequest(tool_name=tool_name, agent_id=agent_id,
                              args=args, reason=reason)
         with self._lock:
@@ -112,6 +116,7 @@ class ApprovalGate(PersistableMixin):
         return ar
 
     def respond(self, req_id: str, approved: bool, response: str = "") -> dict:
+        """Approve or reject a pending request, returning a result dict."""
         with self._lock:
             ar = self._requests.get(req_id)
             if not ar:
@@ -126,6 +131,7 @@ class ApprovalGate(PersistableMixin):
         return {"success": True, "status": ar.status}
 
     def list_pending(self) -> list[dict]:
+        """Return a list of summary dicts for all pending requests."""
         with self._lock:
             return [
                 {"id": r.id, "tool_name": r.tool_name, "agent_id": r.agent_id,
@@ -135,6 +141,7 @@ class ApprovalGate(PersistableMixin):
             ]
 
     def stats(self) -> dict:
+        """Return a dict with total and pending request counts."""
         with self._lock:
             total = len(self._requests)
             pending = sum(1 for r in self._requests.values() if r.status == PENDING)
@@ -145,6 +152,7 @@ _gate: ApprovalGate | None = None
 
 
 def get_gate() -> ApprovalGate:
+    """Return the shared global ApprovalGate, creating it if needed."""
     global _gate
     if _gate is None:
         _gate = ApprovalGate()
@@ -152,5 +160,6 @@ def get_gate() -> ApprovalGate:
 
 
 def reset_gate() -> None:
+    """Reset the shared global ApprovalGate to None."""
     global _gate
     _gate = None

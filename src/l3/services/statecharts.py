@@ -66,6 +66,7 @@ class Region(ABC):
     def _add_any(self, e, t, r=""): self._transitions[("*", e)] = Transition(to=t, reason=r)
 
     def handle(self, event):
+        """Dispatch an event to this region and return the applied transition if any."""
         key = (self.state, event.type)
         tr = self._transitions.get(key)
         if tr: return self._apply(tr, event)
@@ -98,7 +99,9 @@ class TaskRegion(Region):
         self._add_any(EventType.AGENT_CRASHED, "INTERRUPTED")
 
     @property
-    def is_active(self): return self.state not in ("IDLE", "DONE")
+    def is_active(self):
+        """Return True when the task region is neither idle nor done."""
+        return self.state not in ("IDLE", "DONE")
 
 
 class HealthRegion(Region):
@@ -113,6 +116,7 @@ class HealthRegion(Region):
         self._add("CRASHED", EventType.HEARTBEAT_RESTORED, "HEALTHY")
 
     def handle(self, event):
+        """Process health-related events and degrade or recover the region accordingly."""
         if event.type == EventType.TOOL_CALL_FAIL:
             self._fc += 1; self._sc = 0
             if self.state == "HEALTHY" and self._fc >= self.ft:
@@ -132,11 +136,17 @@ class HealthRegion(Region):
             return None
         return super().handle(event)
 
-    def heartbeat(self): self._lh = time.time()
+    def heartbeat(self):
+        """Update the last-heartbeat timestamp to the current time."""
+        self._lh = time.time()
     @property
-    def is_healthy(self): return self.state == "HEALTHY"
+    def is_healthy(self):
+        """Return True when the health region is in the healthy state."""
+        return self.state == "HEALTHY"
     @property
-    def is_alive(self): return self.state != "CRASHED"
+    def is_alive(self):
+        """Return True unless the agent has crashed."""
+        return self.state != "CRASHED"
 
 
 class ReviewRegion(Region):
@@ -153,15 +163,19 @@ class ReviewRegion(Region):
         self._add("REVIEW_REJECTED", EventType.TASK_ASSIGN, "NOT_UNDER_REVIEW")
 
     def add_reviewer(self, rid):
+        """Register a reviewer by id if not already present."""
         if rid not in self._reviewers: self._reviewers.append(rid)
     def vote(self, rid, ok):
+        """Record a reviewer vote and return the resulting review action dict."""
         self._votes[rid] = ok
         if not ok: return {"action": "rejected", "by": rid}
         if len(self._votes) >= len(self._reviewers) and all(self._votes.values()):
             return {"action": "passed"}
         return {"action": "pending", "remaining": len(self._reviewers) - len(self._votes)}
     @property
-    def is_under_review(self): return self.state == "UNDER_REVIEW"
+    def is_under_review(self):
+        """Return True when the review region is actively under review."""
+        return self.state == "UNDER_REVIEW"
 
 
 class ResourceRegion(Region):
@@ -177,9 +191,13 @@ class ResourceRegion(Region):
         self._add("THROTTLED", EventType.BUDGET_RESET, "NORMAL")
         self._add("MEMORY_HIGH", EventType.MEMORY_RECOVERED, "NORMAL")
     @property
-    def usage_pct(self): return round(self.tc / self.tb * 100, 1)
+    def usage_pct(self):
+        """Return the current token usage as a percentage of the budget."""
+        return round(self.tc / self.tb * 100, 1)
     @property
-    def is_throttled(self): return self.state == "THROTTLED"
+    def is_throttled(self):
+        """Return True when the resource region is throttled."""
+        return self.state == "THROTTLED"
 
 
 class CommRegion(Region):
@@ -197,9 +215,13 @@ class CommRegion(Region):
         self._add("DISCONNECTED", EventType.TIMEOUT, "ISOLATED")
         self._add("ISOLATED", EventType.COMM_RECONNECT, "CONNECTED")
     @property
-    def is_connected(self): return self.state == "CONNECTED"
+    def is_connected(self):
+        """Return True when the comm region is connected."""
+        return self.state == "CONNECTED"
     @property
-    def is_isolated(self): return self.state == "ISOLATED"
+    def is_isolated(self):
+        """Return True when the comm region is isolated."""
+        return self.state == "ISOLATED"
 
 
 class AgentStatecharts:
@@ -213,6 +235,7 @@ class AgentStatecharts:
         self._restore_snapshot()
 
     def save_snapshot(self) -> dict:
+        """Persist all region states to disk and return a success dict."""
         data = {
             "agent_id": self.agent_id,
             "_version": 1,
@@ -286,6 +309,7 @@ class AgentStatecharts:
             logger.warning("statecharts restore %s: %s", self.agent_id, e)
 
     def dispatch(self, et, data=None):
+        """Broadcast an event to every region and return the list of applied transitions."""
         ctx = EventCtx(type=et, data=data or {})
         trs = []
         for r in self._regions:
@@ -296,8 +320,12 @@ class AgentStatecharts:
         return trs
 
     @property
-    def snapshot(self): return {r.name: r.state for r in self._regions}
+    def snapshot(self):
+        """Return a mapping of region name to current state."""
+        return {r.name: r.state for r in self._regions}
     @property
-    def is_active(self): return self.task.is_active and self.health.is_alive
+    def is_active(self):
+        """Return True when the task is active and the agent is alive."""
+        return self.task.is_active and self.health.is_alive
     def __repr__(self):
         return f"Statecharts({self.agent_id}): " + " | ".join(f"{r.name}={r.state}" for r in self._regions)

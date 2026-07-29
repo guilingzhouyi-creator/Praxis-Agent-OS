@@ -11,6 +11,10 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    reviewers:
+      - "guiling"
+    assignees:
+      - "guiling"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -20,3 +24,5 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    reviewers:
+      - "guiling"

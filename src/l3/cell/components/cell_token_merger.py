@@ -17,12 +17,14 @@ class CellTokenMerger:
     """Cell-level token accumulator.  Polls ContextPool and emits TOKEN_USAGE."""
 
     def __init__(self, cell_id: str, interval: float = 60.0):
+        """Initialize the merger for a given Cell with a polling interval in seconds."""
         self.cell_id = cell_id
         self._interval = interval
         self._running = False
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
+        """Start the background polling thread that emits token usage events."""
         if self._running:
             return
         self._running = True
@@ -31,6 +33,7 @@ class CellTokenMerger:
         logger.info("CellTokenMerger started for %s (interval=%.0fs)", self.cell_id, self._interval)
 
     def stop(self) -> None:
+        """Signal the background polling thread to stop on its next loop iteration."""
         self._running = False
 
     def _loop(self) -> None:

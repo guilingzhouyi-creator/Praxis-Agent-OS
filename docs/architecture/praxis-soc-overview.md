@@ -506,7 +506,7 @@
 - `AnswerSession`: 5 phases (independent answer → cross-examine → supplement → converge → report)
 - `IssueOrchestrator`: session lifecycle, cell registration, cell_complete routing
 - `AnswerAggregator`: cross-Cell answer merge with divergence detection
-- Boot auto-trigger: blank `.nomos-rules.md` creates IssueCard for territorial discussion
+- Boot auto-trigger: blank `.praxis-rules.md` creates IssueCard for territorial discussion
 
 ## L4 Bridge — 45 files, 9,141 lines ✅
 
@@ -993,7 +993,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │                   Four-Layer Security Architecture           │
 │                                                             │
 │  Outer Ring: Constitution (constitution.py)                 │
-│    .nomos-rules.md → 14+ built-in rules, highest authority  │
+│    .praxis-rules.md → 14+ built-in rules, highest authority  │
 │     §4.7: No Agent may modify the Constitution              │
 │                                                             │
 │  Middle Ring: GateChain G1-G5 (gatechain.py)               │

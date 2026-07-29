@@ -114,7 +114,7 @@ class TestParamsIntegrity:
 
     def test_new_constants(self):
         assert DEFAULT_CELL_ID == "cell-1"
-        assert PRAXIS_CONFIG_DIR == ".config/nomos-praxis"
+        assert PRAXIS_CONFIG_DIR == ".config/praxis"
         assert ANTHROPIC_DEFAULT_URL == "https://api.anthropic.com/v1/messages"
 
     def test_praxis_ring(self):
@@ -145,4 +145,4 @@ class TestParamsIntegrity:
         assert KERNEL_VERSION == "0.3.0"
 
     def test_sandbox_root(self):
-        assert "nomos-sandbox" in SANDBOX_ROOT_PATH
+        assert "praxis-sandbox" in SANDBOX_ROOT_PATH

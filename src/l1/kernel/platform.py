@@ -77,13 +77,13 @@ def get_config_dir() -> _Path:
         return _Path(get_paths().config_dir)
     except Exception:
         if IS_WINDOWS:
-            return _Path(_os.environ.get("APPDATA", _Path.home() / ".config")) / "nomos-praxis"
-        return _Path.home() / ".config" / "nomos-praxis"
+            return _Path(_os.environ.get("APPDATA", _Path.home() / ".config")) / "praxis"
+        return _Path.home() / ".config" / "praxis"
 
 
 def get_temp_dir() -> str:
     """Return a stable temp directory for Praxis runtime files."""
-    return _os.path.join(_tempfile.gettempdir(), "nomos-praxis")
+    return _os.path.join(_tempfile.gettempdir(), "praxis")
 
 
 # ── Shell command wrappers ──

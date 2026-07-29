@@ -54,6 +54,7 @@ class CellMonitor:
     """Centralized Cell monitoring — ring buffer + snapshot tracking."""
 
     def __init__(self, ring_size: int = _DEFAULT_RING_SIZE):
+        """Initialize the monitor with an empty snapshot map and ring buffer."""
         self._snapshots: dict[str, CellSnapshot] = {}
         self._ring: deque[CellEvent] = deque(maxlen=ring_size)
         self._lock = threading.RLock()
@@ -63,6 +64,7 @@ class CellMonitor:
 
     def register_cell(self, cell_id: str, territory: list[str] | None = None,
                       agents: dict[str, str] | None = None) -> dict:
+        """Register a new Cell with optional territory and agent role map."""
         with self._lock:
             self._snapshots[cell_id] = CellSnapshot(
                 cell_id=cell_id, territory=territory or [],
@@ -73,6 +75,7 @@ class CellMonitor:
         return {"success": True}
 
     def unregister_cell(self, cell_id: str) -> dict:
+        """Remove a Cell and its snapshot from monitoring."""
         with self._lock:
             self._snapshots.pop(cell_id, None)
         self._push_event(cell_id, "unregistered")
@@ -82,6 +85,7 @@ class CellMonitor:
 
     def report_agent(self, cell_id: str, agent_id: str, role: str = "",
                      status: str = "", cards: int = 0) -> dict:
+        """Update a Cell snapshot with the latest agent role, status, and card count."""
         with self._lock:
             snap = self._snapshots.get(cell_id)
             if not snap:
@@ -97,6 +101,7 @@ class CellMonitor:
 
     def report_agent_crash(self, cell_id: str, agent_id: str,
                            reason: str = "") -> dict:
+        """Record an agent crash event and mark the Cell as unhealthy."""
         self._push_event(cell_id, "crash", agent_id=agent_id, message=reason)
         with self._lock:
             snap = self._snapshots.get(cell_id)
@@ -108,6 +113,7 @@ class CellMonitor:
 
     def report_card_result(self, cell_id: str, agent_id: str,
                            card_id: str, success: bool) -> dict:
+        """Record a card completion or failure event for the given agent."""
         event = "card_done" if success else "card_fail"
         self._push_event(cell_id, event, agent_id=agent_id,
                          data={"card_id": card_id, "success": success})
@@ -122,6 +128,7 @@ class CellMonitor:
     # ── Query API ──
 
     def list_cells(self) -> list[dict]:
+        """Return a summary list of all registered Cells."""
         with self._lock:
             return [
                 {"cell_id": s.cell_id, "territory": s.territory,
@@ -131,6 +138,7 @@ class CellMonitor:
             ]
 
     def get_cell(self, cell_id: str) -> dict | None:
+        """Return the detailed snapshot of a single Cell, or None if unknown."""
         with self._lock:
             s = self._snapshots.get(cell_id)
             if not s:
@@ -146,6 +154,7 @@ class CellMonitor:
 
     def get_events(self, cell_id: str = "", since: float = 0.0,
                    limit: int = 50) -> list[dict]:
+        """Return recent ring-buffer events, optionally filtered by Cell and timestamp."""
         with self._lock:
             results = []
             for e in reversed(self._ring):
@@ -163,6 +172,7 @@ class CellMonitor:
             return results
 
     def stats(self) -> dict:
+        """Return aggregate counts of tracked Cells and buffered events."""
         with self._lock:
             return {
                 "cells": len(self._snapshots),
@@ -198,6 +208,7 @@ _cell_monitor: CellMonitor | None = None
 
 
 def get_cell_monitor() -> CellMonitor:
+    """Return the process-wide CellMonitor singleton, creating it if needed."""
     global _cell_monitor
     if _cell_monitor is None:
         _cell_monitor = CellMonitor()
@@ -205,5 +216,6 @@ def get_cell_monitor() -> CellMonitor:
 
 
 def reset_cell_monitor() -> None:
+    """Clear the process-wide CellMonitor singleton (mainly for tests)."""
     global _cell_monitor
     _cell_monitor = None

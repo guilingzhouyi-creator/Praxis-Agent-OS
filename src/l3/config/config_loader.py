@@ -59,12 +59,15 @@ def register_config_handler(section: str, handler: Callable,
 def list_config_handlers() -> list[str]:
     return sorted(_CONFIG_HANDLERS.keys())
 
-_CONFIG_FILES = [
-    "praxis.yaml",
-    "praxis.yml",
-    ".praxis.yaml",
-    "config/praxis.yaml",
-]
+def _discover_config_files() -> list[str]:
+    """Get config file search paths. Override via env var PRAXIS_CONFIG_PATH."""
+    env_path = os.environ.get("PRAXIS_CONFIG_PATH", "")
+    if env_path:
+        return [env_path]
+    return ["praxis.yaml", "praxis.yml", ".praxis.yaml", "config/praxis.yaml"]
+
+
+_CONFIG_FILES = _discover_config_files()
 
 
 def load_dotenv(path: str = ".env") -> None:

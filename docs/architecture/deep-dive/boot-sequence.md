@@ -34,7 +34,7 @@ Registered in `_register_default_boot_steps()` (line 252):
 
 | # | Step | Depends On | Description |
 |---|------|-----------|-------------|
-| 1 | `load_constitution` | — | Load `.nomos-rules.md` into territory + rule engine |
+| 1 | `load_constitution` | — | Load `.praxis-rules.md` into territory + rule engine |
 | 2 | `load_config` | 1 | Load `praxis.yaml` → apply to system settings |
 | 3 | `load_tools` | 2 | Load tool specifications from `tools.yaml` |
 | 4 | `init_services` | 3 | Initialize all L3 services (memory, central security, etc.) |

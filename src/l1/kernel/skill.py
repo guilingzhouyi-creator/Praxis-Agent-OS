@@ -28,11 +28,19 @@ from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_2000, LOG_TRUNC_50,
 logger = logging.getLogger(__name__)
 
 
-SKILL_DIRS = [
-    ".opencode/skills",
-    "skills",
-    ".skills",
-]
+def _get_skill_dirs() -> list[str]:
+    """Get skill discovery dirs from config, fall back to built-in paths."""
+    try:
+        from l1.kernel.discovery import get_config
+        cfg = get_config("skill_dirs")
+        if cfg and isinstance(cfg, list):
+            return cfg
+    except Exception:
+        pass
+    return [".praxis/skills", "skills", ".skills"]
+
+
+SKILL_DIRS = _get_skill_dirs()
 
 
 def resolve_skill_dirs() -> list[str]:

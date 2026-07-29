@@ -19,7 +19,7 @@ Define the conceptual system of Agent OS federalism, five-layer architecture, L3
 
 ## Design Rules
 
-1. Terminology must be precise: Human (final decision maker), L3 Meta-Coordination (central decision layer), Agent Cell (autonomous federation), Peer Agent (equal peers), Scout (read-only reconnaissance group), Constitution (.nomos-rules.md supreme constraint).
+1. Terminology must be precise: Human (final decision maker), L3 Meta-Coordination (central decision layer), Agent Cell (autonomous federation), Peer Agent (equal peers), Scout (read-only reconnaissance group), Constitution (.praxis-rules.md supreme constraint).
 2. Prohibit use of SubAgent, parent Agent, Orchestrator, Worker, spawn — replace with Scout, delegator, L3 Meta-Coordination, Peer Agent, delegate/route respectively.
 3. L3 must support two modes: Assembly Mode (default, intent → decompose into multiple cards → Agent claim → convergence) and Direct Mode (human specifies Agent → direct assignment).
 4. Core constraints spanning both modes are not bypassable: GateChain G1-G5, cross-review, audit log.

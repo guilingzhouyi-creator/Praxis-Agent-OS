@@ -39,10 +39,10 @@ RESULT_STORE_TTL: Final[float] = 300.0
 SEQ_MONITOR_NGRAM: Final[int] = 3
 SEQ_MONITOR_MIN_SAMPLES: Final[int] = 5
 SEQ_MONITOR_ANOMALY_THRESHOLD: Final[float] = 0.05
-SEQ_MONITOR_PATH: Final[str] = _os.environ.get("NOMOS_SEQ_MONITOR_PATH", ".praxis_seq_monitor.json")
+SEQ_MONITOR_PATH: Final[str] = _os.environ.get("PRAXIS_SEQ_MONITOR_PATH", ".praxis_seq_monitor.json")
 
 # ── Reference Channel (ring buffer + periodic flush) ──
-RC_PATH: Final[str] = _os.environ.get("NOMOS_RC_PATH", ".praxis/.praxis_reference_channel.jsonl")
+RC_PATH: Final[str] = _os.environ.get("PRAXIS_RC_PATH", ".praxis/.praxis_reference_channel.jsonl")
 RC_FLUSH_INTERVAL: Final[float] = 5.0
 RC_RING_SIZE: Final[int] = 1000
 RC_SHA256_TRUNC: Final[int] = 16

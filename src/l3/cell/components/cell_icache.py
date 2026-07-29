@@ -4,7 +4,7 @@ Stores structural Cell knowledge that changes slowly:
   - Tool definitions (ToolDef specs)
   - Card templates (CardBuilder templates)
   - HTN decomposition methods
-  - Constitution rules (parsed .nomos-rules)
+  - Constitution rules (parsed .praxis-rules)
   - Territory maps (TERRITORY_MAP entries)
   - Agent configuration defaults
 

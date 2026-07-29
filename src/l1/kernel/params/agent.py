@@ -178,7 +178,7 @@ ISSUE_AUTO_CONSENSUS: Final[bool] = True
 # ── Constitution extras ──
 CONSTITUTION_SANDBOX_KEYWORD: Final[str] = "sandbox"
 CONSTITUTION_KEYWORD: Final[str] = "constitution"
-CONSTITUTION_FILE_EXT: Final[str] = ".nomos-rules.md"
+CONSTITUTION_FILE_EXT: Final[str] = ".praxis-rules.md"
 CONSTITUTION_ACTION_LEN_THRESHOLD: Final[int] = 5
 CONSTITUTION_SCOUT_AGENT_NAME: Final[str] = "scout"
 SCOUT_AGENT_NAME: Final[str] = "scout"
@@ -188,8 +188,8 @@ CONSTITUTION_CUSTOM_SECTION: Final[str] = "§custom"
 
 import os as _os
 import tempfile as _tf
-_SANDBOX_DEFAULT = _os.path.join(_tf.gettempdir(), "nomos-sandbox")
-SANDBOX_ROOT_PATH: Final[str] = _os.environ.get("NOMOS_SANDBOX_ROOT", _SANDBOX_DEFAULT)
+_SANDBOX_DEFAULT = _os.path.join(_tf.gettempdir(), "praxis-sandbox")
+SANDBOX_ROOT_PATH: Final[str] = _os.environ.get("PRAXIS_SANDBOX_ROOT", _SANDBOX_DEFAULT)
 
 
 # ── Agent status strings ──
@@ -422,8 +422,8 @@ DEFAULT_CELL_ID: Final[str] = "cell-1"
 
 
 # ── Constitution ──
-CONSTITUTION_DEFAULT_PATH: Final[str] = ".nomos-rules.md"
-CONSTITUTION_ENV_VAR: Final[str] = "NOMOS_CONSTITUTION"
+CONSTITUTION_DEFAULT_PATH: Final[str] = ".praxis-rules.md"
+CONSTITUTION_ENV_VAR: Final[str] = "PRAXIS_CONSTITUTION"
 
 
 # ── L3A (Card Execution Agent) defaults ──

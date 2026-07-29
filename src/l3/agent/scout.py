@@ -24,6 +24,7 @@ import logging
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -191,6 +192,10 @@ class ScoutPool(BaseService):
         self._cache_order: list[str] = []  # LRU ordering
         self._cache_hits = 0
         self._cache_misses = 0
+        self._executor = ThreadPoolExecutor(
+            max_workers=self.max_total,
+            thread_name_prefix="scout",
+        )
         threading.Thread(target=self._scaler, daemon=True).start()
 
     def _on_start(self) -> dict:
@@ -232,9 +237,8 @@ class ScoutPool(BaseService):
             self._agent_active[agent_id] = agent_active + 1
             self._total_commissioned += 1
 
-        # Execute in background thread
-        thread = threading.Thread(target=self._run_scout, args=(scout_id,), daemon=True)
-        thread.start()
+        # Execute in thread pool (replaces per-task threading.Thread)
+        future = self._executor.submit(self._run_scout, scout_id)
 
         # Wait for result with timeout
         scout._done.wait(timeout=self.session_timeout)

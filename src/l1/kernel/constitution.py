@@ -1,4 +1,4 @@
-"""Constitution engine — parses .nomos-rules.md into runtime constraints.
+"""Constitution engine — parses .praxis-rules.md into runtime constraints.
 
 All Agent actions must pass constitution.check() before execution.
 No Agent can unilaterally modify anything without constitutional approval.
@@ -9,7 +9,7 @@ Enforcement chain:
                              block if violates rules
 
 Also provides:
-  - load/parse/render/save for .nomos-rules.md files
+  - load/parse/render/save for .praxis-rules.md files
   - merge_proposal for Assembly Mode territory convergence
   - diff for comparing constitutions
   - BLANK_CONSTITUTION template for new projects
@@ -495,7 +495,7 @@ class Constitution:
     # ── Hot-reload from file ──
 
     def load(self, path: str = "") -> dict:
-        """Load constitution from .nomos-rules.md file."""
+        """Load constitution from .praxis-rules.md file."""
         if not path:
             path = _CONSTITUTION_FILE
         try:

@@ -50,7 +50,7 @@ class ConfigService(BaseService):
             "agent": {"timeout": CI_DEFAULT_TIMEOUT, "max_retries": LOOP_MAX_ATTEMPTS, "heartbeat_interval": FAULT_CHECK_INTERVAL},
             "gate": {"allow_threshold": 3.0, "escalate_threshold": 11.0},
             "memory": {"ring1_capacity": RING1_CAPACITY, "ring2_capacity": RING2_CAPACITY, "ring3_capacity": RING3_CAPACITY},
-            "network": {"timeout": TOOL_SEARCH_TIMEOUT, "user_agent": "NOMOS-Praxis/1.0"},
+            "network": {"timeout": TOOL_SEARCH_TIMEOUT, "user_agent": "Praxis/1.0"},
         }
 
     def load_file(self, path: str) -> dict:

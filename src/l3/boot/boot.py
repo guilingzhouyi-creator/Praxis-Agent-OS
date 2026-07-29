@@ -334,7 +334,7 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
 
 
 def _load_constitution() -> dict:
-    """Load constitution from .nomos-rules.md into both territory and rule engine.
+    """Load constitution from .praxis-rules.md into both territory and rule engine.
 
     Also restores custom rules previously persisted to SettingsCenter L3
     (from runtime API updates) so they survive restarts.
@@ -441,6 +441,13 @@ def _init_discovery() -> dict:
     register("agent_clearance", dict(_pag.AGENT_CLEARANCE))
     register("agent_priority", dict(_pag.AGENT_PRIORITY))
     register("agent_role_map", dict(_pag.AGENT_ROLE_MAP))
+    register("skill_dirs", [".praxis/skills", "skills", ".skills"])
+    register("shell_aliases", {
+        "rf": "read_file", "wf": "write_file", "ls": "list_directory",
+        "g": "grep", "glob": "glob", "cat": "read_file",
+        "h": "help", "q": "exit", "st": "status", "tl": "tools",
+        "clr": "clear", "hist": "history",
+    })
 
     # Register discovery directory
     from pathlib import Path as _Path

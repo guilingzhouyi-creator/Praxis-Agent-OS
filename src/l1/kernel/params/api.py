@@ -125,8 +125,8 @@ API_CORS_ALLOW_METHODS: Final[str] = "GET, POST, DELETE, OPTIONS"
 API_CORS_ALLOW_HEADERS: Final[str] = "Content-Type"
 
 # ── HTTP User-Agent ──
-HTTP_USER_AGENT: Final[str] = "NOMOS-Praxis/1.0"
-HTTP_TOOL_USER_AGENT: Final[str] = "NOMOS-Agent/1.0"
+HTTP_USER_AGENT: Final[str] = "Praxis/1.0"
+HTTP_TOOL_USER_AGENT: Final[str] = "Praxis-Agent/1.0"
 DUCKDUCKGO_SEARCH_URL: Final[str] = "https://api.duckduckgo.com/"
 
 
@@ -212,8 +212,8 @@ HTTP_CALLBACK_TIMEOUT: Final[int] = 10
 
 
 # ── Environment variable names (single source of truth) ──
-ENV_SANDBOX_ROOT: Final[str] = "NOMOS_SANDBOX_ROOT"
-ENV_DEFAULT_CELL: Final[str] = "NOMOS_DEFAULT_CELL"
+ENV_SANDBOX_ROOT: Final[str] = "PRAXIS_SANDBOX_ROOT"
+ENV_DEFAULT_CELL: Final[str] = "PRAXIS_DEFAULT_CELL"
 ENV_OPENAI_KEY: Final[str] = "OPENAI_API_KEY"
 ENV_DEEPSEEK_KEY: Final[str] = "DEEPSEEK_API_KEY"
 ENV_ANTHROPIC_KEY: Final[str] = "ANTHROPIC_API_KEY"

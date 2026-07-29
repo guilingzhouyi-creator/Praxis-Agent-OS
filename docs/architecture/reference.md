@@ -9,7 +9,7 @@
 praxis/
 ├── pyproject.toml
 ├── praxis.yaml
-├── .nomos-rules.md
+├── .praxis-rules.md
 ├── commands.yaml                    # 40 command definitions
 ├── tools.yaml                       # Tool metadata
 ├── .gitignore
@@ -576,11 +576,11 @@ Defined in `params/api.py`:
 | `ANTHROPIC_MODEL` | `ENV_ANTHROPIC_MODEL` | `l4/llm/llm_providers.py` |
 | `LLM_WS_URL` | `ENV_LLM_WS_URL` | `l4/llm/llm_providers.py` |
 | `LLM_WS_MODEL` | `ENV_LLM_WS_MODEL` | `l4/llm/llm_providers.py` |
-| `NOMOS_SANDBOX_ROOT` | `ENV_SANDBOX_ROOT` | `l4/sandbox/cell_sandbox.py`, `l3/services/vspace.py` |
+| `PRAXIS_SANDBOX_ROOT` | `ENV_SANDBOX_ROOT` | `l4/sandbox/cell_sandbox.py`, `l3/services/vspace.py` |
 | `PRAXIS_DISCOVERY_PORT` | `ENV_DISCOVERY_PORT` | `l3/config/config_handlers.py` |
 | `PRAXIS_PORT` | `ENV_PRAXIS_PORT` | `l3/config/config_handlers.py` |
 | `PRAXIS_DIFF_HEAVY_API` | `ENV_DIFF_HEAVY_API` | `l4/sandbox/cell_sandbox.py` |
-| `NOMOS_DEFAULT_CELL` | `ENV_DEFAULT_CELL` | �?|
+| `PRAXIS_DEFAULT_CELL` | `ENV_DEFAULT_CELL` | �?|
 | `PRAXIS_API_TOKEN` | `ENV_API_TOKEN` | �?|
 
 ## State File Paths (25+)

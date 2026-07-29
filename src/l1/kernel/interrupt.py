@@ -39,10 +39,12 @@ class InterruptTable:
         self._history: deque[dict] = deque(maxlen=INTERRUPT_MAX_HISTORY)
 
     def register(self, itype: InterruptType, handler: Callable) -> None:
+        """Register a callback handler for the given interrupt type."""
         self._handlers.setdefault(itype, []).append(handler)
 
     def fire(self, itype: InterruptType, agent_id: str = "", reason: str = "",
              data: dict | None = None) -> None:
+        """Dispatch an interrupt to all registered handlers and log it to history."""
         name = itype.name
         self._counts[name] = self._counts.get(name, 0) + 1
         intr = Interrupt(type=itype, agent_id=agent_id, reason=reason, data=data or {})
@@ -58,9 +60,11 @@ class InterruptTable:
                     logger.warning("kernel/interrupt: %s", e)
 
     def counts(self) -> dict[str, int]:
+        """Return a copy of per-interrupt-type occurrence counts."""
         return dict(self._counts)
 
     def recent(self, limit: int = INTERRUPT_QUERY_LIMIT) -> list[dict]:
+        """Return the most recent interrupt history entries up to limit."""
         return list(self._history[-limit:])
 
 
@@ -68,13 +72,16 @@ _table = InterruptTable()
 
 
 def get_table() -> InterruptTable:
+    """Return the process-wide singleton InterruptTable instance."""
     return _table
 
 
 def register_handler(itype: InterruptType, handler: Callable) -> None:
+    """Register a callback handler on the singleton interrupt table."""
     _table.register(itype, handler)
 
 
 def fire(itype: InterruptType, agent_id: str = "", reason: str = "",
          data: dict | None = None) -> None:
+    """Fire an interrupt through the singleton interrupt table."""
     _table.fire(itype, agent_id, reason, data)
