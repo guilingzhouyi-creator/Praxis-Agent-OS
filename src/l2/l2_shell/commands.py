@@ -28,6 +28,24 @@ logger = logging.getLogger(__name__)
 
 _registry = get_registry()
 
+# ── Value coercion helper ──
+def _coerce(value: str):
+    """Coerce string values to int/float/bool when appropriate."""
+    if value.lower() in ("true", "yes"):
+        return True
+    if value.lower() in ("false", "no"):
+        return False
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
+
+
 # ── Pre-compiled regex patterns ──
 _PIPELINE_SUBST_RE = re.compile(r"\{\.(\w+)\}")
 
@@ -938,10 +956,14 @@ def _cmd_stats(args: list[str]) -> dict:
         if sub == "cell" and scope == "cell" and scope_id:
             cell_tags = {"cell": scope_id}
             results = sc.query(tags=cell_tags, window=window)
-            from l3.cell import get_cell
-            cell = get_cell(scope_id)
-            pmu = getattr(cell, "pmu", None)
-            pmu_stats = pmu.stats() if pmu else None
+            pmu_stats = None
+            try:
+                from l3.cell import get_cell
+                cell = get_cell(scope_id)
+                pmu = getattr(cell, "pmu", None)
+                pmu_stats = pmu.stats() if pmu else None
+            except Exception:
+                logger.debug("commands: PMU stats unavailable for %s", scope_id)
             return {"success": True, "cell": scope_id, "window": window,
                     "data": {"metrics": results, "pmu_live": pmu_stats},
                     "count": len(results)}
@@ -1049,10 +1071,7 @@ def _cmd_think(args: list[str]) -> dict:
                 for kv in rest[1:]:
                     if "=" in kv:
                         k, v = kv.split("=", 1)
-                        try:
-                            v = int(v)
-                        except ValueError:
-                            pass
+                        v = _coerce(v)
                         reg.set_global(**{k: v})
                 return {"success": True, "data": reg.get_global()}
             return {"success": True, "data": {"global": reg.get_global(),
@@ -1075,10 +1094,7 @@ def _cmd_think(args: list[str]) -> dict:
                 for kv in cell_rest[1:]:
                     if "=" in kv:
                         k, v = kv.split("=", 1)
-                        try:
-                            v = int(v)
-                        except ValueError:
-                            pass
+                        v = _coerce(v)
                         cfg[k] = v
                 if cfg:
                     dist = cfg.pop("distribution", None)
@@ -1098,10 +1114,7 @@ def _cmd_think(args: list[str]) -> dict:
                 for kv in cell_rest[3:]:
                     if "=" in kv:
                         k, v = kv.split("=", 1)
-                        try:
-                            v = int(v)
-                        except ValueError:
-                            pass
+                        v = _coerce(v)
                         reg.set_agent(cell_id, agent_id, **{k: v})
                 return {"success": True, "data": {"cell": cell_id, "agent": agent_id, "config": reg.get_agent(cell_id, agent_id)}}
 

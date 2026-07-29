@@ -693,6 +693,76 @@ class AgentLoop:
             if not cc.get("consistent"):
                 logger.info("consistency issue: %s", cc.get("conflicts", []))
 
+        # ── Steps-exhausted auto-continuation ──
+        if (not all_passed and max_steps < _UNLIMITED
+                and result.get("finish_reason") in ("max_turns", "stop")):
+            from l3.error_bus import error_boundary
+            with error_boundary("steps-exhausted continuation failed",
+                                component="agent", agent_id=self.agent_id):
+                from l3.config.settings_center import get_center as _get_c
+                _sc = _get_c()
+                if not _sc.get("loop.continuation_nudge", True):
+                    return self._finish({
+                        "success": all_passed,
+                        "answer": result.get("content", ""),
+                        "steps": [{"step": i, "action": tc.get("name", "?"), "result": str(tc)[:LOG_TRUNC_200]}
+                                  for i, tc in enumerate(processed_results)],
+                        "verifier_used": verifier_used,
+                        "corrections": corrections,
+                        "loop_stopped": any(s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)),
+                    }, t0=t0, turns=turns, corrections=corrections, processed_count=len(processed_results))
+                _max_attempts = _sc.get_int("loop.max_attempts", 3)
+                for _attempt in range(_max_attempts):
+                    # 1. Compress context
+                    try:
+                        from .session_snapshot import should_compress as _sc2
+                        if ctx_window > 0 and _sc2(_AGENT_LOOP_MAX_CONTENT, ctx_window):
+                            from .memory.memory import get_memory
+                            get_memory().stub_compact(self.agent_id)
+                    except Exception:
+                        logger.debug("agent_loop: steps-exhausted compress failed")
+                    # 2. Save context trail snapshot
+                    if self._context_trail and self._user_id:
+                        try:
+                            from .agent_persist import save_snapshot
+                            save_snapshot(self._user_id, {
+                                "context_trail": self._context_trail,
+                            })
+                        except Exception:
+                            logger.debug("agent_loop: steps-exhausted snapshot failed")
+                    # 3. Issue steps-exhausted nudge + continue
+                    from .session_snapshot import STEPS_EXHAUSTED_NUDGE as _NUDGE
+                    nudge_r = engine.generate(prompt=_NUDGE, system=system,
+                                              user_id=self._user_id, **model_kwargs)
+                    result["content"] = (result.get("content", "") + "\n"
+                                         + nudge_r.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
+                    # 4. Run next tool-use batch
+                    nr = engine.tool_use(prompt=self.task, tools=wrapped_tools,
+                                         system=system, max_turns=max_steps,
+                                         user_id=self._user_id,
+                                         context_trail=self._context_trail,
+                                         **model_kwargs)
+                    if not nr:
+                        break
+                    self._context_trail = nr.get("context_trail")
+                    nr_turns = nr.get("turns", 0)
+                    turns += nr_turns
+                    # Merge new tool results
+                    nr_tools = nr.get("tool_call_results", [])
+                    for _sr in nr_tools:
+                        processed_results.append({
+                            "step": len(processed_results),
+                            "action": (_sr.get("name", "?") if isinstance(_sr, dict) else "?"),
+                            "result": str(_sr)[:LOG_TRUNC_200],
+                        })
+                    # 5. Check completion
+                    nr_finish = nr.get("finish_reason", "")
+                    if nr_finish in ("stop", "end_turn"):
+                        all_passed = True
+                        break
+                    if time.time() > deadline:
+                        break
+
         return self._finish({
             "success": all_passed,
             "answer": result.get("content", ""),

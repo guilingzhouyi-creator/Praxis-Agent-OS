@@ -96,7 +96,7 @@ _L1_DEFAULTS: dict[str, Any] = {
     "cron.max_entries": 50,
 
     # ── Loop control (AgentLoop self-correction) ──
-    "loop.max_steps": AGENT_LOOP_DEFAULT_STEPS,
+    "loop.max_steps": 0,  # 0 = unlimited by default; > 0 = step-limited mode
     "loop.timeout": AGENT_LOOP_DEFAULT_TIMEOUT,
     "loop.max_iterations": LOOP_MAX_ITERATIONS,
     "loop.max_attempts": LOOP_MAX_ATTEMPTS,

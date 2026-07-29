@@ -448,3 +448,18 @@ subagent_specs:
     max_steps: 10
     timeout: 180.0
     tags: [fix, write]
+
+settings:
+  category: system
+  help: "Multi-level settings management — global/cell/agent/pool"
+  args:
+    - {name: scope, description: "global|cell <id>|agent <id>|pool [scout|subagent]"}
+    - {name: action, optional: true, description: "set|list"}
+    - {name: key, optional: true}
+    - {name: value, optional: true}
+  examples:
+    - "/settings global set loop.max_steps 10"
+    - "/settings cell cell-1"
+    - "/settings agent agent-a"
+    - "/settings pool scout"
+  aliases: ["cfg"]

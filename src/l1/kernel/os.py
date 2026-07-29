@@ -121,14 +121,17 @@ class OS:
             self.state = OSState.STOPPING
 
         results = {}
+        _SHUTDOWN_TIMEOUT = 30.0
 
-        # Run shutdown hooks
-        for hook in self._shutdown_hooks:
+        # Run shutdown hooks (with timeout per hook)
+        for i, hook in enumerate(self._shutdown_hooks):
             try:
-                hook()
-                results["hook"] = "ok"
+                t = threading.Thread(target=hook, daemon=True)
+                t.start()
+                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                results[f"hook_{i}"] = "ok" if not t.is_alive() else "timeout"
             except Exception as e:
-                results["hook"] = str(e)
+                results[f"hook_{i}"] = str(e)
 
         # Dump state to memories
         try:
@@ -147,16 +150,24 @@ class OS:
         # Reset Cells
         try:
             if self._terminal_reset_handler:
-                self._terminal_reset_handler()
+                t = threading.Thread(target=self._terminal_reset_handler, daemon=True)
+                t.start()
+                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                results["reset_term"] = "ok" if not t.is_alive() else "timeout"
             else:
                 from l3.agent_terminal import reset_terminals
                 reset_terminals()
+                results["reset_term"] = "ok"
             if self._cell_reset_handler:
-                self._cell_reset_handler()
+                t = threading.Thread(target=self._cell_reset_handler, daemon=True)
+                t.start()
+                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                results["reset_cell"] = "ok" if not t.is_alive() else "timeout"
             else:
                 from l3.cell import reset_cells
                 reset_cells()
-            results["reset"] = "ok"
+                results["reset_cell"] = "ok"
+            results.setdefault("reset", "ok")
         except Exception as e:
             results["reset"] = f"error: {e}"
 
@@ -198,30 +209,31 @@ class OS:
                 logger.warning("watchdog error: %s", e)
 
     def _watchdog_tick(self) -> None:
-        """Single watchdog check — process liveness, interrupt health."""
+        """Single watchdog check — process liveness, interrupt health (single pass)."""
         from .process import get_table, ProcessState
         from .interrupt import get_table as int_table
 
         pt = get_table()
         procs = pt.list()
-
-        # Check for excess ZOMBIE processes
-        zombies = [p for p in procs if p.get("state") == "ZOMBIE"]
-        if len(zombies) > WATCHDOG_ZOMBIE_LIMIT:
-            logger.warning("watchdog: %d zombie processes", len(zombies))
-
-        # Check for idle agents that haven't processed cards recently
         now = time.time()
-        for p in procs:
-            idle = p.get("idle", 0)
-            name = p.get("name", "")
-            if idle > WATCHDOG_IDLE_LIMIT and p.get("state") in ("READY", "RUNNING"):
-                logger.info("watchdog: %s idle for %.0fs", name, idle)
 
-        # Check interrupt health
+        # Single pass: count zombies + check idle in one O(N)
+        zombie_count = 0
+        for p in procs:
+            state = p.get("state", "")
+            if state == "ZOMBIE":
+                zombie_count += 1
+            elif state in ("READY", "RUNNING"):
+                idle = p.get("idle", 0)
+                if idle > WATCHDOG_IDLE_LIMIT:
+                    logger.info("watchdog: %s idle for %.0fs", p.get("name", ""), idle)
+
+        if zombie_count > WATCHDOG_ZOMBIE_LIMIT:
+            logger.warning("watchdog: %d zombie processes", zombie_count)
+
+        # Check interrupt health (independent, no process data needed)
         it = int_table()
-        counts = it.counts()
-        for iname, count in counts.items():
+        for iname, count in it.counts().items():
             if count > WATCHDOG_INTERRUPT_LIMIT:
                 logger.warning("watchdog: high interrupt %s = %d", iname, count)
 

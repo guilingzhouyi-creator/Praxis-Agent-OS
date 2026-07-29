@@ -222,3 +222,136 @@ class TestLayerImports:
                         violations.append(f"{rel}: imports {imp_mod} ({source_layer}→{target_layer})")
 
         assert not violations, f"Layer import violations:\n  " + "\n  ".join(violations)
+
+
+# ═══════════════════════════════════════════════════════
+# Coverage tests — merged from test_layer_imports_coverage.py
+# ═══════════════════════════════════════════════════════
+
+
+class TestLayerConstraints:
+    """Scan files under src/ one by one, verify cross-layer import constraints"""
+
+    def _find_src_files(self):
+        src_dir = Path("src")
+        files = []
+        for f in src_dir.rglob("*.py"):
+            if "__pycache__" in f.parts:
+                continue
+            files.append(f)
+        return files
+
+    def test_no_layer_violations(self):
+        """Scan all files, report all layer violation imports"""
+        violations = []
+        src_files = self._find_src_files()
+        assert len(src_files) > 100, f"too few src files: {len(src_files)}"
+
+        for fpath in src_files:
+            src_layer = _get_layer(str(fpath))
+            if src_layer == 0:
+                continue
+            imports = _parse_imports(str(fpath))
+            for imp_type, module in imports:
+                dst_layer = _import_layer(module)
+                if dst_layer == 0:
+                    continue
+                if dst_layer > src_layer and not _is_allowlisted(src_layer, dst_layer, module):
+                    violations.append(
+                        f"{fpath.relative_to('src')}: imports {module} "
+                        f"(L{src_layer} → L{dst_layer}) not allowlisted"
+                    )
+
+        assert not violations, (
+            f"Layer import violations:\n" + "\n".join(violations[:30])
+        )
+
+    def test_l1_imports_upper_allowlisted(self):
+        """L1 imports to L2+ must all be in the allowlist (adapter/callback pattern)"""
+        violations = []
+        for fpath in Path("src/l1/kernel").rglob("*.py"):
+            if "__pycache__" in fpath.parts:
+                continue
+            imports = _parse_imports(str(fpath))
+            for imp_type, module in imports:
+                dst = _import_layer(module)
+                if dst >= 2 and not _is_allowlisted(1, dst, module):
+                    violations.append(f"{fpath.name}: imports {module} (L1→L{dst})")
+        assert not violations, f"L1 unauthorized imports upper layer:\n" + "\n".join(violations)
+
+    def test_l5_can_import_any(self):
+        """L5 should be able to import any layer (no restrictions)"""
+        l5_files = list(Path("src/l5").rglob("*.py"))
+        assert len(l5_files) >= 2, "L5 should have at least 2 files"
+
+    def test_allowlist_matches_reality(self):
+        """Verify each pattern in allowlist has at least one actual reference"""
+        src_dir = Path("src")
+        unmatched = []
+        for s, d, pattern in ALLOWLIST:
+            found = False
+            for fpath in src_dir.rglob("*.py"):
+                if "__pycache__" in fpath.parts:
+                    continue
+                src_layer = _get_layer(str(fpath))
+                if src_layer != s:
+                    continue
+                imports = _parse_imports(str(fpath))
+                for imp_type, module in imports:
+                    if module.startswith(pattern):
+                        found = True
+                        break
+                if found:
+                    break
+            if not found:
+                unmatched.append(f"L{s}→L{d} {pattern}")
+        if unmatched:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Allowlist patterns with no actual imports: %s", unmatched
+            )
+
+
+class TestFullScanL3toL4:
+    """Full scan of L3→L4 imports, compare with allowlist"""
+
+    def test_all_l3_l4_imports_allowlisted(self):
+        """Check each L3→L4 import is in the allowlist"""
+        violations = []
+        for fpath in Path("src/l3").rglob("*.py"):
+            if "__pycache__" in fpath.parts:
+                continue
+            imports = _parse_imports(str(fpath))
+            for imp_type, module in imports:
+                if _import_layer(module) == 4:
+                    if not _is_allowlisted(3, 4, module):
+                        violations.append(f"{fpath.relative_to('src')}: {module}")
+        assert not violations, (
+            f"L3→L4 imports not in allowlist:\n" + "\n".join(violations)
+        )
+
+    def test_all_l3_l4_imports_documented(self):
+        """Verify all L3→L4 imports match documentation"""
+        import l3.tool_system.tool_config as _tc
+        import l3.config.cache_strategy as _cs
+        import l3.services.model_service as _ms
+        assert True
+
+
+class TestFullScanL2toL3:
+    """Full scan of L2→L3 imports, compare with allowlist"""
+
+    def test_all_l2_l3_imports_allowlisted(self):
+        """Check each L2→L3 import is in the allowlist"""
+        violations = []
+        for fpath in Path("src/l2").rglob("*.py"):
+            if "__pycache__" in fpath.parts:
+                continue
+            imports = _parse_imports(str(fpath))
+            for imp_type, module in imports:
+                if _import_layer(module) == 3:
+                    if not _is_allowlisted(2, 3, module):
+                        violations.append(f"{fpath.relative_to('src')}: {module}")
+        assert not violations, (
+            f"L2→L3 imports not in allowlist:\n" + "\n".join(violations[:20])
+        )

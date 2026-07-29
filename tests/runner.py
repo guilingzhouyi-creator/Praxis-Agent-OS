@@ -18,6 +18,11 @@ BATCH_1 = [
     "test_network", "test_subscriptions", "test_memory_sandbox", "test_memory_init",
     "test_cell_monitor", "test_observability_bus", "test_services", "test_integration",
     "test_mcp_bridge",
+    # New core tests
+    "test_gatechain", "test_reputation",
+    "test_auth", "test_selector",
+    "test_constitution", "test_vfs",
+    "test_statecharts",
 ]
 
 BATCH_2 = [

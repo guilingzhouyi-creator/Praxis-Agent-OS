@@ -21,6 +21,7 @@ from typing import Any, Callable
 
 from l3._base import BaseService
 
+from l3.error_bus import capture
 logger = logging.getLogger(__name__)
 
 from l1.kernel.platform import get_config_dir
@@ -197,6 +198,7 @@ class FaultToleranceService(BaseService):
             path.write_text(json.dumps(cp.to_dict(), indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning("checkpoint persist failed: %s", e)
+            capture("checkpoint persist failed", error_code="E_CHECKPOINT", component="fault_tolerance", context={"agent_id": cp.agent_id})
 
     def _load_checkpoint(self, agent_id: str) -> Checkpoint | None:
         try:
@@ -206,6 +208,7 @@ class FaultToleranceService(BaseService):
                 return Checkpoint.from_dict(data)
         except Exception as e:
             logger.warning("checkpoint load failed: %s", e)
+            capture("checkpoint load failed", error_code="E_CHECKPOINT", component="fault_tolerance")
         return None
 
     def _delete_checkpoint(self, agent_id: str) -> None:

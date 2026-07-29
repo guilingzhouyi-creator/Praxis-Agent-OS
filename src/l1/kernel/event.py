@@ -165,10 +165,10 @@ class EventBus:
     def history(self, signal_type: SignalType | None = None,
                 limit: int = EVENT_QUERY_LIMIT) -> list[dict]:
         with self._lock:
-            signals = list(self._history)
+            safe_slice = list(self._history)[-limit * 2:]
         if signal_type:
-            signals = [s for s in signals if s.type == signal_type]
-        return [s.to_dict() for s in signals[-limit:]]
+            safe_slice = [s for s in safe_slice if s.type == signal_type]
+        return [s.to_dict() for s in safe_slice[-limit:]]
 
     def stats(self) -> dict:
         with self._lock:

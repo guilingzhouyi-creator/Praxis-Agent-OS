@@ -225,6 +225,8 @@ def sign_content(content: str, agent_id: str) -> str:
         svc = _id()
         return svc.sign(agent_id, content.encode())
     except Exception:
+        logger.warning("content_trust: sign failed, returning empty string")
+        capture("content sign failed", error_code="E_TRUST", component="content_trust")
         return ""
 
 

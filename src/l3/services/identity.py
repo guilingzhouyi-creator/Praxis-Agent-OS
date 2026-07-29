@@ -26,6 +26,7 @@ from typing import Any, Callable
 
 from l3._base import BaseService
 from l1.kernel.params.system import PROOF_TTL, NONCE_CLEANUP_AGE
+from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ def _decrypt_private_key(encrypted_hex: str) -> bytes | None:
         return aesgcm.decrypt(nonce, ciphertext, None)
     except Exception as e:
         logger.error("private key decryption failed: %s", e)
+        capture("private key decryption failed", error_code="E_CRYPTO", component="identity", context={"error": str(e)})
         return None
 
 
@@ -148,6 +150,7 @@ class IdentityService(BaseService):
                 self._keys[agent_id] = pub
             except Exception as e:
                 logger.warning("failed to load public key: %s", e)
+                capture("public key load failed", error_code="E_IDENTITY", component="identity", context={"error": str(e)})
         # Load persisted encrypted private keys (P7 fix)
         for priv_file in self._key_dir.glob("*.priv"):
             try:

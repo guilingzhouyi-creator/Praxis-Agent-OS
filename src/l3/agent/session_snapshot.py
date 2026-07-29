@@ -54,6 +54,11 @@ class SessionSnapshot:
 from l1.kernel.prompts import get_prompt as _gp
 TRUNCATION_RESUME_NUDGE = _gp("session_snapshot.truncation_resume_nudge", "")
 
+# ── Steps-exhausted continuation ──
+STEPS_EXHAUSTED_NUDGE = _gp("agent_loop.steps_exhausted_nudge",
+    "Your tool-calling turn budget was reached but the task may not be complete. "
+    "Review what has been done and what still remains. Continue working if needed.")
+
 
 # ── Pre-send compression guard ──
 
