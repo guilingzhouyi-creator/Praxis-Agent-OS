@@ -97,3 +97,55 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
+
+## Sandbox / Structured Diff System
+
+### Per-hunk attribution
+Each sandbox entry records `agent_id`, `tool_name`, `task_id`, and `modified_at` (ISO 8601 timestamp) per hunk, enabling precise attribution of every edit.
+
+### Multi-Agent Entry Storage
+Entries are keyed by `path::agent_id`. Multiple agents can independently modify the same file; each gets a separate entry. The sandbox returns all entries for a given path, allowing cross-review to see all parallel edits.
+
+### Summary Cache (L1+L2+L3)
+Three-level summary cache:
+- **L1** — in-memory per-sandbox entry stats (`additions`, `deletions`, `hunks`)
+- **L2** — Cell-level shared cache aggregated across agents
+- **L3** — Persistent cache flushed to `.praxis_sandbox_state.json`
+
+### Color Scheme
+Configurable via `config/praxis.yaml` `diff.colors`:
+```yaml
+diff:
+  mode: auto                       # auto|human|summary|colored
+  colors:
+    logic_change: "\033[31m"       # red
+    reformat: "\033[34m"           # blue
+    comment_only: "\033[32m"       # green
+    import_change: "\033[33m"      # yellow
+    import_added: "\033[33m"       # yellow
+    rename: "\033[36m"             # cyan
+    structural: "\033[90m"         # bright black
+    mixed: "\033[35m"              # magenta
+    added: "\033[32m"              # green
+    removed: "\033[31m"            # red
+```
+
+### Diff views
+| Mode | Description |
+|------|-------------|
+| `agent` | Per-agent diff with attribution |
+| `human` | Simplified, human-readable diff |
+| `summary` | Stats-only diff (additions/deletions/hunks) |
+| `colored` | Semantic-colorized diff |
+
+### Diff API endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/diff/colors` | Get/set/reset diff color scheme |
+
+### Flow (per-hunk attribution)
+1. Agent writes file → sandbox creates entry with per-hunk `agent_id`, `tool_name`, `task_id`
+2. Cross-review calls `_get_sandbox_entries(cell, target)` → retrieves all entries for the file
+3. Each entry's `hunks` list includes per-hunk attribution metadata
+4. Message built from all entries shows agent, tool, stats per entry
+5. Reviewer sees exactly who changed what, with which tool, and when

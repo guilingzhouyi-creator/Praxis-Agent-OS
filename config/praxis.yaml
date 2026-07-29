@@ -284,3 +284,20 @@ think:
     reader:   {max_budget: 2048}
     writer:   {max_budget: 8192}
     reviewer: {max_budget: 16384}
+
+# ── Diff / Structured Sandbox Color Scheme ──
+diff:
+  mode: auto                       # auto|human|summary|colored
+  heavy_api_enabled: false         # Enable heavy diff API endpoints
+  # heavy_api_port: 8090
+  colors:                          # ANSI color codes per semantic type (override)
+    logic_change: "\033[31m"       # red
+    reformat: "\033[34m"           # blue
+    comment_only: "\033[32m"       # green
+    import_change: "\033[33m"      # yellow
+    import_added: "\033[33m"       # yellow
+    rename: "\033[36m"             # cyan
+    structural: "\033[90m"         # bright black
+    mixed: "\033[35m"              # magenta
+    added: "\033[32m"              # green
+    removed: "\033[31m"            # red

@@ -378,6 +378,23 @@ tokens:
     - "/tokens --agent agent-w  — per-agent"
     - "/status | /tokens --agent {scope_id} — pipeline"
 
+stats:
+  category: system
+  help: "Query StatsCenter: tool calls, compression savings, per-Cell/Agent metrics"
+  args:
+    - {name: sub, description: "tools|compression|cell|agent|cells|top"}
+    - {name: scope, optional: true, completer: cell, description: "global|cell <id>|agent <id>"}
+    - {name: window, optional: true, description: "Time window: 1m|5m|1h|all (default: 5m)"}
+  examples:
+    - "/stats tools                       — tool calls, all cells, 5m"
+    - "/stats tools cell cell-1 1h        — tool calls for cell-1, 1h"
+    - "/stats compression                 — compression token savings, global"
+    - "/stats compression cell cell-1     — per-cell compression"
+    - "/stats cell cell-1                 — all metrics + PMU live for cell-1"
+    - "/stats agent agent-writer          — per-agent tool/token detail"
+    - "/stats cells                       — all Cells summary"
+    - "/stats top tools.executed.ring_1   — cross-Cell ranking"
+
 # ── SubAgent spec definitions (loaded by subagent_spec.py) ──
 # Each entry maps to a SubAgentSpec dataclass.
 # Overrides the built-in defaults in subagent_spec.py.
