@@ -17,15 +17,17 @@ python -m l2.l2_shell             # interactive L2 Shell
 ## Test commands
 
 ```bash
-python -m pytest tests/ -x -q                                               # all tests
+python -m pytest tests/ -x -q                                               # all tests (auto-discovers subdirs)
 python tests/runner.py                                                      # batch 1 (fast) + batch 2 (slow)
-python -m pytest tests/test_kernel.py -x -q                                 # single file
+python -m pytest tests/l1/test_kernel.py -x -q                             # single file (L1 kernel)
+python -m pytest tests/l3/test_sandbox.py -x -q                            # single file (L4 sandbox)
 python tests/runner.py test_kernel                                           # single via runner
-python -m pytest tests/ -k "kernel" -x -q                                   # keyword filter
-python -m pytest tests/test_layer_imports.py -x -q                          # layer import constraint
-python -m pytest tests/test_params_compliance.py -x -q                      # params constant compliance (strict)
-python -m pytest tests/test_params_compliance.py -k "not strict" -x -q     # params constant compliance (soft)
-python -m pytest tests/test_hardcoded_fixes_regression.py -x -q             # regression: hardcoded fixes
+python -m pytest tests/ -k "kernel" -x -q                                   # keyword filter (works across subdirs)
+python -m pytest tests/l2/test_l2_shell.py -x -q                           # L2 shell test
+python -m pytest tests/infra/test_layer_imports.py -x -q                    # layer import constraint
+python -m pytest tests/infra/test_params_compliance.py -x -q                # params constant compliance (strict)
+python -m pytest tests/infra/test_params_compliance.py -k "not strict" -x -q # params constant compliance (soft)
+python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # regression: hardcoded fixes
 ```
 
 ## Architecture
