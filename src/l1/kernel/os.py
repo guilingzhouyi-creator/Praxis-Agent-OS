@@ -251,12 +251,15 @@ class OS:
 
 
 _os: OS | None = None
+_os_lock = threading.Lock()
 
 
 def get_os() -> OS:
     global _os
     if _os is None:
-        _os = OS()
+        with _os_lock:
+            if _os is None:
+                _os = OS()
     return _os
 
 

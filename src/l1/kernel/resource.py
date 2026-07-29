@@ -122,12 +122,15 @@ class ResourceLimiter:
 
 
 _limiter: ResourceLimiter | None = None
+_limiter_lock = threading.Lock()
 
 
 def get_limiter() -> ResourceLimiter:
     global _limiter
     if _limiter is None:
-        _limiter = ResourceLimiter()
+        with _limiter_lock:
+            if _limiter is None:
+                _limiter = ResourceLimiter()
     return _limiter
 
 

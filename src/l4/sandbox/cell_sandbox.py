@@ -79,7 +79,7 @@ def reset_color_scheme() -> None:
 
 
 # ── Sandbox timing constants ──
-_PING_PONG_TIMEOUT = 300  # seconds: detect ping-pong file flipping
+_PING_PONG_TIMEOUT = int(SANDBOX_DEFAULT_TIMEOUT)  # seconds: detect ping-pong file flipping
 
 # Configurable sandbox root — cross-platform: falls back to OS temp dir
 _DEFAULT_SANDBOX = os.path.join(_get_temp_dir(), "praxis-sandbox")

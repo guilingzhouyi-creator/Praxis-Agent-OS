@@ -5,7 +5,7 @@ import time
 import sys
 
 
-def cmd_boot(args):
+def cmd_boot(args) -> dict:
     from l1.kernel.os import get_os
     from l1.kernel.params.agent import TERRITORY_PATHS, TERRITORY_MAP
     agent_config = []
@@ -28,7 +28,7 @@ def cmd_boot(args):
     return r
 
 
-def cmd_health(args):
+def cmd_health(args) -> dict:
     from l1.kernel import health
     h = health()
     print(f"Kernel health: {h['status']} ({h['module_count']} modules)")
@@ -40,7 +40,7 @@ def cmd_health(args):
     return h
 
 
-def cmd_ps(args):
+def cmd_ps(args) -> dict:
     from l1.kernel.process import get_table
     procs = get_table().list()
     if not procs:
@@ -53,7 +53,7 @@ def cmd_ps(args):
     return {"processes": procs}
 
 
-def cmd_card(args):
+def cmd_card(args) -> dict:
     if not args:
         print("Usage: card <intent> [domain]")
         return {"success": False, "error": "intent required"}
@@ -76,7 +76,7 @@ def cmd_card(args):
     return result
 
 
-def cmd_tools(args):
+def cmd_tools(args) -> dict:
     from l3.agent_terminal import get_terminals
     agent_id = args[0] if args else ""
     terms = get_terminals()
@@ -97,7 +97,7 @@ def cmd_tools(args):
     return {"terminals": list(terms.keys())}
 
 
-def cmd_audit(args):
+def cmd_audit(args) -> dict:
     from l1.kernel import get_audit_log
     from l1.kernel.params.kernel import SYSCALL_AUDIT_CLI_LIMIT
     agent_filter = args[0] if args else ""
@@ -114,7 +114,7 @@ def cmd_audit(args):
     return {"entries": logs}
 
 
-def cmd_chain(args):
+def cmd_chain(args) -> dict:
     if not args:
         print("Usage: chain <call_id>")
         return {"success": False, "error": "call_id required"}
@@ -127,7 +127,7 @@ def cmd_chain(args):
     return v
 
 
-def cmd_interrupts(args):
+def cmd_interrupts(args) -> dict:
     from l1.kernel.interrupt import get_table
     t = get_table()
     counts = t.counts()
@@ -143,7 +143,7 @@ def cmd_interrupts(args):
     return {"counts": counts, "recent": recent}
 
 
-def cmd_devices(args):
+def cmd_devices(args) -> dict:
     from l1.kernel.device import get_device_manager
     dm = get_device_manager()
     devices = dm.list()
@@ -157,7 +157,7 @@ def cmd_devices(args):
     return {"devices": devices}
 
 
-def cmd_shutdown(args):
+def cmd_shutdown(args) -> dict:
     from l1.kernel.os import get_os
     r = get_os().shutdown()
     if r.get("success"):
@@ -169,7 +169,7 @@ def cmd_shutdown(args):
     return r
 
 
-def cmd_status(args):
+def cmd_status(args) -> dict:
     cmd_health(args)
     cmd_interrupts(args)
     cmd_ps(args)
@@ -198,7 +198,7 @@ def cmd_status(args):
     return {}
 
 
-def cmd_sys(args):
+def cmd_sys(args) -> dict:
     from l1.kernel.vfs import get_vfs
     path = args[0] if args else "/sys"
     r = get_vfs().read(path)
@@ -209,7 +209,7 @@ def cmd_sys(args):
     return r
 
 
-def cmd_dev(args):
+def cmd_dev(args) -> dict:
     from l1.kernel.vfs import get_vfs
     path = args[0] if args else "/dev"
     r = get_vfs().read(path)
@@ -220,7 +220,7 @@ def cmd_dev(args):
     return r
 
 
-def cmd_setting(args):
+def cmd_setting(args) -> dict:
     from l1.kernel.settings import get_settings
     s = get_settings()
     if not args:
@@ -246,7 +246,7 @@ def cmd_setting(args):
     return r
 
 
-def cmd_card_list(args):
+def cmd_card_list(args) -> dict:
     from l3.card.card_registry import get_registry
     cr = get_registry()
     cards = cr.list(state=None)
@@ -260,7 +260,7 @@ def cmd_card_list(args):
     return {"cards": cards}
 
 
-def cmd_card_submit(args):
+def cmd_card_submit(args) -> dict:
     if not args:
         print("Usage: card-submit <intent> [domain]")
         return {"success": False}
@@ -272,7 +272,7 @@ def cmd_card_submit(args):
     return {"success": True, "card_id": cid}
 
 
-def cmd_card_cancel(args):
+def cmd_card_cancel(args) -> dict:
     if not args:
         print("Usage: card-cancel <card_id>")
         return {"success": False}
