@@ -16,7 +16,19 @@ cell = get_cell("bench", ["/project"])
 cell.add_agent("agent_a", role="http",     territory=["/project"], ring=1, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_b", role="business", territory=["/project"], ring=2, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_c", role="security", territory=["/project"], ring=3, max_scouts=4, auto_boot=True)
-time.sleep(0.2)
+# Poll for all agents to be ready instead of fixed sleep(0.2)
+from l3.agent_terminal import get_terminal
+from l1.kernel.params.agent import AGENT_STATUS_IDLE
+_deadline = time.time() + 3.0
+for _aid in ("agent_a", "agent_b", "agent_c"):
+    while time.time() < _deadline:
+        try:
+            _t = get_terminal(_aid)
+            if _t and _t.status.name == AGENT_STATUS_IDLE:
+                break
+        except Exception:
+            pass
+        time.sleep(0.05)
 
 agent_map = {"http": "agent_a", "business": "agent_b", "security": "agent_c", "scout": "scout_pool"}
 

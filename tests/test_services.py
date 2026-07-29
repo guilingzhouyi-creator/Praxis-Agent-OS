@@ -188,7 +188,12 @@ class TestAgentTerminal:
         term = get_terminal("test-agent-term", role="test", territory=[".", ".."], cell_id="test")
         boot_r = term.boot()
         assert boot_r.get("success"), "agent terminal should boot"
-        time.sleep(0.1)
+        # Poll for terminal readiness instead of fixed sleep
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            if term.status and term.status.name == "IDLE":
+                break
+            time.sleep(0.05)
         card = TerminalCard(action="read_file", target=__file__,
                             params={}, sender="test")
         cid = term.dispatch(card)

@@ -20,8 +20,17 @@ class TestCellCardExecution:
 
         cell = get_cell("str-test", ["."])
         cell.add_agent("a", role="reader", territory=["."], auto_boot=True)
-        import time
-        time.sleep(0.1)
+        # Poll for agent readiness instead of fixed sleep
+        from l3.agent_terminal import get_terminal
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            try:
+                t = get_terminal("a")
+                if t and t.status and t.status.name == "IDLE":
+                    break
+            except Exception:
+                pass
+            time.sleep(0.05)
         # Use a direct action (list_dir) that doesn't need LLM
         r = cell.execute_card("list current directory", domain=".", agent_map={"reader": "a"})
         steps = r.get("steps", [])

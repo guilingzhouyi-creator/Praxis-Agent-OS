@@ -87,13 +87,15 @@ class TestLockChannel:
         from l1.kernel.ipc import LockChannel, LockMessage, LockOp
         ch = LockChannel("req-ch")
         results = {}
+        ready = threading.Event()
         def waiter():
             msg = LockMessage(op=LockOp.ACQUIRE, lock_name="lk", agent_id="w")
             r = ch.request(msg)
             results["val"] = r
+            ready.set()
         t = threading.Thread(target=waiter, daemon=True)
         t.start()
-        time.sleep(0.1)
+        ready.wait(timeout=2.0)
         # Respond with the right msg_id — need to capture it from send
         ch.respond("lk", {"ok": True})  # wrong approach, let's just test send+respond
         t.join(1)

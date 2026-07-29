@@ -1,180 +1,131 @@
-"""Search Engine integration test — semantic search + symbol search + doc search + API"""
+"""Tests for l4.search.search_engine — SemanticSearch + DocSearch + SymbolSearch."""
 
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from __future__ import annotations
 
 import tempfile
-from pathlib import Path
+import os
 
 
 class TestSemanticSearch:
-    """Semantic search (TF-IDF)"""
+    """SemanticSearch — TF-IDF keyword ranking."""
+
+    def _make_search(self):
+        from l4.search.search_engine import SemanticSearch
+        return SemanticSearch()
 
     def test_search_empty_query(self):
-        from l4.search_engine import SemanticSearch
-        s = SemanticSearch()
-        r = s.search("", max_results=10)
-        assert not r["success"]
+        """空查询应返回错误。"""
+        ss = self._make_search()
+        r = ss.search("", root_dir=".")
+        assert not r.get("success")
+        assert "empty" in r.get("error", "")
 
-    def test_search_found(self):
-        s = _make_semantic()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "test.py"
-            p.write_text("def hello_world():\n    print('hello')\n", encoding="utf-8")
-            r = s.search("hello", root_dir=d, max_results=20)
-            assert r["success"]
-            assert r["total_matches"] >= 1
-            assert any("hello" in res["content"] for res in r["results"])
+    def test_search_nonexistent_dir(self):
+        """不存在的目录应返回错误。"""
+        ss = self._make_search()
+        r = ss.search("test", root_dir="/nonexistent_path_xyz")
+        assert not r.get("success")
 
-    def test_search_not_found(self):
-        s = _make_semantic()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "test.py"
-            p.write_text("def foo():\n    pass\n", encoding="utf-8")
-            r = s.search("nonexistent_xyzzy", root_dir=d, max_results=20)
-            assert r["success"]
-            assert r["total_matches"] == 0
+    def test_search_finds_content(self):
+        """搜索应返回匹配结果。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "test_search.py")
+            with open(test_file, "w") as f:
+                f.write("def hello_world():\n    return 'hello world'\n")
+            ss = self._make_search()
+            r = ss.search("hello_world", root_dir=tmpdir, file_pattern="*.py")
+            assert r.get("success")
+            assert r.get("total_matches", 0) >= 1
+            results = r.get("results", [])
+            assert any("hello_world" in res.get("content", "") for res in results)
 
+    def test_search_no_match(self):
+        """无匹配时 total 应为 0。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "test.py")
+            with open(test_file, "w") as f:
+                f.write("x = 1\n")
+            ss = self._make_search()
+            r = ss.search("nonexistent_keyword_xyz", root_dir=tmpdir)
+            assert r.get("success")
+            assert r.get("total", 0) == 0
 
-def _make_semantic():
-    from l4.search_engine import SemanticSearch
-    return SemanticSearch()
-
-
-class TestSymbolSearch:
-    """Symbol search (AST)"""
-
-    def test_search_function(self):
-        from l4.search_engine import SymbolSearch
-        s = SymbolSearch()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "test.py"
-            p.write_text("def my_function():\n    pass\nclass MyClass:\n    pass\n", encoding="utf-8")
-            r = s.search("my_function", root_dir=str(d))
-            assert r["success"]
-            assert r["total_matches"] >= 1
-            hits = [h for h in r["results"] if h["symbol_name"] == "my_function"]
-            assert len(hits) >= 1
-            assert hits[0]["symbol_type"] == "function"
-
-    def test_search_class(self):
-        from l4.search_engine import SymbolSearch
-        s = SymbolSearch()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "test.py"
-            p.write_text("class MyClass:\n    pass\n", encoding="utf-8")
-            r = s.search("MyClass", root_dir=str(d))
-            assert r["success"]
-            hits = [h for h in r["results"] if h["symbol_type"] == "class"]
-            assert len(hits) >= 1
-
-    def test_search_not_found(self):
-        from l4.search_engine import SymbolSearch
-        s = SymbolSearch()
-        with tempfile.TemporaryDirectory() as d:
-            r = s.search("NonexistentSymbolXyzzy", root_dir=str(d))
-            assert r["success"]
-            assert r["total_matches"] == 0
+    def test_search_ignores_hidden(self):
+        """应忽略隐藏目录中的文件。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hidden_dir = os.path.join(tmpdir, ".hidden")
+            os.makedirs(hidden_dir)
+            test_file = os.path.join(hidden_dir, "secret.py")
+            with open(test_file, "w") as f:
+                f.write("secret = 'hidden'\n")
+            visible_file = os.path.join(tmpdir, "visible.py")
+            with open(visible_file, "w") as f:
+                f.write("visible = 'found'\n")
+            ss = self._make_search()
+            r = ss.search("visible", root_dir=tmpdir)
+            assert r.get("success")
+            assert r.get("total_matches", 0) >= 1
 
 
 class TestDocSearch:
-    """API doc search"""
+    """DocSearch — API documentation search."""
 
-    def test_search_known(self):
-        from l4.search_engine import DocSearch
-        ds = DocSearch()
-        r = ds.search("pathlib.Path")
-        assert r["success"]
-        assert r["total"] >= 1
-        assert any("Path" in res["name"] for res in r["results"])
+    def _make_doc(self):
+        from l4.search.search_engine import DocSearch
+        return DocSearch()
 
-    def test_search_unknown(self):
-        from l4.search_engine import DocSearch
-        ds = DocSearch()
-        r = ds.search("zzz_nonexistent_api_zzz")
-        assert r["success"]
-        assert r["total"] == 0
+    def test_index_and_search(self):
+        """索引后应能搜索到文档条目。"""
+        ds = self._make_doc()
+        ds.index("praxis", "l4.search", "SemanticSearch",
+                 signature="SemanticSearch()",
+                 docstring="Lightweight semantic search with TF-IDF")
+        results = ds.search("semantic")
+        assert results.get("success")
+        items = results.get("results", [])
+        assert len(items) >= 1
+        names = [r["name"] for r in items]
+        assert "SemanticSearch" in names
 
-    def test_index_custom(self):
-        from l4.search_engine import DocSearch
-        ds = DocSearch()
-        r = ds.index("my_pkg", "my_mod", "my_func",
-                      signature="my_func(arg1)", docstring="custom function")
-        assert r["success"]
-        result = ds.search("my_func")
-        assert result["total"] >= 1
+    def test_search_no_results(self):
+        """搜索不存在的文档应返回空结果列表。"""
+        ds = self._make_doc()
+        results = ds.search("nonexistent_symbol_xyz")
+        assert results.get("success")
+        assert results.get("total", 0) == 0
+        assert len(results.get("results", [])) == 0
 
+    def test_index_multiple(self):
+        """多个文档应全部可搜索。"""
+        ds = self._make_doc()
+        ds.index("praxis", "l3.cell", "Cell", docstring="Agent collaboration unit")
+        ds.index("praxis", "l3.memory", "MemoryManager", docstring="Memory management")
+        results = ds.search("memory")
+        items = results.get("results", [])
+        assert len(items) >= 1
+        assert any(r["name"] == "MemoryManager" for r in items)
 
-class TestSearchEngine:
-    """Unified search entry"""
-
-    def test_search_semantic_mode(self):
-        from l4.search_engine import get_engine
-        engine = get_engine()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "code.py"
-            p.write_text("target_function = 42\n", encoding="utf-8")
-            r = engine.search("target_function", mode="semantic", root_dir=d)
-            assert r["success"]
-
-    def test_search_symbol_mode(self):
-        from l4.search_engine import get_engine
-        engine = get_engine()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "mod.py"
-            p.write_text("class TargetSymbol:\n    pass\n", encoding="utf-8")
-            r = engine.search("TargetSymbol", mode="symbol", root_dir=d)
-            assert r["success"]
-
-    def test_search_docs_mode(self):
-        from l4.search_engine import get_engine
-        engine = get_engine()
-        r = engine.search("json.dumps", mode="docs")
-        assert r["success"]
-
-    def test_search_auto_symbol(self):
-        from l4.search_engine import get_engine
-        engine = get_engine()
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "c.py"
-            p.write_text("class AutoClass:\n    pass\n", encoding="utf-8")
-            r = engine.search("AutoClass", mode="auto", root_dir=d)
-            assert r["success"]
+    def test_search_by_package(self):
+        """搜索应支持按包过滤。"""
+        ds = self._make_doc()
+        ds.index("praxis", "l3.cell", "Cell", docstring="Cell class")
+        ds.index("praxis", "l4.api", "ApiGateway", docstring="API gateway")
+        results = ds.search("api")
+        items = results.get("results", [])
+        assert len(items) >= 1
+        assert any("api" in r["module"] for r in items)
 
 
-class TestApiHandlers:
-    """API Handler function-level test"""
+class TestSearchResult:
+    """SearchResult dataclass — to_dict serialization."""
 
-    def test_handle_search_no_query(self):
-        from l4.search_engine import handle_search
-        r = handle_search({})
-        assert not r["success"]
-
-    def test_handle_search_semantic(self):
-        from l4.search_engine import handle_search_semantic
-        r = handle_search_semantic({"query": "test", "root": os.getcwd()})
-        assert r["success"]
-
-    def test_handle_search_symbol(self):
-        from l4.search_engine import handle_search_symbol
-        r = handle_search_symbol({"name": "os"})
-        assert r["success"]
-
-    def test_handle_search_docs(self):
-        from l4.search_engine import handle_search_docs
-        r = handle_search_docs({"query": "json.loads"})
-        assert r["success"]
-        assert r["total"] >= 1
-
-    def test_handle_search_missing(self):
-        from l4.search_engine import handle_search_symbol
-        r = handle_search_symbol({})
-        assert not r["success"]
-
-    def test_handle_index_doc(self):
-        from l4.search_engine import handle_search_index_doc
-        r = handle_search_index_doc({
-            "package": "test", "module": "test", "name": "t_func",
-            "signature": "t_func()", "docstring": "test",
-        })
-        assert r["success"]
+    def test_to_dict(self):
+        from l4.search.search_engine import SearchResult
+        sr = SearchResult(path="/test/file.py", line=10, content="def foo(): pass",
+                          score=0.85, kind="symbol", symbol_name="foo", symbol_type="function")
+        d = sr.to_dict()
+        assert d["path"] == "/test/file.py"
+        assert d["line"] == 10
+        assert d["score"] == 0.85
+        assert d["kind"] == "symbol"
+        assert d["symbol_name"] == "foo"

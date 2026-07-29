@@ -15,6 +15,26 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
+def _wait_for_agent(agent_id: str, timeout: float = 2.0, poll: float = 0.05) -> bool:
+    """Poll AgentTerminal status until IDLE or timeout.
+
+    Replaces fixed time.sleep() with responsive polling to reduce CI wall-clock time.
+    Returns True if agent reached IDLE within timeout, False otherwise.
+    """
+    from l3.agent_terminal import get_terminal
+    from l1.kernel.params.agent import AGENT_STATUS_IDLE
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            term = get_terminal(agent_id)
+            if term and term.status.name == AGENT_STATUS_IDLE:
+                return True
+        except Exception:
+            pass
+        time.sleep(poll)
+    return False
+
+
 class TestL2ShellDispatchE2E:
     """End-to-end test: L2_Shell dispatch executes full chain via real Cell/Agent."""
 
@@ -33,7 +53,7 @@ class TestL2ShellDispatchE2E:
         try:
             cell = get_cell("e2e-test-cell", ["."])
             cell.add_agent("alpha", role="writer", territory=["."], auto_boot=True)
-            time.sleep(0.2)
+            _wait_for_agent("alpha")
 
             r = dispatch("/agents")
             assert isinstance(r, dict)
@@ -62,7 +82,7 @@ class TestL2ShellDispatchE2E:
         try:
             cell = get_cell("e2e-connect", ["."])
             cell.add_agent("connector", role="writer", territory=["."], auto_boot=True)
-            time.sleep(0.3)
+            _wait_for_agent("connector")
 
             # /connect
             r = dispatch("/connect connector")
@@ -98,7 +118,7 @@ class TestL2ShellDispatchE2E:
         try:
             cell = get_cell("e2e-status", ["."])
             cell.add_agent("stat-bot", role="reader", territory=["."], auto_boot=True)
-            time.sleep(0.3)
+            _wait_for_agent("stat-bot")
 
             # Force set Direct state (no need for LLM preconnect)
             state = get_state()
@@ -177,7 +197,7 @@ class TestL2ShellDirectMessageE2E:
         try:
             cell = get_cell("e2e-msg", ["."])
             cell.add_agent("msg-bot", role="reader", territory=["."], auto_boot=True)
-            time.sleep(0.3)
+            _wait_for_agent("msg-bot")
 
             state = get_state()
             state.switch_to_direct("e2e-msg", "msg-bot", "sess-msg")

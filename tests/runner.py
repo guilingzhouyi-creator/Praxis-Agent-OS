@@ -7,6 +7,8 @@ Batch 2 (slow, ~75s): r4_agent + integration + convention + archive
 import sys, os, subprocess
 
 BATCH_1 = [
+    # Layer import constraint — must pass before any batch (run first for fast CI fail)
+    "test_layer_imports",
     "test_kernel", "test_persistence", "test_tool_mute", "test_tool_pipeline",
     "test_l3a", "test_services_core", "test_shell", "test_params_integrity",
     "test_issue", "test_credential_vault", "test_api_gateway", "test_assembly",

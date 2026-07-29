@@ -24,6 +24,7 @@ _RESETS = {
     "l3.error_bus": ("reset_bus", None),
     "l1.kernel.event": ("reset_bus", None),
     "l4.lsp.lsp_manager": ("reset_manager", None),
+    "l1.kernel.reputation": ("reset_reputation", None),
 }
 
 
