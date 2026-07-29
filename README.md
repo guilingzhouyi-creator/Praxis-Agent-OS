@@ -1,4 +1,4 @@
-# NOMOS Praxis — Agent Operating System
+# Praxis — Agent Operating System
 
 **This is not a game project.** Praxis is a five-layer Agent Operating System that maps traditional OS concepts (kernel, process, memory, file system, security) onto LLM-based AI agents.
 

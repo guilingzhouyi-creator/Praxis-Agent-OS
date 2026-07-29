@@ -1,4 +1,4 @@
-# NOMOS Praxis — Agent OS (v0.3.0 "Aether")
+# Praxis — Agent OS (v0.3.0 "Aether")
 
 Python 3.11+ Agent OS for orchestrating LLM-based agents. Five-layer architecture from bare-metal kernel to user CLI.
 
@@ -85,7 +85,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | `config/.mcp.json` | MCP server definitions |
 | `locales/` | i18n: en, zh-CN, ja, ko |
 | `memories/` | Runtime agent memory persistence |
-| `.praxis/skills/` | 7 Praxis-specific OpenCode skills (architecture, card, cell, kernel, scout, self, tool-pipeline) |
+| `.praxis/skills/` | 7 Praxis-specific skills (architecture, card, cell, kernel, scout, self, tool-pipeline) |
 
 ## Key files
 

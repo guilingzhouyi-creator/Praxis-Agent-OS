@@ -1,7 +1,7 @@
 [project]
 name = "praxis"
 version = "0.3.0"
-description = "NOMOS Praxis — Agent OS (headless core)"
+description = "Praxis — Agent OS (headless core)"
 requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6.0",
