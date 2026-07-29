@@ -27,16 +27,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from l1.kernel.discovery import get_config
+
 from .params.agent import (
     CONSTITUTION_ACTION_LEN_THRESHOLD,
     CONSTITUTION_CUSTOM_SECTION,
     CONSTITUTION_DEFAULT_PATH,
     CONSTITUTION_ENV_VAR,
-    CONSTITUTION_FILE_ACTIONS,
     CONSTITUTION_FILE_EXT,
     CONSTITUTION_GATE_ACTIONS,
     CONSTITUTION_KEYWORD,
-    CONSTITUTION_MODIFY_ACTIONS,
     CONSTITUTION_SCOUT_AGENT_NAME,
     CONSTITUTION_SCOUT_BLOCKED,
     CONSTITUTION_SHARED_KEYWORD,
@@ -119,7 +119,15 @@ def _severity(s: str) -> RuleSeverity:
 # ── Built-in check functions ──
 
 def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
-    if action not in CONSTITUTION_FILE_ACTIONS or not target:
+    ca = get_config("constitution")
+    if ca:
+        file_actions = frozenset(ca.get("file_actions", []))
+        modify_actions = frozenset(ca.get("modify_actions", []))
+    else:
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        file_actions = CONSTITUTION_FILE_ACTIONS
+        modify_actions = CONSTITUTION_MODIFY_ACTIONS
+    if action not in file_actions or not target:
         return CheckResult.PASS
     if territory and not any(target.startswith(t) for t in territory):
         return CheckResult.BLOCK if rule.severity == RuleSeverity.MUST else CheckResult.WARN
@@ -127,7 +135,15 @@ def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: s
 
 
 def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
-    if action in CONSTITUTION_MODIFY_ACTIONS:
+    ca = get_config("constitution")
+    if ca:
+        file_actions = frozenset(ca.get("file_actions", []))
+        modify_actions = frozenset(ca.get("modify_actions", []))
+    else:
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        file_actions = CONSTITUTION_FILE_ACTIONS
+        modify_actions = CONSTITUTION_MODIFY_ACTIONS
+    if action in modify_actions:
         if rule.severity == RuleSeverity.MUST and target:
             # Real path check: verify target starts with configured sandbox root
             abs_target = _os.path.abspath(target)
@@ -147,16 +163,32 @@ def _check_constitution_mod(rule: RuleDescriptor, action: str, agent_id: str, ta
 
 
 def _check_gate(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+    ca = get_config("constitution")
+    if ca:
+        file_actions = frozenset(ca.get("file_actions", []))
+        modify_actions = frozenset(ca.get("modify_actions", []))
+    else:
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        file_actions = CONSTITUTION_FILE_ACTIONS
+        modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action in CONSTITUTION_GATE_ACTIONS:
         return CheckResult.WARN
-    return CheckResult.WARN if action in CONSTITUTION_MODIFY_ACTIONS and len(action) > CONSTITUTION_ACTION_LEN_THRESHOLD else CheckResult.PASS
+    return CheckResult.WARN if action in modify_actions and len(action) > CONSTITUTION_ACTION_LEN_THRESHOLD else CheckResult.PASS
 
 
 def _check_scout(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+    ca = get_config("constitution")
+    if ca:
+        file_actions = frozenset(ca.get("file_actions", []))
+        modify_actions = frozenset(ca.get("modify_actions", []))
+    else:
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        file_actions = CONSTITUTION_FILE_ACTIONS
+        modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if agent_id == CONSTITUTION_SCOUT_AGENT_NAME:
         if action in CONSTITUTION_SCOUT_BLOCKED:
             return CheckResult.BLOCK
-        if action in CONSTITUTION_FILE_ACTIONS:
+        if action in file_actions:
             return CheckResult.PASS
     return CheckResult.PASS
 

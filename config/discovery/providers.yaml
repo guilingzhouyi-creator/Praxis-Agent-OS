@@ -1,0 +1,74 @@
+# LLM provider URLs, model names, discovery config, env vars, IPC.
+# Auto-discovered by ConfigDiscovery; overlays params/api.py.
+
+# ── Provider base URLs ──
+provider_urls:
+  openai:    "https://api.openai.com/v1/chat/completions"
+  anthropic: "https://api.anthropic.com/v1/messages"
+  deepseek:  "https://api.deepseek.com/v1"
+  ollama:    "http://localhost:11434"
+
+# ── Default model names per provider ──
+default_models:
+  openai:           "gpt-4o"
+  openai_mini:      "gpt-4o-mini"
+  anthropic_sonnet: "claude-sonnet-4-20250514"
+  anthropic_haiku:  "claude-haiku-3-5"
+  deepseek_v4:      "deepseek-v4"
+  deepseek_chat:    "deepseek-chat"
+  ollama:           "qwen2.5"
+  mock:             "mock"
+
+# ── Provider discovery (env vars) ──
+provider_discovery:
+  openai:
+    env_key:   OPENAI_API_KEY
+    env_url:   OPENAI_API_URL
+    env_model: OPENAI_MODEL
+  deepseek:
+    env_key:   DEEPSEEK_API_KEY
+  anthropic:
+    env_key:   ANTHROPIC_API_KEY
+    env_url:   ANTHROPIC_API_URL
+    env_model: ANTHROPIC_MODEL
+  ollama:
+    env_url:   OLLAMA_URL
+    env_model: OLLAMA_MODEL
+  websocket:
+    env_url:   LLM_WS_URL
+    env_model: LLM_WS_MODEL
+
+# ── Anthropic API version ──
+anthropic_api_version: "2023-06-01"
+
+# ── LLM retry/backoff ──
+llm:
+  empty_response_waits: [1, 1, 2, 2, 3]
+
+# ── Reasoning effort levels ──
+reasoning_effort_levels:
+  none: "none"
+  low: "low"
+  medium: "medium"
+  high: "high"
+
+# ── MCP defaults ──
+mcp_default_url: "http://localhost:3500/mcp/v1"
+
+# ── Search ──
+search_default_url: "https://api.duckduckgo.com/"
+
+# ── IPC socket addresses (Windows TCP / Unix) ──
+ipc_sockets:
+  kernel:  "127.0.0.1:42100"
+  llm:     "127.0.0.1:42101"
+  sandbox: "127.0.0.1:42102"
+
+# ── Environment variable names ──
+env_vars:
+  praxis_discovery_port: "PRAXIS_DISCOVERY_PORT"
+  praxis_port: "PRAXIS_PORT"
+  praxis_api_token: "PRAXIS_API_TOKEN"
+  nomos_sandbox_root: "NOMOS_SANDBOX_ROOT"
+  nomos_default_cell: "NOMOS_DEFAULT_CELL"
+  nomos_constitution: "NOMOS_CONSTITUTION"

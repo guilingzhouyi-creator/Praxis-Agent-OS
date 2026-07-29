@@ -263,7 +263,12 @@ def _gate_g3(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     override = ctx.get("danger_override")
-    danger = override if override is not None else GATECHAIN_DANGER_LEVELS.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
+    if override is not None:
+        danger = override
+    else:
+        from l1.kernel.discovery import get_config
+        danger_levels = get_config("gatechain_danger_levels") or GATECHAIN_DANGER_LEVELS
+        danger = danger_levels.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
     if ctx["target"] and ctx["territory"]:
         in_territory = any(ctx["target"].startswith(t) for t in ctx["territory"])
         if not in_territory:

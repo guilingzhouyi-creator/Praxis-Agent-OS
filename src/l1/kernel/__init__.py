@@ -34,6 +34,7 @@ from .params.kernel import (
     SYSCALL_DEFAULT_RING, SYSCALL_DEFAULT_RESOURCE, SYSCALL_REGISTER_DEFAULT_AGENT,
     BARRIER_DEFAULT_COUNT, GateStatus,
 )
+from . import discovery
 from .params.agent import (
     EVENT_TASK_ASSIGN, EVENT_REVIEW_REQUESTED, EVENT_TOKEN_USAGE,
     EVENT_CROSS_REVIEW, EVENT_AGENT_BOOT, EVENT_ARCHIVE_ALERT,
@@ -348,4 +349,6 @@ __all__ = [
     "register_syscall",
     "sync_status",
     "syscall",
+    # ConfigDiscovery
+    "discovery",
 ]

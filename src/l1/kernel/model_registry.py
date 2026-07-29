@@ -27,8 +27,9 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from l1.kernel.discovery import get_config
+
 from l1.kernel.params.api import (
-    LLM_PROVIDER_URLS,
     ENV_OPENAI_KEY, ENV_OPENAI_URL, ENV_OPENAI_MODEL,
     ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
     ENV_OLLAMA_URL, ENV_OLLAMA_MODEL,
@@ -56,16 +57,16 @@ class ModelInfo:
 
 _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
     ("openai",    ENV_OPENAI_KEY,    ENV_OPENAI_URL,    ENV_OPENAI_MODEL,
-     LLM_PROVIDER_URLS.get("openai", "https://api.openai.com/v1/chat/completions"),
+     "https://api.openai.com/v1/chat/completions",
      ENV_OPENAI_KEY),
     ("deepseek",  ENV_DEEPSEEK_KEY,  "",                "",
-     LLM_PROVIDER_URLS.get("openai", "https://api.openai.com/v1/chat/completions"),
+     "https://api.openai.com/v1/chat/completions",
      ENV_DEEPSEEK_KEY),
     ("anthropic", ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
-     LLM_PROVIDER_URLS.get("anthropic", "https://api.anthropic.com/v1/messages"),
+     "https://api.anthropic.com/v1/messages",
      ENV_ANTHROPIC_KEY),
     ("ollama",    "",                ENV_OLLAMA_URL,    ENV_OLLAMA_MODEL,
-     LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"),
+     "http://localhost:11434",
      ""),
     ("websocket", "",                ENV_LLM_WS_URL,   ENV_LLM_WS_MODEL,
      "",
@@ -122,10 +123,15 @@ class ModelRegistry:
 
     def _discover_provider(self, provider: str, env_key: str, env_url: str,
                            env_model: str, default_url: str, api_key_env: str) -> list[ModelInfo]:
-        """Discover a single provider from env vars."""
+        """Discover a single provider from env vars + discovery config."""
         api_key = os.environ.get(env_key, "") if env_key else ""
         api_key = api_key or (os.environ.get(api_key_env, "") if api_key_env else "")
-        url = os.environ.get(env_url, default_url) if env_url else default_url
+        env_val = os.environ.get(env_url, "") if env_url else ""
+        if env_val:
+            url = env_val
+        else:
+            purls = get_config("provider_urls") or {}
+            url = purls.get(provider, default_url)
         model = os.environ.get(env_model, "") if env_model else ""
 
         if not api_key and provider not in ("ollama", "mock", "websocket"):

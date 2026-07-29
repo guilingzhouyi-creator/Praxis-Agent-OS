@@ -322,7 +322,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 def _register_default_boot_steps(agent_config: list | None) -> None:
     """Register all built-in boot steps via the extensible registry."""
     register_boot_step("load_constitution", _load_constitution, depends_on=[])
-    register_boot_step("load_config", _load_config, depends_on=["load_constitution"])
+    register_boot_step("init_discovery", _init_discovery, depends_on=["load_constitution"])
+    register_boot_step("load_config", _load_config, depends_on=["init_discovery"])
     register_boot_step("load_tools", _load_tools, depends_on=["load_config"])
     register_boot_step("init_system_bus", _init_system_bus, depends_on=["load_tools"])
     register_boot_step("init_services", _init_services, depends_on=["init_system_bus"])
@@ -400,6 +401,56 @@ def _load_constitution() -> dict:
     except Exception as e:
         logger.error("constitution load error: %s", e)
         return {"success": False, "error": str(e), "assembly_mode": True}
+
+
+def _init_discovery() -> dict:
+    """Auto-discover declarative YAML config snippets from config/discovery/.
+
+    Merges them on top of params-derived defaults so later boot steps
+    (load_config, load_tools, etc.) see the merged result.
+    """
+    from l1.kernel.discovery import (
+        register, register_discovery_dir, discover,
+        register_from_params,
+    )
+    from l1.kernel import params as _p
+    from l1.kernel.params import system as _ps, api as _pa, tool as _pt, agent as _pag
+
+    # Register params-derived defaults for each config section
+    register("build_detectors", {
+        "pip": {"cmd": ["python", "-m", "build"]},
+        "cargo": {"cmd": ["cargo", "build"]},
+        "npm": {"cmd": ["npm", "run", "build"]},
+        "msbuild": {"cmd": ["msbuild"]},
+        "dotnet": {"cmd": ["dotnet", "build"]},
+    })
+    register("test_detectors", {
+        "pytest": {"cmd": ["python", "-m", "pytest"]},
+        "cargo": {"cmd": ["cargo", "test"]},
+        "npm": {"cmd": ["npm", "test"]},
+        "dotnet": {"cmd": ["dotnet", "test"]},
+        "vstest": {"cmd": ["vstest.console"]},
+    })
+    register("provider_urls", dict(_pa.LLM_PROVIDER_URLS))
+    register("default_models", {k: v for k, v in vars(_pa).items() if k.startswith("DEFAULT_MODEL_")})
+    register("error_codes", {})
+    register("danger_levels", dict(_pt.TOOL_DANGER_LEVEL))
+    register("danger_to_gates", dict(_pt.DANGER_TO_GATES))
+    register("agent_defaults", {})
+    register("central_roles", list(_pag.CENTRAL_ROLES))
+    register("agent_clearance", dict(_pag.AGENT_CLEARANCE))
+    register("agent_priority", dict(_pag.AGENT_PRIORITY))
+    register("agent_role_map", dict(_pag.AGENT_ROLE_MAP))
+
+    # Register discovery directory
+    from pathlib import Path as _Path
+    dd = _Path(__file__).resolve().parent.parent.parent.parent / "config" / "discovery"
+    register_discovery_dir(str(dd))
+
+    # Run discovery (scans YAML → merges on top of defaults)
+    n = discover()
+    logger.info("discovery: loaded %d config snippet(s) from %s", n, dd)
+    return {"success": True, "loaded": n}
 
 
 def _load_config() -> dict:

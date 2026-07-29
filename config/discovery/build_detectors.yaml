@@ -1,0 +1,19 @@
+# Auto-discovered by ConfigDiscovery at boot.
+# Overrides params/tool.py BUILD_DETECTORS and TEST_DETECTORS.
+build_detectors:
+  pip:    {cmd: [python, -m, build]}
+  cargo:  {cmd: [cargo, build]}
+  npm:    {cmd: [npm, run, build]}
+  msbuild: {cmd: [msbuild]}
+  dotnet: {cmd: [dotnet, build]}
+  go:     {cmd: [go, build]}
+  cmake:  {cmd: [cmake, --build, .]}
+  make:   {cmd: [make]}
+
+test_detectors:
+  pytest: {cmd: [python, -m, pytest]}
+  cargo:  {cmd: [cargo, test]}
+  npm:    {cmd: [npm, test]}
+  dotnet: {cmd: [dotnet, test]}
+  vstest: {cmd: [vstest.console]}
+  go:     {cmd: [go, test]}

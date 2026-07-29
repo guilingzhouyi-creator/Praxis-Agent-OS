@@ -1,0 +1,41 @@
+# Error code definitions and translations.
+# Auto-discovered by ConfigDiscovery; overlays src/l1/kernel/errors.py.
+
+error_codes:
+  E_INTERNAL: "Internal error"
+  E_TIMEOUT: "Operation timed out"
+  E_INVALID_PARAMS: "Invalid parameters"
+  E_NOT_FOUND: "Resource not found"
+  E_CONSTITUTION_BLOCKED: "Blocked by constitution"
+  E_GATECHAIN_BLOCKED: "Blocked by gate chain"
+  E_TOOL_MUTED: "Tool is muted"
+  E_TOOL_NOT_FOUND: "Tool not found"
+  E_RESOURCE_EXHAUSTED: "Resource exhausted"
+  E_PERMISSION_DENIED: "Permission denied"
+  E_CELL_EMERGENCY: "Cell in emergency stop"
+  E_CHECKPOINT_RESTORE: "Checkpoint restore failed"
+  E_AGENT_CRASHED: "Agent crashed"
+  E_HUMAN_REJECTED: "Rejected by human"
+  E_APPROVAL_TIMEOUT: "Approval timed out"
+  E_MCP_FAILED: "MCP call failed"
+  E_UNKNOWN_TOOL: "Unknown tool"
+  E_HANDLER_ERROR: "Handler error"
+  E_MEMORY_REJECTED: "Memory quality rejected"
+  E_SANDBOX_ERROR: "Sandbox operation failed"
+  E_LOCALE: "Locale set failed"
+  E_THINK: "Think quota set failed"
+  E_EMIT: "EventBus emit failed"
+  E_CMD_INIT: "Command registry init failed"
+  E_PRESELECT: "Agent preselect failed"
+  E_LLM_REVIEW: "LLM injection review failed"
+  E_SELECT: "Agent select failed"
+  E_CACHE: "Cache operation failed"
+  E_SNAPSHOT: "Agent snapshot failed"
+  E_INJECT: "Result cache inject failed"
+  E_TRANSCRIPT: "Transcript append failed"
+
+i18n:
+  zh-CN:
+    E_INTERNAL: "\u5185\u90e8\u9519\u8bef"          # 内部错误
+    E_TIMEOUT: "\u64cd\u4f5c\u8d85\u65f6"            # 操作超时
+    E_NOT_FOUND: "\u8d44\u6e90\u672a\u627e\u5230"    # 资源未找到

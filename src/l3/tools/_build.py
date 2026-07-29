@@ -3,12 +3,31 @@
 import subprocess
 
 from l1.kernel.params.system import LOG_TRUNC_2000
-from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT, BUILD_DETECTORS, TEST_DETECTORS
+from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
+from l1.kernel.discovery import get_config
+
+
+def _get_build_detectors() -> list[tuple[str, ...]]:
+    """Get build detectors from discovery, fall back to params defaults."""
+    cfg = get_config("build_detectors")
+    if cfg:
+        return [tuple(v["cmd"]) for v in cfg.values()]
+    from l1.kernel.params.tool import BUILD_DETECTORS
+    return BUILD_DETECTORS
+
+
+def _get_test_detectors() -> list[tuple[str, ...]]:
+    """Get test detectors from discovery, fall back to params defaults."""
+    cfg = get_config("test_detectors")
+    if cfg:
+        return [tuple(v["cmd"]) for v in cfg.values()]
+    from l1.kernel.params.tool import TEST_DETECTORS
+    return TEST_DETECTORS
 
 
 def build_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
-    for cmd in BUILD_DETECTORS:
+    for cmd in _get_build_detectors():
         try:
             r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
             if r.returncode == 0:
@@ -20,7 +39,7 @@ def build_project(args: dict, agent_id: str) -> dict:
 
 def test_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
-    for cmd in TEST_DETECTORS:
+    for cmd in _get_test_detectors():
         try:
             r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
             if r.returncode == 0:

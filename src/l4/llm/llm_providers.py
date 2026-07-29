@@ -6,6 +6,7 @@ import logging
 import os
 import time
 
+from l1.kernel.discovery import get_config
 from l1.kernel.params.api import (
     LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS,
     FALLBACK_MODEL,
@@ -98,7 +99,8 @@ class OpenAIProvider(_ProviderHelperMixin):
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = ""):
         self.api_key = api_key or self._vault_key("openai") or os.environ.get(ENV_OPENAI_KEY, "") or os.environ.get(ENV_DEEPSEEK_KEY, "")
-        self.api_url = api_url or self._vault_key("openai", "api_url") or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["openai"]))
+        _urls = (get_config("provider_urls") or {})
+        self.api_url = api_url or self._vault_key("openai", "api_url") or os.environ.get(ENV_OPENAI_URL, self._get_setting("llm.api_url", _urls.get("openai", LLM_PROVIDER_URLS["openai"])))
         self.model = model or self._vault_key("openai", "model") or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
 
     def _api_call(self, messages: list[dict], tools: list[dict] | None = None,
@@ -198,8 +200,9 @@ class AnthropicProvider(_ProviderHelperMixin):
 
     def __init__(self, api_key: str = "", api_url: str = "", model: str = "", cache_breakpoints: int = 4):
         self.api_key = api_key or self._vault_key("anthropic") or os.environ.get(ENV_ANTHROPIC_KEY, "")
+        _urls = (get_config("provider_urls") or {})
         self.api_url = api_url or self._vault_key("anthropic", "api_url") or os.environ.get(ENV_ANTHROPIC_URL,
-                       self._get_setting("llm.api_url", LLM_PROVIDER_URLS["anthropic"]))
+                       self._get_setting("llm.api_url", _urls.get("anthropic", LLM_PROVIDER_URLS["anthropic"])))
         self.model = model or self._vault_key("anthropic", "model") or os.environ.get(ENV_ANTHROPIC_MODEL,
                        self._get_setting("llm.model", "<model>"))
         self.cache_breakpoints = cache_breakpoints
@@ -305,7 +308,7 @@ class OllamaProvider(_ProviderHelperMixin):
         return {"supports": caps, "context_window": 32768, "model": self.model}
 
     def __init__(self, api_url: str = "", model: str = ""):
-        self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", LLM_PROVIDER_URLS["ollama"]))
+        self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", (get_config("provider_urls") or {}).get("ollama", LLM_PROVIDER_URLS["ollama"])))
         self.model = model or os.environ.get(ENV_OLLAMA_MODEL, self._get_setting("llm.model", "<model>"))
 
     def generate(self, prompt: str, system: str = "",

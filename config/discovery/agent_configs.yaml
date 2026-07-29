@@ -1,0 +1,187 @@
+# Agent system structural configuration.
+# Auto-discovered by ConfigDiscovery; overlays params/agent.py defaults.
+
+# ── Role definitions ──
+central_roles: [reader, writer, reviewer, scout, l3, default, deployer]
+central_default_roles: [reader, writer, reviewer]
+
+# ── Security clearance (role → ring level) ──
+agent_clearance:
+  default: 3
+  scout:   1
+  l3:      3
+
+# ── Scheduling priority (role → priority, 1-10) ──
+agent_priority:
+  default:  5
+  reader:   5
+  writer:   5
+  reviewer: 5
+  scout:    5
+  l3:       5
+  deployer: 5
+
+# ── HTN role map (ring level → agent role) ──
+agent_role_map:
+  1: reader
+  2: writer
+  3: reviewer
+
+# ── Priority label → value ──
+priority_gradient:
+  critical: 10
+  high:     8
+  normal:   5
+  low:      3
+  trivial:  1
+
+# ── Default reputation by role ──
+reputation_defaults:
+  default:  0.85
+  security: 0.95
+  scout:    0.80
+  reader:   0.70
+
+# ── Agent type defaults ──
+agent_defaults:
+  default: {max_scouts: 3, max_tokens: 4096, max_workers: 4, priority: 5, ring: 1}
+  scout:   {max_scouts: 0, max_tokens: 2048, max_workers: 1, priority: 5, ring: 1}
+  l3:      {max_scouts: 0, max_tokens: 2048, max_workers: 2, priority: 1, ring: 3}
+  human:   {max_scouts: 0, max_tokens: 0,    max_workers: 0, priority: 0, ring: 0}
+
+# ── Agent ID prefixes ──
+agent_id_prefixes: [agent-, l3, human]
+
+# ── Event type strings ──
+event_types:
+  task_assign: "task_assign"
+  review_requested: "review_requested"
+  token_usage: "token_usage"
+  cross_review: "cross_review"
+  agent_boot: "agent_boot"
+  archive_alert: "archive_alert"
+
+# ── Card builder modes (build type → execution mode) ──
+card_builder_modes:
+  build_audit: PARALLEL_ALL
+  build_document: PARALLEL_ALL
+  build_redesign: PARALLEL_ALL
+  build_refactor: PARALLEL_ALL
+  build_subtask: PARALLEL_ALL
+  build_repair: EXECUTE
+
+# ── Injection detection patterns (security) ──
+injection_patterns:
+  zh1: "你(现在|必须|要).*忽略(之前|系统)(指令|设定)"
+  zh2: "你是.*(忽略|无视).*(指令|规则)"
+
+# ── Terminal valid modes ──
+terminal_valid_modes: [assembly, direct]
+
+# ── Constitution action sets ──
+constitution:
+  file_actions: [read, read_file, grep, grep_search, list, list_dir, search, find, stat]
+  modify_actions: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format, run, run_in_terminal]
+  gate_actions: [run_in_terminal, deploy, db_migrate, user_delete, delete_user, destroy]
+  scout_blocked: [write, write_file, edit, replace, replace_string, delete, rename, create, create_file, format]
+  file_extension: ".nomos-rules.md"
+  default_path: ".nomos-rules.md"
+
+# ── Resource keys ──
+resource_keys: [workers, scouts, memory, tokens]
+
+# ── R4 agent territory ──
+r4_agent_territory: [archive, memory]
+
+# ── HTN default tools ──
+htn_default_tools:
+  analyze: analyze_code
+  scout: scout_delegate
+  read: read_file
+  write: write_file
+  create: create_file
+  replace: replace_string_in_file
+  extract: extract_method
+  build: build_project
+  test: test_project
+  lint: lint
+  review: review_code
+  doc: generate_doc
+  fix: write_file
+  plan: write_file
+
+# ── Built-in constitution rules ──
+builtin_rule_defs:
+  - section: "2.3"
+    severity: MUST
+    description: "Agent must not write outside its territory"
+  - section: "3.1"
+    severity: MUST
+    description: "Agent must not read files outside its territory without L3 approval"
+  - section: "3.3"
+    severity: MUST
+    description: "All tool calls must pass GateChain G1-G5"
+  - section: "3.4"
+    severity: MUST
+    description: "Cross-unit tool calls require G5 approval"
+  - section: "4.5"
+    severity: MUST
+    description: "All modifications must go through sandbox (no direct writes)"
+  - section: "4.6"
+    severity: MUST
+    description: "All modifications must be reviewable by L3 before flush"
+  - section: "4.7"
+    severity: MUST
+    description: "No Agent may modify the constitution itself"
+  - section: "5.1"
+    severity: MUST
+    description: "All tool calls must be logged with audit trail"
+  - section: "5.2"
+    severity: SHOULD
+    description: "All decisions must be recorded in memory Ring 2"
+  - section: "6.1"
+    severity: MUST
+    description: "Cross-territory changes require peer review"
+  - section: "6.2"
+    severity: MUST
+    description: "L3 is the final arbiter of all disputes"
+  - section: "7.1"
+    severity: MUST
+    description: "Scouts are read-only and depth=1"
+  - section: "7.2"
+    severity: SHOULD
+    description: "Scout findings must be logged before disposal"
+  - section: "8.1"
+    severity: MUST
+    description: "Agent context must be built from Ring memory, not raw output"
+  - section: "8.2"
+    severity: SHOULD
+    description: "Important decisions must be persisted to Ring 3"
+
+# ── Memory persistence filenames ──
+memory_persist_files:
+  ring2: memory_ring2.jsonl
+  ring3: memory_ring3.db
+
+# ── Search engine defaults ──
+search:
+  exclude_dirs: [__pycache__, .git, node_modules, .venv, target, build, dist, .tox]
+  exclude_exts: [.pyc, .pyo, .so, .dll, .dylib, .exe, .bin, .class, .o, .a, .lib]
+
+# ── Resource buffer ──
+resource_buffer:
+  slot_name_template: "slot_{:04d}.dat"
+  slot_glob: "slot_*.dat"
+  pending_dir: "_pending"
+  hidden_dir: "_hidden"
+  checkpoint_file: "_checkpoint.dat"
+  journal_file: "_journal.jsonl"
+  root_dir: "resource_buffer"
+
+# ── Monitoring ──
+monitoring:
+  seq_monitor_path: ".praxis_seq_monitor.json"
+  reference_channel_path: ".praxis/.praxis_reference_channel.jsonl"
+
+# ── L3B message pool ──
+l3b_message_dir: "l3b_messages"

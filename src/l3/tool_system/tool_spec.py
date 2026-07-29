@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
 from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
+from l1.kernel.discovery import get_config
 from l1.kernel.params.system import LOG_TRUNC_60, LOG_TRUNC_200
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.registry_base import RegisterableSpec
@@ -119,7 +120,11 @@ class ToolSpec:
 
     def __post_init__(self):
         if not self.gates:
-            self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
+            ring_gates = get_config("ring_gates")
+            if ring_gates:
+                self.gates = ring_gates.get(self.ring, ["G1", "G2"])
+            else:
+                self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
 
     def validate(self, args: dict) -> list[str]:
         """Validate parameters against spec. Returns list of errors."""
@@ -188,7 +193,11 @@ class ToolSpecBase(RegisterableSpec):
 
     def __post_init__(self):
         if not self.gates:
-            self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
+            ring_gates = get_config("ring_gates")
+            if ring_gates:
+                self.gates = ring_gates.get(self.ring, ["G1", "G2"])
+            else:
+                self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
 
     def validate(self, args: dict) -> list[str]:
         errors = []
