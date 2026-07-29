@@ -334,13 +334,16 @@ class ProcessTable:
 
 
 _table: ProcessTable | None = None
+_table_lock = threading.Lock()
 
 
 def get_table() -> ProcessTable:
     """Get the singleton ProcessTable instance."""
     global _table
     if _table is None:
-        _table = ProcessTable()
+        with _table_lock:
+            if _table is None:
+                _table = ProcessTable()
     return _table
 
 

@@ -134,12 +134,15 @@ class UserSessionManager(BaseService):
 
 
 _service: UserSessionManager | None = None
+_service_lock = threading.Lock()
 
 
 def get_service() -> UserSessionManager:
     global _service
     if _service is None:
-        _service = UserSessionManager()
+        with _service_lock:
+            if _service is None:
+                _service = UserSessionManager()
     return _service
 
 

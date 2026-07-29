@@ -25,6 +25,7 @@ from enum import Enum, auto
 from typing import Any, Callable
 
 from .params.kernel import (
+    SHUTDOWN_TIMEOUT,
     WATCHDOG_INTERVAL,
     WATCHDOG_ZOMBIE_LIMIT,
     WATCHDOG_IDLE_LIMIT,
@@ -90,11 +91,9 @@ class OS:
             self.boot_time = time.time()
 
         try:
-            if self._boot_handler:
-                r = self._boot_handler(agent_config)
-            else:
-                from l3.boot.boot import boot as _boot
-                r = _boot(agent_config)
+            if not self._boot_handler:
+                return {"success": False, "error": "no boot handler registered — call register_boot_handler() first"}
+            r = self._boot_handler(agent_config)
             if r.get("success"):
                 with self._lock:
                     self.state = OSState.RUNNING
@@ -121,14 +120,12 @@ class OS:
             self.state = OSState.STOPPING
 
         results = {}
-        _SHUTDOWN_TIMEOUT = 30.0
-
         # Run shutdown hooks (with timeout per hook)
         for i, hook in enumerate(self._shutdown_hooks):
             try:
                 t = threading.Thread(target=hook, daemon=True)
                 t.start()
-                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                t.join(timeout=SHUTDOWN_TIMEOUT)
                 results[f"hook_{i}"] = "ok" if not t.is_alive() else "timeout"
             except Exception as e:
                 results[f"hook_{i}"] = str(e)
@@ -138,8 +135,8 @@ class OS:
             if self._shutdown_handler:
                 r = self._shutdown_handler()
             else:
-                from l3.memory.memory_init import shutdown_to_memories
-                r = shutdown_to_memories()
+                logger.warning("no shutdown_handler registered — memories not persisted")
+                r = {"results": {}}
             results["memories"] = r.get("results", {})
         except Exception as e:
             results["memories"] = f"error: {e}"
@@ -152,21 +149,19 @@ class OS:
             if self._terminal_reset_handler:
                 t = threading.Thread(target=self._terminal_reset_handler, daemon=True)
                 t.start()
-                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                t.join(timeout=SHUTDOWN_TIMEOUT)
                 results["reset_term"] = "ok" if not t.is_alive() else "timeout"
             else:
-                from l3.agent_terminal import reset_terminals
-                reset_terminals()
-                results["reset_term"] = "ok"
+                logger.warning("no terminal_reset_handler registered — terminals not reset")
+                results["reset_term"] = "skip"
             if self._cell_reset_handler:
                 t = threading.Thread(target=self._cell_reset_handler, daemon=True)
                 t.start()
-                t.join(timeout=_SHUTDOWN_TIMEOUT)
+                t.join(timeout=SHUTDOWN_TIMEOUT)
                 results["reset_cell"] = "ok" if not t.is_alive() else "timeout"
             else:
-                from l3.cell import reset_cells
-                reset_cells()
-                results["reset_cell"] = "ok"
+                logger.warning("no cell_reset_handler registered — cells not reset")
+                results["reset_cell"] = "skip"
             results.setdefault("reset", "ok")
         except Exception as e:
             results["reset"] = f"error: {e}"

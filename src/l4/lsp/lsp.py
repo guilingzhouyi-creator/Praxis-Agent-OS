@@ -194,12 +194,15 @@ class LocalAnalyzer:
 
 
 _lsp_instance: LocalAnalyzer | None = None
+_lsp_lock = threading.Lock()
 
 
 def get_lsp(root: str = "") -> LocalAnalyzer:
     global _lsp_instance
     if _lsp_instance is None:
-        _lsp_instance = LocalAnalyzer(root or os.getcwd())
+        with _lsp_lock:
+            if _lsp_instance is None:
+                _lsp_instance = LocalAnalyzer(root or os.getcwd())
     return _lsp_instance
 
 

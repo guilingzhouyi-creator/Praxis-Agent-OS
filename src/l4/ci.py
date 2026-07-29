@@ -218,12 +218,15 @@ class CIService(BaseService):
 
 
 _service: CIService | None = None
+_service_lock = threading.Lock()
 
 
 def get_service() -> CIService:
     global _service
     if _service is None:
-        _service = CIService()
+        with _service_lock:
+            if _service is None:
+                _service = CIService()
     return _service
 
 

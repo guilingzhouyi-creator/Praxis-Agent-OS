@@ -85,12 +85,15 @@ class NotifyService(BaseService):
 
 
 _service: NotifyService | None = None
+_service_lock = threading.Lock()
 
 
 def get_service() -> NotifyService:
     global _service
     if _service is None:
-        _service = NotifyService()
+        with _service_lock:
+            if _service is None:
+                _service = NotifyService()
     return _service
 
 

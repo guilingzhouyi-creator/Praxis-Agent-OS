@@ -40,17 +40,18 @@ def init_vault(vault_dir: str = "") -> dict:
     Uses a derived key from PRAXIS_DATA_DIR + machine fingerprint.
     """
     global _VAULT_PATH, _VAULT_KEY
-    data_dir = vault_dir or os.environ.get("PRAXIS_DATA_DIR", _gp().data_dir)
-    os.makedirs(data_dir, exist_ok=True)
-    _VAULT_PATH = os.path.join(data_dir, VAULT_FILENAME)
+    with _lock:
+        data_dir = vault_dir or os.environ.get("PRAXIS_DATA_DIR", _gp().data_dir)
+        os.makedirs(data_dir, exist_ok=True)
+        _VAULT_PATH = os.path.join(data_dir, VAULT_FILENAME)
 
-    # Derive encryption key from machine-local secret
-    _VAULT_KEY = _derive_key(data_dir)
+        # Derive encryption key from machine-local secret
+        _VAULT_KEY = _derive_key(data_dir)
 
-    # Load existing vault or create empty
-    _load_vault()
-    logger.info("credential vault initialized: %s (%d providers)",
-                _VAULT_PATH, len(_vault))
+        # Load existing vault or create empty
+        _load_vault()
+        logger.info("credential vault initialized: %s (%d providers)",
+                    _VAULT_PATH, len(_vault))
     return {"success": True, "path": _VAULT_PATH, "providers": len(_vault)}
 
 

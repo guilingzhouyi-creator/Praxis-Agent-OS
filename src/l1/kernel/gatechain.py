@@ -327,16 +327,30 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
                       "reputation": round(rep, 2)})
         return steps, GateResult.BLOCK
     elif repeated and high_freq_same_tool:
-        from l3.agent.stagnation import get_detector
-        _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "SPINNING"})
+        try:
+            from l3.agent.stagnation import get_detector
+            _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "SPINNING"})
+        except ImportError:
+            logger.warning("kernel/gatechain: stagnation module unavailable, skipping break_loop")
+            _ba = {"action": "", "reason": "stagnation module unavailable"}
+        except Exception as e:
+            logger.warning("kernel/gatechain: break_loop failed: %s", e)
+            _ba = {"action": "", "reason": str(e)}
         steps.append({"gate": "G5", "result": "REPORT",
                       "reason": f"{len(history)} calls, {same_tool_count}x '{ctx['tool']}', rep={rep:.2f}, score={score:.1f}",
                       "break_action": _ba.get("action", ""),
                       "break_reason": _ba.get("reason", "")})
         return steps, GateResult.REPORT
     elif repeated:
-        from l3.agent.stagnation import get_detector
-        _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "OSCILLATION"})
+        try:
+            from l3.agent.stagnation import get_detector
+            _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "OSCILLATION"})
+        except ImportError:
+            logger.warning("kernel/gatechain: stagnation module unavailable, skipping break_loop")
+            _ba = {"action": "", "reason": "stagnation module unavailable"}
+        except Exception as e:
+            logger.warning("kernel/gatechain: break_loop failed: %s", e)
+            _ba = {"action": "", "reason": str(e)}
         outcome = "REPORT" if rep < GATECHAIN_REP_LOW_THRESHOLD else "WARN"
         steps.append({"gate": "G5", "result": outcome,
                       "reason": f"{len(history)} calls, rep={rep:.2f}, score={score:.1f}",
@@ -358,12 +372,15 @@ _BUILTIN_GATES: list[tuple[str, Callable]] = [
 
 
 _gatechain: GateChain | None = None
+_gatechain_lock = threading.Lock()
 
 
 def get_gatechain() -> GateChain:
     global _gatechain
     if _gatechain is None:
-        _gatechain = GateChain()
+        with _gatechain_lock:
+            if _gatechain is None:
+                _gatechain = GateChain()
     return _gatechain
 
 

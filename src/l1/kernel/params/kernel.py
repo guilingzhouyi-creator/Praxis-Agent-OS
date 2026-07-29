@@ -274,6 +274,7 @@ class WitnessStatus:
 
 # ── Boot sequence ──
 BOOT_STEP_TIMEOUT: Final[float] = 60.0
+SHUTDOWN_TIMEOUT: Final[float] = 30.0
 
 # ── Cadence tracking ──
 CADENCE_MAX_STEPS: Final[int] = 50

@@ -327,12 +327,15 @@ class SkillManager:
 
 
 _manager: SkillManager | None = None
+_manager_lock = threading.Lock()
 
 
 def get_skill_manager() -> SkillManager:
     global _manager
     if _manager is None:
-        _manager = SkillManager()
+        with _manager_lock:
+            if _manager is None:
+                _manager = SkillManager()
     return _manager
 
 

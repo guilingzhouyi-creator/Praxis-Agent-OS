@@ -140,14 +140,15 @@ class DeviceManager:
         self._health_running = False
 
     def _check_all_health(self) -> None:
-        for name in list(self._devices.keys()):
-            dev = self._devices.get(name)
-            if not dev:
-                continue
-            if dev.error_count > dev.call_count * DEVICE_DEGRADED_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DEGRADED:
-                dev.health = DeviceHealth.DEGRADED
-            if dev.error_count > dev.call_count * DEVICE_DOWN_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DOWN:
-                dev.health = DeviceHealth.DOWN
+        with self._lock:
+            for name in list(self._devices.keys()):
+                dev = self._devices.get(name)
+                if not dev:
+                    continue
+                if dev.error_count > dev.call_count * DEVICE_DEGRADED_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DEGRADED:
+                    dev.health = DeviceHealth.DEGRADED
+                if dev.error_count > dev.call_count * DEVICE_DOWN_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DOWN:
+                    dev.health = DeviceHealth.DOWN
 
     def register(self, name: str, device_type: DeviceType,
                  rate_limit: int | None = None, rate_window: float = 1.0,
@@ -246,12 +247,15 @@ class DeviceManager:
 
 
 _manager: DeviceManager | None = None
+_manager_lock = threading.Lock()
 
 
 def get_device_manager() -> DeviceManager:
     global _manager
     if _manager is None:
-        _manager = DeviceManager()
+        with _manager_lock:
+            if _manager is None:
+                _manager = DeviceManager()
     return _manager
 
 

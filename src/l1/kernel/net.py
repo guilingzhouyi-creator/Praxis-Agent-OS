@@ -266,12 +266,15 @@ class NetKernel:
 # ── Singleton ────────────────────────────────────────────────────────────────
 
 _net: NetKernel | None = None
+_net_lock = threading.Lock()
 
 
 def get_net() -> NetKernel:
     global _net
     if _net is None:
-        _net = NetKernel()
+        with _net_lock:
+            if _net is None:
+                _net = NetKernel()
     return _net
 
 

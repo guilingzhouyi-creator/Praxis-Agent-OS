@@ -95,22 +95,10 @@ def cluster_shrink(body: dict) -> dict:
 
     from l3.cell.peers.l3 import get_coordinator
     coord = get_coordinator()
-    from l3.cell import reset_cells
-
-    # Remove from cell list
-    coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
-    # Rebuild composites
-    from l3.bus.l3b import L3B
-    new_l3b = L3B()
-    for c in coord._cells:
-        new_l3b.register(c.get("id", ""), c.get("territory"))
-    coord.b = new_l3b
-    # Update cross_cell flag
-    coord._cross_cell_active = len(coord._cells) >= 2
-
+    r = coord.remove_cell(cell_id)
     return {
         "success": True,
         "removed": cell_id,
-        "remaining_cells": len(coord._cells),
+        "remaining_cells": r.get("remaining", 0),
         "composite_count": len(coord.b.composites),
     }

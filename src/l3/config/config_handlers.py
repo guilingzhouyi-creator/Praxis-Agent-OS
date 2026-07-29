@@ -37,20 +37,19 @@ def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
 def cfg_cell(cfg: dict, s: Any, results: dict) -> None:
     term = cfg.get("terminal", {})
     if "workers" in term:
-        TERMINAL_MAX_WORKERS = term["workers"]
         s.set("cell.terminal.workers", term["workers"])
     if "poll" in term:
-        TERMINAL_POLL_INTERVAL = term["poll"]
+        s.set("cell.terminal.poll", term["poll"])
     scout = cfg.get("scout", {})
     if "max_total" in scout:
-        SCOUT_POOL_MAX_TOTAL = scout["max_total"]
+        s.set("cell.scout.max_total", scout["max_total"])
     if "max_per_agent" in scout:
-        SCOUT_POOL_MAX_PER_AGENT = scout["max_per_agent"]
+        s.set("cell.scout.max_per_agent", scout["max_per_agent"])
     if "cache_ttl" in scout:
-        SCOUT_CACHE_TTL = scout["cache_ttl"]
+        s.set("cell.scout.cache_ttl", scout["cache_ttl"])
     card = cfg.get("card", {})
     if "timeout" in card:
-        CARD_WAIT_TIMEOUT = card["timeout"]
+        s.set("cell.card.timeout", card["timeout"])
     results["cell"] = True
 
 
@@ -383,13 +382,13 @@ def cfg_agent_role_map(cfg: dict, s: Any, results: dict) -> None:
     Maps tool ring level → agent role name for HTN-C inference.
     """
     from l1.kernel.params.agent import AGENT_ROLE_MAP
-    AGENT_ROLE_MAP.clear()
+    role_map = dict(AGENT_ROLE_MAP)
     for ring_str, role in cfg.items():
         try:
-            AGENT_ROLE_MAP[int(ring_str)] = str(role)
+            role_map[int(ring_str)] = str(role)
         except (ValueError, TypeError):
             continue
-    results["agent_role_map"] = len(AGENT_ROLE_MAP)
+    results["agent_role_map"] = len(role_map)
 
 
 def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
@@ -402,7 +401,8 @@ def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
         reviewer: 5
     """
     from l1.kernel.params.agent import AGENT_PRIORITY
-    AGENT_PRIORITY.clear(); AGENT_PRIORITY.update(cfg)
+    priority = dict(AGENT_PRIORITY)
+    priority.update(cfg)
     results["agent_priority"] = len(cfg)
 
 

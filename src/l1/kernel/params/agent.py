@@ -369,6 +369,20 @@ CACHE_DOC_TTL: Final[float] = 86400.0
 INJECTION_PATTERN_ZH1: Final[str] = r"你(现在|必须|要).*忽略(之前|系统)(指令|设定)"
 INJECTION_PATTERN_ZH2: Final[str] = r"你是.*(忽略|无视).*(指令|规则)"
 
+# ── Injection risk thresholds (used by selector.preconnect) ──
+INJECTION_HIGH_RISK_THRESHOLD: Final[float] = 0.7
+"""Risk score >= this → block connection (prompt_injection_suspected)."""
+INJECTION_MEDIUM_RISK_THRESHOLD: Final[float] = 0.3
+"""Risk score >= this → call LLM reviewer for second opinion."""
+INJECTION_REVIEW_BOOST: Final[float] = 0.3
+"""Score penalty when LLM reviewer confirms unsafe."""
+INJECTION_REVIEW_REWARD: Final[float] = 0.2
+"""Score reduction when LLM reviewer confirms safe."""
+INJECTION_LENGTH_THRESHOLD: Final[int] = 2000
+"""Messages longer than this get additional scrutiny when injection patterns match."""
+INJECTION_LENGTH_BOOST: Final[float] = 0.2
+"""Extra score added when message exceeds length threshold."""
+
 
 
 

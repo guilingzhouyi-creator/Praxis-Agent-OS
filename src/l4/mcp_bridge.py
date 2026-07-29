@@ -580,13 +580,16 @@ class MCPBridge:
 # ── Singleton ──
 
 _bridge: MCPBridge | None = None
+_bridge_lock = threading.Lock()
 
 
 def get_bridge() -> MCPBridge:
     """Get the singleton MCPBridge instance."""
     global _bridge
     if _bridge is None:
-        _bridge = MCPBridge()
+        with _bridge_lock:
+            if _bridge is None:
+                _bridge = MCPBridge()
     return _bridge
 
 

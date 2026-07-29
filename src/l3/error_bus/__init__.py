@@ -203,22 +203,11 @@ class ErrorBus(BaseService):
         task_id: str = "",
         context: dict | None = None,
     ) -> dict:
-        """Log an ERROR level error.
-
-        Automatically merges into LogService + EventBus + SSE.
-        """
-        return self._ingest(
-            level="ERROR",
-            message=message,
-            error_code=error_code,
-            component=component,
-            service=service or component,
-            source=source,
-            stack_trace=stack_trace,
-            agent_id=agent_id,
-            task_id=task_id,
-            context=context or {},
-        )
+        """Log an ERROR level error."""
+        return self._ingest(level="ERROR", message=message, error_code=error_code,
+                            component=component, service=service or component,
+                            source=source, stack_trace=stack_trace,
+                            agent_id=agent_id, task_id=task_id, context=context or {})
 
     def critical(
         self,
@@ -233,18 +222,10 @@ class ErrorBus(BaseService):
         context: dict | None = None,
     ) -> dict:
         """Log a CRITICAL level error."""
-        return self._ingest(
-            level="CRITICAL",
-            message=message,
-            error_code=error_code,
-            component=component,
-            service=service or component,
-            source=source,
-            stack_trace=stack_trace,
-            agent_id=agent_id,
-            task_id=task_id,
-            context=context or {},
-        )
+        return self._ingest(level="CRITICAL", message=message, error_code=error_code,
+                            component=component, service=service or component,
+                            source=source, stack_trace=stack_trace,
+                            agent_id=agent_id, task_id=task_id, context=context or {})
 
     def warn(
         self,
@@ -258,17 +239,11 @@ class ErrorBus(BaseService):
         context: dict | None = None,
     ) -> dict:
         """Log a WARN level warning."""
-        return self._ingest(
-            level="WARN",
-            message=message,
-            error_code=error_code or "E_WARN",
-            component=component,
-            service=service or component,
-            source=source,
-            agent_id=agent_id,
-            task_id=task_id,
-            context=context or {},
-        )
+        return self._ingest(level="WARN", message=message,
+                            error_code=error_code or "E_WARN",
+                            component=component, service=service or component,
+                            source=source, agent_id=agent_id,
+                            task_id=task_id, context=context or {})
 
     def exception(
         self,
@@ -289,17 +264,10 @@ class ErrorBus(BaseService):
         stack_trace = _format_exc(exc)
         _source = source or _caller_source(depth=3)
         _message = message or str(exc)[:LOG_TRUNC_200]
-        return self.error(
-            message=_message,
-            error_code=error_code,
-            component=component,
-            service=service,
-            source=_source,
-            stack_trace=stack_trace,
-            agent_id=agent_id,
-            task_id=task_id,
-            context=context or {},
-        )
+        return self.error(message=_message, error_code=error_code,
+                          component=component, service=service,
+                          source=_source, stack_trace=stack_trace,
+                          agent_id=agent_id, task_id=task_id, context=context or {})
 
     # ── Internal ingestion logic ──
 

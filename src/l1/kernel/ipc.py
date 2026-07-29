@@ -131,12 +131,15 @@ class LockBus:
 
 
 _lock_bus: LockBus | None = None
+_lock_bus_lock = threading.Lock()
 
 
 def get_lock_bus() -> LockBus:
     global _lock_bus
     if _lock_bus is None:
-        _lock_bus = LockBus()
+        with _lock_bus_lock:
+            if _lock_bus is None:
+                _lock_bus = LockBus()
     return _lock_bus
 
 

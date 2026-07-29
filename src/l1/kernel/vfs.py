@@ -308,12 +308,15 @@ class VFS:
 
 
 _vfs: VFS | None = None
+_vfs_lock = threading.Lock()
 
 
 def get_vfs() -> VFS:
     global _vfs
     if _vfs is None:
-        _vfs = VFS()
+        with _vfs_lock:
+            if _vfs is None:
+                _vfs = VFS()
     return _vfs
 
 

@@ -217,12 +217,15 @@ class NetworkService(BaseService):
 
 
 _service: NetworkService | None = None
+_service_lock = threading.Lock()
 
 
 def get_service() -> NetworkService:
     global _service
     if _service is None:
-        _service = NetworkService()
+        with _service_lock:
+            if _service is None:
+                _service = NetworkService()
     return _service
 
 

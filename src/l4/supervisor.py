@@ -216,12 +216,15 @@ def start_api() -> None:
 # ── Singleton ──
 
 _supervisor: Supervisor | None = None
+_supervisor_lock = threading.Lock()
 
 
 def get_supervisor() -> Supervisor:
     global _supervisor
     if _supervisor is None:
-        _supervisor = Supervisor()
+        with _supervisor_lock:
+            if _supervisor is None:
+                _supervisor = Supervisor()
     return _supervisor
 
 

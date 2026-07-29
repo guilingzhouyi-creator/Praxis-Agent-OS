@@ -155,12 +155,15 @@ class Swapper:
 
 
 _swapper: Swapper | None = None
+_swapper_lock = threading.Lock()
 
 
 def get_swapper(interval: float = SWAPPER_DEFAULT_INTERVAL, memory_service=None) -> Swapper:
     global _swapper
     if _swapper is None:
-        _swapper = Swapper(interval, memory_service)
+        with _swapper_lock:
+            if _swapper is None:
+                _swapper = Swapper(interval, memory_service)
     return _swapper
 
 

@@ -78,6 +78,20 @@ class CentralController:
         else:
             self._cross_cell_active = False
 
+    def remove_cell(self, cell_id: str) -> dict:
+        """Atomically remove a Cell and rebuild L3B. Returns removed cell info."""
+        with self._lock:
+            removed = None
+            self._cells = [c for c in self._cells if c.get("id") != cell_id]
+            # Rebuild L3B from remaining cells
+            from l3.bus.l3b import L3B
+            new_l3b = L3B()
+            for c in self._cells:
+                new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
+            self.b = new_l3b
+            self._cross_cell_active = len(self._cells) >= 2
+        return {"success": True, "cell_id": cell_id, "remaining": len(self._cells)}
+
     def process_intent(self, text: str, use_llm: bool = True) -> dict:
         """Full intent lifecycle: parse → queue → dispatch → result."""
         parsed = self.a.parse(text, use_llm=use_llm)

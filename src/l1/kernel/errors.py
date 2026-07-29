@@ -31,6 +31,19 @@ from typing import Any
 from l1.kernel.params.system import LOG_TRUNC_200
 logger = logging.getLogger(__name__)
 
+# ── ErrorBus capture callback (registered at boot from L3 wiring)
+# Avoids direct ``from l3.error_bus import capture`` in kernel layer.
+_error_capture_handler: Any = None
+
+
+def set_error_capture_handler(handler: Any) -> None:
+    """Register a callback for ErrorBus capture (called at boot from L3 wiring).
+
+    The handler receives ``(message, error_code, component, exc, context)``.
+    """
+    global _error_capture_handler
+    _error_capture_handler = handler
+
 
 # ── Locale helpers (delegate to I18nPort, backward-compatible) ──
 
@@ -75,13 +88,14 @@ class PraxisError(Exception):
         self.context = context
         super().__init__(self.message)
 
-        # Push to ErrorBus (L3) — lazy import, silently skip if not available
-        try:
-            from l3.error_bus import capture as _capture
-            _capture(self.message, error_code=self.code, component="kernel",
-                     exc=self.cause, context=self.context or None)
-        except Exception:
-            logger.critical("ErrorBus capture failed — exception reporting chain broken: %s", self.message)
+        # Push to ErrorBus via registered handler (avoids direct L3 import)
+        if _error_capture_handler:
+            try:
+                _error_capture_handler(self.message, self.code, self.cause, self.context or None)
+            except Exception as e:
+                logger.critical("error_capture_handler failed: %s", e)
+        else:
+            logger.debug("errors: no error_capture_handler registered, error not pushed to ErrorBus")
 
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.

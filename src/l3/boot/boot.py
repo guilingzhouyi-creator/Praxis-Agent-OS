@@ -29,98 +29,21 @@ from typing import Any, Callable
 from l1.kernel.params.agent import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, DEFAULT_CELL_ID
 from l1.kernel.params.api import LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
 from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION
-from l1.kernel.params.kernel import BOOT_STEP_TIMEOUT
+
+from .boot_registry import (
+    BootStep,
+    register_boot_step,
+    resolve_boot_order,
+    exec_step_with_timeout,
+    lock_registry,
+)
 
 logger = logging.getLogger(__name__)
 
+# ── Boot state (not part of BootStep registry) ──
 _BOOT_STEPS: list[str] = []
 _BOOT_STARTED: float = 0.0
 _BOOT_RESULT: dict | None = None
-
-# ── Boot step registry (extensible) ──
-
-@dataclass
-class BootStep:
-    name: str = ""
-    fn: Callable = lambda: {}
-    depends_on: list[str] = field(default_factory=list)
-
-_boot_registry: dict[str, BootStep] = {}
-_boot_registry_locked: bool = False
-
-
-def register_boot_step(name: str, fn: Callable,
-                       depends_on: list[str] | None = None,
-                       override: bool = False) -> None:
-    """Register a boot step. Steps are ordered by dependency before execution.
-
-    Args:
-        name: Unique step name. Used as key in results dict.
-        fn: Callable that returns a dict (at minimum {"success": True/False}).
-        depends_on: List of step names that must complete first.
-        override: If True, replace an existing step with the same name.
-    """
-    if _boot_registry_locked and not override:
-        raise RuntimeError("boot registry is locked (already executed)")
-    if name in _boot_registry and not override:
-        raise ValueError(f"boot step '{name}' already registered; use override=True")
-    _boot_registry[name] = BootStep(name=name, fn=fn, depends_on=depends_on or [])
-
-
-def _resolve_boot_order() -> list[str]:
-    """Topological sort of registered boot steps by dependency."""
-    names = list(_boot_registry.keys())
-    ordered = []
-    visited = set()
-    in_stack = set()
-
-    def _dfs(n: str) -> bool:
-        if n in in_stack:
-            cycle = " -> ".join(list(in_stack) + [n])
-            raise RuntimeError(f"circular boot dependency: {cycle}")
-        if n in visited:
-            return True
-        in_stack.add(n)
-        step = _boot_registry.get(n)
-        if step:
-            for dep in step.depends_on:
-                if dep in _boot_registry:
-                    _dfs(dep)
-            ordered.append(n)
-        in_stack.discard(n)
-        visited.add(n)
-        return True
-
-    for n in names:
-        if n not in visited:
-            _dfs(n)
-    return ordered
-
-
-_EXECUTOR: ThreadPoolExecutor | None = None
-
-
-def _get_executor() -> ThreadPoolExecutor:
-    """Get the shared thread pool executor for boot step timeouts."""
-    global _EXECUTOR
-    if _EXECUTOR is None:
-        _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="boot")
-    return _EXECUTOR
-
-
-def _exec_with_timeout(fn: Callable, timeout: float = BOOT_STEP_TIMEOUT) -> dict:
-    """Execute a boot step function with a timeout guard using a shared thread pool."""
-    executor = _get_executor()
-    future = executor.submit(fn)
-    try:
-        result = future.result(timeout=timeout)
-        return result if isinstance(result, dict) else {"success": True, "result": result}
-    except TimeoutError:
-        logger.warning("boot step timed out after %ss", timeout)
-        return {"success": False, "error": f"timed out after {timeout}s"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
 
 _WIRED_KERNEL_OS: bool = False
 
@@ -241,15 +164,13 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
             for role, paths in TERRITORY_PATHS.items()
         ][:3]
 
-    # Reset locked flag so re-boot after failure is possible
-    global _boot_registry_locked
-    _boot_registry_locked = False
-    _boot_registry.clear()
-    # Register built-in boot steps
+    # Reset+register: boot_registry maintains its own lock/state
+    from .boot_registry import reset_registry as _reset_boot_registry
+    _reset_boot_registry()
     _register_default_boot_steps(agent_config)
-    _boot_registry_locked = True
+    lock_registry()
 
-    order = _resolve_boot_order()
+    order = resolve_boot_order()
     results = {}
     success = True
 
@@ -265,7 +186,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                                message=f"step:{name} status:running"))
             except Exception:
                 logger.debug("boot: boot step event emit failed")
-            r = _exec_with_timeout(step.fn)
+            r = exec_step_with_timeout(step.fn)
             results[name] = r
             _BOOT_STEPS.append(name)
             if not r.get("success", True):

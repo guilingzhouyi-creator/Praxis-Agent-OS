@@ -322,14 +322,17 @@ class ApiGateway(ApiHandlers):
 # ── Module-level singleton ──────────────────────────────────────────────────
 
 _gateway: ApiGateway | None = None
+_gateway_lock = threading.Lock()
 
 
 def start_api(host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT,
               auth_token: str = "") -> ApiGateway:
     global _gateway
     if _gateway is None:
-        _gateway = ApiGateway(host, port, auth_token)
-        _gateway.start()
+        with _gateway_lock:
+            if _gateway is None:
+                _gateway = ApiGateway(host, port, auth_token)
+                _gateway.start()
     return _gateway
 
 

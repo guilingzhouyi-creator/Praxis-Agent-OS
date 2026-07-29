@@ -282,13 +282,16 @@ class PraxisPaths:
 # ── Singleton ──
 
 _paths: PraxisPaths | None = None
+_paths_lock = threading.Lock()
 
 
 def get_paths() -> PraxisPaths:
     """Get or create the PraxisPaths singleton."""
     global _paths
     if _paths is None:
-        _paths = PraxisPaths.detect()
+        with _paths_lock:
+            if _paths is None:
+                _paths = PraxisPaths.detect()
     return _paths
 
 

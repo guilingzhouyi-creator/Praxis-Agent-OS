@@ -1,0 +1,135 @@
+"""Cell messaging mixin — inter-agent messaging, direct messages, liveness.
+
+Extracted from cell/__init__.py to reduce the 1091-line Cell class."""
+
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any
+
+from l1.kernel import emit_signal, Signal, SignalType, EVENT_TASK_ASSIGN
+from l1.kernel.params.agent import CELL_MAILBOX_MAX_PER_AGENT, CELL_MAILBOX_TTL
+
+logger = logging.getLogger(__name__)
+
+
+class CellMessagingMixin:
+    """Mixin providing Cell messaging methods — send, read, liveness, direct."""
+
+    # ── Agent-to-Agent Messaging ──
+
+    def send_message(self, sender: str, target: str,
+                     msg_type: Any, payload: Any = None) -> dict:
+        """Send a message to an agent within this Cell."""
+        from ..cell.components.cell_types import CellMessage, MessageType
+        CONVENTION_TYPES = frozenset({
+            MessageType.CONVENE, MessageType.CROSS_EXAMINE,
+            MessageType.REBUT, MessageType.PROPOSE_ISSUE,
+            MessageType.CONVENE_CLOSE,
+        })
+        with self._lock:
+            if target not in self._agents:
+                return {"success": False, "error": f"unknown target: {target}"}
+            if sender not in self._agents:
+                return {"success": False, "error": f"unknown sender: {sender}"}
+            now = time.time()
+            inbox = self._mailbox.setdefault(target, [])
+            inbox[:] = [m for m in inbox if now - m.timestamp < CELL_MAILBOX_TTL]
+            if len(inbox) >= CELL_MAILBOX_MAX_PER_AGENT:
+                inbox.pop(0)
+            msg = CellMessage(msg_type=msg_type, sender=sender, target=target, payload=payload)
+            inbox.append(msg)
+            self._bus.emit(Signal(type=SignalType.TASK_ASSIGN, sender=sender,
+                                  target=target, data={"cell": self.cell_id, "msg_type": msg_type.name}))
+        self._pmu.increment("bus.messages_sent")
+        from ..bus.comm_monitor import get_monitor
+        get_monitor().record_message(channel="cell_mailbox", msg_type="send",
+                                      direction="out", agent_id=sender, target=target)
+        if msg_type in CONVENTION_TYPES:
+            try:
+                from ..agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
+                term = get_terminal(target)
+                from l1.kernel.params.agent import AGENT_STATUS_CRASHED
+                if term.status.name not in (AGENT_STATUS_CRASHED,):
+                    tcard = TerminalCard(
+                        mode=TermCardMode.EXECUTE,
+                        action="convention",
+                        target=payload.get("card_id", "conv-unknown"),
+                        params={"msg_type": msg_type.name, "payload": payload, "sender": sender},
+                        sender="cell",
+                    )
+                    term.dispatch(tcard)
+            except Exception as e:
+                logger.warning("cell dispatch convention card to %s failed: %s", target, e)
+        return {"success": True, "msg_id": msg.msg_id}
+
+    def read_messages(self, agent_id: str, clear: bool = True) -> list[dict]:
+        """Read pending messages for an agent."""
+        with self._lock:
+            msgs = self._mailbox.get(agent_id, [])
+            if clear:
+                self._mailbox[agent_id] = []
+            return [
+                {"msg_id": m.msg_id, "type": m.msg_type.name,
+                 "sender": m.sender, "payload": m.payload, "timestamp": m.timestamp}
+                for m in msgs
+            ]
+
+    def agent_reachable(self, agent_id: str) -> dict:
+        """Check if a specific agent can accept a direct message."""
+        from ..agent_terminal import get_terminals
+        term = get_terminals().get(agent_id)
+        if not term:
+            return {"reachable": False, "reason": "no_terminal", "agent_id": agent_id}
+        return term.session_reachable()
+
+    def send_direct_message(self, agent_id: str, text: str) -> dict:
+        """Send a direct message to an agent via its stdin queue."""
+        from ..agent_terminal import get_terminals
+        term = get_terminals().get(agent_id)
+        if not term:
+            return {"success": False, "error": f"unknown agent: {agent_id}"}
+        r = term.session_reachable()
+        if not r.get("reachable"):
+            return {"success": False, "error": f"unreachable: {r.get('reason')}"}
+        return term.send_direct_message(text)
+
+    def liveness(self) -> dict:
+        """Check Cell and all agent terminals liveness."""
+        from ..agent_terminal import get_terminals
+        terms = get_terminals()
+        agent_results = {}
+        healthy_count = 0
+        total_count = 0
+        with self._lock:
+            agent_ids = list(self._agents.keys())
+        for aid in agent_ids:
+            total_count += 1
+            term = terms.get(aid)
+            if term is None:
+                agent_results[aid] = {"status": "no_terminal", "alive": False}
+                continue
+            from l1.kernel.params.agent import (
+                AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING,
+                AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING,
+            )
+            if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
+                agent_results[aid] = {"status": term.status.name.lower(), "alive": True}
+            elif term.status.name in (AGENT_STATUS_BOOTING,):
+                agent_results[aid] = {"status": "booting", "alive": True}
+            else:
+                agent_results[aid] = {"status": "stopped", "alive": False}
+        healthy_agents = sum(1 for v in agent_results.values() if v.get("alive"))
+        if not agent_ids:
+            return {"overall": "healthy", "agents": {}, "healthy": "idle"}
+        missing = total_count - healthy_count
+        if missing == 0 and healthy_agents == total_count:
+            return {"overall": "healthy", "agents": agent_results, "healthy": healthy_agents}
+        if healthy_agents > 0:
+            return {"overall": "degraded", "agents": agent_results, "healthy": healthy_agents}
+        return {"overall": "unreachable", "agents": agent_results, "healthy": 0}
+
+    def agent_status(self, agent_id: str) -> dict:
+        """Quick one-line agent status."""
+        return self.liveness().get("agents", {}).get(agent_id, {"status": "unknown", "alive": False})

@@ -35,6 +35,8 @@ from ..agent.scout import get_pool as get_scout_pool
 from l3.cell.components.cell_buffer import CircularBuffer
 from ..cell.components.cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
 from ..scheduler.think_registry import get_think_registry
+from ..cell.components.cell_lifecycle import CellLifecycleMixin
+from ..cell.components.cell_messaging import CellMessagingMixin
 from ..cell.components.cell_types import AgentStatus, AgentInfo, CellMessage, MessageType, is_peer, is_scout, is_subagent
 from ..services.bus_components import (
     CellPmuComponent, CellWatchdogComponent, CellICacheComponent,
@@ -52,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 
-class Cell:
+class Cell(CellLifecycleMixin, CellMessagingMixin):
     """Agent collaboration unit — N agents + ScoutPool.
 
     Agents are NOT hardcoded by role.  When a Card arrives, its steps

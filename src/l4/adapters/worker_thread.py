@@ -44,10 +44,15 @@ class _Worker(threading.Thread):
             try:
                 item = pool._queue.get(timeout=pool._idle_timeout)
             except queue.Empty:
-                # Idle timeout — try to shrink
-                if not pool._try_shrink(self):
-                    continue  # pool said no, keep polling
-                return  # we were retired
+                # Idle timeout — re-check queue non-blocking before retiring
+                try:
+                    item = pool._queue.get_nowait()
+                except queue.Empty:
+                    # Queue still empty — try to shrink
+                    if not pool._try_shrink(self):
+                        continue  # pool said no, keep polling
+                    return  # we were retired
+                # Got an item from the non-blocking check — process it below
             if item is None:  # sentinel: shutdown
                 pool._queue.task_done()
                 return

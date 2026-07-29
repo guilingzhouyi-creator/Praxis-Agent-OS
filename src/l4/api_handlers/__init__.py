@@ -45,8 +45,9 @@ from ..api_handlers.api_handlers_discussion import (
     handle_discussion_push_l3a,
 )
 
-logger = logging.getLogger(__name__)
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+
+logger = logging.getLogger(__name__)
 
 
 class ApiHandlers:

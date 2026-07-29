@@ -88,12 +88,17 @@ _PROVIDER_HANDLERS: dict[str, Callable[..., Any]] = {
 
 
 class ModelRegistry:
-    """Unified model registry — discovery, listing, factory, routing."""
+    """Unified model registry — discovery, listing, factory, routing.
+
+    Provider classes are registered at boot via ``register_provider_class()``,
+    eliminating the need for Kernel to import L4 private variables.
+    """
 
     def __init__(self):
         self._lock = threading.Lock()
         self._models: dict[str, list[ModelInfo]] = {}  # provider → [ModelInfo, ...]
         self._discovered = False
+        self._provider_classes: dict[str, type] = {}  # provider → LLMProvider subclass
 
     # ── Discovery ────────────────────────────────────────────────────────
 
@@ -242,6 +247,21 @@ class ModelRegistry:
                 return cfg
         return None
 
+    # ── Register provider class (called at boot by L4 wiring) ──
+
+    def register_provider_class(self, name: str, provider_cls: type) -> None:
+        """Register an LLM provider class for later construction.
+
+        Called at boot by L4 wiring to avoid Kernel→L4 imports.
+        """
+        with self._lock:
+            self._provider_classes[name] = provider_cls
+
+    def list_registered_providers(self) -> list[str]:
+        """List all registered provider class names."""
+        with self._lock:
+            return sorted(self._provider_classes.keys())
+
     # ── Build provider instance ──────────────────────────────────────────
 
     def build_provider(self, provider: str, model: str = "",
@@ -250,11 +270,10 @@ class ModelRegistry:
         """Construct a provider instance by name.
 
         Returns an LLMProvider subclass instance, or None if the provider
-        is not registered in _PROVIDER_REGISTRY.
+        is not registered.
         """
-        from l4.llm.llm_base import _PROVIDER_REGISTRY, LLMProvider
-
-        cls = _PROVIDER_REGISTRY.get(provider)
+        with self._lock:
+            cls = self._provider_classes.get(provider)
         if cls is None:
             logger.warning("model_registry: unknown provider '%s'", provider)
             return None

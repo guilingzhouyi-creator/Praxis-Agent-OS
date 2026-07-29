@@ -15,7 +15,16 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.agent import INJECTION_PATTERN_ZH1, INJECTION_PATTERN_ZH2
+from l1.kernel.params.agent import (
+    INJECTION_PATTERN_ZH1,
+    INJECTION_PATTERN_ZH2,
+    INJECTION_HIGH_RISK_THRESHOLD,
+    INJECTION_MEDIUM_RISK_THRESHOLD,
+    INJECTION_REVIEW_BOOST,
+    INJECTION_REVIEW_REWARD,
+    INJECTION_LENGTH_THRESHOLD,
+    INJECTION_LENGTH_BOOST,
+)
 from l1.kernel.params.system import TLB_DEFAULT_RING
 from l3.error_bus import capture
 
@@ -25,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Built by preselect(), consumed by _select_best() for O(1) role lookup.
 _role_index: dict[str, list[tuple[str, str]]] = {}
 _role_index_stale: bool = True
+_role_index_lock = threading.Lock()
 
 # ── Known injection patterns (rule-based, expand over time) ──
 
@@ -32,6 +42,7 @@ _role_index_stale: bool = True
 # Set via set_llm_reviewer(callable). Called when preconnect detects
 # medium-risk messages (0.3 < score < 0.7) for a second opinion.
 _llm_reviewer: Any = None
+_llm_reviewer_lock = threading.Lock()
 
 
 def set_llm_reviewer(callback: Any) -> None:
@@ -41,8 +52,9 @@ def set_llm_reviewer(callback: Any) -> None:
     {"safe": bool, "reason": str, "confidence": float}.
     Called by preconnect() when rule-based score is inconclusive.
     """
-    global _llm_reviewer
-    _llm_reviewer = callback
+    with _llm_reviewer_lock:
+        global _llm_reviewer
+        _llm_reviewer = callback
     logger.info("llm_reviewer registered")
 
 
@@ -88,7 +100,8 @@ def preselect() -> dict:
     try:
         from .cell import get_cells
         cells = get_cells()
-    except Exception:
+    except Exception as e:
+        logger.warning("preselect: get_cells failed: %s", e)
         return {"agents": [], "cells": [], "total": 0, "error": "cell service unavailable"}
 
     for cell_id, cell in cells.items():
@@ -129,8 +142,9 @@ def _rebuild_role_index(cells: dict) -> None:
             logger.warning("preselect cell %s: %s", cell_id, e)
             capture("preselect cell role_index failed", error_code="E_PRESELECT", component="l2", context={"cell_id": cell_id})
             continue
-    _role_index = idx
-    _role_index_stale = False
+    with _role_index_lock:
+        _role_index = idx
+        _role_index_stale = False
 
 
 # ── Selector: route to specific agent ──
@@ -194,20 +208,23 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
     # 3. Prompt injection scan
     if message:
         injection_risk = _scan_injection(message)
-        if injection_risk > 0.7:
+        if injection_risk > INJECTION_HIGH_RISK_THRESHOLD:
             reasons.append("prompt_injection_suspected")
-        elif injection_risk > 0.3 and _llm_reviewer:
-            # Medium risk: call external LLM reviewer for second opinion
-            try:
-                review = _llm_reviewer(message)
-                if not review.get("safe", False):
-                    reasons.append(f"llm_review: {review.get('reason', 'unsafe')}")
-                    injection_risk = min(1.0, injection_risk + 0.3)
-                else:
-                    injection_risk = max(0.0, injection_risk - 0.2)
-            except Exception as e:
-                logger.warning("llm_review failed: %s", e)
-                capture("llm_review failed", error_code="E_LLM_REVIEW", component="l2")
+        elif injection_risk > INJECTION_MEDIUM_RISK_THRESHOLD:
+            with _llm_reviewer_lock:
+                reviewer = _llm_reviewer
+            if reviewer:
+                # Medium risk: call external LLM reviewer for second opinion
+                try:
+                    review = reviewer(message)
+                    if not review.get("safe", False):
+                        reasons.append(f"llm_review: {review.get('reason', 'unsafe')}")
+                        injection_risk = min(1.0, injection_risk + INJECTION_REVIEW_BOOST)
+                    else:
+                        injection_risk = max(0.0, injection_risk - INJECTION_REVIEW_REWARD)
+                except Exception as e:
+                    logger.warning("llm_review failed: %s", e)
+                    capture("llm_review failed", error_code="E_LLM_REVIEW", component="l2")
 
     return {
         "allowed": len(reasons) == 0,
@@ -258,13 +275,17 @@ def _select_best(role: str, domain: str) -> dict:
     # Use role index for O(1) initial candidate selection
     if role:
         role_lower = role.lower()
-        if _role_index_stale:
+        with _role_index_lock:
+            stale = _role_index_stale
+            candidates = _role_index.get(role_lower, []) if not stale else []
+        if stale:
             try:
                 _rebuild_role_index(get_cells())
             except Exception as e:
                 logger.warning("_rebuild_role_index failed: %s", e)
                 capture("_rebuild_role_index failed", error_code="E_PRESELECT", component="l2")
-        candidates = _role_index.get(role_lower, [])
+            with _role_index_lock:
+                candidates = _role_index.get(role_lower, [])
     else:
         candidates = []
 
@@ -322,7 +343,7 @@ def _scan_injection(message: str) -> float:
         if pattern.search(message):
             score += weight
     # Length heuristic: very long messages with injection-like patterns
-    if len(message) > 2000 and score > 0:
-        score = min(1.0, score + 0.2)
+    if len(message) > INJECTION_LENGTH_THRESHOLD and score > 0:
+        score = min(1.0, score + INJECTION_LENGTH_BOOST)
     return min(1.0, score)
 

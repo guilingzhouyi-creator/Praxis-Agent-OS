@@ -7,6 +7,7 @@ Runs git commands via subprocess, parses structured output.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,29 @@ from typing import Any
 from l1.kernel.params.api import GIT_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
+# ── Git argument validation ──
+# Prevent argument injection through path/branch/message parameters.
+# Git interprets arguments starting with "-" as flags, and newlines in
+# commit messages can break multi-line parsing in some wrappers.
+_COMMIT_MSG_RE = re.compile(r"^[^\-\s]")
+"""Commit message must not start with '-' or whitespace."""
+
+
+def _sanitize_path(p: str) -> str:
+    """Remove git-unsafe characters from a filesystem path argument."""
+    return p.replace(";", "").replace("|", "").replace("`", "")
+
+
+def _sanitize_message(msg: str) -> str:
+    """Sanitize a commit message to prevent argument injection.
+
+    - Strips leading dashes (prevents ``-m`` from turning into ``--ammend`` etc.)
+    - Replaces newlines with spaces (prevents multi-line injection).
+    """
+    msg = msg.lstrip("- \t\n")
+    msg = msg.replace("\n", " ").replace("\r", " ")
+    return msg.strip()
 
 
 def _git(args: list[str], cwd: str) -> dict[str, Any]:
@@ -108,18 +132,23 @@ def _parse_diff(diff_text: str) -> list[dict]:
 
 
 def commit(path: str, message: str) -> dict[str, Any]:
-    a = _git(["-C", path, "add", "-A"], path)
+    safe_path = _sanitize_path(path)
+    safe_msg = _sanitize_message(message)
+    a = _git(["-C", safe_path, "add", "-A"], safe_path)
     if not a["success"]:
         return a
-    return _git(["-C", path, "commit", "-m", message], path)
+    return _git(["-C", safe_path, "commit", "-m", safe_msg], safe_path)
 
 
 def add(path: str, files: list[str]) -> dict[str, Any]:
-    return _git(["-C", path, "add", "--"] + files, path)
+    safe_path = _sanitize_path(path)
+    safe_files = [_sanitize_path(f) for f in files]
+    return _git(["-C", safe_path, "add", "--"] + safe_files, safe_path)
 
 
 def log(path: str, max_count: int = 20) -> dict[str, Any]:
-    r = _git(["-C", path, "log", f"--max-count={max_count}", "--format=%H||%an||%ai||%s"], path)
+    safe_path = _sanitize_path(path)
+    r = _git(["-C", safe_path, "log", f"--max-count={max_count}", "--format=%H||%an||%ai||%s"], safe_path)
     if not r["success"]:
         return r
     commits = []
@@ -131,7 +160,8 @@ def log(path: str, max_count: int = 20) -> dict[str, Any]:
 
 
 def branch(path: str) -> dict[str, Any]:
-    r = _git(["-C", path, "branch", "-a"], path)
+    safe_path = _sanitize_path(path)
+    r = _git(["-C", safe_path, "branch", "-a"], safe_path)
     if not r["success"]:
         return r
     branches = []
@@ -142,8 +172,11 @@ def branch(path: str) -> dict[str, Any]:
 
 
 def checkout(path: str, branch_name: str) -> dict[str, Any]:
-    return _git(["-C", path, "checkout", branch_name], path)
+    safe_path = _sanitize_path(path)
+    safe_branch = _sanitize_message(branch_name)
+    return _git(["-C", safe_path, "checkout", safe_branch], safe_path)
 
 
 def init(path: str) -> dict[str, Any]:
-    return _git(["init", path], path)
+    safe_path = _sanitize_path(path)
+    return _git(["init", safe_path], safe_path)

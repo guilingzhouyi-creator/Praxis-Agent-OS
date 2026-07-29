@@ -980,12 +980,15 @@ class SandboxManager:
 
 
 _manager: SandboxManager | None = None
+_manager_lock = threading.Lock()
 
 
 def get_manager(sandbox_root: str | None = None) -> SandboxManager:
     global _manager
     if _manager is None:
-        _manager = SandboxManager(sandbox_root)
+        with _manager_lock:
+            if _manager is None:
+                _manager = SandboxManager(sandbox_root)
     return _manager
 
 

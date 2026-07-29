@@ -131,8 +131,8 @@ def _list_tools() -> None:
         for t in tools:
             print(f"  {t.name:<25s} {t.description[:LOG_TRUNC_50]}")
         print(f"\nTotal: {len(tools)} tools")
-    except Exception:
-        logger.warning("shell: list_tools failed, falling back to command list")
+    except Exception as e:
+        logger.warning("shell: list_tools failed (%s), falling back to command list", e)
         for c in _COMMANDS:
             print(f"  {c}")
 

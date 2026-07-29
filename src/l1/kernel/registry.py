@@ -81,10 +81,13 @@ class Registry:
 
 
 _registry: Registry | None = None
+_registry_lock = threading.Lock()
 
 
 def get_registry() -> Registry:
     global _registry
     if _registry is None:
-        _registry = Registry()
+        with _registry_lock:
+            if _registry is None:
+                _registry = Registry()
     return _registry

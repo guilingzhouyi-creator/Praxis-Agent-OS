@@ -499,6 +499,7 @@ def _register_llm_port(engine: LLMEngine) -> None:
 # ── Module-level convenience ──
 
 _engine: LLMEngine | None = None
+_engine_lock = threading.Lock()
 
 
 def get_engine(config: LLMConfig | None = None) -> LLMEngine:
@@ -521,10 +522,10 @@ def get_engine(config: LLMConfig | None = None) -> LLMEngine:
         except Exception:
             config = LLMConfig()
     if _engine is None or _engine.config != config:
-        _engine = LLMEngine(config)
-        # Register as LLMPort so L3 callers can use get_port("llm") instead of
-        # importing from l4.llm directly — breaks the L3→L4 dependency.
-        _register_llm_port(_engine)
+        with _engine_lock:
+            if _engine is None or _engine.config != config:
+                _engine = LLMEngine(config)
+                _register_llm_port(_engine)
     return _engine
 
 

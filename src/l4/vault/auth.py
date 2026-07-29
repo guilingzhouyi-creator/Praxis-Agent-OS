@@ -133,12 +133,15 @@ class AuthService(BaseService):
 
 
 _service: AuthService | None = None
+_service_lock = threading.Lock()
 
 
 def get_service() -> AuthService:
     global _service
     if _service is None:
-        _service = AuthService()
+        with _service_lock:
+            if _service is None:
+                _service = AuthService()
     return _service
 
 

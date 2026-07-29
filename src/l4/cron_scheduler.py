@@ -207,13 +207,16 @@ class CronScheduler:
 
 
 _scheduler: CronScheduler | None = None
+_scheduler_lock = threading.Lock()
 
 
 def get_scheduler() -> CronScheduler:
     """Get singleton CronScheduler instance."""
     global _scheduler
     if _scheduler is None:
-        _scheduler = CronScheduler()
+        with _scheduler_lock:
+            if _scheduler is None:
+                _scheduler = CronScheduler()
     return _scheduler
 
 

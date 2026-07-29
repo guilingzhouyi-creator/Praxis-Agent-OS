@@ -291,12 +291,15 @@ class ToolChain:
 
 
 _chain: ToolChain | None = None
+_chain_lock = threading.Lock()
 
 
 def get_tool_chain() -> ToolChain:
     global _chain
     if _chain is None:
-        _chain = ToolChain()
+        with _chain_lock:
+            if _chain is None:
+                _chain = ToolChain()
     return _chain
 
 

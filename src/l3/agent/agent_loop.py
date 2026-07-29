@@ -312,7 +312,7 @@ class AgentLoop:
         """
         elapsed = time.time() - t0
         try:
-            from .services.counter import get_counter
+            from l3.services.counter import get_counter
             get_counter().record_loop(
                 agent_id=self._user_id,
                 turns=turns + corrections,
@@ -551,8 +551,8 @@ class AgentLoop:
                 save_snapshot(self._user_id, {
                     "context_trail": self._context_trail,
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("agent_loop: snapshot save failed: %s", e)
         turns = result.get("turns", 1)
         tool_results = result.get("tool_call_results", []) or []
 
@@ -627,8 +627,8 @@ class AgentLoop:
                 from l3.services.counter import get_counter as _gc
                 _gc().record_tool(self.agent_id, tool_name,
                                   success="error" not in (step_result.get("result", {}) if isinstance(step_result, dict) else {}))
-            except Exception:
-                logger.debug("agent_loop: tool counter record failed")
+            except Exception as e:
+                logger.warning("agent_loop: tool counter record failed: %s", e)
 
             if verifier is not None:
                 v = verifier.check(step_result, self.task)

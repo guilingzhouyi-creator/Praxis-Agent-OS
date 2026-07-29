@@ -430,6 +430,16 @@ class Constitution:
         self._lock = threading.Lock()
         self._constitution_path: str = ""
         self._cell_bus = None  # set by Cell to enable interrupt emission
+        self._persist_handler: Callable[[list[dict], int], None] | None = None
+        """Optional callback for persisting custom rules (set at boot to avoid L3 import)."""
+
+    def set_persist_handler(self, handler: Callable[[list[dict], int], None]) -> None:
+        """Register a callback to persist custom rules (called at boot from L3 wiring).
+
+        Eliminates the ``from l3.config.settings_center import get_center``
+        import from kernel layer.
+        """
+        self._persist_handler = handler
 
     # ── Cell bus binding (for constitution.violation NMI) ──
 
@@ -546,14 +556,14 @@ class Constitution:
                     source="custom",
                 ))
                 count += 1
-        # Persist to SettingsCenter L3
-        try:
-            from l3.config.settings_center import get_center
-            sc = get_center()
-            sc.set("constitution.custom_rules", custom_rules)
-            sc.set("constitution.custom_rule_count", count)
-        except Exception:
-            logger.warning("constitution: failed to persist custom rules to SettingsCenter")
+        # Persist to SettingsCenter L3 (via registered callback, avoids direct import)
+        if self._persist_handler:
+            try:
+                self._persist_handler(custom_rules, count)
+            except Exception as e:
+                logger.warning("constitution: persist handler failed: %s", e)
+        else:
+            logger.debug("constitution: no persist handler registered, custom rules not persisted")
         # Emit signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus
@@ -651,12 +661,15 @@ class Constitution:
 
 
 _constitution: Constitution | None = None
+_constitution_lock = threading.Lock()
 
 
 def get_constitution() -> Constitution:
     global _constitution
     if _constitution is None:
-        _constitution = Constitution()
+        with _constitution_lock:
+            if _constitution is None:
+                _constitution = Constitution()
     return _constitution
 
 

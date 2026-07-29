@@ -276,13 +276,16 @@ class Allocator:
 
 
 _allocator: Allocator | None = None
+_allocator_lock = threading.Lock()
 
 
 def get_allocator() -> Allocator:
     """Get the singleton Allocator instance."""
     global _allocator
     if _allocator is None:
-        _allocator = Allocator()
+        with _allocator_lock:
+            if _allocator is None:
+                _allocator = Allocator()
     return _allocator
 
 

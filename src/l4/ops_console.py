@@ -275,12 +275,15 @@ class OpsConsole:
 
 
 _ops: OpsConsole | None = None
+_ops_lock = threading.Lock()
 
 
 def get_ops() -> OpsConsole:
     global _ops
     if _ops is None:
-        _ops = OpsConsole()
+        with _ops_lock:
+            if _ops is None:
+                _ops = OpsConsole()
     return _ops
 
 
