@@ -89,60 +89,64 @@ def list_commands() -> list[dict]:
 
 
 def _cmd_help(args: list[str]) -> dict:
-    if args:
-        cmd_name = args[0].lower().lstrip("/")
-        cmd = get_command(cmd_name)
-        if not cmd:
-            return {"success": False, "error": f"unknown command: {cmd_name}"}
-        lines = [f"/{cmd_name}  — {cmd.get('help', '')}"]
-        if cmd.get("aliases"):
-            lines.append(f"  aliases: {', '.join('/' + a for a in cmd['aliases'])}")
-        if cmd.get("args"):
-            lines.append("  args:")
-            for a in cmd["args"]:
-                opt = " (optional)" if a.get("optional") else ""
-                lines.append(f"    {a['name']}{opt} — {a.get('description', '')}")
-        if cmd.get("examples"):
-            lines.append("  examples:")
-            for e in cmd["examples"]:
-                lines.append(f"    {e}")
-        lines.append(f"  category: {cmd.get('category', 'other')}")
+    try:
+        if args:
+            cmd_name = args[0].lower().lstrip("/")
+            cmd = get_command(cmd_name)
+            if not cmd:
+                return {"success": False, "error": f"unknown command: {cmd_name}"}
+            lines = [f"/{cmd_name}  — {cmd.get('help', '')}"]
+            if cmd.get("aliases"):
+                lines.append(f"  aliases: {', '.join('/' + a for a in cmd['aliases'])}")
+            if cmd.get("args"):
+                lines.append("  args:")
+                for a in cmd["args"]:
+                    opt = " (optional)" if a.get("optional") else ""
+                    lines.append(f"    {a['name']}{opt} — {a.get('description', '')}")
+            if cmd.get("examples"):
+                lines.append("  examples:")
+                for e in cmd["examples"]:
+                    lines.append(f"    {e}")
+            lines.append(f"  category: {cmd.get('category', 'other')}")
+            return {"success": True, "output": "\n".join(lines), "format": "text"}
+
+        cmds = list_commands()
+        groups = {}
+        for c in cmds:
+            cat = c.get("category", "other")
+            groups.setdefault(cat, []).append(c)
+        cat_labels = {
+            "session": "Session", "control": "Central Control", "memory": "Memory",
+            "system": "System", "agent": "Agent / Cell", "audit": "Audit / Config",
+            "ext": "Extensions",
+        }
+        lines = ["Available commands:", ""]
+        for cat in ["session", "control", "memory", "system", "agent", "audit", "ext"]:
+            items = groups.get(cat, [])
+            if not items:
+                continue
+            label = cat_labels.get(cat, cat)
+            lines.append(f"  ── {label} ──")
+            for c in items:
+                name = c.get("command", "")
+                help_text = c.get("help", "")
+                alias_str = ""
+                if c.get("aliases"):
+                    alias_str = f" ({', '.join('/' + a for a in c['aliases'])})"
+                lines.append(f"    {name:25s} {help_text}{alias_str}")
+            lines.append("")
+        lines.append("  Tip: /help <command> for details & examples")
+        lines.append("  Tip: cmd1 | cmd2 for pipeline (auto Map/Chain/Passthrough)")
+        lines.append("  Tip: --cell or --agent for scoped operations")
         return {"success": True, "output": "\n".join(lines), "format": "text"}
-
-    cmds = list_commands()
-    groups = {}
-    for c in cmds:
-        cat = c.get("category", "other")
-        groups.setdefault(cat, []).append(c)
-    cat_labels = {
-        "session": "Session", "control": "Central Control", "memory": "Memory",
-        "system": "System", "agent": "Agent / Cell", "audit": "Audit / Config",
-        "ext": "Extensions",
-    }
-    lines = ["Available commands:", ""]
-    for cat in ["session", "control", "memory", "system", "agent", "audit", "ext"]:
-        items = groups.get(cat, [])
-        if not items:
-            continue
-        label = cat_labels.get(cat, cat)
-        lines.append(f"  ── {label} ──")
-        for c in items:
-            name = c.get("command", "")
-            help_text = c.get("help", "")
-            alias_str = ""
-            if c.get("aliases"):
-                alias_str = f" ({', '.join('/' + a for a in c['aliases'])})"
-            lines.append(f"    {name:25s} {help_text}{alias_str}")
-        lines.append("")
-    lines.append("  Tip: /help <command> for details & examples")
-    lines.append("  Tip: cmd1 | cmd2 for pipeline (auto Map/Chain/Passthrough)")
-    lines.append("  Tip: --cell or --agent for scoped operations")
-    return {"success": True, "output": "\n".join(lines), "format": "text"}
-
-
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 def _cmd_agents(args: list[str]) -> dict:
-    from l2.selector import preselect
-    return preselect()
+    try:
+        from l2.selector import preselect
+        return {"success": True, "data": preselect()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_connect(args: list[str]) -> dict:
@@ -202,100 +206,119 @@ def _cmd_disconnect(args: list[str]) -> dict:
 
 
 def _cmd_mode(args: list[str]) -> dict:
-    from .state import get_state
-    state = get_state()
-    tool_mode = state.mode
-    result = {"mode": tool_mode, "agent_id": state.agent_id or "-", "cell_id": state.cell_id}
-    if args:
-        from l3.tool_system.tool_mode import set_mode, get_mode
-        if args[0] == "tool":
-            sub = args[1] if len(args) > 1 else "toggle"
-            sr = set_mode(sub)
-            result["tool_mode"] = sr
-            result["current_tool_mode"] = get_mode()
-        else:
-            result["error"] = "usage: /mode [tool [read|write|toggle]]"
-    else:
+    try:
+        from .state import get_state
+        state = get_state()
+        tool_mode = state.mode
+        if args:
+            from l3.tool_system.tool_mode import set_mode, get_mode
+            if args[0] == "tool":
+                sub = args[1] if len(args) > 1 else "toggle"
+                sr = set_mode(sub)
+                return {"success": True, "mode": tool_mode, "agent_id": state.agent_id or "-",
+                        "cell_id": state.cell_id, "tool_mode": sr, "current_tool_mode": get_mode()}
+            return {"success": False, "error": "usage: /mode [tool [read|write|toggle]]"}
         from l3.tool_system.tool_mode import get_mode
-        result["current_tool_mode"] = get_mode()
-    return result
+        return {"success": True, "mode": tool_mode, "agent_id": state.agent_id or "-",
+                "cell_id": state.cell_id, "current_tool_mode": get_mode()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_status(args: list[str]) -> dict:
-    from .state import get_state
-    state = get_state()
-    result = {"mode": state.mode, "cell_id": state.cell_id}
-    if state.is_direct():
-        result["agent_id"] = state.agent_id
-        result["session_id"] = state.session_id
-        try:
+    try:
+        from .state import get_state
+        state = get_state()
+        result = {"success": True, "mode": state.mode, "cell_id": state.cell_id}
+        if state.is_direct():
+            result["agent_id"] = state.agent_id
+            result["session_id"] = state.session_id
             from l3.cell import get_cell
             cell = get_cell(state.cell_id)
             result["liveness"] = cell.liveness()
-        except Exception as e:
-            result["liveness_error"] = str(e)
-    return result
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_intents(args: list[str]) -> dict:
-    from l3.cell.peers.l3 import get_coordinator
-    coord = get_coordinator()
-    status = args[0] if args else ""
-    return {"success": True, "intents": coord.list_intents(status=status)}
+    try:
+        from l3.cell.peers.l3 import get_coordinator
+        coord = get_coordinator()
+        status = args[0] if args else ""
+        return {"success": True, "data": coord.list_intents(status=status)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_scheduler(args: list[str]) -> dict:
-    from l3.scheduler.scheduler import get_scheduler as _gs
-    sched = _gs()
-    if hasattr(sched, 'stats'):
-        return {"success": True, "stats": sched.stats()}
-    return {"success": True, "status": "scheduler active"}
+    try:
+        from l3.scheduler.scheduler import get_scheduler as _gs
+        sched = _gs()
+        if hasattr(sched, 'stats'):
+            return {"success": True, "data": sched.stats()}
+        return {"success": True, "data": {"status": "scheduler active"}}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_observe(args: list[str]) -> dict:
-    from l3.bus.observability_bus import get_obs_bus as _go
-    bus = _go()
-    kind = args[0] if args else "health"
-    return bus.observe(kind, "shell", {})
+    try:
+        from l3.bus.observability_bus import get_obs_bus as _go
+        bus = _go()
+        kind = args[0] if args else "health"
+        return {"success": True, "data": bus.observe(kind, "shell", {})}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_skills(args: list[str]) -> dict:
-    from l3.memory.r4_agent import get_r4_agent
-    r4 = get_r4_agent()
-    sub = args[0] if args else "list"
-    if sub == "lean":
-        cases = getattr(r4, 'get_lean_cases', lambda: [])("", limit=SKILL_LEAN_CASES_LIMIT)
-        return {"success": True, "lean_cases": cases}
-    elif sub == "evolve":
-        intent = " ".join(args[1:]) if len(args) > 1 else ""
-        if hasattr(r4, 'evolve_skill'):
-            return r4.evolve_skill(intent)
-        return {"success": False, "error": "evolve not available"}
-    stats = getattr(r4, 'stats', lambda: {})()
-    return {"success": True, "skills": stats}
+    try:
+        from l3.memory.r4_agent import get_r4_agent
+        r4 = get_r4_agent()
+        sub = args[0] if args else "list"
+        if sub == "lean":
+            cases = getattr(r4, 'get_lean_cases', lambda: [])("", limit=SKILL_LEAN_CASES_LIMIT)
+            return {"success": True, "data": cases, "count": len(cases)}
+        elif sub == "evolve":
+            intent = " ".join(args[1:]) if len(args) > 1 else ""
+            if hasattr(r4, 'evolve_skill'):
+                return {"success": True, "data": r4.evolve_skill(intent)}
+            return {"success": False, "error": "evolve not available"}
+        stats = getattr(r4, 'stats', lambda: {})()
+        return {"success": True, "data": stats}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_cells(args: list[str]) -> dict:
-    from l3.cell.components.cell_monitor import get_cell_monitor
-    cm = get_cell_monitor()
-    sub = args[0] if args else "list"
-    if sub == "list":
-        return {"success": True, "cells": getattr(cm, 'list_cells', lambda: [])()}
-    return cm.get_events(cell_id=sub, limit=CELL_EVENTS_LIMIT)
+    try:
+        from l3.cell.components.cell_monitor import get_cell_monitor
+        cm = get_cell_monitor()
+        sub = args[0] if args else "list"
+        if sub == "list":
+            data = getattr(cm, 'list_cells', lambda: [])()
+            return {"success": True, "data": data, "count": len(data)}
+        return {"success": True, "data": cm.get_events(cell_id=sub, limit=CELL_EVENTS_LIMIT)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_cross(args: list[str]) -> dict:
-    from l3.cell.peers.l3 import get_coordinator
-    coord = get_coordinator()
-    return {"success": True, "cross_cell": getattr(coord, 'status', lambda: {})()}
+    try:
+        from l3.cell.peers.l3 import get_coordinator
+        coord = get_coordinator()
+        return {"success": True, "data": getattr(coord, 'status', lambda: {})()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_cluster(args: list[str]) -> dict:
     """/cluster [status|list|composites|expand|shrink]"""
-    sub = args[0].lower() if args else "status"
+    try:
+        sub = args[0].lower() if args else "status"
 
-    if sub == "list":
-        try:
+        if sub == "list":
             from l3.cell import get_cell
             from l3.cell.components.cell_monitor import get_cell_monitor
             cm = get_cell_monitor()
@@ -307,102 +330,93 @@ def _cmd_cluster(args: list[str]) -> dict:
                     agents[cid] = list(cell._agents.keys()) if hasattr(cell, '_agents') else []
                 except Exception:
                     agents[cid] = []
-            return {"success": True, "cells": cells, "agents": agents, "count": len(cells)}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": True, "data": {"cells": cells, "agents": agents}, "count": len(cells)}
 
-    if sub == "status":
-        from l3.cell.peers.l3 import get_coordinator
-        coord = get_coordinator()
-        state = "SINGLE"
-        if len(coord._cells) >= 2 and getattr(coord, '_cross_cell_active', False):
-            state = "MULTI"
-        elif len(coord._cells) >= 2:
-            state = "TRANSITIONING"
-        return {
-            "success": True,
-            "state": state,
-            "cells": len(coord._cells),
-            "composites": len(coord.b.composites),
-            "cross_cell_active": getattr(coord, '_cross_cell_active', False),
-        }
+        if sub == "status":
+            from l3.cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            state = "SINGLE"
+            if len(coord._cells) >= 2 and getattr(coord, '_cross_cell_active', False):
+                state = "MULTI"
+            elif len(coord._cells) >= 2:
+                state = "TRANSITIONING"
+            return {"success": True, "data": {"state": state, "cells": len(coord._cells), "composites": len(coord.b.composites), "cross_cell_active": getattr(coord, '_cross_cell_active', False)}}
 
-    if sub == "composites":
-        from l3.cell.peers.l3 import get_coordinator
-        coord = get_coordinator()
-        return {
-            "success": True,
-            "composites": [c.status() for c in coord.b.composites],
-        }
+        if sub == "composites":
+            from l3.cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            return {"success": True, "data": [c.status() for c in coord.b.composites]}
 
-    if sub == "expand" and len(args) >= 2:
-        cell_id = args[1]
-        territory = args[2].split(",") if len(args) >= 3 else ["."]
-        from l3.cell.peers.l3 import get_coordinator
-        coord = get_coordinator()
-        coord.register_cell(cell_id, territory)
-        return {"success": True, "cell_id": cell_id, "composites": len(coord.b.composites)}
+        if sub == "expand" and len(args) >= 2:
+            cell_id = args[1]
+            territory = args[2].split(",") if len(args) >= 3 else ["."]
+            from l3.cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            coord.register_cell(cell_id, territory)
+            return {"success": True, "data": {"cell_id": cell_id, "composites": len(coord.b.composites)}}
 
-    if sub == "shrink" and len(args) >= 2:
-        cell_id = args[1]
-        from l3.cell.peers.l3 import get_coordinator
-        coord = get_coordinator()
-        coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
-        from l3.bus.l3b import L3B
-        new_l3b = L3B()
-        for c in coord._cells:
-            new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
-        coord.b = new_l3b
-        coord._cross_cell_active = len(coord._cells) >= 2
-        return {"success": True, "removed": cell_id, "remaining": len(coord._cells)}
+        if sub == "shrink" and len(args) >= 2:
+            cell_id = args[1]
+            from l3.cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            coord._cells = [c for c in coord._cells if c.get("id") != cell_id]
+            from l3.bus.l3b import L3B
+            new_l3b = L3B()
+            for c in coord._cells:
+                new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
+            coord.b = new_l3b
+            coord._cross_cell_active = len(coord._cells) >= 2
+            return {"success": True, "data": {"removed": cell_id, "remaining": len(coord._cells)}}
 
-    return {"success": False, "error": "usage: /cluster [status|composites|expand <id>|shrink <id>]"}
+        return {"success": False, "error": "usage: /cluster [status|composites|expand <id>|shrink <id>]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_htn(args: list[str]) -> dict:
     """/htn [a|b|c] — view HTN instance status"""
-    sub = args[0].lower() if args else "a"
+    try:
+        sub = args[0].lower() if args else "a"
 
-    if sub == "a":
-        try:
+        if sub == "a":
             from l3.bus.htn_a import get_htn_a
             h = get_htn_a()
-            return {"success": True, "htn": "A", "methods": len(h._methods)}
-        except Exception as e:
-            return {"success": False, "error": f"HTN-A not available: {e}"}
+            return {"success": True, "data": {"htn": "A", "methods": len(h._methods)}}
 
-    if sub == "b":
-        from l3.cell.peers.l3 import get_coordinator
-        coord = get_coordinator()
-        info = {}
-        for comp in coord.b.composites:
-            info[comp.composite_id] = {
-                "methods": len(comp.htn_b._methods) if hasattr(comp, 'htn_b') and hasattr(comp.htn_b, '_methods') else 0,
-            }
-        return {"success": True, "htn": "B", "composites": info}
+        if sub == "b":
+            from l3.cell.peers.l3 import get_coordinator
+            coord = get_coordinator()
+            info = {}
+            for comp in coord.b.composites:
+                info[comp.composite_id] = {
+                    "methods": len(comp.htn_b._methods) if hasattr(comp, 'htn_b') and hasattr(comp.htn_b, '_methods') else 0,
+                }
+            return {"success": True, "data": {"htn": "B", "composites": info}}
 
-    if sub == "c":
-        try:
+        if sub == "c":
             from l3.bus.htn_planner import get_service
             h = get_service()
-            return {"success": True, "htn": "C", "methods": len(h._methods)}
-        except Exception as e:
-            return {"success": False, "error": f"HTN-C not available: {e}"}
+            return {"success": True, "data": {"htn": "C", "methods": len(h._methods)}}
 
-    return {"success": False, "error": "usage: /htn [a|b|c]"}
+        return {"success": False, "error": "usage: /htn [a|b|c]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_security(args: list[str]) -> dict:
-    from l3.services.central_security import get_center as _sec
-    sec = _sec()
-    sub = args[0] if args else "stats"
-    if sub == "stats":
-        return {"success": True, "stats": sec.stats()}
-    if sub == "check" and len(args) >= 3:
-        return sec.check_all(action=args[1], agent_id=args[2],
-                             target=args[3] if len(args) > 3 else "",
-                             tool_name=args[4] if len(args) > 4 else "")
-    return {"success": False, "error": "usage: /security [stats|check <action> <agent> [target] [tool]]"}
+    try:
+        from l3.services.central_security import get_center as _sec
+        sec = _sec()
+        sub = args[0] if args else "stats"
+        if sub == "stats":
+            return {"success": True, "data": sec.stats()}
+        if sub == "check" and len(args) >= 3:
+            return {"success": True, "data": sec.check_all(action=args[1], agent_id=args[2],
+                                 target=args[3] if len(args) > 3 else "",
+                                 tool_name=args[4] if len(args) > 4 else "")}
+        return {"success": False, "error": "usage: /security [stats|check <action> <agent> [target] [tool]]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _execute_memory_op(agent_id: str, op: str, op_args: list[str]) -> dict:
@@ -473,52 +487,62 @@ def resolve_agents(scope: str, scope_id: str) -> list[str]:
 
 
 def _cmd_memory(args: list[str]) -> dict:
-    scope, scope_id, rest = resolve_scope(args)
-    op = rest[0] if rest else "stats"
-    op_args = rest[1:]
-    if op == "stats" and scope == "global":
-        from l3.memory.central_memory import get_center as _mem
-        return {"success": True, "stats": _mem().stats(), "scope": "global"}
-    if op == "recall" and scope == "global":
-        from l3.memory.central_memory import get_center as _mem
-        query = " ".join(op_args)
-        results = _mem().recall(query=query, limit=MEMORY_RECALL_DEFAULT_LIMIT)
-        return {"success": True, "results": results, "count": len(results), "scope": "global"}
-    agents = resolve_agents(scope, scope_id)
-    results = {}
-    for agent_id in agents:
-        try:
-            results[agent_id] = _execute_memory_op(agent_id, op, op_args)
-        except Exception as e:
-            results[agent_id] = {"error": str(e)}
-    return {"success": True, "scope": scope, "scope_id": scope_id,
-            "agents": len(results), "results": results}
+    try:
+        scope, scope_id, rest = resolve_scope(args)
+        op = rest[0] if rest else "stats"
+        op_args = rest[1:]
+        if op == "stats" and scope == "global":
+            from l3.memory.central_memory import get_center as _mem
+            return {"success": True, "data": _mem().stats(), "scope": "global"}
+        if op == "recall" and scope == "global":
+            from l3.memory.central_memory import get_center as _mem
+            query = " ".join(op_args)
+            results = _mem().recall(query=query, limit=MEMORY_RECALL_DEFAULT_LIMIT)
+            return {"success": True, "data": results, "count": len(results), "scope": "global"}
+        agents = resolve_agents(scope, scope_id)
+        data = {}
+        for agent_id in agents:
+            try:
+                data[agent_id] = _execute_memory_op(agent_id, op, op_args)
+            except Exception as e:
+                data[agent_id] = {"error": str(e)}
+        return {"success": True, "scope": scope, "scope_id": scope_id,
+                "agents": len(data), "data": data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_plugins(args: list[str]) -> dict:
-    from l3.services.central_plugin import get_center as _plug
-    plug = _plug()
-    sub = args[0] if args else "list"
-    if sub == "list":
-        return {"success": True, "plugins": plug.list_plugins()}
-    return {"success": True, "stats": plug.stats()}
+    try:
+        from l3.services.central_plugin import get_center as _plug
+        plug = _plug()
+        sub = args[0] if args else "list"
+        if sub == "list":
+            data = plug.list_plugins()
+            return {"success": True, "data": data, "count": len(data)}
+        return {"success": True, "data": plug.stats()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_mcp(args: list[str]) -> dict:
-    from l4.mcp_bridge import get_bridge, McpClient
-    bridge = get_bridge()
-    sub = args[0].lower() if args else "status"
-    if sub in ("status", "list"):
-        return {"success": True, "data": bridge.status()}
-    if sub == "add" and len(args) >= 3:
-        return bridge.import_server(args[1], McpClient(args[2]))
-    if sub == "remove" and len(args) >= 2:
-        return bridge.remove_server(args[1])
-    if sub == "disable" and len(args) >= 2:
-        return bridge.set_disabled(args[1])
-    if sub == "enable" and len(args) >= 2:
-        return bridge.set_enabled(args[1])
-    return {"success": False, "error": "usage: /mcp [status|add <name> <endpoint>|remove <name>|disable <name>|enable <name>]"}
+    try:
+        from l4.mcp_bridge import get_bridge, McpClient
+        bridge = get_bridge()
+        sub = args[0].lower() if args else "status"
+        if sub in ("status", "list"):
+            return {"success": True, "data": bridge.status()}
+        if sub == "add" and len(args) >= 3:
+            return {"success": True, "data": bridge.import_server(args[1], McpClient(args[2]))}
+        if sub == "remove" and len(args) >= 2:
+            return {"success": True, "data": bridge.remove_server(args[1])}
+        if sub == "disable" and len(args) >= 2:
+            return {"success": True, "data": bridge.set_disabled(args[1])}
+        if sub == "enable" and len(args) >= 2:
+            return {"success": True, "data": bridge.set_enabled(args[1])}
+        return {"success": False, "error": "usage: /mcp [status|add <name> <endpoint>|remove <name>|disable <name>|enable <name>]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_process(args: list[str]) -> dict:
@@ -529,7 +553,7 @@ def _cmd_process(args: list[str]) -> dict:
         if args and args[0].isdigit():
             pid = int(args[0])
             procs = [p for p in procs if p.get("pid") == pid]
-        return {"success": True, "processes": procs, "count": len(procs)}
+        return {"success": True, "data": procs, "count": len(procs)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -539,15 +563,16 @@ def _cmd_vfs(args: list[str]) -> dict:
         from l1.kernel.vfs import get_vfs
         vfs = get_vfs()
         if args and args[0] == "--mounts":
-            return {"success": True, "mounts": vfs.mounts()}
+            return {"success": True, "data": vfs.mounts()}
         path = args[0] if args else "/"
         r = vfs.list(path)
         if r.get("success"):
-            return {"success": True, "path": path, "entries": r.get("entries", []),
-                    "count": len(r.get("entries", []))}
+            entries = r.get("entries", [])
+            return {"success": True, "path": path, "data": entries,
+                    "count": len(entries)}
         r2 = vfs.read(path)
         if r2.get("success"):
-            return {"success": True, "path": path, "content": r2.get("content", "")[:LOG_TRUNC_2000]}
+            return {"success": True, "path": path, "data": r2.get("content", "")[:LOG_TRUNC_2000]}
         return {"success": False, "error": r.get("error", f"cannot list {path}")}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -561,7 +586,7 @@ def _cmd_cache(args: list[str]) -> dict:
             reset_caches()
             return {"success": True, "message": "all caches cleared"}
         stats = get_llm_cache_stats()
-        return {"success": True, "stats": stats}
+        return {"success": True, "data": stats}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -587,29 +612,29 @@ def _cmd_history(args: list[str]) -> dict:
         from l2.shell_session import get_manager
         mgr = get_manager()
         lines = mgr.list()
-        return {"success": True, "history": lines[-limit:], "count": len(lines[-limit:])}
+        data = lines[-limit:]
+        return {"success": True, "data": data, "count": len(data)}
     except Exception:
-        return {"success": True, "history": [], "count": 0}
+        return {"success": True, "data": [], "count": 0}
 
 
 def _cmd_lang(args: list[str]) -> dict:
-    from l2.i18n import get_locale, set_locale, get_available_locales, t as _t
-    if not args:
-        current = get_locale()
-        available = get_available_locales()
-        return {"success": True, "locale": current, "available": available}
-    target = args[0]
-    available = get_available_locales()
-    if target not in available:
-        return {"success": False, "error": _t("shell.error.lang_usage", locales=", ".join(available))}
-    set_locale(target)
     try:
+        from l2.i18n import get_locale, set_locale, get_available_locales, t as _t
+        if not args:
+            current = get_locale()
+            available = get_available_locales()
+            return {"success": True, "locale": current, "available": available}
+        target = args[0]
+        available = get_available_locales()
+        if target not in available:
+            return {"success": False, "error": _t("shell.error.lang_usage", locales=", ".join(available))}
+        set_locale(target)
         from l1.kernel.errors import set_locale as _ke_set
         _ke_set(target)
-    except Exception:
-        logger.warning("_cmd_locale: failed to set kernel locale: %s", target)
-        capture("set kernel locale failed", error_code="E_LOCALE", component="l2", context={"target": target})
-    return {"success": True, "locale": target, "available": available}
+        return {"success": True, "locale": target, "available": available}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_spawn(args: list[str]) -> dict:
@@ -678,25 +703,23 @@ def _cmd_audit(args: list[str]) -> dict:
         from l1.kernel.registry import get_registry
         reg = get_registry()
         limit = int(args[0]) if args and args[0].isdigit() else 20
-        return {"success": True, "audit": reg.audit(limit=limit), "count": limit}
+        return {"success": True, "data": reg.audit(limit=limit), "count": limit}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_settings(args: list[str]) -> dict:
-    try:
-        from l1.kernel.registry import get_registry
-        reg = get_registry()
-        return {"success": True, "settings": reg.settings()}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    """Multi-level settings — global/cell/agent/pool. Delegates to commands_settings."""
+    from .commands_settings import _cmd_settings as _cs
+    return _cs(args)
 
 
 def _cmd_devices(args: list[str]) -> dict:
     try:
         from l1.kernel.registry import get_registry
         reg = get_registry()
-        return {"success": True, "devices": reg.devices()}
+        data = reg.devices()
+        return {"success": True, "data": data, "count": len(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -708,9 +731,9 @@ def _cmd_tools(args: list[str]) -> dict:
         category = args[0] if args else None
         locale = get_locale()
         tools = list_tools(category=category, locale=locale)
-        return {"success": True, "tools": [{"name": t.name, "description": t.description[:LOG_TRUNC_60],
-                                              "ring": t.ring, "category": t.category} for t in tools],
-                "count": len(tools)}
+        data = [{"name": t.name, "description": t.description[:LOG_TRUNC_60],
+                 "ring": t.ring, "category": t.category} for t in tools]
+        return {"success": True, "data": data, "count": len(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -737,26 +760,30 @@ def _cmd_config(args: list[str]) -> dict:
 
 
 def _cmd_cron(args: list[str]) -> dict:
-    from l4.cron_scheduler import get_scheduler as _get_cron
-    s = get_scheduler()
-    sub = args[0].lower() if args else "list"
-    if sub == "list":
-        return {"success": True, "schedules": s.list()}
-    if sub == "add" and len(args) >= 4:
-        eid = args[1]; cron_expr = args[2]; intent = " ".join(args[3:])
-        domain = ""; priority = CRON_DEFAULT_PRIORITY
-        if "--domain" in args:
-            di = args.index("--domain")
-            if di + 1 < len(args): domain = args[di + 1]
-        if "--priority" in args:
-            pi = args.index("--priority")
-            if pi + 1 < len(args):
-                try: priority = int(args[pi + 1])
-                except (ValueError, IndexError): pass
-        return s.add(eid, cron_expr, intent, domain=domain, priority=priority)
-    if sub == "remove" and len(args) >= 2:
-        return s.remove(args[1])
-    return {"success": False, "error": "usage: /cron [list|add <id> <cron> <intent>|remove <id>]"}
+    try:
+        from l4.cron_scheduler import get_scheduler as _get_cron
+        s = get_scheduler()
+        sub = args[0].lower() if args else "list"
+        if sub == "list":
+            data = s.list()
+            return {"success": True, "data": data, "count": len(data)}
+        if sub == "add" and len(args) >= 4:
+            eid = args[1]; cron_expr = args[2]; intent = " ".join(args[3:])
+            domain = ""; priority = CRON_DEFAULT_PRIORITY
+            if "--domain" in args:
+                di = args.index("--domain")
+                if di + 1 < len(args): domain = args[di + 1]
+            if "--priority" in args:
+                pi = args.index("--priority")
+                if pi + 1 < len(args):
+                    try: priority = int(args[pi + 1])
+                    except (ValueError, IndexError): pass
+            return {"success": True, "data": s.add(eid, cron_expr, intent, domain=domain, priority=priority)}
+        if sub == "remove" and len(args) >= 2:
+            return {"success": True, "data": s.remove(args[1])}
+        return {"success": False, "error": "usage: /cron [list|add <id> <cron> <intent>|remove <id>]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_cell_create(args: list[str]) -> dict:
@@ -781,41 +808,41 @@ def _cmd_cell_create(args: list[str]) -> dict:
 
 
 def _cmd_buffer(args: list[str]) -> dict:
-    from l3.resource_buffer.manager import get_manager as _bm
-    mgr = _bm()
-    sub = args[0] if args else "status"
     try:
+        from l3.resource_buffer.manager import get_manager as _bm
+        mgr = _bm()
+        sub = args[0] if args else "status"
         if sub == "status":
-            return mgr.status()
+            return {"success": True, "data": mgr.status()}
         if sub == "commit":
-            return mgr.commit(args[1] if len(args) > 1 else "")
+            return {"success": True, "data": mgr.commit(args[1] if len(args) > 1 else "")}
         if sub == "diff" and len(args) >= 2:
-            return mgr.diff(args[1])
+            return {"success": True, "data": mgr.diff(args[1])}
         if sub == "discard" and len(args) >= 2:
-            return mgr.discard(args[1])
+            return {"success": True, "data": mgr.discard(args[1])}
         return {"success": False, "error": "usage: /buffer [status|commit <path>|diff <path>|discard <path>]"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_card(args: list[str]) -> dict:
-    from l3.card_pool import get_pool as _cp
-    pool = _cp()
-    sub = args[0] if args else "list"
     try:
+        from l3.card_pool import get_pool as _cp
+        pool = _cp()
+        sub = args[0] if args else "list"
         if sub == "list":
             cat = args[1] if len(args) > 1 else ""
-            return pool.list_pool(category=cat)
+            return {"success": True, "data": pool.list_pool(category=cat)}
         if sub == "install" and len(args) >= 2:
-            return pool.install_from_url(args[1])
+            return {"success": True, "data": pool.install_from_url(args[1])}
         if sub == "install-file" and len(args) >= 2:
-            return pool.install_from_file(args[1])
+            return {"success": True, "data": pool.install_from_file(args[1])}
         if sub == "export" and len(args) >= 2:
-            return pool.export_to_file(args[1], args[2] if len(args) > 2 else "")
+            return {"success": True, "data": pool.export_to_file(args[1], args[2] if len(args) > 2 else "")}
         if sub == "search" and len(args) >= 2:
-            return pool.search_remote(" ".join(args[1:]))
+            return {"success": True, "data": pool.search_remote(" ".join(args[1:]))}
         if sub == "remove" and len(args) >= 2:
-            return pool.remove(args[1])
+            return {"success": True, "data": pool.remove(args[1])}
         return {"success": False, "error": "usage: /card [list|install <url>|install-file <path>|search <q>|export <name>|remove <name>]"}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -828,7 +855,7 @@ def _cmd_agent_restart(args: list[str]) -> dict:
     try:
         from l3.cell import get_cell
         cell = get_cell(cell_id)
-        return cell.restart_agent(agent_id)
+        return {"success": True, "data": cell.restart_agent(agent_id)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -840,52 +867,54 @@ def _cmd_agent_refresh(args: list[str]) -> dict:
     try:
         from l3.cell import get_cell
         cell = get_cell(cell_id)
-        return cell.reset_agent_context(agent_id)
+        return {"success": True, "data": cell.reset_agent_context(agent_id)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_tokens(args: list[str]) -> dict:
-    from l3.memory.context_pool import all_cell_totals, cell_total, token_usage
-    scope, scope_id, rest = resolve_scope(args)
-    sub = rest[0] if rest else "global"
     try:
+        from l3.memory.context_pool import all_cell_totals, cell_total, token_usage
+        scope, scope_id, rest = resolve_scope(args)
+        sub = rest[0] if rest else "global"
         if scope == "global" and sub == "global":
-            return {"success": True, "tokens": all_cell_totals()}
+            return {"success": True, "data": all_cell_totals()}
         if scope == "cell" and scope_id:
-            return {"success": True, "cell": cell_total(scope_id)}
+            return {"success": True, "data": cell_total(scope_id)}
         if scope == "agent" and scope_id:
-            return {"success": True, "agent": token_usage(scope_id)}
+            return {"success": True, "data": token_usage(scope_id)}
         if sub == "cells":
-            return {"success": True, "cells": all_cell_totals().get("cells", [])}
+            data = all_cell_totals().get("cells", [])
+            return {"success": True, "data": data, "count": len(data)}
         agents = resolve_agents(scope, scope_id)
         results = {a: token_usage(a).get(a, 0) for a in agents}
         return {"success": True, "scope": scope, "scope_id": scope_id,
-                "results": results, "agents": len(results)}
+                "data": results, "agents": len(results)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _cmd_stats(args: list[str]) -> dict:
-    from l3.services.stats_center import get_center
-    from l3.services.counter import get_counter
-    sc = get_center()
-    scope, scope_id, rest = resolve_scope(args)
-    sub = rest[0] if rest else "tools"
-    sub_args = rest[1:]
-    window = sub_args[0] if sub_args else "5m"
     try:
+        from l3.services.stats_center import get_center
+        from l3.services.counter import get_counter
+        sc = get_center()
+        scope, scope_id, rest = resolve_scope(args)
+        sub = rest[0] if rest else "tools"
+        sub_args = rest[1:]
+        window = sub_args[0] if sub_args else "5m"
+
         if sub == "agent" and scope == "agent" and scope_id:
             counter = get_counter()
             return {"success": True, "scope": "agent", "agent_id": scope_id,
-                    "tools": counter.tool_summary(scope_id),
-                    "tokens": counter.token_summary(scope_id),
-                    "loops": counter.loop_summary(scope_id)}
+                    "data": {"tools": counter.tool_summary(scope_id),
+                             "tokens": counter.token_summary(scope_id),
+                             "loops": counter.loop_summary(scope_id)}}
         if sub == "cells":
             tags = {"scope": "cell"}
             results = sc.query(tags=tags, window=window)
             return {"success": True, "window": window, "scope": "cells",
-                    "metrics": results, "count": len(results)}
+                    "data": results, "count": len(results)}
         tags = None
         if scope == "cell" and scope_id:
             tags = {"cell": scope_id}
@@ -897,7 +926,7 @@ def _cmd_stats(args: list[str]) -> dict:
             results = sc.query(metrics=metrics, tags=tags, window=window)
             return {"success": True, "window": window,
                     "scope": scope, "scope_id": scope_id or "*",
-                    "metrics": results, "count": len(results)}
+                    "data": results, "count": len(results)}
         if sub == "compression":
             results = sc.query(
                 metrics=["memory.compact.saved_tokens",
@@ -905,19 +934,16 @@ def _cmd_stats(args: list[str]) -> dict:
                 tags=tags, window=window)
             return {"success": True, "window": window,
                     "scope": scope, "scope_id": scope_id or "*",
-                    "metrics": results, "count": len(results)}
+                    "data": results, "count": len(results)}
         if sub == "cell" and scope == "cell" and scope_id:
             cell_tags = {"cell": scope_id}
             results = sc.query(tags=cell_tags, window=window)
-            try:
-                from l3.cell import get_cell
-                cell = get_cell(scope_id)
-                pmu = getattr(cell, "pmu", None)
-                pmu_stats = pmu.stats() if pmu else None
-            except Exception:
-                pmu_stats = None
+            from l3.cell import get_cell
+            cell = get_cell(scope_id)
+            pmu = getattr(cell, "pmu", None)
+            pmu_stats = pmu.stats() if pmu else None
             return {"success": True, "cell": scope_id, "window": window,
-                    "metrics": results, "pmu_live": pmu_stats,
+                    "data": {"metrics": results, "pmu_live": pmu_stats},
                     "count": len(results)}
         if sub == "top":
             metric = sub_args[0] if sub_args else "tools.executed.ring_1"
@@ -925,7 +951,7 @@ def _cmd_stats(args: list[str]) -> dict:
             top_window = sub_args[2] if len(sub_args) > 2 else window
             results = sc.top(metric=metric, limit=limit, window=top_window)
             return {"success": True, "metric": metric, "window": top_window,
-                    "results": results, "count": len(results)}
+                    "data": results, "count": len(results)}
         return {"success": False, "error": f"unknown stats subcommand: {sub}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -998,90 +1024,92 @@ def _pipeline(segments: list[str]) -> dict:
 
 
 def _cmd_think(args: list[str]) -> dict:
-    """Manage think quota configuration.
+    """Manage think quota configuration per cell/agent.
 
     Usage:
       /think config                          — show current hierarchy
       /think config set <key>=<value>        — set global default
-      /think cell <cell_id> set <key>=<value> — override per Cell
-      /think cell <cell_id> agent <aid> set   — override per Agent
-      /think stats                           — quota usage stats
+      /think cell <cell_id> [show|set key=value ...|distribution <mode>]
+      /think cell <cell_id> agent <aid> set  — override per Agent
+      /think stats [global|cell <id>|agent <id>]
     """
-    from l3.scheduler.think_registry import get_think_registry
-    reg = get_think_registry()
-    if not args:
-        return reg.stats()
+    try:
+        from l3.scheduler.think_registry import get_think_registry
+        reg = get_think_registry()
 
-    sub = args[0].lower()
-    rest = args[1:]
+        if not args:
+            return {"success": True, "data": reg.stats()}
 
-    # /think config
-    if sub == "config":
-        if rest and rest[0] == "set":
-            for kv in rest[1:]:
-                if "=" in kv:
-                    k, v = kv.split("=", 1)
+        sub = args[0].lower()
+        rest = args[1:]
+
+        # /think config
+        if sub == "config":
+            if rest and rest[0] == "set":
+                for kv in rest[1:]:
+                    if "=" in kv:
+                        k, v = kv.split("=", 1)
+                        try:
+                            v = int(v)
+                        except ValueError:
+                            pass
+                        reg.set_global(**{k: v})
+                return {"success": True, "data": reg.get_global()}
+            return {"success": True, "data": {"global": reg.get_global(),
+                    "cells": {cid: reg.get_cell(cid) for cid in reg.stats().get("cells", {})}}}
+
+        # /think stats [global|cell <id>|agent <id>]
+        if sub == "stats":
+            if rest and rest[0] == "cell" and len(rest) >= 2:
+                return {"success": True, "data": reg.get_cell(rest[1])}
+            if rest and rest[0] == "agent" and len(rest) >= 2:
+                return {"success": True, "data": reg.get_agent(rest[1])}
+            return {"success": True, "data": reg.stats()}
+
+        # /think cell <cell_id> ...
+        if sub == "cell" and rest:
+            cell_id = rest[0]
+            cell_rest = rest[1:]
+            if cell_rest and cell_rest[0] == "set":
+                cfg = {}
+                for kv in cell_rest[1:]:
+                    if "=" in kv:
+                        k, v = kv.split("=", 1)
+                        try:
+                            v = int(v)
+                        except ValueError:
+                            pass
+                        cfg[k] = v
+                if cfg:
+                    dist = cfg.pop("distribution", None)
+                    reg.set_cell(cell_id, distribution=dist or "inherit", **cfg)
+                    from l3.cell import get_cell
                     try:
-                        v = int(v)
-                    except ValueError:
-                        pass
-                    reg.set_global(**{k: v})
-            return {"success": True, "global": reg.get_global()}
-        return {"success": True, "global": reg.get_global(),
-                "cells": {cid: reg.get_cell(cid) for cid in reg.stats().get("cells", {})}}
+                        cell = get_cell(cell_id)
+                        if hasattr(cell, 'set_think_quota'):
+                            cell.set_think_quota(distribution=dist, **cfg)
+                    except Exception:
+                        logger.warning("think cell %s set_think_quota failed", cell_id)
+                        capture("set_think_quota failed", error_code="E_THINK", component="l2", context={"cell_id": cell_id})
+                return {"success": True, "data": {"cell": cell_id, "config": reg.get_cell(cell_id)}}
 
-    # /think stats
-    if sub == "stats":
-        return reg.stats()
+            if len(cell_rest) >= 3 and cell_rest[0] == "agent" and cell_rest[2] == "set":
+                agent_id = cell_rest[1]
+                for kv in cell_rest[3:]:
+                    if "=" in kv:
+                        k, v = kv.split("=", 1)
+                        try:
+                            v = int(v)
+                        except ValueError:
+                            pass
+                        reg.set_agent(cell_id, agent_id, **{k: v})
+                return {"success": True, "data": {"cell": cell_id, "agent": agent_id, "config": reg.get_agent(cell_id, agent_id)}}
 
-    # /think cell <cell_id> ...
-    if sub == "cell" and rest:
-        cell_id = rest[0]
-        cell_rest = rest[1:]
-        if cell_rest and cell_rest[0] == "set":
-            cfg = {}
-            for kv in cell_rest[1:]:
-                if "=" in kv:
-                    k, v = kv.split("=", 1)
-                    try:
-                        v = int(v)
-                    except ValueError:
-                        pass
-                    cfg[k] = v
-            if cfg:
-                # Resolve distribution mode if present
-                dist = cfg.pop("distribution", None)
-                reg.set_cell(cell_id, distribution=dist or "inherit", **cfg)
-                # Apply to live Cell instance
-                from l3.cell import get_cell
-                try:
-                    cell = get_cell(cell_id)
-                    if hasattr(cell, 'set_think_quota'):
-                        cell.set_think_quota(distribution=dist, **cfg)
-                except Exception:
-                    logger.warning("think cell %s set_think_quota failed", cell_id)
-                    capture("set_think_quota failed", error_code="E_THINK", component="l2", context={"cell_id": cell_id})
-            return {"success": True, "cell": cell_id,
-                    "config": reg.get_cell(cell_id)}
+            return {"success": True, "data": {"cell": cell_id, "config": reg.get_cell(cell_id)}}
 
-        # /think cell <cell_id> agent <agent_id> set ...
-        if len(cell_rest) >= 3 and cell_rest[0] == "agent" and cell_rest[2] == "set":
-            agent_id = cell_rest[1]
-            for kv in cell_rest[3:]:
-                if "=" in kv:
-                    k, v = kv.split("=", 1)
-                    try:
-                        v = int(v)
-                    except ValueError:
-                        pass
-                    reg.set_agent(cell_id, agent_id, **{k: v})
-            return {"success": True, "cell": cell_id, "agent": agent_id,
-                    "config": reg.get_agent(cell_id, agent_id)}
-
-        return {"success": True, "cell": cell_id,
-                "config": reg.get_cell(cell_id)}
-
-    return {"success": False, "error": "usage: /think [config|cell|stats]"}
+        return {"success": False, "error": "usage: /think [config|cell|stats]"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def _cmd_model(args: list[str]) -> dict:
