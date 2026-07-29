@@ -7,31 +7,47 @@ Batch 2 (slow, ~75s): r4_agent + integration + convention + archive
 import sys, os, subprocess
 
 BATCH_1 = [
-    # Layer import constraint — must pass before any batch (run first for fast CI fail)
-    "test_layer_imports",
-    "test_kernel", "test_persistence", "test_tool_mute", "test_tool_pipeline",
-    "test_l3a", "test_services_core", "test_shell", "test_params_integrity",
-    "test_issue", "test_credential_vault", "test_api_gateway", "test_assembly",
-    "test_approval_gate", "test_auth_session", "test_cell_agent", "test_cell_decompose",
-    "test_settings_center", "test_identity", "test_kernel_extended", "test_misc",
-    "test_convergence", "test_errors", "test_config_loader", "test_fault_tolerance",
-    "test_network", "test_subscriptions", "test_memory_sandbox", "test_memory_init",
-    "test_cell_monitor", "test_observability_bus", "test_services", "test_integration",
-    "test_mcp_bridge",
-    # New core tests
-    "test_gatechain", "test_reputation",
-    "test_auth", "test_selector",
-    "test_constitution", "test_vfs",
-    "test_statecharts",
+    # Layer import constraint — must pass before any batch
+    ("infra", "test_layer_imports"),
+    # L1: Kernel
+    ("l1", "test_kernel"), ("l1", "test_kernel_extended"), ("l1", "test_gatechain"),
+    ("l1", "test_reputation"), ("l1", "test_constitution"), ("l1", "test_vfs"),
+    ("l1", "test_errors"), ("infra", "test_params_integrity"),
+    # L2: Shell
+    ("l2", "test_shell"), ("l2", "test_selector"),
+    # L3: Cell
+    ("l3", "test_l3a"), ("l3", "test_services_core"), ("l3", "test_persistence"),
+    ("l3", "test_tool_mute"), ("l3", "test_tool_pipeline"),
+    ("l3", "test_issue"), ("l3", "test_assembly"),
+    ("l3", "test_approval_gate"), ("l3", "test_cell_agent"), ("l3", "test_cell_decompose"),
+    ("l3", "test_settings_center"), ("l3", "test_identity"),
+    ("l3", "test_convergence"), ("l3", "test_config_loader"),
+    ("l3", "test_fault_tolerance"), ("l3", "test_memory_sandbox"),
+    ("l3", "test_memory_init"), ("l3", "test_cell_monitor"),
+    ("l3", "test_observability_bus"), ("l3", "test_services"),
+    ("l3", "test_subagent_gate"), ("l3", "test_subagent_pool"),
+    ("l3", "test_subagent_task"), ("l3", "test_resource_buffer"),
+    ("l3", "test_card_execution"), ("l3", "test_cell"),
+    ("l3", "test_memory"), ("l3", "test_discussion"),
+    ("l3", "test_statecharts"),
+    # L4: Bridge
+    ("l4", "test_credential_vault"), ("l4", "test_api_gateway"),
+    ("l4", "test_auth_session"), ("l4", "test_mcp_bridge"),
+    ("l4", "test_subscriptions"), ("l4", "test_auth"),
+    # Integration
+    ("integration", "test_network"), ("integration", "test_integration"),
 ]
 
 BATCH_2 = [
-    "test_r4_agent", "test_archive_orchestrator", "test_convention",
+    ("l3", "test_r4_agent"), ("l3", "test_convention"),
+    ("l3", "test_cell_orchestration"),
+    ("l3", "test_agent_loop"), ("l3", "test_agent_terminal_lifecycle"),
+    ("l3", "test_discussion_integration"),
 ]
 
 
-def run_batch(tests: list[str], label: str) -> int:
-    targets = [f"tests/{t}.py" for t in tests]
+def run_batch(tests: list[tuple[str, str]], label: str) -> int:
+    targets = [f"tests/{d}/{t}.py" for d, t in tests]
     cmd = [sys.executable, "-m", "pytest"] + targets + ["-v", "--tb=short", "-q"]
     print(f"\n{'='*60}")
     print(f"  Batch: {label} ({len(tests)} files)")
