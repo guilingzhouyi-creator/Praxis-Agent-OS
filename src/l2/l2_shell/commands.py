@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 _registry = get_registry()
 
 # ── Value coercion helper ──
-def _coerce(value: str):
+def _coerce(value: str) -> Any:
     """Coerce string values to int/float/bool when appropriate."""
     if value.lower() in ("true", "yes"):
         return True
