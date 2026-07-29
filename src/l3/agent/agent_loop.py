@@ -282,6 +282,7 @@ class AgentLoop:
                 tool_name=fn.__name__ if hasattr(fn, '__name__') else "unknown",
                 agent_id=self.agent_id,
                 args=args,
+                domain=getattr(self, '_gate_scope', ''),
                 _executor=lambda name, a, aid: fn(a, aid),
             )
             if not pr.get("success"):

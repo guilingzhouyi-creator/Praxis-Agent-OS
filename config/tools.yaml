@@ -26,6 +26,10 @@ layer_1:
       description: "Diff two files or a file against a string"
       handler: l3.tools._files.file_diff
       params: [{name: path_a, type: string, required: true}, {name: path_b, type: string, optional: true}, {name: content_b, type: string, optional: true}]
+    file_diff_structured:
+      description: "Get structured diff for a sandbox-staged file — returns hunks with line/char-level changes, stats, and optional human-readable diff text"
+      handler: l3.tools._files.file_diff_structured
+      params: [{name: path, type: string, required: true}, {name: mode, type: string, optional: true, default: "agent"}]
     read_binary:
       description: "Read binary file metadata and hex preview"
       handler: l3.tools._files.read_binary

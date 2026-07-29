@@ -238,6 +238,10 @@ def handle_think(term, card, phases):
         human_user = card.params.get("user_id", "")
         loop = AgentLoop(task=task, agent_id=term.agent_id, system=system_prompt,
                          user_id=human_user or term.agent_id, cell_id=term.cell_id)
+        # Pass card-level gate_scope for GateChain enforcement
+        gate_scope = card.params.get('_gate_scope', '') if hasattr(card, 'params') else ''
+        if gate_scope:
+            loop._gate_scope = gate_scope
         if getattr(term, '_pmu', None):
             loop.set_pmu(term._pmu)
         from l3.tool_system.tool_spec import is_muted as _is_muted

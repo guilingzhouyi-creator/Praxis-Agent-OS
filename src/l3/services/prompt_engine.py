@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
-from l1.kernel.params.system import KERNEL_VERSION, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_80, PRAXIS_CODENAME
+from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, KERNEL_VERSION, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_2000, LOG_TRUNC_80, PRAXIS_CODENAME
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class PromptTemplate:
 class ContextAssembler:
     """Assemble LLM context from multiple sources."""
 
-    def __init__(self, max_tokens: int = 4096):
+    def __init__(self, max_tokens: int = CONTEXT_BUILD_MAX_TOKENS):
         self._max_tokens = max_tokens
         self._items: list[ContextItem] = []
 
@@ -119,7 +119,7 @@ class ContextAssembler:
         return 0
 
     def add_file_context(self, file_paths: list[str] = None,
-                         max_chars_per_file: int = 2000) -> int:
+                         max_chars_per_file: int = LOG_TRUNC_2000) -> int:
         """Load summary context for specified files."""
         if not file_paths:
             return 0
@@ -305,7 +305,7 @@ class PromptBuilder:
 class PromptEngine:
     """PromptEngine — Unified entry for context assembly + sliding window + layered prompts."""
 
-    def __init__(self, max_context_tokens: int = 4096):
+    def __init__(self, max_context_tokens: int = CONTEXT_BUILD_MAX_TOKENS):
         self._assembler = ContextAssembler(max_tokens=max_context_tokens)
         self._builder = PromptBuilder()
         self._lock = threading.RLock()

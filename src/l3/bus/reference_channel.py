@@ -149,12 +149,14 @@ class ReferenceChannel:
                   gate: str = "", reason: str = "", args: dict | None = None,
                   trace_id: str = "",
                   predicted_success: bool = True,
-                  predicted_summary: str = "") -> None:
+                  predicted_summary: str = "",
+                  card_scope: str = "") -> None:
         """Record a tool call with optional prediction for causal training.
 
         Args:
             predicted_success: Did the model expect this to succeed?
             predicted_summary: What the model predicted would happen (free text).
+            card_scope: Card-level execution scope for GateChain audit.
 
         The triple {predicted_success, actual_allowed, deviation} forms a
         causal chain training sample when aggregated across many calls.
@@ -170,6 +172,7 @@ class ReferenceChannel:
             "predicted_success": predicted_success,
             "predicted_summary": predicted_summary[:LOG_TRUNC_200],
             "deviation": deviation,
+            "card_scope": card_scope,
             "args_keys": list((args or {}).keys()),
         }, source="tool_pipeline", trace_id=trace_id)
 

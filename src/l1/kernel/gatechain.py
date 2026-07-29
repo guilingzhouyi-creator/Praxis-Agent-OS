@@ -268,7 +268,7 @@ def _gate_g3(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
         in_territory = any(ctx["target"].startswith(t) for t in ctx["territory"])
         if not in_territory:
             steps.append({"gate": "G3", "result": "BLOCK",
-                          "reason": f"target outside territory: {ctx['target']}"})
+                          "reason": f"tool call target '{ctx['target']}' is outside card scope {ctx['territory']}"})
             return steps, GateResult.BLOCK
     recent_count = gc.ledger.count(ctx["agent_id"], ctx["tool"], window=LEDGER_COUNT_WINDOW)
     risk_score = danger + (recent_count * GATECHAIN_FREQ_MULTIPLIER)

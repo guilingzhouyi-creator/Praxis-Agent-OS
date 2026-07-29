@@ -37,6 +37,8 @@ class SignalType(Enum):
     # System
     REVIEW_REQUESTED = auto()
     TOKEN_USAGE = auto()       # Token usage event (Cell/Agent → CentralCollector)
+    # File change events (Sandbox → Cell/Agent)
+    FILE_CHANGED = auto()      # A file was written to sandbox
 
 
 # Extensible signal type registry — register custom signals by name

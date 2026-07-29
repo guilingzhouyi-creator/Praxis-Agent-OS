@@ -167,6 +167,10 @@ def _execute_agent(plan, ps, agent_id: str, timeout: float) -> dict:
         params=dict(ps.params),
         mode=TermCardMode.EXECUTE,
     )
+    # Inject card-level gate_scope for GateChain enforcement
+    card_scope = getattr(plan.card, '_gate_scope', '') if hasattr(plan, 'card') else ''
+    if card_scope:
+        tc.params['_gate_scope'] = card_scope
 
     from l3.agent._term_handlers import get_action_handler
     handler = get_action_handler(term, ps.action)

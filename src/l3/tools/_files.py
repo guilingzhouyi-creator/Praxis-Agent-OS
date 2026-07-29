@@ -308,3 +308,64 @@ def file_patch(args: dict, agent_id: str) -> dict:
                 "diff_lines": sum(1 for l in diff_text.splitlines() if l.startswith(('+', '-')))}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def file_diff_structured(args: dict, agent_id: str) -> dict:
+    """RING_1: Get structured diff for a sandbox-staged file.
+
+    Args:
+        path: File path relative to project root.
+        mode: ``"agent"`` (default) — returns structured hunks;
+              ``"human"`` — returns unified diff text + summary.
+
+    Returns structured hunks (agent mode) or unified diff text (human mode).
+    """
+    path = args.get("path", "")
+    if not path:
+        return {"success": False, "error": "path required"}
+    mode = args.get("mode", "agent")
+    if mode not in ("agent", "human"):
+        return {"success": False, "error": f"invalid mode: {mode!r}"}
+
+    try:
+        from l4.sandbox import get_manager as _get_sb, SandboxEntry
+        sb_mgr = _get_sb()
+    except Exception as e:
+        return {"success": False, "error": f"sandbox unavailable: {e}"}
+
+    entry: SandboxEntry | None = None
+    try:
+        status = sb_mgr.status()
+        for cid in status:
+            sb = sb_mgr.get_cell(cid)
+            if sb and path in sb._entries:
+                entry = sb._entries[path]
+                break
+    except Exception:
+        pass
+
+    if entry is None:
+        return {"success": False, "error": f"no staged changes for {path}"}
+
+    result: dict = {
+        "success": True,
+        "path": path,
+        "agent_id": entry.agent_id,
+        "task_id": entry.task_id,
+        "conflict_level": entry.conflict_level,
+        "stats": entry.stats,
+    }
+
+    if mode == "agent":
+        result["mode"] = "agent"
+        result["hunks"] = entry.hunks
+    else:
+        hr = entry.to_human_readable()
+        result["mode"] = "human"
+        result["human_readable"] = {
+            "diff": hr["diff"],
+            "summary": hr["summary"],
+            "semantic": hr["semantic"],
+        }
+
+    return result

@@ -104,12 +104,14 @@ class ToolPipeline:
 
     def execute(self, tool_name: str, agent_id: str,
                 args: dict | None = None,
+                domain: str = "",
                 _registry: dict | None = None,
                 _executor: Any = None,
                 _parent_call_id: str = "") -> dict:
         """Execute a tool through the pipeline with hierarchical call tracking.
 
         Args:
+            domain: card-level gate scope for GateChain enforcement.
             _registry: TOOL_REGISTRY dict (passed by caller)
             _executor: execute_tool function (passed by caller)
             _parent_call_id: parent composite tool's call_id for chain tracking
@@ -192,7 +194,7 @@ class ToolPipeline:
             try:
                 _get_rc().tool_call(tool_name, agent_id, allowed=gc_allowed,
                                    gate="gatechain", reason=gc_decision,
-                                   args=args, trace_id=call_id)
+                                   args=args, trace_id=call_id, card_scope=domain)
             except Exception:
                 logger.debug("tool_pipeline: gatechain record failed")
             if not gc_allowed:

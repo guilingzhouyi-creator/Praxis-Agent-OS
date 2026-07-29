@@ -217,9 +217,15 @@ class CardUnified:
     phases: list[CardPhase] = field(default_factory=list)
     error: str = ""
 
+    # ── Card execution scope (visible to Agent, verified by GateChain) ──
+    scope: str = ""
+    """Overall execution scope for this card (e.g. 'project/auth'). Agent sees this."""
+
     # ── Hidden system fields ──
     timestamps: CardTimestamps = field(default_factory=CardTimestamps)
     modifications: list[CardModification] = field(default_factory=list)
+    _gate_scope: str = ""
+    """GateChain enforcement scope — NOT exposed to LLM context. Passed to GateChain."""
     _completion_summary: str = ""
     _changes: list[dict] = field(default_factory=list)   # actual file/system changes
     _depends_on: list[str] = field(default_factory=list)  # dependency card IDs
