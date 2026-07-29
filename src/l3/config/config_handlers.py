@@ -458,3 +458,20 @@ def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
     if "enabled" in cfg:
         center.set("loop.enabled", bool(cfg["enabled"]))
     results["loop_control"] = True
+
+
+def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
+    from l3.config.settings_center import get_center
+    center = get_center()
+    if "mode" in cfg:
+        center.set("diff.mode", str(cfg["mode"]))
+    if "heavy_api_enabled" in cfg:
+        center.set("diff.heavy_api_enabled", bool(cfg["heavy_api_enabled"]))
+    if "colors" in cfg and isinstance(cfg["colors"], dict):
+        center.set("diff.colors", cfg["colors"])
+        try:
+            from l4.sandbox.cell_sandbox import set_color_scheme
+            set_color_scheme(cfg["colors"])
+        except Exception:
+            pass
+    results["diff"] = True

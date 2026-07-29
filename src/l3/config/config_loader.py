@@ -34,7 +34,7 @@ from .config_handlers import (
     cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
     cfg_agent_role_map, cfg_agent_priority,
     cfg_model_spec,
-    cfg_think, cfg_loop_control,
+    cfg_think, cfg_loop_control, cfg_diff,
 )
 
 logger = logging.getLogger(__name__)
@@ -182,6 +182,7 @@ _builtin_handlers = [
     ("model_spec", cfg_model_spec),
     ("think", cfg_think),
     ("loop_control", cfg_loop_control),
+    ("diff", cfg_diff),
 ]
 for _name, _fn in _builtin_handlers:
     register_config_handler(_name, _fn, override=True)

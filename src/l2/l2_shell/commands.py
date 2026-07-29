@@ -866,6 +866,71 @@ def _cmd_tokens(args: list[str]) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def _cmd_stats(args: list[str]) -> dict:
+    from l3.services.stats_center import get_center
+    from l3.services.counter import get_counter
+    sc = get_center()
+    scope, scope_id, rest = resolve_scope(args)
+    sub = rest[0] if rest else "tools"
+    sub_args = rest[1:]
+    window = sub_args[0] if sub_args else "5m"
+    try:
+        if sub == "agent" and scope == "agent" and scope_id:
+            counter = get_counter()
+            return {"success": True, "scope": "agent", "agent_id": scope_id,
+                    "tools": counter.tool_summary(scope_id),
+                    "tokens": counter.token_summary(scope_id),
+                    "loops": counter.loop_summary(scope_id)}
+        if sub == "cells":
+            tags = {"scope": "cell"}
+            results = sc.query(tags=tags, window=window)
+            return {"success": True, "window": window, "scope": "cells",
+                    "metrics": results, "count": len(results)}
+        tags = None
+        if scope == "cell" and scope_id:
+            tags = {"cell": scope_id}
+        elif scope == "global":
+            tags = None
+        if sub == "tools":
+            metrics = ["tools.executed.ring_1", "tools.executed.ring_2_5",
+                       "tools.executed.ring_3", "tools.rejected"]
+            results = sc.query(metrics=metrics, tags=tags, window=window)
+            return {"success": True, "window": window,
+                    "scope": scope, "scope_id": scope_id or "*",
+                    "metrics": results, "count": len(results)}
+        if sub == "compression":
+            results = sc.query(
+                metrics=["memory.compact.saved_tokens",
+                         "memory.stub_compact.saved_bytes"],
+                tags=tags, window=window)
+            return {"success": True, "window": window,
+                    "scope": scope, "scope_id": scope_id or "*",
+                    "metrics": results, "count": len(results)}
+        if sub == "cell" and scope == "cell" and scope_id:
+            cell_tags = {"cell": scope_id}
+            results = sc.query(tags=cell_tags, window=window)
+            try:
+                from l3.cell import get_cell
+                cell = get_cell(scope_id)
+                pmu = getattr(cell, "pmu", None)
+                pmu_stats = pmu.stats() if pmu else None
+            except Exception:
+                pmu_stats = None
+            return {"success": True, "cell": scope_id, "window": window,
+                    "metrics": results, "pmu_live": pmu_stats,
+                    "count": len(results)}
+        if sub == "top":
+            metric = sub_args[0] if sub_args else "tools.executed.ring_1"
+            limit = int(sub_args[1]) if len(sub_args) > 1 else 10
+            top_window = sub_args[2] if len(sub_args) > 2 else window
+            results = sc.top(metric=metric, limit=limit, window=top_window)
+            return {"success": True, "metric": metric, "window": top_window,
+                    "results": results, "count": len(results)}
+        return {"success": False, "error": f"unknown stats subcommand: {sub}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def _pipeline(segments: list[str]) -> dict:
     parts = [shlex.split(s.strip()) for s in segments]
 

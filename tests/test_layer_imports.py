@@ -118,10 +118,12 @@ ALLOWLIST = {
     ("l3/wiring.py", "l4.adapters.card_registry"),
     ("l3/wiring.py", "l4.adapters.monitor_bus"),
     # L3→L4 cross-layer service calls
+    ("l3/cell/components/cell_cross_review.py", "l4.sandbox"),
     ("l3/config_handlers.py", "l4.api_gateway"),
     ("l3/prompt_engine.py", "l4.lsp"),
     ("l3/tool_pipeline.py", "l4.sandbox.manager"),
     ("l3/tools/_comm.py", "l4.notify"),
+    ("l3/tools/_files.py", "l4.sandbox"),
     # L3→L4 LLM calls (pre-existing, need port refactoring)
     ("l3/agent_loop.py", "l4.llm"),
     ("l3/cache_strategy.py", "l4.llm"),
@@ -156,6 +158,7 @@ ALLOWLIST = {
     ("l2/l2_shell/commands.py", "l3.boot"),
     # L3->L4 LLM base
     ("l3/_term_lifecycle.py", "l4.llm_base"),
+    ("l3/cell/components/cell_rollback.py", "l4.sandbox"),
     ("l3/subagent_framework.py", "l4.llm"),
 }
 

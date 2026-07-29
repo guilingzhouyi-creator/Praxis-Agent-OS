@@ -7,6 +7,8 @@ into the Component protocol so they join the unified lifecycle.
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from typing import Any
 
 from l1.kernel.bus import Component, ComponentMeta, SystemBus
@@ -30,14 +32,19 @@ class StatsCenterComponent(Component):
         from l3.services.stats_center import get_center
         self._center = get_center()
         self._bus = bus
+        self._thread: threading.Thread | None = None
         # Auto-ingest stats from all components on heartbeat
         bus.on("stats.heartbeat", lambda e: self._collect(bus))
 
     def bus_start(self) -> None:
         self._running = True
+        self._thread = threading.Thread(target=self._heartbeat_loop, name="stats-heartbeat", daemon=True)
+        self._thread.start()
 
     def bus_stop(self) -> None:
         self._running = False
+        if self._thread:
+            self._thread.join(timeout=5)
 
     def _collect(self, bus: SystemBus) -> None:
         """Collect stats from all child buses and ingest into StatsCenter."""
@@ -53,6 +60,27 @@ class StatsCenterComponent(Component):
                     ))
         except Exception as e:
             logger.warning("stats_center collect: %s", e)
+
+    def _heartbeat_loop(self) -> None:
+        while self._running:
+            try:
+                self._snapshot_all_pmus()
+                if self._bus:
+                    self._bus.emit("stats.heartbeat", {"ts": time.time()})
+            except Exception as e:
+                logger.warning("stats heartbeat: %s", e)
+            time.sleep(60.0)
+
+    @staticmethod
+    def _snapshot_all_pmus() -> None:
+        try:
+            from l3.cell import get_cells
+            for cell_id, cell in get_cells().items():
+                pmu = getattr(cell, "pmu", None)
+                if pmu:
+                    pmu.snapshot()
+        except Exception:
+            pass
 
     def bus_health(self) -> dict:
         if not self._center:

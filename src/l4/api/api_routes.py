@@ -220,6 +220,11 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/export",             ".export_counter",     "Export counter data"),
     ("GET", "/api/metrics",            ".export_metrics",     "Export Prometheus metrics"),
 
+    # Diff / Sandbox API
+    ("POST", "/api/diff/structured",   "services.api_handlers_diff.diff_structured",   "Get structured diff for sandbox-staged file"),
+    ("POST", "/api/diff/history",      "services.api_handlers_diff.diff_history",      "List sandbox entries"),
+    ("POST", "/api/diff/colors",       "services.api_handlers_diff.diff_colors",       "Get/set/reset diff color scheme"),
+
     # Rollback
     ("GET", "/api/rollback/context",   ".rollback_context",   "Current rollback context"),
 
