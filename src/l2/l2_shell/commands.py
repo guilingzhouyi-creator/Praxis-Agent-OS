@@ -975,6 +975,15 @@ def _cmd_stats(args: list[str]) -> dict:
             results = sc.top(metric=metric, limit=limit, window=top_window)
             return {"success": True, "metric": metric, "window": top_window,
                     "data": results, "count": len(results)}
+        if sub == "l3a":
+            """Show L3A assembly status: held cards, convergence queue."""
+            from l3.cell.peers.l3a import get_convergence_queue
+            from l3.card.card_registry import get_registry
+            reg = get_registry()
+            stats = reg.stats()
+            conv = get_convergence_queue(scope_id or "") if scope == "cell" else []
+            return {"success": True, "scope": scope, "scope_id": scope_id or "*",
+                    "data": {"registry": stats, "convergence_queue": conv}}
         return {"success": False, "error": f"unknown stats subcommand: {sub}"}
     except Exception as e:
         return {"success": False, "error": str(e)}

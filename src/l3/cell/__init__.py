@@ -336,6 +336,19 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             return {"success": False, "error": f"unreachable: {r.get('reason')}"}
         return term.send_direct_message(text)
 
+    def close_direct_session(self, agent_id: str) -> dict:
+        """Close a direct session for the given agent."""
+        from ..agent_terminal import get_terminals
+        term = get_terminals().get(agent_id)
+        if not term:
+            return {"success": False, "error": f"unknown agent: {agent_id}"}
+        r = term.session_reachable()
+        if not r.get("reachable"):
+            return {"success": True, "note": "session already closed"}
+        # Direct session is stateless per message — no persistent session to close.
+        # Future: send a DIRECT_SESSION_END IPC message for stateful tracking.
+        return {"success": True, "agent_id": agent_id}
+
     def liveness(self) -> dict:
         """Check Cell and all agent terminals liveness.
 

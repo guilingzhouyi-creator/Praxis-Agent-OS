@@ -116,7 +116,10 @@ def _cardwrite_handler(args: dict, agent_id: str = "") -> dict:
         # Store the full card in registry
         with reg._lock:
             reg._cards[cid] = card
-        logger.info("L3A cardwrite: %s — %s", card.id, title[:LOG_TRUNC_60])
+        # Determine and store assembly routing decision
+        mode = _route_to_assembly(card)
+        card.summary.columns["_assembly_mode"] = mode.value
+        logger.info("L3A cardwrite: %s — %s [route=%s]", card.id, title[:LOG_TRUNC_60], mode.value)
         return {"success": True, "card_id": card.id, "nature": nature,
                 "phases": len(phases_data), "message": f"Card {card.id} submitted"}
     except Exception as e:

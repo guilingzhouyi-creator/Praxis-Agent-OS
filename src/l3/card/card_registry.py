@@ -162,6 +162,9 @@ class CardRegistry(PersistableMixin):
                 if entry == card_id:
                     self._queue[i] = self._placeholder_of(card_id)
                     break
+            record = self._cards.get(card_id)
+            if record:
+                record.lifecycle = CardLifecycle.HOLD
 
     def _find_dependents(self, card_id: str) -> list[str]:
         result = []
@@ -180,7 +183,11 @@ class CardRegistry(PersistableMixin):
                 if self._is_placeholder(c):
                     continue
                 record = self._cards.get(c)
-                if record and record.state == CardLifecycle.QUEUED:
+                if not record or record.state == CardLifecycle.HOLD:
+                    continue
+                if record.state == CardLifecycle.QUEUED:
+                    cid = c
+                    break
                     cid = c
                     break
         if not cid:
