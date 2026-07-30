@@ -460,6 +460,11 @@ ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes
 ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
 
 
+# ── Discussion / convergence buffer ──
+CONVERGENCE_BUFFER_SIZE: Final[int] = 100
+"""Max answers kept per-phase in CellAnswerRepo in-memory ring buffer."""
+
+
 # ── Context governance / compression thresholds ──
 CONTEXT_PRESSURE_WARN: Final[float] = 0.60
 CONTEXT_PRESSURE_MEDIUM: Final[float] = 0.80

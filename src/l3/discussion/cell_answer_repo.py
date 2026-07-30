@@ -16,10 +16,15 @@ import json
 import logging
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000, MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_CRITICAL
+from l1.kernel.params.system import (
+    CONVERGENCE_BUFFER_SIZE,
+    HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000,
+    MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_CRITICAL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +85,8 @@ class CellAnswerRepo:
         self.cell_id = cell_id
         self.session_id = session_id
         self._lock = threading.RLock()
-        # In-memory buffer for fast access
-        self._answers: dict[str, list[CellAnswer]] = {}  # phase → answers
+        # Ring buffer for fast in-memory access (per-phase, bounded by CONVERGENCE_BUFFER_SIZE)
+        self._answers: dict[str, deque] = {}
         self._checkpoints: list[AnswerCheckpoint] = []
 
     # ── Answer CRUD ───────────────────────────────────────────
@@ -94,7 +99,11 @@ class CellAnswerRepo:
 
         phase_key = str(answer.phase)
         with self._lock:
-            self._answers.setdefault(phase_key, []).append(answer)
+            buf = self._answers.get(phase_key)
+            if buf is None:
+                buf = deque(maxlen=CONVERGENCE_BUFFER_SIZE)
+                self._answers[phase_key] = buf
+            buf.append(answer)
 
         # Persist to Archive SQLite
         try:
@@ -124,8 +133,8 @@ class CellAnswerRepo:
         """Get all answers across all phases."""
         with self._lock:
             results: list[CellAnswer] = []
-            for phase_list in self._answers.values():
-                results.extend(phase_list)
+            for phase_buf in self._answers.values():
+                results.extend(phase_buf)
             return results
 
     # ── Checkpoint management ─────────────────────────────────

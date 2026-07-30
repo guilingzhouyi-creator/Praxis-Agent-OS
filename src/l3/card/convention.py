@@ -28,7 +28,7 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
 from l3.cell.components.cell_types import CellProtocol, MessageType
 from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
-from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500, MEMORY_IMPORTANCE_HIGH
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +193,21 @@ class ConventionProtocol:
                 card.archive_ref = self._archive_ref
         except Exception as e:
             logger.warning("convention archive failed: %s", e)
+
+        # Inject convergence summary into Memory Ring 2 for agent recall
+        try:
+            from l3.memory.memory import get_memory
+            mem = get_memory()
+            for aid in self.agent_ids:
+                mem.remember(
+                    agent_id=aid,
+                    content=f"[CONVERGENCE:{card.id}] {card.title}: {doc[:LOG_TRUNC_500]}",
+                    tags=["convergence", card.id, card.domain],
+                    importance=MEMORY_IMPORTANCE_HIGH,
+                    ring=2,
+                )
+        except Exception as e:
+            logger.warning("convention memory inject failed: %s", e)
 
         card.cache_ref = self._cache_ref
         self._completed_at = time.time()

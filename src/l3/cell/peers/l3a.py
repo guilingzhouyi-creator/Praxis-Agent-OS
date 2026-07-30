@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 _PARSE_SYSTEM_PROMPT = get_prompt("l3a.parse_system")
 
 
+class AssemblyMode(Enum):
+    """L3A assembly routing decision for a card."""
+    DEFAULT = "default"                # Hold card for human decision
+    AUTO_APPROVE = "auto_approve"      # Auto-dispatch to Cell
+    CONFERENCE = "conference"          # Route to Convention protocol
+
+
 class CardType(Enum):
     EXECUTION = auto()
     ISSUE = auto()
@@ -215,3 +222,58 @@ class L3A:
         return [{"id": c.id, "intent": c.intent, "card_type": c.card_type.name,
                  "domain": c.domain, "cell": c.cell, "priority": c.priority}
                 for c in self._cards[-n:]]
+
+
+def _route_to_assembly(card: CardUnified) -> AssemblyMode:
+    """Determine Assembly mode for a card based on its nature and risk.
+
+    Delegates to CardGate for classification, then maps result to AssemblyMode.
+    """
+    try:
+        from l3.card.card_gate import evaluate as _gate_evaluate
+        r = _gate_evaluate(
+            card_id=card.id,
+            intent=card.summary.title if card.summary else "",
+            domain=getattr(card, "domain", ""),
+            file_count=0,
+            estimated_lines=0,
+            has_conflict=False,
+        )
+        size = r.get("size", "small")
+        if r.get("auto_approve", False):
+            return AssemblyMode.AUTO_APPROVE
+        if size == "disputed":
+            return AssemblyMode.CONFERENCE
+        # Large cards requiring approval → hold for human
+        if size in ("large", "medium"):
+            return AssemblyMode.DEFAULT
+        return AssemblyMode.DEFAULT
+    except Exception:
+        logger.debug("l3a: _route_to_assembly fallback to AUTO_APPROVE")
+        return AssemblyMode.AUTO_APPROVE
+
+
+def get_convergence_queue(cell_id: str) -> list[dict]:
+    """Return pending convergence (convention) items from a Cell's answer repo.
+
+    Used by L3A to summarize unresolved convention discussions.
+    """
+    try:
+        from l3.discussion.cell_answer_repo import CellAnswerRepo
+        from l3.cell import get_cell
+        cell = get_cell(cell_id)
+        if not cell:
+            return []
+        repo = CellAnswerRepo(cell_id, "")
+        answers = repo.get_all()
+        return [
+            {
+                "agent_id": a.agent_id, "phase": a.phase,
+                "type": a.answer_type, "fingerprint": a.fingerprint,
+                "created_at": a.created_at,
+            }
+            for a in answers
+        ]
+    except Exception:
+        logger.debug("l3a: get_convergence_queue failed for %s", cell_id)
+        return []
