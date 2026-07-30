@@ -11,6 +11,18 @@ from l3.tools._git import (
 )
 
 
+def _guard_no_real_commit() -> None:
+    import os, subprocess
+    try:
+        r = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip() == "true":
+            import pytest
+            pytest.skip("inside git repo — skip to prevent accidental commit")
+    except Exception:
+        pass
+
+
 class TestGitCommit:
     def test_no_message(self):
         r = git_commit({}, "agent-a")
@@ -18,8 +30,8 @@ class TestGitCommit:
         assert "message is required" in r["error"]
 
     def test_with_message(self):
+        _guard_no_real_commit()
         r = git_commit({"message": "test commit"}, "agent-a")
-        # In a non-git repo, git add will fail — that's fine
         assert isinstance(r, dict)
         assert "success" in r
 
