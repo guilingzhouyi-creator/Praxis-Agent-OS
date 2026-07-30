@@ -192,7 +192,7 @@ class R4Agent:
 
     def _detect_stale(self) -> list[dict]:
         """Find archive entries with expired TTL or no recent references."""
-        from tools._archive import _get_db
+        from l3.tools._archive import _get_db
         stale = []
         try:
             conn = _get_db()
@@ -203,7 +203,6 @@ class R4Agent:
                 "ORDER BY created_at ASC LIMIT 50",
                 (now,),
             ).fetchall()
-            conn.close()
             for row in rows:
                 stale.append({"id": row[0], "fonds": row[1], "series": row[2],
                               "title": row[3], "expired_since": now - (row[4] + row[5])})
@@ -246,11 +245,10 @@ class R4Agent:
 
     def _check_consistency(self) -> list[dict]:
         """Detect cross-fonds contradictions in Archive."""
-        from tools._archive import _get_db
+        from l3.tools._archive import _get_db
         contradictions = []
         try:
             conn = _get_db()
-            # Simple check: find entries with same title but different content
             rows = conn.execute(
                 "SELECT a.id, a.fonds, a.series, a.title, a.content, "
                 "b.id, b.fonds, b.series "
@@ -258,7 +256,6 @@ class R4Agent:
                 "AND a.id != b.id AND a.content != b.content "
                 "LIMIT 20",
             ).fetchall()
-            conn.close()
             for row in rows:
                 contradictions.append({
                     "a": {"id": row[0], "fonds": row[1], "series": row[2], "title": row[3]},

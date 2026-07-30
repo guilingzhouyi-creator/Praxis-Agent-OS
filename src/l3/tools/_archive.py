@@ -29,11 +29,19 @@ def _get_db() -> sqlite3.Connection:
         series      TEXT DEFAULT 'general',
         content     TEXT,
         tags        TEXT,
+        title       TEXT DEFAULT '',
+        ttl         REAL DEFAULT 0,
         created_at  REAL,
         updated_at  REAL
     )""")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_archive_created ON archive(created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_archive_fonds_series ON archive(fonds, series)")
+    # Migrate existing databases: add columns if missing (idempotent)
+    for col in ("title TEXT DEFAULT ''", "ttl REAL DEFAULT 0"):
+        try:
+            conn.execute(f"ALTER TABLE archive ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # column already exists
     _db_conn = conn
     return conn
 
