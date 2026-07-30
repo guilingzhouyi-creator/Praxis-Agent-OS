@@ -15,4 +15,4 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[test]"
       - name: Run card benchmark
-        run: python tests/bench_card.py
+        run: python tests/benchmarks/bench_card.py

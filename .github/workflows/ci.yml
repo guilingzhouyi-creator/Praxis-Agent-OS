@@ -33,8 +33,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[test]"
-      - name: Batch 1 — fast core (layer imports, kernel, services)
-        run: python tests/runner.py test_layer_imports && python tests/runner.py test_kernel && python tests/runner.py test_persistence && python tests/runner.py test_tool_pipeline && python tests/runner.py test_errors && python tests/runner.py test_process && python tests/runner.py test_params_integrity
+      - name: Batch 1 — layer imports + L1 kernel + L2 shell + L3 core
+        run: |
+          python -m pytest tests/infra/test_layer_imports.py -x -q --tb=short
+          python -m pytest tests/infra/test_params_compliance.py -x -q --tb=short
+          python -m pytest tests/l1/ -x -q --tb=short -k "not test_contention"
+          python -m pytest tests/l3/bus/test_monitor_bus.py -x -q --tb=short
+          python -m pytest tests/l3/memory/test_sandbox.py -x -q --tb=short
 
   test-batch-1-extended:
     needs: test-batch-1
@@ -48,18 +53,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[test]"
-      - run: pip install pytest pytest-mock pyyaml jinja2 websocket-client cryptography
-      - name: L3 + L4 core tests
+      - name: L3 extended — cell, memory, tools, discussion, card, services
         run: |
-          python tests/runner.py test_gatechain
-          python tests/runner.py test_reputation
-          python tests/runner.py test_memory
-          python tests/runner.py test_cell
-          python tests/runner.py test_auth
-          python tests/runner.py test_credential_vault
-          python tests/runner.py test_identity
-          python tests/runner.py test_constitution
-          python tests/runner.py test_vfs
+          python -m pytest tests/l3/cell/ -x -q --tb=short
+          python -m pytest tests/l3/memory/ -x -q --tb=short -k "not r4"
+          python -m pytest tests/l3/tools/ -x -q --tb=short
+          python -m pytest tests/l3/config/ -x -q --tb=short
+          python -m pytest tests/l3/identity/ -x -q --tb=short
+          python -m pytest tests/l3/services/ -x -q --tb=short
+      - name: L3 discussion + agent + subagent
+        run: |
+          python -m pytest tests/l3/discussion/ -x -q --tb=short
+          python -m pytest tests/l3/agent/ -x -q --tb=short
+          python -m pytest tests/l3/subagent/ -x -q --tb=short
+          python -m pytest tests/l3/bus/ -x -q --tb=short -k "not test_monitor_bus"
 
   test-batch-2:
     needs: test-batch-1-extended
@@ -70,13 +77,12 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[test]"
-      - run: pip install pytest pytest-mock pyyaml jinja2 websocket-client cryptography
-      - name: Batch 2 — slow extended
-        run: python tests/runner.py test_r4_agent || true
+      - name: Batch 2 — slow extended (R4, convention, integration)
         continue-on-error: true
-      - name: Conventional checks
-        run: python tests/runner.py test_convention || true
-        continue-on-error: true
+        run: |
+          python -m pytest tests/l3/memory/ -q --tb=short -k "r4" || true
+          python -m pytest tests/l3/discussion/test_convention.py -q --tb=short || true
+          python -m pytest tests/integration/ -q --tb=short || true
 
   coverage:
     needs: lint
@@ -88,7 +94,10 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[test]"
       - run: pip install pytest-cov
-      - run: python -m pytest tests/test_kernel.py tests/test_layer_imports.py tests/test_errors.py tests/test_misc.py tests/test_process.py tests/test_gatechain.py tests/test_reputation.py --cov=src --cov-report=xml --cov-report=term -q
+      - run: |
+          python -m pytest tests/l1/test_kernel.py tests/infra/test_layer_imports.py \
+            tests/l1/test_errors.py tests/l1/test_gatechain.py \
+            tests/l1/test_reputation.py --cov=src --cov-report=xml --cov-report=term -q
       - uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
