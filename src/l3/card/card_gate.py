@@ -24,12 +24,20 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.agent import CARD_GATE_ARCH_KEYWORDS
-from l1.kernel.params.system import CARD_GATE_AUTO_SAVE, LOG_TRUNC_200
+from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.discovery import get_config as _get_config
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
 from l3.card.card_unified import CardLifecycle
 
 logger = logging.getLogger(__name__)
+
+# Resolve auto-save interval from config with params fallback
+from l1.kernel.params.system import CARD_GATE_AUTO_SAVE as _PARAMS_AUTO_SAVE
+_GATE_AUTO_SAVE: float = _PARAMS_AUTO_SAVE
+_cfg = _get_config("persistence")
+if _cfg:
+    _GATE_AUTO_SAVE = float(_cfg.get("card_gate", _GATE_AUTO_SAVE))
 
 
 class CardSize(Enum):
@@ -79,9 +87,9 @@ class CardGate(PersistableMixin):
         self._human_pending: dict[str, dict] = {}
         self._history: list[dict] = []  # approval audit trail
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or _gp().card_gate, CARD_GATE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().card_gate, _GATE_AUTO_SAVE)
         self._restore()
-        if CARD_GATE_AUTO_SAVE > 0:
+        if _GATE_AUTO_SAVE > 0:
             self._start_auto_save()
 
     def load_config(self, cfg: dict) -> None:

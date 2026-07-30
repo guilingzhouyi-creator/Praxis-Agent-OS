@@ -40,36 +40,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def _estimate_tokens(text: str, provider: str = "") -> int:
-    """Token count estimation with optional provider-specific accuracy.
-
-    Accuracy hierarchy:
-      1. tiktoken (if installed) — exact, matches OpenAI/DeepSeek
-      2. Anthropic heuristic: ~3.5 chars/token for English, ~1 for CJK
-      3. Fallback: len/4
-
-    The memory RingLayer uses this for budget management — it doesn't need
-    to be exact, just consistent across entries.  When real token counts
-    are available from LLM API responses (input_tokens, output_tokens),
-    they override this estimate at storage time.
-    """
-    try:
-        import tiktoken as _tk
-        enc = _tk.get_encoding("cl100k_base")
-        return len(enc.encode(text))
-    except Exception as e:
-        logger.warning("services/memory: %s", e)
-
-    if provider == "anthropic":
-        # Anthropic: ~3.5 chars/token for English, ~1 for CJK
-        cjk = sum(1 for c in text if '\u4e00' <= c <= '\u9fff' or '\u3040' <= c <= '\u30ff' or '\uac00' <= c <= '\ud7af')
-        eng = len(text) - cjk
-        return max(1, eng // 4 + cjk)
-
-    return max(1, len(text) // 4)
-
-
 from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
 from .memory_context import build_context as _build_context

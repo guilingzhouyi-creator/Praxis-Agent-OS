@@ -27,7 +27,7 @@ from l1.kernel.platform import IS_WINDOWS, run_shell
 from l3.agent.scout import get_pool as _get_scout_pool
 from l3.cell import get_cell as _get_cell
 from l3.tool_system.tool_spec import get_tool, execute_tool_spec, list_tools as _list_tools_
-from l3.tools_l3 import execute_l3_tool as _execute_l3_tool
+from l3.tool_system.tool_spec import execute_tool_spec as _execute_l3_tool
 from .shell_session import TerminalSession, TerminalManager, get_manager, reset_manager
 from .shell_completer import get_command_names, get_aliases, get_command_help, TerminalCompleter, get_tool_names
 

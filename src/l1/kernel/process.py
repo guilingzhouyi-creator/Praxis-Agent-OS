@@ -189,6 +189,7 @@ class ProcessTable:
         self._lock = threading.Lock()
         self._processes: dict[int, PCB] = {}
         self._name_index: dict[str, int] = {}
+        self._pid_to_name: dict[int, str] = {}  # reverse index: pid → name
         self._next_pid = 1
         self._audit_log: deque[dict] = deque(maxlen=PROCESS_AUDIT_MAX)
 
@@ -213,10 +214,9 @@ class ProcessTable:
                                if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > ZOMBIE_MAX_AGE]
                     for pid, _ in zombies:
                         self._processes.pop(pid, None)
-                        for n, p in list(self._name_index.items()):
-                            if p == pid:
-                                del self._name_index[n]
-                                break
+                        name = self._pid_to_name.pop(pid, None)
+                        if name:
+                            del self._name_index[name]
                     # Cap: if > PROCESS_TABLE_MAX processes, reap oldest STOPPED/ZOMBIE
                     if len(self._processes) > PROCESS_TABLE_MAX:
                         oldest = sorted(
@@ -244,6 +244,7 @@ class ProcessTable:
                       parent_pid=parent_pid, ring=ring)
             self._processes[pid] = pcb
             self._name_index[name] = pid
+            self._pid_to_name[pid] = name
             self._audit("spawn", pid, name, role)
             return pcb
 
@@ -299,6 +300,7 @@ class ProcessTable:
             if not pcb:
                 return None
             self._name_index.pop(pcb.name, None)
+            self._pid_to_name.pop(pid, None)
             self._audit("reap", pid, pcb.name, "")
             return pcb.snapshot()
 

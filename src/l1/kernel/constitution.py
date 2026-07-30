@@ -163,6 +163,9 @@ def _check_constitution_mod(rule: RuleDescriptor, action: str, agent_id: str, ta
 
 
 def _check_gate(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+    """G1 gate — tool whitelist check. Returns WARN (not BLOCK) for high-risk actions
+    because GateChain G5 makes the final authorization decision based on reputation,
+    history, and context. G1 only flags, it does not block."""
     ca = get_config("constitution")
     if ca:
         file_actions = frozenset(ca.get("file_actions", []))
@@ -465,7 +468,7 @@ class Constitution:
             logger.warning("constitution: cell bus emit failed — violation event lost")
         # Also emit EventBus signal for SSE broadcast
         try:
-            from l1.kernel import get_event_bus
+            from l1.kernel import get_event_bus  # lazy import avoids circular dep
             bus = get_event_bus()
             bus.emit_event("constitution.violation", data={
                 "action": action, "agent_id": agent_id,

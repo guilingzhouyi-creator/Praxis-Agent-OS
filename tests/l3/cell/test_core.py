@@ -59,7 +59,7 @@ class TestAgentStatus:
         from l3.cell import Cell
         cell = Cell("cell-s")
         cell.add_agent("agent-s1", role="reader")
-        from l3.cell_types import AgentStatus
+        from l3.cell.components.cell_types import AgentStatus
         info = cell._agents.get("agent-s1")
         assert info is not None
         assert info.status == AgentStatus.IDLE
@@ -164,7 +164,7 @@ class TestMessaging:
         reset_cells()
         cell = Cell("msg-cell")
         cell.add_agent("sender", role="reader")
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         r = cell.send_message("sender", "unknown-target",
                               MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]
@@ -174,7 +174,7 @@ class TestMessaging:
         reset_cells()
         cell = Cell("msg-cell-2")
         cell.add_agent("target", role="reader")
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         r = cell.send_message("unknown-sender", "target",
                               MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]

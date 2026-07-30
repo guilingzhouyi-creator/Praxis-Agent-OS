@@ -122,7 +122,7 @@ class TestMCPCommand:
 
 class TestToolPipelineHooks:
     def test_register_post_execute_hook(self):
-        from l3.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
         called = []
@@ -136,7 +136,7 @@ class TestToolPipelineHooks:
         assert pipeline._post_execute_hooks[0] is my_hook
 
     def test_run_post_execute_hooks(self):
-        from l3.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -155,7 +155,7 @@ class TestToolPipelineHooks:
         assert result["h2"]
 
     def test_register_tool_definition_hook(self):
-        from l3.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -166,7 +166,7 @@ class TestToolPipelineHooks:
         assert len(pipeline._tool_definition_hooks) == 1
 
     def test_post_execute_hook_exception_isolation(self):
-        from l3.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -184,7 +184,7 @@ class TestToolPipelineHooks:
         assert result.get("from_good")
 
     def test_hook_deduplication(self):
-        from l3.tool_pipeline import get_pipeline, reset_pipeline
+        from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -202,7 +202,7 @@ class TestToolPipelineHooks:
 
 class TestAgentLoopChatParamsHook:
     def test_register_hook(self):
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
 
         def my_hook(task, agent, kwargs):
@@ -213,7 +213,7 @@ class TestAgentLoopChatParamsHook:
         assert len(loop._chat_params_hooks) == 1
 
     def test_hook_deduplication(self):
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test")
 
         def h(task, agent, kwargs):
@@ -224,7 +224,7 @@ class TestAgentLoopChatParamsHook:
         assert len(loop._chat_params_hooks) == 1
 
     def test_import_does_not_crash(self):
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
         # Just verify the run() method can be called without LLM
         assert loop is not None

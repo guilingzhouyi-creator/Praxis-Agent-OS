@@ -12,15 +12,21 @@ from typing import Any
 
 from l1.kernel import EVENT_REVIEW_REQUESTED, emit_signal
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED as _EVT_REV
-from l1.kernel.params.system import SANDBOX_EXEC_TIMEOUT
+from l1.kernel.discovery import get_tool_config
+
+
+_SANDBOX_EXEC_TIMEOUT = get_tool_config("exec_timeout", 300)
 from l3.card.plan_step_types import StepState
 from l3.card.models import PhaseMode
 
 logger = logging.getLogger(__name__)
 
 
-def execute(plan, timeout: float = SANDBOX_EXEC_TIMEOUT) -> dict:
+def execute(plan, timeout: float | None = None) -> dict:
     """Execute all steps, respecting dependencies and card mode."""
+    if timeout is None:
+        from l1.kernel.discovery import get_tool_config
+        timeout = float(get_tool_config("exec_timeout", 300))
     plan._started_at = time.time()
     aggregated: dict = {"steps": [], "success": True, "error": ""}
 

@@ -63,7 +63,7 @@ def _cmd_disconnect(args: list[str]) -> dict:
     state.switch_to_l3a(); return {"success": True}
 
 def _cmd_mode(args: list[str]) -> dict:
-    from .state import get_state
+    from ..state import get_state
     state = get_state()
     if args and args[0].upper() == "DIRECT":
         if not state.agent_id: return {"success": False, "error": "no agent connected — use /connect first"}

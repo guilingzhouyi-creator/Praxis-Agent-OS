@@ -17,7 +17,7 @@ def cleanup():
 
 def test_register_and_get_tool():
     """A tool can be registered and retrieved by name."""
-    from l3.tool_params import ToolSpec
+    from l3.tool_system.tool_params import ToolSpec
     spec = ToolSpec(name="test_tool", category="test")
     register(spec)
     assert get_tool("test_tool") is spec
@@ -59,7 +59,7 @@ def test_clear_mutes():
 
 def test_register_plugin():
     """A plugin can register multiple tools at once."""
-    from l3.tool_params import ToolSpec
+    from l3.tool_system.tool_params import ToolSpec
     tools = [
         ToolSpec(name="plugin_tool_1", plugin="test_plugin"),
         ToolSpec(name="plugin_tool_2", plugin="test_plugin"),
@@ -71,7 +71,7 @@ def test_register_plugin():
 
 def test_unregister_plugin():
     """Unregistering a plugin removes all its tools."""
-    from l3.tool_params import ToolSpec
+    from l3.tool_system.tool_params import ToolSpec
     tools = [ToolSpec(name="removable_tool", plugin="temp_plugin")]
     register_plugin("temp_plugin", tools)
     unregister_plugin("temp_plugin")
@@ -83,5 +83,5 @@ def test_register_middleware():
     def dummy_hook(tool_name, args, agent_id):
         return args
     register_middleware("pre", "test_mw", dummy_hook)
-    from l3.tool_registry import _MIDDLEWARE
+    from l3.tool_system.tool_registry import _MIDDLEWARE
     assert any(m["name"] == "test_mw" for m in _MIDDLEWARE)

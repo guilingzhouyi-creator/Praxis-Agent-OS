@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT, HASH_TRUNC_SHORT, LOG_TRUNC_100, LOG_TRUNC_200
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_100, LOG_TRUNC_200
+from l1.kernel.discovery import get_config as _get_config
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,15 @@ PENDING = "pending"
 APPROVED = "approved"
 REJECTED = "rejected"
 TIMEOUT = "timeout"
+
+# Resolve persistence defaults from config with params fallback
+from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE as _DEFAULT_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT as _DEFAULT_WAIT_TIMEOUT
+_AUTO_SAVE: float = _DEFAULT_AUTO_SAVE
+_WAIT_TIMEOUT: float = _DEFAULT_WAIT_TIMEOUT
+_cfg = _get_config("persistence")
+if _cfg:
+    _AUTO_SAVE = float(_cfg.get("approval_gate", _AUTO_SAVE))
+    _WAIT_TIMEOUT = float(_cfg.get("approval_wait_timeout", _WAIT_TIMEOUT))
 
 
 @dataclass
@@ -47,7 +57,7 @@ class ApprovalRequest:
         self.response = response
         self._event.set()
 
-    def wait(self, timeout: float = APPROVAL_GATE_WAIT_TIMEOUT) -> str:
+    def wait(self, timeout: float | None = None) -> str:
         """Block until the request is answered or timeout, returning final status."""
         self._event.wait(timeout=timeout)
         if self.status == PENDING:
@@ -63,7 +73,7 @@ class ApprovalGate(PersistableMixin):
     def __init__(self, persist_path: str = ""):
         self._requests: dict[str, ApprovalRequest] = {}
         self._lock = threading.RLock()
-        self._init_persistence(persist_path or _gp().approval_gate, APPROVAL_GATE_AUTO_SAVE)
+        self._init_persistence(persist_path or _gp().approval_gate, _AUTO_SAVE)
         self._restore()
         # Expire any stale pending requests from before restart
         now = time.time()
@@ -75,7 +85,7 @@ class ApprovalGate(PersistableMixin):
                     expired += 1
             if expired:
                 self._persist()
-        if APPROVAL_GATE_AUTO_SAVE > 0:
+        if _AUTO_SAVE > 0:
             self._start_auto_save()
 
     def _serialize(self) -> dict:

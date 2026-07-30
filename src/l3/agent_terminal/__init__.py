@@ -349,6 +349,7 @@ class AgentTerminal:
                     self._active_loop._context_trail = snap["context_trail"]
             except Exception:
                 pass
+        ar: dict = {}
         try:
             from ..agent.agent_persist import append_transcript
             ar = self._active_loop.continue_run(task=task)
@@ -379,7 +380,7 @@ class AgentTerminal:
 
     def _inject_loop_result(self, card: TerminalCard, answer: str, success: bool) -> None:
         """Inject AgentLoop result into Cell L2 cache for cross-agent sharing."""
-        from .cell import get_cell as _get_cell
+        from l3.cell import get_cell as _get_cell
         cell = _get_cell(self.cell_id)
         import hashlib as _hl
         key = f"persistent:{self.agent_id}:{_hl.sha256(answer.encode()).hexdigest()[:HASH_TRUNC_SHORT]}"

@@ -128,11 +128,8 @@ def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_tool_rates(cfg: dict, s: Any, results: dict) -> None:
-    from l1.kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
-    if "ring_1" in cfg: TOOL_RATE_RING_1 = int(cfg["ring_1"])
-    if "ring_2_5" in cfg: TOOL_RATE_RING_2_5 = int(cfg["ring_2_5"])
-    if "ring_3" in cfg: TOOL_RATE_RING_3 = int(cfg["ring_3"])
-    results["tool_rates"] = True
+    if "ring_1" in cfg or "ring_2_5" in cfg or "ring_3" in cfg:
+        results["tool_rates"] = True
 
 
 def cfg_htn(cfg: dict, s: Any, results: dict) -> None:

@@ -25,12 +25,21 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS, CONVENTION_TIMEOUT
+from l1.kernel.discovery import get_config as _get_config
 from l3.cell.components.cell_types import CellProtocol, MessageType
 from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500, MEMORY_IMPORTANCE_HIGH
 
 logger = logging.getLogger(__name__)
+
+# Resolve convention limits from config with params fallback
+from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS, CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT
+_CONV_MAX_ROUNDS: int = _DEFAULT_ROUNDS
+_CONV_TIMEOUT: float = _DEFAULT_TIMEOUT
+_cfg = _get_config("services")
+if _cfg:
+    _CONV_MAX_ROUNDS = int(_cfg.get("convention_max_rounds", _CONV_MAX_ROUNDS))
+    _CONV_TIMEOUT = float(_cfg.get("convention_timeout", _CONV_TIMEOUT))
 
 
 @dataclass
@@ -153,7 +162,7 @@ class ConventionProtocol:
         """Enter next round. Returns False when all rounds exhausted."""
         with self._lock:
             current_num = self._current_round.round_num if self._current_round else 0
-            if current_num >= CONVENTION_MAX_ROUNDS:
+            if current_num >= _CONV_MAX_ROUNDS:
                 return False
             self._current_round = ConventionRound(
                 round_num=current_num + 1,

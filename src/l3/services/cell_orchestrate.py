@@ -27,7 +27,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
-from l1.kernel.params.tool import TOOL_AGENT_COORD_TIMEOUT
+from l1.kernel.discovery import get_tool_config
 from l3.agent.subagent_pool import SubAgentPool
 from l3.agent.subagent_spec import SubAgentSpec
 from l1.kernel.params.system import LOG_TRUNC_1000, LOG_TRUNC_2000, LOG_TRUNC_500
@@ -90,7 +90,7 @@ class SubAgentOrchestrator:
     # ── Phase 3: Verify ──────────────────────────────────────────
 
     def verify(self, verify_prompt_template: str,
-               timeout: float = TOOL_AGENT_COORD_TIMEOUT) -> dict:
+               timeout: float | None = None) -> dict:
         """Auto-dispatch Scouts to verify each SubAgent result.
 
         Each scout prompt receives {spec}, {answer}, {result} substitution.
@@ -228,7 +228,7 @@ class SubAgentOrchestrator:
     def run(self, sub_tasks: list[dict],
             verify_prompt: str = "",
             fork_timeout: float = SUBAGENT_RUN_TIMEOUT,
-            verify_timeout: float = TOOL_AGENT_COORD_TIMEOUT) -> dict:
+            verify_timeout: float | None = None) -> dict:
         """Run the full fork-join-verify-gap cycle.
 
         Args:

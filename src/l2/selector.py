@@ -242,7 +242,7 @@ def _select_by_id(agent_id: str) -> dict:
     for cell_id, cell in get_cells().items():
         try:
             r = cell.agent_reachable(agent_id)
-            if r.get("reachable") or r.get("reason") == "in_session":
+            if r.get("reachable"):
                 return {
                     "success": True, "cell_id": cell_id, "agent_id": agent_id,
                 }

@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestAPIGatewayInit:
     def test_create_instance(self):
-        from l4.api_gateway import ApiGateway
+        from l4.api.api_gateway import ApiGateway
         gw = ApiGateway()
         assert gw is not None
         assert hasattr(gw, 'register_route')
@@ -20,14 +20,14 @@ class TestAPIGatewayInit:
 
 class TestAPIRouteRegistration:
     def test_register_route(self):
-        from l4.api_gateway import ApiGateway
+        from l4.api.api_gateway import ApiGateway
         gw = ApiGateway()
         gw._routes.clear()
         gw.register_route("GET", "/api/health", lambda b: {"status": "ok"}, "health check")
         assert len(gw._routes) == 1
 
     def test_register_multiple_routes(self):
-        from l4.api_gateway import ApiGateway
+        from l4.api.api_gateway import ApiGateway
         gw = ApiGateway()
         gw._routes.clear()
         routes = [("GET", "/api/a"), ("POST", "/api/b"), ("GET", "/api/c")]
@@ -38,12 +38,12 @@ class TestAPIRouteRegistration:
 
 class TestAPIRoutesInit:
     def test_api_routes_importable(self):
-        from l4.api_routes import API_ROUTES
+        from l4.api.api_routes import API_ROUTES
         assert isinstance(API_ROUTES, list)
         assert len(API_ROUTES) >= 100
 
     def test_route_structure(self):
-        from l4.api_routes import API_ROUTES
+        from l4.api.api_routes import API_ROUTES
         for route in API_ROUTES[:10]:
             assert len(route) >= 3
             assert route[0] in ("GET", "POST", "PUT", "DELETE", "PATCH")
@@ -52,12 +52,12 @@ class TestAPIRoutesInit:
 
 class TestMiddlewareIntegration:
     def test_middleware_chain_importable(self):
-        from l4.api_middleware import MiddlewareChain, LocaleMiddleware, CORSMiddleware
+        from l4.api.api_middleware import MiddlewareChain, LocaleMiddleware, CORSMiddleware
         chain = MiddlewareChain()
         assert chain is not None
 
     def test_cors_middleware(self):
-        from l4.api_middleware import CORSMiddleware
+        from l4.api.api_middleware import CORSMiddleware
         from l1.kernel.params.api import API_CORS_ORIGIN, API_CORS_ALLOW_METHODS
         mw = CORSMiddleware()
         assert mw is not None

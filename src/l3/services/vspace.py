@@ -21,6 +21,7 @@ from typing import Any
 
 from l1.kernel.constitution import get_constitution
 from l1.kernel.params.agent import TERRITORY_MAP as PARAMS_TERRITORY, TERRITORY_PATHS as PARAMS_PATHS, SHARED_PATHS as PARAMS_SHARED
+from l1.kernel.params.api import ENV_SANDBOX_ROOT
 
 logger = logging.getLogger(__name__)
 

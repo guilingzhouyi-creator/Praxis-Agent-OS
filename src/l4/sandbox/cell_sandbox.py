@@ -381,6 +381,7 @@ class CellSandbox:
         self.sandbox_root = Path(sandbox_root).resolve() / cell_id
         self._agents: dict[str, Path] = {}
         self._entries: dict[str, SandboxEntry] = {}
+        self._path_index: dict[str, list[str]] = {}  # rel_path → [entry_key, ...]
         self._lock = threading.Lock()
         self._state_path = state_path or _gp().sandbox_state
         self._summary_cache: dict[str, dict] = {}  # path → summary (L2, shared across requests)
@@ -417,6 +418,9 @@ class CellSandbox:
                 self._agents[aid] = Path(path_str)
             for eid, ed in data.get("entries", {}).items():
                 self._entries[eid] = SandboxEntry.from_dict(ed)
+                rel_path = ed.get("path", "")
+                if rel_path:
+                    self._path_index.setdefault(rel_path, []).append(eid)
             self._summary_cache.update(data.get("summary_cache", {}))
             logger.info("sandbox restored: %d agents, %d entries",
                         len(self._agents), len(self._entries))
@@ -587,30 +591,31 @@ class CellSandbox:
 
     @staticmethod
     def _check_conflict(rel_path: str, agent_id: str,
+                        path_index: dict[str, list[str]],
                         entries: dict[str, SandboxEntry]) -> str:
         """Check if another agent has pending/staged changes to the same file.
 
-        Scans entries whose key starts with ``rel_path::``.
+        Uses ``path_index`` for O(1) lookup instead of O(N) scan.
         Returns: "none" | "warn" | "block" | "ping_pong"
         """
-        prefix = f"{rel_path}::"
         other: SandboxEntry | None = None
-        for key, entry in entries.items():
-            if key.startswith(prefix) and entry.agent_id != agent_id:
+        for key in path_index.get(rel_path, []):
+            entry = entries.get(key)
+            if entry and entry.agent_id != agent_id:
                 other = entry
                 break
         if not other:
             return "none"
         if other.agent_id == agent_id:
             # Same agent modifying again — only warn if rapid cycle
-            age = time.time() - entry.modified_at
-            if age < 30 and entry.status in ("pending", "staged"):
+            age = time.time() - other.modified_at
+            if age < 30 and other.status in ("pending", "staged"):
                 return "warn"
             return "none"
         # Different agent
-        if entry.status in ("pending", "staged"):
+        if other.status in ("pending", "staged"):
             # Check for ping-pong: same file flipped back-and-forth
-            age = time.time() - entry.modified_at
+            age = time.time() - other.modified_at
             if age < _PING_PONG_TIMEOUT:
                 return "block"
             return "warn"
@@ -719,7 +724,7 @@ class CellSandbox:
 
             # 3. Conflict detection (other agents' pending entries)
             with self._lock:
-                conflict = self._check_conflict(safe_rel, agent_id, self._entries)
+                conflict = self._check_conflict(safe_rel, agent_id, self._path_index, self._entries)
 
             # 4. Write to sandbox disk
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -738,6 +743,7 @@ class CellSandbox:
             )
             with self._lock:
                 self._entries[f"{safe_rel}::{agent_id}"] = entry
+                self._path_index.setdefault(safe_rel, []).append(f"{safe_rel}::{agent_id}")
                 self._summary_cache.pop(safe_rel, None)  # invalidate L2
                 self._persist_state()
 
@@ -802,6 +808,15 @@ class CellSandbox:
                 shutil.copy2(str(src), str(dst))
                 entry.status = "flushed"
                 flushed.append(rel_path)
+                # Clean up path_index for flushed entries
+                if rel_path in self._path_index:
+                    entry_key = f"{rel_path}::{agent_id}"
+                    try:
+                        self._path_index[rel_path].remove(entry_key)
+                        if not self._path_index[rel_path]:
+                            del self._path_index[rel_path]
+                    except ValueError:
+                        pass
             except Exception as e:
                 logger.error("flush failed: %s: %s", rel_path, e)
 
@@ -813,12 +828,21 @@ class CellSandbox:
         agent_dir = self._agent_path(agent_id) if agent_id else self.sandbox_root
         count = 0
         with self._lock:
-            for entry in self._entries.values():
-                if agent_id and entry.agent_id != agent_id:
-                    continue
-                if entry.status in ("pending", "staged"):
-                    entry.status = "discarded"
-                    count += 1
+            to_discard = [(k, e) for k, e in self._entries.items()
+                          if (not agent_id or e.agent_id == agent_id)
+                          and e.status in ("pending", "staged")]
+            for key, entry in to_discard:
+                entry.status = "discarded"
+                count += 1
+                # Clean up path_index
+                rel_path = entry.path
+                if rel_path in self._path_index:
+                    try:
+                        self._path_index[rel_path].remove(key)
+                        if not self._path_index[rel_path]:
+                            del self._path_index[rel_path]
+                    except ValueError:
+                        pass
             self._persist_state()
 
         try:

@@ -13,7 +13,7 @@ class TestContinuationGate:
 
     def test_continuation_disabled_returns_early(self):
         """When continuation_nudge is False, _finish is called immediately."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="a")
         fn = lambda a, b: {"success": True}
         loop.add_tool("simple", "T", {}, fn)
@@ -30,7 +30,7 @@ class TestContinuationAttempts:
 
     def test_continuation_runs_without_crash(self):
         """Steps-exhausted path executes without raising."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test task", agent_id="b")
         fn = lambda a, b: {"success": True}
         loop.add_tool("tool_a", "T", {}, fn)
@@ -41,7 +41,7 @@ class TestContinuationAttempts:
 
     def test_continuation_respects_attempt_limit(self):
         """The inner loop does not spin forever."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="x", agent_id="c")
         fn = lambda a, b: {"success": True, "data": "ok"}
         loop.add_tool("simple", "T", {}, fn)
@@ -59,7 +59,7 @@ class TestContinuationWithVerifier:
 
     def test_continuation_with_verifier_completes(self):
         """Verifier object does not break the continuation path."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="verify continuation", agent_id="d")
 
         class FakeVerifier:
@@ -82,7 +82,7 @@ class TestContinuationErrorBoundary:
 
     def test_continuation_handles_engine_failure(self):
         """engine.generate or tool_use failure does not propagate."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="continuation error test", agent_id="e")
         fn = lambda a, b: {"success": True}
         loop.add_tool("t", "T", {}, fn)
@@ -97,7 +97,7 @@ class TestContextPreservation:
 
     def test_context_trail_survives(self):
         """context_trail is available (not None) after run."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="ctx test", agent_id="f")
         fn = lambda a, b: {"success": True}
         loop.add_tool("t", "T", {}, fn)

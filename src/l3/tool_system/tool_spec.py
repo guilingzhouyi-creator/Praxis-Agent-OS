@@ -36,6 +36,9 @@ from .tool_registry import (
 
 logger = logging.getLogger(__name__)
 
+# Middleware hooks: populated by register_middleware()
+_MIDDLEWARE: list[dict] = []
+
 
 # ── Tool handler Protocol ──
 

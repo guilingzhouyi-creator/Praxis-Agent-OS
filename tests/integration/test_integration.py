@@ -11,7 +11,7 @@ class TestCellCardExecution:
     def test_raw_string_card(self):
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.scout import reset_pool
+        from l3.agent.scout import reset_pool
 
         # Ensure LLM mock mode + reset state
         from l4.llm import reset_engine, get_engine

@@ -191,6 +191,91 @@ def get_layer(path: Path) -> str | None:
     return None
 
 
+# ── Helpers for TestLayerConstraints (merged from coverage test file) ──
+
+
+def _get_layer(fpath: str) -> int:
+    """Extract layer index (1-5) from a file path string."""
+    path = Path(fpath)
+    for part in path.parts:
+        if part.startswith("l") and len(part) > 1 and part[1:].isdigit():
+            return int(part[1])
+    return 0
+
+
+def _parse_imports(fpath: str) -> list[tuple[str, str]]:
+    """Parse all local (l1-l5) imports from a file, returning (type, module)."""
+    try:
+        with open(fpath, encoding="utf-8", errors="replace") as f:
+            tree = ast.parse(f.read(), filename=fpath)
+    except (SyntaxError, OSError):
+        return []
+    imports: list[tuple[str, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if re.match(r"^l[1-5](\.|$)", alias.name):
+                    imports.append(("import", alias.name))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module and re.match(r"^l[1-5]\.", node.module):
+                imports.append(("from", node.module))
+    return imports
+
+
+def _import_layer(module: str) -> int:
+    """Extract layer index (1-5) from a dotted module name (e.g. 'l3.card.issue' → 3)."""
+    m = re.match(r"^l([1-5])", module)
+    return int(m.group(1)) if m else 0
+
+
+# L3-L4 and L2-L3 allowlist as (src_layer, dst_layer, module_prefix)
+_LAYER_ALLOWLIST: set[tuple[int, int, str]] = set()
+"""Populated from ALLOWLIST set on first access."""
+
+
+def _ensure_layer_allowlist() -> None:
+    """Convert ALLOWLIST (file_path, module) tuples to (layer, layer, module_prefix) lookups."""
+    if _LAYER_ALLOWLIST:
+        return
+    for fpath, module in ALLOWLIST:
+        src = _get_layer(fpath)
+        dst = _import_layer(module)
+        if src and dst:
+            _LAYER_ALLOWLIST.add((src, dst, module))
+    # Also add some known-adapter patterns that aren't file-specific
+    for src, dst, prefix in [
+        (1, 3, "l3.config.settings_adapter"),
+        (1, 3, "l3.error_bus"),
+        (1, 3, "l3.stagnation"),
+        (1, 3, "l3.agent.stagnation"),
+        (1, 3, "l3.cell"),
+        (1, 4, "l4.adapters"),
+        (1, 4, "l4.llm_base"),
+        (2, 3, "l3.cache"),
+        (2, 3, "l3.l3b"),
+        (2, 3, "l3.htn_a"),
+        (2, 3, "l3.htn_planner"),
+        (2, 3, "l3.cell.peers.l3"),
+        (2, 3, "l3.scheduler"),
+        (2, 3, "l3.bus"),
+        (2, 3, "l3.memory"),
+        (2, 3, "l3.services"),
+        (2, 3, "l3.cell.components"),
+        (2, 3, "l3.tool_system"),
+        (2, 4, "l4.adapters"),
+    ]:
+        _LAYER_ALLOWLIST.add((src, dst, prefix))
+
+
+def _is_allowlisted(src_layer: int, dst_layer: int, module: str) -> bool:
+    """Check if a (src_layer, dst_layer, module) import is allowlisted."""
+    _ensure_layer_allowlist()
+    for s, d, prefix in _LAYER_ALLOWLIST:
+        if s == src_layer and d == dst_layer and module.startswith(prefix):
+            return True
+    return False
+
+
 class TestLayerImports:
 
     def test_no_upward_imports(self):
@@ -288,23 +373,22 @@ class TestLayerConstraints:
         """Verify each pattern in allowlist has at least one actual reference"""
         src_dir = Path("src")
         unmatched = []
-        for s, d, pattern in ALLOWLIST:
+        for fpath_filter, module_pattern in ALLOWLIST:
             found = False
             for fpath in src_dir.rglob("*.py"):
                 if "__pycache__" in fpath.parts:
                     continue
-                src_layer = _get_layer(str(fpath))
-                if src_layer != s:
+                if fpath_filter and fpath_filter not in str(fpath):
                     continue
-                imports = _parse_imports(str(fpath))
-                for imp_type, module in imports:
-                    if module.startswith(pattern):
+                imports = extract_imports(str(fpath))
+                for mod in imports:
+                    if mod.startswith(module_pattern):
                         found = True
                         break
                 if found:
                     break
             if not found:
-                unmatched.append(f"L{s}→L{d} {pattern}")
+                unmatched.append(f"{fpath_filter}: {module_pattern}")
         if unmatched:
             import logging
             logging.getLogger(__name__).warning(

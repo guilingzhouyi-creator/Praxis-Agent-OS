@@ -24,7 +24,11 @@ from .models import Card, CardMode, PhaseMode, Step
 from l3.agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
 from .plan_step_types import StepState, PlanStep
 from .execution_run import execute as _execute, _run_phase, _execute_step, _execute_agent, _execute_scout
-from l1.kernel.params.system import LOG_TRUNC_80, SANDBOX_EXEC_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_80
+from l1.kernel.discovery import get_tool_config
+
+
+SANDBOX_EXEC_TIMEOUT = get_tool_config("exec_timeout", 300)
 
 logger = logging.getLogger(__name__)
 

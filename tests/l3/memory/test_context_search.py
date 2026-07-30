@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestMemoryContext:
     def test_build_context_with_watermark(self):
-        from l3.memory_context import build_context
+        from l3.memory.memory_context import build_context
         from l3.memory import MemoryManager
         mem = MemoryManager()
         ctx = build_context(mem, "agent-ctx", max_tokens=4096)
@@ -14,7 +14,7 @@ class TestMemoryContext:
         assert "WATERMARK" in ctx
 
     def test_build_context_includes_entries(self):
-        from l3.memory_context import build_context
+        from l3.memory.memory_context import build_context
         from l3.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-ctx2", "decision",
@@ -24,7 +24,7 @@ class TestMemoryContext:
         assert "WATERMARK" in ctx
 
     def test_build_context_empty_agent(self):
-        from l3.memory_context import build_context
+        from l3.memory.memory_context import build_context
         from l3.memory import MemoryManager
         mem = MemoryManager()
         ctx = build_context(mem, "nonexistent-agent", max_tokens=512)
@@ -34,14 +34,14 @@ class TestMemoryContext:
 
 class TestMemorySearch:
     def test_search_empty_db(self):
-        from l3.memory_search import search_long_term
+        from l3.memory.memory_search import search_long_term
         from l3.memory import MemoryManager
         mem = MemoryManager()
         results = search_long_term(mem, "test query")
         assert isinstance(results, list)
 
     def test_search_no_db_file(self):
-        from l3.memory_search import search_long_term
+        from l3.memory.memory_search import search_long_term
         from l3.memory import MemoryManager
         mem = MemoryManager()
         results = search_long_term(mem, "something")

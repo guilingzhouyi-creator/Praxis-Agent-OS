@@ -60,6 +60,7 @@ from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
 
 from l1.kernel.ports import get_port as _get_port
+from l3.memory.memory_ring import _estimate_tokens
 from l3.scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
 from .session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
 from l3.services.todo_tracker import TodoTracker
@@ -482,20 +483,27 @@ class AgentLoop:
                 logger.debug("agent_loop: reference channel event failed")
 
         if ctx_window > 0:
-            est_tokens = len(self.task) // 4
+            est_tokens = _estimate_tokens(self.task)
             est_total = est_tokens + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
             ratio = est_total / ctx_window
 
-            if ratio >= CONTEXT_PRESSURE_CRITICAL:
-                logger.error("context exhausted: ~%d/%d tokens — aborting", est_total, ctx_window)
-                if self._pmu:
-                    self._pmu.increment("memory.context.critical")
-                _emit_memory_event("memory.pressure.critical", {"ratio": ratio, "est_total": est_total, "ctx_window": ctx_window})
-                return self._finish({
-                    "success": False, "answer": "",
-                    "error": f"context window exhausted (~{est_total}/{ctx_window} tokens)",
-                    "steps": [], "verifier_used": False, "corrections": 0, "loop_stopped": False,
-                }, t0=t0)
+            # Phase 1: Try compression first (WARN → then MEDIUM escalation)
+            if ratio >= CONTEXT_PRESSURE_WARN:
+                try:
+                    from .memory.memory import get_memory
+                    mem = get_memory()
+                    sr = mem.stub_compact(self.agent_id)
+                    logger.info("pre-send L1 stub_compact: ~%d/%d (%.0f%%)",
+                                est_total, ctx_window, ratio * 100)
+                    if self._pmu:
+                        self._pmu.increment("memory.stub_compacts")
+                        self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
+                    _emit_memory_event("memory.stub_compact", {"ratio": ratio, "stubbed": sr.get("stubbed", 0), "saved_bytes": sr.get("saved_bytes", 0)})
+                    # Re-estimate after stub compaction
+                    est_total = _estimate_tokens(self.task) + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+                    ratio = est_total / ctx_window
+                except Exception as e:
+                    logger.warning("agent_loop L1 stub_compact failed: %s", e)
 
             if ratio >= CONTEXT_PRESSURE_MEDIUM:
                 try:
@@ -511,23 +519,23 @@ class AgentLoop:
                         self._pmu.increment("memory.compact.merges", cr.get("merged", 0))
                         self._pmu.increment("memory.compact.saved_tokens", cr.get("saved_tokens", 0))
                     _emit_memory_event("memory.compact", {"ratio": ratio, "merges": cr.get("merged", 0), "saved_tokens": cr.get("saved_tokens", 0)})
+                    # Re-estimate after full compaction
+                    est_total = _estimate_tokens(self.task) + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+                    ratio = est_total / ctx_window
                 except Exception as e:
                     logger.warning("agent_loop L2 compact failed: %s", e)
 
-            if ratio >= CONTEXT_PRESSURE_WARN:
-                try:
-                    if mem is None:
-                        from .memory.memory import get_memory as _gm2
-                        mem = _gm2()
-                    sr = mem.stub_compact(self.agent_id)
-                    logger.info("pre-send L1 stub_compact: ~%d/%d (%.0f%%)",
-                                est_total, ctx_window, ratio * 100)
-                    if self._pmu:
-                        self._pmu.increment("memory.stub_compacts")
-                        self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
-                    _emit_memory_event("memory.stub_compact", {"ratio": ratio, "stubbed": sr.get("stubbed", 0), "saved_bytes": sr.get("saved_bytes", 0)})
-                except Exception as e:
-                    logger.warning("agent_loop L1 stub_compact failed: %s", e)
+            # Phase 2: Check CRITICAL after compression attempts
+            if ratio >= CONTEXT_PRESSURE_CRITICAL:
+                logger.error("context exhausted: ~%d/%d tokens — aborting", est_total, ctx_window)
+                if self._pmu:
+                    self._pmu.increment("memory.context.critical")
+                _emit_memory_event("memory.pressure.critical", {"ratio": ratio, "est_total": est_total, "ctx_window": ctx_window})
+                return self._finish({
+                    "success": False, "answer": "",
+                    "error": f"context window exhausted (~{est_total}/{ctx_window} tokens)",
+                    "steps": [], "verifier_used": False, "corrections": 0, "loop_stopped": False,
+                }, t0=t0)
 
         # Fallback: when ctx_window is unknown (0), compress every 3 runs
         if ctx_window <= 0 and self._run_count > 0 and self._run_count % 3 == 0:

@@ -120,6 +120,12 @@ tool:
   terminal_timeout: 30          # run_in_terminal timeout (s)
   git_timeout: 30               # git operations timeout (s)
   build_timeout: 300            # build/test project timeout (s)
+  pip_install_timeout: 120      # pip install timeout (s)
+  npm_timeout: 120              # npm install timeout (s)
+  pyright_timeout: 60           # pyright diagnostics timeout (s)
+  compile_check_timeout: 10     # cargo/gcc compile check timeout (s)
+  package_manager_timeout: 120  # apt/cargo package manager timeout (s)
+  handler_timeout: 60           # tool handler execution timeout (s)
   build_detectors:              # build system auto-detection order
     - ["python", "-m", "build"]
     - ["cargo", "build"]
@@ -165,6 +171,60 @@ cache:
   max_size_mb: 10               # File cache size limit
   ttl: 60                       # File cache TTL (s)
   context_max: 200              # Context register entries
+  cell_hot_size: 50             # CellCache Hot Ring: latest summaries
+  cell_index_size: 200          # CellCache Index Chain: key → summary
+  cell_kv_size: 100             # CellCache KV: full values
+  cell_hot_ttl: 300             # CellCache Hot TTL (s, 5min)
+  cell_index_ttl: 900           # CellCache Index TTL (s, 15min)
+  cell_kv_ttl: 1800             # CellCache KV TTL (s, 30min)
+  scout_cache_ttl: 30           # Scout result cache TTL (s)
+  scout_cache_max_entries: 200  # Scout result cache max entries
+  result_store_ttl: 300         # Tool result store TTL (s)
+  result_store_max: 500         # Tool result store max entries
+
+# ── Persistence (auto-save intervals) ──
+persistence:
+  auto_save: true
+  interval: 30                  # Global persist interval (s)
+  card_registry: 30             # Card registry auto-save (s)
+  card_gate: 10                 # Card gate auto-save (s)
+  pending_queue: 5              # Pending queue auto-save (s)
+  issue_table: 10               # Issue table auto-save (s)
+  approval_gate: 5              # Approval gate auto-save (s)
+  sandbox_state: 0              # Sandbox state auto-save (0=disabled)
+  todo_table: 30                # Todo table auto-save (s)
+  transaction_area: 30          # Transaction area auto-save (s)
+  statecharts: 30               # Statecharts auto-save (s)
+  execution_results: 30         # Execution results auto-save (s)
+  dialogue_session: 30          # Dialogue session auto-save (s)
+
+# ── Agent Loop (tool-calling iterations in SettingsCenter) ──
+# Compile-time defaults; runtime overrides via /api/loop/config.
+loop:
+  max_steps: 50                 # Max tool-calling turns per card
+  max_attempts: 3               # Max steps-exhausted continuation attempts
+  tool_repeat_warn: 3           # Same tool N times → warn
+  tool_repeat_stop: 4           # Same tool N times → stop loop
+  coarse_repeat_nudge: 3        # Same action N times → nudge
+  coarse_repeat_stop: 6         # Same action N times → stop
+  verify_cadence: true          # Enable verify-cadence tracking
+  continuation_nudge: true      # Enable continuation nudges
+
+# ── Service timeouts (LSP, MCP, Shell, Vault) ──
+services:
+  lsp_manager_timeout: 5        # LSP server start/stop timeout (s)
+  lsp_long_timeout: 30           # LSP diagnostics long timeout (s)
+  lsp_diag_timeout: 30           # LSP diagnostic request timeout (s)
+  mcp_bridge_timeout: 10         # MCP bridge timeout (s)
+  mcp_bridge_long_timeout: 30    # MCP bridge long timeout (s)
+  shell_session_timeout: 3       # Shell session kill timeout (s)
+  pool_queue_timeout: 1          # Pool queue poll timeout (s)
+  term_handler_timeout: 15       # Terminal handler timeout (s)
+  term_handler_long_timeout: 30  # Terminal handler long timeout (s)
+  gateway_queue_timeout: 30      # API gateway queue timeout (s)
+  r4_agent_join_timeout: 5       # R4 agent join timeout (s)
+  subagent_run_timeout: 120      # SubAgent run timeout (s)
+  subagent_join_timeout: 30      # SubAgent join timeout (s)
 
 # ── Content trust policies (provenance + trust scoring) ──
 # Controls how content from different sources is trusted.

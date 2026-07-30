@@ -21,14 +21,14 @@ class TestEvolveSkillValidation:
     """Input validation — no LLM needed."""
 
     def test_evolve_empty_intent(self):
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         r = r4.evolve_skill("")
         assert not r.get("success")
         assert "usage" in r.get("error", "").lower()
 
     def test_evolve_whitespace_intent(self):
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         r = r4.evolve_skill("   ")
         assert not r.get("success")
@@ -42,7 +42,7 @@ class TestEvolveSkillRegistration:
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         assert evolved == []
@@ -62,7 +62,7 @@ class TestEvolveSkillRegistration:
             procedures=[{"step": "1", "action": "analyze", "description": "Analyze schema changes"}],
         )
 
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=5)
         assert len(evolved) >= 1
@@ -82,7 +82,7 @@ class TestEvolveSkillRegistration:
                 tags=["evolved"],
             )
 
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=2)
         assert len(evolved) <= 2  # limit respected
@@ -96,7 +96,7 @@ class TestEvolveSkillRegistration:
         sm.create(name="evolved-one", prompt="evolved prompt", tags=["evolved", "test"])
         sm.create(name="lean-one", prompt="lean prompt", tags=["lean_case", "failure"])
 
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         lean = r4.get_lean_cases()
@@ -147,14 +147,14 @@ class TestAgentLoopInjectionIntegration:
     """Verify the injection infrastructure is wired correctly."""
 
     def test_evolved_skills_method_exists(self):
-        from l3.r4_agent import R4Agent
+        from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
         assert hasattr(r4, 'get_evolved_skills')
         assert callable(r4.get_evolved_skills)
 
     def test_agent_loop_imports_r4(self):
         """AgentLoop should be able to import and call get_evolved_skills."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         loop = AgentLoop(task="test", agent_id="test-agent")
         # The injection is in the run() method, but we just verify the import works
         assert loop is not None

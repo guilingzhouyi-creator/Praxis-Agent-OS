@@ -10,13 +10,13 @@ class TestDiagnosticCache:
     """Diagnostic cache"""
 
     def test_cache_miss(self):
-        from l4.lsp_manager import DiagnosticCache
+        from l4.lsp.lsp_manager import DiagnosticCache
         dc = DiagnosticCache(ttl=30.0)
         r = dc.get("/tmp/nonexistent.py")
         assert r is None
 
     def test_cache_set_get(self):
-        from l4.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
+        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
 
         dc = DiagnosticCache(ttl=30.0)
         fd = FileDiagnostics(
@@ -35,7 +35,7 @@ class TestDiagnosticCache:
 
     def test_cache_ttl(self):
         import time
-        from l4.lsp_manager import DiagnosticCache, FileDiagnostics
+        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics
 
         dc = DiagnosticCache(ttl=0.1)
         fd = FileDiagnostics(file="/tmp/t.py")
@@ -45,7 +45,7 @@ class TestDiagnosticCache:
         assert cached is None
 
     def test_invalidate(self):
-        from l4.lsp_manager import DiagnosticCache, FileDiagnostics
+        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics
 
         dc = DiagnosticCache()
         fd = FileDiagnostics(file="/tmp/t.py")
@@ -54,7 +54,7 @@ class TestDiagnosticCache:
         assert dc.get("/tmp/t.py") is None
 
     def test_clear(self):
-        from l4.lsp_manager import DiagnosticCache, FileDiagnostics
+        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics
 
         dc = DiagnosticCache()
         dc.set(FileDiagnostics(file="/tmp/a.py"))
@@ -64,7 +64,7 @@ class TestDiagnosticCache:
         assert stats["cached_files"] == 0
 
     def test_stats_summary(self):
-        from l4.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
+        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
 
         dc = DiagnosticCache()
         fd = FileDiagnostics(
@@ -82,7 +82,7 @@ class TestAstDiagnostics:
     """AST fallback diagnostics"""
 
     def test_syntax_error(self):
-        from l4.lsp_manager import LspManager
+        from l4.lsp.lsp_manager import LspManager
         mgr = LspManager()
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -97,7 +97,7 @@ class TestAstDiagnostics:
             os.unlink(tmp)
 
     def test_valid_syntax(self):
-        from l4.lsp_manager import LspManager
+        from l4.lsp.lsp_manager import LspManager
         mgr = LspManager()
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -114,7 +114,7 @@ class TestLanguageDetection:
     """Language detection"""
 
     def test_python_ext(self):
-        from l4.lsp_manager import LspManager
+        from l4.lsp.lsp_manager import LspManager
         mgr = LspManager()
         assert mgr._detect_language(".py") == "python"
         assert mgr._detect_language(".ts") == "typescript"
@@ -127,12 +127,12 @@ class TestApiHandlers:
     """API Handler function-level test"""
 
     def test_handle_lsp_diagnostics_missing_file(self):
-        from l4.lsp_manager import handle_lsp_diagnostics
+        from l4.lsp.lsp_manager import handle_lsp_diagnostics
         r = handle_lsp_diagnostics({})
         assert not r["success"]
 
     def test_handle_lsp_diagnostics_python(self):
-        from l4.lsp_manager import handle_lsp_diagnostics
+        from l4.lsp.lsp_manager import handle_lsp_diagnostics
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             f.write("x = 1\n")
@@ -147,18 +147,18 @@ class TestApiHandlers:
             os.unlink(tmp)
 
     def test_handle_lsp_feedback_no_file(self):
-        from l4.lsp_manager import handle_lsp_feedback
+        from l4.lsp.lsp_manager import handle_lsp_feedback
         r = handle_lsp_feedback({})
         assert not r["success"]
 
     def test_handle_lsp_servers(self):
-        from l4.lsp_manager import handle_lsp_servers
+        from l4.lsp.lsp_manager import handle_lsp_servers
         r = handle_lsp_servers()
         assert r["success"]
         assert "servers" in r
 
     def test_handle_lsp_start_stop(self):
-        from l4.lsp_manager import handle_lsp_start, handle_lsp_servers
+        from l4.lsp.lsp_manager import handle_lsp_start, handle_lsp_servers
         # Just test that the handlers are callable
         r = handle_lsp_start({"language": "python"})
         assert isinstance(r, dict)

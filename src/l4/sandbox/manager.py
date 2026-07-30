@@ -63,8 +63,8 @@ class SandboxManager:
     _loop: asyncio.AbstractEventLoop | None = None
 
     def __init__(self, sandbox_root: str = ""):
-        from l1.kernel.params.system import SANDBOX_TMP_ROOT
-        self._sandbox_root = Path(sandbox_root or SANDBOX_TMP_ROOT)
+        from l1.kernel.paths import get_paths as _gp
+        self._sandbox_root = Path(sandbox_root or _gp().sandbox_root)
         self._sandbox_root.mkdir(parents=True, exist_ok=True)
 
     async def run(

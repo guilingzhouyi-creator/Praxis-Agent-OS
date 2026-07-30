@@ -23,7 +23,7 @@ from typing import Any, Callable
 from l3.services.model_service import get_service as _get_model_service
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.system import (
     CARD_REGISTRY_AUTO_SAVE,
     CARD_DISPATCH_INTERVAL,
@@ -186,8 +186,6 @@ class CardRegistry(PersistableMixin):
                 if not record or record.state == CardLifecycle.HOLD:
                     continue
                 if record.state == CardLifecycle.QUEUED:
-                    cid = c
-                    break
                     cid = c
                     break
         if not cid:

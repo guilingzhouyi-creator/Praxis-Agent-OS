@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestTaskBusCore:
     def test_register(self):
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         r = bus.register("test-hook", "http://localhost:1/hook")
@@ -18,14 +18,14 @@ class TestTaskBusCore:
         assert r["name"] == "test-hook"
 
     def test_register_invalid_url(self):
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         r = bus.register("bad", "not-a-url")
         assert not r["success"]
 
     def test_list(self):
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         bus.register("a", "http://a.com/hook")
@@ -34,7 +34,7 @@ class TestTaskBusCore:
         assert len(hooks) == 2
 
     def test_unregister(self):
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         bus.register("x", "http://x.com/hook")
@@ -43,14 +43,14 @@ class TestTaskBusCore:
         assert len(bus.list()) == 0
 
     def test_dispatch_no_subscribers(self):
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         n = bus.dispatch("card-1", "DONE", {"domain": "test"})
         assert n == 0  # no subscribers → 0
 
     def test_dispatch_skips_disabled(self):
-        from l3.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
         reset_task_bus()
         bus = get_task_bus()
         # Directly add disabled subscriber
@@ -61,7 +61,7 @@ class TestTaskBusCore:
 
     def test_dispatch_runs_async(self):
         """dispatch returns immediately (async), doesn't wait for HTTP call."""
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         bus.register("slow", "http://localhost:1/slow")
@@ -71,7 +71,7 @@ class TestTaskBusCore:
 
 class TestTaskBusFilters:
     def test_filter_matches(self):
-        from l3.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
         reset_task_bus()
         bus = get_task_bus()
         sub = WebhookSubscriber(name="filtered", url="http://h/hook",
@@ -81,7 +81,7 @@ class TestTaskBusFilters:
         assert n == 1
 
     def test_filter_blocks(self):
-        from l3.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
         reset_task_bus()
         bus = get_task_bus()
         sub = WebhookSubscriber(name="filtered", url="http://h/hook",
@@ -93,7 +93,7 @@ class TestTaskBusFilters:
 
 class TestTaskBusPayload:
     def test_payload_structure(self):
-        from l3.task_bus import _build_payload
+        from l3.bus.task_bus import _build_payload
         p = json.loads(_build_payload("card-abc", "COMPLETED", {
             "intent": "test intent", "domain": "test", "result": {"ok": True},
         }))
@@ -192,7 +192,7 @@ class TestCronScheduler:
     def test_dispatch_card_via_cron(self):
         """Cron entry dispatches a card when cron matches."""
         from l4.cron_scheduler import get_scheduler, reset_scheduler, _cron_matches
-        from l4.card_registry import get_registry, reset_registry
+        from l3.card.card_registry import get_registry, reset_registry
         import time
         reset_scheduler()
         reset_registry()
@@ -214,7 +214,7 @@ class TestCronScheduler:
         # Card should be in registry
         intents_list = []
         try:
-            from l3.l3 import get_coordinator
+            from l3.cell.peers.l3 import get_coordinator
             intents_list = get_coordinator().list_intents()
         except Exception:
             pass
@@ -229,7 +229,7 @@ class TestCronScheduler:
 class TestTaskBusSignature:
     def test_payload_has_hmac_when_secret_set(self):
         """_dispatch_one should set X-Praxis-Signature when secret is configured."""
-        from l3.task_bus import TaskBus, WebhookSubscriber
+        from l3.bus.task_bus import TaskBus, WebhookSubscriber
         import hashlib, hmac
         bus = TaskBus()
         sub = WebhookSubscriber(name="signed", url="http://localhost:1/hook",
@@ -245,7 +245,7 @@ class TestTaskBusSignature:
 class TestTaskBusRetry:
     def test_dispatch_one_retries_on_failure(self, mocker):
         """dispatch_one should retry on failure and log appropriately."""
-        from l3.task_bus import TaskBus, WebhookSubscriber
+        from l3.bus.task_bus import TaskBus, WebhookSubscriber
         bus = TaskBus()
         sub = WebhookSubscriber(name="retry-test", url="http://localhost:2/hook",
                                  retries=2)
@@ -278,7 +278,7 @@ class TestCronTick:
     def test_tick_dispatches_matching_entry(self):
         """_tick should dispatch entry when cron matches and not recently dispatched."""
         from l4.cron_scheduler import get_scheduler, reset_scheduler
-        from l4.card_registry import reset_registry
+        from l3.card.card_registry import reset_registry
         import time
         reset_scheduler()
         reset_registry()
@@ -313,7 +313,7 @@ class TestL2ShellCron:
 class TestCardRegistryTaskBusIntegration:
     def test_complete_fires_task_bus(self, mocker):
         """CardRegistry.complete() should call TaskBus.dispatch()."""
-        from l4.card_registry import CardRegistry
+        from l3.card.card_registry import CardRegistry
         # Mock the function that card_registry imports internally
         mock_dispatch = mocker.patch("services.task_bus.TaskBus.dispatch")
         reg = CardRegistry(persist_path="")
@@ -355,7 +355,7 @@ class TestRestApiCron:
 class TestTaskBusConcurrency:
     def test_concurrent_dispatch_no_crash(self):
         """Multiple threads dispatching simultaneously should not crash."""
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         from concurrent.futures import ThreadPoolExecutor
         reset_task_bus()
         bus = get_task_bus()
@@ -373,7 +373,7 @@ class TestTaskBusConcurrency:
 
     def test_concurrent_register_unregister(self):
         """Concurrent register/unregister should not corrupt internal state."""
-        from l3.task_bus import get_task_bus, reset_task_bus
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         from concurrent.futures import ThreadPoolExecutor, as_completed
         reset_task_bus()
         bus = get_task_bus()
@@ -416,7 +416,7 @@ class TestCronSchedulerConcurrency:
 class TestTaskBusConfigLoad:
     def test_config_load_does_not_crash(self):
         """TaskBus config loading should handle missing config gracefully."""
-        from l3.task_bus import TaskBus
+        from l3.bus.task_bus import TaskBus
         bus = TaskBus()
         # Should not crash even if praxis.yaml is missing or has no webhooks section
         assert hasattr(bus, '_subscribers')
@@ -433,7 +433,7 @@ class TestTaskBusConfigLoad:
 class TestTaskBusLoadFromConfig:
     def test_load_from_temp_yaml(self, tmp_path):
         """Load webhook subscribers from a temporary YAML config."""
-        from l3.task_bus import TaskBus
+        from l3.bus.task_bus import TaskBus
         import yaml
         cfg_path = tmp_path / "praxis.yaml"
         cfg_path.write_text(yaml.dump({
@@ -445,7 +445,7 @@ class TestTaskBusLoadFromConfig:
         }), encoding="utf-8")
 
         # Monkey-patch config_loader to return our temp config
-        import l3.task_bus as tb_mod
+        import l3.bus.task_bus as tb_mod
         original_load = getattr(tb_mod, '_load_config', None)
 
         # Direct test: simulate what _load_config does

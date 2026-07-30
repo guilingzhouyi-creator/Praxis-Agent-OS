@@ -98,6 +98,7 @@ class RingLayer:
         # Reverse indexes for O(1) query lookups
         self._agent_index: dict[str, list[MemEntry]] = {}
         self._type_index: dict[str, list[MemEntry]] = {}
+        self._tag_index: dict[str, list[MemEntry]] = {}
         self._lock = threading.Lock()
 
     def push(self, entry: MemEntry) -> None:
@@ -109,17 +110,21 @@ class RingLayer:
             # Update reverse indexes
             self._agent_index.setdefault(entry.agent_id, []).append(entry)
             self._type_index.setdefault(entry.entry_type, []).append(entry)
+            for tag in entry.tags:
+                self._tag_index.setdefault(tag, []).append(entry)
             self._evict_if_needed()
 
     def query(self, agent_id: str | None = None, entry_type: str | None = None,
               tag: str | None = None, limit: int = 20) -> list[MemEntry]:
         """Query entries from the ring layer with optional filters."""
         with self._lock:
-            # Use reverse indexes for O(1) agent/type lookup; fall back to full scan for tag
+            # Use reverse indexes for O(1) lookup by agent/type/tag
             if agent_id and agent_id in self._agent_index:
                 candidates = self._agent_index[agent_id]
             elif entry_type and entry_type in self._type_index:
                 candidates = self._type_index[entry_type]
+            elif tag and tag in self._tag_index:
+                candidates = self._tag_index[tag]
             else:
                 candidates = self._entries
             results = [e for e in candidates if not e.expired()]
@@ -153,8 +158,38 @@ class RingLayer:
         """Remove all entries for a given agent. Returns number removed."""
         with self._lock:
             before = len(self._entries)
-            self._entries = deque([e for e in self._entries if e.agent_id != agent_id], maxlen=self.max_entries)
-            self._rebuild_token_count()
+            # Collect entries to remove and clean indexes incrementally
+            removed_entries = [e for e in self._entries if e.agent_id == agent_id]
+            for e in removed_entries:
+                self._entries.remove(e)
+                self._token_count = max(0, self._token_count - e.tokens)
+                # Clean agent index
+                aid_list = self._agent_index.get(e.agent_id)
+                if aid_list:
+                    try:
+                        aid_list.remove(e)
+                    except ValueError:
+                        pass
+                # Clean type index
+                type_list = self._type_index.get(e.entry_type)
+                if type_list:
+                    try:
+                        type_list.remove(e)
+                    except ValueError:
+                        pass
+                # Clean tag index
+                for tag in e.tags:
+                    tag_list = self._tag_index.get(tag)
+                    if tag_list:
+                        try:
+                            tag_list.remove(e)
+                        except ValueError:
+                            pass
+            # Rebuild eviction heap (smaller than full rebuild since only entries changed)
+            for e in removed_entries:
+                self._evict_heap = [(imp, ts, eid) for imp, ts, eid in self._evict_heap
+                                    if eid != id(e)]
+            heapq.heapify(self._evict_heap)
             return before - len(self._entries)
 
     def forget_cell(self, cell_id: str) -> int:
@@ -188,9 +223,12 @@ class RingLayer:
         heapq.heapify(self._evict_heap)
         self._agent_index = {}
         self._type_index = {}
+        self._tag_index = {}
         for e in self._entries:
             self._agent_index.setdefault(e.agent_id, []).append(e)
             self._type_index.setdefault(e.entry_type, []).append(e)
+            for tag in e.tags:
+                self._tag_index.setdefault(tag, []).append(e)
 
 
 import threading

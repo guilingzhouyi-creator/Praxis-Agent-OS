@@ -573,6 +573,7 @@ def get_bus() -> ErrorBus:
         with _bus_lock:
             if _bus is None:
                 _bus = ErrorBus()
+                _bus.start()  # triggers _on_start → EventBus subscription
     return _bus
 
 

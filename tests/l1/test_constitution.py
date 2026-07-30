@@ -195,9 +195,9 @@ class TestConstitution:
     def test_summary(self):
         c = get_constitution()
         s = c.summary()
-        assert isinstance(s, dict)
-        assert "total_rules" in s
-        assert "version" in s
+        assert isinstance(s, str)
+        assert "Constitution Rules" in s
+        assert "MUST" in s
 
     def test_to_dict(self):
         c = get_constitution()

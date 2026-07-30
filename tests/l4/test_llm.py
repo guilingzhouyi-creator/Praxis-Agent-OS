@@ -61,7 +61,7 @@ class TestLlmEngine:
 
     def test_engine_tool_use_basic(self):
         from l4.llm import get_engine, reset_engine
-        from l4.llm_base import ToolDef
+        from l4.llm.llm_base import ToolDef
         reset_engine()
         engine = get_engine()
         tools = [
@@ -81,7 +81,7 @@ class TestToolUse:
 
     def test_tool_use_with_args(self):
         from l4.llm import get_engine, reset_engine
-        from l4.llm_base import ToolDef
+        from l4.llm.llm_base import ToolDef
         reset_engine()
         engine = get_engine()
         called = []

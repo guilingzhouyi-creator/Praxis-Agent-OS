@@ -3,13 +3,13 @@
 import subprocess
 
 from l1.kernel.params.system import LOG_TRUNC_2000, LOG_TRUNC_5000
-from l1.kernel.params.tool import TOOL_TERMINAL_TIMEOUT
+from l1.kernel.discovery import get_tool_config
 from l1.kernel.platform import IS_WINDOWS, run_shell
 
 
 def run_in_terminal(args: dict, agent_id: str) -> dict:
     command = args.get("command", "")
-    timeout = args.get("timeout", TOOL_TERMINAL_TIMEOUT)
+    timeout = args.get("timeout", get_tool_config("terminal_timeout", 30))
     if not command:
         return {"success": False, "error": "command is required"}
     try:

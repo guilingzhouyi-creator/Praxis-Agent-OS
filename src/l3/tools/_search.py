@@ -5,8 +5,8 @@ import os
 import re
 import subprocess
 
-from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
+from l1.kernel.discovery import get_tool_config
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
     # Try rg first
     cmd = ["rg", "-rn", "--no-heading", pattern, path] if not fixed else ["rg", "-rnF", "--no-heading", pattern, path]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TOOL_SEARCH_TIMEOUT)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=get_tool_config("search_timeout", 30))
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
     except FileNotFoundError:
@@ -60,7 +60,7 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
     # Fallback to grep
     try:
         cmd2 = ["grep", "-rn"] + (["-F"] if fixed else []) + [pattern, path]
-        r = subprocess.run(cmd2, capture_output=True, text=True, timeout=TOOL_SEARCH_TIMEOUT)
+        r = subprocess.run(cmd2, capture_output=True, text=True, timeout=get_tool_config("search_timeout", 30))
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
     except Exception:

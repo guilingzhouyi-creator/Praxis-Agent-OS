@@ -42,7 +42,7 @@ class TestL2ShellDispatchE2E:
         """After creating Cell + Agent, /agents command should list that agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.scout import reset_pool
+        from l3.agent.scout import reset_pool
         from l2.l2_shell import dispatch, reset_state
 
         reset_state()
@@ -71,7 +71,7 @@ class TestL2ShellDispatchE2E:
         """Full /connect → /disconnect flow with real Cell + Agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.scout import reset_pool
+        from l3.agent.scout import reset_pool
         from l2.l2_shell import dispatch, reset_state, get_state
 
         reset_state()
@@ -107,7 +107,7 @@ class TestL2ShellDispatchE2E:
         """After connecting, /status in Direct mode should show agent info."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.scout import reset_pool
+        from l3.agent.scout import reset_pool
         from l2.l2_shell import dispatch, reset_state, get_state
 
         reset_state()
@@ -186,7 +186,7 @@ class TestL2ShellDirectMessageE2E:
         """In Direct mode, send message to a real agent."""
         from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.scout import reset_pool
+        from l3.agent.scout import reset_pool
         from l2.l2_shell import dispatch, reset_state, get_state
 
         reset_state()

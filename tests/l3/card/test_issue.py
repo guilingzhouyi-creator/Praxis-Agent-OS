@@ -9,23 +9,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestIssueData:
     def test_issue_status_enum(self):
-        from l3.issue import IssueStatus
+        from l3.card.issue import IssueStatus
         assert IssueStatus.PENDING.name == "PENDING"
 
     def test_issue_card_status_enum(self):
-        from l3.issue import IssueCardStatus
+        from l3.card.issue import IssueCardStatus
         assert IssueCardStatus.DRAFT.name == "DRAFT"
 
 
 class TestIssueTable:
     def test_get_table_singleton(self):
-        from l3.issue import get_table
+        from l3.card.issue import get_table
         t1 = get_table()
         t2 = get_table()
         assert t1 is t2
 
     def test_submit_and_get(self):
-        from l3.issue import IssueCard, IssueItem, get_table
+        from l3.card.issue import IssueCard, IssueItem, get_table
         table = get_table()
         card = IssueCard(intent="Test", domain="r", agent_ids=["a"])
         card.items.append(IssueItem(question="Q1", domain="r"))
@@ -36,13 +36,13 @@ class TestIssueTable:
         assert fetched.intent == "Test"
 
     def test_get_not_found(self):
-        from l3.issue import get_table
+        from l3.card.issue import get_table
         table = get_table()
         card = table.get("nonexistent")
         assert card is None
 
     def test_set_status(self):
-        from l3.issue import IssueCard, IssueItem, IssueCardStatus, get_table
+        from l3.card.issue import IssueCard, IssueItem, IssueCardStatus, get_table
         table = get_table()
         card = IssueCard(intent="Status", domain="t", agent_ids=["a"])
         card_id = table.submit(card)
@@ -51,7 +51,7 @@ class TestIssueTable:
         assert fetched.status == IssueCardStatus.DELIBERATING
 
     def test_answer_item(self):
-        from l3.issue import IssueCard, IssueItem, get_table
+        from l3.card.issue import IssueCard, IssueItem, get_table
         table = get_table()
         item = IssueItem(question="Q1", domain="r", assigned_to="agent-a")
         card = IssueCard(intent="Answer test", domain="t", agent_ids=["agent-a"])
@@ -61,7 +61,7 @@ class TestIssueTable:
         assert ok
 
     def test_supplement(self):
-        from l3.issue import IssueCard, IssueItem, get_table
+        from l3.card.issue import IssueCard, IssueItem, get_table
         table = get_table()
         item = IssueItem(question="Q1", domain="r")
         card = IssueCard(intent="Suppl test", domain="t", agent_ids=["a"])
@@ -71,7 +71,7 @@ class TestIssueTable:
         assert new_id is not None
 
     def test_list_by_status(self):
-        from l3.issue import IssueCard, IssueItem, IssueCardStatus, get_table
+        from l3.card.issue import IssueCard, IssueItem, IssueCardStatus, get_table
         table = get_table()
         card = IssueCard(intent="ListByStatus", domain="t", agent_ids=["a"])
         card_id = table.submit(card)

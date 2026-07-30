@@ -62,6 +62,6 @@ class TestMCPBridge:
 
 class TestConvergence:
     def test_rule_converge(self):
-        from l3.convergence import _rule_converge_from_text
+        from l3.agent.convergence import _rule_converge_from_text
         r = _rule_converge_from_text("* completed task A\n* fixed bug B")
         assert "Rule-based convergence" in r or "unavailable" in r

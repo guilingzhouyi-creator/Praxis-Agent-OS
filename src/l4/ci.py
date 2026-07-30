@@ -74,6 +74,9 @@ class CIService(BaseService):
           [{"action": "build", "cmd": "python setup.py build"},
            {"action": "test", "cmd": "pytest tests/"},
            {"action": "lint", "cmd": "flake8 ."}]
+
+        Runs execution in a background daemon thread so the caller is not
+        blocked.  Poll ``get_status(run_id)`` for completion.
         """
         run_id = f"ci-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id)
@@ -87,12 +90,9 @@ class CIService(BaseService):
         run.status = PipelineStatus.RUNNING
         run.started_at = time.time()
 
-        # Execute pipeline synchronously in the current thread.
-        # A daemon thread was used here previously but was redundant because
-        # run_pipeline() joins it immediately, blocking until completion.
-        # Direct synchronous execution is simpler and avoids the pointless
-        # thread creation overhead.
-        self._execute(run_id, timeout)
+        # Launch background daemon thread — caller remains responsive.
+        threading.Thread(target=self._execute, args=(run_id, timeout),
+                         daemon=True, name=f"ci-{run_id}").start()
 
         return {"success": True, "run_id": run_id, "name": name,
                 "status": run.status, "step_count": len(steps)}
@@ -113,6 +113,7 @@ class CIService(BaseService):
             action = step.get("action", f"step-{i}")
             cmd = step.get("cmd", "")
             cwd = step.get("cwd", ".")
+            step_timeout = step.get("timeout", CI_SHELL_TIMEOUT)  # per-step timeout
 
             run.output.append(f"[{i+1}/{len(run.steps)}] {action}: {cmd}")
             try:
@@ -129,7 +130,7 @@ class CIService(BaseService):
                     shell_args = [SHELL_PATH, "-c", cmd]
                 r = subprocess.run(
                     shell_args, cwd=cwd,
-                    capture_output=True, text=True, timeout=CI_SHELL_TIMEOUT,
+                    capture_output=True, text=True, timeout=step_timeout,
                 )
                 step["exit_code"] = r.returncode
                 if r.stdout:

@@ -166,7 +166,7 @@ class InterruptController:
             self._pending[slot.priority].append(event)
             return {"success": True, "delivery": "queued"}
 
-    def dispatch_pending(self, max_total: int = 5) -> int:
+    def dispatch_pending(self, max_per_priority: int = 5) -> int:
         """Dispatch pending interrupts, highest priority first.
 
         Args:

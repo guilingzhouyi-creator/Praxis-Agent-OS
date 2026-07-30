@@ -96,7 +96,7 @@ class ApiGateway(ApiHandlers):
     def _register_defaults(self) -> None:
         """Load all routes from centralized api_routes.py + external modules."""
         import importlib
-        from .api.api_routes import API_ROUTES
+        from .api_routes import API_ROUTES
 
         for method, path, handler_ref, desc in API_ROUTES:
             if handler_ref.startswith("."):

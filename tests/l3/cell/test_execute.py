@@ -19,7 +19,7 @@ def test_execute_card_handles_issue():
     """execute_card routes IssueCard to convention protocol."""
     reset_cells()
     cell = get_cell("test-cell-2", territory=["src"])
-    from l3.issue import IssueCard
+    from l3.card.issue import IssueCard
     card = IssueCard(title="test issue", intent="fix bug", domain="src")
     result = execute_card(cell, card)
     assert isinstance(result, dict)

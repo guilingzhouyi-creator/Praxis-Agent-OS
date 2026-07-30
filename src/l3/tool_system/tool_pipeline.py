@@ -16,9 +16,9 @@ from l1.kernel.constitution import get_constitution
 from l1.kernel.gatechain import get_gatechain as _get_gatechain
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1, RING_2_5, RING_NUM_MAP
-from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET
-from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT, LOG_TRUNC_200
+from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.tool_chain import get_tool_chain
+from l1.kernel.discovery import get_tool_config, get_config
 
 from l3.bus.reference_channel import get_rc as _get_rc
 from l3.card.approval_gate import get_gate as _get_approval_gate
@@ -148,7 +148,7 @@ class ToolPipeline:
             if _ToolPolicy.requires_approval(agent_id, tool_name):
                 ar = _get_approval_gate().request(tool_name, agent_id, args or {}, reason="policy requires approval")
                 result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
-                status = ar.wait(timeout=APPROVAL_GATE_WAIT_TIMEOUT)
+                status = ar.wait(timeout=get_config("persistence", {}).get("approval_wait_timeout", 300))
                 if status != "approved":
                     return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
                             "steps": result["steps"]}
@@ -160,7 +160,7 @@ class ToolPipeline:
         rr = self._rate_scheduler.check(agent_id, tool_ring_str)
         result["steps"].append({"phase": "rate", **rr})
         if not rr["allowed"]:
-            self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
+            self.allocator.free(agent_id, "tokens", get_tool_config("exec_token_budget", 100))
             return {"success": False, "error": f"rate limited ({tool_ring_str})",
                     "rate": rr, "steps": result["steps"]}
 
@@ -232,7 +232,7 @@ class ToolPipeline:
                     get_rwlock(lock_name).unlock(agent_id)
                 if tool_ring_str == RING_2_5:
                     get_semaphore(f"pool:{tool_name}").release(agent_id)
-                self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
+                self.allocator.free(agent_id, "tokens", get_tool_config("exec_token_budget", 100))
                 duration = time.time() - _start
                 chain.complete(call_id, success=True, duration=duration)
                 result["call_id"] = call_id
@@ -241,7 +241,7 @@ class ToolPipeline:
             logger.warning("sandbox gate failed: %s", e)
 
         # 6. Alloc
-        ar = self.allocator.alloc(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET, tool_name)
+        ar = self.allocator.alloc(agent_id, "tokens", get_tool_config("exec_token_budget", 100), tool_name)
         result["steps"].append({"phase": "alloc", **ar})
         if not ar["success"]:
             return {"success": False, "error": ar["error"], "steps": result["steps"]}
@@ -251,7 +251,7 @@ class ToolPipeline:
             sr = get_semaphore(f"pool:{tool_name}", 2).acquire(agent_id)
             result["steps"].append({"phase": "pool", **sr})
             if not sr["success"]:
-                self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
+                self.allocator.free(agent_id, "tokens", get_tool_config("exec_token_budget", 100))
                 return {"success": False, "error": "pool busy", "steps": result["steps"]}
 
         # 8. File lock
@@ -284,7 +284,7 @@ class ToolPipeline:
             get_rwlock(lock_name).unlock(agent_id)
         if tool_ring_str == RING_2_5:
             get_semaphore(f"pool:{tool_name}").release(agent_id)
-        self.allocator.free(agent_id, "tokens", TOOL_EXEC_TOKEN_BUDGET)
+        self.allocator.free(agent_id, "tokens", get_tool_config("exec_token_budget", 100))
 
         # 10b. Post-execute hooks (transform result)
         result = self._run_post_execute_hooks(tool_name, agent_id, args or {}, result)

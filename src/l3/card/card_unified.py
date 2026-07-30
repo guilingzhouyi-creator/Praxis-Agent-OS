@@ -379,9 +379,14 @@ class CardUnified:
         used_agents = list(agent_map.values()) if agent_map else []
         for phase in self.phases:
             if phase.mode == PhaseMode.SINGLE:
-                agent = (phase.agents[0] if phase.agents
-                         else used_agents[0] if used_agents
-                         else default_agent)
+                if phase.agents:
+                    agent = phase.agents[0]
+                elif used_agents:
+                    agent = used_agents[0]
+                elif default_agent:
+                    agent = default_agent
+                else:
+                    continue  # no agent available → skip this phase
                 phase.agents = [agent] if agent else phase.agents
                 for task in phase.tasks:
                     task.agent = agent

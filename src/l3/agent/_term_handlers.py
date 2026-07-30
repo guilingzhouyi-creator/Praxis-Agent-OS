@@ -11,8 +11,9 @@ from l1.kernel.params.system import (
     POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS,
     LOG_TRUNC_40, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_1000, LOG_TRUNC_3000, LOG_TRUNC_4000,
 )
-from l1.kernel.params.tool import TOOL_GREP_TIMEOUT
+from l1.kernel.params.tool import TOOL_TERMINAL_TIMEOUT
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
+from l1.kernel.discovery import get_tool_config
 from l1.kernel.platform import grep_cmd as _grep_cmd
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ def _handle_grep(args, agent):
     import subprocess as _sp
     cmd_list = _grep_cmd(args.get("pattern", ""), args.get("path", "."))
     try:
-        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=TOOL_GREP_TIMEOUT)
+        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=get_tool_config("grep_timeout", 15))
         out = (r.stdout or "")[:LOG_TRUNC_4000] or "no matches"
         return {"success": True, "data": out}
     except FileNotFoundError:

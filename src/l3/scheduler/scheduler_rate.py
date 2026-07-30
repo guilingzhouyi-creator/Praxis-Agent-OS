@@ -12,7 +12,7 @@ import threading
 import time as _time
 
 from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
-from l1.kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
+from l1.kernel.discovery import get_config as _get_config
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,21 @@ from l1.kernel.params.kernel import (
     RING_3 as _R3,
 )
 _RING_ORDER = _RNM
-_RING_RATE = {_R1: TOOL_RATE_RING_1, _R25: TOOL_RATE_RING_2_5, _R3: TOOL_RATE_RING_3}
+_RING_RATE = {}  # resolved below
+
+
+def _resolve_ring_rates() -> dict:
+    """Resolve tool rates from config with params fallback."""
+    cfg = _get_config("tool_rates") or {}
+    from l1.kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
+    return {
+        _R1: cfg.get("ring_1", TOOL_RATE_RING_1),
+        _R25: cfg.get("ring_2_5", TOOL_RATE_RING_2_5),
+        _R3: cfg.get("ring_3", TOOL_RATE_RING_3),
+    }
+
+
+_RING_RATE = _resolve_ring_rates()
 
 
 def agent_can_access(agent_id: str, tool_ring: str) -> bool:

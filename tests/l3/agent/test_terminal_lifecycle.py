@@ -64,7 +64,7 @@ class TestAgentTerminalDispatch:
 
     def test_dispatch_returns_card_id(self):
         from l3.agent_terminal import get_terminal, reset_terminals
-        from l3._term_types import TerminalCard, CardMode
+        from l3.agent._term_types import TerminalCard, CardMode
         reset_terminals()
         term = get_terminal("disp-agent", role="reader", territory=["."])
         card = TerminalCard(mode=CardMode.EXECUTE, action="think",
@@ -75,7 +75,7 @@ class TestAgentTerminalDispatch:
 
     def test_wait_for_result_timeout(self):
         from l3.agent_terminal import get_terminal, reset_terminals
-        from l3._term_types import TerminalCard, CardMode
+        from l3.agent._term_types import TerminalCard, CardMode
         reset_terminals()
         term = get_terminal("wait-agent", role="reader", territory=["."])
         card = TerminalCard(mode=CardMode.EXECUTE, action="think",
@@ -117,7 +117,7 @@ class TestAgentTerminalShutdown:
         reset_terminals()
         term = get_terminal("sd-agent", role="reader", territory=["."])
         term.boot()
-        from l3._term_types import TerminalCard, CardMode
+        from l3.agent._term_types import TerminalCard, CardMode
         card = TerminalCard(mode=CardMode.EXECUTE, action="shutdown_test",
                             target=".", params={}, sender="test")
         term.dispatch(card)
@@ -155,7 +155,7 @@ class TestAgentTerminalIO:
     def test_stdout_maxlen(self):
         """Verify stdout deque does not grow unbounded"""
         from l3.agent_terminal import get_terminal, reset_terminals
-        from l3._term_types import CardResult
+        from l3.agent._term_types import CardResult
         reset_terminals()
         term = get_terminal("io-agent3", role="reader", territory=["."])
         for i in range(600):

@@ -107,6 +107,21 @@ def get_config(name: str, default: Any = None) -> Any:
     return _registry.get(name, default)
 
 
+def get_tool_config(key: str, default: Any) -> Any:
+    """Read a tool config value with params fallback.
+
+    Usage::
+        timeout = get_tool_config("git_timeout", TOOL_GIT_TIMEOUT)
+
+    The config layer (praxis.yaml → discovery) is consulted first;
+    if unavailable, the params-derived default is returned.
+    """
+    cfg = get_config("tool")
+    if cfg and isinstance(cfg, dict) and key in cfg:
+        return cfg[key]
+    return default
+
+
 def get_source(name: str, default: Any = None) -> Any:
     """Get the originally registered defaults (before YAML merge)."""
     return _sources.get(name, default)

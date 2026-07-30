@@ -102,37 +102,37 @@ class TestSkillExpand:
 
 class TestMiddlewareChain:
     def test_confine_proceed_no_roots(self):
-        from l3.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
         mw = ConfineMiddleware()
         out = mw.before("read_file", {"path": "/etc/passwd"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_blocks_outside_root(self):
-        from l3.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
         mw = ConfineMiddleware(allowed_roots=["/safe/area"])
         out = mw.before("read_file", {"path": "/etc/passwd"}, "agent")
         assert out == BeforeOutcome.DENY
 
     def test_confine_allows_inside_root(self):
-        from l3.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
         mw = ConfineMiddleware(allowed_roots=["/safe/area"])
         out = mw.before("read_file", {"path": "/safe/area/file.txt"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_no_path_arg(self):
-        from l3.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
         mw = ConfineMiddleware(allowed_roots=["/safe"])
         out = mw.before("list_dir", {"pattern": "*.py"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_target_key(self):
-        from l3.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
         mw = ConfineMiddleware(allowed_roots=["/safe"])
         out = mw.before("write_file", {"target": "/bad/place"}, "agent")
         assert out == BeforeOutcome.DENY
 
     def test_middleware_chain_all_proceed(self):
-        from l3.middleware import (
+        from l3.services.middleware import (
             MiddlewareChain, ConfineMiddleware,
             ApprovalMiddleware, BeforeOutcome,
         )
@@ -144,7 +144,7 @@ class TestMiddlewareChain:
         assert out == BeforeOutcome.PROCEED
 
     def test_middleware_chain_deny_stops(self):
-        from l3.middleware import (
+        from l3.services.middleware import (
             MiddlewareChain, ConfineMiddleware, BeforeOutcome,
         )
         chain = MiddlewareChain()
@@ -153,13 +153,13 @@ class TestMiddlewareChain:
         assert out == BeforeOutcome.DENY
 
     def test_after_proceed_default(self):
-        from l3.middleware import ToolMiddleware, AfterOutcome
+        from l3.services.middleware import ToolMiddleware, AfterOutcome
         mw = ToolMiddleware()
         out = mw.after("read_file", {"result": "ok"}, "agent")
         assert out == AfterOutcome.PROCEED
 
     def test_arg_repair_whitespace(self):
-        from l3.middleware import ArgRepairMiddleware, BeforeOutcome
+        from l3.services.middleware import ArgRepairMiddleware, BeforeOutcome
         mw = ArgRepairMiddleware()
         args = {"path": "  /tmp/x  "}
         out = mw.before("read_file", args, "agent")
@@ -167,7 +167,7 @@ class TestMiddlewareChain:
         assert args["path"] == "/tmp/x"
 
     def test_arg_repair_bool_strings(self):
-        from l3.middleware import ArgRepairMiddleware, BeforeOutcome
+        from l3.services.middleware import ArgRepairMiddleware, BeforeOutcome
         mw = ArgRepairMiddleware()
         args = {"recursive": "true", "force": "false"}
         mw.before("rm", args, "agent")
@@ -185,7 +185,7 @@ class TestPersistenceRecall:
         old_data_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         try:
-            from l3.agent_persist import save_snapshot, append_transcript, recall
+            from l3.agent.agent_persist import save_snapshot, append_transcript, recall
             aid = "phase5-test-agent"
             save_snapshot(aid, {"status": True, "summary": "initial state"})
             append_transcript(aid, {"role": "user", "content": "hello world"})
@@ -244,4 +244,4 @@ class TestSubAgentTool:
 
 
 # Helper for middleware test that references ArgRepairMiddleware midway
-from l3.middleware import ArgRepairMiddleware
+from l3.services.middleware import ArgRepairMiddleware

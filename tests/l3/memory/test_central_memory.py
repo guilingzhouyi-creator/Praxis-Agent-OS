@@ -19,7 +19,7 @@ class TestCentralMemoryRingRouting:
     """Verify 4-ring routing correctness — data reaches the correct backend"""
 
     def test_ring1_working(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -35,7 +35,7 @@ class TestCentralMemoryRingRouting:
         assert stats["working"]["entries"] >= 1
 
     def test_ring2_short_term(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -47,7 +47,7 @@ class TestCentralMemoryRingRouting:
         assert r["ring"] == 2
 
     def test_ring3_long_term(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -60,7 +60,7 @@ class TestCentralMemoryRingRouting:
 
     def test_ring4_archive(self):
         """P0: Verify ring=4 writes to archive DB, not mistakenly into Ring 1"""
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -83,7 +83,7 @@ class TestCentralMemoryRingRouting:
 
     def test_quality_gate_rejects_short(self):
         """Verify quality gate works correctly: overly short content is rejected"""
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         cm = get_center()
 
@@ -96,7 +96,7 @@ class TestCentralMemoryRecall:
     """Verify cross-ring retrieval + sort correctness"""
 
     def test_recall_all_rings(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -116,14 +116,14 @@ class TestCentralMemoryRecall:
             "results should be newest-first"
 
     def test_recall_empty(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         cm = get_center()
         results = cm.recall(agent_id="nonexistent", limit=10)
         assert isinstance(results, list)
 
     def test_recall_ring_filter(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -141,7 +141,7 @@ class TestCentralMemoryCompact:
     """Verify compact triggers correctly"""
 
     def test_compact_ring1(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
@@ -165,7 +165,7 @@ class TestCentralMemoryArchive:
     """Verify archive_ring3 channel"""
 
     def test_archive_ring3_called(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         cm = get_center()
 
@@ -178,7 +178,7 @@ class TestCentralMemoryStats:
     """Verify stats aggregation"""
 
     def test_stats_returns_expected_keys(self):
-        from l3.central_memory import get_center, reset_center
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         cm = get_center()
         cm.remember("agent-s", "test stats", ring=1)

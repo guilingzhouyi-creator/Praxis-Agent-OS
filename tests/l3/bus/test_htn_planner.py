@@ -6,27 +6,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestHTNInit:
     def test_get_service(self):
-        from l3.htn_planner import get_service, reset_service
+        from l3.bus.htn_planner import get_service, reset_service
         reset_service()
         htn = get_service()
         assert htn is not None
 
     def test_decompose_simple(self):
-        from l3.htn_planner import get_service, reset_service
+        from l3.bus.htn_planner import get_service, reset_service
         reset_service()
         htn = get_service()
         r = htn.decompose("read file README.md", domain=".")
         assert r is not None
 
     def test_decompose_empty(self):
-        from l3.htn_planner import get_service, reset_service
+        from l3.bus.htn_planner import get_service, reset_service
         reset_service()
         htn = get_service()
         r = htn.decompose("", domain=".")
         assert r is not None
 
     def test_to_card(self):
-        from l3.htn_planner import get_service, reset_service
+        from l3.bus.htn_planner import get_service, reset_service
         reset_service()
         htn = get_service()
         task = htn.decompose("list directory", domain=".")

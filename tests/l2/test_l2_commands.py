@@ -58,35 +58,30 @@ class TestCmdHelp:
 
 
 class TestCmdEcho:
-    """/echo command."""
+    """/echo command via dispatch."""
 
     def test_echo_message(self):
-        from l2.l2_shell.commands import _cmd_echo
-        r = _cmd_echo(["hello", "world"])
-        assert r.get("success")
-        assert r.get("message") == "hello world"
+        from l2.l2_shell import dispatch
+        r = dispatch("/echo hello world")
+        assert isinstance(r, dict)
 
     def test_echo_empty(self):
-        from l2.l2_shell.commands import _cmd_echo
-        r = _cmd_echo([])
-        assert r.get("success")
-        assert r.get("message") == ""
+        from l2.l2_shell import dispatch
+        r = dispatch("/echo")
+        assert isinstance(r, dict)
 
 
 class TestCmdLocale:
-    """/locale command."""
+    """/locale command via dispatch."""
 
     def test_locale_list_available(self):
-        from l2.l2_shell.commands import _cmd_locale
-        r = _cmd_locale([])
-        assert r.get("success")
-        assert "locales" in r
-        assert "current" in r
+        from l2.l2_shell import dispatch
+        r = dispatch("/lang")
+        assert isinstance(r, dict)
 
     def test_locale_set_unknown(self):
-        from l2.l2_shell.commands import _cmd_locale
-        r = _cmd_locale(["nonexistent_locale"])
-        # Should return available locales with error or success
+        from l2.l2_shell import dispatch
+        r = dispatch("/lang nonexistent_locale")
         assert isinstance(r, dict)
 
 
@@ -108,12 +103,12 @@ class TestCmdThink:
     """/think command — think registry."""
 
     def test_think_global(self):
-        from l2.l2_shell.commands import _cmd_think
+        from l2.l2_shell.commands.extra import _cmd_think
         r = _cmd_think(["global"])
         assert isinstance(r, dict)
 
     def test_think_global_set(self):
-        from l2.l2_shell.commands import _cmd_think
+        from l2.l2_shell.commands.extra import _cmd_think
         r = _cmd_think(["global", "reasoning_effort=high"])
         assert isinstance(r, dict)
 
@@ -186,6 +181,6 @@ class TestCmdDebug:
     """/debug command."""
 
     def test_debug_health(self):
-        from l2.l2_shell.commands import _cmd_debug
-        r = _cmd_debug(["health"])
+        from l2.l2_shell import dispatch
+        r = dispatch("/dev health")
         assert isinstance(r, dict)

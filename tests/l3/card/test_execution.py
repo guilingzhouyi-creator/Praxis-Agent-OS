@@ -32,14 +32,14 @@ class TestCardBuilder:
     """CardBuilder"""
 
     def test_build_default(self):
-        from l3.card_builder import build_card
+        from l3.card.card_builder import build_card
         card = build_card(task_id="t1", intent="implement login", domain="src/auth")
         assert card is not None
         # CardUnified uses summary.title instead of .intent
         assert "login" in card.summary.title
 
     def test_build_with_priority(self):
-        from l3.card_builder import build_card
+        from l3.card.card_builder import build_card
         card = build_card(task_id="t2", intent="fix urgent bug", domain=".",
                           priority=1)
         assert card.priority == 1
@@ -49,13 +49,13 @@ class TestCardGate:
     """CardGate"""
 
     def test_gate_evaluate(self):
-        from l3.card_gate import evaluate as gate_eval
+        from l3.card.card_gate import evaluate as gate_eval
         r = gate_eval("test-card", intent="read file", domain=".")
         assert isinstance(r, dict)
         assert "auto_approve" in r or "action" in r or "score" in r
 
     def test_gate_stats(self):
-        from l3.card_gate import stats as gate_stats
+        from l3.card.card_gate import stats as gate_stats
         r = gate_stats()
         assert isinstance(r, dict)
 
@@ -103,7 +103,7 @@ class TestCardUnified:
     """Unified Card"""
 
     def test_register_card_type(self):
-        from l3.card_unified import register_card_type, list_card_types
+        from l3.card.card_unified import register_card_type, list_card_types
         register_card_type("custom_test", {
             "phases": ["analyze", "execute"],
             "default_prompts": {},
@@ -114,7 +114,7 @@ class TestCardUnified:
         assert any(t.get("name") == "custom_test" for t in types)
 
     def test_list_card_types(self):
-        from l3.card_unified import list_card_types
+        from l3.card.card_unified import list_card_types
         types = list_card_types()
         assert isinstance(types, list)
         assert len(types) >= 3
@@ -124,14 +124,14 @@ class TestExecutionPlan:
     """ExecutionPlan"""
 
     def test_plan_create(self):
-        from l3.execution_plan import ExecutionPlan
+        from l3.card.execution_plan import ExecutionPlan
         from l3.card import Card
         card = Card(intent="test plan", domain=".")
         plan = ExecutionPlan(card, agent_map={"reader": "agent-a"})
         assert plan is not None
 
     def test_plan_execute_basic(self):
-        from l3.execution_plan import ExecutionPlan
+        from l3.card.execution_plan import ExecutionPlan
         from l3.card import Card
         card = Card(intent="simple task", domain=".",
                     phases=[])
@@ -145,13 +145,13 @@ class TestExecutionVerify:
     """Execution verification"""
 
     def test_verify_basic(self):
-        from l3.execution_verify import Verifier
+        from l3.card.execution_verify import Verifier
         v = Verifier()
         r = v.check({"success": True, "data": "ok"}, goal="test goal")
         assert isinstance(r, dict)
 
     def test_verify_consistency(self):
-        from l3.execution_verify import Verifier
+        from l3.card.execution_verify import Verifier
         v = Verifier()
         r = v.consistency_check([{"success": True}], goal="test")
         assert isinstance(r, dict)
@@ -161,13 +161,13 @@ class TestExecutionEngine:
     """ExecutionEngine"""
 
     def test_engine_create(self):
-        from l3.execution_engine import ExecutionEngine
+        from l3.card.execution_engine import ExecutionEngine
         engine = ExecutionEngine()
         assert engine is not None
 
     def test_engine_execute_plan(self):
-        from l3.execution_engine import ExecutionEngine, ExecutionResult
-        from l3.execution_plan import ExecutionPlan
+        from l3.card.execution_engine import ExecutionEngine, ExecutionResult
+        from l3.card.execution_plan import ExecutionPlan
         from l3.card import Card
         engine = ExecutionEngine()
         card = Card(intent="engine test", domain=".", phases=[])

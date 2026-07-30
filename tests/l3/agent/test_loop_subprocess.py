@@ -31,7 +31,7 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
     name bound in its own module namespace.
     """
     import l4.llm as llm_mod
-    import l3.agent_loop as al_mod
+    import l3.agent.agent_loop as al_mod
 
     class _MockEngine:
         def __init__(self):
@@ -114,10 +114,10 @@ class TestAgentLoopMultistepChain:
         each step's result back to the LLM-engine loop contract + ToolChain
         chain integrity.
         """
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         from l1.kernel.tool_chain import get_tool_chain
         import l4.llm as llm_mod
-        import l3.agent_loop as al_mod
+        import l3.agent.agent_loop as al_mod
 
         tc = get_tool_chain()
 
@@ -265,7 +265,7 @@ class TestAgentLoopToolFailureRetry:
     def test_failed_step_with_verifier_reports_corrections(self):
         """Tool failure + verifier.retry_allowed=True → corrections≥1,
         and loop_stopped=False (verifier drives retry, not hard stop)."""
-        from l3.agent_loop import AgentLoop
+        from l3.agent.agent_loop import AgentLoop
         from l1.kernel.tool_chain import get_tool_chain
         import l4.llm as llm_mod
 
@@ -321,7 +321,7 @@ class TestAgentLoopConcurrentRingRace:
     """
 
     def test_two_agents_concurrent_ring3_one_blocked(self):
-        from l3.tool_pipeline import get_rate_scheduler
+        from l3.tool_system.tool_pipeline import get_rate_scheduler
         rl = get_rate_scheduler()
 
         # RING_3 default budget is small (params.RATE_LIMIT_RING3), two agents in the same
@@ -358,7 +358,7 @@ class TestDialogueCrossTurnToolFeedback:
 
     def test_cross_turn_tool_feedback_in_next_prompt_context(self):
         """Turn 1 tool return value push_context'd, turn 2 build_context() must contain it."""
-        from l3.dialogue_session import DialogueSession
+        from l3.card.dialogue_session import DialogueSession
 
         session = DialogueSession(agent_id="agent-x")
 
@@ -394,7 +394,7 @@ class TestDialogueCrossTurnToolFeedback:
 
     def test_cross_turn_multi_step_accumulation(self):
         """3 turns of tool call accumulation feedback: turn 3 build_context contains previous 2 turns' tool results."""
-        from l3.dialogue_session import DialogueSession
+        from l3.card.dialogue_session import DialogueSession
 
         session = DialogueSession(agent_id="agent-y")
 
@@ -438,7 +438,7 @@ class TestDialogueMultiTurnBudgetFold:
 
     def test_overshoot_evicts_non_tool_keeps_recent_tool(self):
         """Non-tool entries evicted on budget overshoot, tool entries keep up to 5."""
-        from l3.dialogue_session import DialogueSession, SessionConfig
+        from l3.card.dialogue_session import DialogueSession, SessionConfig
 
         # Tiny budget to trigger overshoot quickly: 80 tokens ≈ 320 chars. Push 8 tool entries
         # each ~25 chars ≈ 6 tokens → ~50 tokens total, ~30 remaining. Then push one
@@ -484,7 +484,7 @@ class TestDialogueMultiTurnBudgetFold:
         design choice (not clamped to ≥0). This test only asserts session state is not
         corrupted: build_context and record_turn still work normally.
         """
-        from l3.dialogue_session import DialogueSession, SessionConfig
+        from l3.card.dialogue_session import DialogueSession, SessionConfig
 
         session = DialogueSession(
             agent_id="agent-fold-2",

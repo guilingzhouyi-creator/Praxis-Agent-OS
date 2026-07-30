@@ -67,12 +67,13 @@ class McpClient:
         self._headers = {"Content-Type": "application/json"}
         if api_key:
             self._headers["Authorization"] = f"Bearer {api_key}"
+        self._opener = req.build_opener()
 
     def list_tools(self) -> list[McpTool]:
         url = f"{self.endpoint}/tools/list"
         try:
-            r = req.urlopen(req.Request(url, headers=self._headers, method="GET"),
-                            timeout=self.timeout)
+            r = self._opener.open(req.Request(url, headers=self._headers, method="GET"),
+                                  timeout=self.timeout)
             data = json.loads(r.read())
         except Exception as e:
             raise McpClientError(f"list_tools failed: {e}") from e
@@ -89,16 +90,16 @@ class McpClient:
         url = f"{self.endpoint}/tools/call"
         body = json.dumps({"name": name, "arguments": arguments}).encode()
         try:
-            r = req.urlopen(req.Request(url, data=body, headers=self._headers, method="POST"),
-                            timeout=self.timeout)
+            r = self._opener.open(req.Request(url, data=body, headers=self._headers, method="POST"),
+                                  timeout=self.timeout)
             return json.loads(r.read())
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     def ping(self) -> bool:
         try:
-            r = req.urlopen(req.Request(f"{self.endpoint}/ping", headers=self._headers),
-                            timeout=MCP_TIMEOUT)
+            r = self._opener.open(req.Request(f"{self.endpoint}/ping", headers=self._headers),
+                                  timeout=MCP_TIMEOUT)
             return r.status == 200
         except Exception:
             return False

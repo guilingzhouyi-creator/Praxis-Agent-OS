@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 def test_check_allowed():
-    from l3.scheduler_rate import RateScheduler
+    from l3.scheduler.scheduler_rate import RateScheduler
     rs = RateScheduler()
     r = rs.check("test-agent", "RING_1")
     assert r.get("allowed")
@@ -13,7 +13,7 @@ def test_check_allowed():
 
 
 def test_check_rate_limit():
-    from l3.scheduler_rate import RateScheduler
+    from l3.scheduler.scheduler_rate import RateScheduler
     rs = RateScheduler()
     for _ in range(5):
         rs.check("rate-agent", "RING_3")
@@ -22,7 +22,7 @@ def test_check_rate_limit():
 
 
 def test_stats():
-    from l3.scheduler_rate import RateScheduler
+    from l3.scheduler.scheduler_rate import RateScheduler
     rs = RateScheduler()
     rs.check("stats-agent", "RING_1")
     s = rs.stats()
@@ -30,7 +30,7 @@ def test_stats():
 
 
 def test_get_scheduler():
-    from l3.scheduler_rate import get_rate_scheduler, reset_rate_scheduler
+    from l3.scheduler.scheduler_rate import get_rate_scheduler, reset_rate_scheduler
     reset_rate_scheduler()
     s1 = get_rate_scheduler()
     s2 = get_rate_scheduler()
@@ -38,7 +38,7 @@ def test_get_scheduler():
 
 
 def test_agent_can_access():
-    from l3.scheduler_rate import agent_can_access
+    from l3.scheduler.scheduler_rate import agent_can_access
     from l1.kernel.params.agent import AGENT_CLEARANCE
     result = agent_can_access("agent-writer", "RING_3")
     assert isinstance(result, bool)

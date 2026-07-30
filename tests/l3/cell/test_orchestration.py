@@ -42,7 +42,7 @@ class TestCellRemoveAgent:
 
     def test_remove_cleans_mailbox(self):
         from l3.cell import get_cell, reset_cells
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         reset_cells()
         cell = get_cell("cell-rm3", ["."])
         cell.add_agent("agent-a", role="reader", auto_boot=False)
@@ -58,7 +58,7 @@ class TestCellSendMessage:
 
     def test_send_basic_message(self):
         from l3.cell import get_cell, reset_cells
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         reset_cells()
         cell = get_cell("cell-msg1", ["."])
         cell.add_agent("sender", role="reader", auto_boot=False)
@@ -72,7 +72,7 @@ class TestCellSendMessage:
 
     def test_send_to_unknown_target(self):
         from l3.cell import get_cell, reset_cells
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         reset_cells()
         cell = get_cell("cell-msg2", ["."])
         cell.add_agent("sender", role="reader", auto_boot=False)
@@ -81,7 +81,7 @@ class TestCellSendMessage:
 
     def test_read_messages_clear(self):
         from l3.cell import get_cell, reset_cells
-        from l3.cell_types import MessageType
+        from l3.cell.components.cell_types import MessageType
         reset_cells()
         cell = get_cell("cell-msg3", ["."])
         cell.add_agent("a1", role="reader", auto_boot=False)

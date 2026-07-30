@@ -14,6 +14,7 @@ import logging
 import threading
 import time
 from collections import deque
+from itertools import islice
 from typing import Any
 
 from .sync import get_mutex, get_semaphore, get_barrier, get_rwlock, get_condition, get_lock_bus, registry_status as sync_status
@@ -97,11 +98,18 @@ def record_audit(op: str, agent_id: str, success: bool = True,
 def get_audit_log(limit: int = SYSCALL_AUDIT_QUERY_LIMIT, agent_id: str = "") -> list[dict]:
     """Query the syscall audit trail. Filter by agent_id if given.
 
-    Optimization: slice first (O(k)), filter second — avoids O(N) full copy.
+    Optimization: islice copies only the tail portion (O(k) not O(N));
+    avoids copying the full 5000-entry deque under lock.
     """
     with _audit_lock:
-        # Take a generous slice first to minimize lock hold + copy time
-        safe_slice = list(_audit_log)[-limit * 4:] if not agent_id else list(_audit_log)
+        total = len(_audit_log)
+        if agent_id:
+            # Agent filter needs full scan — keep lock brief by copying the whole deque once
+            safe_slice = list(_audit_log)
+        else:
+            # Common case: only copy the tail we need (limit*4 entries, max ~400)
+            n = min(total, limit * 4)
+            safe_slice = list(islice(_audit_log, total - n, total))
     if agent_id:
         return [e for e in safe_slice if e["agent_id"] == agent_id][-limit:]
     return safe_slice[-limit:]
@@ -120,7 +128,8 @@ _SYSCALL_REGISTRY: dict[str, Any] = {}
 
 def register_syscall(name: str, handler: Any) -> None:
     """Register a custom syscall handler."""
-    _SYSCALL_REGISTRY[name] = handler
+    sub = name.split(".", 1)[1] if "." in name else ""
+    _SYSCALL_REGISTRY[name] = (handler, sub)
 
 
 def syscall(op: str, *args, **kwargs) -> dict:
@@ -136,14 +145,14 @@ def syscall(op: str, *args, **kwargs) -> dict:
     """
     agent_id = kwargs.get("agent_id", "unknown")
 
-    handler = _SYSCALL_REGISTRY.get(op)
-    if handler is None:
+    entry = _SYSCALL_REGISTRY.get(op)
+    if entry is None:
         return {"success": False, "error": f"EINVAL: unknown syscall '{op}'",
                 "error_code": "EINVAL"}
+    handler, precomputed_sub = entry
     try:
-        # Inject _sub so handler knows which sub-command was invoked
-        if "." in op:
-            kwargs["_sub"] = op.split(".", 1)[1]
+        if precomputed_sub:
+            kwargs["_sub"] = precomputed_sub
         r = handler(agent_id, kwargs)
     except KeyError as e:
         r = {"success": False, "error": f"EINVAL: missing key {e}", "error_code": "EINVAL"}
@@ -249,7 +258,7 @@ def _register_builtin_syscalls() -> None:
     }
     for group, (handler, subs) in _groups.items():
         for sub in subs:
-            _SYSCALL_REGISTRY[f"{group}.{sub}"] = handler
+            _SYSCALL_REGISTRY[f"{group}.{sub}"] = (handler, sub)
 
 
 _register_builtin_syscalls()

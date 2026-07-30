@@ -18,7 +18,7 @@ class TestRCExportLimit:
         assert RC_EXPORT_LIMIT == 999999
 
     def test_used_in_count(self):
-        from l3.reference_channel import ReferenceChannel
+        from l3.bus.reference_channel import ReferenceChannel
         import tempfile, os as _os
         tmp = _os.path.join(tempfile.gettempdir(), "_test_rc_count.jsonl")
         rc = ReferenceChannel(path=tmp)
@@ -77,7 +77,7 @@ class TestContextRoleConstants:
     """context.py: _ROLE_TOOL / _ROLE_ASSISTANT replace hardcoded strings."""
 
     def test_constants_defined(self):
-        from l3.context import ContextManager
+        from l3.memory.context import ContextManager
         assert callable(ContextManager)
 
 
@@ -99,7 +99,7 @@ class TestErrorBusEnglish:
     def test_no_chinese_in_docstrings(self):
         """Verify error_bus.py has no remaining Chinese text."""
         import re
-        path = os.path.join(os.path.dirname(__file__), "..", "src", "l3", "error_bus", "__init__.py")
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "l3", "error_bus", "__init__.py")
         with open(path, encoding="utf-8") as f:
             content = f.read()
         chinese = re.findall(r"[\u4e00-\u9fff]{2,}", content)

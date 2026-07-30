@@ -8,7 +8,7 @@ class TestSseBridgeCore:
     """SSE bridge core functionality"""
 
     def test_subscribe_unsubscribe(self):
-        from l4.sse_bridge import subscribe, unsubscribe
+        from l4.sse.sse_bridge import subscribe, unsubscribe
         client = subscribe()
         assert "client_id" in client
         assert "queue" in client
@@ -19,15 +19,15 @@ class TestSseBridgeCore:
         unsubscribe(cid)
 
     def test_subscribe_with_types(self):
-        from l4.sse_bridge import subscribe
+        from l4.sse.sse_bridge import subscribe
         client = subscribe(event_types={"error_log", "test_event"})
         assert client["client_id"] is not None
         # cleanup
-        from l4.sse_bridge import unsubscribe
+        from l4.sse.sse_bridge import unsubscribe
         unsubscribe(client["client_id"])
 
     def test_push_and_receive(self):
-        from l4.sse_bridge import subscribe, push_event, unsubscribe
+        from l4.sse.sse_bridge import subscribe, push_event, unsubscribe
 
         client = subscribe(event_types={"test_type"})
         q = client["queue"]
@@ -43,7 +43,7 @@ class TestSseBridgeCore:
             unsubscribe(client["client_id"])
 
     def test_type_filter(self):
-        from l4.sse_bridge import subscribe, push_event, unsubscribe
+        from l4.sse.sse_bridge import subscribe, push_event, unsubscribe
 
         # Subscribe only to test_a
         client = subscribe(event_types={"test_a"})
@@ -58,7 +58,7 @@ class TestSseBridgeCore:
             unsubscribe(client["client_id"])
 
     def test_duplicate_unsubscribe(self):
-        from l4.sse_bridge import subscribe, unsubscribe
+        from l4.sse.sse_bridge import subscribe, unsubscribe
         client = subscribe()
         cid = client["client_id"]
         unsubscribe(cid)
@@ -69,7 +69,7 @@ class TestEnsureActive:
     """Active check"""
 
     def test_ensure_active(self):
-        from l4.sse_bridge import ensure_active, _ACTIVE
+        from l4.sse.sse_bridge import ensure_active, _ACTIVE
         old = _ACTIVE
         ensure_active()
         # Should not raise
@@ -80,7 +80,7 @@ class TestApiHandlers:
     """API Handler function-level test"""
 
     def test_handle_sse(self):
-        from l4.sse_bridge import handle_sse
+        from l4.sse.sse_bridge import handle_sse
         r = handle_sse()
         assert isinstance(r, dict)
         assert r.get("_sse") is True

@@ -11,7 +11,7 @@ class TestDiffEdit:
     """Diff semantic editing core functionality"""
 
     def test_simple_replace(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -29,7 +29,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_replace_not_found(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -44,7 +44,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_file_not_found(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         edit = DiffEdit(path="/tmp/nonexistent_file_xyz.txt", old_str="a", new_str="b")
@@ -52,7 +52,7 @@ class TestDiffEdit:
         assert not r["success"]
 
     def test_case_sensitive(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -66,7 +66,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_case_insensitive(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -86,7 +86,7 @@ class TestBatchEdit:
     """Atomic batch editing"""
 
     def test_batch_success(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         files = []
@@ -114,7 +114,7 @@ class TestBatchEdit:
                 os.unlink(p)
 
     def test_batch_rollback(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         f1 = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8")
@@ -143,7 +143,7 @@ class TestUndoRedo:
     """Undo / Redo"""
 
     def test_undo_redo(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -169,7 +169,7 @@ class TestUndoRedo:
             os.unlink(tmp)
 
     def test_undo_nothing(self):
-        from l3.file_editor import EditEngine
+        from l3.services.file_editor import EditEngine
 
         engine = EditEngine()
         r = engine.undo()
@@ -177,7 +177,7 @@ class TestUndoRedo:
         assert "nothing to undo" in r.get("error", "")
 
     def test_redo_nothing(self):
-        from l3.file_editor import EditEngine
+        from l3.services.file_editor import EditEngine
 
         engine = EditEngine()
         r = engine.redo()
@@ -185,7 +185,7 @@ class TestUndoRedo:
         assert "nothing to redo" in r.get("error", "")
 
     def test_history(self):
-        from l3.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import EditEngine, DiffEdit
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -205,7 +205,7 @@ class TestPatchSystem:
     """Patch create/apply/rollback"""
 
     def test_patch_create_and_apply(self):
-        from l3.file_editor import EditEngine, DiffEdit, PatchManager
+        from l3.services.file_editor import EditEngine, DiffEdit, PatchManager
 
         engine = EditEngine()
         mgr = PatchManager(engine)
@@ -231,7 +231,7 @@ class TestPatchSystem:
             os.unlink(tmp)
 
     def test_patch_list(self):
-        from l3.file_editor import EditEngine, PatchManager
+        from l3.services.file_editor import EditEngine, PatchManager
         engine = EditEngine()
         mgr = PatchManager(engine)
         pr = mgr.list_patches()
@@ -243,7 +243,7 @@ class TestApiHandlers:
     """API Handler function-level test"""
 
     def test_handle_fs_edit_basic(self):
-        from l3.file_editor import handle_fs_edit
+        from l3.services.file_editor import handle_fs_edit
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             f.write("api_content\n")
@@ -256,19 +256,19 @@ class TestApiHandlers:
             os.unlink(tmp)
 
     def test_handle_fs_edit_missing_field(self):
-        from l3.file_editor import handle_fs_edit
+        from l3.services.file_editor import handle_fs_edit
 
         r = handle_fs_edit({"path": ""})
         assert not r["success"]
 
     def test_handle_fs_history(self):
-        from l3.file_editor import handle_fs_history
+        from l3.services.file_editor import handle_fs_history
 
         r = handle_fs_history({"limit": 5})
         assert r["success"]
 
     def test_handle_fs_undo_redo(self):
-        from l3.file_editor import handle_fs_undo, handle_fs_redo, get_engine
+        from l3.services.file_editor import handle_fs_undo, handle_fs_redo, get_engine
         # Ensure clean state
         eng = get_engine()
         while eng._history:

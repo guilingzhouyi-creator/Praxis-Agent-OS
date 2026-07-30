@@ -6,18 +6,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestPager:
     def test_init(self):
-        from l3.pager import ContextPager
+        from l3.memory.pager import ContextPager
         p = ContextPager()
         assert p is not None
 
     def test_fetch(self):
-        from l3.pager import ContextPager
+        from l3.memory.pager import ContextPager
         p = ContextPager()
         r = p.fetch("chunk-test", agent_id="agent-p")
         assert isinstance(r, dict)
 
     def test_flush(self):
-        from l3.pager import ContextPager
+        from l3.memory.pager import ContextPager
         p = ContextPager()
         r = p.flush("chunk-test")
         assert isinstance(r, dict)
@@ -25,13 +25,13 @@ class TestPager:
 
 class TestPagerBridge:
     def test_get_bridge(self):
-        from l3.pager_bridge import get_pager_bridge, reset_pager_bridge
+        from l3.memory.pager_bridge import get_pager_bridge, reset_pager_bridge
         reset_pager_bridge()
         b = get_pager_bridge()
         assert b is not None
 
     def test_pin_unpin(self):
-        from l3.pager_bridge import get_pager_bridge, reset_pager_bridge
+        from l3.memory.pager_bridge import get_pager_bridge, reset_pager_bridge
         reset_pager_bridge()
         b = get_pager_bridge()
         b.pin_chunk("test-chunk")
@@ -40,14 +40,14 @@ class TestPagerBridge:
         assert not b.is_pinned("test-chunk")
 
     def test_on_swap_out(self):
-        from l3.pager_bridge import get_pager_bridge, reset_pager_bridge
+        from l3.memory.pager_bridge import get_pager_bridge, reset_pager_bridge
         reset_pager_bridge()
         b = get_pager_bridge()
         pinned = b.on_swap_out(["e1", "e2", "e3"], 3, 1)
         assert isinstance(pinned, list)
 
     def test_stats(self):
-        from l3.pager_bridge import get_pager_bridge, reset_pager_bridge
+        from l3.memory.pager_bridge import get_pager_bridge, reset_pager_bridge
         reset_pager_bridge()
         b = get_pager_bridge()
         s = b.stats()

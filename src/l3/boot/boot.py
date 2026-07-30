@@ -404,6 +404,57 @@ def _init_discovery() -> dict:
         "clr": "clear", "hist": "history",
     })
 
+    # Register tool timeout defaults (params → get_config fallback)
+    register("tool", {
+        "pip_install_timeout": _pt.TOOL_PIP_INSTALL_TIMEOUT,
+        "npm_timeout": _pt.TOOL_NPM_TIMEOUT,
+        "pyright_timeout": _pt.TOOL_PYRIGHT_TIMEOUT,
+        "compile_check_timeout": _pt.TOOL_COMPILE_CHECK_TIMEOUT,
+        "package_manager_timeout": _pt.TOOL_PACKAGE_MANAGER_TIMEOUT,
+        "handler_timeout": _pt.TOOL_HANDLER_TIMEOUT,
+    })
+
+    # Register cache defaults (params → get_config fallback)
+    register("cache", {
+        "cell_hot_size": _ps.CELL_CACHE_HOT_SIZE,
+        "cell_index_size": _ps.CELL_CACHE_INDEX_SIZE,
+        "cell_kv_size": _ps.CELL_CACHE_KV_SIZE,
+        "cell_hot_ttl": _ps.CELL_CACHE_HOT_TTL,
+        "cell_index_ttl": _ps.CELL_CACHE_INDEX_TTL,
+        "cell_kv_ttl": _ps.CELL_CACHE_KV_TTL,
+        "scout_cache_ttl": _ps.SCOUT_CACHE_TTL,
+        "scout_cache_max_entries": _ps.SCOUT_CACHE_MAX_ENTRIES,
+        "result_store_ttl": _ps.RESULT_STORE_TTL,
+        "result_store_max": _ps.RESULT_STORE_MAX_ENTRIES,
+    })
+
+    # Register persistence defaults (params → get_config fallback)
+    register("persistence", {
+        "interval": _ps.PERSIST_INTERVAL,
+        "card_registry": _ps.CARD_REGISTRY_AUTO_SAVE,
+        "card_gate": _ps.CARD_GATE_AUTO_SAVE,
+        "pending_queue": _ps.PENDING_QUEUE_AUTO_SAVE,
+        "issue_table": _ps.ISSUE_TABLE_AUTO_SAVE,
+        "approval_gate": _ps.APPROVAL_GATE_AUTO_SAVE,
+        "sandbox_state": _ps.SANDBOX_STATE_AUTO_SAVE,
+        "todo_table": _ps.TODO_TABLE_AUTO_SAVE,
+        "transaction_area": _ps.TRANSACTION_AREA_AUTO_SAVE,
+        "statecharts": _ps.STATECHARTS_AUTO_SAVE,
+        "execution_results": _ps.EXECUTION_RESULTS_AUTO_SAVE,
+        "dialogue_session": _ps.DIALOGUE_SESSION_AUTO_SAVE,
+    })
+
+    # Register loop defaults (params → get_config fallback)
+    register("loop", {
+        "max_attempts": _pag.LOOP_MAX_ATTEMPTS,
+        "tool_repeat_warn": _pag.LOOP_TOOL_REPEAT_WARN,
+        "tool_repeat_stop": _pag.LOOP_TOOL_REPEAT_STOP,
+        "coarse_repeat_nudge": _pag.LOOP_COARSE_REPEAT_NUDGE,
+        "coarse_repeat_stop": _pag.LOOP_COARSE_REPEAT_STOP,
+        "verify_cadence": _pag.LOOP_VERIFY_CADENCE,
+        "continuation_nudge": _pag.LOOP_CONTINUATION_NUDGE,
+    })
+
     # Register discovery directory
     from pathlib import Path as _Path
     dd = _Path(__file__).resolve().parent.parent.parent.parent / "config" / "discovery"

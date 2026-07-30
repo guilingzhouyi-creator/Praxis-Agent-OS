@@ -142,7 +142,7 @@ class TestParamsIntegrity:
         assert TOOL_DANGER_LEVEL[3] == "destructive"
 
     def test_version(self):
-        assert KERNEL_VERSION == "0.3.0"
+        assert KERNEL_VERSION == "0.4.0"
 
     def test_sandbox_root(self):
         assert "praxis-sandbox" in SANDBOX_ROOT_PATH

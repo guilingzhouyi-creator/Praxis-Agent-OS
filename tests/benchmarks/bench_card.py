@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from l3.cell import get_cell, reset_cells
 from l3.card import Card, CardMode, Phase, PhaseMode, Step
 from l3.agent_terminal import reset_terminals
-from l3.scout import get_pool
+from l3.agent.scout import get_pool
 from l1.kernel.params.agent import TERMINAL_MAX_WORKERS
 from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT
 
@@ -76,7 +76,7 @@ print(f"  Pool: max_total={SCOUT_POOL_MAX_TOTAL} max_per_agent={SCOUT_POOL_MAX_P
 print(f"  Workers: {TERMINAL_MAX_WORKERS} per agent\n")
 
 # Warmup: run a single scout to pre-warm Python cache
-from l3.scout import get_pool
+from l3.agent.scout import get_pool
 get_pool().commission("warmup", "Search for import patterns in current directory")
 
 t0 = time.time()

@@ -14,13 +14,13 @@ _imported = False
 
 class TestMemoryInit:
     def test_snapshot_path_format(self):
-        from l3.memory_init import _snapshot_path
+        from l3.memory.memory_init import _snapshot_path
         path = _snapshot_path("test")
         assert "test" in path
         assert path.endswith(".json")
 
     def test_read_write_json(self):
-        from l3.memory_init import _read_json, _write_json
+        from l3.memory.memory_init import _read_json, _write_json
         td = tempfile.mkdtemp()
         test_path = os.path.join(td, "test.json")
         ok = _write_json(test_path, {"key": "value", "num": 42})
@@ -31,7 +31,7 @@ class TestMemoryInit:
         shutil.rmtree(td, ignore_errors=True)
 
     def test_save_boot_snapshot(self):
-        from l3.memory_init import save_boot_snapshot
+        from l3.memory.memory_init import save_boot_snapshot
         path = save_boot_snapshot([("agent-a", "reader", ["docs"])])
         assert path is not None
         assert path.endswith("_boot.json")
@@ -39,6 +39,6 @@ class TestMemoryInit:
             os.remove(path)
 
     def test_latest_snapshot(self):
-        from l3.memory_init import _latest_snapshot
+        from l3.memory.memory_init import _latest_snapshot
         r = _latest_snapshot()
         assert r is None or r.endswith("_boot.json")

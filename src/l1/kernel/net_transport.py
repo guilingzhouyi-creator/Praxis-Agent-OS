@@ -421,7 +421,9 @@ class TcpAdapter(TransportPort):
                 headers={"remote_addr": addr[0]},
             ))
 
-            # Also dispatch directly to handler (backward compat during migration)
+            # Legacy direct handler dispatch (kept during migration; remove after
+            # ALL consumers switch to ChannelPort consumption. Both paths fire
+            # simultaneously, so only the ChannelPort path should remain.)
             with self._lock:
                 handler = self._handlers.get(msg_type)
             if handler:

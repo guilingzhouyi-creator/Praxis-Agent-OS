@@ -163,7 +163,14 @@ class SemanticSearch:
 
 
 class SymbolSearch:
-    """AST-level code symbol search — find classes/functions/variables across projects."""
+    """AST-level code symbol search — find classes/functions/variables across projects.
+
+    Caches parsed AST trees per file, invalidated by mtime change,
+    to avoid O(N) re-parsing on repeated searches.
+    """
+
+    _ast_cache: dict[tuple[str, float], ast.Module] = {}  # (path, mtime) → AST
+    _CACHE_MAX = 200
 
     LANGUAGES: dict[str, tuple[str, list[str]]] = {
         "python": ("python", [".py"]),
@@ -184,13 +191,25 @@ class SymbolSearch:
         term = name.lower()
         results: list[SearchResult] = []
 
-        # Python AST search
+        # Python AST search — use cached AST with mtime invalidation
+        import time as _time
         for file_path in root.rglob("*.py"):
             if self._is_ignored(file_path):
                 continue
             try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
-                tree = ast.parse(content)
+                mtime = file_path.stat().st_mtime
+                cache_key = (str(file_path), mtime)
+                cached = self._ast_cache.get(cache_key)
+                if cached is not None:
+                    tree = cached
+                else:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    tree = ast.parse(content)
+                    # LRU eviction: keep cache bounded
+                    if len(self._ast_cache) >= self._CACHE_MAX:
+                        # Remove oldest entry (dict preserves insertion order in 3.7+)
+                        self._ast_cache.pop(next(iter(self._ast_cache)))
+                    self._ast_cache[cache_key] = tree
                 for node in ast.walk(tree):
                     match = None
                     if isinstance(node, ast.FunctionDef) and term in node.name.lower():

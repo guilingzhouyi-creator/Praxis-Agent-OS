@@ -49,7 +49,9 @@ RC_SHA256_TRUNC: Final[int] = 16
 RC_EXPORT_LIMIT: Final[int] = 999999
 
 
-# ── Persistence ──
+# ── Persistence / data paths ──
+PRAXIS_CONFIG_DIR: Final[str] = ".config/praxis"
+"""Default config directory name (relative/absolute path)."""
 PERSIST_AUTO: Final[bool] = True
 PERSIST_INTERVAL: Final[float] = 30.0
 EVENT_STORE_MAX_QUERY: Final[int] = 5000

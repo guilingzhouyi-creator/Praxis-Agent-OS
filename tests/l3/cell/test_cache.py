@@ -23,7 +23,7 @@ class TestCellCacheInject:
     """inject — write to cache"""
 
     def test_inject_basic(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("test-cell")
         r = cache.inject(key="decision:use_poetry", value="Use Poetry not pip",
                           summary="prefer Poetry", agent_id="agent-a",
@@ -31,7 +31,7 @@ class TestCellCacheInject:
         assert r.get("success"), f"inject failed: {r}"
 
     def test_inject_with_tags(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("tag-cell")
         # CellCache.inject() does not accept tags parameter directly
         r = cache.inject(key="test:with_tags", value="data with tags", summary="s",
@@ -39,7 +39,7 @@ class TestCellCacheInject:
         assert r.get("success")
 
     def test_inject_then_lookup(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("lookup-cell")
         cache.inject(key="k1", value="value1", summary="v1",
                       agent_id="agent-c", entry_type="observation")
@@ -52,13 +52,13 @@ class TestCellCacheLookup:
     """lookup — retrieve by key"""
 
     def test_lookup_missing(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("miss-cell")
         entry = cache.lookup("nonexistent_key")
         assert entry is None, "should return None for missing key"
 
     def test_lookup_after_expiry(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("exp-cell")
         cache.inject(key="exp_key", value="data", summary="s",
                       agent_id="agent-d", entry_type="observation",
@@ -73,13 +73,13 @@ class TestCellCacheSearch:
     """search — cross-ring index matching"""
 
     def test_search_empty(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("search-cell")
         results = cache.search("nonexistent", limit=10)
         assert isinstance(results, list)
 
     def test_search_finds_injected(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("search2-cell")
         cache.inject(key="search:test", value="test data for search",
                       summary="search summary", agent_id="agent-e",
@@ -93,7 +93,7 @@ class TestCellCachePromote:
     """promote — promote from MemoryManager"""
 
     def test_promote_does_not_crash(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("prom-cell")
         r = cache.promote(key="promoted_key", summary="promoted",
                            value="promoted value", location="l3",
@@ -105,7 +105,7 @@ class TestCellCacheFlush:
     """flush — write dirty values back"""
 
     def test_flush_returns_count(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("flush-cell")
         # Inject some entries then flush
         cache.inject(key="f1", value="v1", summary="s1",
@@ -119,7 +119,7 @@ class TestCellCacheEvict:
 
     def test_evict_index_on_overflow(self):
         """Verify no crash when Index Chain exceeds capacity"""
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         # Use minimal Index capacity to trigger eviction
         cache = CellCache("evict-cell")
         for i in range(50):
@@ -134,13 +134,13 @@ class TestCellCacheGetCellContext:
     """get_cell_context — build Cell context"""
 
     def test_get_cell_context_returns_string(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("ctx-cell")
         ctx = cache.get_cell_context(max_tokens=1024)
         assert isinstance(ctx, str)
 
     def test_get_cell_context_with_data(self):
-        from l3.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         cache = CellCache("ctx2-cell")
         cache.inject(key="ctx:test", value="important context data",
                       summary="ctx summary", agent_id="agent-g",

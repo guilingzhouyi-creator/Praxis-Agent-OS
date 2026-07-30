@@ -3,8 +3,10 @@
 import subprocess
 
 from l1.kernel.params.system import LOG_TRUNC_2000
-from l1.kernel.params.tool import TOOL_BUILD_TIMEOUT
-from l1.kernel.discovery import get_config
+from l1.kernel.discovery import get_tool_config
+
+
+_BUILD_TIMEOUT = get_tool_config("build_timeout", 300)
 
 
 def _get_build_detectors() -> list[tuple[str, ...]]:
@@ -29,7 +31,7 @@ def build_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
     for cmd in _get_build_detectors():
         try:
-            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
+            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:LOG_TRUNC_2000]}
         except Exception:
@@ -41,7 +43,7 @@ def test_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
     for cmd in _get_test_detectors():
         try:
-            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=TOOL_BUILD_TIMEOUT)
+            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:LOG_TRUNC_2000]}
         except Exception:
@@ -57,14 +59,14 @@ def execute_shell(args: dict, agent_id: str) -> dict:
 
 def deploy(args: dict, agent_id: str) -> dict:
     """Deploy code to target environment."""
-    return execute_shell({"command": f"deploy {args.get('target', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)
+    return execute_shell({"command": f"deploy {args.get('target', '')}", "timeout": _BUILD_TIMEOUT}, agent_id)
 
 
 def db_migrate(args: dict, agent_id: str) -> dict:
     """Run database migration scripts."""
-    return execute_shell({"command": f"db_migrate {args.get('migration', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)
+    return execute_shell({"command": f"db_migrate {args.get('migration', '')}", "timeout": _BUILD_TIMEOUT}, agent_id)
 
 
 def rollback(args: dict, agent_id: str) -> dict:
     """Roll back a deployed version."""
-    return execute_shell({"command": f"rollback {args.get('version', '')}", "timeout": TOOL_BUILD_TIMEOUT}, agent_id)
+    return execute_shell({"command": f"rollback {args.get('version', '')}", "timeout": _BUILD_TIMEOUT}, agent_id)

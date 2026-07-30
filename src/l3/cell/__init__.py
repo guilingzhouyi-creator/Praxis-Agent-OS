@@ -161,7 +161,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                    ring: int | None = None,
                    max_scouts: int | None = None,
                    model_config: dict | None = None,
-                   auto_boot: bool = False) -> dict:
+                   auto_boot: bool = True) -> dict:
         """Register a new agent in this Cell."""
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
         info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else 1),

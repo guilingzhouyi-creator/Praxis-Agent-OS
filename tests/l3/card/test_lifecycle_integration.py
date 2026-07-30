@@ -54,14 +54,14 @@ class TestCardLifecycleIntegration:
 
     def test_card_pool_install(self):
         """card_pool 基本操作不崩溃"""
-        from l3.card_pool import get_pool as _cp
+        from l3.card.card_pool import get_pool as _cp
         pool = _cp()
         r = pool.list_pool()
         assert isinstance(r, dict)
 
     def test_card_builder_creates_card(self):
         """CardBuilder 从意图创建卡片"""
-        from l3.card_builder import build_card
+        from l3.card.card_builder import build_card
         card = build_card(task_id="test-int-1", intent="Read the README file",
                           domain=".")
         assert card is not None

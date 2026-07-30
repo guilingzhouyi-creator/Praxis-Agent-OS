@@ -8,7 +8,7 @@ except ImportError:
     HAS_URLLIB = False
 
 from l1.kernel.params.system import LOG_TRUNC_10000, TOOL_WEB_RESULTS_LIMIT
-from l1.kernel.params.tool import TOOL_WEB_TIMEOUT
+from l1.kernel.discovery import get_tool_config
 
 
 def web_fetch(args: dict, agent_id: str) -> dict:
@@ -18,7 +18,7 @@ def web_fetch(args: dict, agent_id: str) -> dict:
     if not HAS_URLLIB:
         return {"success": False, "error": "urllib not available"}
     try:
-        r = req.urlopen(url, timeout=TOOL_WEB_TIMEOUT)
+        r = req.urlopen(url, timeout=get_tool_config("web_timeout", 15))
         content = r.read().decode("utf-8", errors="replace")
         return {"success": True, "data": content[:LOG_TRUNC_10000], "url": url, "truncated": len(content) > LOG_TRUNC_10000}
     except Exception as e:

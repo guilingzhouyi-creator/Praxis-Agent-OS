@@ -137,6 +137,9 @@ class TerminalManager:
         Cross-platform:
           Windows — blocking ``readline()`` (no non-blocking pipe support)
           Unix    — non-blocking ``read(4096)`` with ``bytearray`` line assembly
+
+        Exits when the subprocess terminates, pipe is closed, or no data
+        arrives within 30s (guards against stuck child processes).
         """
         s = self.get(sid)
         if not s or not s.process or not s.process.stdout:
@@ -144,6 +147,7 @@ class TerminalManager:
         out: IO[bytes] = s.process.stdout
         set_nonblocking(out)
         buf = bytearray()
+        _last_data = time.time()
         while s.is_alive():
             try:
                 if IS_WINDOWS:
@@ -151,17 +155,22 @@ class TerminalManager:
                     if not chunk:
                         break
                     s.output_buffer.append(chunk.decode("utf-8", errors="replace"))
+                    _last_data = time.time()
                 else:
                     chunk = out.read(4096)
                     if not chunk:
                         break
                     buf.extend(chunk)
+                    _last_data = time.time()
                     while b"\n" in buf:
                         idx = buf.index(b"\n")
                         line = buf[:idx].decode("utf-8", errors="replace") + "\n"
                         del buf[:idx + 1]
                         s.output_buffer.append(line)
             except (BlockingIOError, OSError):
+                # No data available yet — check for idle timeout (30s)
+                if time.time() - _last_data > 30.0:
+                    break
                 time.sleep(POLL_INTERVAL_SLOW)
             except Exception:
                 break

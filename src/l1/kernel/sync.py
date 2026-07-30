@@ -72,6 +72,11 @@ class Mutex:
         """DFS cycle detection. Returns cycle path or None.
 
         *max_depth* bounds traversal to prevent O(N) blowout on large _registry.
+
+        Uses two tracking structures:
+          - stack  — current DFS path for cycle detection (node in stack → cycle)
+          - visited — cross-call memoization; prevents re-visiting nodes already
+                      explored by a prior DFS start in the BFS queue loop.
         """
         visited: dict[str, str | None] = {}
         stack: list[str] = []
@@ -97,8 +102,6 @@ class Mutex:
             if node in visited:
                 return None
             visited[node] = None
-            if node in stack:
-                return None
             stack.append(node)
             for neighbor in adjacency.get(node, []):
                 result = dfs(neighbor, depth + 1)
@@ -364,34 +367,33 @@ class RWLock:
         self._readers = 0
         self._writer = ""
         self._write_waiters = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+        self._cond = threading.Condition(self._lock)
 
     def read_lock(self, agent_id: str) -> dict:
         deadline = time.time() + RWLOCK_DEFAULT_TIMEOUT
-        while True:
-            with self._lock:
-                if self._writer == "" or self._writer == agent_id:
-                    self._readers += 1
-                    return {"success": True, "mode": "read", "readers": self._readers}
-            if time.time() > deadline:
-                return {"success": False, "error": "timeout"}
-            time.sleep(RWLOCK_POLL_INTERVAL)
+        with self._lock:
+            while self._writer and self._writer != agent_id:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return {"success": False, "error": "timeout"}
+                self._cond.wait(timeout=min(remaining, RWLOCK_POLL_INTERVAL))
+            self._readers += 1
+            return {"success": True, "mode": "read", "readers": self._readers}
 
     def write_lock(self, agent_id: str) -> dict:
         deadline = time.time() + RWLOCK_DEFAULT_TIMEOUT
         self._write_waiters += 1
-        while True:
-            with self._lock:
-                if self._readers == 0 and self._writer == "":
-                    self._writer = agent_id
+        with self._lock:
+            while self._readers > 0 or (self._writer and self._writer != agent_id):
+                remaining = deadline - time.time()
+                if remaining <= 0:
                     self._write_waiters -= 1
-                    return {"success": True, "mode": "write"}
-                if self._writer == agent_id:
-                    return {"success": True, "mode": "write"}
-            if time.time() > deadline:
-                self._write_waiters -= 1
-                return {"success": False, "error": "timeout"}
-            time.sleep(RWLOCK_POLL_INTERVAL)
+                    return {"success": False, "error": "timeout"}
+                self._cond.wait(timeout=min(remaining, RWLOCK_POLL_INTERVAL))
+            self._writer = agent_id
+            self._write_waiters -= 1
+            return {"success": True, "mode": "write"}
 
     def unlock(self, agent_id: str) -> dict:
         with self._lock:
@@ -399,7 +401,9 @@ class RWLock:
                 self._writer = ""
             elif self._readers > 0:
                 self._readers -= 1
-            return {"success": True, "mode": "write" if self._writer else "read", "readers": self._readers}
+            self._cond.notify_all()
+            return {"success": True, "mode": "write" if self._writer else "read",
+                    "readers": self._readers}
 
     def status(self) -> dict:
         with self._lock:

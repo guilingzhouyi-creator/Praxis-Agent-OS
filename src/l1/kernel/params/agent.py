@@ -311,7 +311,6 @@ CELL_MAILBOX_TTL: Final[float] = 3600.0
 # ── Monitor / observability ring buffer sizes ──
 MONITOR_RING_SIZE: Final[int] = 2000
 CELL_MONITOR_RING_SIZE: Final[int] = 1000
-OBS_AUDIT_LIMIT: Final[int] = 100             # default limit for observability audit queries
 
 # ── Agent / Loop defaults ──
 AGENT_LOOP_DEFAULT_STEPS: Final[int] = 10

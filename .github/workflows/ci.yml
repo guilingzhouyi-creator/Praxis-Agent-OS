@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths-ignore: ["**.md", "locales/**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -14,91 +16,46 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install ruff mypy
-      - run: ruff check src/ tests/
-      - run: ruff format --check src/ tests/
-      - run: mypy src/ --python-version 3.11 --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Lint
+        run: ruff check src/ tests/
 
-  test-batch-1:
-    needs: lint
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.11", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[test]"
-      - name: Batch 1 — layer imports + L1 kernel + L2 shell + L3 core
-        run: |
-          python -m pytest tests/infra/test_layer_imports.py -x -q --tb=short
-          python -m pytest tests/infra/test_params_compliance.py -x -q --tb=short
-          python -m pytest tests/l1/ -x -q --tb=short -k "not test_contention"
-          python -m pytest tests/l3/bus/test_monitor_bus.py -x -q --tb=short
-          python -m pytest tests/l3/memory/test_sandbox.py -x -q --tb=short
-
-  test-batch-1-extended:
-    needs: test-batch-1
+  test-fast:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[test]"
-      - name: L3 extended — cell, memory, tools, discussion, card, services
-        run: |
-          python -m pytest tests/l3/cell/ -x -q --tb=short
-          python -m pytest tests/l3/memory/ -x -q --tb=short -k "not r4"
-          python -m pytest tests/l3/tools/ -x -q --tb=short
-          python -m pytest tests/l3/config/ -x -q --tb=short
-          python -m pytest tests/l3/identity/ -x -q --tb=short
-          python -m pytest tests/l3/services/ -x -q --tb=short
-      - name: L3 discussion + agent + subagent
-        run: |
-          python -m pytest tests/l3/discussion/ -x -q --tb=short
-          python -m pytest tests/l3/agent/ -x -q --tb=short
-          python -m pytest tests/l3/subagent/ -x -q --tb=short
-          python -m pytest tests/l3/bus/ -x -q --tb=short -k "not test_monitor_bus"
-
-  test-batch-2:
-    needs: test-batch-1-extended
-    runs-on: ubuntu-latest
+    needs: [lint]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[test]"
-      - name: Batch 2 — slow extended (R4, convention, integration)
-        continue-on-error: true
-        run: |
-          python -m pytest tests/l3/memory/ -q --tb=short -k "r4" || true
-          python -m pytest tests/l3/discussion/test_convention.py -q --tb=short || true
-          python -m pytest tests/integration/ -q --tb=short || true
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Fast tests (Batch 1)
+        run: python tests/runner.py
 
-  coverage:
-    needs: lint
+  test-extended:
     runs-on: ubuntu-latest
+    needs: [lint]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[test]"
-      - run: pip install pytest-cov
-      - run: |
-          python -m pytest tests/l1/test_kernel.py tests/infra/test_layer_imports.py \
-            tests/l1/test_errors.py tests/l1/test_gatechain.py \
-            tests/l1/test_reputation.py --cov=src --cov-report=xml --cov-report=term -q
-      - uses: codecov/codecov-action@v4
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Extended tests (Batch 2)
+        run: python -m pytest tests/l3/memory/test_r4_agent.py tests/l3/memory/test_r4_agent_evolve.py tests/l3/discussion/test_convention.py tests/l3/cell/test_orchestration.py -v --tb=short -q
+
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".[test]" mypy
+      - name: Type check
+        run: mypy src/ --python-version 3.11 --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators

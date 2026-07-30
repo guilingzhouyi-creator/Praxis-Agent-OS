@@ -47,7 +47,12 @@ from l1.kernel.params.api import (
     LLM_RATE_LIMIT_WAIT,
     LLM_TRANSIENT_BACKOFF_BASE,
 )
-from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT, TOOL_SEARCH_MIN_COUNT, TOOL_SEARCH_MAX_RESULTS
+from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT as _TOOL_HANDLER_TIMEOUT
+from l1.kernel.params.system import TOOL_SEARCH_MIN_COUNT as _TOOL_SEARCH_MIN_COUNT, TOOL_SEARCH_MAX_RESULTS as _TOOL_SEARCH_MAX_RESULTS
+from l1.kernel.discovery import get_tool_config
+
+# Resolve tool config at module level (lazy-safe: discovery may not be ready at import)
+_LLM_TOOL_TIMEOUT = get_tool_config("handler_timeout", _TOOL_HANDLER_TIMEOUT) or _TOOL_HANDLER_TIMEOUT
 
 # Base types extracted to llm_base.py
 from .llm_base import (
@@ -71,6 +76,13 @@ class LLMEngine:
     def __init__(self, config: LLMConfig | None = None):
         self.config = config or LLMConfig()
         self._provider = self._build_provider()
+        self._http_opener = self._build_http_opener()
+
+    @staticmethod
+    def _build_http_opener():
+        """Build a shared HTTP opener with keep-alive for connection reuse."""
+        import urllib.request as req
+        return req.build_opener()
 
     def _get_strategy(self):
         from l3.config.cache_strategy import get_strategy
@@ -250,10 +262,10 @@ class LLMEngine:
         messages.append({"role": "user", "content": prompt})
 
         # ToolSearch: defer loading — only send relevant tools (saves ~10-18% tokens)
-        if self.config.tool_search and len(tools) > TOOL_SEARCH_MIN_COUNT:
+        if self.config.tool_search and len(tools) > _TOOL_SEARCH_MIN_COUNT:
             ts = ToolSearch()
             ts.register_many(tools)
-            active_tools = ts.search(prompt, max_results=TOOL_SEARCH_MAX_RESULTS)
+            active_tools = ts.search(prompt, max_results=_TOOL_SEARCH_MAX_RESULTS)
             logger.debug("tool_search: %d → %d tools for prompt[:LOG_TRUNC_60]",
                         len(tools), len(active_tools))
         else:
@@ -323,7 +335,7 @@ class LLMEngine:
                         tool_def = tool_map.get(fn_name)
                         futures[pool.submit(LLMEngine._execute_one_tool, tool_def, fn_args, call_id, fn_name)] = tc
 
-                    for future in _cf.as_completed(futures, timeout=TOOL_HANDLER_TIMEOUT * 2):
+                    for future in _cf.as_completed(futures, timeout=_LLM_TOOL_TIMEOUT * 2):
                         tc = futures[future]
                         try:
                             call_record = future.result()
@@ -384,7 +396,7 @@ class LLMEngine:
         url = provider.get_api_url(self.config.api_url)
 
         try:
-            r = req.urlopen(req.Request(url, data=body, headers=headers, method="POST"), timeout=LLM_HTTP_TIMEOUT)
+            r = self._http_opener.open(req.Request(url, data=body, headers=headers, method="POST"), timeout=LLM_HTTP_TIMEOUT)
             raw = r.read()
         except urllib.error.HTTPError as e:
             code = e.code
@@ -546,7 +558,6 @@ def analyze(findings: list, context: str = "", user_id: str = "") -> dict:
     """Analyze findings (scout results, code review, etc.) with LLM."""
     from l1.kernel.prompts import get_prompt as _gp
     prompt = f"Context: {context}\n\nFindings:\n" + "\n".join(str(f) for f in findings)
-    from l1.kernel.prompts import get_prompt as _gp
     prompt += _gp("llm.analyze_suffix", "")
     return get_engine().generate(prompt, system=_gp("llm.analyze_system", "You are a code analysis expert."),
                                  max_tokens=LLM_ANALYZE_MAX_TOKENS, user_id=user_id)

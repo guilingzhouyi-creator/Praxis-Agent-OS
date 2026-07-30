@@ -207,13 +207,6 @@ class AnthropicProvider(_ProviderHelperMixin):
                        self._get_setting("llm.model", "<model>"))
         self.cache_breakpoints = cache_breakpoints
 
-    def _get_setting(self, key: str, default: str) -> str:
-        try:
-            from l1.kernel.settings import get_settings
-            return get_settings().get(key, default)
-        except Exception:
-            return default
-
     def _inject_cache_breakpoints(self, messages: list[dict], tools: list[dict] | None = None,
                                    anthropic: bool = False) -> list[dict]:
         if self.cache_breakpoints <= 0:

@@ -120,16 +120,13 @@ class ApiHandlers:
     # ── Agents / Shell ──
 
     def _agent_list(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_list as _fn
-        return _fn(body)
+        return _agent_list(body)
 
     def _agent_select(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import _agent_select as _fn
-        return _fn(body)
+        return _agent_select(body)
 
     def _agent_select_by(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_select_by as _fn
-        return _fn(body)
+        return _agent_select_by(body)
 
     def _shell_dispatch(self, body: dict | None = None) -> dict:
         from ..api_handlers.api_handlers_agent import _shell_dispatch as _fn
@@ -144,24 +141,19 @@ class ApiHandlers:
         return _fn(body)
 
     def _agent_review_message(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_review_message as _fn
-        return _fn(body)
+        return _agent_review_message(body)
 
     def _agent_preconnect(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_preconnect as _fn
-        return _fn(body)
+        return _agent_preconnect(body)
 
     def _agent_reachable(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_reachable as _fn
-        return _fn(body)
+        return _agent_reachable(body)
 
     def _agent_direct(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_direct as _fn
-        return _fn(body)
+        return _agent_direct(body)
 
     def _agent_direct_close(self, body: dict | None = None) -> dict:
-        from ..api_handlers.api_handlers_agent import agent_direct_close as _fn
-        return _fn(body)
+        return _agent_direct_close(body)
 
     def _network_health(self, body: dict | None = None) -> dict:
         return network_health(body)

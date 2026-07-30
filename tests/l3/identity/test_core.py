@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 class TestIdentityKeygen:
     def test_generate_keypair(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         r = svc.generate_keypair("test-agent")
         assert r.get("success"), f"keygen failed: {r}"
@@ -18,14 +18,14 @@ class TestIdentityKeygen:
         assert r["agent_id"] == "test-agent"
 
     def test_generate_keypair_duplicate(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("dup-agent")
         r2 = svc.generate_keypair("dup-agent")
         assert r2.get("success"), "regenerating keypair should work"
 
     def test_get_public_key(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("pub-agent")
         r = svc.get_public_key("pub-agent")
@@ -33,13 +33,13 @@ class TestIdentityKeygen:
         assert len(r["public_key"]) == 64
 
     def test_get_public_key_unknown(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         r = svc.get_public_key("ghost")
         assert not r.get("success")
 
     def test_private_key_in_memory(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("mem-agent")
         r = svc.create_proof("mem-agent")
@@ -49,13 +49,13 @@ class TestIdentityKeygen:
 
 class TestIdentityProof:
     def test_create_proof_without_key(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         r = svc.create_proof("no-key-agent")
         assert not r.get("success")
 
     def test_create_and_verify_proof(self):
-        from l3.identity import IdentityService, PROOF_TTL
+        from l3.services.identity import IdentityService, PROOF_TTL
         svc = IdentityService()
         svc.generate_keypair("proof-agent")
         create_r = svc.create_proof("proof-agent", cell_id="cell-1")
@@ -71,7 +71,7 @@ class TestIdentityProof:
         assert verify_r.get("valid")
 
     def test_replay_attack_prevention(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("replay-agent")
         create_r = svc.create_proof("replay-agent")
@@ -82,7 +82,7 @@ class TestIdentityProof:
         assert not r2.get("success"), "replay should be blocked"
 
     def test_expired_proof(self):
-        from l3.identity import IdentityService, AgentProof
+        from l3.services.identity import IdentityService, AgentProof
         svc = IdentityService()
         svc.generate_keypair("exp-agent")
         # Create a proof with old timestamp
@@ -95,7 +95,7 @@ class TestIdentityProof:
         assert not r.get("success"), "expired proof should be rejected"
 
     def test_create_proof_then_verify_roundtrip(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("roundtrip-agent")
         for i in range(3):
@@ -107,14 +107,14 @@ class TestIdentityProof:
 
 class TestIdentityTrustChain:
     def test_register_trust_anchor(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         r = svc.register_trust_anchor("cell-a", "00" * 32, "abc123")
         assert r.get("success")
         assert r["cell_id"] == "cell-a"
 
     def test_verify_cross_cell(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         # Register both cells with same constitution hash
         svc.register_trust_anchor("cell-x", "aa" * 32, "constitution-v1")
@@ -129,7 +129,7 @@ class TestIdentityTrustChain:
         assert r.get("success") is not None
 
     def test_verify_cross_cell_constitution_mismatch(self):
-        from l3.identity import IdentityService
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("cross-agent2")
         svc.register_trust_anchor("cell-p", "aa" * 32, "v1")
