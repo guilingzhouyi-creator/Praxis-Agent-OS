@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from l3.cell import get_cell, reset_cells
-from l3.cell_rollback import rollback_card
+from l3.cell.components.cell_rollback import rollback_card
 
 
 def test_rollback_card_empty_id():

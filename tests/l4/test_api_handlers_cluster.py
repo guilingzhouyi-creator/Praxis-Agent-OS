@@ -1,7 +1,7 @@
 """Tests for api_handlers_cluster.py — Cluster management API handlers."""
 from __future__ import annotations
 
-from l4.api_handlers_cluster import cluster_status, cluster_composites, cluster_expand, cluster_shrink
+from l4.api_handlers.api_handlers_cluster import cluster_status, cluster_composites, cluster_expand, cluster_shrink
 
 
 def test_cluster_status_returns_dict():

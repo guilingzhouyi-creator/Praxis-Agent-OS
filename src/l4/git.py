@@ -26,7 +26,19 @@ _COMMIT_MSG_RE = re.compile(r"^[^\-\s]")
 
 def _sanitize_path(p: str) -> str:
     """Remove git-unsafe characters from a filesystem path argument."""
-    return p.replace(";", "").replace("|", "").replace("`", "")
+    import os
+    # Reject path traversal components
+    parts = p.replace("\\", "/").split("/")
+    cleaned = []
+    for part in parts:
+        if part in ("", ".", ".."):
+            cleaned.append(part)
+            continue
+        # Strip shell metacharacters from each component
+        part = part.replace(";", "").replace("|", "").replace("`", "")
+        part = part.replace("$", "").replace("&", "").replace(">", "").replace("<", "")
+        cleaned.append(part)
+    return os.path.normpath("/".join(cleaned))
 
 
 def _sanitize_message(msg: str) -> str:
@@ -59,7 +71,8 @@ def _git(args: list[str], cwd: str) -> dict[str, Any]:
 
 
 def status(path: str) -> dict[str, Any]:
-    r = _git(["-C", path, "status", "--porcelain", "-b"], path)
+    safe_path = _sanitize_path(path)
+    r = _git(["-C", safe_path, "status", "--porcelain", "-b"], safe_path)
     if not r["success"]:
         return r
     lines = r["stdout"].splitlines()
@@ -96,11 +109,12 @@ def _change_type(xy: str) -> str:
 
 
 def diff(path: str, staged: bool = False) -> dict[str, Any]:
-    args = ["-C", path, "diff"]
+    safe_path = _sanitize_path(path)
+    args = ["-C", safe_path, "diff"]
     if staged:
         args.append("--cached")
     args.append("--unified=5")
-    r = _git(args, path)
+    r = _git(args, safe_path)
     if not r["success"]:
         return r
     hunks = _parse_diff(r["stdout"])

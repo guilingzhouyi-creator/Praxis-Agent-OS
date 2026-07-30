@@ -227,12 +227,15 @@ class L3BBus:
 # ── Global Singleton ──
 
 _bus: L3BBus | None = None
+_bus_lock = threading.Lock()
 
 
 def get_bus() -> L3BBus:
     global _bus
     if _bus is None:
-        _bus = L3BBus()
+        with _bus_lock:
+            if _bus is None:
+                _bus = L3BBus()
     return _bus
 
 

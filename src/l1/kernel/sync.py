@@ -169,15 +169,12 @@ class Mutex:
         _start = time.time()
         waited = 0.0
         cycle_reported = False
-        self._state = LockState.CONTENDED
-        self._waiters.append((agent_id, priority, time.time(), 0.0))
-        self._waiters.sort(key=lambda w: w[1])
-
         while time.time() < deadline:
             remaining = deadline - time.time()
             if remaining <= 0:
                 break
-            self._cond.wait(timeout=min(remaining, 0.5))
+            with self._lock:
+                self._cond.wait(timeout=min(remaining, 0.5))
             waited = time.time() - _start
             with self._lock:
                 if self._state == LockState.FREE or self._owner == agent_id:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from l3.cell import get_cell, reset_cells
-from l3.cell_cross_review import auto_cross_review
+from l3.cell.components.cell_cross_review import auto_cross_review
 
 
 def test_cross_review_skip_read_actions():

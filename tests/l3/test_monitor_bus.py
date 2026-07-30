@@ -8,7 +8,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from l3.monitor_bus import MonitorBus, MonitorEvent, _match_type
+from l3.bus.monitor_bus import MonitorBus, MonitorEvent, _match_type
 
 
 def _ev(type_: str = "l1.kernel.test", severity: str = "info", **kw) -> MonitorEvent:
@@ -31,6 +31,7 @@ class TestRingBuffer:
         received: list[MonitorEvent] = []
         bus.subscribe_sse(lambda ev: received.append(ev))
         bus.emit(_ev())
+        bus.sync()
         assert len(received) == 1
         bus.unsubscribe_sse(received.append)
 
@@ -126,6 +127,7 @@ class TestPersistence:
             bus1 = MonitorBus(ring_size=10, persist_path=log)
             bus1.emit(_ev(type_="l1.kernel.test", message="hello"))
             bus1.emit(_ev(type_="network.peer.join", message="world"))
+            bus1.sync()
             assert os.path.exists(log)
 
             # Second instance: should rehydrate from JSONL

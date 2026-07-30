@@ -148,7 +148,7 @@ class IdentityService(BaseService):
                 agent_id = key_file.stem
                 pub = key_file.read_text(encoding="utf-8").strip()
                 self._keys[agent_id] = pub
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.warning("failed to load public key: %s", e)
                 capture("public key load failed", error_code="E_IDENTITY", component="identity", context={"error": str(e)})
         # Load persisted encrypted private keys (P7 fix)
@@ -163,9 +163,9 @@ class IdentityService(BaseService):
                     try:
                         from l1.kernel.process import get_table
                         get_table().mark_identity_verified(agent_id)
-                    except Exception as e:
+                    except (ImportError, AttributeError) as e:
                         logger.warning("identity: %s", e)
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.warning("failed to load private key for %s: %s", priv_file.stem, e)
         logger.info("identity service started: %d public keys, %d private keys",
                     len(self._keys), len(self._secrets))
@@ -201,27 +201,27 @@ class IdentityService(BaseService):
             # Persist public key
             try:
                 (self._key_dir / f"{agent_id}.pub").write_text(pub_hex, encoding="utf-8")
-            except Exception as e:
+            except OSError as e:
                 logger.warning("public key persist failed: %s", e)
 
             # Persist encrypted private key (P7 fix: survive restarts)
             try:
                 encrypted = _encrypt_private_key(priv_bytes)
                 (self._key_dir / f"{agent_id}.priv").write_text(encrypted, encoding="utf-8")
-            except Exception as e:
+            except OSError as e:
                 logger.warning("private key persist failed: %s", e)
 
             # Notify kernel process table: this agent's identity is verified
             try:
                 from l1.kernel.process import get_table
                 get_table().mark_identity_verified(agent_id)
-            except Exception as e:
-                        logger.warning("services/identity: %s", e)
+            except (ImportError, AttributeError) as e:
+                logger.warning("services/identity: %s", e)
 
             return {"success": True, "agent_id": agent_id, "public_key": pub_hex}
         except ImportError as e:
             return {"success": False, "error": f"cryptography not installed: {e}"}
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return {"success": False, "error": str(e)}
 
     def get_public_key(self, agent_id: str) -> dict:
@@ -262,7 +262,7 @@ class IdentityService(BaseService):
                 public_key=self._keys.get(agent_id, ""),
             )
             return {"success": True, "proof": proof.to_dict()}
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError) as e:
             return {"success": False, "error": str(e)}
 
     def verify_proof(self, proof: dict) -> dict:

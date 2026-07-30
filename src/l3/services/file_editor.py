@@ -152,7 +152,7 @@ class EditEngine:
 
         try:
             content = path.read_text(encoding="utf-8")
-        except Exception as e:
+        except (OSError, UnicodeDecodeError) as e:
             return {"success": False, "error": f"read failed: {e}"}
 
         old = edit.old_str
@@ -184,7 +184,7 @@ class EditEngine:
         try:
             from l3.resource_buffer.manager import get_manager
             get_manager().stage(str(path), final, op="edit")
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             return {"success": False, "error": f"buffer stage failed: {e}"}
 
         op = EditOperation(
@@ -198,7 +198,7 @@ class EditEngine:
         try:
             from l3.bus.reference_channel import get_rc as _rc
             _rc().human_correction("", "", "content", old, new, reason=f"edit {path.name}")
-        except Exception:
+        except (ImportError, AttributeError):
             logger.debug("file_editor: rc correction failed")
 
         return {
@@ -283,12 +283,12 @@ class EditEngine:
                     "new": edit.new_str[:LOG_TRUNC_100],
                     "line": edit.start_line or 1,
                 })
-        except Exception as e:
+        except (OSError, ValueError) as e:
             # Phase 3: Roll back all
             for path_str, orig in snapshots:
                 try:
                     Path(path_str).write_text(orig, encoding="utf-8")
-                except Exception as re:
+                except OSError as re:
                     logger.error("batch_edit rollback failed: %s: %s", path_str, re)
             return {"success": False, "error": f"write failed, all rolled back: {e}",
                     "applied_before_rollback": len(applied)}
@@ -342,7 +342,7 @@ class EditEngine:
                     path.write_text(restored, encoding="utf-8")
                 else:
                     logger.warning("undo: cannot find new_str to revert: %s", e["path"])
-            except Exception as ex:
+            except OSError as ex:
                 return {"success": False, "error": f"undo failed: {e['path']}: {ex}"}
 
         with self._lock:
@@ -372,7 +372,7 @@ class EditEngine:
                 if idx >= 0:
                     restored = content[:idx] + new_str + content[idx + len(old_str):]
                     path.write_text(restored, encoding="utf-8")
-            except Exception as ex:
+            except OSError as ex:
                 return {"success": False, "error": f"redo failed: {e['path']}: {ex}"}
 
         self._push(op)
@@ -515,7 +515,7 @@ class PatchManager:
         try:
             path = self._patch_dir / PATCH_JSON_FILE.format(patch_id=patch.id)
             path.write_text(patch.to_json(), encoding="utf-8")
-        except Exception as e:
+        except OSError as e:
             logger.warning("patch save failed: %s", e)
 
     def _load_all(self) -> None:
@@ -528,7 +528,7 @@ class PatchManager:
                 patch = Patch(**{k: v for k, v in data.items()
                                  if k in Patch.__dataclass_fields__})
                 self._patches[patch.id] = patch
-            except Exception as e:
+            except (OSError, ValueError, json.JSONDecodeError) as e:
                 logger.warning("patch load failed: %s: %s", f.name, e)
 
 

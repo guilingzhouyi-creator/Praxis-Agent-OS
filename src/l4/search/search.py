@@ -115,6 +115,14 @@ def replace(root: str, query: str, replacement: str,
                 text = Path(fp).read_text("utf-8", errors="replace")
                 new_text, n = compiled.subn(replacement, text)
                 if n > 0:
+                    # Create .bak backup before overwriting
+                    bak_path = fp + ".bak"
+                    try:
+                        import shutil
+                        shutil.copy2(fp, bak_path)
+                    except OSError:
+                        logger.warning("search: backup failed for %s, skipping", fp)
+                        continue
                     Path(fp).write_text(new_text, encoding="utf-8")
                     replaced_count += n
                     changed_files.add(fp)

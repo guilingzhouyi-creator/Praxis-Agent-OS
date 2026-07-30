@@ -1,7 +1,7 @@
 """Tests for l3b_bus.py — L3B communication bus."""
 from __future__ import annotations
 
-from l3.l3b_bus import get_bus, reset_bus, L3BMessageType
+from l3.bus.l3b_bus import get_bus, reset_bus, L3BMessageType
 
 
 def setup_method():

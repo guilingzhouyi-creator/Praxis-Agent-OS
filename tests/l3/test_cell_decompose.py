@@ -1,10 +1,7 @@
 """CellDecompose tests — card decomposition, role assignment."""
 from __future__ import annotations
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from l3.cell.components.cell_decompose import decompose_card, auto_agent_map
 
 
 class TestCellDecompose:

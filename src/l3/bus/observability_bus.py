@@ -68,7 +68,7 @@ class ObservabilityBus:
             ops = get_ops()
             ops.add_alert(source, message, level, data)
             return {"success": True}
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             logger.warning("observability alert: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -76,19 +76,19 @@ class ObservabilityBus:
         try:
             from l1.kernel.health import health
             return health()
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             return {"success": False, "error": str(e)}
 
     def _metric(self, source: str, data: dict) -> dict:
         try:
-            from .services.counter import get_counter
+            from l3.services.counter import get_counter
             counter = get_counter()
             metric = data.get("metric", "")
             value = data.get("value", 1)
             tags = data.get("tags", [source])
             counter.increment(metric, value, tags)
             return {"success": True, "metric": metric, "value": value}
-        except Exception as e:
+        except (ImportError, AttributeError, KeyError) as e:
             return {"success": False, "error": str(e)}
 
     def _audit(self, source: str, data: dict) -> dict:
@@ -98,7 +98,7 @@ class ObservabilityBus:
                          success=data.get("success", True),
                          detail=data.get("detail", ""))
             return {"success": True}
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             return {"success": False, "error": str(e)}
 
     # ── Convenience methods ──
@@ -111,25 +111,25 @@ class ObservabilityBus:
         try:
             from l3.ops_console import get_ops
             result["ops"] = get_ops().summary()
-        except Exception:
+        except (ImportError, AttributeError):
             result["ops"] = {}
 
         try:
             from l1.kernel.health import health
             result["health"] = health()
-        except Exception:
+        except (ImportError, AttributeError):
             result["health"] = {}
 
         try:
-            from .services.counter import get_counter
+            from l3.services.counter import get_counter
             result["metrics"] = get_counter().dump()
-        except Exception:
+        except (ImportError, AttributeError):
             result["metrics"] = {}
 
         try:
             from l1.kernel import get_audit_log
             result["audit"] = len(get_audit_log(limit=OBS_AUDIT_LIMIT))
-        except Exception:
+        except (ImportError, AttributeError):
             result["audit"] = 0
 
         return result

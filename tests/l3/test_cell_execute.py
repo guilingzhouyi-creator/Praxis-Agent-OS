@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from l3.cell import get_cell, reset_cells
-from l3.cell_execute import execute_card, _raw_to_card, _take_snapshot
+from l3.cell.components.cell_execute import execute_card, _raw_to_card, _take_snapshot
 
 
 def test_execute_card_raw_string():

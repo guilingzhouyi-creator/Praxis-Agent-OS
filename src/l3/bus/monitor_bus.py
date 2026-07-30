@@ -18,8 +18,9 @@ import os
 import threading
 import time
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class MonitorBus:
         self._sse_listeners: list[_SseCallback] = []
         self._count: int = 0
         self._persist_path = persist_path or _DEFAULT_PERSIST_PATH
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mon")
         self._rehydrate()
 
     # ── Persistence ──
@@ -94,29 +96,58 @@ class MonitorBus:
         except Exception as e:
             logger.warning("monitor_bus rehydrate failed: %s", e)
 
+    _file_lock = threading.Lock()
+    """Lock serialising JSONL appends from background thread pool workers."""
+
     def _append_persist(self, event: MonitorEvent) -> None:
-        """Append one event to the JSONL file."""
+        """Append one event to the JSONL file (thread-safe)."""
         if not self._persist_path:
             return
         try:
             os.makedirs(os.path.dirname(self._persist_path) or ".", exist_ok=True)
-            with open(self._persist_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event.to_dict(), ensure_ascii=False, default=str) + "\n")
+            with self._file_lock:
+                with open(self._persist_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(event.to_dict(), ensure_ascii=False, default=str) + "\n")
         except Exception as e:
             logger.warning("monitor_bus persist failed: %s", e)
 
     # ── Emit ──
 
     def emit(self, event: MonitorEvent) -> None:
-        self._append_persist(event)
+        """Emit a monitor event. Ring buffer append is synchronous (O(1));
+        JSONL persist and SSE callbacks run in a background thread pool
+        so that slow I/O cannot block the emitter.
+        """
+        self._bounded_submit(self._append_persist, event)
         with self._lock:
             self._ring.append(event)
             self._count += 1
         for cb in list(self._sse_listeners):
-            try:
-                cb(event)
-            except Exception as e:
-                logger.warning("monitor_bus SSE callback failed: %s", e)
+            self._bounded_submit(self._safe_sse, cb, event)
+
+    _MAX_QUEUED = 200
+    """Max pending tasks in the executor queue. Beyond this, new tasks are dropped
+    to prevent unbounded memory growth under high event load."""
+
+    def sync(self) -> None:
+        """Wait for all pending background tasks (persist, SSE) to complete.
+        Useful in tests where synchronous completion is required."""
+        self._executor.shutdown(wait=True)
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mon")
+
+    def _bounded_submit(self, fn: Callable, *args: Any) -> None:
+        """Submit a task to the executor, dropping if the work queue is too deep."""
+        if self._executor._work_queue.qsize() >= self._MAX_QUEUED:
+            logger.warning("monitor_bus: executor queue full (%d), dropping task", self._MAX_QUEUED)
+            return
+        self._executor.submit(fn, *args)
+
+    @staticmethod
+    def _safe_sse(cb: Any, event: MonitorEvent) -> None:
+        try:
+            cb(event)
+        except Exception as e:
+            logger.warning("monitor_bus SSE callback failed: %s", e)
 
     # ── Query ──
 

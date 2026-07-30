@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import CELL_L3_SENDER
-from ..agent_terminal import get_terminals, TerminalStatus
+from l3.agent_terminal import get_terminals, TerminalStatus
 
 logger = logging.getLogger(__name__)
 

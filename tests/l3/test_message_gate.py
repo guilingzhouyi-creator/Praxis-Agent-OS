@@ -9,13 +9,13 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from l3.message_gate import (
+from l3.bus.message_gate import (
     MessageGateEngine,
     MessageGateRule,
     get_gate,
     reset_gate,
 )
-from l3.monitor_bus import MonitorEvent
+from l3.bus.monitor_bus import MonitorEvent
 
 
 def _make_engine(tmp_obj) -> MessageGateEngine:

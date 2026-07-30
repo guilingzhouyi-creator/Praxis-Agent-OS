@@ -84,6 +84,8 @@ class EventBus:
         self._lock = RLock()
         self._executor = ThreadPoolExecutor(max_workers=EVENT_BUS_WORKERS, thread_name_prefix="evt")
         self._shutdown = False
+        self._MAX_EVT_QUEUED = 500
+        """Max pending tasks in executor queue; beyond this, new tasks are dropped."""
 
     def on(self, st: SignalType, cb: Callable) -> None:
         with self._lock:
@@ -126,10 +128,17 @@ class EventBus:
 
         count = len(callbacks) + len(wildcards)
         for cb in callbacks:
-            self._executor.submit(self._safe_call, cb, signal)
+            self._bounded_submit(self._safe_call, cb, signal)
         for cb in wildcards:
-            self._executor.submit(self._safe_call, cb, signal)
+            self._bounded_submit(self._safe_call, cb, signal)
         return count
+
+    def _bounded_submit(self, fn: Callable, *args: Any) -> None:
+        """Submit a task to the executor, dropping if the work queue is too deep."""
+        if self._executor._work_queue.qsize() >= self._MAX_EVT_QUEUED:
+            logger.warning("event_bus: executor queue full (%d), dropping task", self._MAX_EVT_QUEUED)
+            return
+        self._executor.submit(fn, *args)
 
     @staticmethod
     def _safe_call(cb: Callable, signal: Signal) -> None:

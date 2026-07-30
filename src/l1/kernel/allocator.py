@@ -65,6 +65,9 @@ class Allocator:
     def __init__(self):
         self._limits: dict[str, dict[str, int]] = {}
         self._allocations: dict[str, list[Allocation]] = {}
+        self._usage_counter: dict[str, dict[str, int]] = {}
+        """O(1) cumulative usage counter — agent_id → {resource: used_amount}.
+        Avoids O(N) sum() scan over all allocations on every alloc() call."""
         self._lock = threading.RLock()
         self._pressure_cache: tuple[float, dict] | None = None
         """Cached pressure result — invalidated on alloc/free, TTL-bound."""
@@ -96,7 +99,8 @@ class Allocator:
             self._pressure_cache = None
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
             allocs = self._allocations.setdefault(agent_id, [])
-            used = sum(a.amount for a in allocs if a.resource == resource)
+            counter = self._usage_counter.setdefault(agent_id, {})
+            used = counter.get(resource, 0)
             limit = limits.get(resource, ALLOCATOR_FALLBACK_LIMIT)
             available = limit - used
 
@@ -116,6 +120,7 @@ class Allocator:
             alloc = Allocation(agent_id=agent_id, resource=resource, amount=amount,
                                purpose=purpose, expires_at=time.time() + ttl if ttl else 0)
             allocs.append(alloc)
+            counter[resource] = counter.get(resource, 0) + amount
             self._update_pcb(agent_id, resource, amount, is_alloc=True)
             return {"success": True, "used": used + amount, "limit": limit,
                     "remaining": limit - used - amount}
@@ -125,11 +130,15 @@ class Allocator:
         with self._lock:
             self._pressure_cache = None
             allocs = self._allocations.get(agent_id, [])
+            counter = self._usage_counter.setdefault(agent_id, {})
             freed = 0
             for a in list(allocs):
                 if a.resource == resource and freed < amount:
                     allocs.remove(a)
                     freed += a.amount
+            if freed:
+                prev = counter.get(resource, 0)
+                counter[resource] = max(0, prev - freed)
             self._update_pcb(agent_id, resource, freed, is_alloc=False)
             return {"success": True, "freed": freed}
 
@@ -137,10 +146,10 @@ class Allocator:
         """Return current resource usage stats for an agent."""
         with self._lock:
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
-            allocs = self._allocations.setdefault(agent_id, [])
+            counter = self._usage_counter.setdefault(agent_id, {})
             result = {}
             for resource, limit in limits.items():
-                used = sum(a.amount for a in allocs if a.resource == resource)
+                used = counter.get(resource, 0)
                 pct = round(used / limit * 100, ALLOCATOR_PCT_PRECISION) if limit else 0
                 result[resource] = {"used": used, "limit": limit, "pct": pct}
             return result
@@ -152,8 +161,8 @@ class Allocator:
         when no allocations have changed since the last check.
         """
         with self._lock:
-            if self._pressure_cache is not None:
-                return self._pressure_cache
+            if self._pressure_cache is not None and self._pressure_cache[0] == threshold:
+                return self._pressure_cache[1]
         agents_under_pressure = []
         for agent_id in self._limits:
             usage = self.usage(agent_id)
@@ -168,6 +177,7 @@ class Allocator:
 
     def _reclaim_locked(self, agent_id: str, resource: str, needed: int) -> int:
         allocs = self._allocations.setdefault(agent_id, [])
+        counter = self._usage_counter.setdefault(agent_id, {})
         now = time.time()
         reclaimed = 0
         expired = [a for a in allocs if a.resource == resource and a.expires_at > 0 and now > a.expires_at]
@@ -175,6 +185,7 @@ class Allocator:
             allocs.remove(a)
             reclaimed += a.amount
         if reclaimed >= needed:
+            counter[resource] = max(0, counter.get(resource, 0) - reclaimed)
             return reclaimed
         old = [a for a in allocs if a.resource == resource and ALLOCATOR_OBSERVE_PURPOSE in a.purpose.lower()]
         for a in old:
@@ -182,6 +193,8 @@ class Allocator:
                 break
             allocs.remove(a)
             reclaimed += a.amount
+        if reclaimed:
+            counter[resource] = max(0, counter.get(resource, 0) - reclaimed)
         return reclaimed
 
     def _oom_kill(self, requesting_agent: str, resource: str, needed: int) -> int:
@@ -211,11 +224,15 @@ class Allocator:
 
         with self._lock:
             allocs = self._allocations.get(victim, [])
+            victim_counter = self._usage_counter.setdefault(victim, {})
             freed = 0
             for a in list(allocs):
                 if a.resource == resource and freed < reclaim:
                     allocs.remove(a)
                     freed += a.amount
+            if freed:
+                prev = victim_counter.get(resource, 0)
+                victim_counter[resource] = max(0, prev - freed)
 
         fire(InterruptType.OOM_KILL, agent_id=victim,
              reason=f"killed by OOM for {resource} (priority={prio}, reclaimed={freed})",
@@ -244,14 +261,16 @@ class Allocator:
         """
         with self._lock:
             allocs = self._allocations.get(agent_id, [])
+            counter = self._usage_counter.setdefault(agent_id, {})
             source = [a for a in allocs if a.resource == resource]
             if not source:
                 return {"success": True, "moved": 0}
             to_move = source[:count]
             moved = 0
+            total_amount = 0
             for a in to_move:
+                total_amount += a.amount
                 if target_resource == ALLOCATOR_DISK_RESOURCE:
-                    # Persist to event store before removing from memory
                     try:
                         from .persist import append
                         append("allocator.swap_out", {
@@ -264,6 +283,12 @@ class Allocator:
                 else:
                     a.resource = target_resource
                 moved += 1
+            # Update counter: decrement source, increment target (if not disk)
+            src_val = counter.get(resource, 0)
+            counter[resource] = max(0, src_val - total_amount)
+            if target_resource != ALLOCATOR_DISK_RESOURCE:
+                tgt_val = counter.get(target_resource, 0)
+                counter[target_resource] = tgt_val + total_amount
             return {"success": True, "moved": moved, "from": resource, "to": target_resource}
 
     def summary(self) -> dict:

@@ -160,7 +160,7 @@ class AgentLoop:
             from l1.kernel.constitution import get_constitution
             const_summary = get_constitution().summary(for_agent=self.agent_id)
             system = (system + "\n\n" + const_summary) if system else const_summary
-        except Exception:
+        except (ImportError, AttributeError):
             logger.debug("agent_loop: constitution summary failed")
 
         wrapped_tools = []
@@ -415,7 +415,7 @@ class AgentLoop:
             try:
                 from l3.config.settings_center import get_center
                 max_steps = get_center().get("loop.max_steps", AGENT_LOOP_DEFAULT_STEPS)
-            except Exception:
+            except (ImportError, KeyError):
                 max_steps = AGENT_LOOP_DEFAULT_STEPS
         # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
         _UNLIMITED = 999999
@@ -447,7 +447,7 @@ class AgentLoop:
         mem = None
         try:
             ctx_window = engine.context_window(cell_id=self._cell_id, agent_id=self.agent_id)
-        except Exception:
+        except (AttributeError, NotImplementedError):
             logger.debug("agent_loop: context window failed")
         entity = self.agent_id
 
@@ -457,14 +457,14 @@ class AgentLoop:
                 from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _MB
                 _MB().emit(_ME(type=etype, source="agent_loop", severity="info",
                                agent_id=self.agent_id, cell_id=self._cell_id, data=data))
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("agent_loop: monitor bus emit failed")
             try:
                 from l3.bus.reference_channel import get_rc as _rc
                 _rc().event("memory_compression", {**data, "type": etype,
                             "agent_id": self.agent_id, "cell_id": self._cell_id},
                             source="agent_loop", trace_id=getattr(self, '_last_card_id', ''))
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("agent_loop: reference channel event failed")
 
         if ctx_window > 0:
@@ -620,14 +620,14 @@ class AgentLoop:
                     if ts_r:
                         ring_label = _RNM.get(ts_r, "ring_1")
                     self._pmu.increment(f"tools.executed.{ring_label}")
-                except Exception:
+                except (AttributeError, KeyError):
                     self._pmu.increment("tools.executed.ring_1")
             # CellCounter: record tool call (success inferred from no error key)
             try:
                 from l3.services.counter import get_counter as _gc
                 _gc().record_tool(self.agent_id, tool_name,
                                   success="error" not in (step_result.get("result", {}) if isinstance(step_result, dict) else {}))
-            except Exception as e:
+            except (ImportError, AttributeError) as e:
                 logger.warning("agent_loop: tool counter record failed: %s", e)
 
             if verifier is not None:
@@ -653,7 +653,7 @@ class AgentLoop:
                                     entry_type="correction",
                                     importance=MEMORY_IMPORTANCE_BASE,
                                 )
-                            except Exception:
+                            except (ImportError, AttributeError, KeyError):
                                 logger.debug("agent_loop: correction memory failed")
                     except Exception as e:
                         logger.warning("agent_loop verifier correction failed: %s", e)
@@ -719,7 +719,7 @@ class AgentLoop:
                         if ctx_window > 0 and _sc2(_AGENT_LOOP_MAX_CONTENT, ctx_window):
                             from .memory.memory import get_memory
                             get_memory().stub_compact(self.agent_id)
-                    except Exception:
+                    except (ImportError, AttributeError):
                         logger.debug("agent_loop: steps-exhausted compress failed")
                     # 2. Save context trail snapshot
                     if self._context_trail and self._user_id:
@@ -728,7 +728,7 @@ class AgentLoop:
                             save_snapshot(self._user_id, {
                                 "context_trail": self._context_trail,
                             })
-                        except Exception:
+                        except (ImportError, AttributeError, OSError):
                             logger.debug("agent_loop: steps-exhausted snapshot failed")
                     # 3. Issue steps-exhausted nudge + continue
                     from .session_snapshot import STEPS_EXHAUSTED_NUDGE as _NUDGE

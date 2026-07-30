@@ -53,16 +53,16 @@ class L3BMessagePool:
     def __init__(
         self,
         composite_id: str,
-        hot_size: int = _HOT_RING_SIZE,
+        hot_size: int = L3B_HOT_RING_SIZE,
         persist_dir: str = "",
-        high_watermark: float = _PERSIST_HIGH_WATERMARK,
-        bp_threshold: int = _BACKPRESSURE_THRESHOLD,
+        high_watermark: float = L3B_PERSIST_HIGH_WATERMARK,
+        bp_threshold: int = L3B_BACKPRESSURE_THRESHOLD,
     ):
         self.composite_id = composite_id
         self._hot_size = hot_size
         self._high_watermark = high_watermark
         self._bp_threshold = bp_threshold
-        self._bp_cooldown = _BACKPRESSURE_COOLDOWN
+        self._bp_cooldown = L3B_BACKPRESSURE_COOLDOWN
         self._hot = deque(maxlen=hot_size)        # Hot Ring
         self._lock = threading.Lock()
         self._total_pushed = 0

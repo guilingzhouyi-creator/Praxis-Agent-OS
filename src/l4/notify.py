@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 import urllib.request
 from typing import Any
@@ -64,14 +65,14 @@ class NotifyService(BaseService):
 
     def _email(self, to: str, subject: str, body: str) -> dict:
         logger.warning("notify: email not configured (to=%s, subj=%s)", to, subject)
-        return {"success": True, "channel": "email", "note": "SMTP not configured, logged only"}
+        return {"success": False, "channel": "email", "error": "SMTP not configured", "note": "logged only"}
 
     def _slack(self, webhook_url: str, subject: str, body: str) -> dict:
         return self._webhook(webhook_url, subject, body)
 
     def _sms(self, phone: str, subject: str, body: str) -> dict:
         logger.warning("notify: SMS not configured (to=%s, subj=%s)", phone, subject)
-        return {"success": True, "channel": "sms", "note": "SMS gateway not configured, logged only"}
+        return {"success": False, "channel": "sms", "error": "SMS gateway not configured", "note": "logged only"}
 
     def _log_only(self, to: str, subject: str, body: str) -> dict:
         logger.info("[NOTIFY] %s — %s", subject, body[:LOG_TRUNC_200])

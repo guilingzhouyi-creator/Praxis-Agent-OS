@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from l3.l3b_message_pool import L3BMessagePool
+from l3.bus.l3b_message_pool import L3BMessagePool
 
 
 def test_message_pool_push_pop():
