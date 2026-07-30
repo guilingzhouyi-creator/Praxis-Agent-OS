@@ -8,6 +8,7 @@ import sys
 def cmd_boot(args) -> dict:
     from l1.kernel.os import get_os
     from l1.kernel.params.agent import TERRITORY_PATHS, TERRITORY_MAP
+    from l3.boot.boot import wire_kernel_os, boot as l3_boot
     agent_config = []
     for role, paths in TERRITORY_PATHS.items():
         agent_config.append((f"agent-{role}", role, paths))
@@ -15,6 +16,8 @@ def cmd_boot(args) -> dict:
         agent_config = [("agent-default", "default", ["."])]
         TERRITORY_MAP["."] = "default"
     osys = get_os()
+    wire_kernel_os()
+    osys.register_boot_handler(l3_boot)
     r = osys.boot(agent_config)
     if r.get("success"):
         osys.watchdog_start()

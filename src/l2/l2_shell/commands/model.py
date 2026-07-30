@@ -49,7 +49,9 @@ def _model_list() -> dict:
     for role in AGENT_ROLE_TYPES:
         try:
             cfg = ms.resolve(role); lines.append(f"  {role:25s} → provider={cfg.provider:15s} model={cfg.model}")
-        except Exception: lines.append(f"  {role:25s} → (error)")
+        except Exception:
+            capture("model: resolve failed", error_code="E_CMD", component="l2", context={"role": role})
+            lines.append(f"  {role:25s} → (error)")
     return {"success": True, "output": "\n".join(lines)}
 
 def _model_switch(role: str, provider: str, model: str = "") -> dict:
@@ -60,7 +62,9 @@ def _model_switch(role: str, provider: str, model: str = "") -> dict:
     if model: center.set(f"{prefix}.model", model)
     try:
         from l1.kernel import get_event_bus; get_event_bus().emit_event("settings.updated", data={"key": prefix, "provider": provider, "model": model})
-    except Exception: logger.warning("_cmd_model: failed to emit settings.updated event")
+    except Exception:
+        capture("model: event emit failed", error_code="E_CMD", component="l2", context={"role": role})
+        logger.warning("_cmd_model: failed to emit settings.updated event")
     return {"success": True, "role": role, "provider": provider, "model": model}
 
 def _model_status() -> dict: return {"success": True, "note": "use /model list"}
@@ -71,7 +75,8 @@ def _model_health(provider: str = "") -> dict:
     try:
         from l4.llm.llm import get_engine; engine = get_engine()
         if hasattr(engine._provider, "health"): return engine._provider.health()
-    except Exception: pass
+    except Exception:
+        capture("model: health check failed", error_code="E_CMD", component="l2")
     return {"success": True, "providers": ms.list_providers()}
 
 def _model_set(role: str, key: str, value: str) -> dict:

@@ -137,20 +137,63 @@ def save_boot_snapshot(agent_config: list[tuple[str, str, list[str]]]) -> str | 
     return path if ok else None
 
 
-# ── Shutdown: dump all runtime state into memories ──
+# ── Shutdown helpers: individual steps called by lifecycle.shutdown() ──
+
+
+def persist_all() -> dict:
+    """Persist MemoryManager Ring 2/3 to disk."""
+    _ensure_dirs()
+    try:
+        from .memory import get_memory
+        mem = get_memory()
+        mem.set_persist_dir(str(MEMORIES_DIR))
+        pr = mem.persist()
+        return {"memory_persist": f"ring2={pr.get('short_written',0)} ring3={pr.get('long_written',0)}"}
+    except Exception as e:
+        return {"memory_persist": f"error: {e}"}
+
+
+def archive_ring3() -> int:
+    """Archive high-importance Ring 3 entries to Archive SQLite."""
+    try:
+        from .memory import get_memory
+        from .archive_orchestrator import archive_ring3 as _a3
+        return _a3(get_memory())
+    except Exception as e:
+        logger.warning("archive_ring3 failed: %s", e)
+        return 0
+
+
+def snapshot_cells() -> dict:
+    """Snapshot all cells + agents state to JSON file."""
+    _ensure_dirs()
+    try:
+        from l3.cell import _cells
+        snapshot = {}
+        for cid, cell in list(_cells.items()):
+            s = cell.stats()
+            snapshot[cid] = {
+                "agents": {
+                    aid: {"role": info.get("role", ""), "ring": info.get("ring", 1),
+                          "status": info.get("status", "IDLE"),
+                          "active_scouts": info.get("active_scouts", 0)}
+                    for aid, info in s.get("agents", {}).items()
+                },
+            }
+        if snapshot:
+            path = _snapshot_path("shutdown")
+            ok = _write_json(path, {"timestamp": datetime.now(timezone.utc).isoformat(),
+                                     "cells": snapshot, "version": 1})
+            return {"path": path, "written": bool(ok)}
+        return {"note": "no_cells"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Backward-compat: full shutdown_to_memories ──
 
 def shutdown_to_memories() -> dict:
-    """Full system shutdown: dump all runtime state into memories.
-
-    Dumps:
-      - Agent session state (cells + terminals + ops alerts)
-      - Ops console alert history
-      - Runs DSL compiler to rebuild catalog.json
-      - Cleans ephemeral temp state
-      - Stops background services
-
-    Safe to call multiple times (idempotent after first call).
-    """
+    """Full system shutdown (backward-compat wrapper)."""
     global _SHUTDOWN_IN_PROGRESS
     if _SHUTDOWN_IN_PROGRESS:
         return {"success": True, "reason": "already shut down"}
@@ -158,77 +201,31 @@ def shutdown_to_memories() -> dict:
     _ensure_dirs()
 
     results = {}
+    results["memory_persist"] = persist_all().get("memory_persist", "?")
 
-    # 0. Persist MemoryManager Ring 2/3 (JSONL + SQLite)
     try:
-        from .memory import get_memory
-        mem = get_memory()
-        mem.set_persist_dir(str(MEMORIES_DIR))
-        pr = mem.persist()
-        results["memory_persist"] = f"ring2={pr.get('short_written',0)} ring3={pr.get('long_written',0)}"
-    except Exception as e:
-        results["memory_persist"] = f"error: {e}"
-
-    # 0b. Archive Ring 3 high-importance entries via ArchiveOrchestrator
-    # NOTE: archive_ring3() reads mem.long.to_dict() directly (not via dirty set),
-    # so it works correctly even after persist() has cleared the dirty tracking.
-    # If a future refactor makes archive_ring3() depend on dirty state, this
-    # ordering will need a separate dirty flag or a combined persist+archive step.
-    try:
-        from .archive_orchestrator import archive_ring3
-        n = archive_ring3(mem)
+        n = archive_ring3()
         results["archive_ring3"] = f"{n} archived"
     except Exception as e:
         results["archive_ring3"] = f"error: {e}"
 
-    # 1. Snapshot all cells + agents
-    try:
-        from l3.cell import _cells, reset_cells
-        snapshot = {}
-        for cid, cell in list(_cells.items()):
-            s = cell.stats()
-            snapshot[cid] = {
-                "agents": {
-                    aid: {
-                        "role": info.get("role", ""),
-                        "ring": info.get("ring", 1),
-                        "status": info.get("status", "IDLE"),
-                        "active_scouts": info.get("active_scouts", 0),
-                    }
-                    for aid, info in s.get("agents", {}).items()
-                },
-            }
-        if snapshot:
-            path = _snapshot_path("shutdown")
-            ok = _write_json(path, {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "cells": snapshot,
-                "version": 1,
-            })
-            results["cell_snapshot"] = "ok" if ok else "write_failed"
-        else:
-            results["cell_snapshot"] = "no_cells"
-    except Exception as e:
-        results["cell_snapshot"] = f"error: {e}"
+    results["cell_snapshot"] = snapshot_cells()
 
-    # 2. Persist ops console alerts
+    # Persist ops console alerts
     try:
         from l3.ops_console import get_ops
         ops = get_ops()
         alerts = ops.recent_alerts(limit=MEMORY_ALERT_EXPORT_LIMIT)
         if alerts:
             path = str(OPS_DIR / ALERTS_FILE)
-            _write_json(path, {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "alerts": alerts,
-            })
+            _write_json(path, {"timestamp": datetime.now(timezone.utc).isoformat(), "alerts": alerts})
             results["ops_alerts"] = f"{len(alerts)} saved"
         else:
             results["ops_alerts"] = "no_alerts"
     except Exception as e:
         results["ops_alerts"] = f"error: {e}"
 
-    # 3. Snapshot scout pool stats
+    # Scout pool stats
     try:
         from .agent.scout import get_pool
         pool = get_pool()
@@ -237,16 +234,14 @@ def shutdown_to_memories() -> dict:
     except Exception as e:
         results["scout_pool"] = f"error: {e}"
 
-    # 4. Kill interrupts
+    # Interrupt counts
     try:
         from l1.kernel.interrupt import get_table
-        it = get_table()
-        counts = it.counts()
-        results["interrupts"] = dict(counts)
+        results["interrupts"] = dict(get_table().counts())
     except Exception as e:
         results["interrupts"] = f"error: {e}"
 
-    # 5. Save kernel state (process table etc.)
+    # Save kernel state
     try:
         from l1.kernel.persist import save
         r = save()
@@ -254,70 +249,17 @@ def shutdown_to_memories() -> dict:
     except Exception as e:
         results["kernel_state"] = f"error: {e}"
 
-    # 6. Recompile catalog via DSL compiler
+    # DSL compiler
     if COMPILER_PATH.exists():
         try:
-            compiler_result = subprocess.run(
-                [sys.executable, str(COMPILER_PATH)],
-                capture_output=True, text=True, timeout=MEMORY_INIT_TIMEOUT,
-                cwd=str(MEMORIES_DIR.parent),
-            )
-            results["compiler"] = "ok" if compiler_result.returncode == 0 else compiler_result.stderr[:LOG_TRUNC_200]
+            cr = subprocess.run([sys.executable, str(COMPILER_PATH)], capture_output=True,
+                                text=True, timeout=MEMORY_INIT_TIMEOUT, cwd=str(MEMORIES_DIR.parent))
+            results["compiler"] = "ok" if cr.returncode == 0 else cr.stderr[:LOG_TRUNC_200]
         except Exception as e:
             results["compiler"] = f"error: {e}"
     else:
         results["compiler"] = "not_found"
 
-    # 7. Reset cells + terminals
-    try:
-        from l3.agent_terminal import reset_terminals
-        reset_terminals()
-        from l3.cell import reset_cells
-        reset_cells()
-        results["reset"] = "ok"
-    except Exception as e:
-        results["reset"] = f"error: {e}"
-
     elapsed = round(time.time() - float(results.get("_start", time.time())), 3)
     logger.info("shutdown_to_memories complete: %s", results)
     return {"success": True, "results": results, "elapsed": elapsed}
-
-
-def register_shutdown_handler() -> None:
-    """Register atexit + signal handlers for graceful shutdown.
-
-    Call once at boot time.  Will dump all state into memories on exit.
-    """
-    import atexit
-
-    def _graceful_shutdown():
-        if _SHUTDOWN_IN_PROGRESS:
-            return
-        print("\n⏻ Shutting down Agent OS...")
-        try:
-            r = shutdown_to_memories()
-            status = "OK" if r.get("success") else "FAIL"
-            print(f"  Shutdown {status}: {r.get('elapsed', 0):.2f}s")
-            for k, v in r.get("results", {}).items():
-                print(f"    {k}: {v}")
-        except Exception as e:
-            print(f"  Shutdown error: {e}")
-
-    atexit.register(_graceful_shutdown)
-
-    # Handle SIGTERM / SIGINT gracefully
-    def _signal_handler(signum, frame):
-        if _SHUTDOWN_IN_PROGRESS:
-            return
-        signame = signal.Signals(signum).name
-        print(f"\n⏻ Caught {signame}, shutting down...")
-        _graceful_shutdown()
-        sys.exit(128 + signum)
-
-    try:
-        signal.signal(signal.SIGTERM, _signal_handler)
-        signal.signal(signal.SIGINT, _signal_handler)
-    except (ValueError, AttributeError):
-        pass  # not available in some contexts (Windows threads)
-
-    logger.info("shutdown handler registered (atexit + signal)")

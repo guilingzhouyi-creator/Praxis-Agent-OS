@@ -95,6 +95,10 @@ _L1_DEFAULTS: dict[str, Any] = {
     "cron.check_interval": PMU_SNAPSHOT_INTERVAL,
     "cron.max_entries": 50,
 
+    # ── Lifecycle (persistent state tracking) ──
+    "lifecycle.install_version": 0,
+    "lifecycle.schema_version": "",
+
     # ── L3A session limits (0 = unlimited) ──
     "l3a.max_steps": 0,
     "l3a.max_turns": 0,

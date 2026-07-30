@@ -44,7 +44,9 @@ def _cmd_mcp(args: list[str]) -> dict:
         if sub == "enable" and len(args) >= 2: return bridge.set_enabled(args[1])
         if sub == "disable" and len(args) >= 2: return bridge.set_disabled(args[1])
         return {"success": False, "error": "usage: /mcp [status|enable|disable]"}
-    except Exception as e: return {"success": False, "error": str(e)}
+    except Exception as e:
+        capture("extra: cmd failed", error_code="E_CMD", component="l2", context={"error": str(e)})
+        return {"success": False, "error": str(e)}
 
 def _cmd_buffer(args: list[str]) -> dict:
     from l3.resource_buffer.manager import get_manager

@@ -30,6 +30,7 @@ from l1.kernel.params.agent import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, DEFAU
 from l1.kernel.params.api import LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
 from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION
 
+from l1.kernel.lifecycle import get_lifecycle, LifecycleState, transition
 from .boot_registry import (
     BootStep,
     register_boot_step,
@@ -45,28 +46,28 @@ _BOOT_STEPS: list[str] = []
 _BOOT_STARTED: float = 0.0
 _BOOT_RESULT: dict | None = None
 
-_WIRED_KERNEL_OS: bool = False
+WIRED_KERNEL_OS: bool = False
 
 
-def _wire_kernel_os() -> None:
-    """Register service-layer callbacks with the kernel OS so shutdown
-    does NOT need to import from services/ directly.
+def wire_kernel_os() -> None:
+    """Register service-layer callbacks with the kernel OS.
 
     Idempotent — only wires once even if called multiple times.
     """
-    global _WIRED_KERNEL_OS
-    if _WIRED_KERNEL_OS:
+    global WIRED_KERNEL_OS
+    if WIRED_KERNEL_OS:
         return
     try:
         from l1.kernel.os import get_os
-        from .memory.memory_init import shutdown_to_memories
+        from .lifecycle import shutdown as _lifecycle_shutdown
         from .agent_terminal import reset_terminals
         from .cell import reset_cells
         osys = get_os()
-        osys.register_shutdown_handler(shutdown_to_memories)
+        osys.register_boot_handler(boot)
+        osys.register_shutdown_handler(_lifecycle_shutdown)
         osys.register_terminal_reset(reset_terminals)
         osys.register_cell_reset(reset_cells)
-        _WIRED_KERNEL_OS = True
+        WIRED_KERNEL_OS = True
     except Exception as e:
         logger.warning("kernel OS wiring skipped: %s", e)
 
@@ -81,6 +82,13 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     """
     global _BOOT_STARTED, _BOOT_RESULT
 
+    # Lifecycle: enter BOOTING state
+    try:
+        if not transition(LifecycleState.BOOTING):
+            logger.warning("boot: cannot enter BOOTING from %s", get_lifecycle().state().value)
+    except Exception as e:
+        logger.warning("boot: lifecycle transition failed: %s", e)
+
     # Retry safety: if previous boot failed, reset singletons first
     if _BOOT_RESULT and not _BOOT_RESULT.get("success"):
         logger.warning("previous boot failed — resetting singletons for retry")
@@ -90,7 +98,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         except Exception:
             logger.warning("singleton reset unavailable, proceeding anyway")
 
-    _wire_kernel_os()
+    wire_kernel_os()
 
     _BOOT_STARTED = time.time()
     _BOOT_STEPS.clear()
@@ -109,9 +117,23 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         capture("bootstrap check failed", exc=e, component="kernel")
         logger.warning("bootstrap check: %s", e)
 
+    # Lifecycle: install check (migrations + seed)
+    try:
+        from l1.kernel.lifecycle import get_lifecycle
+        lc = get_lifecycle()
+        lc.load()
+        if lc.should_install():
+            from .install import install
+            install()
+            _BOOT_STEPS.append("install")
+    except Exception as e:
+        from l3.error_bus import capture
+        capture("install check failed", exc=e, component="kernel")
+        logger.warning("boot install check: %s", e)
+
     # Register shutdown handler (atexit + signal) so state is always saved
     try:
-        from .memory.memory_init import register_shutdown_handler
+        from .lifecycle import register_shutdown_handler
         register_shutdown_handler()
         _BOOT_STEPS.append("shutdown_handler")
     except Exception as e:
@@ -235,6 +257,18 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                          message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s"))
     except Exception:
         logger.debug("boot: boot complete event emit failed")
+
+    # Lifecycle state transition
+    try:
+        lc = get_lifecycle()
+        if success:
+            lc.record_boot_success()
+            transition(LifecycleState.ACTIVE)
+        else:
+            lc.record_boot_failure()
+            transition(LifecycleState.CRASHED)
+    except Exception as e:
+        logger.warning("lifecycle transition failed: %s", e)
 
     logger.info("boot %s in %.2fs: %s", "OK" if success else "FAILED", elapsed, _BOOT_STEPS)
     return _BOOT_RESULT
@@ -523,6 +557,9 @@ def _init_memory_and_archive() -> dict:
     try:
         from .memory.r4_agent import start_r4_agent; start_r4_agent(); results["r4_agent"] = "started"
     except Exception as e: results["r4_agent"] = f"error: {e}"
+    try:
+        from l3.cell.peers.l3a import start_l3a_daemon; start_l3a_daemon(); results["l3a_daemon"] = "started"
+    except Exception as e: results["l3a_daemon"] = f"error: {e}"
     for mod, name in [("issue", "get_table"),
                        ("cache_doc", "get_store"),
                        ("credential_vault", "init_vault"),

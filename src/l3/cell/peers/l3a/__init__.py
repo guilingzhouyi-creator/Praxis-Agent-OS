@@ -227,6 +227,26 @@ class L3ADaemon:
                 self.manager.close(sid)
                 results.setdefault("auto_closed", []).append(sid)
                 logger.info("L3A daemon: auto-closed idle session %s", sid)
+
+        # Governance metrics: emit summary via MonitorBus
+        active_sessions = self.manager.list_active()
+        if active_sessions:
+            results["governance"] = {
+                "active_sessions": len(active_sessions),
+                "total_turns": sum(s.get("turn_count", 0) for s in active_sessions),
+                "total_cards": sum(s.get("card_count", 0) for s in active_sessions),
+            }
+            try:
+                from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _mb
+                _mb().emit(_ME(
+                    type="l3a.governance",
+                    source="l3a_daemon",
+                    severity="info",
+                    message=f"{results['governance']['active_sessions']} active sessions",
+                    data=results["governance"],
+                ))
+            except Exception:
+                logger.debug("l3a: governance event emit failed")
         return results
 
 
@@ -278,3 +298,6 @@ from .context import ContextSource, ContextRegistry, ContextEpoch
 from .session import Session, SessionManager, SessionHistory
 from .subagent import L3ASubAgentPool, get_pool as get_l3a_pool
 from . import params as l3a_params
+
+start_l3a_daemon = start
+stop_l3a_daemon = stop

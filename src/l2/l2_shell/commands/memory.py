@@ -21,7 +21,9 @@ def _cmd_memory(args: list[str]) -> dict:
             elif op == "stats": r = mem.aggregate_stats(agent_id=aid)
             else: return {"success": False, "error": f"unknown memory op: {op}"}
             return {"success": True, "agent": aid, "data": r}
-        except Exception as e: return {"success": False, "error": str(e)}
+        except Exception as e:
+            capture("memory: cmd failed", error_code="E_CMD", component="l2", context={"error": str(e)})
+            return {"success": False, "error": str(e)}
     return {"success": True}
 
 def _cmd_card(args: list[str]) -> dict:

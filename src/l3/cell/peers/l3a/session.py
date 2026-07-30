@@ -176,6 +176,8 @@ class Session:
         self._loop._context_trail = ctx_trail
         self._loop.task = admitted.text
         model_cfg = self._resolve_model_config()
+        # Capture pre-call projected tokens for savings tracking
+        pre_tokens = self.context_stats()["projected_tokens"]
         result = self._loop.run(
             max_steps=limits["max_steps"],
             timeout=limits["timeout"],
@@ -183,15 +185,62 @@ class Session:
         )
         self.turn_count += 1
         answer = result.get("answer", "")
+        tool_calls = result.get("tool_calls", [])
         answer_msg = Message(
             id=f"asst-{uuid.uuid4().hex[:4]}",
             role="assistant", content=answer,
-            tool_calls=result.get("tool_calls", []),
+            tool_calls=tool_calls,
         )
         self.history.append(answer_msg)
         self._persist_state()
         result["session_id"] = self.id
         result["turn"] = self.turn_count
+
+        # Record tool call metrics to StatsCenter
+        if tool_calls:
+            t0 = time.time()
+            try:
+                from l3.services.stats_center import get_center, MetricPoint as _Mp
+                sc = get_center()
+                ts = time.time()
+                for tc in tool_calls:
+                    fn_name = tc.get("function", {}).get("name", "unknown")
+                    err = tc.get("error", "")
+                    success = err == ""
+                    latency = (time.time() - t0) / max(len(tool_calls), 1)
+                    sc.ingest(_Mp(name="l3a.tools.executed", value=1.0,
+                              tags={"tool": fn_name, "success": str(success).lower(),
+                                    "session": self.id, "agent": _p.AGENT_ID},
+                              timestamp=ts, metric_type="counter"))
+                    sc.ingest(_Mp(name="l3a.tools.latency", value=round(latency, 3),
+                              tags={"tool": fn_name, "session": self.id},
+                              timestamp=ts, metric_type="gauge"))
+                    sc.ingest(_Mp(name="l3a.tokens.consumed",
+                              value=float(tc.get("tokens", 0)),
+                              tags={"tool": fn_name, "session": self.id},
+                              timestamp=ts, metric_type="counter"))
+            except Exception:
+                logger.debug("l3a session: stats_center tool recording failed")
+
+        # Token savings tracking: compare projected vs actual
+        post_tokens = self.context_stats()["projected_tokens"]
+        token_saved = pre_tokens - post_tokens
+        try:
+            from l3.services.stats_center import get_center, MetricPoint as _Mp
+            sc = get_center()
+            ts = time.time()
+            sc.ingest(_Mp(name="l3a.tokens.projected", value=float(pre_tokens),
+                      tags={"session": self.id, "agent": _p.AGENT_ID},
+                      timestamp=ts, metric_type="gauge"))
+            sc.ingest(_Mp(name="l3a.tokens.actual", value=float(post_tokens),
+                      tags={"session": self.id, "agent": _p.AGENT_ID},
+                      timestamp=ts, metric_type="gauge"))
+            if token_saved > 0:
+                sc.ingest(_Mp(name="l3a.tokens.saved", value=float(token_saved),
+                          tags={"session": self.id},
+                          timestamp=ts, metric_type="counter"))
+        except Exception:
+            logger.debug("l3a session: token savings recording failed")
         return result
 
     def set_pmu(self, pmu: Any) -> None:
