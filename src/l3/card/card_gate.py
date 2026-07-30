@@ -23,9 +23,11 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.agent import CARD_GATE_ARCH_KEYWORDS
 from l1.kernel.params.system import CARD_GATE_AUTO_SAVE, LOG_TRUNC_200
 from l3._persistable import PersistableMixin
 from l1.kernel.params.kernel import WitnessStatus
+from l3.card.card_unified import CardLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +118,22 @@ class CardGate(PersistableMixin):
 
     # ── Public API ──
 
+    @staticmethod
+    def _is_architecture_nature(intent: str) -> bool:
+        """Detect if card intent describes architecture-scope work."""
+        if not intent:
+            return False
+        lower = intent.lower()
+        return any(kw in lower for kw in CARD_GATE_ARCH_KEYWORDS)
+
     def classify(self, intent: str = "", domain: str = "",
                  file_count: int = 0, estimated_lines: int = 0,
                  has_conflict: bool = False) -> CardSize:
         if has_conflict:
             return CardSize.DISPUTED
+        # Architecture-nature cards are always LARGE
+        if self._is_architecture_nature(intent):
+            return CardSize.LARGE
         if file_count <= self._thresholds["small_max_files"] and estimated_lines <= self._thresholds["small_max_lines"]:
             return CardSize.SMALL
         if file_count <= self._thresholds["medium_max_files"] and estimated_lines <= self._thresholds["medium_max_lines"]:
@@ -138,6 +151,8 @@ class CardGate(PersistableMixin):
                 card.approval_size = size
                 card.approval_at = time.time()
                 card.approval_by = by
+                if status == "pending":
+                    card.lifecycle = CardLifecycle.HOLD
         except Exception:
             logger.debug("card_gate: approval set failed")
 

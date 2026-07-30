@@ -90,6 +90,12 @@ DEFAULT_AGENT_CONFIGS: Final[dict[str, AgentDefaults]] = {
 CENTRAL_ROLES: list[str] = ["reader", "writer", "reviewer", "scout", "l3", "default", "deployer"]
 CENTRAL_DEFAULT_ROLES: list[str] = ["reader", "writer", "reviewer"]
 
+# ── Agent role types for model configuration (used by L2 /model commands) ──
+AGENT_ROLE_TYPES: list[str] = [
+    "peer_agent", "subagent.default", "scout", "r4_agent",
+    "convention", "card_planner", "l3a",
+]
+
 
 # ── Clearance (role → ring access level) ──
 
@@ -249,6 +255,11 @@ CARD_GATE_SMALL_MAX_FILES: Final[int] = 1
 CARD_GATE_SMALL_MAX_LINES: Final[int] = 50
 CARD_GATE_MEDIUM_MAX_FILES: Final[int] = 5
 CARD_GATE_MEDIUM_MAX_LINES: Final[int] = 200
+CARD_GATE_ARCH_KEYWORDS: Final[list[str]] = [
+    "architecture", "redesign", "refactor", "migration", "restructure",
+    "reorganize", "extract", "split", "merge module",
+    "架构", "重构", "重设计", "迁移", "拆分",
+]
 CARD_GATE_APPROVAL_TIMEOUT: Final[float] = 3600.0
 CARD_GATE_CONVENTION_TIMEOUT: Final[float] = 7200.0
 CARD_GATE_HISTORY_LIMIT: Final[int] = 50

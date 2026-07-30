@@ -24,7 +24,7 @@ from typing import Any
 from l1.kernel import get_rwlock
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.api import ENV_SANDBOX_ROOT
-from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE, HASH_TRUNC_LONG
+from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE, HASH_TRUNC_LONG, SANDBOX_DEFAULT_TIMEOUT
 from l1.kernel.platform import get_temp_dir as _get_temp_dir
 
 logger = logging.getLogger(__name__)

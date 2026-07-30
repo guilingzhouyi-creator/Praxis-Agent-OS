@@ -285,6 +285,28 @@ think:
     writer:   {max_budget: 8192}
     reviewer: {max_budget: 16384}
 
+# ── Card Gate / Approval Workflow ──
+card_gate:
+  thresholds:
+    small_max_files: 1
+    small_max_lines: 50
+    medium_max_files: 5
+    medium_max_lines: 200
+  auto_approval:
+    small: true
+    medium: true
+    large: false
+    disputed: false
+  arch_keywords:                       # Optional: override architecture detection keywords
+    - architecture
+    - redesign
+    - refactor
+    - migration
+    - restructure
+    - 架构
+    - 重构
+    - 重设计
+
 # ── Diff / Structured Sandbox Color Scheme ──
 diff:
   mode: auto                       # auto|human|summary|colored

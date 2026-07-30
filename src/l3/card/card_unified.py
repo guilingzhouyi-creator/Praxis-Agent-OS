@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 class CardLifecycle(Enum):
     DRAFT = "draft"
     QUEUED = "queued"
+    HOLD = "hold"           # held for approval / awaiting human decision
     DISPATCHED = "dispatched"
     RUNNING = "running"
     COMPLETED = "completed"
