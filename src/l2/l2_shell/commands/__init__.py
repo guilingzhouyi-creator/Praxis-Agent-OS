@@ -36,12 +36,12 @@ from .connect import (
 from .system import (
     _cmd_help, _cmd_status, _cmd_process, _cmd_devices, _cmd_vfs,
     _cmd_sysinfo, _cmd_clear, _cmd_history, _cmd_lang, _cmd_tools,
-    _cmd_cache, _cmd_observe, _cmd_skills,
+    _cmd_cache, _cmd_observe, _cmd_skills, _cmd_intents, _cmd_scheduler,
 )
 from .memory import (
     _cmd_memory, _cmd_card, _cmd_plugins, _cmd_spawn, _cmd_kill,
-    _cmd_destroy, _cmd_emergency, _cmd_audit, _cmd_intents,
-    _cmd_scheduler, _cmd_tokens, _cmd_agent_restart, _cmd_agent_refresh,
+    _cmd_destroy, _cmd_emergency, _cmd_audit,
+    _cmd_tokens, _cmd_agent_restart, _cmd_agent_refresh,
     _cmd_cell_create,
 )
 from .model import (

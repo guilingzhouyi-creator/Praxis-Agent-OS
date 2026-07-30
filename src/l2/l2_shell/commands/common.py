@@ -62,8 +62,8 @@ def preconnect_enhanced(cell_id: str, agent_id: str, message: str = "") -> dict:
     if not basic.get("allowed"):
         return {"allowed": False, "checks": checks, "reason": basic.get("reason", "preconnect_failed")}
     try:
-        from l4.llm.llm import get_engine
-        engine = get_engine()
+        from l3.services.adapter_bridge import get_llm_engine
+        engine = get_llm_engine()
         provider_status = engine.provider_status() if hasattr(engine, 'provider_status') else {}
         checks["llm_provider"] = provider_status
         if provider_status.get("status") == "error":

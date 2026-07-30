@@ -53,9 +53,35 @@ def _load_aliases() -> dict[str, str]:
     }
 
 
-_ALIASES: dict[str, str] = _load_aliases()
-_COMMANDS: list[str] = get_tool_names()
-_COMMAND_HELP: dict[str, str] = _load_tool_help()
+# ── Lazy-loaded module-level data (loaded on first access, not at import) ──
+
+_ALIASES: dict[str, str] | None = None
+_COMMANDS: list[str] | None = None
+_COMMAND_HELP: dict[str, str] | None = None
+
+
+def get_aliases() -> dict[str, str]:
+    """Get shell aliases (lazy-loaded + cached)."""
+    global _ALIASES
+    if _ALIASES is None:
+        _ALIASES = _load_aliases()
+    return _ALIASES
+
+
+def get_command_names() -> list[str]:
+    """Get tool names (lazy-loaded + cached)."""
+    global _COMMANDS
+    if _COMMANDS is None:
+        _COMMANDS = get_tool_names()
+    return _COMMANDS
+
+
+def get_command_help() -> dict[str, str]:
+    """Get tool help texts (lazy-loaded + cached)."""
+    global _COMMAND_HELP
+    if _COMMAND_HELP is None:
+        _COMMAND_HELP = _load_tool_help()
+    return _COMMAND_HELP
 
 # ── TerminalCompleter ──
 

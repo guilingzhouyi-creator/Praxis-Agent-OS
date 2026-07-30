@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 
+from .commands.common import _coerce
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,18 +137,4 @@ def _settings_subagent_pool(cell_id: str = "") -> dict:
         return {"success": False, "error": str(e)}
 
 
-def _coerce(value: str):
-    """Coerce string values to int/float/bool when appropriate."""
-    if value.lower() in ("true", "yes"):
-        return True
-    if value.lower() in ("false", "no"):
-        return False
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        pass
-    return value
+

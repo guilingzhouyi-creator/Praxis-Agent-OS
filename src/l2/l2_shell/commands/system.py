@@ -74,3 +74,57 @@ def _cmd_tools(args: list[str]) -> dict:
         tools = term.list_tools()
         return {"success": True, "tools": tools, "agent": agent_id}
     return {"terminals": list(terms.keys())}
+
+
+def _cmd_help(args: list[str]) -> dict:
+    """Show help for commands (/help <cmd>) or list all commands."""
+    from l1.kernel.commands import get_command
+    from l2.l2_shell.commands import list_commands
+    if args:
+        cmd_name = args[0].lower().lstrip("/")
+        cmd = get_command(cmd_name)
+        if not cmd:
+            return {"success": False, "error": f"unknown command: {cmd_name}"}
+        lines = [f"/{cmd_name}  — {cmd.get('help', '')}"]
+        if cmd.get("aliases"):
+            lines.append(f"  aliases: {', '.join('/' + a for a in cmd['aliases'])}")
+        if cmd.get("args"):
+            lines.append("  args:")
+            for a in cmd["args"]:
+                opt = " (optional)" if a.get("optional") else ""
+                lines.append(f"    {a['name']}{opt} — {a.get('description', '')}")
+        if cmd.get("examples"):
+            lines.append("  examples:")
+            for e in cmd["examples"]:
+                lines.append(f"    {e}")
+        lines.append(f"  category: {cmd.get('category', 'other')}")
+        return {"success": True, "output": "\n".join(lines), "format": "text"}
+    cmds = list_commands()
+    groups = {}
+    for c in cmds:
+        cat = c.get("category", "other")
+        groups.setdefault(cat, []).append(c)
+    cat_labels = {
+        "session": "Session", "control": "Central Control", "memory": "Memory",
+        "system": "System", "agent": "Agent / Cell", "audit": "Audit / Config",
+        "ext": "Extensions",
+    }
+    lines = ["Available commands:", ""]
+    for cat in ["session", "control", "memory", "system", "agent", "audit", "ext"]:
+        items = groups.get(cat, [])
+        if not items:
+            continue
+        label = cat_labels.get(cat, cat)
+        lines.append(f"  ── {label} ──")
+        for c in items:
+            name = c.get("command", "")
+            help_text = c.get("help", "")
+            alias_str = ""
+            if c.get("aliases"):
+                alias_str = f" ({', '.join('/' + a for a in c['aliases'])})"
+            lines.append(f"    {name:25s} {help_text}{alias_str}")
+        lines.append("")
+    lines.append("  Tip: /help <command> for details & examples")
+    lines.append("  Tip: cmd1 | cmd2 for pipeline (auto Map/Chain/Passthrough)")
+    lines.append("  Tip: --cell or --agent for scoped operations")
+    return {"success": True, "output": "\n".join(lines), "format": "text"}

@@ -23,84 +23,11 @@ from l1.kernel.params.system import (
     SKILL_LEAN_CASES_LIMIT,
 )
 from l3.error_bus import capture
+from .commands.common import _coerce, _parse_agent_ref, _register_handler, _list_defs, _PIPELINE_SUBST_RE, preconnect_enhanced, list_commands
 
 logger = logging.getLogger(__name__)
 
 _registry = get_registry()
-
-# ── Value coercion helper ──
-def _coerce(value: str) -> Any:
-    """Coerce string values to int/float/bool when appropriate."""
-    if value.lower() in ("true", "yes"):
-        return True
-    if value.lower() in ("false", "no"):
-        return False
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        pass
-    return value
-
-
-# ── Pre-compiled regex patterns ──
-_PIPELINE_SUBST_RE = re.compile(r"\{\.(\w+)\}")
-
-
-def _parse_agent_ref(arg: str) -> tuple[str, str]:
-    """Parse 'cell.agent' or bare 'agent' into (cell_id, agent_id)."""
-    if "." in arg:
-        parts = arg.split(".", 1)
-        return parts[0], parts[1]
-    return DEFAULT_CELL_ID, arg
-
-
-def _register_handler(name: str, handler: Callable, metadata: dict | None = None) -> None:
-    _registry.register_system(name, handler, metadata)
-
-def _list_defs() -> list[dict]:
-    return _registry.list()
-
-
-def preconnect_enhanced(cell_id: str, agent_id: str,
-                        message: str = "") -> dict:
-    from l2.selector import preconnect as _preconnect
-    checks = {}
-    basic = _preconnect(cell_id, agent_id, message)
-    checks["preconnect"] = basic
-    if not basic.get("allowed"):
-        return {"allowed": False, "checks": checks,
-                "reason": basic.get("reason", "preconnect_failed")}
-    try:
-        from l3.services.adapter_bridge import get_llm_engine
-        engine = get_engine()
-        provider_status = engine.provider_status() if hasattr(engine, 'provider_status') else {}
-        checks["llm_provider"] = provider_status
-        if provider_status.get("status") == "error":
-            return {"allowed": False, "checks": checks,
-                    "reason": f'llm_provider_error: {provider_status.get("error", "")}'}
-    except ImportError:
-        checks["llm_provider"] = {"status": "error", "error": "llm module not available"}
-        return {"allowed": False, "checks": checks, "reason": "llm_module_missing"}
-    except AttributeError as e:
-        checks["llm_provider"] = {"status": "error", "error": str(e)}
-        return {"allowed": False, "checks": checks, "reason": f'llm_api_mismatch: {e}'}
-    except Exception as e:
-        checks["llm_provider"] = {"status": "error", "error": str(e)}
-        return {"allowed": False, "checks": checks, "reason": f'llm_unavailable: {e}'}
-    return {"allowed": True, "checks": checks}
-
-
-def list_commands() -> list[dict]:
-    return [
-        {"command": f"/{c['name']}", "help": c["help"],
-         "aliases": c.get("aliases", []), "category": c.get("category", "other"),
-         "args": c.get("args", []), "examples": c.get("examples", [])}
-        for c in _list_defs()
-    ]
 
 
 def _cmd_help(args: list[str]) -> dict:

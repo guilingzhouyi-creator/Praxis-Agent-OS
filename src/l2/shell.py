@@ -29,7 +29,7 @@ from l3.cell import get_cell as _get_cell
 from l3.tool_system.tool_spec import get_tool, execute_tool_spec, list_tools as _list_tools_
 from l3.tools_l3 import execute_l3_tool as _execute_l3_tool
 from .shell_session import TerminalSession, TerminalManager, get_manager, reset_manager
-from .shell_completer import _COMMANDS, _ALIASES, _COMMAND_HELP, TerminalCompleter, get_tool_names
+from .shell_completer import get_command_names, get_aliases, get_command_help, TerminalCompleter, get_tool_names
 
 # ── Terminal REPL — Tab completion, command parsing, direct session ──
 
@@ -118,10 +118,10 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
 def _show_help() -> None:
     """Print command list (first 15 commands) and hint for more."""
     print("Commands:")
-    for cmd in _COMMANDS[:SHELL_AUTOCOMPLETE_DISPLAY_LIMIT]:
-        h = _COMMAND_HELP.get(cmd, "")
+    for cmd in get_command_names()[:SHELL_AUTOCOMPLETE_DISPLAY_LIMIT]:
+        h = get_command_help().get(cmd, "")
         print(f"  {cmd:<20s} {h}")
-    print(f"  ... and {len(_COMMANDS) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)")
+    print(f"  ... and {len(get_command_names()) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)")
 
 
 def _list_tools() -> None:
@@ -133,7 +133,7 @@ def _list_tools() -> None:
         print(f"\nTotal: {len(tools)} tools")
     except Exception as e:
         logger.warning("shell: list_tools failed (%s), falling back to command list", e)
-        for c in _COMMANDS:
+        for c in get_command_names():
             print(f"  {c}")
 
 
@@ -211,7 +211,7 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
         return
     raw_name = parts[0]
     # Resolve alias
-    tool_name = _ALIASES.get(raw_name, raw_name)
+    tool_name = get_aliases().get(raw_name, raw_name)
     args = {}
     for i in range(1, len(parts)):
         if "=" in parts[i]:
