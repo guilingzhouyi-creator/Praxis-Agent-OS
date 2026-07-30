@@ -460,6 +460,23 @@ def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
     results["loop_control"] = True
 
 
+def cfg_l3a(cfg: dict, s: Any, results: dict) -> None:
+    """Load L3A session limits from praxis.yaml l3a: section."""
+    from l3.config.settings_center import get_center
+    center = get_center()
+    mapping = {
+        "max_steps": "l3a.max_steps",
+        "max_turns": "l3a.max_turns",
+        "timeout": "l3a.timeout",
+        "idle_timeout": "l3a.idle_timeout",
+        "archive_importance": "l3a.archive_importance",
+    }
+    for yaml_key, sc_key in mapping.items():
+        if yaml_key in cfg:
+            center.set(sc_key, cfg[yaml_key])
+    results["l3a"] = True
+
+
 def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
     from l3.config.settings_center import get_center
     center = get_center()

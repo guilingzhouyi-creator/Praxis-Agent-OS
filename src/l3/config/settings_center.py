@@ -95,6 +95,14 @@ _L1_DEFAULTS: dict[str, Any] = {
     "cron.check_interval": PMU_SNAPSHOT_INTERVAL,
     "cron.max_entries": 50,
 
+    # ── L3A session limits (0 = unlimited) ──
+    "l3a.max_steps": 0,
+    "l3a.max_turns": 0,
+    "l3a.timeout": 0,
+    "l3a.idle_timeout": 3600.0,
+    "l3a.archive_importance": 0.7,
+    "session.max_turns": 0,  # deprecated — use l3a.max_turns
+
     # ── Loop control (AgentLoop self-correction) ──
     "loop.max_steps": 0,  # 0 = unlimited by default; > 0 = step-limited mode
     "loop.timeout": AGENT_LOOP_DEFAULT_TIMEOUT,

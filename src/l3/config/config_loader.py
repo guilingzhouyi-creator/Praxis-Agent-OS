@@ -34,7 +34,7 @@ from .config_handlers import (
     cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
     cfg_agent_role_map, cfg_agent_priority,
     cfg_model_spec,
-    cfg_think, cfg_loop_control, cfg_diff,
+    cfg_think, cfg_loop_control, cfg_diff, cfg_l3a,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,6 +185,7 @@ _builtin_handlers = [
     ("model_spec", cfg_model_spec),
     ("think", cfg_think),
     ("loop_control", cfg_loop_control),
+    ("l3a", cfg_l3a),
     ("diff", cfg_diff),
 ]
 for _name, _fn in _builtin_handlers:
@@ -194,7 +195,7 @@ for _name, _fn in _builtin_handlers:
 def validate(data: dict) -> dict:
     """Validate parsed YAML config structure. Returns errors list."""
     errors = []
-    sections = ("kernel", "cell", "llm", "constitution", "gatechain", "tool_rates",
+    sections = ("kernel", "cell", "l3a", "llm", "constitution", "gatechain", "tool_rates",
                 "htn", "cache", "persist", "network", "api", "api_routes",
                 "prompts", "card_gate", "credentials",
                 "devices", "territories", "clearance", "agents")

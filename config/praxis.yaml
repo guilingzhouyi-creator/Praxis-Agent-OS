@@ -60,6 +60,14 @@ llm:
     ollama:
       optimize_prompt: false
 
+# ── L3A session limits (0 = unlimited) ──
+l3a:
+  max_steps: 0                  # Tool-calling turns per prompt
+  max_turns: 0                  # Total dialogue turns per session
+  timeout: 0                    # Seconds per prompt (0 = no timeout)
+  idle_timeout: 3600            # Auto-close idle session (seconds)
+  archive_importance: 0.7       # Ring-3 archive importance threshold
+
 # ── Devices ──
 devices:
   - name: llm

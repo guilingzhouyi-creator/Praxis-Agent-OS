@@ -1,78 +1,217 @@
-# L3A Assembly Mode — 决策路由层
+# L3A — 会话系统与决策路由
 
-## Architecture
+> **Sources:** `src/l3/cell/peers/l3a/` (11 模块包)
 
-```
-用户自然语言
-    │
-    ▼
-L3A.parse()
-    │
-    ├── 模式一: Assembly（会商模式）
-    │     ├── DEFAULT     — 手动审批，卡挂起到 PendingQueue
-    │     ├── AUTO_APPROVE — 自动推送 Cell 执行
-    │     └── CONFERENCE  — 广播 Convention 多 Agent 协商
-    │
-    └── 模式二: Direct（直达模式）
-          └── /connect → Cell.send_direct_message() → AgentTerminal._handle_direct()
-```
-
-## 三种子模式
-
-### DEFAULT（手动审批）
-
-L3A 产出 Card → `CardGate.evaluate()` → 标记 `HOLD` → `PendingQueue` 等待人工审批 → 审批通过后 `CardRegistry.dispatch()` → `Cell.execute_card()`
-
-### AUTO_APPROVE（自动审批）
-
-L3A 产出 Card → `CardGate.evaluate()` → `auto_approve=True` → `CardRegistry.dispatch()` → `Cell.execute_card()` → Peer Agents 执行 → 返回结果
-
-### CONFERENCE（大会模式）
-
-L3A 产出 IssueCard → `ConventionProtocol.start()` → 广播 `CONVENE` 到多 Cell → Per-Cell `AnswerSession`（5 阶段）→ `AnswerAggregator` 跨 Cell 合并 → `converge()` → 收敛摘要注入 Memory Ring 2 + CacheDocument → `to_execution_card()` → 执行
-
-## 路由决策
-
-`_route_to_assembly()` 委托 `CardGate.classify()` 做风险评估:
-
-| CardGate 分类 | AssemblyMode | 行为 |
-|---------------|-------------|------|
-| SMALL + auto_approve | `AUTO_APPROVE` | 直接推送 Cell 执行 |
-| MEDIUM + auto_approve | `AUTO_APPROVE` | 直接推送 Cell 执行 |
-| LARGE | `DEFAULT` | 挂起到 PendingQueue 等人审批 |
-| DISPUTED | `CONFERENCE` | 启动 Convention 大会协商 |
-| 架构卡（`_is_architecture_nature`） | `DEFAULT` | 强制挂起，架构级变更需人工决策 |
-| CardGate 不可用 | `AUTO_APPROVE` | 降级到自动审批（fail-open） |
-
-## 数据流
+## 架构位置
 
 ```
-                ┌──────────────┐
-                │    L3A       │
-                │  parse()     │
-                └──────┬───────┘
-                       │ CardUnified
-                       ▼
-                ┌──────────────┐
-                │ _route_to_   │
-                │ assembly()   │ ← CardGate.evaluate()
-                └──┬───────┬───┘
-                   │       │
-          AUTO_APPROVE  DEFAULT/CONFERENCE
-                   │       │
-                   ▼       ▼
-           Cell.execute()  PendingQueue / ConventionProtocol
-                   │       │
-                   ▼       ▼
-               Agent     Memory Ring 2
-               Result    (convergence 注入)
+L5 CLI
+L4 Bridge (LLM, sandbox, API)
+  ┌──────────────────────────────────────┐
+L3│  L3A (orchestration daemon)          │ ← 独立 daemon，不注册为 Cell agent
+  │    ├── SessionManager               │    直接创建 AgentLoop，不走 Cell terminal
+  │    ├── L3ASubAgentPool              │    独立线程池，无 Cell 依赖
+  │    └── CentralController (L3A+L3B)  │    CardRegistry 卡区统一入口
+  │                                      │
+  │  Cell (agent runtime)                │ ← L3A 编排 Cell，不居住在其中
+  │    ├── agents with terminals         │
+  │    ├── CardRegistry                  │
+  │    └── memory (Ring 1-4)             │
+  └──────────────────────────────────────┘
+L2 Shell
+L1 Kernel
 ```
 
-## 关键常量
+## 模块结构
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| `CONVERGENCE_BUFFER_SIZE` | 100 | 每 phase 环形缓冲区上限 |
-| `CARD_GATE_ARCH_KEYWORDS` | [...] | 架构卡检测关键词 |
-| `DIRECT_SESSION_TIMEOUT` | 3600s | Direct 模式超时 |
-| `CONVENTION_TIMEOUT` | 600s | 大会单轮超时 |
+```
+src/l3/cell/peers/l3a/
+├── __init__.py    → L3ADaemon 生命周期 + 单例工厂
+├── session.py     → Session + SessionHistory + SessionManager
+├── subagent.py    → L3ASubAgentPool + spawn/collect/peek 工具 handler
+├── context.py     → ContextSource + ContextEpoch + ContextRegistry
+├── inbox.py       → PromptInbox (durable admission/promotion)
+├── model.py       → L3AModelConfig (prompt > L3A > 全局 > 编译时)
+├── archive.py     → R4 archive store / search / transcript restore
+├── pipeline.py    → ManagedToolOutput (大结果 spill 文件)
+├── helpers.py     → cardwrite_handler, build_l3a_prompt, convergence
+├── api.py         → L2 Shell 命令路由
+├── types.py       → 共享枚举和 dataclass
+└── params.py      → 常量（路径、尺寸等基础设施参数）
+```
+
+## Session 生命周期
+
+```
+create_session(title)
+  ├── Session.create()
+  │     ├── uuid4 session_id
+  │     ├── ContextEpoch.create(registry)
+  │     │     ├── load_all() 所有 ContextSource
+  │     │     ├── render_baseline() → 不可变 baseline
+  │     │     └── persist() → 磁盘快照
+  │     └── PromptInbox.reload() → 恢复未 promote 的输入
+  │
+  prompt(text)
+  ├── limits = _resolve_limits()
+  │     l3a.max_steps > 0 ? → loop.max_steps > 0 ? → 999999 (unlimited)
+  │     l3a.max_turns > 0 ? → session.max_turns > 0 ? → 0 (unlimited)
+  ├── max_turns check
+  ├── inbox.admit(text)
+  ├── epoch.sync(registry)
+  │     ├── load_all() → diff(snapshot) → MidConversationMessage[]
+  │     └── update snapshot + persist
+  ├── inbox.promote() → user Message
+  ├── _report_stats() → StatsCenter + PMU
+  ├── AgentLoop.run(model_config, max_steps, timeout)
+  │     ├── cardwrite tool → CardRegistry
+  │     ├── l3a_spawn tool → L3ASubAgentPool (async)
+  │     ├── l3a_collect tool → 阻塞收集
+  │     └── l3a_result tool → 非阻塞查询
+  ├── turn_count++
+  └── return {answer, card_ids, session_id, turn}
+
+close()
+  ├── metadata = {session_id, title, turn_count, ...}
+  ├── archive.store_session(fonds="AGENT:l3a", series="l3a_session")
+  │     └── R4 Archive SQLite (canonical long-term)
+  ├── memory.remember(importance=0.7, ring=3)  (fast recall)
+  └── snapshot persist
+```
+
+## ContextEpoch + ContextSource
+
+```
+ContextEpoch (不可变基线 + 变化检测)
+  ├── id: str
+  ├── baseline: str (完整渲染的 system context)
+  ├── snapshot: dict{key: codec.encode(value)}
+  ├── turn_count: int
+  └── persisted: bool
+
+预注册的 ContextSource:
+  memory        → MemoryManager.build_context()
+  constitution  → Constitution.summary()
+  system_time   → datetime.now(UTC)
+  model_info    → L3AModelConfig.show()
+
+sync(): load_all() → diff(snapshot) → MidConversationMessage[] → update snapshot
+```
+
+## PromptInbox (durable)
+
+```
+admit(text, mode="steer"|"queue") → Admission(id, status="pending")
+  steer: 在当前 session drain 中尽快 promote
+  queue: 等 session 空闲时 promote
+
+promote() → Admission(status="promoted")
+  │ 原子操作：从 inbox 移到 SessionHistory
+
+_persist() → Ring 2 记忆 (tag="l3a_inbox")
+reload()  → 启动时恢复 pending admission
+```
+
+## L3ASubAgentPool
+
+```
+L3ASubAgentPool (全局单例, max_workers=4)
+  ├── commission(spec, task, group) → {task_id} (立即返回)
+  ├── collect(group, timeout) → [{task_id, spec, status, result}]
+  ├── peek(task_id) → {task_id, spec, status, result}
+  └── shutdown(wait)
+
+两种规格:
+  card-planner:  read_file + grep_search + list_dir + glob + cardwrite
+                 输出: {domain, card_nature, phases, tasks, findings}
+  investigator:  read_file + grep_search + list_dir + glob (只读)
+                 输出: {findings, files_examined, summary}
+
+内部: 每任务创建轻量 AgentLoop，工具从 TOOL_REGISTRY 解析
+      卡只有 L3A 能产（通过 cardwrite），子代理也可产卡
+      shell/write/edit/test 均禁止
+```
+
+### 工具权限
+
+```
+                L3A (主)    SubAgent (从)
+cardwrite       ✅           ✅
+read_file       ✅           ✅
+write/edit      ✅           ❌
+shell/run       ✅           ❌
+test            ✅ (Cell)    ❌
+```
+
+### AgentLoop 内使用序列
+
+```
+Turn 1: l3a_spawn(spec="card-planner", task="auth 模块分析", group="g1")
+        → {task_id: "sa-001"}
+
+Turn 2: l3a_spawn(spec="investigator", task="auth 测试覆盖", group="g1")
+        → {task_id: "sa-002"}
+
+Turn 3: l3a_collect(group="g1", timeout=30)
+        → [{findings, card_ids}, {findings, files}]
+
+Turn 4: cardwrite(nature="execution", title="auth refactor", phases=[...])
+        → {card_id, submitted: true}
+```
+
+## L3AModelConfig 继承链
+
+```
+prompt(model_config=override)  ← 1. 按 prompt 覆盖
+L3A 自身 /l3a model set        ← 2. L3A 配置
+praxis.yaml llm:               ← 3. 全局默认
+compile-time default           ← 4. params/agent.py
+
+resolve(override) → {provider, model, max_tokens, temperature}
+```
+
+## 统计接入
+
+| Metric | 类型 | 目标 |
+|---|---|---|
+| `l3a.epoch.tokens` | gauge | StatsCenter |
+| `l3a.epoch.pressure` | gauge | StatsCenter |
+| `l3a.session.turns` | gauge | StatsCenter |
+| `l3a.session.tokens_consumed` | counter | StatsCenter |
+| `token.estimated` | counter | PMU (CellPmu "l3a") |
+| `memory.context.warnings` | counter | PMU (pressure ≥ 0.80) |
+| `memory.context.critical` | counter | PMU (pressure ≥ 0.95) |
+
+## L2 Shell 命令
+
+```
+/l3a                                → 活跃会话 + 模型
+/l3a create [title]                 → 创建会话
+/l3a list                           → 活跃 + 归档列表
+/l3a info <id>                      → 会话详情 + context stats
+/l3a close <id>                     → 关闭 + R4 归档
+/l3a messages <id> [limit]          → 消息分页
+/l3a model show                     → 有效模型配置
+/l3a model set <key> <value>        → 覆盖 L3A 模型
+/l3a context sources                → 注册的 ContextSource
+```
+
+## 三种路由模式
+
+| 模式 | 触发条件 | 行为 |
+|------|----------|------|
+| `AUTO_APPROVE` | CardGate auto_approve | 直接推送 Cell 执行 |
+| `DEFAULT` | CardGate size=large/medium | 挂起等待人工审批 |
+| `CONFERENCE` | CardGate size=disputed | Convention 多 Agent 协商 |
+
+## 关键配置
+
+```yaml
+# config/praxis.yaml
+l3a:
+  max_steps: 0              # 每轮步数限制 (0=unlimited)
+  max_turns: 0              # 会话总轮次 (0=unlimited)
+  timeout: 0                # 每轮超时 (0=no timeout)
+  idle_timeout: 3600        # 空闲自动关闭
+  archive_importance: 0.7   # R4 归档重要性阈值
+```

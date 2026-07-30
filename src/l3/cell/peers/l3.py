@@ -1,21 +1,22 @@
 """CentralController — unified intent lifecycle controller.
 
-Combines L3A (intent parsing) + L3B (cross-cell routing) + Dispatcher (Cell allocation)
+Combines L3A (session management) + L3B (cross-cell routing) + Dispatcher (Cell allocation)
 + CardRegistry (card lifecycle) into a single unified controller.
 
 Lifecycle:
   PENDING → PARSED → QUEUED → DISPATCHED → RUNNING → DONE | FAILED
-                         ↘ CANCELLED
+                          ↘ CANCELLED
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from typing import Any
 
-from l3.cell.peers.l3a import L3A, TaskCard
+from l3.cell.peers.l3a import get_daemon, AssemblyMode, TaskCard, CardType
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l1.kernel.params.kernel import WitnessStatus
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class CentralController:
-    """Unified controller — L3A + L3B + Dispatcher + CardRegistry lifecycle.
+    """Unified controller — L3A session + L3B routing + CardRegistry lifecycle.
 
     Over L3Coordinator, this adds:
       - Intent lifecycle tracking (PENDING → DONE)
@@ -34,19 +35,21 @@ class CentralController:
     """
 
     def __init__(self):
-        self.a = L3A()
+        self.l3a = get_daemon()
         self.b = L3B()
         self._cells: list[dict] = []
         self._intents: dict[str, dict] = {}
         self._lock = threading.Lock()
+        self._routes: dict[str, str] = {}
+        self._cards: list[TaskCard] = []
+        self._next_id = 0
 
     def register_cell(self, cell_id: str, territory: list[str],
                       agents: list[str] | None = None) -> None:
-        self.a.register_route(territory[0], cell_id)
+        self._routes[territory[0]] = cell_id
         self.b.register(cell_id, territory)
         self._cells.append({"id": cell_id, "territory": territory, "agents": agents or []})
 
-        # ── CellMonitor integration ──
         try:
             from .cell.components.cell_monitor import get_cell_monitor
             get_cell_monitor().register_cell(
@@ -55,7 +58,6 @@ class CentralController:
         except Exception as e:
             logger.warning("cellmonitor register failed: %s", e)
 
-        # ── Register L3B composites with bus ──
         try:
             bus = get_l3b_bus()
             for comp in self.b.composites:
@@ -63,36 +65,29 @@ class CentralController:
         except Exception as e:
             logger.warning("l3b bus register failed: %s", e)
 
-        # ── HTN-A: warm-up on first Cell registration ──
         try:
             from .bus.htn_a import get_htn_a
-            htn_a = get_htn_a()
-            logger.debug("HTN-A ready: %d methods", len(htn_a._methods))
+            get_htn_a()
         except Exception as e:
             logger.warning("HTN-A init failed: %s", e)
 
-        # ── Cell-B: auto-enable cross-territory rules when 2+ Cells ──
         if len(self._cells) >= 2:
-            logger.info("Cell-B activated: %d cells, cross-territory rules enabled", len(self._cells))
+            logger.info("Cell-B activated: %d cells", len(self._cells))
             self._cross_cell_active = True
         else:
             self._cross_cell_active = False
 
     def get_cell_count(self) -> int:
-        """Return number of registered Cells."""
         with self._lock:
             return len(self._cells)
 
     def is_cross_cell_active(self) -> bool:
-        """Return whether cross-cell routing is active."""
         return bool(getattr(self, '_cross_cell_active', False))
 
     def remove_cell(self, cell_id: str) -> dict:
-        """Atomically remove a Cell and rebuild L3B. Returns removed cell info."""
         with self._lock:
             removed = None
             self._cells = [c for c in self._cells if c.get("id") != cell_id]
-            # Rebuild L3B from remaining cells
             from l3.bus.l3b import L3B
             new_l3b = L3B()
             for c in self._cells:
@@ -102,10 +97,15 @@ class CentralController:
         return {"success": True, "cell_id": cell_id, "remaining": len(self._cells)}
 
     def process_intent(self, text: str, use_llm: bool = True) -> dict:
-        """Full intent lifecycle: parse → queue → dispatch → result."""
-        parsed = self.a.parse(text, use_llm=use_llm)
+        """Full intent lifecycle: session prompt → card dispatch → result."""
 
-        # AgentLoop result (cardwrite was already called — card is in registry)
+        if use_llm:
+            session = self._ensure_session()
+            result = session.prompt(text)
+            parsed = result
+        else:
+            parsed = self._rule_parse(text)
+
         if isinstance(parsed, dict):
             answer = parsed.get("answer", "")
             cid = ""
@@ -113,9 +113,7 @@ class CentralController:
                 if "cardwrite" in sr.get("action", ""):
                     cid = sr.get("result", {}).get("card_id", "")
             if not cid:
-                # Try to find card_id in the answer
-                import re as _re
-                m = _re.search(r'card-[\da-f]{8}', answer or "")
+                m = re.search(r'card-[\da-f]{8}', answer or "")
                 cid = m.group(0) if m else ""
             status = "queued" if cid else "parsed"
             with self._lock:
@@ -126,11 +124,8 @@ class CentralController:
             return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80],
                     "status": status, "answer": answer}
 
-        # TaskCard result (rule engine fallback)
         card = parsed
         domain = card.domain or ""
-
-        # ── ADMIN card: execute cluster management inline ──
         admin_action = getattr(card, 'admin_action', '')
         if domain == "cluster" or admin_action:
             return self._process_admin_card(card)
@@ -158,44 +153,30 @@ class CentralController:
             "status": "queued",
         }
 
-        # 3. Cross-cell routing (2+ cells) — HTN-A decomposition
         multi_cell = len(self._cells) >= 2
         if multi_cell:
             try:
-                from .bus.htn_a import get_htn_a, get_shards
+                from .bus.htn_a import get_htn_a, get_shards as _get_shards
                 htn_a = get_htn_a()
                 htn_task = htn_a.decompose(card.intent, domain)
-                shards = get_shards(htn_task)
+                shards = _get_shards(htn_task)
                 result["htn_a"] = {
                     "task_count": len(htn_task.sub_tasks),
-                    "shards": [
-                        {"cell_id": s["cell_id"], "task_count": len(s["tasks"])}
-                        for s in shards
-                    ],
+                    "shards": [{"cell_id": s["cell_id"], "task_count": len(s["tasks"])} for s in shards],
                 }
-                # Dispatch shards to L3B composites
                 for shard in shards:
                     shard_cell = shard["cell_id"]
-                    tasks = shard["tasks"]
-                    # Find composite that routes to this Cell
                     for composite in self.b.composites:
                         if composite.next_cell == shard_cell:
-                            summary = "\n".join(f"[{t.name}] {t.description[:LOG_TRUNC_100]}" for t in tasks)
+                            summary = "\n".join(f"[{t.name}] {t.description[:LOG_TRUNC_100]}" for t in shard["tasks"])
                             composite.dispatch_to_next({
                                 "intent": f"{card.intent} — {shard_cell}",
-                                "domain": domain,
-                                "task_name": shard_cell,
-                                "target_cell": shard_cell,
+                                "domain": domain, "task_name": shard_cell, "target_cell": shard_cell,
                             })
                             break
-                result["cross_cell"] = {
-                    "active": True,
-                    "composites": len(self.b.composites),
-                    "shards": len(shards),
-                }
+                result["cross_cell"] = {"active": True, "composites": len(self.b.composites), "shards": len(shards)}
             except Exception as e:
                 logger.warning("HTN-A decomposition failed: %s", e)
-                # Fallback to legacy routing
                 cross = self.b.route(domain, exclude="")
                 if cross:
                     result["cross_cell"] = {"domain": domain, "candidate": cross, "fallback": True}
@@ -205,6 +186,31 @@ class CentralController:
                 result["cross_cell"] = {"domain": domain, "candidate": cross}
 
         return result
+
+    def _ensure_session(self):
+        active = self.l3a.manager.list_active()
+        if active:
+            s = self.l3a.manager.get(active[0]["session_id"])
+            if s:
+                return s
+        return self.l3a.create_session(title="L3A session")
+
+    def _rule_parse(self, text: str) -> TaskCard:
+        card_type = CardType.EXECUTION
+        domain = ""
+        for kw, cell in self._routes.items():
+            if kw.lower() in text.lower():
+                domain = kw
+                break
+        if "?" in text:
+            card_type = CardType.ISSUE
+        card = TaskCard(
+            id=f"card-{self._next_id:04d}", intent=text,
+            card_type=card_type, domain=domain, priority=5,
+        )
+        self._next_id += 1
+        self._cards.append(card)
+        return card
 
     def get_intent(self, card_id: str) -> dict | None:
         with self._lock:
@@ -228,7 +234,6 @@ class CentralController:
             ]
 
     def _process_admin_card(self, card) -> dict:
-        """Execute cluster management actions (spawn/kill/destroy/emergency)."""
         admin_action = getattr(card, 'admin_action', getattr(card, 'tools_hint', [''])[0] if hasattr(card, 'tools_hint') and card.tools_hint else 'cluster_status')
         intent = getattr(card, 'intent', '')
         target_agent = getattr(card, 'agent_id', getattr(card, 'target_agent', ''))
@@ -243,24 +248,20 @@ class CentralController:
                 cell = get_cell()
                 cell.add_agent(target_agent or f"auto-{int(time.time())}", role=role, territory=["."], auto_boot=True)
                 result = {"success": True, "action": "spawn_agent", "agent": target_agent, "role": role}
-
             elif admin_action == "kill_agent":
                 from .cell import get_cell
                 cell = get_cell()
                 cell.remove_agent(target_agent)
                 result = {"success": True, "action": "kill_agent", "agent": target_agent}
-
             elif admin_action == "emergency_stop":
                 from .cell import get_cell
                 cell = get_cell()
                 result = cell.emergency_stop()
-
             elif admin_action == "cluster_status":
                 from .cell.components.cell_monitor import get_cell_monitor
                 cm = get_cell_monitor()
                 cells = getattr(cm, 'list_cells', lambda: [])()
                 result = {"success": True, "action": "cluster_status", "cells": cells}
-
             else:
                 result = {"success": False, "error": f"unknown admin_action: {admin_action}"}
         except Exception as e:
@@ -277,7 +278,7 @@ class CentralController:
 
     def status(self) -> dict:
         return {
-            "L3A": {"cards": len(self.a._cards)},
+            "L3A": {"sessions": self.l3a.manager.count()},
             "L3B": self.b.status(),
             "Intents": {"total": len(self._intents)},
         }

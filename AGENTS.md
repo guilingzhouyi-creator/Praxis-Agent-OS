@@ -36,6 +36,8 @@ python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # re
 src/l5/ — User layer: cli.py (296 lines), agent_runtime.py
 src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP, vault
 src/l3/ — Cell layer (~19K lines): agents, memory, cards, scheduler, tool pipeline, discussion
+src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
+src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
 src/l2/ — Shell: 40 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
 src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/api/system)
@@ -101,6 +103,20 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
+- `src/l3/cell/peers/l3a/` — **L3A session system (11 modules):**
+  - `__init__.py` — L3ADaemon lifecycle + singleton
+  - `session.py` — Session, SessionHistory, SessionManager
+  - `subagent.py` — L3ASubAgentPool + spawn/collect/peek tool handlers
+  - `context.py` — ContextEpoch, ContextSource, ContextRegistry
+  - `inbox.py` — PromptInbox (durable admission/promotion)
+  - `model.py` — L3AModelConfig (model provider config, inheritance chain)
+  - `archive.py` — R4 archive store/restore helpers
+  - `pipeline.py` — ManagedToolOutput (oversized tool result spill)
+  - `helpers.py` — cardwrite handler, prompt builder, convergence
+  - `api.py` — L2 Shell command routing
+  - `types.py` — shared enums and dataclasses
+  - `params.py` — structural constants (paths, sizes)
+- `src/l3/cell/peers/l3.py` — CentralController (L3A+L3B+CardRegistry)
 
 ## Sandbox / Structured Diff System
 

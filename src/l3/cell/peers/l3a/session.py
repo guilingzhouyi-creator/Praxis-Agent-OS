@@ -1,0 +1,469 @@
+"""Session — durable session entity with history, inbox, epoch, and lifecycle."""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from typing import Any
+
+from . import params as _p
+from .model import L3AModelConfig
+from .context import ContextEpoch, ContextRegistry
+from .inbox import PromptInbox, Admission
+from . import archive as _archive
+from . import pipeline as _pipeline
+from l3.error_bus import capture
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Page:
+    items: list[dict]
+    cursor: str | None = None
+    total: int = 0
+
+
+@dataclass
+class Message:
+    id: str
+    role: str
+    content: str
+    tool_calls: list[dict] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+    metadata: dict = field(default_factory=dict)
+
+
+class SessionHistory:
+    def __init__(self):
+        self._messages: list[Message] = []
+        self._lock = threading.RLock()
+
+    def append(self, msg: Message) -> None:
+        with self._lock:
+            self._messages.append(msg)
+
+    def extend(self, msgs: list[Message]) -> None:
+        with self._lock:
+            self._messages.extend(msgs)
+
+    def project(self, max_tokens: int = _p.SESSION_HISTORY_MAX_TOKENS,
+                keep_last: int = _p.SESSION_HISTORY_TRUNC) -> list[dict]:
+        with self._lock:
+            msgs = self._messages[-keep_last:]
+        tokens = 0
+        projected = []
+        for m in reversed(msgs):
+            est = len(m.content) // 4 + 10
+            if tokens + est > max_tokens and projected:
+                break
+            tokens += est
+            entry = {"role": m.role, "content": m.content}
+            if m.tool_calls:
+                entry["tool_calls"] = m.tool_calls
+            projected.append(entry)
+        projected.reverse()
+        return projected
+
+    def to_context_trail(self) -> list[dict]:
+        return self.project(max_tokens=_p.SESSION_HISTORY_MAX_TOKENS * 2)
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._messages)
+
+    def messages_page(self, cursor: str | None = None,
+                      limit: int = 20) -> Page:
+        with self._lock:
+            msgs = list(self._messages)
+        start = 0
+        if cursor:
+            for i, m in enumerate(msgs):
+                if m.id == cursor:
+                    start = i + 1
+                    break
+        chunk = msgs[start:start + limit]
+        items = [{
+            "id": m.id, "role": m.role, "content": m.content,
+            "tool_calls": m.tool_calls, "created_at": m.created_at,
+        } for m in chunk]
+        next_cursor = chunk[-1].id if len(chunk) == limit else None
+        return Page(items=items, cursor=next_cursor, total=len(msgs))
+
+    def clear(self) -> None:
+        with self._lock:
+            self._messages.clear()
+
+
+_CHARS_PER_TOKEN = 4
+
+def _est_tokens(text: str) -> int:
+    return len(text) // _CHARS_PER_TOKEN
+
+
+class Session:
+    def __init__(self, session_id: str, title: str,
+                 model_config: L3AModelConfig | None = None,
+                 registry: ContextRegistry | None = None):
+        self.id = session_id
+        self.title = title
+        self.created_at = time.time()
+        self.closed_at: float | None = None
+        self.turn_count = 0
+        self.card_count = 0
+        self.status = "active"
+        self.history = SessionHistory()
+        self.model_config = model_config or L3AModelConfig()
+        self.inbox = PromptInbox(session_id)
+        self.epoch: ContextEpoch | None = None
+        self.registry = registry
+        self._lock = threading.RLock()
+        self._loop: Any = None
+        self._base_system: str = ""
+        self._pmu: Any = None
+        self._cell_id: str = "l3a"
+        self.max_turns: int = 0
+        self._model_spec_cache: dict | None = None
+
+    @classmethod
+    def create(cls, title: str = "",
+               model_config: L3AModelConfig | None = None,
+               registry: ContextRegistry | None = None) -> Session:
+        sid = f"l3a-{uuid.uuid4().hex[:_p.SID_LENGTH]}"
+        title = title or f"Session {time.strftime('%Y-%m-%d %H:%M')}"
+        inst = cls(session_id=sid, title=title,
+                   model_config=model_config, registry=registry)
+        inst.epoch = ContextEpoch.create(registry or ContextRegistry())
+        inst.inbox.reload()
+        logger.info("l3a session: created %s — %s", sid, title)
+        try:
+            from l3.bus.log import get_service as _ls
+            _ls().info(f"Session created: {title}", service="l3a", agent_id=_p.AGENT_ID, task_id=sid)
+        except Exception:
+            pass
+        return inst
+
+    def prompt(self, text: str, mode: str = "steer") -> dict:
+        limits = self._resolve_limits()
+        if limits["max_turns"] > 0 and self.turn_count >= limits["max_turns"]:
+            return {"success": False, "error": f"max turns reached ({limits['max_turns']})"}
+        admission = self.inbox.admit(text, mode=mode)
+        self._ensure_epoch()
+        changes = self.epoch.sync(self.registry) if self.registry else []
+        for c in changes:
+            self.history.append(Message(
+                id=f"sys-{uuid.uuid4().hex[:4]}",
+                role="system", content=c.text,
+                metadata={"context_key": c.key},
+            ))
+        admitted = self.inbox.promote()
+        if not admitted:
+            return {"success": False, "error": "no pending prompt"}
+        self.history.append(Message(
+            id=admitted.id, role="user", content=admitted.text,
+        ))
+
+        try:
+            self._report_stats()
+        except Exception:
+            capture("l3a session: stats report failed", error_code="E_L3A_STATS", component="l3a")
+            logger.warning("l3a session: stats report failed")
+        ctx_trail = self.history.to_context_trail()
+        self._ensure_loop()
+        self._loop._context_trail = ctx_trail
+        self._loop.task = admitted.text
+        model_cfg = self._resolve_model_config()
+        result = self._loop.run(
+            max_steps=limits["max_steps"],
+            timeout=limits["timeout"],
+            model_config=model_cfg,
+        )
+        self.turn_count += 1
+        answer = result.get("answer", "")
+        answer_msg = Message(
+            id=f"asst-{uuid.uuid4().hex[:4]}",
+            role="assistant", content=answer,
+            tool_calls=result.get("tool_calls", []),
+        )
+        self.history.append(answer_msg)
+        self._persist_state()
+        result["session_id"] = self.id
+        result["turn"] = self.turn_count
+        return result
+
+    def set_pmu(self, pmu: Any) -> None:
+        self._pmu = pmu
+
+    def context_stats(self) -> dict:
+        epoch_tok = self.epoch.estimate_tokens() if self.epoch else 0
+        history_tok = _est_tokens(
+            " ".join(m.content for m in self.history._messages)
+        ) if self.history._messages else 0
+        projected = self.history.project()
+        projected_tok = sum(_est_tokens(m.get("content", "")) for m in projected)
+        window = self._query_context_window()
+        pressure = projected_tok / window if window > 0 else 0.0
+        level = "ok"
+        if pressure >= 0.95:
+            level = "critical"
+        elif pressure >= 0.80:
+            level = "medium"
+        elif pressure >= 0.60:
+            level = "warn"
+        limits = self._resolve_limits()
+        return {
+            "epoch_id": self.epoch.id if self.epoch else "",
+            "epoch_baseline_tokens": epoch_tok,
+            "history_tokens": history_tok,
+            "projected_tokens": projected_tok,
+            "context_window": window,
+            "pressure_ratio": round(pressure, 3),
+            "pressure_level": level,
+            "max_steps": limits["max_steps"],
+            "max_turns": limits["max_turns"],
+            "turns_used": self.turn_count,
+        }
+
+    _ctx_window_cache: int = 0
+
+    def _query_context_window(self) -> int:
+        if self._ctx_window_cache > 0:
+            return self._ctx_window_cache
+        try:
+            from l1.kernel.ports import get_port as _get_port
+            engine = _get_port("llm")
+            self._ctx_window_cache = engine.context_window(
+                cell_id=self._cell_id, agent_id=_p.AGENT_ID)
+        except Exception:
+            self._ctx_window_cache = 128000
+        return self._ctx_window_cache
+
+    def close(self) -> dict:
+        with self._lock:
+            if self.status != "active":
+                return {"success": False, "error": "already closed"}
+            sid = self.id
+            title = self.title
+            status = self.status
+            self.status = "closed"
+            self.closed_at = time.time()
+            self._loop = None
+            ctx = self.history.to_context_trail()
+            self.history.clear()
+        # I/O outside lock
+        metadata = {
+            "session_id": sid, "title": title,
+            "created_at": self.created_at,
+            "closed_at": self.closed_at,
+            "turn_count": self.turn_count,
+            "card_count": self.card_count,
+            "model_spec": "l3a",
+            "tags": ["l3a", "session"],
+        }
+        _archive.store_session(sid, metadata, ctx)
+        logger.info("l3a session: closed %s — %s (%d turns)",
+                    sid, title, self.turn_count)
+        try:
+            from l3.bus.log import get_service as _ls
+            _ls().info(f"Session closed: {title}", service="l3a", agent_id=_p.AGENT_ID, task_id=sid)
+        except Exception:
+            pass
+        return {"success": True, "session_id": sid, "title": title}
+
+    def messages(self, cursor: str | None = None,
+                 limit: int = 20) -> Page:
+        return self.history.messages_page(cursor=cursor, limit=limit)
+
+    def info(self) -> dict:
+        with self._lock:
+            epoch_info = {}
+            if self.epoch:
+                epoch_info = {
+                    "epoch_id": self.epoch.id,
+                    "epoch_created": self.epoch.created_at,
+                    "baseline_chars": len(self.epoch.baseline),
+                    "snapshot_keys": list(self.epoch.snapshot.keys()),
+                    "turn_in_epoch": self.epoch.turn_count,
+                }
+            return {
+                "session_id": self.id,
+                "title": self.title,
+                "status": self.status,
+                "created_at": self.created_at,
+                "closed_at": self.closed_at,
+                "turn_count": self.turn_count,
+                "card_count": self.card_count,
+                "message_count": self.history.count(),
+                "inbox_pending": len(self.inbox.pending()),
+                "model": self.model_config.show(),
+                "epoch": epoch_info,
+                "context": self.context_stats(),
+            }
+
+    def _resolve_model_config(self) -> dict:
+        if self._model_spec_cache:
+            return self._model_spec_cache
+        try:
+            from l3.services.model_service import get_service as _gs
+            spec = _gs().resolve_dict("l3a")
+            cfg = self.model_config.resolve()
+            cfg.update({k: v for k, v in spec.items() if k not in cfg or not cfg[k]})
+            self._model_spec_cache = cfg
+        except Exception:
+            cfg = self.model_config.resolve()
+            self._model_spec_cache = cfg
+        return cfg
+
+    def _resolve_limits(self) -> dict:
+        try:
+            from l3.config.settings_center import get_center
+            sc = get_center()
+            l3a_steps = sc.get("l3a.max_steps", 0)
+            loop_steps = sc.get("loop.max_steps", 0)
+            steps = l3a_steps if l3a_steps > 0 else (loop_steps if loop_steps > 0 else 999999)
+            timeout = sc.get("l3a.timeout", sc.get("loop.timeout", 0))
+            max_turns = sc.get("l3a.max_turns", sc.get("session.max_turns", 0))
+        except Exception:
+            steps = 999999
+            timeout = 0
+            max_turns = 0
+        return {"max_steps": steps, "timeout": timeout, "max_turns": max_turns}
+
+    def _report_stats(self) -> None:
+        stats = self.context_stats()
+        est = stats["projected_tokens"]
+        window = stats["context_window"]
+        pressure = stats["pressure_ratio"]
+        level = stats["pressure_level"]
+
+        if self._pmu:
+            self._pmu.increment("token.estimated", est)
+            if level == "critical":
+                self._pmu.increment("memory.context.critical")
+            elif level == "medium":
+                self._pmu.increment("memory.context.warnings")
+
+        try:
+            from l3.services.stats_center import get_center, MetricPoint
+            sc = get_center()
+            ts = time.time()
+            sc.ingest(MetricPoint(name="l3a.epoch.tokens", value=float(est),
+                      tags={"cell": self._cell_id, "agent": _p.AGENT_ID, "session": self.id},
+                      timestamp=ts, metric_type="gauge"))
+            sc.ingest(MetricPoint(name="l3a.epoch.pressure", value=float(pressure),
+                      tags={"cell": self._cell_id, "agent": _p.AGENT_ID, "session": self.id},
+                      timestamp=ts, metric_type="gauge"))
+            sc.ingest(MetricPoint(name="l3a.session.turns", value=float(self.turn_count),
+                      tags={"cell": self._cell_id, "agent": _p.AGENT_ID, "session": self.id},
+                      timestamp=ts, metric_type="gauge"))
+            sc.ingest(MetricPoint(name="l3a.session.tokens_consumed", value=float(est + stats["epoch_baseline_tokens"]),
+                      tags={"cell": self._cell_id, "agent": _p.AGENT_ID, "session": self.id},
+                      timestamp=ts, metric_type="counter"))
+        except Exception:
+            capture("l3a session: StatsCenter ingest failed", error_code="E_L3A_STATS", component="l3a")
+            logger.warning("l3a session: StatsCenter ingest failed")
+
+    def _ensure_epoch(self) -> None:
+        if self.epoch is not None:
+            return
+        restored = ContextEpoch.restore()
+        if restored:
+            self.epoch = restored
+        else:
+            self.epoch = ContextEpoch.create(self.registry or ContextRegistry())
+
+    def _ensure_loop(self) -> None:
+        if self._loop is not None:
+            return
+        from l3.agent.agent_loop import AgentLoop
+        from .helpers import build_l3a_prompt
+
+        self._base_system = build_l3a_prompt()
+        self._loop = AgentLoop(
+            task="",
+            agent_id=_p.AGENT_ID,
+            role="l3a",
+            system=self._base_system,
+            prompt_key="l3a.parse_system",
+            cell_id=self._cell_id,
+        )
+        from .helpers import wrapped_cardwrite
+        self._loop.add_tool("cardwrite",
+            "Create and submit a structured card.",
+            {"nature": "string", "title": "string", "description": "string",
+             "columns": "dict", "priority": "int", "phases": "list"},
+            wrapped_cardwrite,
+            parallel_safe=False,
+        )
+        from .subagent import l3a_spawn_handler, l3a_collect_handler, l3a_peek_handler
+        self._loop.add_tool("l3a_spawn",
+            "Spawn an async subagent. Returns task_id immediately.",
+            {"spec": "string", "task": "string", "group": "string"},
+            l3a_spawn_handler, parallel_safe=True)
+        self._loop.add_tool("l3a_collect",
+            "Wait for a group of subagents and collect results.",
+            {"group": "string", "timeout": "number"},
+            l3a_collect_handler, parallel_safe=False)
+        self._loop.add_tool("l3a_result",
+            "Peek at a single subagent result (non-blocking).",
+            {"task_id": "string"},
+            l3a_peek_handler, parallel_safe=True)
+        if self._pmu:
+            try:
+                self._loop.set_pmu(self._pmu)
+            except Exception:
+                capture("l3a session: set_pmu on AgentLoop failed", error_code="E_L3A_SESSION", component="l3a")
+                logger.warning("l3a session: set_pmu on AgentLoop failed")
+
+    def _persist_state(self) -> None:
+        try:
+            from l3.agent.agent_persist import save_snapshot
+            save_snapshot(_p.AGENT_ID, {
+                "session_id": self.id, "title": self.title,
+                "turn_count": self.turn_count,
+                "card_count": self.card_count,
+                "model_config": self.model_config.show(),
+            })
+        except Exception:
+            capture("l3a session: state persist failed", error_code="E_L3A_SESSION", component="l3a")
+            logger.warning("l3a session: state persist failed")
+
+
+class SessionManager:
+    def __init__(self):
+        self._sessions: dict[str, Session] = {}
+        self._lock = threading.RLock()
+
+    def create(self, title: str = "",
+               model_config: L3AModelConfig | None = None,
+               registry: ContextRegistry | None = None) -> Session:
+        s = Session.create(title=title, model_config=model_config,
+                           registry=registry)
+        with self._lock:
+            self._sessions[s.id] = s
+        return s
+
+    def get(self, session_id: str) -> Session | None:
+        with self._lock:
+            return self._sessions.get(session_id)
+
+    def close(self, session_id: str) -> dict:
+        s = self.get(session_id)
+        if not s:
+            return {"success": False, "error": f"unknown session: {session_id}"}
+        r = s.close()
+        with self._lock:
+            self._sessions.pop(session_id, None)
+        return r
+
+    def list_active(self) -> list[dict]:
+        with self._lock:
+            return [s.info() for s in self._sessions.values()
+                    if s.status == "active"]
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._sessions)

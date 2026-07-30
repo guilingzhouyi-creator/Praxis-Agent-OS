@@ -463,3 +463,22 @@ settings:
     - "/settings agent agent-a"
     - "/settings pool scout"
   aliases: ["cfg"]
+
+l3a:
+  category: session
+  help: "L3A session management — create/list/info/close sessions, model config, context"
+  args:
+    - {name: subcommand, description: "create|list|info|close|messages|model|context"}
+    - {name: arg, optional: true, description: "session_id, title, or model key=value"}
+  examples:
+    - "/l3a                            — show active sessions + model"
+    - "/l3a create                     — create a new session"
+    - "/l3a create \"My Task\"           — create with title"
+    - "/l3a list                       — list active + archived sessions"
+    - "/l3a info <id>                  — show session + epoch details"
+    - "/l3a close <id>                 — close and archive session"
+    - "/l3a messages <id> [limit]      — paginate through messages"
+    - "/l3a model show                 — show effective model config"
+    - "/l3a model set provider openai  — override L3A model provider"
+    - "/l3a model set model gpt-4o     — override L3A model"
+    - "/l3a context sources            — list registered context sources"

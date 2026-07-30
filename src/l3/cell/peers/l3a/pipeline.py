@@ -1,0 +1,58 @@
+"""ManagedToolOutput — bound oversized tool results with file spill."""
+
+from __future__ import annotations
+
+import json
+import os
+import uuid
+import logging
+from typing import Any
+
+from . import params as _p
+
+logger = logging.getLogger(__name__)
+
+
+def _output_dir() -> str:
+    from l1.kernel.paths import get_paths
+    return os.path.join(get_paths().data_dir, _p.MANAGED_OUTPUT_DIR)
+
+
+def _ensure_dir() -> str:
+    d = _output_dir()
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def bound(result: dict, max_bytes: int = _p.MANAGED_OUTPUT_MAX_BYTES) -> dict:
+    text = json.dumps(result, ensure_ascii=False, default=str)
+    if len(text.encode("utf-8")) <= max_bytes:
+        return result
+    head = text[:max_bytes // 2]
+    tail = text[-(max_bytes // 4):]
+    spill_path = spill(text)
+    return {
+        "_truncated": True,
+        "_preview": head + f"\n... ({len(text)} chars elided) ...\n" + tail,
+        "_spill": spill_path,
+    }
+
+
+def spill(content: str) -> str:
+    name = f"{uuid.uuid4().hex}.json"
+    path = os.path.join(_ensure_dir(), name)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except OSError as e:
+        logger.warning("l3a pipeline: spill failed: %s", e)
+    return path
+
+
+def read(path: str) -> str | None:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except (OSError, FileNotFoundError) as e:
+        logger.warning("l3a pipeline: read spill failed: %s", e)
+        return None

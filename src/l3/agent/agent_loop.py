@@ -107,6 +107,7 @@ class AgentLoop:
         # provider prompt caching (Anthropic/DeepSeek) and avoids redundant work.
         self._cached_system: str = ""
         self._cached_tools: tuple[list, list] = ([], [])
+        self._cached_model_kwargs: dict | None = None
         self._pmu: Any = None
         # Persistent thread pool for parallel read-only tool execution
         # (avoids creating/destroying ThreadPoolExecutor on every loop iteration)
@@ -433,13 +434,26 @@ class AgentLoop:
             # The identical system string enables LLM prompt caching across calls.
             system = self._cached_system
             wrapped_tools, read_only_tools = self._cached_tools
-            model_kwargs = self._build_model_kwargs(model_config or {}, engine)
+            model_kwargs = self._cached_model_kwargs.copy() if self._cached_model_kwargs else {}
+            if model_config:
+                for key in ("model", "max_tokens", "temperature",
+                            "reasoning_effort", "thinking_budget"):
+                    if key in model_config and model_config[key] is not None:
+                        model_kwargs[key] = model_config[key]
+            for hook in self._chat_params_hooks:
+                try:
+                    override = hook(self.task, self.agent_id, dict(model_kwargs))
+                    if isinstance(override, dict):
+                        model_kwargs.update(override)
+                except Exception as e:
+                    logger.warning("chat params hook failed: %s", e)
         else:
             # First run: build fresh, cache for subsequent calls.
             system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
             system = self._inject_extra_context(system)
             self._cached_system = system
             self._cached_tools = (wrapped_tools, read_only_tools)
+            self._cached_model_kwargs = dict(model_kwargs)
         deadline = time.time() + timeout if timeout > 0 else float("inf")
 
         # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──

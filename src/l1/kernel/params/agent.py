@@ -451,9 +451,13 @@ CONSTITUTION_DEFAULT_PATH: Final[str] = ".praxis-rules.md"
 CONSTITUTION_ENV_VAR: Final[str] = "PRAXIS_CONSTITUTION"
 
 
-# ── L3A (Card Execution Agent) defaults ──
-L3A_MAX_STEPS: Final[int] = 5
-L3A_TIMEOUT: Final[float] = 120.0
+# ── L3A (Card Execution Agent) — identity only; limits via SettingsCenter ──
+L3A_AGENT_ID: Final[str] = "l3a"
+"""Agent ID used for L3A persistent session — also used as memory key."""
+L3A_MEMORY_RECALL_LIMIT: Final[int] = 5
+"""Max memory entries injected into system prompt before each L3A session turn."""
+L3A_MEMORY_TYPE: Final[str] = "l3a_session"
+"""Entry type tag for L3A memory — enables targeted recall and filtering."""
 
 
 # ── Convention session limits (config-driven) ──
