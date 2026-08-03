@@ -31,21 +31,33 @@ _WRITE_TOOLS: frozenset[str] = frozenset({
 })
 
 
+def _card_attr(card: Any, name: str, default: Any = None) -> Any:
+    """Read an attribute from an object-style card, or a key from a dict card."""
+    if isinstance(card, dict):
+        return card.get(name, default)
+    return getattr(card, name, default)
+
+
 def classify_card(card: Any) -> str:
     """Classify a card as 'explore' or 'execute' by inspecting its phases/tasks.
 
     Returns: 'explore' — read-only tasks only
              'execute' — at least one write/run task
     """
-    phases = getattr(card, "phases", []) or []
+    phases = _card_attr(card, "phases", []) or []
     for phase in phases:
-        tasks = getattr(phase, "tasks", getattr(phase, "steps", [])) or []
+        tasks = _card_attr(phase, "tasks", None)
+        if tasks is None:
+            tasks = _card_attr(phase, "steps", [])
+        tasks = tasks or []
         for task in tasks:
-            action = getattr(task, "action", "") or (isinstance(task, dict) and task.get("action", ""))
+            action = _card_attr(task, "action", "") or (
+                isinstance(task, dict) and task.get("action", ""))
             if action in _WRITE_TOOLS:
                 return "execute"
             # Check agent role — "writer" roles imply write work
-            agent = getattr(task, "agent", "") or (isinstance(task, dict) and task.get("agent", ""))
+            agent = _card_attr(task, "agent", "") or (
+                isinstance(task, dict) and task.get("agent", ""))
             if agent in ("writer", "developer", "builder"):
                 return "execute"
     return "explore"

@@ -263,7 +263,7 @@ class AgentTerminal:
     # ── Worker / dispatch ──
 
     def _worker(self) -> None:
-        from l3.scheduler.scheduler import get_time_scheduler as _get_ts
+        from l3.scheduler.scheduler_time import get_time_scheduler as _get_ts
         while self._running:
             if self._paused:
                 time.sleep(POLL_INTERVAL_PAUSED)

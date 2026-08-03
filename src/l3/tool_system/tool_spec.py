@@ -20,7 +20,6 @@ from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import LOG_TRUNC_60, LOG_TRUNC_200
 from l1.kernel.registry_base import RegisterableSpec
 
-from .tool_params import ParamSpec, ReturnSpec
 from .tool_registry import (
     TOOL_REGISTRY,  # noqa: F401 — re-exported for callers
     register,  # noqa: F401

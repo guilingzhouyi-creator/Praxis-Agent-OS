@@ -41,7 +41,6 @@ from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE_TOKENS = 512  # imported from kernel.params
 MAX_WORKING_SET = MAX_WORKING_SET_SIZE  # 8 chunks in Register at once
 
 

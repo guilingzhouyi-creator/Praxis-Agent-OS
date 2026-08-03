@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import os as _os
 import threading
 import time
 from collections.abc import Callable
