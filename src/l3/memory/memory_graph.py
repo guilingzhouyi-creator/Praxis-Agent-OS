@@ -37,6 +37,7 @@ _REL_CELL_CHAIN = "cell_chain"      # 同 cell 链
 
 _DEFAULT_DB_NAME = "memory_graph.db"
 _DEFAULT_ENABLED = False
+_COMPACT_MIN_EDGES = 4          # 图小于此边数不执行剪枝（防新生图被剪空）
 
 
 def _default_enabled() -> bool:
@@ -89,8 +90,21 @@ class MemoryGraph:
         return self._enabled
 
     def set_enabled(self, flag: bool) -> None:
+        changed = self._enabled != bool(flag)
         self._enabled = bool(flag)
         logger.info("memory_graph: enabled=%s", self._enabled)
+        if changed:
+            self._emit_event("stats.memory.graph.switch",
+                             {"enabled": self._enabled})
+
+    def _emit_event(self, event_type: str, data: dict) -> None:
+        """Publish graph lifecycle events to the monitoring bus."""
+        try:
+            from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _MB
+            _MB().emit(_ME(type=event_type, source="memory_graph",
+                           severity="info", data=data))
+        except Exception:
+            logger.debug("memory_graph: monitor emit failed")
 
     # ── 规则建边（零成本，无 LLM）────────────────────────────
 
@@ -247,6 +261,10 @@ class MemoryGraph:
         if self._conn is None:
             return {"success": False, "error": "no connection"}
         rep = self.compact_report(min_degree=min_degree)
+        if not dry_run and rep["edges"] < _COMPACT_MIN_EDGES:
+            return {"success": False, "dry_run": False,
+                    "error": f"graph too small for pruning ({rep['edges']} < {_COMPACT_MIN_EDGES})",
+                    "edges_before": rep["edges"], "edges_after": rep["edges"]}
         # Leaves = degree-1 nodes (low-connectivity noise)
         try:
             cur = self._conn.execute(
@@ -275,6 +293,10 @@ class MemoryGraph:
             return {"success": False, "error": str(e)}
         after = self._conn.execute(
             "SELECT COUNT(*) FROM memory_edges").fetchone()[0]
+        self._emit_event("stats.memory.graph.compact", {
+            "leaves_pruned": len(leaf_ids), "edges_removed": removed,
+            "edges_before": rep["edges"], "edges_after": after,
+        })
         return {"success": True, "dry_run": False,
                 "leaves_pruned": len(leaf_ids), "edges_removed": removed,
                 "edges_before": rep["edges"], "edges_after": after,

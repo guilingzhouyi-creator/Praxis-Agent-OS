@@ -89,6 +89,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/memory/store",      ".memory_store",       "Store in memory ring"),
     ("POST", "/api/memory/recall",     ".memory_recall",      "Recall from memory rings"),
     ("GET", "/api/memory/stats",       ".memory_stats",       "Memory statistics"),
+    ("GET", "/api/memory/graph",       ".memory_graph_status", "R5 graph switch state + stats"),
+    ("PUT", "/api/memory/graph",       ".memory_graph_set",   "Toggle R5 graph switch (persisted)"),
+    ("POST", "/api/memory/graph/compact", ".memory_graph_compact", "Run graph reduction (dry_run by default)"),
 
     # Shell
     ("POST", "/api/shell",             ".shell_dispatch",     "Shell command dispatch"),

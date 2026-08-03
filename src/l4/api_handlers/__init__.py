@@ -5,47 +5,75 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l1.kernel.params.agent import DEFAULT_CELL_ID
+
 from ..api.api_handlers_cards import (
-    list_cards, get_card, submit_card, submit_batch,
-    card_rollback, card_gate_history, sideload_dispatch,
+    card_gate_history,
+    card_rollback,
+    get_card,
+    list_cards,
+    sideload_dispatch,
+    submit_batch,
+    submit_card,
 )
-from ..api_handlers.api_handlers_monitor import (
-    token_stats, token_cells, token_global,
-    comm_stats, comm_recent,
-    loop_stats, loops_recent,
-    export_counter, export_metrics,
-    network_health,
+from ..api_handlers.api_handlers_agent import (
+    agent_direct as _agent_direct,
+)
+from ..api_handlers.api_handlers_agent import (
+    agent_direct_close as _agent_direct_close,
 )
 from ..api_handlers.api_handlers_agent import (
     agent_list as _agent_list,
-    agent_select as _agent_select,
-    agent_select_by as _agent_select_by,
+)
+from ..api_handlers.api_handlers_agent import (
     agent_preconnect as _agent_preconnect,
+)
+from ..api_handlers.api_handlers_agent import (
     agent_reachable as _agent_reachable,
-    agent_direct as _agent_direct,
-    agent_direct_close as _agent_direct_close,
+)
+from ..api_handlers.api_handlers_agent import (
     agent_review_message as _agent_review_message,
 )
-
+from ..api_handlers.api_handlers_agent import (
+    agent_select as _agent_select,
+)
+from ..api_handlers.api_handlers_agent import (
+    agent_select_by as _agent_select_by,
+)
 from ..api_handlers.api_handlers_cluster import (
-    cluster_status as _cluster_status,
     cluster_composites as _cluster_composites,
+)
+from ..api_handlers.api_handlers_cluster import (
     cluster_expand as _cluster_expand,
+)
+from ..api_handlers.api_handlers_cluster import (
     cluster_shrink as _cluster_shrink,
 )
-
-from ..api_handlers.api_handlers_discussion import (
-    handle_discussion_start,
-    handle_discussion_get,
-    handle_discussion_answers,
-    handle_discussion_report,
-    handle_discussion_supplement,
-    handle_discussion_sessions,
-    handle_discussion_reports,
-    handle_discussion_push_l3a,
+from ..api_handlers.api_handlers_cluster import (
+    cluster_status as _cluster_status,
 )
-
-from l1.kernel.params.agent import DEFAULT_CELL_ID
+from ..api_handlers.api_handlers_discussion import (
+    handle_discussion_answers,
+    handle_discussion_get,
+    handle_discussion_push_l3a,
+    handle_discussion_report,
+    handle_discussion_reports,
+    handle_discussion_sessions,
+    handle_discussion_start,
+    handle_discussion_supplement,
+)
+from ..api_handlers.api_handlers_monitor import (
+    comm_recent,
+    comm_stats,
+    export_counter,
+    export_metrics,
+    loop_stats,
+    loops_recent,
+    network_health,
+    token_cells,
+    token_global,
+    token_stats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -308,13 +336,59 @@ class ApiHandlers:
         from l3.memory.central_memory import get_center
         results = get_center().recall(
             agent_id=body.get("agent_id", ""), query=body.get("query", ""),
-            tags=body.get("tags", None), rings=body.get("rings", None),
-            limit=body.get("limit", 20))
+            tags=body.get("tags"), rings=body.get("rings"),
+            limit=body.get("limit", 20),
+            graph_diffusion=bool(body.get("graph_diffusion", False)))
         return {"success": True, "results": results, "count": len(results)}
 
     def _memory_stats(self, body: dict | None = None) -> dict:
         from l3.memory.central_memory import get_center
         return {"success": True, "stats": get_center().stats()}
+
+    # ── R5 群域图（前端可切换）──────────────────────────────
+
+    def _memory_graph_status(self, body: dict | None = None) -> dict:
+        """GET /api/memory/graph — graph switch state + stats."""
+        from l3.memory.memory_graph import get_graph
+        g = get_graph()
+        return {
+            "success": True,
+            "enabled": g.enabled,
+            "stats": g.stats(),
+            "compact": g.compact_report(min_degree=2),
+        }
+
+    def _memory_graph_set(self, body: dict | None = None) -> dict:
+        """PUT /api/memory/graph — toggle the graph switch (persisted).
+
+        Body: {"enabled": true|false}
+        Persisted via SettingsCenter (memory.graph.enabled → .praxis_settings.json).
+        """
+        b = body or {}
+        if "enabled" not in b:
+            return {"success": False, "error": "enabled (bool) is required"}
+        flag = bool(b["enabled"])
+        try:
+            from l3.config.settings_center import get_center as _sc
+            _sc().set("memory.graph.enabled", flag)
+        except Exception:
+            pass  # persistence best-effort; runtime switch still applies
+        from l3.memory.memory_graph import get_graph
+        g = get_graph()
+        g.set_enabled(flag)
+        return {"success": True, "enabled": g.enabled,
+                "persisted": "memory.graph.enabled"}
+
+    def _memory_graph_compact(self, body: dict | None = None) -> dict:
+        """POST /api/memory/graph/compact — run graph reduction.
+
+        Body: {"dry_run": true|false, "min_degree": 2}
+        """
+        b = body or {}
+        dry = b.get("dry_run", True)
+        min_degree = int(b.get("min_degree", 2))
+        from l3.memory.memory_graph import get_graph
+        return get_graph().compact(min_degree=min_degree, dry_run=bool(dry))
 
     def _plugin_list(self, body: dict | None = None) -> dict:
         from l3.services.central_plugin import get_center
@@ -374,7 +448,7 @@ class ApiHandlers:
         return {"success": True, "name": name}
 
     def _card_unified_submit(self, body: dict) -> dict:
-        from l3.card.card_unified import CardUnified, CardSummary
+        from l3.card.card_unified import CardSummary, CardUnified
         card = CardUnified(nature=body.get("nature", "execution"), priority=body.get("priority", 5))
         card.summary = CardSummary(
             title=body.get("title", ""), description=body.get("description", ""),
@@ -436,7 +510,7 @@ class ApiHandlers:
 
     def _tool_policy_set(self, body: dict) -> dict:
         try:
-            from l3.tool_system.tool_policy import ToolPolicy, PolicyRule, PolicyScope, PolicyAction
+            from l3.tool_system.tool_policy import PolicyAction, PolicyRule, PolicyScope, ToolPolicy
             scope_str = body.get("scope", "global")
             scope_parts = scope_str.split(":", 1)
             scope = PolicyScope(scope_parts[0])
@@ -458,7 +532,7 @@ class ApiHandlers:
 
     def _tool_policy_remove(self, body: dict) -> dict:
         try:
-            from l3.tool_system.tool_policy import ToolPolicy, PolicyScope
+            from l3.tool_system.tool_policy import PolicyScope, ToolPolicy
             scope_str = body.get("scope", "global")
             scope_parts = scope_str.split(":", 1)
             scope = PolicyScope(scope_parts[0])
@@ -478,7 +552,7 @@ class ApiHandlers:
 
     def _bootstrap_status(self, body: dict | None = None) -> dict:
         try:
-            from l3.config.bootstrap import needs_bootstrap, _CONFIG_PATH
+            from l3.config.bootstrap import _CONFIG_PATH, needs_bootstrap
             return {"needed": needs_bootstrap(), "config_path": _CONFIG_PATH}
         except Exception as e:
             return {"error": str(e)}
@@ -534,7 +608,7 @@ class ApiHandlers:
 
     def _reload(self, body: dict | None = None) -> dict:
         try:
-            from l3.boot.boot import _load_constitution, _load_config, _load_tools
+            from l3.boot.boot import _load_config, _load_constitution, _load_tools
             results = {}
             for name, fn in [("constitution", _load_constitution),
                              ("config", _load_config),
