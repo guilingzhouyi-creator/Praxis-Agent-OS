@@ -19,7 +19,8 @@ import threading
 from typing import Any
 
 from l1.kernel.ports import I18nPort
-from l1.kernel.params.api import I18N_DEFAULT_LOCALE, I18N_FALLBACK_TO_KEY
+import l1.kernel.params.api as _api_params
+from l1.kernel.params.api import I18N_FALLBACK_TO_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,12 @@ logger = logging.getLogger(__name__)
 class YamlI18nAdapter(I18nPort):
     """I18nPort implementation — YAML file translations with lazy loading."""
 
-    def __init__(self, locale_dir: str = "", default_locale: str = I18N_DEFAULT_LOCALE) -> None:
+    def __init__(self, locale_dir: str = "", default_locale: str | None = None) -> None:
+        # Resolve default_locale at construction time (NOT an import-time
+        # snapshot) so praxis.yaml `language:` overrides applied after this
+        # module was imported still take effect for newly-created adapters.
+        if default_locale is None:
+            default_locale = _api_params.I18N_DEFAULT_LOCALE
         self._locale_dir: str = locale_dir
         self._locale: str = default_locale
         self._translations: dict[str, dict[str, str]] = {}  # locale → {key: msg}

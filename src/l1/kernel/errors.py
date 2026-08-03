@@ -47,9 +47,16 @@ def set_error_capture_handler(handler: Any) -> None:
 
 # ── Locale helpers (delegate to I18nPort, backward-compatible) ──
 
+# Module-level locale state so set_locale()/get_locale() work even when no
+# I18nPort is registered (e.g. unit tests, minimal setups). The registered
+# I18nPort remains the preferred translation source at runtime.
+_current_locale = "en"
+
 
 def set_locale(locale: str) -> None:
     """Set the active locale. Delegates to registered I18nPort."""
+    global _current_locale
+    _current_locale = locale
     try:
         from l1.kernel.ports import get_port as _gp
         adapter = _gp("i18n")
@@ -60,11 +67,7 @@ def set_locale(locale: str) -> None:
 
 def get_locale() -> str:
     """Return the current locale code."""
-    try:
-        from l1.kernel.ports import get_port as _gp
-        return _gp("i18n").get_locale()
-    except Exception:
-        return "en"
+    return _current_locale
 
 
 # ── Error definition ──
@@ -100,11 +103,17 @@ class PraxisError(Exception):
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.
 
-        If locale is set and I18nPort has a translation, uses localized message.
+        If locale is set and a translation is available (built-in zh-CN dict
+        or registered I18nPort), uses the localized message.
         """
         msg = self.message
         loc = locale or get_locale()
         if loc != "en":
+            # 1) Built-in zh-CN fallback — works without a registered I18nPort.
+            builtin = _ZH_TRANSLATIONS.get(f"error.{self.code}")
+            if builtin:
+                msg = builtin
+            # 2) Registered I18nPort takes precedence when available.
             try:
                 from l1.kernel.ports import get_port as _gp
                 localized = _gp("i18n").t(f"error.{self.code}")
@@ -200,32 +209,37 @@ for _code, _msg in [
 ]:
     register_error(_code, _msg)
 
-# ── Register zh-CN translations into I18nPort (not a private dict) ──
+# ── Built-in zh-CN translations ──
+# Single source of truth: used both for the I18nPort registration below and as
+# the fallback in PraxisError.to_dict() when no I18nPort is registered.
+_ZH_TRANSLATIONS: dict[str, str] = {
+    f"error.{E_INTERNAL}": "内部错误",
+    f"error.{E_TIMEOUT}": "操作超时",
+    f"error.{E_INVALID_PARAMS}": "参数错误",
+    f"error.{E_NOT_FOUND}": "资源未找到",
+    f"error.{E_CONSTITUTION_BLOCKED}": "被宪法阻止",
+    f"error.{E_GATECHAIN_BLOCKED}": "被门链阻止",
+    f"error.{E_TOOL_MUTED}": "工具已静音",
+    f"error.{E_TOOL_NOT_FOUND}": "工具未注册",
+    f"error.{E_RESOURCE_EXHAUSTED}": "资源耗尽",
+    f"error.{E_PERMISSION_DENIED}": "权限不足",
+    f"error.{E_CELL_EMERGENCY}": "单元处于紧急停止",
+    f"error.{E_CHECKPOINT_RESTORE}": "检查点恢复失败",
+    f"error.{E_AGENT_CRASHED}": "代理崩溃",
+    f"error.{E_HUMAN_REJECTED}": "被人工拒绝",
+    f"error.{E_APPROVAL_TIMEOUT}": "审批超时",
+    f"error.{E_MCP_FAILED}": "MCP 调用失败",
+    f"error.{E_UNKNOWN_TOOL}": "未知工具",
+    f"error.{E_HANDLER_ERROR}": "工具处理器错误",
+    f"error.{E_MEMORY_REJECTED}": "记忆被质量过滤器拒绝",
+    f"error.{E_SANDBOX_ERROR}": "沙箱操作失败",
+}
+
+# ── Register zh-CN translations into I18nPort ──
 
 try:
     from l1.kernel.ports import get_port as _gp_err
     _i18n = _gp_err("i18n")
-    _i18n.register("zh-CN", {
-        f"error.{E_INTERNAL}": "Internal error",
-        f"error.{E_TIMEOUT}": "Operation timeout",
-        f"error.{E_INVALID_PARAMS}": "Parameter error",
-        f"error.{E_NOT_FOUND}": "Resource not found",
-        f"error.{E_CONSTITUTION_BLOCKED}": "Blocked by constitution",
-        f"error.{E_GATECHAIN_BLOCKED}": "Blocked by gate chain",
-        f"error.{E_TOOL_MUTED}": "Tool is muted",
-        f"error.{E_TOOL_NOT_FOUND}": "Tool not registered",
-        f"error.{E_RESOURCE_EXHAUSTED}": "Resource exhausted",
-        f"error.{E_PERMISSION_DENIED}": "Permission denied",
-        f"error.{E_CELL_EMERGENCY}": "Cell is in emergency stop",
-        f"error.{E_CHECKPOINT_RESTORE}": "Checkpoint restore failed",
-        f"error.{E_AGENT_CRASHED}": "Agent crashed",
-        f"error.{E_HUMAN_REJECTED}": "Rejected by human",
-        f"error.{E_APPROVAL_TIMEOUT}": "Approval timeout",
-        f"error.{E_MCP_FAILED}": "MCP call failed",
-        f"error.{E_UNKNOWN_TOOL}": "Unknown tool",
-        f"error.{E_HANDLER_ERROR}": "Tool handler error",
-        f"error.{E_MEMORY_REJECTED}": "memory rejected by quality filter",
-        f"error.{E_SANDBOX_ERROR}": "Sandbox operation failed",
-    })
+    _i18n.register("zh-CN", dict(_ZH_TRANSLATIONS))
 except Exception:
     logger.debug("errors: i18n translations not yet available — using defaults")
