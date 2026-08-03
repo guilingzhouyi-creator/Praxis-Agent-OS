@@ -5,10 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-import pytest
-
-from l1.kernel.vfs import VFS, MountType, MountPoint, get_vfs, reset_vfs
-
+from l1.kernel.vfs import VFS, MountPoint, MountType, get_vfs, reset_vfs
 
 # ═══════════════════════════════════════════════════════════════════
 # MountPoint
@@ -16,13 +13,14 @@ from l1.kernel.vfs import VFS, MountType, MountPoint, get_vfs, reset_vfs
 
 class TestMountPoint:
     def test_default_values(self):
-        mp = MountPoint(name="test")
+        mp = MountPoint(name="test", mount_type=MountType.PROJECT)
         assert mp.name == "test"
         assert mp.min_ring == 1
         assert not mp.read_only
 
     def test_custom_values(self):
-        mp = MountPoint(name="secure", min_ring=3, read_only=True, description="safe")
+        mp = MountPoint(name="secure", mount_type=MountType.PROJECT,
+                        min_ring=3, read_only=True, description="safe")
         assert mp.min_ring == 3
         assert mp.read_only
 
@@ -141,7 +139,7 @@ class TestVfsList:
             vfs.mount("/project", MountType.PROJECT, real_path=td)
             r = vfs.list("/project")
             assert r["success"]
-            names = [e["name"] for e in r.get("entries", [])]
+            names = r.get("entries", [])
             assert "a.txt" in names
             assert "b.txt" in names
 

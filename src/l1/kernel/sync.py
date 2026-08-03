@@ -9,10 +9,12 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
 from l1.kernel.ipc import LockMessage, LockOp, get_lock_bus
+
 from .params.kernel import (
     BARRIER_DEFAULT_COUNT,
     BARRIER_DEFAULT_TIMEOUT,
@@ -21,7 +23,6 @@ from .params.kernel import (
     MUTEX_CYCLE_DETECT_AFTER,
     MUTEX_DEFAULT_PRIORITY,
     MUTEX_DEFAULT_TIMEOUT,
-    MUTEX_POLL_INTERVAL,
     RWLOCK_DEFAULT_TIMEOUT,
     RWLOCK_POLL_INTERVAL,
     SEMAPHORE_DEFAULT_MAX,
@@ -370,8 +371,8 @@ class RWLock:
         self._lock = threading.RLock()
         self._cond = threading.Condition(self._lock)
 
-    def read_lock(self, agent_id: str) -> dict:
-        deadline = time.time() + RWLOCK_DEFAULT_TIMEOUT
+    def read_lock(self, agent_id: str, timeout: float = RWLOCK_DEFAULT_TIMEOUT) -> dict:
+        deadline = time.time() + timeout
         with self._lock:
             while self._writer and self._writer != agent_id:
                 remaining = deadline - time.time()
@@ -381,8 +382,8 @@ class RWLock:
             self._readers += 1
             return {"success": True, "mode": "read", "readers": self._readers}
 
-    def write_lock(self, agent_id: str) -> dict:
-        deadline = time.time() + RWLOCK_DEFAULT_TIMEOUT
+    def write_lock(self, agent_id: str, timeout: float = RWLOCK_DEFAULT_TIMEOUT) -> dict:
+        deadline = time.time() + timeout
         self._write_waiters += 1
         with self._lock:
             while self._readers > 0 or (self._writer and self._writer != agent_id):
@@ -401,6 +402,10 @@ class RWLock:
                 self._writer = ""
             elif self._readers > 0:
                 self._readers -= 1
+            else:
+                # Nothing held by this agent — report failure (aligns with Mutex).
+                return {"success": False, "error": "not locked",
+                        "writer": self._writer, "readers": self._readers}
             self._cond.notify_all()
             return {"success": True, "mode": "write" if self._writer else "read",
                     "readers": self._readers}
@@ -442,6 +447,12 @@ def get_rwlock(name: str) -> RWLock:
 
 def get_condition(name: str) -> Condition:
     return _get_or_create(name, lambda: Condition(name))
+
+
+def reset_registry() -> None:
+    """Clear the global sync-object registry (for tests / hot reset)."""
+    with _registry_lock:
+        _registry.clear()
 
 
 def registry_status() -> dict:

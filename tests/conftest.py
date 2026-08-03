@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # Modules with singleton _xxx = None pattern that can pollute across tests
 _RESETS = {
     "l4.api.api_gateway": ("stop_api", None),
@@ -26,6 +25,8 @@ _RESETS = {
     "l1.kernel.event": ("reset_bus", None),
     "l4.lsp.lsp_manager": ("reset_manager", None),
     "l1.kernel.reputation": ("reset_reputation", None),
+    "l1.kernel.sync": ("reset_registry", None),
+    "l1.kernel.vfs": ("reset_vfs", None),
     "l3.boot.boot": ("reset_boot_state", None),
     "l3.boot.boot_registry": ("reset_registry", None),
     "l1.kernel.settings": ("reset_settings", None),
@@ -47,11 +48,12 @@ def _reset_singletons():
     # Command registry: after reset, reload default command defs + L2 shell
     # handlers so `/help` etc. stay registered across the full test run.
     try:
-        from l1.kernel.commands import reset_registry, get_registry, load_command_defs
+        from l1.kernel.commands import get_registry, load_command_defs, reset_registry
         reset_registry()
         get_registry()
         load_command_defs()
         import importlib
+
         import l2.l2_shell.commands as _cmds_mod
         importlib.reload(_cmds_mod)
     except Exception as e:

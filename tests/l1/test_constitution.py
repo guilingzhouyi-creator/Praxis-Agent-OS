@@ -2,26 +2,21 @@
 
 from __future__ import annotations
 
-import tempfile
 import os
-
-import pytest
+import tempfile
 
 from l1.kernel.constitution import (
     TerritoryConstitution,
-    load_territory,
-    parse_territory,
-    render_territory,
-    save_territory,
-    update_territory,
-    merge_proposal,
     diff_territory,
     get_constitution,
+    load_territory,
+    merge_proposal,
+    parse_territory,
+    render_territory,
     reset_constitution,
-    CheckResult,
-    RuleSeverity,
+    save_territory,
+    update_territory,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════
 # TerritoryConstitution
@@ -217,8 +212,18 @@ class TestConstitutionRules:
 
     def test_load_blank(self):
         c = get_constitution()
-        c.load("")
-        assert c.summary()["total_rules"] == 0
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
+            f.write("")
+            path = f.name
+        try:
+            r = c.load(path)
+            assert r["success"]
+            s = c.summary()
+            # summary() returns a human-readable string (LLM context), not a dict
+            assert isinstance(s, str)
+            assert "MUST" in s  # built-in rules remain after loading blank file
+        finally:
+            os.unlink(path)
 
     def test_load_minimal_markdown(self):
         c = get_constitution()
@@ -231,9 +236,17 @@ agent_beta: tests/
 default_reputation: 0.85
 token_budget: 73000
 """
-        c.load(text)
-        s = c.summary()
-        assert s["total_rules"] >= 0
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
+            f.write(text)
+            path = f.name
+        try:
+            r = c.load(path)
+            assert r["success"]
+            s = c.summary()
+            assert isinstance(s, str)
+            assert len(s) > 0
+        finally:
+            os.unlink(path)
 
     def test_clear_custom_rules(self):
         c = get_constitution()

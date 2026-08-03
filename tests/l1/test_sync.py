@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-import time
-import threading
-
 from l1.kernel.sync import (
-    Mutex, Semaphore, Barrier, Condition, RWLock,
-    get_mutex, get_semaphore, get_barrier, get_rwlock, get_condition,
+    Barrier,
+    Condition,
+    Mutex,
+    RWLock,
+    Semaphore,
+    get_barrier,
+    get_condition,
+    get_mutex,
+    get_rwlock,
+    get_semaphore,
     registry_status,
 )
-
 
 # ── Mutex ──
 
@@ -95,13 +99,13 @@ def test_barrier_wait_reset() -> None:
     b = Barrier("br1", count=3)
     r1 = b.wait("agent-1")
     assert r1["success"] is True
-    assert r1["waiting"] == 1
+    assert r1["arrived"] == 1
     r2 = b.wait("agent-2")
-    assert r2["waiting"] == 2
+    assert r2["arrived"] == 2
     r = b.reset()
     assert r["success"] is True
     r3 = b.wait("agent-1")
-    assert r3["waiting"] == 1
+    assert r3["arrived"] == 1
 
 
 # ── Condition ──
@@ -111,15 +115,15 @@ def test_condition_wait_signal() -> None:
     c = Condition("cv1")
     r = c.wait("agent-1", timeout=0.1)
     # Timeout expected — no signal was sent
-    assert r["success"] is True
-    assert "signaled" not in r or r["signaled"] is False
+    assert r["success"] is False
+    assert r["timed_out"] is True
 
 
 def test_condition_signal_no_waiter() -> None:
     c = Condition("cv2")
     r = c.signal("agent-1")
     assert r["success"] is True
-    assert r["notified"] == 0
+    assert r["wakeup"] == 0
 
 
 def test_condition_broadcast() -> None:

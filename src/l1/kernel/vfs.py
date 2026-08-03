@@ -18,10 +18,9 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any
 
 from .params.kernel import VFS_DEFAULT_MIN_RING, VFS_PROC_PATH
-from .params.system import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_MAX_SIZE, FILE_CACHE_TTL
+from .params.system import FILE_CACHE_TTL
 
 logger = logging.getLogger(__name__)
 
@@ -215,10 +214,24 @@ class VFS:
     def proc_path(self) -> str:
         return VFS_PROC_PATH
 
+    def unmount(self, name: str) -> dict:
+        """Unmount a filesystem by name prefix."""
+        with self._lock:
+            if name not in self._mounts:
+                return {"success": False, "error": f"mount point '{name}' not found"}
+            del self._mounts[name]
+            self._sorted_prefixes = sorted(self._mounts, key=lambda p: -len(p))
+            # Drop cached entries under this mount
+            for k in list(self._cache):
+                if k == name or k.startswith(name + "/"):
+                    self._cache.pop(k, None)
+            return {"success": True, "unmounted": name}
+
     def sys_read(self, path: str) -> dict:
         """Read /sys files — system registry."""
         from .registry import get_registry
         from .settings import get_settings
+        from .params.system import KERNEL_VERSION
         r = get_registry()
         parts = path.strip("/").split("/")
         if len(parts) == 1:
@@ -227,6 +240,8 @@ class VFS:
             for k, v in s.items():
                 content += f"{k}: {v}\n"
             return {"success": True, "content": content}
+        if "version" in parts:
+            return {"success": True, "content": f"Praxis {KERNEL_VERSION}\n"}
         if "modules" in parts:
             m = r.modules()
             content = "Kernel Modules\n" + "=" * 40 + "\n"
@@ -296,7 +311,24 @@ class VFS:
             )
             return {"success": True, "content": content}
         if len(parts) == 2 and parts[0] == "proc":
-            pid = int(parts[1])
+            if parts[1] == "mounts":
+                mounts = self.mounts()
+                content = "Mounts\n" + "=" * 40 + "\n"
+                for m in mounts:
+                    content += f"{m['name']:15s} {m['type']:10s} ring={m['min_ring']} ro={m['read_only']}\n"
+                return {"success": True, "content": content}
+            if parts[1] == "processes":
+                table = get_table()
+                procs = table.list()
+                content = f"PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
+                    f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
+                    for p in procs
+                )
+                return {"success": True, "content": content}
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                return {"success": False, "error": "ENOENT", "error_code": "ENOENT"}
             table = get_table()
             pcb = table.get(pid)
             if pcb:

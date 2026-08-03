@@ -1,11 +1,12 @@
 """Kernel interrupt table — interrupt handling for ops_console."""
 from __future__ import annotations
-from collections import deque
-from enum import Enum, auto
-from dataclasses import dataclass, field
-from typing import Any, Callable
 
 import logging
+import threading
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum, auto
 
 from .params.kernel import INTERRUPT_MAX_HISTORY, INTERRUPT_QUERY_LIMIT
 
@@ -37,6 +38,7 @@ class InterruptTable:
         self._handlers: dict[InterruptType, list[Callable]] = {}
         self._counts: dict[str, int] = {}
         self._history: deque[dict] = deque(maxlen=INTERRUPT_MAX_HISTORY)
+        self._lock = threading.RLock()
 
     def register(self, itype: InterruptType, handler: Callable) -> None:
         """Register a callback handler for the given interrupt type."""
@@ -65,7 +67,9 @@ class InterruptTable:
 
     def recent(self, limit: int = INTERRUPT_QUERY_LIMIT) -> list[dict]:
         """Return the most recent interrupt history entries up to limit."""
-        return list(self._history[-limit:])
+        with self._lock:
+            entries = list(self._history)
+        return entries[-limit:]
 
 
 _table = InterruptTable()
