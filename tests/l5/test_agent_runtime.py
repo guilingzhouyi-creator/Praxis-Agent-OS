@@ -38,8 +38,8 @@ class TestAgentRuntime:
         assert st["agent_id"] == "stat-agent"
 
     def test_on_registers_handler(self):
-        from l5.agent_runtime import AgentRuntime
         from l1.kernel.event import SignalType
+        from l5.agent_runtime import AgentRuntime
         rt = AgentRuntime(agent_id="handler-agent")
         calls = []
 
@@ -50,8 +50,8 @@ class TestAgentRuntime:
         assert SignalType.TASK_ASSIGN in rt._handlers
 
     def test_emit_no_error(self):
-        from l5.agent_runtime import AgentRuntime
         from l1.kernel.event import SignalType
+        from l5.agent_runtime import AgentRuntime
         rt = AgentRuntime(agent_id="emit-agent")
         rt.emit(SignalType.TASK_ASSIGN, target="cell", data={"msg": "hello"})
         # No assertion needed — just verify no exception

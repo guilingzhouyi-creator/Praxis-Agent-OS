@@ -5,14 +5,14 @@ without real sockets.
 """
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from l1.kernel.ports import TransportPort, Endpoint, Result as PortResult
-
+from l1.kernel.ports import Endpoint, TransportPort
+from l1.kernel.ports import Result as PortResult
 
 # ── Mock transport (TransportPort implementation) ──
 
@@ -81,8 +81,9 @@ class TestNetKernel:
         assert "not found" in r.get("error", "")
 
     def test_send_remote_with_peer(self):
-        from l1.kernel.net import NetKernel, Peer
         import time
+
+        from l1.kernel.net import NetKernel, Peer
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         nk._node_id = "sender"
@@ -103,8 +104,9 @@ class TestNetKernel:
         assert msg["payload"]["intent"] == "fix bug"
 
     def test_broadcast_remote_pings_alive_peers(self):
-        from l1.kernel.net import NetKernel, Peer
         import time
+
+        from l1.kernel.net import NetKernel, Peer
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         now = time.time()
@@ -123,8 +125,9 @@ class TestNetKernel:
         assert h["peers_total"] == 0
 
     def test_health_with_alive_peer(self):
-        from l1.kernel.net import NetKernel, Peer
         import time
+
+        from l1.kernel.net import NetKernel, Peer
         nk = NetKernel(transport=MockTransport())
         nk._peers["p1"] = Peer(id="p1", host="10.0.0.2", port=8888, last_seen=time.time())
         h = nk.health()
@@ -132,8 +135,9 @@ class TestNetKernel:
         assert h["peers_alive"] >= 1
 
     def test_list_peers(self):
-        from l1.kernel.net import NetKernel, Peer
         import time
+
+        from l1.kernel.net import NetKernel, Peer
         nk = NetKernel(transport=MockTransport())
         now = time.time()
         nk._peers["a"] = Peer(id="a", host="10.0.0.2", port=1111, last_seen=now)

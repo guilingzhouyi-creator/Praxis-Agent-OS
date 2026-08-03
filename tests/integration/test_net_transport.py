@@ -9,12 +9,13 @@ Covers:
 
 from __future__ import annotations
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import pytest
-from l1.kernel.net_transport import TransportConfig, TcpAdapter
-from l1.kernel.ports import TransportPort, Endpoint
+from l1.kernel.net_transport import TcpAdapter, TransportConfig
+from l1.kernel.ports import Endpoint, TransportPort
 
 
 class TestTransportConfig:

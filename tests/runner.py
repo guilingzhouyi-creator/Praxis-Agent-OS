@@ -4,7 +4,9 @@
 Batch 1 (fast, ~5s): core kernel + services
 Batch 2 (slow, ~75s): r4_agent + integration + convention + archive
 """
-import sys, os, subprocess
+import os
+import subprocess
+import sys
 
 BATCH_1 = [
     ("infra", "test_layer_imports"),

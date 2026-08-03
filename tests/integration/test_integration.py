@@ -1,7 +1,7 @@
 """Integration tests — Card → Cell → AgentLoop → verify end-to-end."""
 
-import sys
 import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -9,12 +9,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class TestCellCardExecution:
     def test_raw_string_card(self):
-        from l3.cell import get_cell, reset_cells
         from l3.agent_terminal import reset_terminals
-        from l3.agent.scout import reset_pool
+        from l3.cell import get_cell, reset_cells
 
         # Ensure LLM mock mode + reset state
-        from l4.llm import reset_engine, get_engine
+        from l4.llm import get_engine, reset_engine
         reset_engine()
         get_engine()
 
@@ -65,7 +64,7 @@ class TestSyscallIntegration:
             assert len(r.get("content", "")) > 50
 
     def test_emit_signal(self):
-        from l1.kernel import emit_signal, get_event_bus, SignalType
+        from l1.kernel import SignalType, emit_signal, get_event_bus
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.SCOUT_DONE, lambda s: captured.append(s.sender))

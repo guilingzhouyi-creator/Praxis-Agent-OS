@@ -1,7 +1,10 @@
 """Diff 系统集成测试 — CellSandbox._compute_hunks + file_diff_structured + cross-review payload."""
 
 from __future__ import annotations
-import sys, os, tempfile
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -131,7 +134,7 @@ class TestApiDiffHandlers:
     """API diff handler 函数的可导入性"""
 
     def test_diff_structured_handler_importable(self):
-        from l4.api.api_handlers_diff import diff_structured, diff_history, diff_colors
+        from l4.api.api_handlers_diff import diff_colors, diff_history, diff_structured
         assert callable(diff_structured)
         assert callable(diff_history)
         assert callable(diff_colors)

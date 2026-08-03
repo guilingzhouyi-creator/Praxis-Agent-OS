@@ -11,14 +11,13 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 def _register_test_tool(name: str = "test_ping") -> str:
     """Register a minimal test tool in the global registry. Returns the tool name."""
-    from l3.tool_system.tool_spec import ToolSpec, ToolRing, register, ParamSpec
+    from l3.tool_system.tool_spec import ParamSpec, ToolRing, ToolSpec, register
 
     def _handler(args: dict, agent_id: str) -> dict:
         return {"success": True, "pong": True, "agent": agent_id, "args": args}
@@ -48,9 +47,9 @@ class TestToolAgentPipelineIntegration:
     """Full-stack integration: tool → pipeline → Cell → Agent → result."""
 
     def _reset(self):
-        from l3.cell import reset_cells
         from l1.kernel.process import reset_table
         from l3.agent_terminal import reset_terminals
+        from l3.cell import reset_cells
         reset_cells()
         reset_table()
         reset_terminals()

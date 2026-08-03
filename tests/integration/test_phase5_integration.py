@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import os
-import tempfile
 import sys
-import time
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -102,39 +100,40 @@ class TestSkillExpand:
 
 class TestMiddlewareChain:
     def test_confine_proceed_no_roots(self):
-        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import BeforeOutcome, ConfineMiddleware
         mw = ConfineMiddleware()
         out = mw.before("read_file", {"path": "/etc/passwd"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_blocks_outside_root(self):
-        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import BeforeOutcome, ConfineMiddleware
         mw = ConfineMiddleware(allowed_roots=["/safe/area"])
         out = mw.before("read_file", {"path": "/etc/passwd"}, "agent")
         assert out == BeforeOutcome.DENY
 
     def test_confine_allows_inside_root(self):
-        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import BeforeOutcome, ConfineMiddleware
         mw = ConfineMiddleware(allowed_roots=["/safe/area"])
         out = mw.before("read_file", {"path": "/safe/area/file.txt"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_no_path_arg(self):
-        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import BeforeOutcome, ConfineMiddleware
         mw = ConfineMiddleware(allowed_roots=["/safe"])
         out = mw.before("list_dir", {"pattern": "*.py"}, "agent")
         assert out == BeforeOutcome.PROCEED
 
     def test_confine_target_key(self):
-        from l3.services.middleware import ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import BeforeOutcome, ConfineMiddleware
         mw = ConfineMiddleware(allowed_roots=["/safe"])
         out = mw.before("write_file", {"target": "/bad/place"}, "agent")
         assert out == BeforeOutcome.DENY
 
     def test_middleware_chain_all_proceed(self):
         from l3.services.middleware import (
-            MiddlewareChain, ConfineMiddleware,
-            ApprovalMiddleware, BeforeOutcome,
+            BeforeOutcome,
+            ConfineMiddleware,
+            MiddlewareChain,
         )
         chain = MiddlewareChain()
         chain.add(ConfineMiddleware(allowed_roots=["/safe"]))
@@ -145,7 +144,9 @@ class TestMiddlewareChain:
 
     def test_middleware_chain_deny_stops(self):
         from l3.services.middleware import (
-            MiddlewareChain, ConfineMiddleware, BeforeOutcome,
+            BeforeOutcome,
+            ConfineMiddleware,
+            MiddlewareChain,
         )
         chain = MiddlewareChain()
         chain.add(ConfineMiddleware(allowed_roots=["/safe"]))
@@ -153,7 +154,7 @@ class TestMiddlewareChain:
         assert out == BeforeOutcome.DENY
 
     def test_after_proceed_default(self):
-        from l3.services.middleware import ToolMiddleware, AfterOutcome
+        from l3.services.middleware import AfterOutcome, ToolMiddleware
         mw = ToolMiddleware()
         out = mw.after("read_file", {"result": "ok"}, "agent")
         assert out == AfterOutcome.PROCEED
@@ -167,7 +168,7 @@ class TestMiddlewareChain:
         assert args["path"] == "/tmp/x"
 
     def test_arg_repair_bool_strings(self):
-        from l3.services.middleware import ArgRepairMiddleware, BeforeOutcome
+        from l3.services.middleware import ArgRepairMiddleware
         mw = ArgRepairMiddleware()
         args = {"recursive": "true", "force": "false"}
         mw.before("rm", args, "agent")
@@ -180,12 +181,11 @@ class TestMiddlewareChain:
 class TestPersistenceRecall:
     def test_save_and_recall_transcript(self):
         """Save snapshot + transcript, then recall by keyword."""
-        import tempfile
         td = tempfile.mkdtemp()
         old_data_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         try:
-            from l3.agent.agent_persist import save_snapshot, append_transcript, recall
+            from l3.agent.agent_persist import append_transcript, recall, save_snapshot
             aid = "phase5-test-agent"
             save_snapshot(aid, {"status": True, "summary": "initial state"})
             append_transcript(aid, {"role": "user", "content": "hello world"})
