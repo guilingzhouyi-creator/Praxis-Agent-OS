@@ -9,7 +9,7 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import SIGNAL_TARGET_L3
 from l3.cell.components.cell_types import MessageType
-from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,13 @@ def convene(cell: Any, issue_card: Any) -> dict:
 
     if not isinstance(issue_card, IssueCard):
         return {"success": False, "error": "expected IssueCard"}
+
+    # Activate deliberation memory policy: Peer Agents share the Cell ring
+    try:
+        from l1.kernel.params.agent import CELL_MEMORY_POLICY_DELIBERATION
+        cell.set_memory_policy(CELL_MEMORY_POLICY_DELIBERATION)
+    except Exception:
+        logger.debug("cell_convention: memory policy activation failed")
 
     iid = issue_card.id
     table = get_table()
@@ -56,6 +63,13 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     close_r = conv.close()
     if not close_r.get("success", True):
         return close_r
+
+    # Restore isolated memory policy: shared ring no longer accessible
+    try:
+        from l1.kernel.params.agent import CELL_MEMORY_POLICY_ISOLATED
+        cell.set_memory_policy(CELL_MEMORY_POLICY_ISOLATED)
+    except Exception:
+        logger.debug("cell_convention: memory policy restore failed")
 
     from l3.agent.convergence import converge as _converge, to_execution_card
     conv_r = _converge(issue_card_id)
@@ -119,7 +133,12 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
 
 def handle_convention_message(cell: Any, agent_id: str,
                               msg_type: MessageType, payload: dict) -> dict:
-    """Route a convention message to the ConventionProtocol."""
+    """Route a convention message to the ConventionProtocol.
+
+    While the Cell is in deliberation policy, each statement is also
+    mirrored into the Cell's shared deliberation memory ring (tagged with
+    the issue id) — giving Peer Agents a shared negotiation context.
+    """
     card_id = payload.get("card_id", "")
     from l3.card.issue import get_table
     table = get_table()
@@ -131,6 +150,10 @@ def handle_convention_message(cell: Any, agent_id: str,
     if not conv:
         return {"success": False, "error": "no active convention"}
 
+    if msg_type in (MessageType.REBUT, MessageType.PROPOSE_ISSUE,
+                    MessageType.CROSS_EXAMINE):
+        _mirror_to_deliberation_ring(cell, card_id, agent_id, msg_type, payload)
+
     if msg_type == MessageType.REBUT:
         return conv.rebut(agent_id, payload.get("statement", ""))
     elif msg_type == MessageType.PROPOSE_ISSUE:
@@ -139,6 +162,39 @@ def handle_convention_message(cell: Any, agent_id: str,
         return conv.cross_examine(agent_id, payload.get("target", ""),
                                   payload.get("statement", ""))
     return {"success": False, "error": f"unhandled convention message: {msg_type.name}"}
+
+
+def _mirror_to_deliberation_ring(cell: Any, card_id: str, agent_id: str,
+                                 msg_type: MessageType, payload: dict) -> None:
+    """Mirror a convention statement into the shared Cell ring (deliberation).
+
+    Strategy-guarded: only writes when the Cell memory policy is
+    deliberation (conference mode). In isolated (default) mode this is a
+    no-op — Peer Agents keep their memory separate outside conventions.
+    """
+    try:
+        mem = cell.convention_memory()
+        if mem is None:
+            return
+        statement = payload.get("statement") or payload.get("question") or ""
+        if not statement:
+            return
+        target = payload.get("target", "")
+        entry_type = f"convention.{msg_type.name.lower()}"
+        content = (f"[{card_id}] {agent_id}"
+                   + (f" → {target}" if target else "")
+                   + f": {statement[:LOG_TRUNC_500]}")
+        mem.remember(
+            agent_id=agent_id,
+            entry_type=entry_type,
+            content=content,
+            tags=["convention", card_id, msg_type.name.lower()],
+            importance=0.7,
+            ring=1,
+            cell_id=cell.cell_id,
+        )
+    except Exception as e:
+        logger.debug("cell_convention: deliberation ring mirror failed: %s", e)
 
 
 def _match_agent(cell: Any, domain: str) -> str:

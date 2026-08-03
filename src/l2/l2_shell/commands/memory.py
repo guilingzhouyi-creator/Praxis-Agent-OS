@@ -42,7 +42,10 @@ def _cmd_card(args: list[str]) -> dict:
 
 def _cmd_plugins(args: list[str]) -> dict:
     from l3.services.central_plugin import get_center
-    return {"success": True, "plugins": get_center().list()}
+    center = get_center()
+    if args and args[0] == "stats":
+        return {"success": True, "stats": center.stats() if hasattr(center, "stats") else {}}
+    return {"success": True, "plugins": center.list_plugins() if hasattr(center, "list_plugins") else []}
 
 def _cmd_spawn(args: list[str]) -> dict:
     from l3.cell import get_cell; from l1.kernel.params.agent import DEFAULT_CELL_ID, DEFAULT_CELL_INITIAL_ROLES

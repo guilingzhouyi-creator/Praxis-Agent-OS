@@ -92,6 +92,10 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         self._current_user_id: str = ""
         self._emergency: bool = False
         self._conventions: dict[str, Any] = {}
+        # Memory policy engine: isolated (default) vs deliberation (conference mode)
+        from l1.kernel.params.agent import CELL_MEMORY_POLICY_ISOLATED
+        self._memory_policy: str = CELL_MEMORY_POLICY_ISOLATED
+        self._convention_memory: Any = None
         # Lifecycle hooks
         self._boot_hooks: list[Callable] = []
         self._shutdown_hooks: list[Callable] = []
@@ -304,6 +308,46 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         """Convene a multi-agent discussion on a topic."""
         from ..cell.components.cell_convention import convene as _convene
         return _convene(self, issue_card)
+
+    # ── Memory policy engine (deliberation isolation) ──
+
+    def set_memory_policy(self, policy: str) -> None:
+        """Switch the Cell memory policy.
+
+        isolated     — default: Peer Agents' R1-R3 stays agent-isolated
+        deliberation — L3A conference mode: Cell's shared ring is activated
+                       for the convention (convene() sets, close_convention()
+                       restores)
+        """
+        from l1.kernel.params.agent import (
+            CELL_MEMORY_POLICY_ISOLATED, CELL_MEMORY_POLICY_DELIBERATION,
+        )
+        if policy not in (CELL_MEMORY_POLICY_ISOLATED, CELL_MEMORY_POLICY_DELIBERATION):
+            logger.warning("cell %s: unknown memory policy %r", self.cell_id, policy)
+            return
+        old = self._memory_policy
+        self._memory_policy = policy
+        if policy == CELL_MEMORY_POLICY_DELIBERATION:
+            from l3.memory.central_memory import get_cell_memory
+            self._convention_memory = get_cell_memory(self.cell_id)
+        else:
+            self._convention_memory = None
+        logger.info("cell %s: memory policy %s → %s", self.cell_id, old, policy)
+
+    def get_memory_policy(self) -> str:
+        return self._memory_policy
+
+    def convention_memory(self) -> Any | None:
+        """Return the Cell's shared deliberation memory ring.
+
+        Strategy guard: returns None unless the Cell is in deliberation
+        (conference) mode — the shared ring is NOT accessible in isolated
+        (default) mode. Peer Agents' negotiation context lives here during
+        a convention; outside conventions each agent keeps isolated memory.
+        """
+        if self._memory_policy == "deliberation":
+            return self._convention_memory
+        return None
 
     def close_convention(self, issue_card_id: str) -> dict:
         """Close the currently active convention."""

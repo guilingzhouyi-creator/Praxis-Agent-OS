@@ -391,9 +391,12 @@ class R4Agent:
             system = get_prompt("r4_agent.skill_architect", "")
             prompt = f"Create a skill for: {intent.strip()}"
             engine = get_engine()
+            model_kwargs = _get_model_service().resolve_dict(_MODEL_SPEC)
+            # Explicit kwargs take precedence — drop overlapping keys from the config dict.
+            for _k in ("prompt", "system", "max_tokens", "user_id"):
+                model_kwargs.pop(_k, None)
             result = engine.generate(prompt=prompt, system=system, max_tokens=2048,
-                                     user_id="r4-agent",
-                                     **_get_model_service().resolve_dict(_MODEL_SPEC))
+                                     user_id="r4-agent", **model_kwargs)
 
             content = result.get("content", "").strip()
             # Strip any markdown fences if present

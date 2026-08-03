@@ -411,6 +411,12 @@ CONVENTION_ARCHIVE_IMPORTANCE: Final[float] = 0.85
 CONVENTION_DOC_DIR: Final[str] = "conventions"
 """Subdir under data_dir where converged deliberation documents are persisted
 as .md files — readable by L3A (resource manager) and humans alike."""
+CELL_MEMORY_POLICY_ISOLATED: Final[str] = "isolated"
+"""Default Cell memory policy: Peer Agents' R1-R3 stays agent-isolated."""
+CELL_MEMORY_POLICY_DELIBERATION: Final[str] = "deliberation"
+"""Deliberation policy (L3A conference mode): Cell's shared memory ring is
+activated for the convention — Peer Agents share the negotiation context.
+Activated by convene(), restored to isolated by close_convention()."""
 
 
 # ── Territory → role resolution ──

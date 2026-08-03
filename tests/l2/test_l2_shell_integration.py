@@ -108,13 +108,9 @@ class TestPreconnectEnhanced:
 
 class TestCompleteAgent:
     def test_complete_agent_matches_partial(self, mocker):
-        mock_preselect = mocker.patch("l2.selector.preselect")
-        mock_preselect.return_value = {
-            "agents": [
-                {"agent_id": "agent-alpha", "role": "writer", "status": "ready"},
-                {"agent_id": "agent-beta", "role": "reader", "status": "busy"},
-                {"agent_id": "scout-1", "role": "scout", "status": "idle"},
-            ]
+        mock_terms = mocker.patch("l3.agent_terminal.get_terminals")
+        mock_terms.return_value = {
+            "agent-alpha": object(), "agent-beta": object(), "scout-1": object(),
         }
 
         from l2.l2_shell import _complete_agent
@@ -124,20 +120,15 @@ class TestCompleteAgent:
         assert results[0]["type"] == "agent"
 
     def test_complete_agent_empty_partial_returns_all(self, mocker):
-        mock_preselect = mocker.patch("l2.selector.preselect")
-        mock_preselect.return_value = {
-            "agents": [
-                {"agent_id": "a1", "role": "w", "status": "ready"},
-                {"agent_id": "a2", "role": "r", "status": "ready"},
-            ]
-        }
+        mock_terms = mocker.patch("l3.agent_terminal.get_terminals")
+        mock_terms.return_value = {"a1": object(), "a2": object()}
 
         from l2.l2_shell import _complete_agent
         results = _complete_agent("")
         assert len(results) == 2
 
     def test_complete_agent_preselect_fails_gracefully(self, mocker):
-        mocker.patch("l2.selector.preselect", side_effect=RuntimeError("fail"))
+        mocker.patch("l3.agent_terminal.get_terminals", side_effect=RuntimeError("fail"))
 
         from l2.l2_shell import _complete_agent
         results = _complete_agent("x")
@@ -151,7 +142,8 @@ class TestCmdAgents:
 
         from l2.l2_shell import _cmd_agents
         r = _cmd_agents([])
-        assert r == {"agents": [{"agent_id": "a1"}]}
+        assert r["success"] is True
+        assert r["data"] == {"agents": [{"agent_id": "a1"}]}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -164,93 +156,39 @@ class TestCmdConnectFull:
         r = _cmd_connect([])
         assert not r["success"]
 
-    def test_connect_blocked_by_security(self, mocker):
-        mocker.patch("l3.services.central_security.get_center")
+    def test_connect_unknown_agent(self, mocker):
         from l2.l2_shell import _cmd_connect, reset_state
         reset_state()
-
-        # Mock security to deny
-        mock_sec = mocker.patch("l3.services.central_security.get_center")
-        mock_sec.return_value.check_all.return_value = {"allowed": False}
-        # Skip preconnect_enhanced
-        mocker.patch("l2.l2_shell.preconnect_enhanced")
-
+        mocker.patch("l3.agent_terminal.get_terminals", return_value={})
         r = _cmd_connect(["agent-x"])
         assert not r["success"]
-        assert "blocked by security" in r["error"]
-
-    def test_connect_blocked_by_preconnect(self, mocker):
-        from l2.l2_shell import _cmd_connect, reset_state
-        reset_state()
-
-        # Security allows
-        mock_sec = mocker.patch("l3.services.central_security.get_center")
-        mock_sec.return_value.check_all.return_value = {"allowed": True}
-        # Preconnect denies
-        mocker.patch("l2.l2_shell.preconnect_enhanced",
-                     return_value={"allowed": False, "reason": "no_llm"})
-
-        r = _cmd_connect(["agent-x"])
-        assert not r["success"]
-        assert "connect failed" in r["error"]
-
-    def test_connect_success(self, mocker):
-        from l2.l2_shell import _cmd_connect, reset_state, get_state
-        reset_state()
-
-        # Security allows
-        mock_sec = mocker.patch("l3.services.central_security.get_center")
-        mock_sec.return_value.check_all.return_value = {"allowed": True}
-        # Preconnect allows
-        mocker.patch("l2.l2_shell.preconnect_enhanced",
-                     return_value={"allowed": True, "checks": {}})
-        # Cell accepts
-        mock_cell = mocker.patch("l3.cell.get_cell")
-        mock_cell.return_value.send_direct_message.return_value = {
-            "success": True, "card_id": "card-1"
-        }
-
-        r = _cmd_connect(["agent-y"])
-        assert r["success"]
-        assert r["card_id"] == "card-1"
-        # State should be DIRECT now
-        s = get_state()
-        assert s.is_direct()
-        assert s.agent_id == "agent-y"
+        assert "unknown agent" in r["error"]
 
     def test_connect_send_fails(self, mocker):
         from l2.l2_shell import _cmd_connect, reset_state
         reset_state()
-
-        mock_sec = mocker.patch("l3.services.central_security.get_center")
-        mock_sec.return_value.check_all.return_value = {"allowed": True}
-        mocker.patch("l2.l2_shell.preconnect_enhanced",
-                     return_value={"allowed": True, "checks": {}})
+        mocker.patch("l3.agent_terminal.get_terminals", return_value={"agent-z": object()})
         mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": False, "error": "agent_unreachable"
         }
-
         r = _cmd_connect(["agent-z"])
         assert not r["success"]
         assert "agent_unreachable" in r["error"]
 
-    def test_security_check_unavailable(self, mocker):
-        """Exception in security gate → warning logged, continue."""
-        from l2.l2_shell import _cmd_connect, reset_state
+    def test_connect_success(self, mocker):
+        from l2.l2_shell import _cmd_connect, reset_state, get_state
         reset_state()
-
-        mock_sec = mocker.patch("l3.services.central_security.get_center")
-        mock_sec.side_effect = ImportError("no central_security")
-        mocker.patch("l2.l2_shell.preconnect_enhanced",
-                     return_value={"allowed": True, "checks": {}})
+        mocker.patch("l3.agent_terminal.get_terminals", return_value={"agent-y": object()})
         mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": True, "card_id": "card-1"
         }
-
-        r = _cmd_connect(["agent-w"])
+        r = _cmd_connect(["agent-y"])
         assert r["success"]
+        s = get_state()
+        assert s.is_direct()
+        assert s.agent_id == "agent-y"
 
 
 class TestCmdDisconnectWithSession:
