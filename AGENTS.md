@@ -78,6 +78,13 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 - Merge/revert commits are exempt (git-generated messages).
 - Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1`.
 
+## Branching workflow (see `docs/workflow/branching.md`)
+
+- **Semi-finished work never enters mainline** — commit it or branch it; never leave in-flight refactors in the working tree.
+- **Open `feature/*` branches** for multi-Phase features, shared-module refactors, risky changes, or parallel agent work.
+- **Double-green merge rule**: feature branch tests pass AND main tests pass → merge with `--no-ff`; discard = proposal rejected.
+- Check `git stash list` after interrupted commands (killed shells skip `git stash pop`).
+
 ## Testing quirks
 
 - **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~20 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.

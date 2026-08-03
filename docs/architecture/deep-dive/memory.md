@@ -222,3 +222,80 @@ memory.remember(agent_id, "thought", output, ring=1)
 | `ARCHIVE_IMPORTANCE_THRESHOLD` | 0.7 | R3 → R4 gate |
 | `ARCHIVE_RESTORE_LIMIT` | 100 | R4 → R2 on boot |
 | `MEMORY_BUILD_CONTEXT_LIMIT` | 10 | Max entries per context build |
+
+
+## R5: MemoryGraph (群域图 — semantic topology layer)
+
+`l3/memory/memory_graph.py` adds a semantic-topology index **above** the four rings:
+R4 archives hold the lossless ground truth; R5 organizes those entries into a
+graph (nodes = entries, edges = relations). The graph is a *derived* layer:
+it can be rebuilt from R4, so pruning/recovery never endanger the archive.
+
+### Layer positioning
+
+```
+R1-R3  operational memory (agent runtime access)
+R4     lossless archive (snapshot, rollback baseline, audit source)
+R5     graph index (topology — navigation, compression, diffusion recall)
+```
+
+### Edge types
+
+| Relation | Source | Weight | Meaning |
+|----------|--------|--------|---------|
+| `sequential` | rule (auto) | 1.0 | same-agent write chain |
+| `type_chain` | rule (auto) | 1.2 | same agent + same entry_type (strongest rule edge) |
+| `cell_chain` | rule (auto) | 0.8 | same cell, different agent |
+| `contradicts` | semantic (explicit/LLM) | 1.5 | B overturns/conflicts with A |
+| `depends_on` | semantic (explicit/LLM) | 1.5 | B builds on/requires A |
+| `refines` | semantic (explicit/LLM) | 1.5 | B refines A |
+
+Every edge records `created_by` + `created_at` (attribution/governance).
+
+### Semantic-extraction state machine
+
+```
+off → rules → hybrid ⇄ paused
+  off    : no semantic extraction (default)
+  rules  : rule edges only (zero LLM cost)
+  hybrid : LLM extracts contradicts/depends_on/refines (compress time)
+  paused : auto-degraded on LLM engine failure (recoverable)
+
+Transitions are validated (no arbitrary jumps); each transition emits
+`stats.memory.graph.edge_mode` on the time bus. Extraction is bounded:
+max 5 pairs/run, 10s timeout, 256 output tokens.
+```
+
+### Switch & config
+
+```yaml
+# config/praxis.yaml
+memory:
+  graph:
+    enabled: false          # master switch (default off = zero impact)
+# runtime: SettingsCenter memory.graph.enabled / memory.graph.edge_mode
+# (persisted to .praxis_settings.json)
+```
+
+### Consumption points
+
+- `MemoryManager.recall(graph_diffusion=True)` — expand linear hits along edges
+- `Session.compress()` — auto-runs graph reduction after folding (enabled only)
+- `Session.resume_from_archive()` — diffuses from recent memory seeds and
+  injects related context (system message, metadata `graph_recall`)
+- `MemoryGraph.compact(min_degree, dry_run)` — prune leaves, keep hubs
+  (small-graph guard: refuses pruning below 4 edges)
+- `MemoryGraph.semantic_edges()` / `add_semantic_edge()` — semantic knowledge
+
+### API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET  | `/api/memory/graph` | switch state + stats + compact report |
+| PUT  | `/api/memory/graph` | toggle enabled (persisted) |
+| POST | `/api/memory/graph/compact` | graph reduction (dry_run default) |
+| POST | `/api/memory/graph/edge` | add semantic edge |
+| GET  | `/api/memory/graph/semantic` | list semantic edges |
+
+`/stats graph` (L2 shell) shows the same surface. Time-bus events:
+`stats.memory.graph.switch` / `.edge_mode` / `.compact` / `.semantic`.
