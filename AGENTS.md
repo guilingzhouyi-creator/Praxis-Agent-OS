@@ -70,6 +70,14 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 - **File path strings**: centralize in `params/system.py` or `paths.py`. Avoid `"*.json"`, `"foo/bar.yaml"` in implementation code.
 - **Package manager timeouts**: use `TOOL_PACKAGE_MANAGER_TIMEOUT`, `TOOL_PIP_INSTALL_TIMEOUT`, etc. from `params/tool.py`.
 
+## Commit conventions (enforced by `.githooks/commit-msg`)
+
+- **Commit messages MUST be written in English** (CJK characters are rejected).
+- **Every commit MUST carry a `Co-Authored-By` trailer** naming the authoring agent/model for attribution:
+  `Co-Authored-By: OpenCode (deepseek-v4-flash) <noreply@opencode.ai>`
+- Merge/revert commits are exempt (git-generated messages).
+- Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1`.
+
 ## Testing quirks
 
 - **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~20 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.

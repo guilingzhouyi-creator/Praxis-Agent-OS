@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Commit-msg hook — enforce English commit messages + Co-Authored-By attribution.
+#
+# Rules (Praxis 宪法 §git):
+#   1. Commit message MUST be written in English (reject CJK characters).
+#   2. Every commit MUST carry a Co-Authored-By trailer naming the authoring
+#      agent/model — attribution is a governance requirement.
+#   3. Merge commits are exempt (git-generated messages).
+#   Bypass (temporary): PRAXIS_SKIP_AUTHOR_CHECK=1
+set -euo pipefail
+
+msg_file="$1"
+msg=$(cat "$msg_file")
+
+if [ -n "${PRAXIS_SKIP_AUTHOR_CHECK:-}" ]; then
+  exit 0
+fi
+
+# Merge commits carry git-generated messages — exempt.
+first_line=$(printf '%s' "$msg" | head -n 1)
+if printf '%s' "$first_line" | grep -qE '^(Merge|Revert) '; then
+  exit 0
+fi
+
+# 1. English-only message
+if printf '%s' "$msg" | grep -qP '[\x{4e00}-\x{9fa5}]'; then
+  echo "❌ Commit message must be written in English (found CJK characters)." >&2
+  echo "   Fix the message, or set PRAXIS_SKIP_AUTHOR_CHECK=1 to bypass." >&2
+  exit 1
+fi
+
+# 2. Co-Authored-By attribution required
+if ! printf '%s' "$msg" | grep -q "Co-Authored-By:"; then
+  echo "❌ Commit must include a Co-Authored-By trailer for attribution." >&2
+  echo "   Example: Co-Authored-By: OpenCode (deepseek-v4-flash) <noreply@opencode.ai>" >&2
+  echo "   Fix the message, or set PRAXIS_SKIP_AUTHOR_CHECK=1 to bypass." >&2
+  exit 1
+fi
+
+exit 0
