@@ -274,6 +274,7 @@ class LLMEngine:
         tool_defs = [t.to_api_format() for t in active_tools]
         tool_map = {t.name: t for t in tools}
         all_calls = []
+        reasoning_trail: list[str] = []
         import concurrent.futures as _cf
 
         for turn in range(max_turns):
@@ -317,13 +318,23 @@ class LLMEngine:
                 response = self._call_api(body)
                 content = response.get("content", "")
                 tool_calls = response.get("tool_calls", [])
+                reasoning = response.get("reasoning_content", "") or ""
+                if reasoning:
+                    reasoning_trail.append(reasoning)
 
                 if not tool_calls:
                     # LLM finished — no more tool calls
-                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1, "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
+                    return {"content": content, "tool_calls": all_calls, "turns": turn + 1,
+                            "reasoning_trail": reasoning_trail,
+                            "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
                 # Execute tool calls in parallel with per-handler timeout
-                assistant_msg = {"role": "assistant", "content": content, "tool_calls": [tc for tc in tool_calls]}
+                assistant_msg = {"role": "assistant", "content": content,
+                                 "tool_calls": [tc for tc in tool_calls]}
+                if reasoning:
+                    # DeepSeek thinking mode: requests carrying `tools` MUST
+                    # echo the full reasoning_content back on every follow-up.
+                    assistant_msg["reasoning_content"] = reasoning
                 messages.append(assistant_msg)
 
                 with _cf.ThreadPoolExecutor(max_workers=len(tool_calls)) as pool:
@@ -363,9 +374,13 @@ class LLMEngine:
                         })
 
             except Exception as e:
-                return {"content": "", "tool_calls": all_calls, "turns": turn + 1, "error": str(e), "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
+                return {"content": "", "tool_calls": all_calls, "turns": turn + 1,
+                        "reasoning_trail": reasoning_trail, "error": str(e),
+                        "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
-        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns, "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
+        return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns,
+                "reasoning_trail": reasoning_trail,
+                "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
     def _call_api(self, body: bytes, retry_count: int = 0) -> dict:
         """Low-level API call with retry layers. Returns parsed response dict with cache stats.
@@ -438,10 +453,13 @@ class LLMEngine:
         # Empty response detection
         content = ""
         tool_calls = []
+        reasoning_content = ""
         if isinstance(data, dict):
             msg = data.get("choices", [{}])[0].get("message", {}) if "choices" in data else {}
             content = msg.get("content", "") or data.get("content", "")
             tool_calls = msg.get("tool_calls", []) or data.get("tool_calls", [])
+            reasoning_content = (msg.get("reasoning_content", "")
+                                 or data.get("reasoning_content", ""))
         if not content and not tool_calls and retry_count < LLM_MAX_EMPTY_RETRIES:
             wait = LLM_EMPTY_RESPONSE_WAITS[retry_count]
             _time.sleep(wait)
@@ -456,14 +474,17 @@ class LLMEngine:
         if provider_name in ("ollama",):
             msg = data.get("message", {})
             return {"content": msg.get("content", ""), "tool_calls": msg.get("tool_calls", []),
+                    "reasoning_content": msg.get("reasoning_content", ""),
                     "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
         if provider_name in ("openai",):
             choice = data["choices"][0]["message"]
             return {"content": choice.get("content", ""), "tool_calls": choice.get("tool_calls", []),
+                    "reasoning_content": choice.get("reasoning_content", ""),
                     "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
         return {"content": "", "tool_calls": [],
+                "reasoning_content": reasoning_content,
                 "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
 
@@ -501,7 +522,7 @@ def _register_llm_port(engine: LLMEngine) -> None:
 
         def optimize_prompt(self, prompt: str,
                             system: str = "") -> tuple[str, str]:
-            return _optimize_prompt(prompt, system)
+            return optimize_prompt(prompt, system)
 
         def provider_status(self) -> dict:
             return {"status": "ok", "provider": str(engine.provider_name())}

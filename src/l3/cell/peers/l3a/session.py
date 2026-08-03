@@ -13,7 +13,7 @@ from typing import Any
 from . import params as _p
 from l1.kernel.params.system import (
     TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_100, LOG_TRUNC_200,
-    LOG_TRUNC_300,
+    LOG_TRUNC_300, LOG_TRUNC_500, LOG_TRUNC_2000,
 )
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
@@ -249,6 +249,7 @@ class Session:
         self.history.append(answer_msg)
         self._persist_state()
         self._ingest_tool_results(result, admitted.text)
+        self._ingest_reasoning(result, admitted.text)
         result["session_id"] = self.id
         result["turn"] = self.turn_count
 
@@ -1043,6 +1044,42 @@ class Session:
             )
         except Exception:
             logger.debug("l3a session: turn summary ingest failed")
+
+    def _ingest_reasoning(self, result: dict, user_text: str) -> None:
+        """Persist this turn's thinking-mode reasoning trail (deepseek-v4,
+        claude thinking, etc.) into L3A ring 2 as the deliberation record.
+
+        The chain-of-thought is the decision process — more valuable than the
+        final answer. Folded into ONE entry per turn (bounded rounds) so the
+        memory stays usable, not a verbatim transcript.
+        """
+        trail = result.get("reasoning_trail") or []
+        if not trail:
+            return
+        try:
+            from l3.memory.central_memory import get_l3a_memory
+            mem = get_l3a_memory()
+        except Exception:
+            return
+        folded = "\n---\n".join(
+            t.strip()[:LOG_TRUNC_500] for t in trail[:_p.REASONING_TRAIL_MAX_TURNS]
+        )[:LOG_TRUNC_2000]
+        if not folded:
+            return
+        content = (f"[session:{self.id} turn:{self.turn_count}] user: {user_text[:LOG_TRUNC_100]}\n"
+                   f"reasoning:\n{folded}")
+        try:
+            mem.remember(
+                agent_id=_p.AGENT_ID,
+                entry_type="l3a_reasoning_trail",
+                content=content,
+                tags=["l3a", "reasoning", self.id],
+                importance=_p.REASONING_TRAIL_IMPORTANCE,
+                ring=2,
+                cell_id=self._cell_id,
+            )
+        except Exception:
+            logger.debug("l3a session: reasoning trail ingest failed")
 
     def _persist_state(self) -> None:
         try:

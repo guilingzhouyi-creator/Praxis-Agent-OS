@@ -121,7 +121,9 @@ class OpenAIProvider(_ProviderHelperMixin):
             data = json.loads(r.read())
             msg = data["choices"][0]["message"]
             usage = data.get("usage", {})
-            return {"content": msg.get("content", ""), "tool_calls": msg.get("tool_calls", []),
+            return {"content": msg.get("content", ""),
+                    "reasoning_content": msg.get("reasoning_content", ""),
+                    "tool_calls": msg.get("tool_calls", []),
                     "input_tokens": usage.get("prompt_tokens", 0),
                     "output_tokens": usage.get("completion_tokens", 0),
                     "tokens": usage.get("total_tokens", 0),

@@ -68,3 +68,7 @@ SESSION_PAGE_SIZE: int = 20                  # default page size for history pag
 SESSION_COMPRESS_KEEP: int = 10              # keep_last default for compress()
 SESSION_MEMORY_WINDOW_SECONDS: float = 3600.0  # memory_usage() aggregation window
 SESSION_MAX_STEPS_UNLIMITED: int = 999999    # sentinel for "unlimited" step cap
+
+# ── Reasoning trail (thinking-mode ingestion) ──
+REASONING_TRAIL_MAX_TURNS: int = 8           # max thinking rounds folded into one memory entry
+REASONING_TRAIL_IMPORTANCE: float = 0.6
