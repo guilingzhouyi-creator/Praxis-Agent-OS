@@ -1,6 +1,8 @@
 """I18n service tests — translation loading, locale switching, L2_Shell integration."""
 from __future__ import annotations
-import sys, os, tempfile
+
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -34,7 +36,7 @@ class TestI18nCore:
         assert "/test" in result
 
     def test_t_zh_cn(self):
-        from l2.i18n import t, set_locale, get_locale
+        from l2.i18n import get_locale, set_locale, t
         prev = get_locale()
         set_locale("zh-CN")
         result = t("shell.command.help")
@@ -74,8 +76,8 @@ class TestI18nL2Shell:
         assert "available" in r
 
     def test_dispatch_lang_switch(self):
-        from l2.l2_shell import dispatch, reset_state
         from l2.i18n import get_locale
+        from l2.l2_shell import dispatch, reset_state
         reset_state()
         prev = get_locale()
         r = dispatch("/lang en")
@@ -87,8 +89,8 @@ class TestI18nL2Shell:
 
     def test_dispatch_unknown_zh(self):
         """Switch to zh-CN, unknown command should show Chinese error."""
-        from l2.l2_shell import dispatch, reset_state
         from l2.i18n import get_locale, set_locale
+        from l2.l2_shell import dispatch, reset_state
         reset_state()
         prev = get_locale()
         set_locale("zh-CN")
@@ -106,7 +108,7 @@ class TestI18nL2Shell:
 
 class TestI18nKernelErrors:
     def test_set_locale_delegates_to_i18n(self):
-        from l1.kernel.errors import set_locale, get_locale
+        from l1.kernel.errors import get_locale, set_locale
         prev = get_locale()
         set_locale("zh-CN")
         from l2.i18n import get_locale as _i18n_get
@@ -124,7 +126,7 @@ class TestI18nKernelErrors:
 class TestI18nToolSpec:
     def test_list_tools(self):
         """list_tools returns ToolSpec objects with names/descriptions."""
-        from l3.tool_system.tool_spec import list_tools, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import TOOL_REGISTRY, list_tools
         if not TOOL_REGISTRY:
             return
         tools = list_tools()

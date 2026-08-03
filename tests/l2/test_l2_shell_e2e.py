@@ -8,8 +8,8 @@ Follows the test pattern from tests/test_integration.py:
 """
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -21,8 +21,8 @@ def _wait_for_agent(agent_id: str, timeout: float = 2.0, poll: float = 0.05) -> 
     Replaces fixed time.sleep() with responsive polling to reduce CI wall-clock time.
     Returns True if agent reached IDLE within timeout, False otherwise.
     """
-    from l3.agent_terminal import get_terminal
     from l1.kernel.params.agent import AGENT_STATUS_IDLE
+    from l3.agent_terminal import get_terminal
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -40,10 +40,10 @@ class TestL2ShellDispatchE2E:
 
     def test_dispatch_agents_with_real_cell(self):
         """After creating Cell + Agent, /agents command should list that agent."""
-        from l3.cell import get_cell, reset_cells
-        from l3.agent_terminal import reset_terminals
-        from l3.agent.scout import reset_pool
         from l2.l2_shell import dispatch, reset_state
+        from l3.agent.scout import reset_pool
+        from l3.agent_terminal import reset_terminals
+        from l3.cell import get_cell, reset_cells
 
         reset_state()
         reset_terminals()
@@ -69,10 +69,10 @@ class TestL2ShellDispatchE2E:
 
     def test_dispatch_connect_disconnect_live(self):
         """Full /connect → /disconnect flow with real Cell + Agent."""
-        from l3.cell import get_cell, reset_cells
-        from l3.agent_terminal import reset_terminals
+        from l2.l2_shell import dispatch, get_state, reset_state
         from l3.agent.scout import reset_pool
-        from l2.l2_shell import dispatch, reset_state, get_state
+        from l3.agent_terminal import reset_terminals
+        from l3.cell import get_cell, reset_cells
 
         reset_state()
         reset_terminals()
@@ -105,10 +105,10 @@ class TestL2ShellDispatchE2E:
 
     def test_dispatch_status_after_connect(self):
         """After connecting, /status in Direct mode should show agent info."""
-        from l3.cell import get_cell, reset_cells
-        from l3.agent_terminal import reset_terminals
+        from l2.l2_shell import dispatch, get_state, reset_state
         from l3.agent.scout import reset_pool
-        from l2.l2_shell import dispatch, reset_state, get_state
+        from l3.agent_terminal import reset_terminals
+        from l3.cell import get_cell, reset_cells
 
         reset_state()
         reset_terminals()
@@ -180,10 +180,10 @@ class TestL2ShellDirectMessageE2E:
 
     def test_direct_message_send_to_live_agent(self):
         """In Direct mode, send message to a real agent."""
-        from l3.cell import get_cell, reset_cells
-        from l3.agent_terminal import reset_terminals
+        from l2.l2_shell import dispatch, get_state, reset_state
         from l3.agent.scout import reset_pool
-        from l2.l2_shell import dispatch, reset_state, get_state
+        from l3.agent_terminal import reset_terminals
+        from l3.cell import get_cell, reset_cells
 
         reset_state()
         reset_terminals()

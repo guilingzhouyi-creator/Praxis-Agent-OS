@@ -6,8 +6,8 @@ so we can exercise logic paths without booting the full system.
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -177,7 +177,7 @@ class TestCmdConnectFull:
         assert "agent_unreachable" in r["error"]
 
     def test_connect_success(self, mocker):
-        from l2.l2_shell import _cmd_connect, reset_state, get_state
+        from l2.l2_shell import _cmd_connect, get_state, reset_state
         reset_state()
         mocker.patch("l3.agent_terminal.get_terminals", return_value={"agent-y": object()})
         mock_cell = mocker.patch("l3.cell.get_cell")
@@ -459,7 +459,7 @@ class TestCmdStatusDirect:
 class TestDirectMessage:
     def test_direct_message_sends_and_guards(self, mocker):
         """Verify _direct_message sends via cell and runs output guard."""
-        from l2.l2_shell import _direct_message, ShellState
+        from l2.l2_shell import ShellState, _direct_message
 
         mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
@@ -476,7 +476,7 @@ class TestDirectMessage:
 
     def test_direct_message_cell_failure_auto_disconnects(self, mocker):
         """Cell failure triggers _auto_disconnect and returns to L3A."""
-        from l2.l2_shell import _direct_message, ShellState
+        from l2.l2_shell import ShellState, _direct_message
 
         mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {

@@ -18,8 +18,8 @@ via the integration test suite or marked with @pytest.mark.integration.
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -480,7 +480,7 @@ class TestAutoDisconnect:
 class TestDispatchDirectMode:
     def test_direct_mode_routes_to_direct_message(self):
         """When in DIRECT mode, non-/ text should route to _direct_message."""
-        from l2.l2_shell import dispatch, reset_state, get_state
+        from l2.l2_shell import dispatch, get_state, reset_state
         reset_state()
         state = get_state()
         # Manually set DIRECT mode (simulate what /connect does)

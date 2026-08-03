@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from l1.kernel.commands import get_registry, reset_registry
 
 

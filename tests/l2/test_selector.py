@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
-
 from l2.selector import (
     AgentIdentity,
-    preselect,
-    select,
-    preconnect,
-    set_llm_reviewer,
     _scan_injection,
+    preselect,
+    set_llm_reviewer,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════
 # AgentIdentity

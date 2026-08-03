@@ -31,19 +31,19 @@ class TestModuleImports:
 
     def test_shell_init_imports(self):
         """Verify l2_shell.__init__ can be imported"""
-        from l2.l2_shell import dispatch, guard_output, get_state
+        from l2.l2_shell import dispatch, get_state, guard_output
         assert callable(dispatch)
         assert callable(guard_output)
         assert callable(get_state)
 
     def test_state_module(self):
-        from l2.l2_shell.state import ShellState, get_state, reset_state
+        from l2.l2_shell.state import get_state
         s = get_state()
         assert s.mode == "L3A"
         assert s.cell_id == "cell-1"
 
     def test_output_guard_module(self):
-        from l2.l2_shell.output_guard import guard_output, set_output_guard
+        from l2.l2_shell.output_guard import guard_output
         r = guard_output("test-agent", "safe response")
         assert isinstance(r, dict)
         assert r.get("allowed", True)
