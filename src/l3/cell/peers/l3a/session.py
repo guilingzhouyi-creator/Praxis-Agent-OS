@@ -38,6 +38,7 @@ class Message:
     role: str
     content: str
     tool_calls: list[dict] = field(default_factory=list)
+    reasoning_content: str = ""
     created_at: float = field(default_factory=time.time)
     metadata: dict = field(default_factory=dict)
 
@@ -69,6 +70,8 @@ class SessionHistory:
             entry = {"role": m.role, "content": m.content}
             if m.tool_calls:
                 entry["tool_calls"] = m.tool_calls
+            if m.reasoning_content:
+                entry["reasoning_content"] = m.reasoning_content
             projected.append(entry)
         projected.reverse()
         return projected
@@ -94,6 +97,7 @@ class SessionHistory:
         items = [{
             "id": m.id, "role": m.role, "content": m.content,
             "tool_calls": m.tool_calls, "created_at": m.created_at,
+            "reasoning_content": m.reasoning_content,
         } for m in chunk]
         next_cursor = chunk[-1].id if len(chunk) == limit else None
         return Page(items=items, cursor=next_cursor, total=len(msgs))
@@ -241,10 +245,20 @@ class Session:
         self.turn_count += 1
         answer = result.get("answer", "")
         tool_calls = result.get("tool_calls", [])
+        reasoning = ""
+        try:
+            trail = getattr(self._loop, "_context_trail", None) or []
+            for m in reversed(trail):
+                if m.get("role") == "assistant":
+                    reasoning = m.get("reasoning_content", "") or ""
+                    break
+        except Exception:
+            pass
         answer_msg = Message(
             id=f"asst-{uuid.uuid4().hex[:4]}",
             role="assistant", content=answer,
             tool_calls=tool_calls,
+            reasoning_content=reasoning,
         )
         self.history.append(answer_msg)
         self._persist_state()

@@ -21,6 +21,8 @@ class L3AModelConfig:
     model: str = ""
     max_tokens: int = _p.L3A_MODEL_MAX_TOKENS
     temperature: float = _p.L3A_MODEL_TEMPERATURE
+    reasoning_effort: str = ""
+    thinking_budget: int = 0
     _source: str = "default"
 
     def resolve(self, override: dict | None = None) -> dict:
@@ -31,6 +33,10 @@ class L3AModelConfig:
             effective["model"] = self.model
         effective["max_tokens"] = self.max_tokens
         effective["temperature"] = self.temperature
+        if self.reasoning_effort:
+            effective["reasoning_effort"] = self.reasoning_effort
+        if self.thinking_budget:
+            effective["thinking_budget"] = self.thinking_budget
         if override:
             effective.update(override)
         return effective
@@ -44,9 +50,19 @@ class L3AModelConfig:
             self._source = "global" if not self.provider else self._source
         self.max_tokens = global_config.get("max_tokens", self.max_tokens)
         self.temperature = global_config.get("temperature", self.temperature)
+        if not self.reasoning_effort:
+            self.reasoning_effort = global_config.get("reasoning_effort", "")
+        if not self.thinking_budget:
+            self.thinking_budget = int(global_config.get("thinking_budget", 0))
 
     def set(self, key: str, value: Any) -> None:
-        if key in ("provider", "model", "max_tokens", "temperature"):
+        if key in ("provider", "model", "max_tokens", "temperature",
+                   "reasoning_effort", "thinking_budget"):
+            if key == "thinking_budget":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    raise ValueError(f"thinking_budget must be int, got {value!r}")
             setattr(self, key, value)
             self._source = "l3a"
 
@@ -56,5 +72,7 @@ class L3AModelConfig:
             "model": self.model,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
+            "reasoning_effort": self.reasoning_effort,
+            "thinking_budget": self.thinking_budget,
             "source": self._source,
         }
