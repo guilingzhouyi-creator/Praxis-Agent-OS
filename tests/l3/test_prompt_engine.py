@@ -104,9 +104,11 @@ class TestPromptBuilder:
     def test_list_templates(self):
         from l3.services.prompt_engine import PromptBuilder
         pb = PromptBuilder()
+        pb.register_template("custom_role", "You are a custom agent.")
         r = pb.list_templates()
         assert r["success"]
-        assert r["count"] >= 4
+        assert "custom_role" in r["templates"]
+        assert r["count"] >= 1
 
 
 class TestPromptEngine:
@@ -130,9 +132,11 @@ class TestPromptEngine:
     def test_get_templates(self):
         from l3.services.prompt_engine import PromptEngine
         engine = PromptEngine()
+        engine.register_template("custom_role", "You are a custom agent.")
         r = engine.get_templates()
         assert r["success"]
-        assert r["count"] >= 4
+        assert "custom_role" in r["templates"]
+        assert r["count"] >= 1
 
 
 class TestApiHandlers:

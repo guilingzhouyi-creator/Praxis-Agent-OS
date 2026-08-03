@@ -147,7 +147,7 @@ class TestDependencyChain:
                 action="block", priority=10, depends_on=["A"],
             ))
             # Trigger A
-            gate.evaluate(_ev(type_="l1.kernel.interrupt"))
+            gate.evaluate(_ev(type_="kernel.interrupt"))
             assert "A" in gate._triggered
             # Now B's dependency is met
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "block"
@@ -164,7 +164,7 @@ class TestDependencyChain:
                 id="B", pattern={"type": "network.*"},
                 action="block", priority=10, depends_on=["A"],
             ))
-            gate.evaluate(_ev(type_="l1.kernel.interrupt"))
+            gate.evaluate(_ev(type_="kernel.interrupt"))
             time.sleep(0.05)  # exceed hold_timeout
             # A's triggered record is stale → B dep not met → allow
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "allow"

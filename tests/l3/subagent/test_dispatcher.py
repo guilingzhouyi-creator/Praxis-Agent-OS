@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from l3.agent.subagent_dispatcher import SubAgentDispatcher
-from l3.agent.subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
+from l3.agent.subagent_spec import BUILTIN_SUBAGENTS, SubAgentSpec
 
 
 def test_dispatcher_creation():

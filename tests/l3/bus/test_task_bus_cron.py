@@ -302,7 +302,7 @@ class TestL2ShellCron:
         reset_state()
         r = dispatch("/cron")
         assert r.get("success")
-        assert "schedules" in r
+        assert "cron" in r
 
     def test_cron_add_missing_args(self):
         from l2.l2_shell import dispatch, reset_state
@@ -316,7 +316,7 @@ class TestCardRegistryTaskBusIntegration:
         """CardRegistry.complete() should call TaskBus.dispatch()."""
         from l3.card.card_registry import CardRegistry
         # Mock the function that card_registry imports internally
-        mock_dispatch = mocker.patch("services.task_bus.TaskBus.dispatch")
+        mock_dispatch = mocker.patch("l3.bus.task_bus.get_task_bus")
         reg = CardRegistry(persist_path="")
         cid = reg.submit("test integration intent", domain="test")
         reg.complete(cid, {"ok": True})

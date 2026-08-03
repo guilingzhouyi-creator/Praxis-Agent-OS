@@ -51,7 +51,7 @@ class TestBootExecWithTimeout:
 
     def _get_fn(self):
         """Lazy import to avoid boot side-effects at module level."""
-        from l3.boot.boot_registry import exec_step_with_timeout, _get_executor
+        from l3.boot.boot_registry import _get_executor, exec_step_with_timeout
         return exec_step_with_timeout, _get_executor
 
     def test_exec_normal(self):
