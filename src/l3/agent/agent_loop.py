@@ -840,6 +840,7 @@ class AgentLoop:
             "steps": [{"step": i, "action": tc.get("name", "?"), "result": str(tc)[:LOG_TRUNC_200]}
                       for i, tc in enumerate(processed_results)],
             "reasoning_trail": result.get("reasoning_trail", []) or [],
+            "reasoning_tokens": result.get("reasoning_tokens", 0) or 0,
             "verifier_used": verifier_used,
             "corrections": corrections,
             "loop_stopped": any(s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)),

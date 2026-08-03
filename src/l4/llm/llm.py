@@ -275,6 +275,7 @@ class LLMEngine:
         tool_map = {t.name: t for t in tools}
         all_calls = []
         reasoning_trail: list[str] = []
+        reasoning_tokens_total = 0
         import concurrent.futures as _cf
 
         for turn in range(max_turns):
@@ -321,11 +322,13 @@ class LLMEngine:
                 reasoning = response.get("reasoning_content", "") or ""
                 if reasoning:
                     reasoning_trail.append(reasoning)
+                reasoning_tokens_total += response.get("reasoning_tokens", 0) or 0
 
                 if not tool_calls:
                     # LLM finished — no more tool calls
                     return {"content": content, "tool_calls": all_calls, "turns": turn + 1,
                             "reasoning_trail": reasoning_trail,
+                            "reasoning_tokens": reasoning_tokens_total,
                             "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
                 # Execute tool calls in parallel with per-handler timeout
@@ -375,11 +378,14 @@ class LLMEngine:
 
             except Exception as e:
                 return {"content": "", "tool_calls": all_calls, "turns": turn + 1,
-                        "reasoning_trail": reasoning_trail, "error": str(e),
+                        "reasoning_trail": reasoning_trail,
+                        "reasoning_tokens": reasoning_tokens_total,
+                        "error": str(e),
                         "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
         return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns,
                 "reasoning_trail": reasoning_trail,
+                "reasoning_tokens": reasoning_tokens_total,
                 "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
     def _call_api(self, body: bytes, retry_count: int = 0) -> dict:
@@ -470,21 +476,26 @@ class LLMEngine:
         cache_miss = usage.get("prompt_cache_miss_tokens",
                        usage.get("cache_miss",
                        usage.get("prompt_tokens", 0) - (usage.get("prompt_cache_hit_tokens", 0) if "prompt_tokens" in usage else 0)))
+        reasoning_tokens = ((usage.get("output_tokens_details", {}) or {})
+                            .get("reasoning_tokens", 0))
 
         if provider_name in ("ollama",):
             msg = data.get("message", {})
             return {"content": msg.get("content", ""), "tool_calls": msg.get("tool_calls", []),
                     "reasoning_content": msg.get("reasoning_content", ""),
+                    "reasoning_tokens": reasoning_tokens,
                     "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
         if provider_name in ("openai",):
             choice = data["choices"][0]["message"]
             return {"content": choice.get("content", ""), "tool_calls": choice.get("tool_calls", []),
                     "reasoning_content": choice.get("reasoning_content", ""),
+                    "reasoning_tokens": reasoning_tokens,
                     "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
         return {"content": "", "tool_calls": [],
                 "reasoning_content": reasoning_content,
+                "reasoning_tokens": reasoning_tokens,
                 "cache_hit_tokens": cache_hit, "cache_miss_tokens": cache_miss}
 
 

@@ -264,6 +264,17 @@ class Session:
         self._persist_state()
         self._ingest_tool_results(result, admitted.text)
         self._ingest_reasoning(result, admitted.text)
+        rtok = int(result.get("reasoning_tokens", 0) or 0)
+        if rtok > 0:
+            try:
+                from l3.services.stats_center import get_center, MetricPoint as _Mp
+                ts = time.time()
+                get_center().ingest(_Mp(
+                    name="l3a.tokens.reasoning", value=float(rtok),
+                    tags={"session": self.id, "agent": _p.AGENT_ID},
+                    timestamp=ts, metric_type="counter"))
+            except Exception:
+                logger.debug("l3a session: reasoning token stats failed")
         result["session_id"] = self.id
         result["turn"] = self.turn_count
 
@@ -1080,7 +1091,9 @@ class Session:
         )[:LOG_TRUNC_2000]
         if not folded:
             return
-        content = (f"[session:{self.id} turn:{self.turn_count}] user: {user_text[:LOG_TRUNC_100]}\n"
+        rtok = int(result.get("reasoning_tokens", 0) or 0)
+        content = (f"[session:{self.id} turn:{self.turn_count}] "
+                   f"reasoning_tokens:{rtok} user: {user_text[:LOG_TRUNC_100]}\n"
                    f"reasoning:\n{folded}")
         try:
             mem.remember(
