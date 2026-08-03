@@ -345,9 +345,20 @@ class AgentLoop:
                 turns=turns + corrections,
                 steps=processed_count,
                 elapsed=elapsed,
+                side=result.get("side_execution"),
             )
         except Exception as e:
             logger.warning("services/agent_loop: %s", e)
+        try:
+            from l3.services.stats_center import get_center as _sc3, MetricPoint as _Mp3
+            for _k, _v in (result.get("side_execution") or {}).items():
+                if _v:
+                    _sc3().ingest(_Mp3(
+                        name=f"agent.loop.side.{_k}", value=float(_v),
+                        tags={"agent": self.agent_id},
+                        timestamp=time.time(), metric_type="gauge"))
+        except Exception:
+            logger.debug("agent_loop: side timing stats failed")
         self._todo._persist()
         self._cadence.reset()
 
@@ -450,6 +461,12 @@ class AgentLoop:
             max_steps = _UNLIMITED
         self._max_steps = max_steps
         t0 = time.time()
+        side_times: dict[str, float] = {
+            "compression": 0.0,      # pre-send context guard (stub_compact/compact)
+            "parallel_read": 0.0,    # read-only tools parallel re-execution
+            "continuation": 0.0,     # nudges / verifier fixes / steps-exhausted
+            "llm_tools": 0.0,        # tool handler wall time inside LLM engine
+        }
         self._loop_detector.reset()
         self._repeat_detector.reset()
         self._cadence.reset()
@@ -483,11 +500,13 @@ class AgentLoop:
         deadline = time.time() + timeout if timeout > 0 else float("inf")
 
         # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──
+        _t_guard = time.time()
         ctx_window = 0
         mem = None
         try:
-            ctx_window = engine.context_window(cell_id=self._cell_id, agent_id=self.agent_id)
-        except (AttributeError, NotImplementedError):
+            cw = engine.context_window(cell_id=self._cell_id, agent_id=self.agent_id)
+            ctx_window = cw.get("context_window", 0) if isinstance(cw, dict) else int(cw or 0)
+        except (AttributeError, NotImplementedError, TypeError, ValueError):
             logger.debug("agent_loop: context window failed")
         entity = self.agent_id
 
@@ -596,6 +615,7 @@ class AgentLoop:
                     self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
             except Exception as e:
                 logger.warning("agent_loop stub_compact fallback failed: %s", e)
+        side_times["compression"] = round(time.time() - _t_guard, 3)
         self._run_count += 1
 
         # ── Main LLM tool_use call ──
@@ -606,6 +626,7 @@ class AgentLoop:
                 max_turns=max_steps, user_id=self._user_id,
                 context_trail=self._context_trail, **model_kwargs,
             )
+        side_times["llm_tools"] = float(result.get("tools_elapsed", 0) or 0)
         if not result:
             return self._finish({
                 "success": False, "answer": "", "steps": [],
@@ -705,6 +726,7 @@ class AgentLoop:
                 v = verifier.check(step_result, self.task)
                 if not v.get("pass") and v.get("retry_allowed"):
                     corrections += 1
+                    _t_fix = time.time()
                     try:
                         fix = engine.generate(prompt=verifier.correction_prompt(self.task, [v.get("reason", "")]),
                                               system=system, user_id=self._user_id, **model_kwargs)
@@ -728,6 +750,8 @@ class AgentLoop:
                                 logger.debug("agent_loop: correction memory failed")
                     except Exception as e:
                         logger.warning("agent_loop verifier correction failed: %s", e)
+                    finally:
+                        side_times["continuation"] += time.time() - _t_fix
 
             processed_results.append(step_result)
 
@@ -738,15 +762,19 @@ class AgentLoop:
             continuation_nudge = self._cadence.nudge()
 
         if continuation_nudge:
+            _t_nudge = time.time()
             try:
                 cont = engine.generate(prompt=continuation_nudge, system=system,
                                        user_id=self._user_id, **model_kwargs)
                 result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
             except Exception as e:
                 logger.warning("agent_loop continuation nudge failed: %s", e)
+            finally:
+                side_times["continuation"] += time.time() - _t_nudge
 
         # ── Parallel read-only tool execution ──
         if read_only_tools and processed_results:
+            _t_pr = time.time()
             try:
                 fs = {}
                 for rt in read_only_tools:
@@ -757,6 +785,8 @@ class AgentLoop:
                     f.result(timeout=AGENT_LOOP_FUTURE_TIMEOUT)
             except Exception as e:
                 logger.warning("parallel execution failed: %s", e)
+            finally:
+                side_times["parallel_read"] += time.time() - _t_pr
 
         # ── Consistency check ──
         if verifier is not None and len(processed_results) >= 2:
@@ -784,6 +814,7 @@ class AgentLoop:
                     }, t0=t0, turns=turns, corrections=corrections, processed_count=len(processed_results))
                 _max_attempts = _sc.get_int("loop.max_attempts", 3)
                 for _attempt in range(_max_attempts):
+                    _t_se = time.time()
                     # 1. Compress context
                     try:
                         from .session_snapshot import should_compress as _sc2
@@ -813,6 +844,7 @@ class AgentLoop:
                                          user_id=self._user_id,
                                          context_trail=self._context_trail,
                                          **model_kwargs)
+                    side_times["continuation"] += time.time() - _t_se
                     if not nr:
                         break
                     self._context_trail = nr.get("context_trail")
@@ -841,6 +873,7 @@ class AgentLoop:
                       for i, tc in enumerate(processed_results)],
             "reasoning_trail": result.get("reasoning_trail", []) or [],
             "reasoning_tokens": result.get("reasoning_tokens", 0) or 0,
+            "side_execution": {k: round(v, 3) for k, v in side_times.items()},
             "verifier_used": verifier_used,
             "corrections": corrections,
             "loop_stopped": any(s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)),

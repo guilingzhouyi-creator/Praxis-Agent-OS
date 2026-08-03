@@ -62,11 +62,12 @@ class CellCounter:
 
     def record_loop(self, agent_id: str, turns: int,
                     steps: int, elapsed: float = 0.0,
-                    loop_id: str = "", trace: list[dict] | None = None) -> None:
+                    loop_id: str = "", trace: list[dict] | None = None,
+                    side: dict | None = None) -> None:
         """Record an AgentLoop execution with optional trace details."""
         entry = {"ts": time.time(), "turns": turns, "loop_id": loop_id or "",
                  "steps": steps, "elapsed": round(elapsed, 3),
-                 "trace": trace or []}
+                 "trace": trace or [], "side": side or {}}
         with self._lock:
             self._loops[agent_id].append(entry)
             self._all_loops.append(entry)
@@ -170,6 +171,10 @@ class CellCounter:
             total_turns = sum(e["turns"] for e in entries)
             total_steps = sum(e["steps"] for e in entries)
             total_elapsed = sum(e["elapsed"] for e in entries)
+            side_total: dict[str, float] = {}
+            for e in entries:
+                for k, v in (e.get("side") or {}).items():
+                    side_total[k] = side_total.get(k, 0.0) + float(v)
             result[aid] = {
                 "total": len(entries),
                 "total_turns": total_turns,
@@ -178,6 +183,7 @@ class CellCounter:
                 "avg_turns_per_loop": round(total_turns / max(len(entries), 1), 1),
                 "avg_steps_per_turn": round(total_steps / max(total_turns, 1), 1),
                 "avg_elapsed_per_loop": round(total_elapsed / max(len(entries), 1), 2),
+                "side": {k: round(v, 3) for k, v in side_total.items()},
             }
         return result if not agent_id else result.get(aid, {"total": 0})
 

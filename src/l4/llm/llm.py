@@ -228,11 +228,13 @@ class LLMEngine:
         return self.config.provider
 
     @staticmethod
-    def _execute_one_tool(tool_def, fn_args, call_id, fn_name):
+    def _execute_one_tool(tool_def, fn_args, call_id, fn_name, t_start: float = 0.0):
         if tool_def and tool_def.handler:
             result = tool_def.handler(fn_args, "")
-            return {"name": fn_name, "arguments": fn_args, "result": result, "call_id": call_id}
-        return {"name": fn_name, "arguments": fn_args, "error": "no handler", "call_id": call_id}
+            return {"name": fn_name, "arguments": fn_args, "result": result, "call_id": call_id,
+                    "elapsed": round(time.time() - t_start, 3) if t_start else 0.0}
+        return {"name": fn_name, "arguments": fn_args, "error": "no handler", "call_id": call_id,
+                "elapsed": round(time.time() - t_start, 3) if t_start else 0.0}
 
     def tool_use(self, prompt: str, tools: list[ToolSpec], system: str = "",
                  max_turns: int = 5, user_id: str = "",
@@ -276,6 +278,7 @@ class LLMEngine:
         all_calls = []
         reasoning_trail: list[str] = []
         reasoning_tokens_total = 0
+        tools_elapsed_total = 0.0
         import concurrent.futures as _cf
 
         for turn in range(max_turns):
@@ -329,6 +332,7 @@ class LLMEngine:
                     return {"content": content, "tool_calls": all_calls, "turns": turn + 1,
                             "reasoning_trail": reasoning_trail,
                             "reasoning_tokens": reasoning_tokens_total,
+                            "tools_elapsed": round(tools_elapsed_total, 3),
                             "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
                 # Execute tool calls in parallel with per-handler timeout
@@ -347,7 +351,10 @@ class LLMEngine:
                         fn_args = _json.loads(tc.get("function", {}).get("arguments", "{}"))
                         call_id = tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT])
                         tool_def = tool_map.get(fn_name)
-                        futures[pool.submit(LLMEngine._execute_one_tool, tool_def, fn_args, call_id, fn_name)] = tc
+                        t_tool = time.time()
+                        futures[pool.submit(
+                            LLMEngine._execute_one_tool, tool_def, fn_args,
+                            call_id, fn_name, t_tool)] = tc
 
                     for future in _cf.as_completed(futures, timeout=_LLM_TOOL_TIMEOUT * 2):
                         tc = futures[future]
@@ -358,14 +365,17 @@ class LLMEngine:
                                 "name": tc.get("function", {}).get("name", ""),
                                 "arguments": {}, "error": "timeout",
                                 "call_id": tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT]),
+                                "elapsed": _LLM_TOOL_TIMEOUT,
                             }
                         except Exception as e:
                             call_record = {
                                 "name": tc.get("function", {}).get("name", ""),
                                 "arguments": {}, "error": str(e),
                                 "call_id": tc.get("id", uuid.uuid4().hex[:HASH_TRUNC_SHORT]),
+                                "elapsed": 0.0,
                             }
                         all_calls.append(call_record)
+                        tools_elapsed_total += float(call_record.get("elapsed", 0) or 0)
                         result_str = _json.dumps(
                             call_record.get("result", call_record.get("error", "")),
                             ensure_ascii=False,
@@ -380,12 +390,14 @@ class LLMEngine:
                 return {"content": "", "tool_calls": all_calls, "turns": turn + 1,
                         "reasoning_trail": reasoning_trail,
                         "reasoning_tokens": reasoning_tokens_total,
+                        "tools_elapsed": round(tools_elapsed_total, 3),
                         "error": str(e),
                         "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
         return {"content": "Max turns reached", "tool_calls": all_calls, "turns": max_turns,
                 "reasoning_trail": reasoning_trail,
                 "reasoning_tokens": reasoning_tokens_total,
+                "tools_elapsed": round(tools_elapsed_total, 3),
                 "context_trail": messages[-CONTEXT_TRAIL_TRUNC:]}
 
     def _call_api(self, body: bytes, retry_count: int = 0) -> dict:
