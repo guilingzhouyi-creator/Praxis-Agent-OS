@@ -170,6 +170,14 @@ class ToolRegistry:
     def is_muted(self, tool_name: str, category: str = "", plugin: str = "", ring: str = "") -> bool:
         if tool_name in self._muted:
             return True
+        # Resolve category/ring from the registered spec when not passed —
+        # mute_category / mute_ring must affect tools registered under them.
+        if not (category and plugin and ring):
+            spec = self._registry.get(tool_name)
+            if spec:
+                category = category or getattr(spec, "category", "")
+                ring = ring or getattr(spec, "ring", "")
+                plugin = plugin or getattr(spec, "plugin", "")
         if category and category in self._muted_categories:
             return True
         if plugin and plugin in self._muted_plugins:
@@ -229,6 +237,13 @@ def unregister_plugin(name: str) -> None:
 def register_middleware(hook_type: str, name: str,
                         fn: Callable[[str, dict, str], dict | None]) -> None:
     get_registry().register_middleware(hook_type, name, fn)
+    # Keep the tool_spec module-level hook list in sync — execute_tool_spec
+    # iterates that list at runtime.
+    try:
+        from l3.tool_system import tool_spec as _ts
+        _ts._MIDDLEWARE.append({"type": hook_type, "name": name, "fn": fn})
+    except (ImportError, AttributeError):
+        pass
 
 def get_tool(tool_name: str) -> ToolSpec | None:
     return get_registry().get(tool_name)
