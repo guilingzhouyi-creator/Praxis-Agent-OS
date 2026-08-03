@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l1.kernel.params.system import CELL_BUFFER_DEFAULT_MAXLEN
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,7 +15,7 @@ class CircularBuffer:
     Used by Cell for rollback context, card history, and file snapshots.
     """
 
-    def __init__(self, maxlen: int = 50, on_evict: Any = None):
+    def __init__(self, maxlen: int = CELL_BUFFER_DEFAULT_MAXLEN, on_evict: Any = None):
         """Initialize the ring buffer with a maximum size and optional evict callback."""
         self._data: list = []
         self._maxlen = maxlen

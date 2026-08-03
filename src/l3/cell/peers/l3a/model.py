@@ -12,13 +12,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import params as _p
+
 
 @dataclass
 class L3AModelConfig:
     provider: str = ""
     model: str = ""
-    max_tokens: int = 4096
-    temperature: float = 0.7
+    max_tokens: int = _p.L3A_MODEL_MAX_TOKENS
+    temperature: float = _p.L3A_MODEL_TEMPERATURE
     _source: str = "default"
 
     def resolve(self, override: dict | None = None) -> dict:

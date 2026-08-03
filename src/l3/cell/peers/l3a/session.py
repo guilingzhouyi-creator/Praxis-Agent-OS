@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 import uuid
@@ -10,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import params as _p
+from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
 from .inbox import PromptInbox, Admission
@@ -57,7 +59,7 @@ class SessionHistory:
         tokens = 0
         projected = []
         for m in reversed(msgs):
-            est = len(m.content) // 4 + 10
+            est = len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
             if tokens + est > max_tokens and projected:
                 break
             tokens += est
@@ -98,10 +100,8 @@ class SessionHistory:
             self._messages.clear()
 
 
-_CHARS_PER_TOKEN = 4
-
 def _est_tokens(text: str) -> int:
-    return len(text) // _CHARS_PER_TOKEN
+    return len(text) // TOKEN_CHARS_PER_TOKEN
 
 
 class Session:
@@ -319,6 +319,10 @@ class Session:
                 logger.debug("l3a session: unsubscribe failed on close")
             self._subscribed_cards.clear()
         # I/O outside lock
+        try:
+            todo_state = self.todos() if self._loop else {}
+        except Exception:
+            todo_state = {}
         metadata = {
             "session_id": sid, "title": title,
             "created_at": self.created_at,
@@ -328,6 +332,7 @@ class Session:
             "model_spec": "l3a",
             "tags": ["l3a", "session"],
             "tasks": self.tasks.to_dict(),
+            "todos": todo_state.get("tasks", []),
         }
         _archive.store_session(sid, metadata, ctx)
         logger.info("l3a session: closed %s — %s (%d turns)",
@@ -342,6 +347,30 @@ class Session:
     def messages(self, cursor: str | None = None,
                  limit: int = 20) -> Page:
         return self.history.messages_page(cursor=cursor, limit=limit)
+
+    # ── Session TODO table (LLM task list via todowrite tool) ──
+
+    def todos(self) -> dict:
+        """Query the session's TodoTracker state (LLM task list)."""
+        if not self._loop:
+            return {"status": "open", "total_tasks": 0, "by_status": {},
+                    "tasks": [], "note": "loop not created yet"}
+        t = self._loop._todo
+        stats = t.stats()
+        tasks = []
+        if hasattr(t, "_items"):
+            tasks = [dict(item) for item in t._items]
+        stats["tasks"] = tasks
+        return stats
+
+    def todos_update(self, content: str, status: str) -> dict:
+        """Update a session TODO item (delegate to todowrite handler)."""
+        if not self._loop:
+            return {"success": False, "error": "loop not created yet"}
+        r = self._loop._todo.update(content, status)
+        if r.startswith("error"):
+            return {"success": False, "error": r}
+        return {"success": True, "status": r, "content": content}
 
     def info(self) -> dict:
         with self._lock:
@@ -482,6 +511,12 @@ class Session:
         from .helpers import build_l3a_prompt
 
         self._base_system = build_l3a_prompt()
+        try:
+            from l1.kernel.paths import get_paths as _gp
+            todo_path = os.path.join(_gp().data_dir,
+                                     f"l3a_todos_{self.id}.json")
+        except Exception:
+            todo_path = f".praxis/l3a_todos_{self.id}.json"
         self._loop = AgentLoop(
             task="",
             agent_id=_p.AGENT_ID,
@@ -489,6 +524,7 @@ class Session:
             system=self._base_system,
             prompt_key="l3a.parse_system",
             cell_id=self._cell_id,
+            todo_path=todo_path,
         )
         from .helpers import cardwrite_handler
 

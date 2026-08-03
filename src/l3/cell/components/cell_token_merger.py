@@ -10,13 +10,15 @@ import logging
 import threading
 import time
 
+from l1.kernel.params.system import TOKEN_MERGER_INTERVAL
+
 logger = logging.getLogger(__name__)
 
 
 class CellTokenMerger:
     """Cell-level token accumulator.  Polls ContextPool and emits TOKEN_USAGE."""
 
-    def __init__(self, cell_id: str, interval: float = 60.0):
+    def __init__(self, cell_id: str, interval: float = TOKEN_MERGER_INTERVAL):
         """Initialize the merger for a given Cell with a polling interval in seconds."""
         self.cell_id = cell_id
         self._interval = interval

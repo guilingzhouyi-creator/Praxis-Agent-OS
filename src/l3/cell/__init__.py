@@ -26,6 +26,7 @@ from l1.kernel.params.agent import (
     CELL_HISTORY_RING_SIZE,
     CELL_L3_SENDER,
     AGENT_LOOP_DEFAULT_TIMEOUT,
+    CARD_WAIT_TIMEOUT,
 )
 from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
 from ..agent.scout import get_pool as get_scout_pool
@@ -45,7 +46,11 @@ from ..cell.components.cell_rollback import rollback_card as _rollback_card
 from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
 from ..services.cell_orchestrate import SubAgentOrchestrator
 from ..card.issue import IssueCard as _IssueCard
-from l1.kernel.params.system import LOG_TRUNC_5000, LOG_TRUNC_80, SCOUT_CACHE_TTL
+from l1.kernel.params.system import (
+    LOG_TRUNC_5000, LOG_TRUNC_80, SCOUT_CACHE_TTL,
+    CROSS_REVIEW_TIMEOUT, SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT,
+    IRQ_DISPATCH_BATCH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +383,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
 
     def _auto_cross_review(self, completed_agent: str, action: str,
                            target: str, card_id: str,
-                           timeout: float = 60.0) -> dict:
+                           timeout: float = CROSS_REVIEW_TIMEOUT) -> dict:
         """After a write/delete/rename, BLOCKING wait for peer agent review.
         Delegates to cell_cross_review.py.
         """
@@ -436,7 +441,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                 result[aid] = tools
         return result
 
-    def wait_for_card(self, card_id: str, timeout: float = 30.0) -> dict | None:
+    def wait_for_card(self, card_id: str, timeout: float = CARD_WAIT_TIMEOUT) -> dict | None:
         """Block until a card is dispatched."""
         for term in get_terminals().values():
             result = term.wait_for_result(card_id, timeout)
@@ -658,7 +663,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         except Exception as e:
             logger.warning("sandbox cleanup for %s failed: %s", agent_id, e)
 
-    def dispatch_pending_interrupts(self, max_per: int = 5) -> int:
+    def dispatch_pending_interrupts(self, max_per: int = IRQ_DISPATCH_BATCH) -> int:
         """Dispatch pending queued interrupts. Called periodically."""
         return self._interrupt.dispatch_pending(max_total=max_per)
 
@@ -666,7 +671,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                               parent_agent_id: str = "",
                               verify_prompt: str = "",
                                fork_timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
-                              verify_timeout: float = 60.0) -> dict:
+                              verify_timeout: float = SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT) -> dict:
         """Full fork-join orchestration: SubAgents + Scout verify + gap analysis.
 
         sub_tasks: [{"spec": "architect", "prompt": "review src/"},

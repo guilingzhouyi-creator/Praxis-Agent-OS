@@ -28,6 +28,9 @@ from typing import Any
 
 from l1.kernel.params.system import CELL_CACHE_HOT_SIZE, CELL_CACHE_INDEX_SIZE, CELL_CACHE_KV_SIZE, LOG_TRUNC_200
 from l1.kernel.params.system import CELL_CACHE_HOT_TTL, CELL_CACHE_INDEX_TTL, CELL_CACHE_KV_TTL
+from l1.kernel.params.system import (
+    CELL_CACHE_SEARCH_LIMIT, CELL_CACHE_CONTEXT_MAX_TOKENS, TOKEN_CHARS_PER_TOKEN,
+)
 from l1.kernel.params.system import MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_DECISION, MEMORY_IMPORTANCE_MODERATE, MEMORY_MIN_CONTENT_LEN
 from l3.cell.components.cell_types import CellCacheEntry, IndexEntry
 
@@ -117,7 +120,7 @@ class CellCache:
         kv = CellCacheEntry(
             key=key, value=value, summary=summary,
             agent_id=agent_id, entry_type=entry_type,
-            cell_id=self.cell_id, tokens=max(1, len(str(value)) // 4),
+            cell_id=self.cell_id, tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
             importance=importance, ttl=kv_ttl, timestamp=now,
         )
 
@@ -174,7 +177,7 @@ class CellCache:
             self._pmu.increment("cache.misses")
         return None
 
-    def search(self, query: str, limit: int = 10) -> list[IndexEntry]:
+    def search(self, query: str, limit: int = CELL_CACHE_SEARCH_LIMIT) -> list[IndexEntry]:
         """Search the Index Chain by keyword in summaries.
 
         Low-token-cost pre-check — read the summary before deciding
@@ -211,7 +214,7 @@ class CellCache:
         entry = CellCacheEntry(
             key=key, value=value, summary=summary[:LOG_TRUNC_200],
             agent_id="system", entry_type="promoted",
-            cell_id=self.cell_id, tokens=max(1, len(str(value)) // 4),
+            cell_id=self.cell_id, tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
             importance=importance, ttl=self._kv_ttl,
         )
         if key not in self._kv:
@@ -272,7 +275,7 @@ class CellCache:
             logger.info("CellCache %s: %s", self.cell_id, log_msg)
         return count
 
-    def get_cell_context(self, max_tokens: int = 2048) -> str:
+    def get_cell_context(self, max_tokens: int = CELL_CACHE_CONTEXT_MAX_TOKENS) -> str:
         """Build a Cell-level LLM context string from Hot Ring + Index.
 
         Returns top-k entries sorted by importance, trimmed to max_tokens.
@@ -299,7 +302,7 @@ class CellCache:
         tokens = 0
         for e in candidates:
             line = f"[{e.entry_type}] {e.summary} (key={e.key}, location={e.location})"
-            estimate = max(1, len(line) // 4)
+            estimate = max(1, len(line) // TOKEN_CHARS_PER_TOKEN)
             if tokens + estimate > max_tokens:
                 break
             lines.append(line)

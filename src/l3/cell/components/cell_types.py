@@ -61,8 +61,8 @@ class MessageType(Enum):
     CONVENE_CLOSE = auto()    # Close assembly (Convention → All)
 
 
-from l1.kernel.params.agent import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX
-from l1.kernel.params.system import HASH_TRUNC_MEDIUM
+from l1.kernel.params.agent import AGENT_ID_PREFIXES, SCOUT_PREFIX, SUB_PREFIX, DEFAULT_MAX_CONCURRENT_SCOUTS
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM, MEMORY_IMPORTANCE_BASE, CELL_CACHE_HOT_TTL, CELL_CACHE_INDEX_TTL
 
 
 def is_peer(agent_id: str) -> bool:
@@ -85,7 +85,7 @@ class AgentInfo:
     role: str = ""
     ring: int = 1
     territory: list[str] = field(default_factory=list)
-    max_concurrent_scouts: int = 3
+    max_concurrent_scouts: int = DEFAULT_MAX_CONCURRENT_SCOUTS
     active_scouts: int = 0
     status: AgentStatus = AgentStatus.IDLE
     messages: list[dict] = field(default_factory=list)
@@ -131,8 +131,8 @@ class CellCacheEntry:
     entry_type: str                  # "decision" | "observation" | "scout_result" | ...
     cell_id: str
     tokens: int = 0
-    importance: float = 0.5
-    ttl: float = 300.0               # default 5 min
+    importance: float = MEMORY_IMPORTANCE_BASE
+    ttl: float = CELL_CACHE_HOT_TTL               # default 5 min
     timestamp: float = field(default_factory=time.time)
 
     def expired(self, now: float | None = None) -> bool:
@@ -153,10 +153,10 @@ class IndexEntry:
     summary: str                     # ≤200 chars
     agent_id: str
     entry_type: str
-    importance: float = 0.5
+    importance: float = MEMORY_IMPORTANCE_BASE
     timestamp: float = field(default_factory=time.time)
     location: str = "hot"            # "hot" | "kv" | "l3" | "r4"
-    ttl: float = 900.0               # index survives longer (15 min)
+    ttl: float = CELL_CACHE_INDEX_TTL               # index survives longer (15 min)
 
     def expired(self, now: float | None = None) -> bool:
         """Return True if the index entry's TTL has elapsed."""

@@ -42,6 +42,14 @@ SA_SPAWN_TID_LEN: int = 8
 SA_DEFAULT_MAX_TOKENS: int = 2048
 SA_DEFAULT_TEMPERATURE: float = 0.3
 
+# ── L3A session model defaults (compile-time fallback in L3AModelConfig) ──
+L3A_MODEL_MAX_TOKENS: int = 4096
+L3A_MODEL_TEMPERATURE: float = 0.7
+
+# ── ManagedToolOutput spill truncation ratios ──
+OUTPUT_SPILL_HEAD_DIVISOR: int = 2        # keep text[:max_bytes // 2]
+OUTPUT_SPILL_TAIL_DIVISOR: int = 4        # keep text[-(max_bytes // 4):]
+
 # ── Daemon ──
 DAEMON_STOP_TIMEOUT: float = 5.0
 DAEMON_TICK_INTERVAL: float = 60.0

@@ -13,7 +13,10 @@ import uuid
 from l1.kernel.params.agent import CELL_SNAPSHOT_MAX
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
-from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_60, LOG_TRUNC_80
+from l1.kernel.params.system import (
+    HASH_TRUNC_SHORT, LOG_TRUNC_60, LOG_TRUNC_80,
+    CELL_RING_NORMALIZE, SNAPSHOT_CACHE_KEY_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +52,7 @@ def execute_card(
         from l3.scheduler.scheduler import get_scheduler as get_sched
         sched = get_sched()
         for aid, info in cell._agents.items():
-            sched.router.register(aid, cell.territory, info.ring / 3.0)
+            sched.router.register(aid, cell.territory, info.ring / CELL_RING_NORMALIZE)
     except Exception as e:
         logger.warning("scheduler register failed: %s", e)
 
@@ -205,7 +208,7 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
     # Snapshot CellCache keys currently visible to agents
     try:
         cache_keys = (
-            cell._cache.keys(limit=100)
+            cell._cache.keys(limit=SNAPSHOT_CACHE_KEY_LIMIT)
             if cell._cache else []
         )
     except Exception:

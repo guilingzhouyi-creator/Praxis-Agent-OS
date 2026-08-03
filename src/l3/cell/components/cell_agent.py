@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS
+from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS, DEFAULT_AGENT_RING, DEFAULT_MAX_CONCURRENT_SCOUTS
 from .cell_types import AgentStatus, AgentInfo
 
 logger = logging.getLogger(__name__)
@@ -30,9 +30,9 @@ def add_agent(self, agent_id: str, role: str = "",
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
         self._agents[agent_id] = AgentInfo(
             role=role,
-            ring=ring or (defaults.ring if defaults else 1),
+            ring=ring or (defaults.ring if defaults else DEFAULT_AGENT_RING),
             territory=territory or [],
-            max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else 3),
+            max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else DEFAULT_MAX_CONCURRENT_SCOUTS),
         )
         self._mailbox[agent_id] = []
         logger.info("Cell %s: added %s (role=%s, ring=%d, scouts=%d)",

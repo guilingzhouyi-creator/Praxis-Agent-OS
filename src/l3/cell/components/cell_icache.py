@@ -31,6 +31,7 @@ from typing import Any
 
 from l1.kernel.params.system import (
     ICACHE_MAX_ENTRIES, ICACHE_TTL, ICACHE_LFU_DECAY, ICACHE_DECAY_INTERVAL,
+    ICACHE_SEARCH_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ class ICache:
             return entry
 
     def search(self, entry_type: str = "", tag: str = "",
-               limit: int = 20) -> list[ICacheEntry]:
+               limit: int = ICACHE_SEARCH_LIMIT) -> list[ICacheEntry]:
         """Search entries by type or tag."""
         now = time.time()
         with self._lock:

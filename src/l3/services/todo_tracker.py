@@ -30,7 +30,12 @@ class TodoTracker:
       waived      - human explicitly waived verification
     """
 
-    TASK_STATUSES = frozenset({"pending", "in_progress", "verifying", "verified", "escalated", "waived"})
+    TASK_STATUSES = frozenset({
+        "pending", "in_progress", "verifying", "verified", "escalated", "waived",
+        "add", "completed",
+    })
+
+    _STATUS_ALIASES = {"add": "pending", "completed": "verified"}
 
     def __init__(self, state_path: str = ""):
         self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE") or os.path.join(_gp().data_dir, "todo_state.json")
@@ -94,6 +99,7 @@ class TodoTracker:
     def update(self, content: str, status: str) -> str:
         if status not in self.TASK_STATUSES:
             return f"error: invalid status '{status}'"
+        status = self._STATUS_ALIASES.get(status, status)
         task = self._find(content)
         if task is None:
             if status != "pending" and status != "add":

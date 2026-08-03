@@ -455,6 +455,34 @@ PMU_COUNTER_GROUPS: Final[list[str]] = [
     "cards", "tools", "cache", "scouts", "bus", "token", "memory",
     "agent", "watchdog", "icache", "tlb", "interrupt",
 ]
+PMU_QUERY_LIMIT: Final[int] = 100            # query_history() default limit
+PMU_RATE_WINDOW: Final[float] = 60.0         # delta()/rate() default window (seconds)
+PMU_RATE_MIN_SECONDS: Final[float] = 0.1     # rate() denominator floor
+
+
+# ── Cell Watchdog defaults ──
+CELL_WATCHDOG_POLL_INTERVAL: Final[float] = 5.0
+CELL_WATCHDOG_DEFAULT_TIMEOUT: Final[float] = 30.0
+CELL_WATCHDOG_UNRESPONSIVE_ESCALATION: Final[int] = 3
+CELL_WATCHDOG_STOP_JOIN_TIMEOUT: Final[float] = 5.0
+
+
+# ── Cell component tuning ──
+CELL_BUFFER_DEFAULT_MAXLEN: Final[int] = 50          # CircularBuffer() default capacity
+CELL_CACHE_SEARCH_LIMIT: Final[int] = 10             # CellCache.search() default limit
+CELL_CACHE_CONTEXT_MAX_TOKENS: Final[int] = 2048     # CellCache.get_cell_context() cap
+CELL_MONITOR_EVENT_LIMIT: Final[int] = 50            # CellMonitor.get_events() default limit
+TOKEN_CHARS_PER_TOKEN: Final[int] = 4                # len(text) // 4 char→token estimate
+SESSION_MSG_OVERHEAD: Final[int] = 10                # per-message token overhead in projections
+TOKEN_MERGER_INTERVAL: Final[float] = 60.0          # CellTokenMerger poll interval (seconds)
+CELL_RING_NORMALIZE: Final[float] = 3.0             # ring / 3.0 scheduler weight normalization
+SNAPSHOT_CACHE_KEY_LIMIT: Final[int] = 100          # card snapshot cache-keys cap
+CROSS_REVIEW_TIMEOUT: Final[float] = 60.0           # blocking cross-review wait
+SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT: Final[float] = 60.0  # scout verify wait in fork-join
+CARD_DEFAULT_PRIORITY: Final[int] = 5               # default card priority
+TOKEN_HISTORY_WINDOW_SECONDS: Final[int] = 300      # CentralCollector 5min buckets
+TOKEN_HISTORY_MAX: Final[int] = 288                 # 288 × 300s = 24h of buckets
+TOKEN_HISTORY_SHOWN: Final[int] = 48                # last 4h shown in global_summary
 
 
 # ── I-Cache (Instruction Cache) defaults ──
@@ -462,6 +490,7 @@ ICACHE_MAX_ENTRIES: Final[int] = 500
 ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes slowly
 ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
 ICACHE_DECAY_INTERVAL: Final[int] = 100    # decay frequencies every N cache accesses
+ICACHE_SEARCH_LIMIT: Final[int] = 20       # ICache.search() default limit
 
 
 # ── Discussion / convergence buffer ──

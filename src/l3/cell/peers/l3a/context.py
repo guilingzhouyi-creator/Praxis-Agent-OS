@@ -99,6 +99,9 @@ class ContextRegistry:
         return changes
 
 
+from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN
+
+
 class ContextEpoch:
     def __init__(self, eid: str, baseline: str, snapshot: dict,
                  created_at: float, turn_count: int = 0):
@@ -170,4 +173,4 @@ class ContextEpoch:
         return changes
 
     def estimate_tokens(self) -> int:
-        return len(self.baseline) // 4
+        return len(self.baseline) // TOKEN_CHARS_PER_TOKEN

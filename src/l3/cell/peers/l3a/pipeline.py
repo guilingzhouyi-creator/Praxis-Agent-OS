@@ -28,8 +28,8 @@ def bound(result: dict, max_bytes: int = _p.MANAGED_OUTPUT_MAX_BYTES) -> dict:
     text = json.dumps(result, ensure_ascii=False, default=str)
     if len(text.encode("utf-8")) <= max_bytes:
         return result
-    head = text[:max_bytes // 2]
-    tail = text[-(max_bytes // 4):]
+    head = text[:max_bytes // _p.OUTPUT_SPILL_HEAD_DIVISOR]
+    tail = text[-(max_bytes // _p.OUTPUT_SPILL_TAIL_DIVISOR):]
     spill_path = spill(text)
     return {
         "_truncated": True,

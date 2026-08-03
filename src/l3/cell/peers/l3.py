@@ -20,7 +20,7 @@ from l3.cell.peers.l3a import get_daemon, AssemblyMode, TaskCard, CardType
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l1.kernel.params.kernel import WitnessStatus
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_80
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_80, CARD_DEFAULT_PRIORITY
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ class CentralController:
             from .card.card_registry import get_registry
             cid = get_registry().submit(
                 intent=card.intent, domain=domain,
-                priority=getattr(card, 'priority', 5),
+                priority=getattr(card, 'priority', CARD_DEFAULT_PRIORITY),
             )
         except Exception as e:
             logger.warning("card registry submit failed: %s", e)
@@ -206,7 +206,7 @@ class CentralController:
             card_type = CardType.ISSUE
         card = TaskCard(
             id=f"card-{self._next_id:04d}", intent=text,
-            card_type=card_type, domain=domain, priority=5,
+            card_type=card_type, domain=domain, priority=CARD_DEFAULT_PRIORITY,
         )
         self._next_id += 1
         self._cards.append(card)

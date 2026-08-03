@@ -12,7 +12,10 @@ import time
 from typing import Any
 
 from l1.kernel import get_event_bus, SignalType
-from l1.kernel.params.system import TOKEN_CELL_QUOTA, TOKEN_GLOBAL_QUOTA
+from l1.kernel.params.system import (
+    TOKEN_CELL_QUOTA, TOKEN_GLOBAL_QUOTA,
+    TOKEN_HISTORY_WINDOW_SECONDS, TOKEN_HISTORY_MAX, TOKEN_HISTORY_SHOWN,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +33,7 @@ class CentralCollector:
         self._cells: dict[str, dict] = {}
         # Global histogram: 5min windows, last 24h
         self._history: list[dict] = []
-        self._max_history = 288  # 288 × 5min = 24h
+        self._max_history = TOKEN_HISTORY_MAX  # 288 × 5min = 24h
         self._started_at = time.time()
 
     def start(self) -> None:
@@ -71,7 +74,7 @@ class CentralCollector:
             agent["calls"] += 1
 
             # Rolling history (5min window)
-            window = int(time.time() // 300) * 300
+            window = int(time.time() // TOKEN_HISTORY_WINDOW_SECONDS) * TOKEN_HISTORY_WINDOW_SECONDS
             if self._history and self._history[-1]["window"] == window:
                 self._history[-1]["input"] += inp
                 self._history[-1]["output"] += out
@@ -129,7 +132,7 @@ class CentralCollector:
             "cells": len(cells),
             "quota": TOKEN_GLOBAL_QUOTA,
             "usage_pct": round(total / max(TOKEN_GLOBAL_QUOTA, 1) * 100, 1),
-            "history": self._history[-48:],  # last 4h
+            "history": self._history[-TOKEN_HISTORY_SHOWN:],  # last 4h
             "uptime": round(time.time() - self._started_at),
         }
 

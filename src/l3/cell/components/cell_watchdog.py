@@ -24,6 +24,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from l1.kernel.params.system import (
+    CELL_WATCHDOG_POLL_INTERVAL,
+    CELL_WATCHDOG_DEFAULT_TIMEOUT,
+    CELL_WATCHDOG_UNRESPONSIVE_ESCALATION,
+    CELL_WATCHDOG_STOP_JOIN_TIMEOUT,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +43,7 @@ class WatchdogState(Enum):
 @dataclass
 class WatchdogSlot:
     agent_id: str = ""
-    timeout: float = 30.0
+    timeout: float = CELL_WATCHDOG_DEFAULT_TIMEOUT
     last_pet: float = 0.0
     state: WatchdogState = WatchdogState.HEALTHY
     auto_reboot: bool = True
@@ -53,9 +60,9 @@ class CellWatchdog:
     def __init__(
         self,
         cell_id: str,
-        poll_interval: float = 5.0,
-        default_timeout: float = 30.0,
-        unresponsive_escalation: int = 3,
+        poll_interval: float = CELL_WATCHDOG_POLL_INTERVAL,
+        default_timeout: float = CELL_WATCHDOG_DEFAULT_TIMEOUT,
+        unresponsive_escalation: int = CELL_WATCHDOG_UNRESPONSIVE_ESCALATION,
         pmu: Any = None,
     ):
         self.cell_id = cell_id
@@ -137,7 +144,7 @@ class CellWatchdog:
         """Stop the watchdog timer thread."""
         self._running = False
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=CELL_WATCHDOG_STOP_JOIN_TIMEOUT)
             self._thread = None
 
     # ── Internal timer loop ───────────────────────────────────────

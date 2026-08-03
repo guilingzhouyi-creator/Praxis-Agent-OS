@@ -82,6 +82,18 @@ def dispatch(args: list[str], mgr: SessionManager,
                 "pending": s.tasks.pending_count(),
                 "count": len(s.tasks.all())}
 
+    if sub == "todos":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        if len(args) >= 4 and args[2].lower() == "update":
+            r = s.todos_update(args[3], args[4] if len(args) > 4 else "in_progress")
+            return r
+        return {"success": True, "session_id": sid, "data": s.todos()}
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

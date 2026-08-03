@@ -87,7 +87,7 @@ class AgentLoop:
 
     def __init__(self, task: str, agent_id: str = "", system: str = "",
                  user_id: str = "", role: str = "", prompt_key: str = "",
-                 cell_id: str = ""):
+                 cell_id: str = "", todo_path: str = ""):
         self.task = task
         self.agent_id = agent_id
         self._system = system
@@ -98,7 +98,7 @@ class AgentLoop:
         self._tools: list[ToolSpec] = []
         self._loop_detector = ToolLoopDetector(cell_id=cell_id, agent_id=agent_id)
         self._repeat_detector = CoarseRepeatDetector(cell_id=cell_id, agent_id=agent_id)
-        self._todo = TodoTracker()
+        self._todo = TodoTracker(state_path=todo_path)
         self._cadence = VerifyCadence()
         self._chat_params_hooks: list[Callable] = []
         self._run_count = 0

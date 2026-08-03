@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Default ring size — keeps the last 1000 events across all Cells
 from l1.kernel.params.agent import CELL_MONITOR_RING_SIZE
+from l1.kernel.params.system import CELL_MONITOR_EVENT_LIMIT
 
 _DEFAULT_RING_SIZE = CELL_MONITOR_RING_SIZE
 
@@ -153,7 +154,7 @@ class CellMonitor:
             }
 
     def get_events(self, cell_id: str = "", since: float = 0.0,
-                   limit: int = 50) -> list[dict]:
+                   limit: int = CELL_MONITOR_EVENT_LIMIT) -> list[dict]:
         """Return recent ring-buffer events, optionally filtered by Cell and timestamp."""
         with self._lock:
             results = []

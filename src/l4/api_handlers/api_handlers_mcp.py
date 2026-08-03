@@ -135,6 +135,19 @@ def _l3a_tasks(args: dict) -> dict:
             "count": len(s.tasks.all())}
 
 
+def _l3a_todos(args: dict) -> dict:
+    from l3.cell.peers.l3a import get_daemon
+    sid = args.get("session_id", "")
+    s = get_daemon().get_session(sid)
+    if not s:
+        return {"success": False, "error": f"session not found: {sid}"}
+    content = args.get("content", "")
+    status = args.get("status", "")
+    if content:
+        return s.todos_update(content, status or "in_progress")
+    return {"success": True, "session_id": sid, "data": s.todos()}
+
+
 def _schema(properties: dict, required: list[str]) -> dict:
     return {"type": "object", "properties": properties,
             "required": required, "additionalProperties": False}
@@ -218,6 +231,16 @@ _L3A_TOOLS: dict[str, dict[str, Any]] = {
              "status": _str_prop("Optional filter: queued|dispatched|running|completed|failed|cancelled")},
             ["session_id"]),
         "handler": _l3a_tasks,
+    },
+    "l3a_todos": {
+        "description": "Query or update the session TODO table (LLM task list). "
+                       "With content+status: update an item. Without: list all.",
+        "inputSchema": _schema(
+            {"session_id": _str_prop("Session ID"),
+             "content": _str_prop("TODO item content (omit to list)"),
+             "status": _str_prop("pending|in_progress|verifying|verified|escalated|waived")},
+            ["session_id"]),
+        "handler": _l3a_todos,
     },
 }
 

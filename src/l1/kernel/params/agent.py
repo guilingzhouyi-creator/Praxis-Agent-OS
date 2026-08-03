@@ -86,6 +86,10 @@ DEFAULT_AGENT_CONFIGS: Final[dict[str, AgentDefaults]] = {
     "human":   AgentDefaults(max_scouts=0, max_tokens=0,    max_workers=0, priority=0, ring=0),
 }
 
+# ── Agent fallback defaults (used when no role config matches) ──
+DEFAULT_AGENT_RING: Final[int] = 1
+DEFAULT_MAX_CONCURRENT_SCOUTS: Final[int] = 3
+
 # ── Canonical role names (single source of truth) ──
 CENTRAL_ROLES: list[str] = ["reader", "writer", "reviewer", "scout", "l3", "default", "deployer"]
 CENTRAL_DEFAULT_ROLES: list[str] = ["reader", "writer", "reviewer"]

@@ -29,7 +29,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import PMU_HISTORY_SIZE, PMU_SNAPSHOT_INTERVAL, PMU_COUNTER_GROUPS
+from l1.kernel.params.system import (
+    PMU_HISTORY_SIZE, PMU_SNAPSHOT_INTERVAL, PMU_COUNTER_GROUPS,
+    PMU_QUERY_LIMIT, PMU_RATE_WINDOW, PMU_RATE_MIN_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +136,7 @@ class CellPmu:
     def query_history(
         self,
         since: float = 0.0,
-        limit: int = 100,
+        limit: int = PMU_QUERY_LIMIT,
         name: str = "",
     ) -> list[PmuSnapshot]:
         """Query snapshot history with optional time/counter filter."""
@@ -150,7 +153,7 @@ class CellPmu:
 
     # ── Aggregation ───────────────────────────────────────────────
 
-    def delta(self, name: str, seconds: float = 60.0) -> int:
+    def delta(self, name: str, seconds: float = PMU_RATE_WINDOW) -> int:
         """Compute the delta of a counter over the last N seconds."""
         since = time.time() - seconds
         oldest = None
@@ -164,10 +167,10 @@ class CellPmu:
             return 0
         return newest.counters.get(name, 0) - oldest.counters.get(name, 0)
 
-    def rate(self, name: str, seconds: float = 60.0) -> float:
+    def rate(self, name: str, seconds: float = PMU_RATE_WINDOW) -> float:
         """Compute per-second rate of a counter over the last N seconds."""
         d = self.delta(name, seconds)
-        return round(d / max(seconds, 0.1), 2)
+        return round(d / max(seconds, PMU_RATE_MIN_SECONDS), 2)
 
     # ── Reset ─────────────────────────────────────────────────────
 
