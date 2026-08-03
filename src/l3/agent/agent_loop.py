@@ -359,6 +359,18 @@ class AgentLoop:
                         timestamp=time.time(), metric_type="gauge"))
         except Exception:
             logger.debug("agent_loop: side timing stats failed")
+        side = result.get("side_execution") or {}
+        if side:
+            try:
+                from l3.bus.monitor_bus import MonitorEvent as _ME3, get_bus as _MB3
+                _MB3().emit(_ME3(
+                    type="stats.loop.side", source="agent_loop",
+                    severity="info",
+                    message=f"{self.agent_id} side execution: {side}",
+                    agent_id=self.agent_id, cell_id=self._cell_id,
+                    data={"side": side, "elapsed": round(elapsed, 3)}))
+            except Exception:
+                logger.debug("agent_loop: side timing monitor emit failed")
         self._todo._persist()
         self._cadence.reset()
 

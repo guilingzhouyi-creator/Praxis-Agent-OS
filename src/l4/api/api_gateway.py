@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -100,7 +101,12 @@ class ApiGateway(ApiHandlers):
 
         for method, path, handler_ref, desc in API_ROUTES:
             if handler_ref.startswith("."):
-                handler = getattr(self, handler_ref[1:], None)
+                name = handler_ref[1:]
+                handler = getattr(self, name, None)
+                if not handler:
+                    # ApiHandlers mixin methods use a `_` prefix (e.g. `_health`);
+                    # route refs may omit it — try the prefixed form before skipping.
+                    handler = getattr(self, f"_{name}", None)
                 if not handler:
                     logger.debug("route handler not found (not yet implemented): %s", handler_ref)
                     continue
@@ -253,8 +259,43 @@ class ApiGateway(ApiHandlers):
                         data.update(r.query)
                     return handler(data)
 
+                t0 = time.time()
                 resp = self.gateway._middleware.handle(req, route_handler)
+                latency_ms = round((time.time() - t0) * 1000, 2)
                 self._json(resp.data, resp.status)
+                self._expose_request_stats(method, path, resp, req, latency_ms)
+
+            def _expose_request_stats(self, method: str, path: str,
+                                      resp: Any, req: Request,
+                                      latency_ms: float) -> None:
+                """Expose request timing to the monitoring center (MonitorBus)
+                and the statistics center (StatsCenter) — api.request.* metrics
+                and stats.api.request events (consumed by /api/v2/stats/live).
+                """
+                try:
+                    from l3.bus.monitor_bus import MonitorEvent as _ME2, get_bus as _MB2
+                    _MB2().emit(_ME2(
+                        type="stats.api.request", source="api_gateway",
+                        severity="info",
+                        message=f"{method} {path} -> {getattr(resp, 'status', '?')}",
+                        data={"method": method, "path": path,
+                              "status": getattr(resp, "status", 0),
+                              "latency_ms": latency_ms,
+                              "user_id": req.user_id},
+                    ))
+                except Exception:
+                    logger.debug("api_gateway: monitor emit failed")
+                try:
+                    from l3.services.stats_center import get_center as _SC2, MetricPoint as _MP2
+                    _ts = time.time()
+                    _tags = {"endpoint": path, "method": method,
+                             "status": str(getattr(resp, "status", 0))}
+                    _SC2().ingest(_MP2(name="api.request.latency", value=latency_ms,
+                                       tags=_tags, timestamp=_ts, metric_type="gauge"))
+                    _SC2().ingest(_MP2(name="api.request.count", value=1.0,
+                                       tags=_tags, timestamp=_ts, metric_type="counter"))
+                except Exception:
+                    logger.debug("api_gateway: stats emit failed")
 
             def _do_sse(self) -> None:
                 """Handle SSE /api/events streaming connection."""

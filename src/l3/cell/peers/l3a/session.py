@@ -275,6 +275,18 @@ class Session:
                     timestamp=ts, metric_type="counter"))
             except Exception:
                 logger.debug("l3a session: reasoning token stats failed")
+        if rtok > 0:
+            try:
+                from l3.bus.monitor_bus import MonitorEvent as _ME4, get_bus as _MB4
+                _MB4().emit(_ME4(
+                    type="stats.l3a.reasoning", source="l3a",
+                    severity="info",
+                    message=f"{self.id} turn {self.turn_count}: {rtok} thinking tokens",
+                    agent_id=_p.AGENT_ID, cell_id=self._cell_id,
+                    data={"session": self.id, "turn": self.turn_count,
+                          "reasoning_tokens": rtok}))
+            except Exception:
+                logger.debug("l3a session: reasoning monitor emit failed")
         result["session_id"] = self.id
         result["turn"] = self.turn_count
 
