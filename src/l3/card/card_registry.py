@@ -73,10 +73,101 @@ class CardRegistry(PersistableMixin):
         self._cell_resolver: Callable[[str], Any] | None = None
         self._dispatcher_running = False
         self._dispatcher_thread: threading.Thread | None = None
+        self._subscribers: dict[str, list[Callable[[str, str, dict], None]]] = {}
         self._init_persistence(persist_path or _gp().card_registry, CARD_REGISTRY_AUTO_SAVE)
         self._restore()
         if CARD_REGISTRY_AUTO_SAVE > 0:
             self._start_auto_save()
+
+    # ── Completion subscription (external closed-loop callbacks) ──
+
+    def subscribe(self, card_id: str,
+                  callback: Callable[[str, str, dict], None]) -> None:
+        """Register a completion callback for a card.
+
+        Callback signature: (card_id, state, result) — fired on COMPLETED,
+        FAILED, or CANCELLED. Used by L3A sessions to receive card results.
+        """
+        with self._lock:
+            self._subscribers.setdefault(card_id, []).append(callback)
+
+    def unsubscribe(self, card_id: str, callback: Callable | None = None) -> None:
+        """Remove a callback for a card (all if callback omitted)."""
+        with self._lock:
+            if card_id not in self._subscribers:
+                return
+            if callback is None:
+                del self._subscribers[card_id]
+            else:
+                self._subscribers[card_id] = [
+                    cb for cb in self._subscribers[card_id] if cb != callback
+                ]
+
+    def _notify_subscribers(self, card_id: str, state: str,
+                            result: dict | None = None) -> None:
+        with self._lock:
+            callbacks = list(self._subscribers.get(card_id, []))
+        for cb in callbacks:
+            try:
+                cb(card_id, state, result or {})
+            except Exception as e:
+                logger.warning("card %s subscriber callback failed: %s", card_id, e)
+            finally:
+                self.unsubscribe(card_id, cb)
+
+    # ── Approval (explicit approve/reject for HOLD cards) ──
+
+    def approve(self, card_id: str) -> dict:
+        """Approve a held card: restore from placeholder and re-queue.
+
+        Fires dispatch on the next dispatcher tick.
+        """
+        with self._lock:
+            record = self._cards.get(card_id)
+            if not record:
+                return {"success": False, "error": f"unknown card: {card_id}"}
+            if record.state != CardLifecycle.HOLD:
+                return {"success": False, "error": f"card {card_id} not in HOLD state"}
+            restored = self.restore_card(card_id)
+            record.state = CardLifecycle.QUEUED
+            if not restored:
+                if card_id not in self._queue:
+                    self._queue.append(card_id)
+                    self._queue.sort(key=lambda x: self._cards[x].priority
+                                     if x in self._cards else 5)
+        logger.info("card approved: %s", card_id)
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
+                     data={"card_id": card_id, "event": "approved"})
+        return {"success": True, "card_id": card_id, "state": "QUEUED"}
+
+    def reject(self, card_id: str, reason: str = "") -> dict:
+        """Reject a held card: cancel it and notify dependents."""
+        with self._lock:
+            record = self._cards.get(card_id)
+            if not record:
+                return {"success": False, "error": f"unknown card: {card_id}"}
+            if record.state not in (CardLifecycle.HOLD, CardLifecycle.QUEUED):
+                return {"success": False, "error": f"card {card_id} not in HOLD/QUEUED state"}
+            record.state = CardLifecycle.CANCELLED
+            if card_id in self._queue:
+                self._queue.remove(card_id)
+            if reason:
+                record.error = reason[:LOG_TRUNC_80]
+        dependents = self._find_dependents(card_id)
+        for dep_cid in dependents:
+            with self._lock:
+                dep = self._cards.get(dep_cid)
+                if dep:
+                    dep.state = CardLifecycle.CANCELLED
+                    if dep_cid in self._queue:
+                        self._queue.remove(dep_cid)
+        logger.info("card rejected: %s (reason=%s, dependents=%d)",
+                    card_id, reason[:LOG_TRUNC_40] or "none", len(dependents))
+        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
+                     data={"card_id": card_id, "event": "rejected", "reason": reason[:LOG_TRUNC_80]})
+        self._notify_subscribers(card_id, CardLifecycle.CANCELLED.value, {"reason": reason})
+        return {"success": True, "card_id": card_id, "state": "CANCELLED",
+                "dependents_cancelled": len(dependents)}
 
     def set_cell_resolver(self, resolver: Callable[[str], Any]) -> None:
         self._cell_resolver = resolver
@@ -164,7 +255,7 @@ class CardRegistry(PersistableMixin):
                     break
             record = self._cards.get(card_id)
             if record:
-                record.lifecycle = CardLifecycle.HOLD
+                record.state = CardLifecycle.HOLD
 
     def _find_dependents(self, card_id: str) -> list[str]:
         result = []
@@ -219,7 +310,7 @@ class CardRegistry(PersistableMixin):
             logger.info("card %s held, plan ready (%d steps)", cid, len(plan.get("steps", [])))
             dependents = self._find_dependents(cid)
             for dep_cid in dependents:
-                from .card.pending_queue import get_queue
+                from l3.card.pending_queue import get_queue
                 dep_rec = self._cards.get(dep_cid)
                 if dep_rec:
                     get_queue().enqueue(
@@ -344,7 +435,7 @@ class CardRegistry(PersistableMixin):
         emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                      data={"card_id": cid, "intent": intent[:LOG_TRUNC_60], "event": "submitted"})
         try:
-            from .bus.reference_channel import get_rc as _rc
+            from l3.bus.reference_channel import get_rc as _rc
             _rc().card_lifecycle(cid, intent, "submitted", nature="", size="")
         except Exception:
             logger.debug("card_registry: rc lifecycle submit failed")
@@ -396,9 +487,11 @@ class CardRegistry(PersistableMixin):
                 self._queue.remove(card_id)
         emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "state": record.state.value, "event": "completed"})
+        # ── Completion subscribers (L3A session closed loop) ──
+        self._notify_subscribers(card_id, record.state.value, result or {"error": error})
         # ── Task completion bus: fire webhooks ──
         try:
-            from .bus.task_bus import get_task_bus
+            from l3.bus.task_bus import get_task_bus
             get_task_bus().dispatch(card_id, record.state.value, {
                 "intent": record.summary.columns.get("intent", record.summary.title) if record.summary else "",
                 "domain": record.summary.columns.get("domain", "") if record.summary else "",
@@ -409,7 +502,7 @@ class CardRegistry(PersistableMixin):
         except Exception as e:
             logger.warning("task_bus dispatch failed: %s", e)
         try:
-            from .bus.reference_channel import get_rc as _rc
+            from l3.bus.reference_channel import get_rc as _rc
             _rc().card_lifecycle(card_id, record.summary.title if record.summary else "",
                                  record.state.value, error=error)
         except Exception:
@@ -427,6 +520,7 @@ class CardRegistry(PersistableMixin):
             cell = self._cell_map.get(record.summary.columns.get("cell_id", ""))
             if cell:
                 cell["active_cards"] = max(0, cell["active_cards"] - 1)
+        self._notify_subscribers(card_id, CardLifecycle.CANCELLED.value, {"reason": "cancelled"})
         return True
 
     # ── Query ──

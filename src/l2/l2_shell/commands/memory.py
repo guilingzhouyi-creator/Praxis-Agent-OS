@@ -29,12 +29,16 @@ def _cmd_memory(args: list[str]) -> dict:
 def _cmd_card(args: list[str]) -> dict:
     from l3.card.card_registry import get_registry
     cr = get_registry()
-    if not args: return {"success": True, "cards": cr.list(state=None)[:10]}
+    if not args: return {"success": True, "data": {"cards": cr.list(state=None)[:10]}}
     sub = args[0].lower()
-    if sub == "list": return {"success": True, "cards": cr.list(state=None)[:20]}
+    if sub == "list": return {"success": True, "data": {"cards": cr.list(state=None)[:20]}}
     if sub == "submit" and len(args) >= 2: return cr.submit(" ".join(args[1:]), ".")
     if sub == "cancel" and len(args) >= 2: return {"success": cr.cancel(args[1])}
-    return {"success": False, "error": "usage: /card [list|submit <intent>|cancel <id>]"}
+    if sub == "approve" and len(args) >= 2: return cr.approve(args[1])
+    if sub == "reject" and len(args) >= 2:
+        reason = " ".join(args[2:]) if len(args) > 2 else ""
+        return cr.reject(args[1], reason=reason)
+    return {"success": False, "error": "usage: /card [list|submit <intent>|cancel <id>|approve <id>|reject <id> [reason]]"}
 
 def _cmd_plugins(args: list[str]) -> dict:
     from l3.services.central_plugin import get_center

@@ -418,6 +418,32 @@ class Session:
             capture("l3a session: StatsCenter ingest failed", error_code="E_L3A_STATS", component="l3a")
             logger.warning("l3a session: StatsCenter ingest failed")
 
+    def _on_card_completed(self, card_id: str, state: str, result: dict) -> None:
+        """Card completion callback — inject result into session history (closed loop)."""
+        title = ""
+        try:
+            from l3.card.card_registry import get_registry
+            rec = get_registry().get(card_id)
+            if rec and rec.summary:
+                title = rec.summary.title or card_id
+        except Exception:
+            pass
+        summary = result.get("summary", "")
+        if not summary:
+            summary = result.get("answer", "")
+        if not summary:
+            summary = str(result)[:LOG_TRUNC_200]
+        text = (f"Card {card_id} ({title}) → {state}"
+                + (f": {summary}" if summary else ""))
+        with self._lock:
+            self.history.append(Message(
+                id=f"card-{uuid.uuid4().hex[:4]}",
+                role="system",
+                content=text,
+                metadata={"card_id": card_id, "card_state": state},
+            ))
+        logger.info("l3a session %s: card %s → %s", self.id, card_id, state)
+
     def _ensure_epoch(self) -> None:
         if self.epoch is not None:
             return
@@ -442,12 +468,26 @@ class Session:
             prompt_key="l3a.parse_system",
             cell_id=self._cell_id,
         )
-        from .helpers import wrapped_cardwrite
+        from .helpers import cardwrite_handler
+
+        def _session_cardwrite(args: dict, agent_id: str = "") -> dict:
+            """Session-scoped cardwrite: create card + subscribe to completion."""
+            r = cardwrite_handler(args, agent_id)
+            if r.get("success"):
+                cid = r.get("card_id", "")
+                self._session_card_count += 1
+                try:
+                    from l3.card.card_registry import get_registry
+                    get_registry().subscribe(cid, self._on_card_completed)
+                except Exception:
+                    logger.debug("l3a session: card subscribe failed for %s", cid)
+            return r
+
         self._loop.add_tool("cardwrite",
             "Create and submit a structured card.",
             {"nature": "string", "title": "string", "description": "string",
              "columns": "dict", "priority": "int", "phases": "list"},
-            wrapped_cardwrite,
+            _session_cardwrite,
             parallel_safe=False,
         )
         from .subagent import l3a_spawn_handler, l3a_collect_handler, l3a_peek_handler
