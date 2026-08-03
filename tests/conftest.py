@@ -40,6 +40,18 @@ def _reset_singletons():
                 fn()
         except Exception as e:
             errors.append(f"{module_name}.{func_name}: {e}")
+    # Command registry: after reset, reload default command defs + L2 shell
+    # handlers so `/help` etc. stay registered across the full test run.
+    try:
+        from l1.kernel.commands import reset_registry, get_registry, load_command_defs
+        reset_registry()
+        get_registry()
+        load_command_defs()
+        import importlib
+        import l2.l2_shell.commands as _cmds_mod
+        importlib.reload(_cmds_mod)
+    except Exception as e:
+        errors.append(f"commands.reload: {e}")
     if errors:
         import logging
         logging.getLogger(__name__).debug("singleton resets: %s", errors)

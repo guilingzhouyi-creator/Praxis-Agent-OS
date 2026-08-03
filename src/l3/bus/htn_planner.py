@@ -360,7 +360,7 @@ class HTNPlanner(BaseService):
         Returns a CardUnified ready for ExecutionPlan.
         """
         # Late import to avoid circular dependency at module level
-        from .card.card_unified import CardUnified, CardPhase, CardTask, CardSummary
+        from ..card.card_unified import CardUnified, CardPhase, CardTask, CardSummary
 
         cid = task_id or f"htn-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         intent = root.name

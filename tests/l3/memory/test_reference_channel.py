@@ -40,7 +40,7 @@ def rc(rc_path: str):
     """Create a fresh ReferenceChannel with a temp path and small buffer for testing."""
     from l3.bus.reference_channel import ReferenceChannel
 
-    ch = ReferenceChannel(path=rc_path, flush_interval=60.0, max_events=10)
+    ch = ReferenceChannel(path=rc_path, flush_interval=60.0, ring_size=10)
     yield ch
     ch.flush()
     _cleanup(rc_path)
@@ -88,7 +88,7 @@ class TestReferenceChannelEvent:
     def test_event_auto_flush_on_buffer_full(self, rc_path: str):
         from l3.bus.reference_channel import ReferenceChannel
 
-        ch = ReferenceChannel(path=rc_path, flush_interval=9999.0, max_events=3)
+        ch = ReferenceChannel(path=rc_path, flush_interval=9999.0, ring_size=3)
         ch.event("a", {})
         ch.event("b", {})
         assert not os.path.exists(rc_path) or os.path.getsize(rc_path) == 0
@@ -102,7 +102,7 @@ class TestReferenceChannelEvent:
         # Use a very short interval and small buffer so we don't hit buffer flush first
         from l3.bus.reference_channel import ReferenceChannel
 
-        ch = ReferenceChannel(path=rc_path, flush_interval=0.01, max_events=100)
+        ch = ReferenceChannel(path=rc_path, flush_interval=0.01, ring_size=100)
         ch.event("x", {})
         time.sleep(0.02)
         ch.event("y", {})  # second event should see elapsed > flush_interval and flush
@@ -234,7 +234,7 @@ class TestReferenceChannelStats:
         assert stats["path"] == rc_path
         assert stats["total_events"] == 0
         assert stats["buffered"] == 0
-        assert stats["max_events_per_flush"] == 10
+        assert stats["ring_size"] == 10
         assert stats["flush_interval_s"] == 60.0
 
     def test_stats_reflects_events(self, rc):

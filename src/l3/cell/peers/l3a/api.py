@@ -140,6 +140,28 @@ def dispatch(args: list[str], mgr: SessionManager,
         return l3a_summary_handler({"action": "latest", "domain": domain,
                                     "limit": 10})
 
+    if sub == "compress":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        keep = int(args[2]) if len(args) > 2 and args[2].isdigit() else 10
+        return s.compress(keep_last=keep)
+
+    if sub == "memory":
+        if len(args) >= 2:
+            sid = args[1]
+            s = mgr.get(sid)
+            if not s:
+                return {"success": False, "error": f"session not active: {sid}"}
+            window = float(args[2]) if len(args) > 2 else 3600.0
+            return s.memory_usage(window=window)
+        from l3.memory.central_memory import get_center
+        m = get_center().monitor()
+        return {"success": True, "data": m}
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

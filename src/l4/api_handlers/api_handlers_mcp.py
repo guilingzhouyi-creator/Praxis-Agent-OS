@@ -165,6 +165,28 @@ def _l3a_resume(args: dict) -> dict:
     return {"success": True, "data": s.info(), "resumed_from": archived_id}
 
 
+def _l3a_compress(args: dict) -> dict:
+    from l3.cell.peers.l3a import get_daemon
+    sid = args.get("session_id", "")
+    s = get_daemon().get_session(sid)
+    if not s:
+        return {"success": False, "error": f"session not found: {sid}"}
+    keep = int(args.get("keep_last", 10))
+    return s.compress(keep_last=keep)
+
+
+def _l3a_memory(args: dict) -> dict:
+    from l3.cell.peers.l3a import get_daemon
+    sid = args.get("session_id", "")
+    if sid:
+        s = get_daemon().get_session(sid)
+        if not s:
+            return {"success": False, "error": f"session not found: {sid}"}
+        return s.memory_usage(window=float(args.get("window", 3600)))
+    from l3.memory.central_memory import get_center
+    return {"success": True, "data": get_center().monitor()}
+
+
 def _schema(properties: dict, required: list[str]) -> dict:
     return {"type": "object", "properties": properties,
             "required": required, "additionalProperties": False}
@@ -265,6 +287,26 @@ _L3A_TOOLS: dict[str, dict[str, Any]] = {
             {"archived_session_id": _str_prop("Archived session ID from l3a_list")},
             ["archived_session_id"]),
         "handler": _l3a_resume,
+    },
+    "l3a_compress": {
+        "description": "Manually compress a session's history into a summary, "
+                       "keeping the last N messages. Returns before/after tokens.",
+        "inputSchema": _schema(
+            {"session_id": _str_prop("Session ID"),
+             "keep_last": {"type": "integer",
+                           "description": "Messages to keep (default 10)"}},
+            ["session_id"]),
+        "handler": _l3a_compress,
+    },
+    "l3a_memory": {
+        "description": "Report R1-R3 ring usage + ingress rate for a session "
+                       "(or all scopes if session_id omitted).",
+        "inputSchema": _schema(
+            {"session_id": _str_prop("Session ID (omit for all scopes)"),
+             "window": {"type": "number",
+                        "description": "Ingress window seconds (default 3600)"}},
+            []),
+        "handler": _l3a_memory,
     },
 }
 

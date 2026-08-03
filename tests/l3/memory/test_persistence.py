@@ -291,30 +291,20 @@ def test_memory_restore_limits_default_to_unlimited():
 # ── WAL mode test ──
 
 def test_persist_wal_mode():
-    from l1.kernel.persist import _get_db, clear
+    from l3.tools._archive import _get_db
     db = _get_db()
     wal = db.execute("PRAGMA journal_mode").fetchone()[0]
     assert wal == "wal"
-    clear()
 
 
 # ── Configurable paths test ──
 
 def test_params_persistence_paths():
-    from l1.kernel.params.system import (
-        CARD_REGISTRY_PATH,
-        TODO_TABLE_PATH,
-        TRANSACTION_AREA_PATH,
-        STATECHARTS_PATH,
-        EXECUTION_RESULTS_PATH,
-        DIALOGUE_SESSION_PATH,
-    )
-    assert CARD_REGISTRY_PATH.endswith(".json")
-    assert TODO_TABLE_PATH.endswith(".json")
-    assert TRANSACTION_AREA_PATH.endswith(".json")
-    assert STATECHARTS_PATH.endswith(".json")
-    assert EXECUTION_RESULTS_PATH.endswith(".json")
-    assert DIALOGUE_SESSION_PATH.endswith(".json")
+    from l1.kernel.paths import get_paths
+    p = get_paths()
+    for path in (p.todo_table, p.transaction_area, p.statecharts,
+                 p.sandbox_state, p.todo_state, p.mode_state):
+        assert path.endswith(".json")
 
 
 # ── HTN Planner to_card tests ──
@@ -330,10 +320,10 @@ def test_htn_decompose_to_card():
 
     card = htn.to_card(root)
     assert card is not None
-    assert card.intent == "Develop snake game"
+    assert card.summary.title == "Develop snake game"
     assert len(card.phases) > 0
     for phase in card.phases:
-        assert len(phase.steps) > 0
+        assert len(phase.tasks) > 0
 
 
 def test_htn_to_card_unknown_intent():
@@ -350,9 +340,9 @@ def test_htn_to_card_phase_agents():
     card = htn.to_card(root)
     agents = set()
     for phase in card.phases:
-        for step in phase.steps:
-            if step.agent:
-                agents.add(step.agent)
+        for task in phase.tasks:
+            if task.agent:
+                agents.add(task.agent)
     assert len(agents) > 0  # at least one agent role assigned
 
 
@@ -364,7 +354,7 @@ def test_htn_decompose_fallback_to_card_builder():
         domain="app",
     )
     assert card is not None
-    assert card.intent
+    assert card.summary.title
     assert len(card.phases) == 1  # default single-phase card
 
 
@@ -549,7 +539,7 @@ def test_to_execution_card():
     card.items[1].answer = "A2"
     exec_card = to_execution_card(card, '{"summary": "done"}')
     assert exec_card is not None
-    assert exec_card.intent == "test exec"
+    assert exec_card.summary.title == "test exec"
     assert len(exec_card.phases) >= 1
 
 

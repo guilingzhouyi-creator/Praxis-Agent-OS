@@ -56,9 +56,10 @@ class ReferenceChannel:
                  ring_size: int = RC_RING_SIZE):
         self._path = path or os.environ.get("PRAXIS_RC_PATH", RC_PATH)
         self._flush_interval = flush_interval
-        # Ring buffer: fixed-size deque, oldest drops when full
+        # Ring buffer: fixed-size deque; when full, events are flushed to disk
+        # (never silently dropped) and the buffer is drained.
         self._ring: deque = deque(maxlen=ring_size)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # reentrant: event() → _flush()
         self._total = 0
         self._running = False
         self._thread: threading.Thread | None = None
@@ -135,6 +136,9 @@ class ReferenceChannel:
         with self._lock:
             self._ring.append(line)
             self._total += 1
+            # Buffer full → persist now instead of dropping the oldest event.
+            if self._ring.maxlen and len(self._ring) >= self._ring.maxlen:
+                self._flush()
 
     def flush(self) -> int:
         """Force an immediate flush of the ring buffer to disk.

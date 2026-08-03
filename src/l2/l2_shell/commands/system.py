@@ -3,10 +3,10 @@ import logging, time
 logger = logging.getLogger(__name__)
 
 def _cmd_status(args: list[str]) -> dict:
-    from l1.kernel import health as _health
+    from l1.kernel.health import safe_system_check as _health
     from l1.kernel.process import get_table; from l3.agent_terminal import get_terminals
-    h = _health(); print(f"Kernel health: {h['status']} ({h['module_count']} modules)")
-    for name, r in h["modules"].items(): print(f"  [{r['status']}] {name}")
+    h = _health(); print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
+    for name, r in h.get("subsystems", {}).items(): print(f"  [{r['status']}] {name}")
     print(f"\nProcesses: {len(get_table().list())}")
     print(f"Terminals: {len(get_terminals())}")
     try:
@@ -36,7 +36,8 @@ def _cmd_intents(args: list[str]) -> dict:
 
 def _cmd_scheduler(args: list[str]) -> dict:
     from l3.scheduler.scheduler import get_scheduler
-    s = get_scheduler(); return {"success": True, "data": s.stats()}
+    s = get_scheduler()
+    return {"success": True, "data": s.stats() if hasattr(s, "stats") else {}}
 
 def _cmd_observe(args: list[str]) -> dict:
     from l3.bus.observability_bus import get_obs_bus

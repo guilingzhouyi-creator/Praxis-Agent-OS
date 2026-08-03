@@ -1,7 +1,11 @@
 """Auto-completion for L2 Shell."""
 
+import logging
+
 from l1.kernel.commands import get_command, list_commands as _list_defs
 from l1.kernel.params.system import SHELL_AUTOCOMPLETE_LIMIT, SHELL_AUTOCOMPLETE_AGENT_LIMIT
+
+logger = logging.getLogger(__name__)
 
 
 def autocomplete(line: str) -> list[dict]:

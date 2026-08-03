@@ -99,7 +99,7 @@ def preselect() -> dict:
     cell_ids: list[str] = []
 
     try:
-        from .cell import get_cells
+        from l3.cell import get_cells
         cells = get_cells()
     except Exception as e:
         logger.warning("preselect: get_cells failed: %s", e)
@@ -190,7 +190,7 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
 
     # 1. Cell liveness
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(cell_id)
         liveness = cell.liveness()
         if liveness.get("overall") == "unreachable":
@@ -238,7 +238,7 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
 
 def _select_by_id(agent_id: str) -> dict:
     """Find an agent by ID across all Cells.  Returns {"success", "cell_id", "agent_id"}."""
-    from .cell import get_cells
+    from l3.cell import get_cells
     for cell_id, cell in get_cells().items():
         try:
             r = cell.agent_reachable(agent_id)
@@ -254,7 +254,7 @@ def _select_by_id(agent_id: str) -> dict:
 
 
 def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
-    from .cell import get_cell
+    from l3.cell import get_cell
     try:
         cell = get_cell(cell_id)
         liveness = cell.liveness()
@@ -269,7 +269,7 @@ def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
 
 def _select_best(role: str, domain: str) -> dict:
     global _role_index, _role_index_stale
-    from .cell import get_cells
+    from l3.cell import get_cells
     best = None
     best_score = -1
 

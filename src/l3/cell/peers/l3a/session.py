@@ -433,6 +433,119 @@ class Session:
             return {"success": False, "error": r}
         return {"success": True, "status": r, "content": content}
 
+    # ── Manual context compression ──
+
+    def compress(self, keep_last: int = 10, summary: str = "") -> dict:
+        """Compress session history into a summary, keeping the last N messages.
+
+        Old messages (beyond keep_last) are folded into a single system
+        summary message prepended to the retained window. Returns stats:
+          compressed_count, kept_count, before/after token estimates.
+        """
+        with self._lock:
+            total = len(self.history._messages)
+            if total <= keep_last:
+                return {"success": True, "note": "nothing to compress",
+                        "compressed": 0, "kept": total}
+            keep = self.history._messages[-keep_last:]
+            old = self.history._messages[:-keep_last]
+            before_tokens = sum(
+                len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
+                for m in old)
+
+        # Build summary text (rule-based): user prompts + card completions
+        user_msgs = [m for m in old if m.role == "user"]
+        card_msgs = [m for m in old
+                     if m.role == "system" and m.metadata.get("card_id")]
+        lines = []
+        if user_msgs:
+            lines.append("Earlier user requests:")
+            for m in user_msgs[:5]:
+                lines.append(f"- {m.content[:LOG_TRUNC_200]}")
+            if len(user_msgs) > 5:
+                lines.append(f"- ... and {len(user_msgs) - 5} more")
+        if card_msgs:
+            lines.append("Earlier card results:")
+            for m in card_msgs[:5]:
+                lines.append(f"- {m.content[:LOG_TRUNC_200]}")
+            if len(card_msgs) > 5:
+                lines.append(f"- ... and {len(card_msgs) - 5} more")
+        summary_text = summary or ("\n".join(lines)
+                                   if lines else "(prior conversation summarized)")
+
+        # Persist the summary into L3A's own memory (ring 2) before folding
+        try:
+            from l3.memory.central_memory import get_l3a_memory
+            get_l3a_memory().remember(
+                agent_id=_p.AGENT_ID,
+                entry_type="session_compression",
+                content=f"[session:{self.id}] turn={self.turn_count}: {summary_text}",
+                tags=["l3a", "compression", self.id],
+                importance=0.6,
+                ring=2,
+            )
+        except Exception:
+            logger.debug("l3a session: compression memory persist failed")
+
+        with self._lock:
+            summary_msg = Message(
+                id=f"sum-{uuid.uuid4().hex[:4]}",
+                role="system",
+                content=f"[SESSION COMPRESSED at turn {self.turn_count}] {summary_text}",
+                metadata={"compression": True,
+                          "compressed": len(old),
+                          "kept": keep_last},
+            )
+            self.history._messages = [summary_msg] + keep
+        after_tokens = len(summary_text) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
+        logger.info("l3a session %s: compressed %d msgs → summary (+%d kept)",
+                    self.id, len(old), keep_last)
+        return {
+            "success": True, "session_id": self.id,
+            "compressed": len(old), "kept": keep_last,
+            "before_tokens": before_tokens, "after_tokens": after_tokens,
+            "summary": summary_text,
+        }
+
+    # ── R1-R3 memory usage / ingress rate ──
+
+    def memory_usage(self, window: float = 3600.0) -> dict:
+        """Report the session's R1-R3 ring usage and ingress rates.
+
+        window: seconds for the ingress-rate window (default 1h).
+        Reads from L3A's own isolated memory instance via CentralMemory.
+        """
+        try:
+            from l3.memory.central_memory import get_l3a_memory
+            mem = get_l3a_memory()
+            stats = mem.stats() if hasattr(mem, "stats") else {}
+            now = time.time()
+            since = now - window
+            recent = mem.recall(agent_id=_p.AGENT_ID, rings=[1, 2, 3],
+                                limit=500)
+            ingress = {"count": 0, "by_type": {}}
+            for e in recent:
+                if getattr(e, "timestamp", 0) >= since:
+                    ingress["count"] += 1
+                    t = getattr(e, "entry_type", "?")
+                    ingress["by_type"][t] = ingress["by_type"].get(t, 0) + 1
+            pressure = mem.pressure() if hasattr(mem, "pressure") else {}
+        except Exception as e:
+            logger.debug("l3a session: memory_usage failed: %s", e)
+            return {"success": False, "error": str(e)}
+        return {
+            "success": True, "session_id": self.id,
+            "window_seconds": window,
+            "rings": stats,
+            "pressure": pressure,
+            "ingress": {
+                "count": ingress["count"],
+                "per_hour": round(ingress["count"] / max(window / 3600.0, 0.001), 2),
+                "by_type": dict(sorted(ingress["by_type"].items(),
+                                       key=lambda x: -x[1])),
+            },
+        }
+
     def info(self) -> dict:
         with self._lock:
             epoch_info = {}
