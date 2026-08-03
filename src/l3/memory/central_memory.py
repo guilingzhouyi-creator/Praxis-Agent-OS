@@ -138,11 +138,15 @@ class CentralMemory:
                query: str = "", tags: list[str] | None = None,
                rings: list[int] | None = None,
                limit: int = 20, scope_id: str = "",
-               all_scopes: bool = False) -> list[dict]:
+               all_scopes: bool = False,
+               graph_diffusion: bool = False) -> list[dict]:
         """Recall from one scope, or across ALL registered instances.
 
         all_scopes=True lets the L3A orchestrator search every Cell's memory
         on demand (dispatch), without persisting Cell state into its context.
+
+        graph_diffusion=True expands results along R5 graph edges (when the
+        graph is enabled) — 子图导航 from the linear hits.
         """
         tags = tags or []
         rings = rings or [1, 2, 3]
@@ -169,7 +173,8 @@ class CentralMemory:
                     agent_id=agent_id if agent_id else None,
                     entry_type=None,
                     tag=tags[0] if tags else None,
-                    rings=rings, limit=limit)
+                    rings=rings, limit=limit,
+                    graph_diffusion=graph_diffusion)
                 for e in (entries or []):
                     d = e if isinstance(e, dict) else {
                         "id": e.id, "agent_id": e.agent_id,

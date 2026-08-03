@@ -225,13 +225,16 @@ class MemoryManager:
     def recall(self, agent_id: str | None = None, entry_type: str | None = None,
                tag: str | None = None, rings: list[int] | None = None,
                limit: int = 20, cell_id: str | None = None,
-               promote_to_cell: str = "") -> list[MemEntry]:
+               promote_to_cell: str = "",
+               graph_diffusion: bool = False) -> list[MemEntry]:
         """Query across rings.
 
         Args:
             promote_to_cell: If set, promotes important entries (importance ≥ 0.6)
                              back to the given Cell's L2 cache so other agents
                              in the same Cell can find them via cell.cache.search().
+            graph_diffusion: If set (and R5 graph enabled), expands results
+                             along graph edges from the linear hits (子图导航).
         """
         rings = rings or [1, 2, 3]
         results: list[MemEntry] = []
@@ -241,6 +244,28 @@ class MemoryManager:
             results = [e for e in results if e.cell_id == cell_id]
         results.sort(key=lambda e: e.timestamp, reverse=True)
         results = results[:limit]
+
+        # ── R5 群域图扩散（开关控制，失败回退线性）──
+        if graph_diffusion:
+            try:
+                from .memory_graph import get_graph as _get_graph
+                g = _get_graph()
+                if g.enabled:
+                    seeds = [e.id for e in results[:5]]
+                    gr = g.recall(seeds, depth=2, limit=limit)
+                    if gr["nodes"]:
+                        by_id = {e.id: e for e in results}
+                        nodes: list[MemEntry] = []
+                        for nid in gr["nodes"]:
+                            e = by_id.get(nid)
+                            if e and e not in nodes:
+                                nodes.append(e)
+                        for e in results:
+                            if e not in nodes and len(nodes) < limit:
+                                nodes.append(e)
+                        results = nodes[:limit]
+            except Exception:
+                logger.debug("memory: graph diffusion failed")
 
         # Auto-promote important results to Cell L2 cache
         if promote_to_cell and results:

@@ -206,7 +206,7 @@ class MemoryGraph:
         return {"nodes": nodes, "edges": edges,
                 "stats": {"seeds": len(seeds), "depth": depth, "reached": len(nodes)}}
 
-    # ── 图约简（度中心性分析）────────────────────────────────
+    # ── 图约简（度中心性分析 + 可执行剪枝）──────────────────
 
     def compact_report(self, min_degree: int = 2) -> dict:
         """Graph reduction analysis: keep hubs, prune leaves.
@@ -232,6 +232,53 @@ class MemoryGraph:
         except Exception as e:
             logger.debug("memory_graph: compact_report failed: %s", e)
             return {"hubs": [], "leaves": 0, "edges": 0}
+
+    def compact(self, min_degree: int = 2, dry_run: bool = True) -> dict:
+        """Graph reduction (executable): prune leaves, keep hubs.
+
+        Leaves (degree == 1) are the low-connectivity noise — pruning them
+        shrinks the topology while hub nodes survive. The graph is a derived
+        layer: it can be rebuilt from R4 archives, so pruning is recoverable.
+
+        Args:
+            min_degree: hub threshold (degree >= min_degree survives)
+            dry_run: True → report only; False → actually delete leaf edges
+        """
+        if self._conn is None:
+            return {"success": False, "error": "no connection"}
+        rep = self.compact_report(min_degree=min_degree)
+        # Leaves = degree-1 nodes (low-connectivity noise)
+        try:
+            cur = self._conn.execute(
+                "SELECT entry, COUNT(*) AS deg FROM ("
+                "  SELECT from_id AS entry FROM memory_edges "
+                "  UNION ALL SELECT to_id AS entry FROM memory_edges"
+                ") GROUP BY entry HAVING deg = 1")
+            leaf_ids = [row[0] for row in cur.fetchall()]
+        except Exception:
+            leaf_ids = []
+        if dry_run:
+            return {"success": True, "dry_run": True,
+                    "leaves": len(leaf_ids), "edges_before": rep["edges"],
+                    "edges_after": rep["edges"]}
+        removed = 0
+        try:
+            with self._lock:
+                for eid in leaf_ids:
+                    cur = self._conn.execute(
+                        "DELETE FROM memory_edges WHERE from_id=? OR to_id=?",
+                        (eid, eid))
+                    removed += cur.rowcount
+                self._conn.commit()
+        except Exception as e:
+            logger.debug("memory_graph: compact failed: %s", e)
+            return {"success": False, "error": str(e)}
+        after = self._conn.execute(
+            "SELECT COUNT(*) FROM memory_edges").fetchone()[0]
+        return {"success": True, "dry_run": False,
+                "leaves_pruned": len(leaf_ids), "edges_removed": removed,
+                "edges_before": rep["edges"], "edges_after": after,
+                "hubs_kept": len(rep["hubs"])}
 
     # ── 查询 / 维护 ─────────────────────────────────────────
 

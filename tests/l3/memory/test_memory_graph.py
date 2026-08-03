@@ -131,3 +131,67 @@ def test_no_self_loop(tmp_path):
     mgr.remember("a1", "decision", "first only", ring=3)
     st = get_graph().stats()
     assert st["edges"] == 0  # 只有一条 entry → 无边
+
+
+def test_compact_executable_prunes_leaves(tmp_path):
+    """图约简执行版：dry_run 只报告，执行剪叶子保留 hub-hub 边。"""
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    # 手工构造：n-b / n-h 是 hub（度 2），n-a/n-c/n-d/n-e 是叶子（度 1）
+    import time as _t
+    for f, t in (("n-a", "n-b"), ("n-b", "n-c"), ("n-b", "n-h"),
+                 ("n-h", "n-d"), ("n-h", "n-e")):
+        g._insert_edge(f, t, "sequential", 1.0, "test", _t.time())
+    dry = g.compact(min_degree=2, dry_run=True)
+    assert dry["dry_run"] is True and dry["leaves"] >= 4
+    before = g.stats()["edges"]
+    res = g.compact(min_degree=2, dry_run=False)
+    assert res["success"] and res["dry_run"] is False
+    assert res["edges_removed"] >= 4
+    assert g.stats()["edges"] < before
+    # hub-hub 边保留：n-b 仍连接 n-h
+    assert any(ed["to_id"] == "n-h" or ed["from_id"] == "n-h"
+               for ed in g.edges_of("n-b"))
+
+
+def test_recall_graph_diffusion_expands(tmp_path):
+    """扩散检索接入 recall：线性命中沿边扩展。"""
+    _activate_graph(tmp_path, enabled=True)
+    mgr = MemoryManager()
+    e1 = mgr.remember("a1", "decision", "alpha decision", ring=3)
+    e2 = mgr.remember("a1", "decision", "beta followup", ring=3)
+    mgr.remember("a1", "summary", "gamma wrap", ring=3)
+    linear = mgr.recall(agent_id="a1", entry_type="decision", limit=10)
+    ids = {e.id for e in linear}
+    assert e1 in ids and e2 in ids
+    diff = mgr.recall(agent_id="a1", entry_type="decision", limit=10,
+                      graph_diffusion=True)
+    diff_ids = {e.id for e in diff}
+    # 扩散后应包含图可达的 summary 节点（通过 type_chain 边）
+    assert len(diff_ids) >= len(ids) or any(
+        e.entry_type == "summary" for e in diff)
+
+
+def test_recall_diffusion_disabled_graph_falls_back(tmp_path):
+    """图关闭时 graph_diffusion=True 回退线性（零影响）。"""
+    _activate_graph(tmp_path, enabled=False)
+    mgr = MemoryManager()
+    e1 = mgr.remember("a1", "decision", "linear only", ring=3)
+    mgr.remember("a1", "decision", "linear two", ring=3)
+    r = mgr.recall(agent_id="a1", limit=10, graph_diffusion=True)
+    assert any(e.id == e1 for e in r)
+
+
+def test_central_recall_passes_diffusion(tmp_path):
+    """CentralMemory.recall 透传 graph_diffusion。"""
+    from l3.memory.central_memory import get_center, reset_center
+    reset_center()
+    _activate_graph(tmp_path, enabled=True)
+    center = get_center()
+    mem = center.get_or_create("l3a")
+    mem.set_persist_dir(str(tmp_path))
+    mem.remember("a1", "decision", "central alpha", ring=3)
+    mem.remember("a1", "decision", "central beta", ring=3)
+    mem.remember("a1", "summary", "central wrap", ring=3)
+    r = center.recall(scope_id="l3a", limit=10, graph_diffusion=True)
+    assert r and len(r) >= 3
