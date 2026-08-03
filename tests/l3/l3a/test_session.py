@@ -7,14 +7,14 @@ class TestSessionHistory:
     _MSG_KW = {"id": "m1"}
 
     def test_append_and_count(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         assert h.count() == 0
         h.append(Message(id="m1", role="user", content="hello"))
         assert h.count() == 1
 
     def test_extend_and_project(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         h.extend([
             Message(id="m1", role="user", content="hi", created_at=1.0),
@@ -25,7 +25,7 @@ class TestSessionHistory:
         assert len(projected) == 2
 
     def test_project_truncation(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         for i in range(100):
             h.append(Message(id=f"m{i}", role="user", content=f"msg{i}", created_at=float(i)))
@@ -33,7 +33,7 @@ class TestSessionHistory:
         assert len(projected) < 100
 
     def test_to_context_trail(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         h.append(Message(id="m1", role="user", content="test", created_at=1.0))
         trail = h.to_context_trail()
@@ -41,7 +41,7 @@ class TestSessionHistory:
         assert trail[0]["role"] == "user"
 
     def test_messages_page_pagination(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         for i in range(20):
             h.append(Message(id=f"m{i}", role="user", content=f"msg{i}", created_at=float(i)))
@@ -51,7 +51,7 @@ class TestSessionHistory:
         assert page.cursor is not None
 
     def test_clear(self):
-        from l3.cell.peers.l3a.session import SessionHistory, Message
+        from l3.cell.peers.l3a.session import Message, SessionHistory
         h = SessionHistory()
         h.append(Message(id="m1", role="user", content="test"))
         h.clear()

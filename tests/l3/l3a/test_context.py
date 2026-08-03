@@ -39,7 +39,7 @@ class TestContextRegistry:
         assert "key=k" in rendered
 
     def test_diff_no_change(self):
-        from l3.cell.peers.l3a.context import ContextRegistry, ContextSource
+        from l3.cell.peers.l3a.context import ContextRegistry
         r = ContextRegistry()
         changes = r.diff({"k": "v"}, {"k": "v"})
         assert len(changes) == 0
@@ -67,7 +67,7 @@ class TestContextEpoch:
         assert epoch.estimate_tokens() >= 0
 
     def test_sync_turn_count(self):
-        from l3.cell.peers.l3a.context import ContextEpoch, ContextRegistry, ContextSource
+        from l3.cell.peers.l3a.context import ContextEpoch, ContextRegistry
         reg = ContextRegistry()
         epoch = ContextEpoch.create(reg)
         before = epoch.turn_count
@@ -77,7 +77,7 @@ class TestContextEpoch:
 
 class TestArchive:
     def test_store_and_search_session(self):
-        from l3.cell.peers.l3a.archive import store_session, search_sessions
+        from l3.cell.peers.l3a.archive import store_session
         sid = "test-sess-001"
         meta = {"session_id": sid, "title": "test", "tags": ["l3a", "session"]}
         r = store_session(sid, meta, [{"role": "user", "content": "hello"}])

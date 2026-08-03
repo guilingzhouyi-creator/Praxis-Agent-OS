@@ -20,8 +20,8 @@ class TestL3AIntegration:
         assert page.total == 0
 
     def test_session_create_with_model_config(self):
-        from l3.cell.peers.l3a.session import Session
         from l3.cell.peers.l3a.model import L3AModelConfig
+        from l3.cell.peers.l3a.session import Session
         cfg = L3AModelConfig(provider="ollama", model="qwen2.5")
         s = Session.create(title="cfg-test", model_config=cfg)
         info = s.info()
@@ -43,7 +43,7 @@ class TestL3AIntegration:
         s.close()
 
     def test_session_history_project(self):
-        from l3.cell.peers.l3a.session import Session, Message
+        from l3.cell.peers.l3a.session import Message, Session
         s = Session.create(title="hist-test")
         s.history.extend([
             Message(id="m1", role="user", content="q1", created_at=1.0),

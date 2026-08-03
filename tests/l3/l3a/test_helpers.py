@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
@@ -10,10 +11,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestL3AHelpers:
     def test_importable(self):
         from l3.cell.peers.l3a.helpers import (
-            cardwrite_handler,
-            build_l3a_prompt,
-            get_convergence_queue,
             _route_to_assembly,
+            build_l3a_prompt,
+            cardwrite_handler,
+            get_convergence_queue,
         )
         assert callable(cardwrite_handler)
         assert callable(build_l3a_prompt)
