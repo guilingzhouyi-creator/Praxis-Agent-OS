@@ -47,15 +47,21 @@ _DISCOVERY_DIRS: list[str] = []
 """Directories scanned for YAML config snippets."""
 
 
-def register(name: str, defaults: dict[str, Any]) -> None:
+def register(name: str, defaults: Any) -> None:
     """Register a config section with its Python-side defaults.
 
     Args:
         name: Config section name (e.g. ``"build_detectors"``).
-        defaults: Default key-value dict (may be overridden by YAML).
+        defaults: Default value (dict, list, or scalar) that may be
+            overridden by YAML. Dicts are copied; non-dict values are
+            stored as-is (discover() replaces them wholesale).
     """
-    _sources[name] = dict(defaults)
-    _registry[name] = dict(defaults)
+    if isinstance(defaults, dict):
+        _sources[name] = dict(defaults)
+        _registry[name] = dict(defaults)
+    else:
+        _sources[name] = defaults
+        _registry[name] = defaults
 
 
 def register_discovery_dir(path: str) -> None:
@@ -96,6 +102,14 @@ def discover() -> int:
                             _registry[section] = values
                         logger.info("discovery: %s ← %s (%d keys)", section, fpath.name,
                                     len(values) if isinstance(values, dict) else 1)
+                    else:
+                        # Unregistered section — silently dropped before this
+                        # fix. Warn so dead YAML config is discoverable.
+                        logger.warning(
+                            "discovery: %s has unregistered section '%s' — ignored "
+                            "(register it in boot._init_discovery or remove from YAML)",
+                            fpath.name, section,
+                        )
                 loaded += 1
             except Exception as e:
                 logger.warning("discovery: skip %s: %s", fpath.name, e)
@@ -135,7 +149,10 @@ def set_config(name: str, key: str, value: Any) -> None:
 def reset() -> None:
     """Reset registry to defaults (for testing)."""
     _registry.clear()
-    _registry.update({k: dict(v) for k, v in _sources.items()})
+    _registry.update({
+        k: dict(v) if isinstance(v, dict) else v
+        for k, v in _sources.items()
+    })
 
 
 # ── Declarative registration helpers ──────────────────────────────

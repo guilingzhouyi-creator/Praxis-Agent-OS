@@ -23,15 +23,21 @@ class Settings:
 
     def __init__(self):
         self._center = get_center()
-        # Merge legacy kernel.settings.DEFAULTS into SettingsCenter L3
-        # so that keys like llm.provider, kernel.allocator.* remain accessible.
+        # Merge legacy kernel.settings.DEFAULTS into SettingsCenter L2
+        # (deployment-config layer, not persisted) so that keys like
+        # llm.provider, kernel.allocator.* remain accessible without
+        # polluting the L3 runtime-override file.
         from l1.kernel.settings import DEFAULTS as _legacy
         for _k, _v in _legacy.items():
             if self._center.get(_k) is None:
-                self._center.set(_k, _v)
+                self._center.set_l2(_k, _v)
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._center.get(key, default)
+
+    def set_l2(self, key: str, value: Any) -> dict:
+        """Write into the L2 (praxis.yaml) layer — not persisted."""
+        return self._center.set_l2(key, value)
 
     def set(self, key: str, value: Any) -> dict:
         return self._center.set(key, value)

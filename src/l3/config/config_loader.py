@@ -29,12 +29,13 @@ from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGE
 from l1.kernel.device import get_device_manager, DeviceType
 from .config_handlers import (
     cfg_kernel, cfg_cell, cfg_llm, cfg_constitution, cfg_gatechain,
-    cfg_tool_rates, cfg_htn, cfg_cache, cfg_persist, cfg_network,
+    cfg_tool_rates, cfg_tool, cfg_htn, cfg_cache, cfg_persist, cfg_persistence, cfg_network,
     cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,
     cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
     cfg_agent_role_map, cfg_agent_priority,
     cfg_model_spec,
     cfg_think, cfg_loop_control, cfg_diff, cfg_l3a,
+    cfg_services, cfg_card_pool, cfg_language,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,8 +149,14 @@ def apply(data: dict) -> dict:
 
     Each config section (e.g. ``kernel``, ``llm``) is handled by a
     registered handler.  Extend with ``register_config_handler()``.
+
+    Returns ``{"success": True, "applied": <handler results>, "flat": <flattened>}``
+    where ``flat`` is the real flattened config (dotted keys) — the L2 layer
+    of SettingsCenter must be loaded from ``flat``, NOT from ``applied``
+    (which only holds per-section handler result flags).
     """
     from l1.kernel.settings import get_settings
+    from l3.config.settings_center import SettingsCenter as _SC
 
     if not data:
         return {"success": False, "error": "empty config"}
@@ -162,22 +169,18 @@ def apply(data: dict) -> dict:
         if section_data is not None:
             handler(section_data, s, results)
 
-    # devices / territories / clearance / agents — not keyed by section name
-    for section in ("devices", "territories", "clearance", "agents"):
-        handler = _CONFIG_HANDLERS.get(section)
-        if handler and section in data:
-            handler(data.get(section, {}), s, results)
-
     logger.info("config applied: %s", results)
-    return {"success": True, "applied": results}
+    flat = _SC._flatten(data)
+    return {"success": True, "applied": results, "flat": flat}
 
 
 # ── Register built-in handlers (imported from config_handlers.py) ──
 _builtin_handlers = [
     ("kernel", cfg_kernel), ("cell", cfg_cell), ("llm", cfg_llm),
     ("constitution", cfg_constitution), ("gatechain", cfg_gatechain),
-    ("tool_rates", cfg_tool_rates), ("htn", cfg_htn),
-    ("cache", cfg_cache), ("persist", cfg_persist),
+    ("tool_rates", cfg_tool_rates), ("tool", cfg_tool),
+    ("htn", cfg_htn),
+    ("cache", cfg_cache), ("persist", cfg_persist), ("persistence", cfg_persistence),
     ("network", cfg_network), ("api", cfg_api),
     ("api_routes", cfg_api_routes), ("prompts", cfg_prompts),
     ("credentials", cfg_credentials), ("card_gate", cfg_card_gate), ("card_types", cfg_card_types), ("content_trust", cfg_content_trust), ("commands", cfg_commands), ("mcp", cfg_mcp),
@@ -187,9 +190,13 @@ _builtin_handlers = [
     ("agent_priority", cfg_agent_priority),
     ("model_spec", cfg_model_spec),
     ("think", cfg_think),
+    ("loop", cfg_loop_control),
     ("loop_control", cfg_loop_control),
     ("l3a", cfg_l3a),
     ("diff", cfg_diff),
+    ("services", cfg_services),
+    ("card_pool", cfg_card_pool),
+    ("language", cfg_language),
 ]
 for _name, _fn in _builtin_handlers:
     register_config_handler(_name, _fn, override=True)
@@ -199,9 +206,11 @@ def validate(data: dict) -> dict:
     """Validate parsed YAML config structure. Returns errors list."""
     errors = []
     sections = ("kernel", "cell", "l3a", "llm", "constitution", "gatechain", "tool_rates",
-                "htn", "cache", "persist", "network", "api", "api_routes",
-                "prompts", "card_gate", "credentials",
-                "devices", "territories", "clearance", "agents")
+                "tool", "htn", "cache", "persist", "persistence", "services", "network",
+                "api", "api_routes", "prompts", "card_gate", "card_types", "credentials",
+                "content_trust", "commands", "mcp", "devices", "territories", "clearance",
+                "agents", "agent_role_map", "agent_priority", "model_spec", "think",
+                "loop", "loop_control", "diff", "card_pool")
     for sec in sections:
         if sec in data and not isinstance(data[sec], (dict, list)):
             errors.append(f"{sec}: expected dict/list")

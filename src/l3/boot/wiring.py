@@ -51,10 +51,10 @@ def wire_defaults() -> dict[str, str]:
     """
     registry: dict[str, str] = {}
 
-    # I18nPort — YAML file adapter
+    # I18nPort — YAML file adapter (default_locale resolved at construction
+    # from params so praxis.yaml `language:` overrides apply).
     from l4.adapters.i18n_yaml import YamlI18nAdapter
-    i18n = YamlI18nAdapter(locale_dir=I18N_LOCALE_DIR,
-                           default_locale=I18N_DEFAULT_LOCALE)
+    i18n = YamlI18nAdapter(locale_dir=I18N_LOCALE_DIR)
     register_port("i18n", i18n)
     registry["i18n"] = "yaml"
 

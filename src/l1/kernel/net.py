@@ -36,7 +36,10 @@ from .ports import (
 
 logger = logging.getLogger(__name__)
 
-_PEER_TIMEOUT = NET_PEER_TIMEOUT
+def _peer_timeout() -> float:
+    """Resolve peer timeout dynamically so praxis.yaml overrides take effect."""
+    from .params.system import NET_PEER_TIMEOUT as _v
+    return _v
 
 
 @dataclass
@@ -51,7 +54,7 @@ class Peer:
 
     @property
     def alive(self) -> bool:
-        return time.time() - self.last_seen < _PEER_TIMEOUT
+        return time.time() - self.last_seen < _peer_timeout()
 
 
 def _get_bus() -> EventBusPort | None:

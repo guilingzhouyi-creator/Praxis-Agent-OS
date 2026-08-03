@@ -24,42 +24,80 @@ from l1.kernel.device import get_device_manager, DeviceType
 
 
 def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
+    # Consumers (allocator, process table, syscall audit) read params
+    # constants directly — setattr on the authoritative modules AND the
+    # params.kernel re-export layer, then mirror into SettingsCenter L2.
+    import l1.kernel.params.allocator as _alloc_mod
+    import l1.kernel.params.kernel as _kernel_mod
+    from l1.kernel.params.allocator import ALLOCATOR_DEFAULTS
     alloc = cfg.get("allocator", {})
     if "tokens" in alloc:
-        ALLOCATOR_DEFAULTS.tokens = alloc["tokens"]
-        s.set("l1.kernel.allocator.tokens", alloc["tokens"])
+        ALLOCATOR_DEFAULTS.tokens = int(alloc["tokens"])
+        s.set_l2("l1.kernel.allocator.tokens", alloc["tokens"])
+    for yaml_key, field in (("ring1", "ring1"), ("ring2", "ring2"), ("ring3", "ring3")):
+        if yaml_key in alloc:
+            setattr(ALLOCATOR_DEFAULTS, field, int(alloc[yaml_key]))
+            s.set_l2(f"l1.kernel.allocator.{yaml_key}", alloc[yaml_key])
     swp = cfg.get("swapper", {})
     if "interval" in swp:
-        s.set("l1.kernel.swapper.interval", swp["interval"])
+        _kernel_mod.SWAPPER_DEFAULT_INTERVAL = float(swp["interval"])
+        s.set_l2("l1.kernel.swapper.interval", swp["interval"])
+    proc = cfg.get("process", {})
+    if "max_pid" in proc:
+        _alloc_mod.PROCESS_TABLE_MAX = int(proc["max_pid"])
+        _kernel_mod.PROCESS_TABLE_MAX = int(proc["max_pid"])
+        s.set_l2("l1.kernel.process.max_pid", proc["max_pid"])
+    if "audit_max" in proc:
+        _alloc_mod.PROCESS_AUDIT_MAX = int(proc["audit_max"])
+        _kernel_mod.PROCESS_AUDIT_MAX = int(proc["audit_max"])
+        s.set_l2("l1.kernel.process.audit_max", proc["audit_max"])
+    sc = cfg.get("syscall", {})
+    if "audit_max" in sc:
+        _kernel_mod.SYSCALL_AUDIT_MAX = int(sc["audit_max"])
+        s.set_l2("l1.kernel.syscall.audit_max", sc["audit_max"])
     results["kernel"] = True
 
 
 def cfg_cell(cfg: dict, s: Any, results: dict) -> None:
+    # Consumers (agent_terminal, scout pool) read the params constants
+    # directly, so setattr them in addition to mirroring into SettingsCenter L2.
+    import l1.kernel.params.agent as _agent_mod
+    import l1.kernel.params.system as _sys_mod
     term = cfg.get("terminal", {})
     if "workers" in term:
-        s.set("cell.terminal.workers", term["workers"])
+        _agent_mod.TERMINAL_MAX_WORKERS = int(term["workers"])
+        s.set_l2("terminal.max_workers", term["workers"])
     if "poll" in term:
-        s.set("cell.terminal.poll", term["poll"])
+        _agent_mod.TERMINAL_POLL_INTERVAL = float(term["poll"])
+        s.set_l2("cell.terminal.poll", term["poll"])
     scout = cfg.get("scout", {})
     if "max_total" in scout:
-        s.set("cell.scout.max_total", scout["max_total"])
+        _sys_mod.SCOUT_POOL_MAX = int(scout["max_total"])
+        s.set_l2("scout.max_total", scout["max_total"])
     if "max_per_agent" in scout:
-        s.set("cell.scout.max_per_agent", scout["max_per_agent"])
+        _sys_mod.SCOUT_POOL_MAX_PER_AGENT = int(scout["max_per_agent"])
+        _sys_mod.MAX_SCOUTS_PER_AGENT = int(scout["max_per_agent"])
+        s.set_l2("scout.max_per_agent", scout["max_per_agent"])
     if "cache_ttl" in scout:
-        s.set("cell.scout.cache_ttl", scout["cache_ttl"])
+        _sys_mod.SCOUT_CACHE_TTL = float(scout["cache_ttl"])
+        s.set_l2("scout.cache_ttl", scout["cache_ttl"])
+    if "session_timeout" in scout:
+        _sys_mod.SCOUT_TIMEOUT = float(scout["session_timeout"])
+        s.set_l2("scout.session_timeout", scout["session_timeout"])
     card = cfg.get("card", {})
     if "timeout" in card:
-        s.set("cell.card.timeout", card["timeout"])
+        _agent_mod.CARD_WAIT_TIMEOUT = float(card["timeout"])
+        s.set_l2("cell.card.timeout", card["timeout"])
     results["cell"] = True
 
 
 def cfg_llm(cfg: dict, s: Any, results: dict) -> None:
     for k in ("provider", "model", "api_url", "api_key", "max_tokens", "temperature", "rate_limit"):
         if k in cfg:
-            s.set(f"llm.{k}", cfg[k])
+            s.set_l2(f"llm.{k}", cfg[k])
     cache_cfg = cfg.get("cache", {})
     if cache_cfg:
-        from .config.cache_strategy import load_cache_config
+        from .cache_strategy import load_cache_config
         load_cache_config(cache_cfg)
         results["llm_cache"] = len(cache_cfg)
     results["llm"] = True
@@ -71,28 +109,28 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
     Stores action sets in both module-level constants (for hot-path perf)
     and SettingsCenter (for API query/runtime override).
     """
-    from l1.kernel.params.agent import (
-        CONSTITUTION_FILE_ACTIONS,
-        CONSTITUTION_MODIFY_ACTIONS,
-        CONSTITUTION_GATE_ACTIONS,
-        CONSTITUTION_SCOUT_BLOCKED,
-    )
+    import l1.kernel.params.agent as _agent_mod
+    from l1.kernel.discovery import set_config as _set_cfg
     if "file_actions" in cfg:
         val = frozenset(cfg["file_actions"])
-        CONSTITUTION_FILE_ACTIONS = val
-        s.set("constitution.file_actions", list(val))
+        _agent_mod.CONSTITUTION_FILE_ACTIONS = val
+        _set_cfg("constitution", "file_actions", sorted(val))
+        s.set_l2("constitution.file_actions", list(val))
     if "modify_actions" in cfg:
         val = frozenset(cfg["modify_actions"])
-        CONSTITUTION_MODIFY_ACTIONS = val
-        s.set("constitution.modify_actions", list(val))
+        _agent_mod.CONSTITUTION_MODIFY_ACTIONS = val
+        _set_cfg("constitution", "modify_actions", sorted(val))
+        s.set_l2("constitution.modify_actions", list(val))
     if "gate_actions" in cfg:
         val = frozenset(cfg["gate_actions"])
-        CONSTITUTION_GATE_ACTIONS = val
-        s.set("constitution.gate_actions", list(val))
+        _agent_mod.CONSTITUTION_GATE_ACTIONS = val
+        _set_cfg("constitution", "gate_actions", sorted(val))
+        s.set_l2("constitution.gate_actions", list(val))
     if "scout_blocked" in cfg:
         val = frozenset(cfg["scout_blocked"])
-        CONSTITUTION_SCOUT_BLOCKED = val
-        s.set("constitution.scout_blocked", list(val))
+        _agent_mod.CONSTITUTION_SCOUT_BLOCKED = val
+        _set_cfg("constitution", "scout_blocked", sorted(val))
+        s.set_l2("constitution.scout_blocked", list(val))
 
     # Load custom rules from YAML (optional)
     rules = cfg.get("rules", [])
@@ -100,7 +138,7 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
         try:
             from l1.kernel.constitution import get_constitution
             c = get_constitution()
-            s.set("constitution.custom_rules", rules)
+            s.set_l2("constitution.custom_rules", rules)
             c.update_rules(rules)
         except Exception as e:
             logger.warning("constitution rules load: %s", e)
@@ -109,61 +147,216 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
-    from l1.kernel.params.kernel import (
-        GATECHAIN_DANGER_LEVELS,
-        GATECHAIN_ESCALATION_DANGER,
-        GATECHAIN_RISK_WARN_THRESHOLD,
-        GATECHAIN_REPEAT_THRESHOLD,
-        GATECHAIN_HIGH_FREQ_THRESHOLD,
-        GATECHAIN_G5_HISTORY_LIMIT,
-    )
+    import l1.kernel.params.gatechain as _gatechain_mod
+    import l1.kernel.params.kernel as _kernel_mod
+    from l1.kernel.discovery import set_config as _set_cfg
     if "danger_levels" in cfg:
-        GATECHAIN_DANGER_LEVELS.clear(); GATECHAIN_DANGER_LEVELS.update(cfg["danger_levels"])
-    if "escalation_danger" in cfg: GATECHAIN_ESCALATION_DANGER = int(cfg["escalation_danger"])
-    if "risk_warn_threshold" in cfg: GATECHAIN_RISK_WARN_THRESHOLD = float(cfg["risk_warn_threshold"])
-    if "repeat_threshold" in cfg: GATECHAIN_REPEAT_THRESHOLD = int(cfg["repeat_threshold"])
-    if "high_freq_threshold" in cfg: GATECHAIN_HIGH_FREQ_THRESHOLD = int(cfg["high_freq_threshold"])
-    if "history_limit" in cfg: GATECHAIN_G5_HISTORY_LIMIT = int(cfg["history_limit"])
+        _gatechain_mod.GATECHAIN_DANGER_LEVELS.clear()
+        _gatechain_mod.GATECHAIN_DANGER_LEVELS.update(cfg["danger_levels"])
+        for _action, _danger in cfg["danger_levels"].items():
+            _set_cfg("gatechain_danger_levels", _action, _danger)
+    # Scalar thresholds: setattr on the authoritative params modules AND the
+    # discovery registry (gatechain.py reads get_config("gatechain")).
+    _scalars = {
+        "escalation_danger": ("GATECHAIN_ESCALATION_DANGER", int),
+        "risk_warn_threshold": ("GATECHAIN_RISK_WARN_THRESHOLD", float),
+        "repeat_threshold": ("GATECHAIN_REPEAT_THRESHOLD", int),
+        "high_freq_threshold": ("GATECHAIN_HIGH_FREQ_THRESHOLD", int),
+        "history_limit": ("GATECHAIN_G5_HISTORY_LIMIT", int),
+    }
+    for yaml_key, (attr, cast) in _scalars.items():
+        if yaml_key in cfg:
+            val = cast(cfg[yaml_key])
+            setattr(_gatechain_mod, attr, val)
+            setattr(_kernel_mod, attr, val)
+            _set_cfg("gatechain", yaml_key, val)
     results["gatechain"] = True
 
 
 def cfg_tool_rates(cfg: dict, s: Any, results: dict) -> None:
-    if "ring_1" in cfg or "ring_2_5" in cfg or "ring_3" in cfg:
-        results["tool_rates"] = True
+    """Load tool rate limits from praxis.yaml tool_rates: section.
+
+    Writes into discovery "tool_rates" (scheduler_rate.py reads it),
+    params/tool.py constants, and SettingsCenter L2.
+    """
+    import l1.kernel.params.tool as _tool_mod
+    from l1.kernel.discovery import set_config as _set_cfg
+    _rate_map = {
+        "ring_1": "TOOL_RATE_RING_1",
+        "ring_2_5": "TOOL_RATE_RING_2_5",
+        "ring_3": "TOOL_RATE_RING_3",
+    }
+    for yaml_key, attr in _rate_map.items():
+        if yaml_key in cfg:
+            setattr(_tool_mod, attr, int(cfg[yaml_key]))
+            _set_cfg("tool_rates", yaml_key, int(cfg[yaml_key]))
+            s.set_l2(f"tool_rates.{yaml_key}", cfg[yaml_key])
+    results["tool_rates"] = True
+
+
+def cfg_tool(cfg: dict, s: Any, results: dict) -> None:
+    """Load tool timeout config from praxis.yaml tool: section.
+
+    Writes into params/tool.py (via setattr), the discovery "tool" registry
+    (get_tool_config reads it), and SettingsCenter L2.
+    """
+    import l1.kernel.params.tool as _tool_mod
+    from l1.kernel.discovery import set_config as _set_cfg
+    _timeout_map = {
+        "web_timeout": "TOOL_WEB_TIMEOUT",
+        "search_timeout": "TOOL_SEARCH_TIMEOUT",
+        "terminal_timeout": "TOOL_TERMINAL_TIMEOUT",
+        "git_timeout": "TOOL_GIT_TIMEOUT",
+        "build_timeout": "TOOL_BUILD_TIMEOUT",
+        "pip_install_timeout": "TOOL_PIP_INSTALL_TIMEOUT",
+        "npm_timeout": "TOOL_NPM_TIMEOUT",
+        "pyright_timeout": "TOOL_PYRIGHT_TIMEOUT",
+        "compile_check_timeout": "TOOL_COMPILE_CHECK_TIMEOUT",
+        "package_manager_timeout": "TOOL_PACKAGE_MANAGER_TIMEOUT",
+        "handler_timeout": "TOOL_HANDLER_TIMEOUT",
+    }
+    for yaml_key, attr in _timeout_map.items():
+        if yaml_key in cfg:
+            setattr(_tool_mod, attr, cfg[yaml_key])
+            _set_cfg("tool", yaml_key, cfg[yaml_key])
+            s.set_l2(f"tool.{yaml_key}", cfg[yaml_key])
+    # Build/test detectors: praxis.yaml uses list-of-lists; discovery uses
+    # {name: {cmd: [...]}}. Convert for get_config("build_detectors").
+    for yaml_key, params_attr in (("build_detectors", "BUILD_DETECTORS"),
+                                  ("test_detectors", "TEST_DETECTORS")):
+        if yaml_key in cfg and isinstance(cfg[yaml_key], list):
+            cmds = [tuple(c) if isinstance(c, (list, tuple)) else (c,) for c in cfg[yaml_key]]
+            setattr(_tool_mod, params_attr, cmds)
+            for i, c in enumerate(cmds):
+                _set_cfg(yaml_key, f"d{i}", {"cmd": list(c)})
+            s.set_l2(f"tool.{yaml_key}", cmds)
+    results["tool"] = True
+
+
+def cfg_persistence(cfg: dict, s: Any, results: dict) -> None:
+    """Load persistence auto-save intervals from praxis.yaml persistence: section.
+
+    Writes into discovery "persistence" (approval_gate/card_gate read it),
+    params/system.py constants, and SettingsCenter L2.
+    """
+    import l1.kernel.params.system as _sys_mod
+    from l1.kernel.discovery import set_config as _set_cfg
+    _persist_map = {
+        "auto_save": "PERSIST_AUTO",
+        "interval": "PERSIST_INTERVAL",
+        "card_registry": "CARD_REGISTRY_AUTO_SAVE",
+        "card_gate": "CARD_GATE_AUTO_SAVE",
+        "pending_queue": "PENDING_QUEUE_AUTO_SAVE",
+        "issue_table": "ISSUE_TABLE_AUTO_SAVE",
+        "approval_gate": "APPROVAL_GATE_AUTO_SAVE",
+        "sandbox_state": "SANDBOX_STATE_AUTO_SAVE",
+        "todo_table": "TODO_TABLE_AUTO_SAVE",
+        "transaction_area": "TRANSACTION_AREA_AUTO_SAVE",
+        "statecharts": "STATECHARTS_AUTO_SAVE",
+        "execution_results": "EXECUTION_RESULTS_AUTO_SAVE",
+        "dialogue_session": "DIALOGUE_SESSION_AUTO_SAVE",
+    }
+    for yaml_key, attr in _persist_map.items():
+        if yaml_key in cfg:
+            setattr(_sys_mod, attr, cfg[yaml_key])
+            _set_cfg("persistence", yaml_key, cfg[yaml_key])
+            s.set_l2(f"persistence.{yaml_key}", cfg[yaml_key])
+    results["persistence"] = True
+
+
+def cfg_services(cfg: dict, s: Any, results: dict) -> None:
+    """Load service timeouts from praxis.yaml services: section.
+
+    Writes into discovery "services" (convention.py reads it),
+    params/api.py constants, and SettingsCenter L2.
+    """
+    import l1.kernel.params.api as _api_mod
+    from l1.kernel.discovery import set_config as _set_cfg
+    _svc_map = {
+        "lsp_manager_timeout": "LSP_MANAGER_TIMEOUT",
+        "lsp_long_timeout": "LSP_MANAGER_LONG_TIMEOUT",
+        "lsp_diag_timeout": "LSP_DIAG_TIMEOUT",
+        "mcp_bridge_timeout": "MCP_BRIDGE_TIMEOUT",
+        "mcp_bridge_long_timeout": "MCP_BRIDGE_LONG_TIMEOUT",
+        "shell_session_timeout": "SHELL_SESSION_TIMEOUT",
+        "pool_queue_timeout": "POOL_QUEUE_TIMEOUT",
+        "term_handler_timeout": "TERM_HANDLER_TIMEOUT",
+        "term_handler_long_timeout": "TERM_HANDLER_LONG_TIMEOUT",
+        "gateway_queue_timeout": "API_GATEWAY_QUEUE_TIMEOUT",
+        "r4_agent_join_timeout": "R4_AGENT_JOIN_TIMEOUT",
+        "subagent_run_timeout": "SUBAGENT_RUN_TIMEOUT",
+        "subagent_join_timeout": "SUBAGENT_JOIN_TIMEOUT",
+    }
+    for yaml_key, attr in _svc_map.items():
+        if yaml_key in cfg:
+            setattr(_api_mod, attr, cfg[yaml_key])
+            _set_cfg("services", yaml_key, cfg[yaml_key])
+            s.set_l2(f"services.{yaml_key}", cfg[yaml_key])
+    results["services"] = True
+
+
+def cfg_card_pool(cfg: dict, s: Any, results: dict) -> None:
+    """Load card pool registry config from praxis.yaml card_pool: section.
+
+    No runtime consumer yet — expose to SettingsCenter L2 for API querying.
+    """
+    from l3.config.settings_center import get_center
+    center = get_center()
+    if isinstance(cfg, dict):
+        for k, v in cfg.items():
+            center.set_l2(f"card_pool.{k}", v)
+    results["card_pool"] = True
 
 
 def cfg_htn(cfg: dict, s: Any, results: dict) -> None:
-    from l1.kernel.params.tool import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
-    if "domain_prefix" in cfg: HTN_DOMAIN_PREFIX = cfg["domain_prefix"]
-    if "tools" in cfg: HTN_DEFAULT_TOOLS.clear(); HTN_DEFAULT_TOOLS.update(cfg["tools"])
+    import l1.kernel.params.tool as _tool_mod
+    if "domain_prefix" in cfg:
+        _tool_mod.HTN_DOMAIN_PREFIX = cfg["domain_prefix"]
+    if "tools" in cfg:
+        _tool_mod.HTN_DEFAULT_TOOLS.clear(); _tool_mod.HTN_DEFAULT_TOOLS.update(cfg["tools"])
     results["htn"] = True
 
 
 def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
-    from l1.kernel.params.system import (
-        FILE_CACHE_MAX_ENTRIES,
-        FILE_CACHE_MAX_SIZE,
-        FILE_CACHE_TTL,
-        CONTEXT_REGISTER_MAX_ENTRIES,
-    )
-    if "max_entries" in cfg: FILE_CACHE_MAX_ENTRIES = int(cfg["max_entries"])
-    if "max_size_mb" in cfg: FILE_CACHE_MAX_SIZE = int(cfg["max_size_mb"]) * 1024 * 1024
-    if "ttl" in cfg: FILE_CACHE_TTL = float(cfg["ttl"])
-    if "context_max" in cfg: CONTEXT_REGISTER_MAX_ENTRIES = int(cfg["context_max"])
+    import l1.kernel.params.system as _sys_mod
+    if "max_entries" in cfg:
+        _sys_mod.FILE_CACHE_MAX_ENTRIES = int(cfg["max_entries"])
+    if "max_size_mb" in cfg:
+        _sys_mod.FILE_CACHE_MAX_SIZE = int(cfg["max_size_mb"]) * 1024 * 1024
+    if "ttl" in cfg:
+        _sys_mod.FILE_CACHE_TTL = float(cfg["ttl"])
+    if "context_max" in cfg:
+        _sys_mod.CONTEXT_REGISTER_MAX_ENTRIES = int(cfg["context_max"])
     results["cache"] = True
 
 
 def cfg_persist(cfg: dict, s: Any, results: dict) -> None:
-    from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL
-    if "enabled" in cfg: PERSIST_AUTO = bool(cfg["enabled"])
-    if "interval" in cfg: PERSIST_INTERVAL = float(cfg["interval"])
+    import l1.kernel.params.system as _sys_mod
+    if "enabled" in cfg:
+        _sys_mod.PERSIST_AUTO = bool(cfg["enabled"])
+    if "interval" in cfg:
+        _sys_mod.PERSIST_INTERVAL = float(cfg["interval"])
     results["persist"] = True
 
 
 def cfg_network(cfg: dict, s: Any, results: dict) -> None:
     import os as _os
-    if "discovery_port" in cfg: _os.environ["PRAXIS_DISCOVERY_PORT"] = str(cfg["discovery_port"])
-    if "mesh_port" in cfg: _os.environ["PRAXIS_PORT"] = str(cfg["mesh_port"])
+    import l1.kernel.params.api as _api_mod
+    import l1.kernel.params.system as _sys_mod
+    if "discovery_port" in cfg:
+        _os.environ["PRAXIS_DISCOVERY_PORT"] = str(cfg["discovery_port"])
+        _api_mod.DISCOVERY_PORT_DEFAULT = int(cfg["discovery_port"])
+        s.set_l2("network.discovery_port", cfg["discovery_port"])
+    if "mesh_port" in cfg:
+        _os.environ["PRAXIS_PORT"] = str(cfg["mesh_port"])
+        _api_mod.PRAXIS_PORT_DEFAULT = int(cfg["mesh_port"])
+        s.set_l2("network.mesh_port", cfg["mesh_port"])
+    if "broadcast_interval" in cfg:
+        _api_mod.BROADCAST_INTERVAL = float(cfg["broadcast_interval"])
+        s.set_l2("network.broadcast_interval", cfg["broadcast_interval"])
+    if "peer_timeout" in cfg:
+        _sys_mod.NET_PEER_TIMEOUT = float(cfg["peer_timeout"])
+        s.set_l2("network.peer_timeout", cfg["peer_timeout"])
     results["network"] = True
 
 
@@ -178,13 +371,22 @@ def cfg_api(cfg: dict, s: Any, results: dict) -> None:
     if mcp_mode:
         from l4.api_handlers.api_handlers_mcp import set_export_mode
         set_export_mode(mcp_mode)
+    # api.routes — external route registrations (see api_gateway.load_routes_from_yaml)
+    routes = cfg.get("routes") or []
+    if isinstance(routes, list):
+        try:
+            from l4.api.api_gateway import load_routes_from_yaml
+            r = load_routes_from_yaml(routes)
+            results["api_routes"] = r.get("loaded", 0)
+        except Exception as e:
+            results["api_routes"] = f"error: {e}"
     results["api"] = True
 
 
 def cfg_card_gate(cfg: dict, s: Any, results: dict) -> None:
     """Load card gate config from praxis.yaml → card_gate: section."""
     try:
-        from .card.card_gate import load_config
+        from l3.card.card_gate import load_config
         load_config(cfg if isinstance(cfg, dict) else {})
         results["card_gate"] = True
     except Exception as e:
@@ -203,21 +405,21 @@ def cfg_prompts(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_content_trust(cfg: dict, s: Any, results: dict) -> None:
     """Load content trust policies from praxis.yaml -> content_trust: section."""
-    from .services.content_trust import load_policies
+    from l3.services.content_trust import load_policies
     load_policies(cfg if isinstance(cfg, dict) else {})
     results["content_trust"] = len(cfg) if isinstance(cfg, dict) else 0
 
 
 def cfg_card_types(cfg: dict, s: Any, results: dict) -> None:
     """Load card type definitions from praxis.yaml → card_types: section."""
-    from .card.card_unified import load_card_types
+    from l3.card.card_unified import load_card_types
     load_card_types(cfg if isinstance(cfg, dict) else {})
     results["card_types"] = len(cfg) if isinstance(cfg, dict) else 0
 
 
 def cfg_mcp(cfg: dict, s: Any, results: dict) -> None:
     """Import MCP servers from praxis.yaml mcp.servers section."""
-    from .mcp_bridge import McpClient, get_bridge
+    from l4.mcp_bridge import McpClient, get_bridge
     if not cfg:
         results["mcp_servers"] = 0
         return
@@ -325,7 +527,7 @@ def cfg_credentials(cfg: dict, s: Any, results: dict) -> None:
           api_key: sk-ant-...
     """
     try:
-        from .vault.credential_vault import set_credential
+        from l4.vault.credential_vault import set_credential
         count = 0
         for provider, keys in (cfg or {}).items():
             for key_name, value in keys.items():
@@ -426,11 +628,11 @@ def cfg_think(cfg: dict, s: Any, results: dict) -> None:
     from l3.config.settings_center import get_center
     center = get_center()
     if "max_budget" in cfg:
-        center.set("think.max_budget", int(cfg["max_budget"]))
+        center.set_l2("think.max_budget", int(cfg["max_budget"]))
     if "max_reasoning" in cfg:
-        center.set("think.max_reasoning", str(cfg["max_reasoning"]))
+        center.set_l2("think.max_reasoning", str(cfg["max_reasoning"]))
     if "profiles" in cfg and isinstance(cfg["profiles"], dict):
-        center.set("think.profiles", cfg["profiles"])
+        center.set_l2("think.profiles", cfg["profiles"])
     results["think"] = True
 
 
@@ -452,12 +654,12 @@ def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
     }
     for cfg_key, center_key in mapping.items():
         if cfg_key in cfg:
-            center.set(center_key, cfg[cfg_key])
+            center.set_l2(center_key, cfg[cfg_key])
 
     if "scope" in cfg:
-        center.set("loop.scope", cfg["scope"])
+        center.set_l2("loop.scope", cfg["scope"])
     if "enabled" in cfg:
-        center.set("loop.enabled", bool(cfg["enabled"]))
+        center.set_l2("loop.enabled", bool(cfg["enabled"]))
     results["loop_control"] = True
 
 
@@ -474,7 +676,7 @@ def cfg_l3a(cfg: dict, s: Any, results: dict) -> None:
     }
     for yaml_key, sc_key in mapping.items():
         if yaml_key in cfg:
-            center.set(sc_key, cfg[yaml_key])
+            center.set_l2(sc_key, cfg[yaml_key])
     results["l3a"] = True
 
 
@@ -482,14 +684,41 @@ def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
     from l3.config.settings_center import get_center
     center = get_center()
     if "mode" in cfg:
-        center.set("diff.mode", str(cfg["mode"]))
+        center.set_l2("diff.mode", str(cfg["mode"]))
     if "heavy_api_enabled" in cfg:
-        center.set("diff.heavy_api_enabled", bool(cfg["heavy_api_enabled"]))
+        center.set_l2("diff.heavy_api_enabled", bool(cfg["heavy_api_enabled"]))
     if "colors" in cfg and isinstance(cfg["colors"], dict):
-        center.set("diff.colors", cfg["colors"])
+        center.set_l2("diff.colors", cfg["colors"])
         try:
             from l4.sandbox.cell_sandbox import set_color_scheme
             set_color_scheme(cfg["colors"])
         except Exception:
             pass
     results["diff"] = True
+
+
+def cfg_language(cfg: Any, s: Any, results: dict) -> None:
+    """Load display language from praxis.yaml top-level `language:` key.
+
+    The i18n adapter is wired with params/api.py I18N_DEFAULT_LOCALE; setattr
+    that constant and mirror into SettingsCenter L2. If the i18n port is
+    already registered (e.g. after wiring), switch its locale immediately.
+    """
+    if not cfg:
+        results["language"] = False
+        return
+    lang = str(cfg).strip()
+    if not lang:
+        results["language"] = False
+        return
+    import l1.kernel.params.api as _api_mod
+    _api_mod.I18N_DEFAULT_LOCALE = lang
+    s.set_l2("language", lang)
+    try:
+        from l1.kernel.ports import get_port
+        i18n = get_port("i18n")
+        if i18n is not None and hasattr(i18n, "set_locale"):
+            i18n.set_locale(lang)
+    except Exception:
+        pass
+    results["language"] = True

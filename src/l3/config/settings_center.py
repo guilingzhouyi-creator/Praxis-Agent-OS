@@ -31,9 +31,16 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_TIMEOUT,
     AGENT_LOOP_DEFAULT_STEPS,
     LOOP_MAX_ITERATIONS,
+    TERMINAL_MAX_WORKERS,
 )
 from l1.kernel.params.kernel import GATECHAIN_REPEAT_THRESHOLD, GATECHAIN_HIGH_FREQ_THRESHOLD
-from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL, LOG_TRUNC_500, CACHE_DEFAULT_TTL, SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
+from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT, NOTIFY_WEBHOOK_TIMEOUT
+from l1.kernel.params.system import (
+    PMU_SNAPSHOT_INTERVAL, LOG_TRUNC_500, CACHE_DEFAULT_TTL,
+    SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL,
+    MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET,
+    MEMORY_RING_WORKING_TTL, MEMORY_RING_SHORT_TTL,
+)
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -45,18 +52,18 @@ _L1_DEFAULTS: dict[str, Any] = {
     "approval.danger_threshold": 3,
 
     # ── Memory budgets ──
-    "memory.working_budget": 8192,
-    "memory.short_budget": 32768,
-    "memory.long_budget": 131072,
-    "memory.working_ttl": 1800,
-    "memory.short_ttl": 86400,
+    "memory.working_budget": MEMORY_RING_WORKING_BUDGET,
+    "memory.short_budget": MEMORY_RING_SHORT_BUDGET,
+    "memory.long_budget": MEMORY_RING_LONG_BUDGET,
+    "memory.working_ttl": MEMORY_RING_WORKING_TTL,
+    "memory.short_ttl": MEMORY_RING_SHORT_TTL,
 
     # ── Scout pool ──
     "scout.max_total": SCOUT_POOL_MAX_TOTAL,
     "scout.max_per_agent": SCOUT_POOL_MAX_PER_AGENT,
 
     # ── Agent terminal ──
-    "terminal.max_workers": 4,
+    "terminal.max_workers": TERMINAL_MAX_WORKERS,
 
     # ── Scheduler ──
     "scheduler.default_quantum": 15.0,
@@ -88,7 +95,7 @@ _L1_DEFAULTS: dict[str, Any] = {
 
     # ── TaskBus (webhook dispatch) ──
     "task_bus.webhook_retries": LOOP_MAX_ATTEMPTS,
-    "task_bus.webhook_timeout": 15,
+    "task_bus.webhook_timeout": NOTIFY_WEBHOOK_TIMEOUT,
     "task_bus.webhook_backoff": "1.0,4.0,10.0",
 
     # ── CronScheduler ──
@@ -122,6 +129,37 @@ _L1_DEFAULTS: dict[str, Any] = {
     "loop.coarse_repeat_nudge": LOOP_COARSE_REPEAT_NUDGE,
     "loop.coarse_repeat_stop": 6,
     "loop.verify_cadence": True,
+
+    # ── LLM global (model_service reads via SettingsCenter) ──
+    "llm.provider": "mock",
+    "llm.model": "",
+    "llm.api_key": "",
+    "llm.api_url": "",
+
+    # ── Network ──
+    "network.timeout": NETWORK_DEFAULT_TIMEOUT,
+    "network.user_agent": "praxis-agent-os",
+
+    # ── Device ──
+    "device.rate_limit_default": 10,
+
+    # ── Diff API (mirrors config/praxis.yaml diff: section) ──
+    "diff.heavy_api_enabled": False,
+    "diff.colors": {
+        "logic_change": "\033[31m",
+        "reformat": "\033[34m",
+        "comment_only": "\033[32m",
+        "import_change": "\033[33m",
+        "import_added": "\033[33m",
+        "rename": "\033[36m",
+        "structural": "\033[90m",
+        "mixed": "\033[35m",
+        "added": "\033[32m",
+        "removed": "\033[31m",
+    },
+
+    # ── Constitution runtime rules (L3-persisted custom rules) ──
+    "constitution.custom_rules": [],
 }
 
 
@@ -203,7 +241,18 @@ class SettingsCenter:
             return val.lower() in ("true", "1", "yes")
         return bool(val)
 
-    # ── Write (L3 only) ──
+    # ── Write (L2 = praxis.yaml layer, L3 = runtime overrides) ──
+
+    def set_l2(self, key: str, value: Any) -> dict:
+        """Write a value into the L2 (praxis.yaml) layer. Not persisted.
+
+        L2 is the deployment-config layer loaded at boot; use for values that
+        come from praxis.yaml so they never leak into the persisted L3
+        runtime-override file.
+        """
+        with self._lock:
+            self._l2[key] = value
+        return {"success": True, "key": key, "value": value, "layer": "l2"}
 
     def set(self, key: str, value: Any) -> dict:
         """Write a runtime override. Persists to .praxis_settings.json."""
