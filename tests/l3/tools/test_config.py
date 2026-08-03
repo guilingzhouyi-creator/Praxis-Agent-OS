@@ -17,12 +17,15 @@ from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolRing
 @pytest.fixture(autouse=True)
 def _clean_registry():
     """Each test starts with an empty TOOL_REGISTRY."""
-    saved = dict(TOOL_REGISTRY)
-    TOOL_REGISTRY.clear()
+    saved = TOOL_REGISTRY.list()
+    for spec in saved:
+        TOOL_REGISTRY.unregister(spec.name)
     ToolConfig._loaded = False
     yield
-    TOOL_REGISTRY.clear()
-    TOOL_REGISTRY.update(saved)
+    for spec in TOOL_REGISTRY.list():
+        TOOL_REGISTRY.unregister(spec.name)
+    for spec in saved:
+        TOOL_REGISTRY.register(spec)
 
 
 def _write_yaml(tmp_obj, content: str) -> str:
@@ -38,24 +41,24 @@ layer_1:
   files:
     read_file:
       description: Read a file
-      handler: tools._files._cmd_read_file
+      handler: l3.tools._files.read_file
       params:
         - name: path
           type: string
           required: true
     list_dir:
       description: List directory
-      handler: tools._files._cmd_list_dir
+      handler: l3.tools._files.list_dir
 layer_2:
   terminal:
     run_command:
       description: Execute shell command
-      handler: tools._comm._cmd_run
+      handler: l3.tools._terminal.execute_shell
 layer_3:
   network:
     curl:
       description: HTTP request
-      handler: tools._network._cmd_curl
+      handler: l3.tools._web.web_fetch
 """
 
 
@@ -84,21 +87,21 @@ layer_1:
   files:
     _internal_tool:
       description: should be skipped
-      handler: tools._files._cmd_read_file
+      handler: l3.tools._files.read_file
     read_file:
       description: keep this
-      handler: tools._files._cmd_read_file
+      handler: l3.tools._files.read_file
 _layer_x:
   domain:
     tool:
       description: skipped layer
-      handler: tools._files._cmd_read_file
+      handler: l3.tools._files.read_file
 """
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, yaml_content)
             assert ToolConfig.load(path) == 1
-            assert "read_file" in TOOL_REGISTRY
-            assert "_internal_tool" not in TOOL_REGISTRY
+            assert TOOL_REGISTRY.get("read_file") is not None
+            assert TOOL_REGISTRY.get("_internal_tool") is None
 
 
 class TestLayerRingMapping:
@@ -108,19 +111,19 @@ class TestLayerRingMapping:
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["read_file"].ring == ToolRing.RING_1
+        assert TOOL_REGISTRY.get("read_file").ring == ToolRing.RING_1
 
     def test_layer_2_maps_to_ring_2_5(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["run_command"].ring == ToolRing.RING_2_5
+        assert TOOL_REGISTRY.get("run_command").ring == ToolRing.RING_2_5
 
     def test_layer_3_maps_to_ring_3(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["curl"].ring == ToolRing.RING_3
+        assert TOOL_REGISTRY.get("curl").ring == ToolRing.RING_3
 
 
 class TestDangerDefaultM5:
@@ -132,7 +135,7 @@ layer_3:
   network:
     safe_curl:
       description: HTTP request with danger=0
-      handler: tools._network._cmd_curl
+      handler: l3.tools._web.web_fetch
       danger: 0
 """
         with tempfile.TemporaryDirectory() as d:
@@ -146,19 +149,19 @@ layer_3:
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["read_file"].danger == 0
+        assert TOOL_REGISTRY.get("read_file").danger == 0
 
     def test_no_danger_layer_2_defaults_one(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["run_command"].danger == 1
+        assert TOOL_REGISTRY.get("run_command").danger == 1
 
     def test_no_danger_layer_3_defaults_four(self):
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-        assert TOOL_REGISTRY["curl"].danger == 4
+        assert TOOL_REGISTRY.get("curl").danger == 4
 
 
 class TestQueryFilters:
@@ -206,9 +209,9 @@ class TestReload:
         with tempfile.TemporaryDirectory() as d:
             path = _write_yaml(d, _SAMPLE_YAML)
             ToolConfig.load(path)
-            assert len(TOOL_REGISTRY) == 4
+            assert len(TOOL_REGISTRY.all_names()) == 4
             ToolConfig.reload(path)
-            assert len(TOOL_REGISTRY) == 4
+            assert len(TOOL_REGISTRY.all_names()) == 4
             assert ToolConfig._loaded is True
 
 

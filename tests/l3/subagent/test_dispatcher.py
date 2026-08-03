@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 from l3.agent.subagent_dispatcher import SubAgentDispatcher
-from l3.agent.subagent_spec import SubAgentSpec
+from l3.agent.subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
 
 
 def test_dispatcher_creation():
-    """SubAgentDispatcher can be created with default state."""
+    """SubAgentDispatcher can be created with builtin specs."""
     d = SubAgentDispatcher()
     assert d is not None
-    assert len(d._specs) == 0
+    assert len(d._specs) == len(BUILTIN_SUBAGENTS)
 
 
 def test_register_spec():
@@ -17,8 +17,7 @@ def test_register_spec():
     d = SubAgentDispatcher()
     spec = SubAgentSpec(name="auditor", description="Security auditor")
     d.register_spec(spec)
-    assert len(d._specs) == 1
-    assert d._specs[0].name == "auditor"
+    assert d._specs["auditor"].name == "auditor"
 
 
 def test_register_multiple_specs():
@@ -26,22 +25,23 @@ def test_register_multiple_specs():
     d = SubAgentDispatcher()
     d.register_spec(SubAgentSpec(name="spec-a", description="A"))
     d.register_spec(SubAgentSpec(name="spec-b", description="B"))
-    assert len(d._specs) == 2
+    assert "spec-a" in d._specs
+    assert "spec-b" in d._specs
 
 
 def test_get_spec_by_name():
     """A spec can be retrieved by its @mention name."""
     d = SubAgentDispatcher()
     d.register_spec(SubAgentSpec(name="helper", description="Helper agent"))
-    spec = d.get_spec("helper")
+    spec = d._specs.get("helper")
     assert spec is not None
     assert spec.name == "helper"
 
 
 def test_get_spec_not_found():
-    """get_spec returns None for unknown names."""
+    """_specs returns None for unknown names."""
     d = SubAgentDispatcher()
-    assert d.get_spec("nonexistent") is None
+    assert d._specs.get("nonexistent") is None
 
 
 def test_list_specs():
@@ -49,20 +49,20 @@ def test_list_specs():
     d = SubAgentDispatcher()
     d.register_spec(SubAgentSpec(name="alpha", description="Alpha"))
     d.register_spec(SubAgentSpec(name="beta", description="Beta"))
-    names = d.list_specs()
-    assert "alpha" in names
-    assert "beta" in names
+    r = d.list_specs()
+    assert "alpha" in r["specs"]
+    assert "beta" in r["specs"]
 
 
 def test_parse_mention():
     """@mention strings are parsed correctly."""
     d = SubAgentDispatcher()
-    result = d._parse_mention("@security-auditor")
-    assert result == "security-auditor"
+    mentions = d.parse_mentions("@security-auditor")
+    assert len(mentions) == 1
+    assert mentions[0][0] == "security-auditor"
 
 
 def test_parse_mention_no_match():
-    """Strings without @ are returned as-is."""
+    """Strings without a known @mention return no matches."""
     d = SubAgentDispatcher()
-    result = d._parse_mention("plain text")
-    assert result == "plain text"
+    assert d.parse_mentions("plain text") == []

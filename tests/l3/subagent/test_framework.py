@@ -34,12 +34,12 @@ class TestMentionParsing:
         from l3.agent.subagent_framework import SubAgentDispatcher
         d = SubAgentDispatcher()
         # Two separate @mentions on separate fragments
-        m1 = d.parse_mentions("@scout explore")
-        m2 = d.parse_mentions("@debugger fix")
+        m1 = d.parse_mentions("@helper explore")
+        m2 = d.parse_mentions("@fixer fix")
         assert len(m1) == 1
         assert len(m2) == 1
-        assert m1[0][0] == "scout"
-        assert m2[0][0] == "debugger"
+        assert m1[0][0] == "helper"
+        assert m2[0][0] == "fixer"
 
     def test_parse_empty(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
@@ -52,11 +52,11 @@ class TestSubAgentSpec:
     """Sub-agent spec"""
 
     def test_builtin_specs(self):
-        from l3.agent.subagent_framework import BUILTIN_SUBAGENTS
+        from l3.agent.subagent_spec import BUILTIN_SUBAGENTS
         assert "security-auditor" in BUILTIN_SUBAGENTS
-        assert "debugger" in BUILTIN_SUBAGENTS
+        assert "helper" in BUILTIN_SUBAGENTS
         assert "code-reviewer" in BUILTIN_SUBAGENTS
-        assert "scout" in BUILTIN_SUBAGENTS
+        assert "architect" in BUILTIN_SUBAGENTS
 
     def test_spec_defaults(self):
         from l3.agent.subagent_framework import SubAgentSpec
@@ -79,7 +79,7 @@ class TestDispatcher:
     def test_dispatch_known(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
         d = SubAgentDispatcher()
-        r = d.dispatch("scout", "explore the src directory")
+        r = d.dispatch("helper", "explore the src directory")
         # should succeed even if LLM not available — falls back gracefully
         # the task may complete or fail asynchronously
         assert r.get("success") or ("error" in r and "API key" in str(r))
