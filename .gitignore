@@ -99,3 +99,6 @@ skills/__pycache__/
 
 # ── Mystery / untracked binaries ──
 Code/_
+
+# Runtime artifacts
+.tmp
