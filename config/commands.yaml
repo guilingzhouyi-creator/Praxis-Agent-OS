@@ -390,20 +390,23 @@ tokens:
 
 stats:
   category: system
-  help: "Query StatsCenter: tool calls, compression savings, per-Cell/Agent metrics"
+  help: "Query StatsCenter: card execution timeline, side-execution, API timing, reasoning cost, tool calls"
   args:
-    - {name: sub, description: "tools|compression|cell|agent|cells|top"}
-    - {name: scope, optional: true, completer: cell, description: "global|cell <id>|agent <id>"}
+    - {name: sub, description: "timeline|api|side|reasoning|top|tools|compression|cell|agent|cells"}
+    - {name: scope, optional: true, completer: cell, description: "limit (timeline) / metric (top) / cell <id>"}
     - {name: window, optional: true, description: "Time window: 1m|5m|1h|all (default: 5m)"}
   examples:
-    - "/stats tools                       — tool calls, all cells, 5m"
-    - "/stats tools cell cell-1 1h        — tool calls for cell-1, 1h"
-    - "/stats compression                 — compression token savings, global"
-    - "/stats compression cell cell-1     — per-cell compression"
-    - "/stats cell cell-1                 — all metrics + PMU live for cell-1"
-    - "/stats agent agent-writer          — per-agent tool/token detail"
-    - "/stats cells                       — all Cells summary"
-    - "/stats top tools.executed.ring_1   — cross-Cell ranking"
+    - "/stats timeline                 — card end-to-end time: per-Cell + per-Peer-Agent breakdown"
+    - "/stats timeline 10              — same, 10 most recent cards"
+    - "/stats api                      — API request latency/count from the gateway"
+    - "/stats side                     — AgentLoop side-execution timing (compression/parallel/continuation)"
+    - "/stats reasoning                — deliberation costs (reasoning tokens + card execution)"
+    - "/stats top card.execution.agent — cross-Cell ranking of slowest Peer Agents"
+    - "/stats tools                    — tool calls, all cells, 5m"
+    - "/stats compression              — compression token savings, global"
+    - "/stats cell cell-1              — all metrics + PMU live for cell-1"
+    - "/stats agent agent-writer       — per-agent tool/token detail"
+    - "/stats cells                    — all Cells summary"
 
 # ── SubAgent spec definitions (loaded by subagent_spec.py) ──
 # Each entry maps to a SubAgentSpec dataclass.

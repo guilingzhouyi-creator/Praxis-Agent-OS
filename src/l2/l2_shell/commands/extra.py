@@ -68,9 +68,78 @@ def _cmd_buffer(args: list[str]) -> dict:
     return {"success": True, "buffer": {}}
 
 def _cmd_stats(args: list[str]) -> dict:
-    from l1.kernel import get_event_bus
-    bus = get_event_bus()
-    return {"success": True, "stats": bus.stats()}
+    """Query statistics: StatsCenter metrics, card execution timeline,
+    side-execution timing, API request timing, reasoning token spend.
+
+    Sub-commands:
+      timeline [limit]            card end-to-end timeline (cell + agent breakdown)
+      api                         API request latency/count (stats.api.request)
+      side [window]               AgentLoop side-execution timing
+      reasoning [window]          deliberation costs (reasoning tokens + card exec)
+      top <metric> [window]       cross-Cell ranking for a metric
+      <tools|compression|cell|agent|cells> [window]   generic StatsCenter query
+    """
+    sub = args[0].lower() if args else ""
+    window = "5m"
+    for a in args[1:]:
+        if a in ("1m", "5m", "1h", "all"):
+            window = a
+            break
+
+    if not sub:
+        try:
+            from l1.kernel import get_event_bus
+            bus_stats = get_event_bus().stats()
+        except Exception:
+            bus_stats = {}
+        from l3.services.stats_center import get_center as _sc
+        try:
+            summary = _sc().stats()
+        except Exception:
+            summary = {}
+        return {"success": True, "event_bus": bus_stats, "metrics": summary}
+
+    if sub == "timeline":
+        from l3.card.card_registry import get_registry
+        limit = 20
+        for a in args[1:]:
+            if a.isdigit():
+                limit = int(a)
+                break
+        return {"success": True, **get_registry().execution_stats(limit=limit)}
+
+    if sub == "api":
+        from l3.services.stats_center import get_center as _sc
+        return {"success": True, "metrics": _sc().query(
+            metrics=["api.request.latency", "api.request.count"], window=window)}
+
+    if sub == "side":
+        from l3.services.stats_center import get_center as _sc
+        return {"success": True, "metrics": _sc().query(
+            metrics=["agent.loop.side.compression", "agent.loop.side.parallel_read",
+                     "agent.loop.side.continuation", "agent.loop.side.llm_tools"],
+            window=window)}
+
+    if sub == "reasoning":
+        from l3.services.stats_center import get_center as _sc
+        return {"success": True, "metrics": _sc().query(
+            metrics=["l3a.tokens.reasoning", "card.execution.total",
+                     "card.execution.cell", "card.execution.agent"],
+            window=window)}
+
+    if sub == "top":
+        metric = args[1] if len(args) > 1 else "card.execution.total"
+        from l3.services.stats_center import get_center as _sc
+        return {"success": True, "metric": metric,
+                "ranking": _sc().top(metric, limit=10, window=window)}
+
+    if sub in ("tools", "compression", "cell", "agent", "cells"):
+        from l3.services.stats_center import get_center as _sc
+        return {"success": True, "metrics": _sc().query(window=window)}
+
+    return {"success": False,
+            "error": "usage: /stats [timeline [n]|api|side|reasoning|top <metric>"
+                     "|tools|compression|cell|agent|cells] [1m|5m|1h|all]"}
 
 def _cmd_think(args: list[str]) -> dict:
     """Inspect or configure think quotas."""
