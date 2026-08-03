@@ -274,6 +274,7 @@ class Session:
                               tags={"tool": fn_name, "session": self.id},
                               timestamp=ts, metric_type="counter"))
             except Exception:
+                capture("l3a session: stats_center tool recording failed", error_code="E_L3A_SESSION", component="l3a")
                 logger.debug("l3a session: stats_center tool recording failed")
 
         # Token savings tracking: compare projected vs actual
@@ -294,6 +295,7 @@ class Session:
                           tags={"session": self.id},
                           timestamp=ts, metric_type="counter"))
         except Exception:
+            capture("l3a session: token savings recording failed", error_code="E_L3A_SESSION", component="l3a")
             logger.debug("l3a session: token savings recording failed")
         return result
 
@@ -346,6 +348,7 @@ class Session:
                 raw = raw.get("context_window", raw.get("max", 0))
             self._ctx_window_cache = int(raw or 0)
         except Exception:
+            capture("l3a session: context window query failed", error_code="E_L3A_SESSION", component="l3a")
             self._ctx_window_cache = _p.CONTEXT_WINDOW_FALLBACK
         return self._ctx_window_cache
 
@@ -363,6 +366,7 @@ class Session:
             try:
                 todo_state = self.todos()
             except Exception:
+                capture("l3a session: todo state capture failed", error_code="E_L3A_SESSION", component="l3a")
                 todo_state = {"tasks": []}
             self._loop = None
             ctx = self.history.to_context_trail()
@@ -376,6 +380,7 @@ class Session:
                 for cid in self._subscribed_cards:
                     reg.unsubscribe(cid, self._on_card_completed)
             except Exception:
+                capture("l3a session: unsubscribe failed on close", error_code="E_L3A_SESSION", component="l3a")
                 logger.debug("l3a session: unsubscribe failed on close")
             self._subscribed_cards.clear()
         # I/O outside lock
@@ -469,6 +474,7 @@ class Session:
             cfg.update({k: v for k, v in spec.items() if k not in cfg or not cfg[k]})
             self._model_spec_cache = cfg
         except Exception:
+            capture("l3a session: model spec resolve failed", error_code="E_L3A_SESSION", component="l3a")
             cfg = self.model_config.resolve()
             self._model_spec_cache = cfg
         return cfg
@@ -483,6 +489,7 @@ class Session:
             timeout = sc.get("l3a.timeout", sc.get("loop.timeout", 0))
             max_turns = sc.get("l3a.max_turns", sc.get("session.max_turns", 0))
         except Exception:
+            capture("l3a session: limits resolve failed", error_code="E_L3A_SESSION", component="l3a")
             steps = 999999
             timeout = 0
             max_turns = 0
@@ -613,9 +620,11 @@ class Session:
                 issues=issues, decisions=decisions,
                 doc_path=result.get("doc_path", ""),
                 archive_ref=result.get("archive_ref", ""),
+                session_id=self.id,
             )
             get_store().save(s)
         except Exception as e:
+            capture("l3a: summary distill failed", error_code="E_L3A_SESSION", component="l3a", context={"error": str(e)})
             logger.debug("l3a: summary distill failed: %s", e)
 
     def _ensure_epoch(self) -> None:
@@ -639,6 +648,7 @@ class Session:
             todo_path = os.path.join(_gp().data_dir,
                                      f"l3a_todos_{self.id}.json")
         except Exception:
+            capture("l3a session: todo_path resolve failed", error_code="E_L3A_SESSION", component="l3a")
             todo_path = f".praxis/l3a_todos_{self.id}.json"
         self._loop = AgentLoop(
             task="",
@@ -654,6 +664,7 @@ class Session:
             try:
                 self._loop._todo.load(self._resume_todos)
             except Exception:
+                capture("l3a session: resume todos seed failed", error_code="E_L3A_SESSION", component="l3a")
                 logger.debug("l3a session: resume todos seed failed")
         from .helpers import cardwrite_handler
 
@@ -670,6 +681,7 @@ class Session:
                     from l3.card.card_registry import get_registry
                     get_registry().subscribe(cid, self._on_card_completed)
                 except Exception:
+                    capture("l3a session: card subscribe failed", error_code="E_L3A_SESSION", component="l3a", context={"card_id": cid})
                     logger.debug("l3a session: card subscribe failed for %s", cid)
             return r
 

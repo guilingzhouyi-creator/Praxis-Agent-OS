@@ -105,7 +105,7 @@ class PromptInbox:
 
     def reload(self) -> None:
         try:
-            from l3.memory.memory import get_memory as _gm
+            from l3.memory.central_memory import get_l3a_memory as _gm
             entries = _gm().recall(
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_inbox",
@@ -129,7 +129,7 @@ class PromptInbox:
 
     def _persist(self) -> None:
         try:
-            from l3.memory.memory import get_memory as _gm
+            from l3.memory.central_memory import get_l3a_memory as _gm
             for a in self._entries:
                 if a.status != "pending" or a.id in self._persisted_ids:
                     continue

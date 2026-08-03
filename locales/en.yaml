@@ -23,6 +23,7 @@ shell:
     clear: "Clear the terminal screen"
     history: "Show shell command history"
     lang: "Show or switch display language"
+    think: "Manage think quota (config/cell/stats)"
 
   # ── Shell errors ──
   error:
@@ -318,10 +319,6 @@ generic:
   no: "No"
 
 # ── Think quota (ThinkQuotaRegistry commands) ──
-
-shell:
-  command:
-    think: "Manage think quota (config/cell/stats)"
 
 think:
   config_show: "Think config hierarchy"

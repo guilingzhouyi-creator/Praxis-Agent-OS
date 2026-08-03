@@ -23,6 +23,7 @@ shell:
     clear: "清空终端屏幕"
     history: "显示 Shell 命令历史"
     lang: "显示或切换显示语言"
+    think: "管理 Think 配额 (config/cell/stats)"
   error:
     unknown_command: "未知命令：/{cmd}"
     no_session: "没有活跃的直连会话"
@@ -304,10 +305,6 @@ generic:
   no: "否"
 
 # ── Think 配额 (ThinkQuotaRegistry 命令) ──
-
-shell:
-  command:
-    think: "管理 Think 配额 (config/cell/stats)"
 
 think:
   config_show: "Think 配置层级"

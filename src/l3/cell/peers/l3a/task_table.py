@@ -20,6 +20,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from l3.error_bus import capture
+
 
 @dataclass
 class SessionTask:
@@ -125,6 +127,7 @@ class SessionTaskTable:
         try:
             reg = get_registry()
         except Exception as e:
+            capture("task_table: registry unavailable", error_code="E_L3A_TASKS", component="l3a", context={"error": str(e)})
             logger.debug("task_table: registry unavailable: %s", e)
             return 0
         updated = 0
@@ -133,6 +136,7 @@ class SessionTaskTable:
                 try:
                     rec = reg.get(card_id)
                 except Exception:
+                    capture("task_table: card lookup failed", error_code="E_L3A_TASKS", component="l3a", context={"card_id": card_id})
                     continue
                 if not rec:
                     continue

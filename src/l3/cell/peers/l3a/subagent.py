@@ -97,6 +97,7 @@ class L3ASubAgentPool:
             try:
                 fut.result(timeout=deadline - now)
             except Exception:
+                # Task failed/timed out — status already recorded on the task object.
                 pass
         with self._lock:
             for tid in tids:
@@ -175,6 +176,7 @@ class L3ASubAgentPool:
                         if spec.parameters:
                             params = {p.name: p.type for p in spec.parameters}
                 except Exception:
+                    capture("l3a subagent: tool spec parse failed", error_code="E_L3A_SA", component="l3a", context={"tool_name": tn})
                     pass
                 if tn == "cardwrite":
                     params = {"nature": "string", "title": "string",
@@ -219,6 +221,7 @@ class L3ASubAgentPool:
             from l3.services.model_service import get_service as _gs
             return _gs().resolve_dict("l3a_subagent")
         except Exception:
+            capture("l3a subagent: model config resolve failed", error_code="E_L3A_SA", component="l3a")
             return {"max_tokens": _p.SA_DEFAULT_MAX_TOKENS, "temperature": _p.SA_DEFAULT_TEMPERATURE}
 
     @staticmethod

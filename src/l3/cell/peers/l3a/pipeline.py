@@ -10,6 +10,8 @@ from typing import Any
 
 from . import params as _p
 
+from l3.error_bus import capture
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +47,7 @@ def spill(content: str) -> str:
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
     except OSError as e:
+        capture("l3a pipeline: spill failed", error_code="E_L3A_PIPELINE", component="l3a", context={"path": path, "error": str(e)})
         logger.warning("l3a pipeline: spill failed: %s", e)
     return path
 

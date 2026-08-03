@@ -67,7 +67,7 @@ def _cmd_sysinfo(args: list[str]) -> dict:
     import sys; return {"success": True, "python": sys.version, "platform": sys.platform}
 
 def _cmd_clear(args: list[str]) -> dict:
-    print("\033[2J\033[H", end=""); return {"success": True}
+    print("\033[2J\033[H", end=""); return {"success": True, "clear": True}
 
 def _cmd_history(args: list[str]) -> dict:
     from l1.kernel.params.system import SHELL_HISTORY_DEFAULT_LIMIT
@@ -75,9 +75,9 @@ def _cmd_history(args: list[str]) -> dict:
     return {"success": True, "history": [], "limit": limit}
 
 def _cmd_lang(args: list[str]) -> dict:
-    from l2.i18n import set_locale, get_locale
+    from l2.i18n import set_locale, get_locale, get_available_locales
     if args: set_locale(args[0])
-    return {"success": True, "locale": get_locale()}
+    return {"success": True, "locale": get_locale(), "available": get_available_locales()}
 
 def _cmd_devices(args: list[str]) -> dict:
     from l1.kernel.device import get_device_manager

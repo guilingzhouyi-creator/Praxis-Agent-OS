@@ -81,7 +81,9 @@ def _route_to_assembly(card: CardUnified) -> "AssemblyMode":
             return AssemblyMode.DEFAULT
         return AssemblyMode.DEFAULT
     except Exception:
-        return AssemblyMode.AUTO_APPROVE
+        capture("l3a helpers: card gate evaluate failed", error_code="E_L3A_HELPERS", component="l3a")
+        # Fail-safe: when the gate itself errors, do NOT auto-approve — park for review.
+        return AssemblyMode.DEFAULT
 
 
 def get_convergence_queue(cell_id: str) -> list[dict]:
@@ -97,6 +99,7 @@ def get_convergence_queue(cell_id: str) -> list[dict]:
                  "fingerprint": a.fingerprint, "created_at": a.created_at}
                 for a in answers]
     except Exception:
+        capture("l3a helpers: convergence queue load failed", error_code="E_L3A_HELPERS", component="l3a", context={"cell_id": cell_id})
         return []
 
 
@@ -162,6 +165,7 @@ def _read_convention_doc(issue_id: str) -> str | None:
             with open(path, encoding="utf-8") as f:
                 return f.read()
     except Exception:
+        capture("l3a helpers: spill read failed", error_code="E_L3A_HELPERS", component="l3a")
         pass
     # fall back to R4 archive
     try:
@@ -173,6 +177,7 @@ def _read_convention_doc(issue_id: str) -> str | None:
         ).fetchone()
         return row[0] if row else None
     except Exception:
+        capture("l3a helpers: convention doc fetch failed", error_code="E_L3A_HELPERS", component="l3a", context={"issue_id": issue_id})
         return None
 
 

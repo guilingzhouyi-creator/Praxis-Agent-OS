@@ -56,7 +56,7 @@ def search_sessions(limit: int = 10, cursor: str | None = None,
     except Exception:
         capture("l3a archive: search_sessions failed", error_code="E_L3A_SEARCH",
                 component="l3a", context={"session_id": session_id or ""})
-        return {"success": True, "data": [], "count": 0}
+        return {"success": False, "error": "search failed", "data": [], "count": 0}
 
     results = []
     for rid, content in rows:

@@ -24,6 +24,8 @@ from typing import Any
 
 from . import params as _p
 
+from l3.error_bus import capture
+
 logger = logging.getLogger(__name__)
 
 _L3A_SUMMARY_DIR = "l3a_summaries"
@@ -42,6 +44,9 @@ class L3ASummary:
     title: str = ""
     domain: str = ""
     created_at: float = field(default_factory=time.time)
+    session_id: str = ""
+    last_modified_at: float = field(default_factory=time.time)
+    last_accessed_at: float = 0.0
     agents: list[str] = field(default_factory=list)
     issues: list[dict] = field(default_factory=list)
     decisions: list[dict] = field(default_factory=list)
@@ -89,8 +94,10 @@ class L3ASummaryStore:
                             if len(self._cache) > _L3A_SUMMARY_CACHE_MAX:
                                 self._cache.popitem(last=False)
                 except Exception:
+                    capture("l3a summaries: restore failed", error_code="E_L3A_SUMMARY", component="l3a", context={"path": path})
                     logger.warning("l3a summaries: restore failed for %s", path)
         except Exception as e:
+            capture("l3a summaries: restore dir failed", error_code="E_L3A_SUMMARY", component="l3a", context={"error": str(e)})
             logger.warning("l3a summaries: restore dir failed: %s", e)
 
     def _append(self, s: L3ASummary) -> None:
@@ -100,20 +107,30 @@ class L3ASummaryStore:
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(s.to_dict(), ensure_ascii=False, default=str) + "\n")
         except Exception as e:
+            capture("l3a summaries: persist failed", error_code="E_L3A_SUMMARY", component="l3a", context={"error": str(e)})
             logger.warning("l3a summaries: persist failed: %s", e)
 
-    # ── Write ──
+    # ── Write (system-managed timestamps) ──
 
     def save(self, summary: L3ASummary) -> None:
+        """Save (or update) a summary.
+
+        created_at preserved from first save; last_modified_at updated on
+        every write; last_accessed_at updated by get()/search()/latest().
+        """
         with self._lock:
+            existing = self._cache.get(summary.issue_id)
+            if existing:
+                summary.created_at = existing.created_at
+            summary.last_modified_at = time.time()
             self._cache[summary.issue_id] = summary
             if len(self._cache) > _L3A_SUMMARY_CACHE_MAX:
                 self._cache.popitem(last=False)
         self._append(summary)
-        # Cold backup into R3 (tag-isolated, agent=l3a)
+        # Cold backup into L3A's own R3 ring (isolated instance)
         try:
-            from l3.memory.memory import get_memory
-            get_memory().remember(
+            from l3.memory.central_memory import get_l3a_memory
+            get_l3a_memory().remember(
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_summary",
                 content=json.dumps(summary.to_dict(), ensure_ascii=False, default=str),
@@ -122,15 +139,26 @@ class L3ASummaryStore:
                 ring=3,
             )
         except Exception:
+            capture("l3a summaries: R3 cold backup failed", error_code="E_L3A_SUMMARY", component="l3a")
             logger.debug("l3a summaries: R3 cold backup failed")
-        logger.info("l3a summary saved: %s — %s", summary.issue_id,
-                    summary.title[:60])
+        logger.info("l3a summary saved: %s — %s (session=%s)",
+                    summary.issue_id, summary.title[:60], summary.session_id)
 
-    # ── Read ──
+    # ── Read (system-managed last_accessed_at) ──
+
+    def _touch(self, s: L3ASummary) -> None:
+        s.last_accessed_at = time.time()
+        try:
+            self._append(s)
+        except Exception:
+            pass
 
     def get(self, issue_id: str) -> L3ASummary | None:
         with self._lock:
-            return self._cache.get(issue_id)
+            s = self._cache.get(issue_id)
+        if s:
+            self._touch(s)
+        return s
 
     def latest(self, domain: str = "", limit: int = 5) -> list[L3ASummary]:
         with self._lock:
@@ -138,7 +166,10 @@ class L3ASummaryStore:
         items.sort(key=lambda s: s.created_at, reverse=True)
         if domain:
             items = [s for s in items if s.domain == domain]
-        return items[:limit]
+        picked = items[:limit]
+        for s in picked:
+            self._touch(s)
+        return picked
 
     def search(self, query: str, limit: int = 5) -> list[L3ASummary]:
         q = query.lower()
@@ -153,7 +184,10 @@ class L3ASummaryStore:
             if q in haystack or any(q in w.lower() for w in s.title.split()):
                 hits.append(s)
         hits.sort(key=lambda s: s.created_at, reverse=True)
-        return hits[:limit]
+        picked = hits[:limit]
+        for s in picked:
+            self._touch(s)
+        return picked
 
     def count(self) -> int:
         with self._lock:
@@ -204,7 +238,8 @@ def analyze_overlap(issues: list[dict]) -> list[str]:
 def build_summary(issue_id: str, source_card_id: str, title: str,
                   domain: str, agents: list[str],
                   issues: list[dict], decisions: list[dict],
-                  doc_path: str = "", archive_ref: str = "") -> L3ASummary:
+                  doc_path: str = "", archive_ref: str = "",
+                  session_id: str = "") -> L3ASummary:
     """Rule-based L3A summary distillation from a converged convention."""
     overlap = analyze_overlap(issues)
     resolved = [i for i in issues if i.get("status") == "resolved"]
@@ -229,6 +264,7 @@ def build_summary(issue_id: str, source_card_id: str, title: str,
         title=title, domain=domain, agents=agents,
         issues=issues, decisions=decisions, overlap_notes=overlap,
         summary="\n".join(lines), doc_path=doc_path, archive_ref=archive_ref,
+        session_id=session_id,
     )
 
 

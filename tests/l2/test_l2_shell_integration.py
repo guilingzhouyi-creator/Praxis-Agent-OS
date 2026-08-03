@@ -28,7 +28,7 @@ class TestPreconnectEnhanced:
 
     def test_preconnect_rejected(self, mocker):
         """preconnect returns allowed=False → early return."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": False, "reason": "injection_detected"}
 
         from l2.l2_shell import preconnect_enhanced
@@ -38,10 +38,10 @@ class TestPreconnectEnhanced:
 
     def test_llm_provider_error(self, mocker):
         """LLM provider returns status=error."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": True}
 
-        mock_engine = mocker.patch("services.llm.get_engine")
+        mock_engine = mocker.patch("l3.services.adapter_bridge.get_llm_engine")
         mock_engine.return_value.provider_status.return_value = {
             "status": "error", "error": "rate limited"
         }
@@ -53,10 +53,10 @@ class TestPreconnectEnhanced:
 
     def test_llm_import_error(self, mocker):
         """get_engine raises ImportError → llm_module_missing."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": True}
 
-        mocker.patch("services.llm.get_engine", side_effect=ImportError("no module"))
+        mocker.patch("l3.services.adapter_bridge.get_llm_engine", side_effect=ImportError("no module"))
 
         from l2.l2_shell import preconnect_enhanced
         r = preconnect_enhanced("cell-1", "agent-a")
@@ -65,10 +65,10 @@ class TestPreconnectEnhanced:
 
     def test_llm_attribute_error(self, mocker):
         """get_engine itself raises AttributeError → llm_api_mismatch."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": True}
 
-        mocker.patch("services.llm.get_engine", side_effect=AttributeError("engine uninitialized"))
+        mocker.patch("l3.services.adapter_bridge.get_llm_engine", side_effect=AttributeError("engine uninitialized"))
 
         from l2.l2_shell import preconnect_enhanced
         r = preconnect_enhanced("cell-1", "agent-a")
@@ -77,10 +77,10 @@ class TestPreconnectEnhanced:
 
     def test_preconnect_all_checks_pass(self, mocker):
         """All 3 checks pass → allowed=True."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": True}
 
-        mock_engine = mocker.patch("services.llm.get_engine")
+        mock_engine = mocker.patch("l3.services.adapter_bridge.get_llm_engine")
         mock_engine.return_value.provider_status.return_value = {"status": "ok"}
 
         from l2.l2_shell import preconnect_enhanced
@@ -91,10 +91,10 @@ class TestPreconnectEnhanced:
 
     def test_llm_unexpected_exception(self, mocker):
         """Generic Exception fallback → llm_unavailable."""
-        mock_preconnect = mocker.patch("services.selector.preconnect")
+        mock_preconnect = mocker.patch("l2.selector.preconnect")
         mock_preconnect.return_value = {"allowed": True}
 
-        mocker.patch("services.llm.get_engine", side_effect=RuntimeError("OOM"))
+        mocker.patch("l3.services.adapter_bridge.get_llm_engine", side_effect=RuntimeError("OOM"))
 
         from l2.l2_shell import preconnect_enhanced
         r = preconnect_enhanced("cell-1", "agent-a")
@@ -108,7 +108,7 @@ class TestPreconnectEnhanced:
 
 class TestCompleteAgent:
     def test_complete_agent_matches_partial(self, mocker):
-        mock_preselect = mocker.patch("services.selector.preselect")
+        mock_preselect = mocker.patch("l2.selector.preselect")
         mock_preselect.return_value = {
             "agents": [
                 {"agent_id": "agent-alpha", "role": "writer", "status": "ready"},
@@ -124,7 +124,7 @@ class TestCompleteAgent:
         assert results[0]["type"] == "agent"
 
     def test_complete_agent_empty_partial_returns_all(self, mocker):
-        mock_preselect = mocker.patch("services.selector.preselect")
+        mock_preselect = mocker.patch("l2.selector.preselect")
         mock_preselect.return_value = {
             "agents": [
                 {"agent_id": "a1", "role": "w", "status": "ready"},
@@ -137,7 +137,7 @@ class TestCompleteAgent:
         assert len(results) == 2
 
     def test_complete_agent_preselect_fails_gracefully(self, mocker):
-        mocker.patch("services.selector.preselect", side_effect=RuntimeError("fail"))
+        mocker.patch("l2.selector.preselect", side_effect=RuntimeError("fail"))
 
         from l2.l2_shell import _complete_agent
         results = _complete_agent("x")
@@ -146,7 +146,7 @@ class TestCompleteAgent:
 
 class TestCmdAgents:
     def test_cmd_agents_returns_preselect(self, mocker):
-        mock_preselect = mocker.patch("services.selector.preselect")
+        mock_preselect = mocker.patch("l2.selector.preselect")
         mock_preselect.return_value = {"agents": [{"agent_id": "a1"}]}
 
         from l2.l2_shell import _cmd_agents
@@ -165,15 +165,15 @@ class TestCmdConnectFull:
         assert not r["success"]
 
     def test_connect_blocked_by_security(self, mocker):
-        mocker.patch("services.central_security.get_center")
+        mocker.patch("l3.services.central_security.get_center")
         from l2.l2_shell import _cmd_connect, reset_state
         reset_state()
 
         # Mock security to deny
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": False}
         # Skip preconnect_enhanced
-        mocker.patch("services.l2_shell.preconnect_enhanced")
+        mocker.patch("l2.l2_shell.preconnect_enhanced")
 
         r = _cmd_connect(["agent-x"])
         assert not r["success"]
@@ -184,10 +184,10 @@ class TestCmdConnectFull:
         reset_state()
 
         # Security allows
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
         # Preconnect denies
-        mocker.patch("services.l2_shell.preconnect_enhanced",
+        mocker.patch("l2.l2_shell.preconnect_enhanced",
                      return_value={"allowed": False, "reason": "no_llm"})
 
         r = _cmd_connect(["agent-x"])
@@ -199,13 +199,13 @@ class TestCmdConnectFull:
         reset_state()
 
         # Security allows
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
         # Preconnect allows
-        mocker.patch("services.l2_shell.preconnect_enhanced",
+        mocker.patch("l2.l2_shell.preconnect_enhanced",
                      return_value={"allowed": True, "checks": {}})
         # Cell accepts
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": True, "card_id": "card-1"
         }
@@ -222,11 +222,11 @@ class TestCmdConnectFull:
         from l2.l2_shell import _cmd_connect, reset_state
         reset_state()
 
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
-        mocker.patch("services.l2_shell.preconnect_enhanced",
+        mocker.patch("l2.l2_shell.preconnect_enhanced",
                      return_value={"allowed": True, "checks": {}})
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": False, "error": "agent_unreachable"
         }
@@ -240,11 +240,11 @@ class TestCmdConnectFull:
         from l2.l2_shell import _cmd_connect, reset_state
         reset_state()
 
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.side_effect = ImportError("no central_security")
-        mocker.patch("services.l2_shell.preconnect_enhanced",
+        mocker.patch("l2.l2_shell.preconnect_enhanced",
                      return_value={"allowed": True, "checks": {}})
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": True, "card_id": "card-1"
         }
@@ -261,7 +261,7 @@ class TestCmdDisconnectWithSession:
         s = get_state()
         s.switch_to_direct("cell-1", "agent-active")
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.close_direct_session.return_value = {"success": True}
 
         r = _cmd_disconnect([])
@@ -277,7 +277,7 @@ class TestCmdDisconnectWithSession:
         s = get_state()
         s.switch_to_direct("cell-1", "agent-fail")
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.close_direct_session.side_effect = RuntimeError("crash")
 
         r = _cmd_disconnect([])
@@ -294,7 +294,7 @@ class TestCmdDisconnectWithSession:
 
 class TestCmdIntents:
     def test_list_intents_no_filter(self, mocker):
-        mock_coord = mocker.patch("services.l3.get_coordinator")
+        mock_coord = mocker.patch("l3.cell.peers.l3.get_coordinator")
         mock_coord.return_value.list_intents.return_value = [{"id": "intent-1"}]
 
         from l2.l2_shell import _cmd_intents
@@ -303,7 +303,7 @@ class TestCmdIntents:
         assert len(r["intents"]) == 1
 
     def test_list_intents_with_filter(self, mocker):
-        mock_coord = mocker.patch("services.l3.get_coordinator")
+        mock_coord = mocker.patch("l3.cell.peers.l3.get_coordinator")
         mock_coord.return_value.list_intents.return_value = []
 
         from l2.l2_shell import _cmd_intents
@@ -313,7 +313,7 @@ class TestCmdIntents:
 
 class TestCmdScheduler:
     def test_scheduler_with_stats(self, mocker):
-        mock_sched = mocker.patch("services.scheduler.get_scheduler")
+        mock_sched = mocker.patch("l3.scheduler.scheduler.get_scheduler")
         mock_sched.return_value.stats.return_value = {"queued": 5}
 
         from l2.l2_shell import _cmd_scheduler
@@ -322,7 +322,7 @@ class TestCmdScheduler:
         assert r["stats"]["queued"] == 5
 
     def test_scheduler_without_stats(self, mocker):
-        mock_sched = mocker.patch("services.scheduler.get_scheduler")
+        mock_sched = mocker.patch("l3.scheduler.scheduler.get_scheduler")
         mock_sched.return_value = object()  # no stats() method
 
         from l2.l2_shell import _cmd_scheduler
@@ -333,7 +333,7 @@ class TestCmdScheduler:
 
 class TestCmdObserve:
     def test_observe_default_health(self, mocker):
-        mock_bus = mocker.patch("services.observability_bus.get_obs_bus")
+        mock_bus = mocker.patch("l3.bus.observability_bus.get_obs_bus")
         mock_bus.return_value.observe.return_value = {"health": "ok"}
 
         from l2.l2_shell import _cmd_observe
@@ -341,7 +341,7 @@ class TestCmdObserve:
         assert r["health"] == "ok"
 
     def test_observe_with_kind(self, mocker):
-        mock_bus = mocker.patch("services.observability_bus.get_obs_bus")
+        mock_bus = mocker.patch("l3.bus.observability_bus.get_obs_bus")
         mock_bus.return_value.observe.return_value = {"alerts": []}
 
         from l2.l2_shell import _cmd_observe
@@ -351,7 +351,7 @@ class TestCmdObserve:
 
 class TestCmdSkills:
     def test_skills_list_default(self, mocker):
-        mock_r4 = mocker.patch("services.r4_agent.get_r4_agent")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         mock_r4.return_value.stats.return_value = {"skills": 3}
 
         from l2.l2_shell import _cmd_skills
@@ -360,7 +360,7 @@ class TestCmdSkills:
         assert r["skills"]["skills"] == 3
 
     def test_skills_lean(self, mocker):
-        mock_r4 = mocker.patch("services.r4_agent.get_r4_agent")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         mock_r4.return_value.get_lean_cases.return_value = ["case-1"]
 
         from l2.l2_shell import _cmd_skills
@@ -369,7 +369,7 @@ class TestCmdSkills:
         assert "lean_cases" in r
 
     def test_skills_evolve(self, mocker):
-        mock_r4 = mocker.patch("services.r4_agent.get_r4_agent")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         mock_r4.return_value.evolve_skill.return_value = {"success": True, "skill": "new-skill"}
 
         from l2.l2_shell import _cmd_skills
@@ -377,7 +377,7 @@ class TestCmdSkills:
         assert r["success"]
 
     def test_skills_evolve_without_method(self, mocker):
-        mock_r4 = mocker.patch("services.r4_agent.get_r4_agent")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         # No evolve_skill method
         obj = type("MockR4", (), {"stats": lambda self: {}})()
         mock_r4.return_value = obj
@@ -389,7 +389,7 @@ class TestCmdSkills:
 
 class TestCmdCells:
     def test_cells_list(self, mocker):
-        mock_cm = mocker.patch("services.cell_monitor.get_cell_monitor")
+        mock_cm = mocker.patch("l3.cell.components.cell_monitor.get_cell_monitor")
         mock_cm.return_value.list_cells.return_value = ["cell-1", "cell-2"]
 
         from l2.l2_shell import _cmd_cells
@@ -398,7 +398,7 @@ class TestCmdCells:
         assert len(r["cells"]) == 2
 
     def test_cells_get_events(self, mocker):
-        mock_cm = mocker.patch("services.cell_monitor.get_cell_monitor")
+        mock_cm = mocker.patch("l3.cell.components.cell_monitor.get_cell_monitor")
         mock_cm.return_value.get_events.return_value = {"events": []}
 
         from l2.l2_shell import _cmd_cells
@@ -408,7 +408,7 @@ class TestCmdCells:
 
 class TestCmdCross:
     def test_cross_cell_status(self, mocker):
-        mock_coord = mocker.patch("services.l3.get_coordinator")
+        mock_coord = mocker.patch("l3.cell.peers.l3.get_coordinator")
         mock_coord.return_value.status.return_value = {"cells": ["a", "b"]}
 
         from l2.l2_shell import _cmd_cross
@@ -417,7 +417,7 @@ class TestCmdCross:
         assert "cross_cell" in r
 
     def test_cross_cell_no_status_method(self, mocker):
-        mock_coord = mocker.patch("services.l3.get_coordinator")
+        mock_coord = mocker.patch("l3.cell.peers.l3.get_coordinator")
         mock_coord.return_value = object()  # no status()
 
         from l2.l2_shell import _cmd_cross
@@ -427,7 +427,7 @@ class TestCmdCross:
 
 class TestCmdSecurity:
     def test_security_stats(self, mocker):
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.stats.return_value = {"checks": 10}
 
         from l2.l2_shell import _cmd_security
@@ -436,7 +436,7 @@ class TestCmdSecurity:
         assert r["stats"]["checks"] == 10
 
     def test_security_check_3_args(self, mocker):
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
 
         from l2.l2_shell import _cmd_security
@@ -445,7 +445,7 @@ class TestCmdSecurity:
 
     def test_security_check_4_args_with_target(self, mocker):
         """Verify target parameter is now passed (was missing before fix)."""
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
 
         from l2.l2_shell import _cmd_security
@@ -459,7 +459,7 @@ class TestCmdSecurity:
 
     def test_security_check_5_args_full(self, mocker):
         """Full /security check action agent target tool"""
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.check_all.return_value = {"allowed": True}
 
         from l2.l2_shell import _cmd_security
@@ -471,7 +471,7 @@ class TestCmdSecurity:
         assert r["allowed"]
 
     def test_security_invalid_sub(self, mocker):
-        mock_sec = mocker.patch("services.central_security.get_center")
+        mock_sec = mocker.patch("l3.services.central_security.get_center")
         mock_sec.return_value.stats.return_value = {}
 
         from l2.l2_shell import _cmd_security
@@ -479,7 +479,7 @@ class TestCmdSecurity:
         assert r["success"]
 
     def test_security_usage_error(self, mocker):
-        mocker.patch("services.central_security.get_center")
+        mocker.patch("l3.services.central_security.get_center")
 
         from l2.l2_shell import _cmd_security
         r = _cmd_security(["check"])  # only 1 arg, need >= 3
@@ -489,7 +489,7 @@ class TestCmdSecurity:
 
 class TestCmdMemory:
     def test_memory_stats(self, mocker):
-        mock_mem = mocker.patch("services.central_memory.get_center")
+        mock_mem = mocker.patch("l3.memory.central_memory.get_center")
         mock_mem.return_value.stats.return_value = {"entries": 100}
 
         from l2.l2_shell import _cmd_memory
@@ -498,7 +498,7 @@ class TestCmdMemory:
         assert r["stats"]["entries"] == 100
 
     def test_memory_recall(self, mocker):
-        mock_mem = mocker.patch("services.central_memory.get_center")
+        mock_mem = mocker.patch("l3.memory.central_memory.get_center")
         mock_mem.return_value.recall.return_value = [{"id": "mem-1"}]
 
         from l2.l2_shell import _cmd_memory
@@ -507,7 +507,7 @@ class TestCmdMemory:
         assert r["count"] == 1
 
     def test_memory_usage_error(self, mocker):
-        mocker.patch("services.central_memory.get_center")
+        mocker.patch("l3.memory.central_memory.get_center")
 
         from l2.l2_shell import _cmd_memory
         r = _cmd_memory(["recall"])  # missing query
@@ -517,7 +517,7 @@ class TestCmdMemory:
 
 class TestCmdPlugins:
     def test_plugins_list(self, mocker):
-        mock_plug = mocker.patch("services.central_plugin.get_center")
+        mock_plug = mocker.patch("l3.services.central_plugin.get_center")
         mock_plug.return_value.list_plugins.return_value = ["plugin-a"]
 
         from l2.l2_shell import _cmd_plugins
@@ -526,7 +526,7 @@ class TestCmdPlugins:
         assert "plugins" in r
 
     def test_plugins_stats(self, mocker):
-        mock_plug = mocker.patch("services.central_plugin.get_center")
+        mock_plug = mocker.patch("l3.services.central_plugin.get_center")
         mock_plug.return_value.stats.return_value = {"count": 3}
 
         from l2.l2_shell import _cmd_plugins
@@ -547,7 +547,7 @@ class TestCmdStatusDirect:
         s = get_state()
         s.switch_to_direct("cell-1", "agent-live", "sess-42")
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.liveness.return_value = {"alive": True}
 
         r = _cmd_status([])
@@ -563,7 +563,7 @@ class TestCmdStatusDirect:
         s = get_state()
         s.switch_to_direct("cell-1", "agent-dead")
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.side_effect = RuntimeError("cell not found")
 
         r = _cmd_status([])
@@ -580,7 +580,7 @@ class TestDirectMessage:
         """Verify _direct_message sends via cell and runs output guard."""
         from l2.l2_shell import _direct_message, ShellState
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": True, "output": "safe reply"
         }
@@ -597,7 +597,7 @@ class TestDirectMessage:
         """Cell failure triggers _auto_disconnect and returns to L3A."""
         from l2.l2_shell import _direct_message, ShellState
 
-        mock_cell = mocker.patch("services.cell.get_cell")
+        mock_cell = mocker.patch("l3.cell.get_cell")
         mock_cell.return_value.send_direct_message.return_value = {
             "success": False, "error": "agent_not_found"
         }

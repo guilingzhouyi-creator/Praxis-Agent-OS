@@ -42,12 +42,13 @@ logger = logging.getLogger(__name__)
 def _build_default_registry() -> ContextRegistry:
     reg = ContextRegistry()
     try:
-        from l3.memory.memory import get_memory as _gm
+        from l3.memory.central_memory import get_l3a_memory as _gm
         def _mem_loader():
             try:
                 return _gm().build_context(_p.AGENT_ID,
                     max_tokens=_p.MEMORY_MAX_TOKENS)
             except Exception:
+                capture("l3a: memory context build failed", error_code="E_L3A_CTX", component="l3a")
                 return ""
         reg.register(ContextSource(
             key="memory",
@@ -57,6 +58,7 @@ def _build_default_registry() -> ContextRegistry:
             render_removal=lambda: "## Memory context\n(no recent memory)",
         ))
     except Exception:
+        capture("l3a: memory source registration skipped", error_code="E_L3A_CTX", component="l3a")
         logger.debug("l3a: memory source registration skipped")
 
     try:
@@ -68,6 +70,7 @@ def _build_default_registry() -> ContextRegistry:
             render_update=lambda o, n: f"## Rules (updated)\n{n}",
         ))
     except Exception:
+        capture("l3a: constitution source registration skipped", error_code="E_L3A_CTX", component="l3a")
         logger.debug("l3a: constitution source registration skipped")
 
     from datetime import datetime, timezone
@@ -108,6 +111,7 @@ def _l3a_memory_loader() -> list[dict]:
         from .summaries import get_store
         return [s.to_dict() for s in get_store().latest(limit=5)]
     except Exception:
+        capture("l3a: summaries loader failed", error_code="E_L3A_CTX", component="l3a")
         return []
 
 
@@ -136,9 +140,11 @@ def _convergence_loader() -> list[dict]:
                                   "phase": a.phase, "type": a.answer_type,
                                   "created_at": a.created_at})
             except Exception:
+                capture("l3a: cell answer repo read failed", error_code="E_L3A_CTX", component="l3a", context={"cell_id": cid})
                 continue
         return items
     except Exception:
+        capture("l3a: convergence loader failed", error_code="E_L3A_CTX", component="l3a")
         return []
 
 
@@ -181,6 +187,7 @@ class L3ADaemon:
             from l3.cell.components.cell_pmu import CellPmu
             self._pmu = CellPmu(cell_id="l3a")
         except Exception as e:
+            capture("l3a: CellPmu init failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
             logger.debug("l3a: CellPmu init failed: %s", e)
             self._pmu = None
 
@@ -189,6 +196,7 @@ class L3ADaemon:
             from .subagent import get_pool as _get_sa_pool
             self._sa_pool = _get_sa_pool()
         except Exception as e:
+            capture("l3a: subagent pool init failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
             logger.debug("l3a: subagent pool init failed: %s", e)
             self._sa_pool = None
 
@@ -224,6 +232,7 @@ class L3ADaemon:
             global_config = get_center().all()
             self.model_config.apply_global(global_config)
         except Exception:
+            capture("l3a: global config injection failed", error_code="E_L3A_DAEMON", component="l3a")
             logger.debug("l3a: global config injection failed, using defaults")
         self._running = True
         self._thread = threading.Thread(target=self._daemon_loop,
@@ -246,6 +255,7 @@ class L3ADaemon:
             try:
                 self._sa_pool.shutdown(wait=True)
             except Exception:
+                capture("l3a: subagent pool shutdown failed", error_code="E_L3A_DAEMON", component="l3a")
                 logger.debug("l3a: subagent pool shutdown failed")
         logger.info("L3A daemon stopped")
         try:
@@ -263,6 +273,7 @@ class L3ADaemon:
             try:
                 self.tick()
             except Exception as e:
+                capture("L3A daemon tick failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
                 logger.error("L3A daemon tick failed: %s", e)
 
     def tick(self) -> dict:
@@ -273,6 +284,7 @@ class L3ADaemon:
             try:
                 self._pmu.snapshot(force=True)
             except Exception as e:
+                capture("l3a: PMU snapshot failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
                 logger.debug("l3a: PMU snapshot failed: %s", e)
 
         # Watcher: reconcile session task tables with CardRegistry
@@ -284,6 +296,7 @@ class L3ADaemon:
                 try:
                     synced += sess.tasks.sync_from_registry()
                 except Exception as e:
+                    capture("l3a: task sync failed", error_code="E_L3A_DAEMON", component="l3a", context={"session_id": sid, "error": str(e)})
                     logger.debug("l3a: task sync failed for %s: %s", sid, e)
         if synced:
             results["tasks_synced"] = synced
@@ -293,6 +306,7 @@ class L3ADaemon:
             from l3.config.settings_center import get_center
             idle_timeout = get_center().get("l3a.idle_timeout", _p.IDLE_TIMEOUT_DEFAULT)
         except Exception:
+            capture("l3a: idle_timeout resolve failed", error_code="E_L3A_DAEMON", component="l3a")
             pass
         for s in self.manager.list_active():
             if s.get("status") != "active":
@@ -323,6 +337,7 @@ class L3ADaemon:
                     data=results["governance"],
                 ))
             except Exception:
+                capture("l3a: governance event emit failed", error_code="E_L3A_DAEMON", component="l3a")
                 logger.debug("l3a: governance event emit failed")
         return results
 
