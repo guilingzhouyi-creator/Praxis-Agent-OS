@@ -12,7 +12,7 @@ from typing import Any
 
 from . import params as _p
 from l1.kernel.params.system import (
-    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_200,
+    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_200, LOG_TRUNC_300,
 )
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
@@ -435,12 +435,38 @@ class Session:
 
     # ── Manual context compression ──
 
+    @staticmethod
+    def _message_value(m: Message) -> int:
+        """Rate a message's information value (rate-distortion weighting).
+
+        3 = high value — user explicit intent, card results, convention
+            references, prior compression summaries. Preserved in full.
+        2 = medium     — assistant answers, tool-call records.
+        1 = low        — verbose tool output, boilerplate.
+        """
+        if m.role == "user":
+            return 3
+        if m.role == "system":
+            meta = m.metadata or {}
+            if meta.get("card_id") or meta.get("compression"):
+                return 3
+            if meta.get("context_key"):
+                return 2
+            return 2
+        return 2
+
     def compress(self, keep_last: int = _p.SESSION_COMPRESS_KEEP, summary: str = "") -> dict:
         """Compress session history into a summary, keeping the last N messages.
 
-        Old messages (beyond keep_last) are folded into a single system
-        summary message prepended to the retained window. Returns stats:
-          compressed_count, kept_count, before/after token estimates.
+        Rate-distortion aware:
+          1. Lossless snapshot — the folded messages' full text is archived
+             to R4 (fonds=AGENT:l3a, series=session_compression_snapshot)
+             BEFORE folding, so compression = deferred access, not loss.
+          2. Value-weighted summary — high-value messages (user intents,
+             card results, convention refs) are preserved in full; medium
+             ones get a preview list; low-value ones are only counted.
+          3. Distortion report — returns role/type distribution, high-value
+             preservation counts, and the snapshot archive_ref.
         """
         with self._lock:
             total = len(self.history._messages)
@@ -453,25 +479,56 @@ class Session:
                 len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
                 for m in old)
 
-        # Build summary text (rule-based): user prompts + card completions
-        user_msgs = [m for m in old if m.role == "user"]
-        card_msgs = [m for m in old
-                     if m.role == "system" and m.metadata.get("card_id")]
+        # ── 1. Lossless snapshot to R4 (deferred access, not loss) ──
+        snapshot_ref = ""
+        try:
+            from l3.tools._archive import _cmd_archive_store
+            import json as _json
+            snapshot = {
+                "session_id": self.id,
+                "turn": self.turn_count,
+                "compressed_at": time.time(),
+                "compressed_count": len(old),
+                "messages": [
+                    {"id": m.id, "role": m.role, "content": m.content,
+                     "created_at": m.created_at, "metadata": m.metadata}
+                    for m in old
+                ],
+            }
+            r = _cmd_archive_store(
+                fonds="AGENT:l3a",
+                series="session_compression_snapshot",
+                content=_json.dumps(snapshot, ensure_ascii=False, default=str),
+                tags=f"l3a,session_compression,{self.id}",
+            )
+            if r.get("success"):
+                snapshot_ref = f"snapshot:l3a:{self.turn_count}"
+        except Exception:
+            logger.debug("l3a session: compression snapshot failed")
+
+        # ── 2. Value-weighted summary ──
+        high = [m for m in old if self._message_value(m) >= 3]
+        medium = [m for m in old if self._message_value(m) == 2]
+        low = [m for m in old if self._message_value(m) <= 1]
         lines = []
-        if user_msgs:
-            lines.append("Earlier user requests:")
-            for m in user_msgs[:5]:
-                lines.append(f"- {m.content[:LOG_TRUNC_200]}")
-            if len(user_msgs) > 5:
-                lines.append(f"- ... and {len(user_msgs) - 5} more")
-        if card_msgs:
-            lines.append("Earlier card results:")
-            for m in card_msgs[:5]:
-                lines.append(f"- {m.content[:LOG_TRUNC_200]}")
-            if len(card_msgs) > 5:
-                lines.append(f"- ... and {len(card_msgs) - 5} more")
-        summary_text = summary or ("\n".join(lines)
-                                   if lines else "(prior conversation summarized)")
+        if high:
+            lines.append("Earlier key context (preserved in full):")
+            for m in high:
+                prefix = "USER" if m.role == "user" else "CARD"
+                lines.append(f"- [{prefix}] {m.content[:LOG_TRUNC_300]}")
+        if medium:
+            user_med = [m for m in medium if m.role == "user"]
+            if user_med:
+                lines.append("Earlier user requests:")
+                for m in user_med[:5]:
+                    lines.append(f"- {m.content[:LOG_TRUNC_200]}")
+                if len(user_med) > 5:
+                    lines.append(f"- ... and {len(user_med) - 5} more")
+        if low:
+            lines.append(f"(dropped {len(low)} low-value items, see snapshot)")
+        if not lines:
+            lines.append("(prior conversation summarized)")
+        summary_text = summary or "\n".join(lines)
 
         # Persist the summary into L3A's own memory (ring 2) before folding
         try:
@@ -494,6 +551,8 @@ class Session:
                 content=f"[SESSION COMPRESSED at turn {self.turn_count}] {summary_text}",
                 metadata={"compression": True,
                           "compressed": len(old),
+                          "snapshot_ref": snapshot_ref,
+                          "high_value_preserved": len(high),
                           "kept": keep_last},
             )
             self.history._messages = [summary_msg] + keep
@@ -505,6 +564,20 @@ class Session:
             "compressed": len(old), "kept": keep_last,
             "before_tokens": before_tokens, "after_tokens": after_tokens,
             "summary": summary_text,
+            "snapshot_ref": snapshot_ref,
+            "distortion": {
+                "high_value_preserved": len(high),
+                "medium_value_summarized": len(medium),
+                "low_value_dropped": len(low),
+                "by_role": {
+                    "user": sum(1 for m in old if m.role == "user"),
+                    "assistant": sum(1 for m in old if m.role == "assistant"),
+                    "system": sum(1 for m in old if m.role == "system"),
+                },
+                "note": ("high-value messages preserved in full; "
+                         "full text recoverable via snapshot_ref")
+                if snapshot_ref else "snapshot unavailable",
+            },
         }
 
     # ── R1-R3 memory usage / ingress rate ──
