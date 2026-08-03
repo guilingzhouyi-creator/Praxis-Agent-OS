@@ -17,8 +17,11 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.commands import get_command, get_handler, get_registry as _get_cmd_reg
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 
-from .commands import preconnect_enhanced, _pipeline
-from .completer import autocomplete  # noqa: F401
+from .commands import (
+    preconnect_enhanced, _pipeline, list_commands,
+    _cmd_connect, _cmd_disconnect, _cmd_mode, _cmd_agents, _cmd_help,
+)
+from .completer import autocomplete, _complete_role  # noqa: F401
 from .output_guard import guard_output, set_output_guard  # noqa: F401
 from .state import get_state, reset_state, ShellState  # noqa: F401
 

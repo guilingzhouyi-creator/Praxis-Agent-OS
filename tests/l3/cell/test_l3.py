@@ -44,13 +44,13 @@ class TestL3B:
 
 class TestL3Coordinator:
     def test_register_cell(self):
-        from l3.cell.peers.l3 import L3Coordinator
+        from l3.cell.peers.l3 import CentralController as L3Coordinator
         coord = L3Coordinator()
         coord.register_cell("cell-1", ["app/routes"])
         assert len(coord._cells) == 1
 
     def test_status(self):
-        from l3.cell.peers.l3 import L3Coordinator
+        from l3.cell.peers.l3 import CentralController as L3Coordinator
         coord = L3Coordinator()
         s = coord.status()
         assert "L3A" in s

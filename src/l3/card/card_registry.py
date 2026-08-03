@@ -32,6 +32,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_40,
     LOG_TRUNC_60,
     LOG_TRUNC_80,
+    LOG_TRUNC_500,
 )
 from l3._persistable import PersistableMixin
 from .card_unified import CardUnified, CardLifecycle, CardSummary
@@ -323,6 +324,11 @@ class CardRegistry(PersistableMixin):
                     self.hold_card(dep_cid)
             return
 
+        # ── Assembly CONFERENCE routing: disputed cards go to Convention ──
+        if record.summary.columns.get("_assembly_mode") == "conference":
+            self._route_to_convention(cid, intent, domain)
+            return
+
         dispatch_r = self.dispatch(cid)
         if not dispatch_r.get("success"):
             return
@@ -341,6 +347,70 @@ class CardRegistry(PersistableMixin):
         except Exception as e:
             logger.warning("card %s dispatch failed: %s", cid, e)
             self.complete(cid, error=str(e))
+
+    # ── Assembly CONFERENCE routing ──
+
+    def _route_to_convention(self, card_id: str, intent: str,
+                             domain: str) -> None:
+        """Route a card to ConventionProtocol instead of direct Cell dispatch.
+
+        Creates an IssueCard linked to the source card, convenes the Cell's
+        peer agents, and holds the source card until convergence completes
+        (close_convention() completes it via source_card_id).
+        """
+        resolver = self._cell_resolver
+        if not resolver:
+            logger.warning("card %s: no cell resolver for convention", card_id)
+            self.complete(card_id, error="no cell resolver for convention")
+            return
+        cell_id = ""
+        try:
+            cell_id = next(iter(self._cell_map.keys())) if self._cell_map else ""
+            cell = resolver(cell_id)
+        except Exception as e:
+            logger.warning("card %s: convention cell resolve failed: %s", card_id, e)
+            self.complete(card_id, error=f"convention cell resolve failed: {e}")
+            return
+
+        try:
+            from l3.card.issue import IssueCard, get_table
+            issue = IssueCard(title=intent, intent=intent, domain=domain)
+            issue.agent_ids = list(cell._agents.keys())
+            issue.cell_id = cell.cell_id
+            issue.source_card_id = card_id
+            get_table().submit(issue)
+
+            from l3.cell.components.cell_convention import convene
+            conv_r = convene(cell, issue)
+            with self._lock:
+                rec = self._cards.get(card_id)
+                if rec:
+                    rec.summary.columns["_issue_card_id"] = issue.id
+            self.hold_card(card_id)
+            logger.info("card %s routed to convention %s (%d agents)",
+                        card_id, issue.id, len(issue.agent_ids))
+        except Exception as e:
+            logger.warning("card %s convention start failed: %s", card_id, e)
+            self.complete(card_id, error=f"convention start failed: {e}")
+
+    def _complete_convention_card(self, issue_card_id: str,
+                                  convergence_doc: str = "") -> None:
+        """Complete the source card after a convention converges."""
+        try:
+            from l3.card.issue import get_table
+            issue = get_table().get(issue_card_id)
+        except Exception:
+            issue = None
+        if not issue or not issue.source_card_id:
+            return
+        src = issue.source_card_id
+        with self._lock:
+            rec = self._cards.get(src)
+            if not rec or rec.state == CardLifecycle.COMPLETED:
+                return
+        self.complete(src, result={"convergence": convergence_doc[:LOG_TRUNC_500],
+                                   "issue_card_id": issue_card_id})
+        logger.info("card %s completed after convention %s", src, issue_card_id)
 
     # ── Persistence ──
 

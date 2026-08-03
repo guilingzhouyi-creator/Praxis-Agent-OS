@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestExecutionRun:
     def test_execute_basic(self):
         from l3.card.execution_run import execute
-        from l3.card import Card
+        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
         card = Card(intent="run test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-run"})
@@ -17,7 +17,7 @@ class TestExecutionRun:
 
     def test_execute_issue_card(self):
         from l3.card.execution_run import execute
-        from l3.card import Card
+        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
         card = Card(intent="issue test", domain=".", mode="issue")
         plan = ExecutionPlan(card, {"reader": "auto-issue"})

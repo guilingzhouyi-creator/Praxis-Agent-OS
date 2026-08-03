@@ -188,17 +188,15 @@ class ConventionProtocol:
 
         # Archive to Ring 4
         try:
-            from tools._archive import archive_store
-            arch = archive_store(
+            from l3.tools._archive import _cmd_archive_store
+            arch = _cmd_archive_store(
                 fonds=f"CONVENTION:{card.id}",
                 series="deliberation",
-                title=card.title,
                 content=doc,
-                tags=["convention", card.domain] + self.agent_ids,
-                agent_id="system",
+                tags=",".join(["convention", card.domain] + self.agent_ids),
             )
             if arch.get("success"):
-                self._archive_ref = arch["data"]["entry_id"]
+                self._archive_ref = f"CONVENTION:{card.id}"
                 card.archive_ref = self._archive_ref
         except Exception as e:
             logger.warning("convention archive failed: %s", e)
@@ -210,6 +208,7 @@ class ConventionProtocol:
             for aid in self.agent_ids:
                 mem.remember(
                     agent_id=aid,
+                    entry_type="convergence",
                     content=f"[CONVERGENCE:{card.id}] {card.title}: {doc[:LOG_TRUNC_500]}",
                     tags=["convergence", card.id, card.domain],
                     importance=MEMORY_IMPORTANCE_HIGH,

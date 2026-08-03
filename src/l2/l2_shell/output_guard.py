@@ -20,10 +20,26 @@ def set_output_guard(callback: Any) -> None:
 
 
 def guard_output(agent_id: str, response: str) -> dict:
-    """Pass agent output through the registered guard, or allow if none set."""
+    """Pass agent output through the registered guard, or allow if none set.
+
+    Returns ``{"safe": bool, "output": str, ...}``:
+      - no guard / guard exception  → safe, original response
+      - guard allows               → original response
+      - guard blocks w/ replacement → replacement text
+      - guard blocks w/o replacement → first 100 chars of original
+    """
     if _output_guard_callback:
         try:
-            return _output_guard_callback(agent_id, response)
+            result = _output_guard_callback(agent_id, response)
+            if isinstance(result, dict):
+                merged = dict(result)
+                merged["safe"] = bool(result.get("safe", True))
+                if not merged["safe"]:
+                    replacement = result.get("replacement", "")
+                    merged["output"] = replacement or response[:100]
+                else:
+                    merged["output"] = response
+                return merged
         except Exception as e:
             logger.warning("output_guard: %s", e)
-    return {"allowed": True, "response": response}
+    return {"safe": True, "output": response}

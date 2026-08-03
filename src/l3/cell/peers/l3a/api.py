@@ -108,6 +108,17 @@ def dispatch(args: list[str], mgr: SessionManager,
             return r
         return {"success": True, "session_id": sid, "data": s.todos()}
 
+    if sub == "convergence":
+        if len(args) >= 2:
+            from .helpers import get_convergence_queue
+            items = get_convergence_queue(args[1])
+            return {"success": True, "cell_id": args[1], "data": items,
+                    "count": len(items)}
+        from . import _convergence_loader
+        items = _convergence_loader()
+        return {"success": True, "scope": "all", "data": items,
+                "count": len(items)}
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

@@ -69,14 +69,26 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
 
     exec_card = to_execution_card(issue_card, summary)
 
+    # Complete the source card that routed to this convention (assembly mode)
+    if issue_card.source_card_id:
+        try:
+            from l3.card.card_registry import get_registry
+            registry = get_registry()
+            registry._complete_convention_card(issue_card_id, summary)
+        except Exception as e:
+            logger.warning("convention source card complete failed: %s", e)
+
     cid = ""
     try:
         from l3.card.card_registry import get_registry
         registry = get_registry()
+        exec_intent = (exec_card.summary.title if exec_card.summary else "")
+        exec_domain = (exec_card.summary.columns.get("domain", "")
+                       if exec_card.summary else "")
         cid = registry.submit(
-            intent=exec_card.intent,
-            domain=exec_card.domain,
-            priority=exec_card.priority,
+            intent=exec_intent or "converged execution",
+            domain=exec_domain,
+            priority=getattr(exec_card, "priority", 5),
         )
     except Exception as e:
         logger.warning("convention exec card registry submit failed: %s", e)

@@ -699,6 +699,34 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             text, parent_agent_id, cell=self,
         )
 
+    def subagent_dispatch(self, spec: str, prompt: str,
+                          parent_agent_id: str = "",
+                          post_actions: list | None = None,
+                          card_type: str = "explore") -> dict:
+        """Dispatch a single SubAgent task via the Cell's SubAgentPool.
+
+        Documented in cell-agent.md — dispatches a SubAgent (read-only for
+        ``card_type="explore"``), runs it in the pool's own worker, and
+        returns the task id for later collection via ``pool.collect()``.
+
+        ``post_actions`` is accepted for API compatibility; post-dispatch
+        actions are executed by the pool/orchestrator pipeline.
+        """
+        from l3.agent.subagent_spec import SubAgentSpec
+        sub_spec = SubAgentSpec(name=spec, read_only=(card_type == "explore"), description="")
+        r = self._subagent_pool.commission(
+            sub_spec, prompt, card_type=card_type,
+            parent_agent_id=parent_agent_id, cell=self,
+        )
+        if not r.get("success"):
+            return r
+        return {
+            "success": True,
+            "task_id": r["task_id"],
+            "spec": spec,
+            "post_actions": post_actions or [],
+        }
+
     # ── Scout result cache ──
 
     def reuse_scout_result(self, template: str, scope: dict | None = None,

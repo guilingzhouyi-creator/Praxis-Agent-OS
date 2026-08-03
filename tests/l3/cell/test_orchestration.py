@@ -277,10 +277,18 @@ class TestCellAccessors:
 class TestCellSubAgentDispatch:
     """Cell.subagent_dispatch → SubAgentPool integration"""
 
-    def test_subagent_dispatch_returns_task_id(self):
+    def test_subagent_dispatch_returns_task_id(self, monkeypatch):
         from l3.cell import get_cell, reset_cells
+        # SubAgent delegation is globally gated — enable it for this test.
+        from l1.kernel import params as _params
+        monkeypatch.setattr(_params.system, "GLOBAL_SUBAGENT_ENABLED", True)
         reset_cells()
         cell = get_cell("cell-sd1", ["."])
+        perm = getattr(cell, "permission", None)
+        if perm is not None:
+            from l3.cell.components.cell_permission import SpecState
+            perm.register_spec("security-auditor", min_ring=1)
+            perm.set_spec_state("security-auditor", SpecState.CELL_ENABLED)
         r = cell.subagent_dispatch("security-auditor", "review test code",
                                     parent_agent_id="test-agent")
         assert isinstance(r, dict)

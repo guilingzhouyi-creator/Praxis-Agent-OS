@@ -6,7 +6,7 @@ import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from l3.cell import get_cell, reset_cells
-from l3.card import Card, CardMode, Phase, PhaseMode, Step
+from l3.card.models import Card, CardMode, Phase, PhaseMode, Step
 from l3.agent_terminal import reset_terminals
 from l3.agent.scout import get_pool
 from l1.kernel.params.agent import TERMINAL_MAX_WORKERS

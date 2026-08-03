@@ -8,18 +8,18 @@ class TestCardModel:
     """Card data model"""
 
     def test_card_create(self):
-        from l3.card import Card, Phase, Step
+        from l3.card.models import Card, Phase, Step
         card = Card(intent="fix bug", domain="src")
         assert card.intent == "fix bug"
         assert card.domain == "src"
 
     def test_card_priority_default(self):
-        from l3.card import Card
+        from l3.card.models import Card
         card = Card(intent="test")
         assert card.priority == 5
 
     def test_card_all_steps(self):
-        from l3.card import Card, Phase, Step
+        from l3.card.models import Card, Phase, Step
         card = Card(intent="t", phases=[
             Phase(name="build", steps=[Step(action="read", target="f.py")]),
         ])
@@ -125,14 +125,14 @@ class TestExecutionPlan:
 
     def test_plan_create(self):
         from l3.card.execution_plan import ExecutionPlan
-        from l3.card import Card
+        from l3.card.models import Card
         card = Card(intent="test plan", domain=".")
         plan = ExecutionPlan(card, agent_map={"reader": "agent-a"})
         assert plan is not None
 
     def test_plan_execute_basic(self):
         from l3.card.execution_plan import ExecutionPlan
-        from l3.card import Card
+        from l3.card.models import Card
         card = Card(intent="simple task", domain=".",
                     phases=[])
         plan = ExecutionPlan(card, {"reader": "agent-a"})
@@ -168,7 +168,7 @@ class TestExecutionEngine:
     def test_engine_execute_plan(self):
         from l3.card.execution_engine import ExecutionEngine, ExecutionResult
         from l3.card.execution_plan import ExecutionPlan
-        from l3.card import Card
+        from l3.card.models import Card
         engine = ExecutionEngine()
         card = Card(intent="engine test", domain=".", phases=[])
         plan = ExecutionPlan(card, {"reader": "agent-a"})

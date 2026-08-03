@@ -87,6 +87,8 @@ class IssueCard:
     archive_ref: str = ""
     cache_ref: str = ""
     metadata: dict = field(default_factory=dict)
+    source_card_id: str = ""
+    """CardRegistry card that routed to this convention (assembly conference mode)."""
 
     def add_item(self, question: str, domain: str = "",
                  proposed_by: str = "",

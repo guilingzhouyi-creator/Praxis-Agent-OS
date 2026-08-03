@@ -85,7 +85,43 @@ def _build_default_registry() -> ContextRegistry:
         render_update=lambda o, n: f"## Model changed\nProvider: {o.get('provider','?')} -> {n.get('provider','?')}  Model: {o.get('model','?')} -> {n.get('model','?')}",
     ))
 
+    reg.register(ContextSource(
+        key="convergence",
+        loader=lambda: _convergence_loader(),
+        render_baseline=lambda v: _convergence_render(v),
+        render_update=lambda o, n: _convergence_render(n),
+    ))
+
     return reg
+
+
+def _convergence_loader() -> list[dict]:
+    """Load pending convention/convergence items from all Cells."""
+    try:
+        from l3.discussion.cell_answer_repo import CellAnswerRepo
+        from l3.cell import _cells
+        items = []
+        for cid in list(_cells.keys()):
+            try:
+                repo = CellAnswerRepo(cid, "")
+                for a in repo.get_all():
+                    items.append({"cell": cid, "agent_id": a.agent_id,
+                                  "phase": a.phase, "type": a.answer_type,
+                                  "created_at": a.created_at})
+            except Exception:
+                continue
+        return items
+    except Exception:
+        return []
+
+
+def _convergence_render(items: list[dict]) -> str:
+    if not items:
+        return "## Convergence\n(no active convention discussions)"
+    lines = ["## Convergence (active deliberations)"]
+    for it in items[:10]:
+        lines.append(f"- [{it['cell']}] {it['agent_id']} phase={it['phase']} type={it['type']}")
+    return "\n".join(lines)
 
 
 _active_model = L3AModelConfig()

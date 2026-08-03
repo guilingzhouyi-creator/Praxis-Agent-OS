@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import params as _p
-from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD
+from l1.kernel.params.system import (
+    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_200,
+)
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
 from .inbox import PromptInbox, Admission

@@ -79,7 +79,7 @@ class TestCellExecuteCardIntegration:
 
     def test_cell_execute_with_card_object(self):
         """Cell 执行 Card 对象不崩溃"""
-        from l3.card import Card
+        from l3.card.models import Card
         cell = _setup_cell()
         card = Card(intent="List files in the current directory for inspection", domain=".")
         result = cell.execute_card(card)
@@ -98,7 +98,7 @@ class TestMemoryAfterExecution:
     """执行后 Memory 应当存储结果"""
 
     def test_memory_has_entries_after_remember(self):
-        from l3.memory import get_memory, reset_memory
+        from l3.memory.memory import get_memory, reset_memory
         reset_memory()
         mem = get_memory()
         r = mem.remember("integration-agent", "decision",
@@ -109,7 +109,7 @@ class TestMemoryAfterExecution:
         assert stats["working"]["entries"] >= 1
 
     def test_recall_after_store(self):
-        from l3.memory import get_memory, reset_memory
+        from l3.memory.memory import get_memory, reset_memory
         reset_memory()
         mem = get_memory()
         mem.remember("recall-agent", "observation",

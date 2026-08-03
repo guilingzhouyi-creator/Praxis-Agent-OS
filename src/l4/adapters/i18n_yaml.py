@@ -31,7 +31,7 @@ class YamlI18nAdapter(I18nPort):
         self._locale_dir: str = locale_dir
         self._locale: str = default_locale
         self._translations: dict[str, dict[str, str]] = {}  # locale → {key: msg}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # reentrant: _lookup → _ensure_loaded → register
 
     # ── I18nPort interface ────────────────────────────────────────────────
 

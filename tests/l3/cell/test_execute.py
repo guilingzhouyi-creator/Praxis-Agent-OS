@@ -44,7 +44,7 @@ def test_raw_to_card_skip_htn():
 
 def test_take_snapshot_nonexistent_file():
     """_take_snapshot returns None for non-existent paths."""
-    snapshot = _take_snapshot("/nonexistent/path.txt")
+    snapshot = _take_snapshot(None, "/nonexistent/path.txt")
     assert snapshot is None
 
 

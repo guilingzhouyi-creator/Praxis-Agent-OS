@@ -17,7 +17,18 @@ def _cmd_status(args: list[str]) -> dict:
               f"schema={rec.schema_version or 'unset'})")
     except Exception:
         pass
-    return h
+    # Enrich with shell mode/cell context (agent_id only present in Direct mode)
+    result = dict(h)
+    try:
+        from ..state import get_state
+        st = get_state()
+        result["mode"] = st.mode
+        result["cell_id"] = st.cell_id
+        if st.is_direct():
+            result["agent_id"] = st.agent_id
+    except Exception:
+        pass
+    return result
 
 def _cmd_intents(args: list[str]) -> dict:
     from l3.scheduler.think_registry import get_think_registry
@@ -106,7 +117,7 @@ def _cmd_help(args: list[str]) -> dict:
             for e in cmd["examples"]:
                 lines.append(f"    {e}")
         lines.append(f"  category: {cmd.get('category', 'other')}")
-        return {"success": True, "output": "\n".join(lines), "format": "text"}
+        return {"success": True, "output": "\n".join(lines), "format": "table"}
     cmds = list_commands()
     groups = {}
     for c in cmds:
@@ -135,4 +146,4 @@ def _cmd_help(args: list[str]) -> dict:
     lines.append("  Tip: /help <command> for details & examples")
     lines.append("  Tip: cmd1 | cmd2 for pipeline (auto Map/Chain/Passthrough)")
     lines.append("  Tip: --cell or --agent for scoped operations")
-    return {"success": True, "output": "\n".join(lines), "format": "text"}
+    return {"success": True, "output": "\n".join(lines), "format": "table"}

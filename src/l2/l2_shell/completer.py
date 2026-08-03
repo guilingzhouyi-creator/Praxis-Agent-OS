@@ -91,7 +91,12 @@ def _complete_agent(partial: str, cmd_name: str = "") -> list[dict]:
 
 
 def _complete_role(partial: str) -> list[dict]:
-    """Complete role names matching *partial* from CENTRAL_ROLES."""
+    """Complete role names matching *partial* from CENTRAL_ROLES.
+
+    Excludes the ``default`` role — it is a fallback, not a connectable role.
+    """
     from l1.kernel.params.agent import CENTRAL_ROLES
+    roles = [r for r in CENTRAL_ROLES if r != "default"]
+    partial_l = partial.lower()
     return [{"type": "role", "value": r, "help": f"role: {r}"}
-            for r in CENTRAL_ROLES if not partial or r.startswith(partial)]
+            for r in roles if not partial or r.lower().startswith(partial_l)]
