@@ -7,11 +7,24 @@ import os
 import time
 
 from l1.kernel.discovery import get_config
-from l1.kernel.params.api import (
-    LLM_HTTP_TIMEOUT, LLM_LIGHTWEIGHT_TIMEOUT, LLM_PROVIDER_URLS,
-    FALLBACK_MODEL,
-)
 from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
+from l1.kernel.params.api import (
+    ENV_ANTHROPIC_KEY,
+    ENV_ANTHROPIC_MODEL,
+    ENV_ANTHROPIC_URL,
+    ENV_DEEPSEEK_KEY,
+    ENV_LLM_WS_MODEL,
+    ENV_LLM_WS_URL,
+    ENV_OLLAMA_MODEL,
+    ENV_OLLAMA_URL,
+    ENV_OPENAI_KEY,
+    ENV_OPENAI_MODEL,
+    ENV_OPENAI_URL,
+    FALLBACK_MODEL,
+    LLM_HTTP_TIMEOUT,
+    LLM_LIGHTWEIGHT_TIMEOUT,
+    LLM_PROVIDER_URLS,
+)
 from l1.kernel.params.system import LLM_DEFAULT_CONTEXT_WINDOW, LOG_TRUNC_60, MOCK_DELAY
 from l1.kernel.prompts import get_prompt as _gp
 

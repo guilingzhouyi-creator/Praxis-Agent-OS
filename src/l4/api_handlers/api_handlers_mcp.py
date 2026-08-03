@@ -16,7 +16,7 @@ Auth: inherits ApiGateway Bearer token check (PRAXIS_API_TOKEN / api.auth_token)
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from l1.kernel.params.api import MCP_EXPORT_MODE
 

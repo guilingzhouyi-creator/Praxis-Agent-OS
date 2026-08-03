@@ -1,7 +1,7 @@
 """SandboxEntry — single file change record with structured diff support."""
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -33,7 +33,7 @@ class SandboxEntry:
                 "task_id": self.task_id, "depends_on": self.depends_on, "conflict_level": self.conflict_level}
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SandboxEntry":
+    def from_dict(cls, d: dict) -> SandboxEntry:
         return cls(path=d["path"], sandbox_path=d["sandbox_path"], agent_id=d["agent_id"],
                    tool_name=d.get("tool_name", ""), status=d.get("status", "pending"),
                    original_hash=d.get("original_hash", ""), modified_at=d.get("modified_at", 0.0),

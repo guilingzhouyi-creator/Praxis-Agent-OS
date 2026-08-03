@@ -14,12 +14,17 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from l3._base import BaseService
-from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT, NETWORK_FETCH_MAX_CHARS, HTTP_USER_AGENT
+from l1.kernel.params.api import (
+    HTTP_USER_AGENT,
+    NETWORK_DEFAULT_TIMEOUT,
+    NETWORK_FETCH_MAX_CHARS,
+    NETWORK_FETCH_TIMEOUT,
+)
 from l1.kernel.params.system import NETWORK_RECV_BUF_SIZE
+from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 

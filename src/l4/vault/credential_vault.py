@@ -19,12 +19,9 @@ import json
 import logging
 import os
 import threading
-import time
-from dataclasses import dataclass, field
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import VAULT_FILENAME, VAULT_KEY_BYTES, VAULT_NONCE_LENGTH, VAULT_SALT_FILENAME
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +216,9 @@ def _save_vault() -> bool:
     if not _VAULT_PATH:
         return False
     try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         import os as _os
+
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         nonce = _os.urandom(VAULT_NONCE_LENGTH)
         aesgcm = AESGCM(_VAULT_KEY[:32])
         plain = json.dumps(_vault, indent=2, ensure_ascii=False).encode()

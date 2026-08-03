@@ -10,7 +10,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Any
 
 from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT
 

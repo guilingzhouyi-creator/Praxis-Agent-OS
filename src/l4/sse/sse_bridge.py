@@ -10,7 +10,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
@@ -100,7 +99,7 @@ def ensure_active() -> None:
     if _ACTIVE:
         return
     try:
-        from l1.kernel import get_event_bus, SignalType
+        from l1.kernel import get_event_bus
         bus = get_event_bus()
         # Register wildcard listener: broadcast all events
         bus.on_any(lambda sig: _broadcast(

@@ -7,12 +7,10 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def agent_list(body: dict | None = None) -> dict:
     """List all registered agents and their config."""
-    from l1.kernel.params.agent import AGENT_ROLE_MAP, AGENT_CLEARANCE, DEFAULT_AGENT_CONFIGS
+    from l1.kernel.params.agent import AGENT_CLEARANCE, DEFAULT_AGENT_CONFIGS
     agents = {}
     for role, clearance in AGENT_CLEARANCE.items():
         cfg = DEFAULT_AGENT_CONFIGS.get(role)
@@ -79,8 +77,11 @@ def _shell_commands(body: dict | None = None) -> dict:
 def handle_agent_config_get(body: dict | None = None) -> dict:
     """GET /api/v1/agents/config — return current agent config."""
     from l1.kernel.params.agent import (
-        AGENT_ROLE_MAP, AGENT_PRIORITY, AGENT_CLEARANCE,
-        CENTRAL_ROLES, CENTRAL_DEFAULT_ROLES,
+        AGENT_CLEARANCE,
+        AGENT_PRIORITY,
+        AGENT_ROLE_MAP,
+        CENTRAL_DEFAULT_ROLES,
+        CENTRAL_ROLES,
         DEFAULT_AGENT_CONFIGS,
     )
     return {

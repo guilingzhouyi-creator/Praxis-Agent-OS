@@ -16,16 +16,17 @@ import logging
 import queue
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from l1.kernel.ports import WorkerPort, Result
 from l1.kernel.params.api import (
-    WORKER_POOL_MIN,
-    WORKER_POOL_MAX,
-    WORKER_POOL_QUEUE_SIZE,
     WORKER_POOL_IDLE_TIMEOUT,
+    WORKER_POOL_MAX,
+    WORKER_POOL_MIN,
+    WORKER_POOL_QUEUE_SIZE,
     WORKER_POOL_TASK_TIMEOUT,
 )
+from l1.kernel.ports import Result, WorkerPort
 
 logger = logging.getLogger(__name__)
 

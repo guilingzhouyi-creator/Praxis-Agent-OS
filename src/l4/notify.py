@@ -10,11 +10,10 @@ import logging
 import threading
 import time
 import urllib.request
-from typing import Any
 
-from l3._base import BaseService
-from l1.kernel.params.api import NOTIFY_WEBHOOK_TIMEOUT, HTTP_USER_AGENT
+from l1.kernel.params.api import HTTP_USER_AGENT, NOTIFY_WEBHOOK_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_200
+from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 

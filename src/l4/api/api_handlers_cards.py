@@ -1,6 +1,8 @@
 """API handlers for Card operations — extracted from api_handlers.py for modularity."""
 from __future__ import annotations
-from typing import Any
+
+from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.gatechain import GATECHAIN_LEDGER_LIMIT
 
 
 def list_cards(body: dict) -> dict:
@@ -63,7 +65,7 @@ def submit_batch(body: dict) -> dict:
 
 def card_rollback(body: dict) -> dict:
     try:
-        from l3.cell import get_cell, reset_cells
+        from l3.cell import get_cell
         card_id = body.get("card_id", "")
         cell = get_cell(DEFAULT_CELL_ID)
         return cell.rollback_card(card_id)

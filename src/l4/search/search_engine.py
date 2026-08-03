@@ -16,15 +16,18 @@ from __future__ import annotations
 
 import ast
 import logging
-import os
-import re
 import threading
-import time
-from l1.kernel.params.system import DOC_SEARCH_RESULTS, LOG_TRUNC_100, LOG_TRUNC_200, SEARCH_DEFAULT_RESULTS, SYMBOL_SEARCH_RESULTS
-from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from l1.kernel.params.system import (
+    DOC_SEARCH_RESULTS,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    SEARCH_DEFAULT_RESULTS,
+    SYMBOL_SEARCH_RESULTS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +195,6 @@ class SymbolSearch:
         results: list[SearchResult] = []
 
         # Python AST search — use cached AST with mtime invalidation
-        import time as _time
         for file_path in root.rglob("*.py"):
             if self._is_ignored(file_path):
                 continue
@@ -447,24 +449,23 @@ class SearchEngine:
         """
         if mode == "semantic":
             return self._semantic.search(query, root_dir, max_results=max_results)
-        elif mode == "symbol":
+        if mode == "symbol":
             return self._symbol.search(query, root_dir=root_dir, max_results=max_results)
-        elif mode == "docs":
+        if mode == "docs":
             return self._docs.search(query, max_results=max_results)
-        else:
-            # auto: smart selection
-            if "." in query or query[0].isupper():
-                sym_r = self._symbol.search(query, root_dir=root_dir,
-                                            max_results=max_results)
-                if sym_r.get("total_matches", 0) > 0:
-                    return sym_r
-                doc_r = self._docs.search(query, max_results=max_results)
-                if doc_r.get("total", 0) > 0:
-                    return doc_r
-            elif any(kw in query.lower() for kw in ("import ", "lib.", "api.")):
-                return self._docs.search(query, max_results=max_results)
+        # auto: smart selection
+        if "." in query or query[0].isupper():
+            sym_r = self._symbol.search(query, root_dir=root_dir,
+                                        max_results=max_results)
+            if sym_r.get("total_matches", 0) > 0:
+                return sym_r
+            doc_r = self._docs.search(query, max_results=max_results)
+            if doc_r.get("total", 0) > 0:
+                return doc_r
+        elif any(kw in query.lower() for kw in ("import ", "lib.", "api.")):
+            return self._docs.search(query, max_results=max_results)
 
-            return self._semantic.search(query, root_dir, max_results=max_results)
+        return self._semantic.search(query, root_dir, max_results=max_results)
 
     def semantic_search(self, query: str, root_dir: str = ".",
                         file_pattern: str = "*.py",

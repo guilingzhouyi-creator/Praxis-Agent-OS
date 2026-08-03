@@ -28,9 +28,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
-
-from l1.kernel.bus import get_root_bus
 
 logger = logging.getLogger(__name__)
 

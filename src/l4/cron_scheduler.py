@@ -28,7 +28,6 @@ import logging
 import re
 import threading
 import time
-from typing import Any
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
 from l1.kernel.params.system import CRON_CHECK_INTERVAL

@@ -11,10 +11,10 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-from l1.kernel.params.api import DEFAULT_REASONING_EFFORT, DEFAULT_THINKING_BUDGET
 from l1.kernel.params.system import LLM_PROBE_MAX_TOKENS, TOOL_SEARCH_MAX_RESULTS, TOOL_SEARCH_MAX_TOOLS
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def list_providers() -> list[str]:
 
 # LLMConfig defined in l1.kernel.ports — single source of truth.
 # Re-exported here for L4 internal callers that still import via llm_base.
-from l1.kernel.ports import LLMConfig
+from l1.kernel.ports import LLMConfig  # noqa: F401 — re-exported
 
 
 @dataclass

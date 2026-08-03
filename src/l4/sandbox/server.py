@@ -11,7 +11,8 @@ import asyncio
 import logging
 import os
 
-from l4.sandbox.manager import SandboxManager, SandboxProfile, SandboxResult
+from l1.kernel.params.system import SANDBOX_PROFILE_READ_ONLY
+from l4.sandbox.manager import SandboxManager, SandboxProfile
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ class SandboxServer:
 
     async def _handle_client(self, reader: asyncio.StreamReader,
                              writer: asyncio.StreamWriter) -> None:
-        from l4.rpc.transport import RpcTransport
         from l4.rpc.protocol import RpcMessage
+        from l4.rpc.transport import RpcTransport
         try:
             raw = await RpcTransport.recv(reader)
             req = RpcMessage(**raw)

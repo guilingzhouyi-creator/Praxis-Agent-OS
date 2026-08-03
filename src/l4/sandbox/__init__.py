@@ -2,11 +2,11 @@
 
 from l4.sandbox.cell_sandbox import (
     CellSandbox,
-    SandboxManager,
     SandboxEntry,
-    get_manager,
-    reset_manager,
+    SandboxManager,
     get_color_scheme,
-    set_color_scheme,
+    get_manager,
     reset_color_scheme,
+    reset_manager,
+    set_color_scheme,
 )

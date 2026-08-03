@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 import os
 import re
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any

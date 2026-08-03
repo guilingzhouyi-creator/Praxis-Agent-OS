@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+
 from l1.kernel.params.system import HASH_TRUNC_LONG
 
 

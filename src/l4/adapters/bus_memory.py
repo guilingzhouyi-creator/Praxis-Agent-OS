@@ -14,12 +14,11 @@ from __future__ import annotations
 import fnmatch
 import logging
 import threading
-import time
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
 
-from l1.kernel.ports import EventBusPort, Event
 from l1.kernel.params.system import HASH_TRUNC_MEDIUM
+from l1.kernel.ports import Event, EventBusPort
 
 logger = logging.getLogger(__name__)
 

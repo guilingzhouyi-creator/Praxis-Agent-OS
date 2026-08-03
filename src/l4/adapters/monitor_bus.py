@@ -7,7 +7,6 @@ pattern in kernel layer.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from l1.kernel.ports import MonitorBusPort
 

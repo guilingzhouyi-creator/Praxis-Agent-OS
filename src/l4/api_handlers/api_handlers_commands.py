@@ -9,8 +9,6 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def handle_commands_list(body: dict | None = None) -> dict:
     """GET /api/v1/commands — list all registered commands with metadata."""

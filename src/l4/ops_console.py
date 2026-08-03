@@ -21,14 +21,12 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.event import get_bus, Signal, SignalType
-from l1.kernel.interrupt import get_table as get_int_table, InterruptType, register_handler
-from l1.kernel.params.agent import AGENT_STATUS_CRASHED
+from l1.kernel.interrupt import InterruptType, register_handler
+from l1.kernel.interrupt import get_table as get_int_table
+from l1.kernel.params.agent import AGENT_STATUS_CRASHED, SIGNAL_TARGET_L3
 from l1.kernel.params.system import AGENT_UNRESPONSIVE_TIMEOUT, INTERRUPT_HIGH_COUNT, OPS_MAX_ALERTS
 
 logger = logging.getLogger(__name__)

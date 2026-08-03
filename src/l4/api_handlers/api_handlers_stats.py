@@ -8,10 +8,7 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
-import time
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +77,8 @@ def handle_stats_live(body: dict | None = None) -> dict:
     (fallback when native SSE is unavailable).
     """
     try:
-        from l3.services.stats_center import get_center
         from l3.bus.monitor_bus import get_bus as get_monitor
+        from l3.services.stats_center import get_center
 
         center = get_center()
         monitor = get_monitor()

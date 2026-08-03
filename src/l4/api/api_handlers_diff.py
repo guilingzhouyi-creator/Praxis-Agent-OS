@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 
 from l1.kernel.params.system import PAGER_RECALL_LIMIT
-from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +195,7 @@ def diff_colors(body: dict | None = None) -> dict:
 
     All semantic keys are optional; only provided keys are updated.
     """
-    from l4.sandbox.cell_sandbox import get_color_scheme, set_color_scheme, reset_color_scheme
+    from l4.sandbox.cell_sandbox import get_color_scheme, reset_color_scheme, set_color_scheme
     b = body or {}
     action = b.get("action", "get")
     if action == "get":

@@ -40,8 +40,8 @@ class LLMWorkerServer:
 
     async def _handle_client(self, reader: asyncio.StreamReader,
                              writer: asyncio.StreamWriter) -> None:
-        from l4.rpc.transport import RpcTransport
         from l4.rpc.protocol import RpcMessage
+        from l4.rpc.transport import RpcTransport
         try:
             raw = await RpcTransport.recv(reader)
             req = RpcMessage(**raw)
@@ -83,7 +83,6 @@ class LLMWorkerServer:
 
 
 def main() -> None:
-    import sys
     socket_path = os.environ.get("PRAXIS_LLM_SOCKET", "")
     if not socket_path and len(sys.argv) > 2 and sys.argv[1] == "--socket":
         socket_path = sys.argv[2]

@@ -10,9 +10,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from l3.services.record_center import get_record_center, RecordQuery
+from l3.services.record_center import RecordQuery, get_record_center
 
 logger = logging.getLogger(__name__)
 

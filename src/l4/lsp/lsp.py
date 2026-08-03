@@ -22,10 +22,10 @@ import os
 import re
 import subprocess
 import threading
+from dataclasses import dataclass
+
 from l1.kernel.params.api import LSP_DIAG_TIMEOUT, SUBPROCESS_SHORT_TIMEOUT
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_300, LOG_TRUNC_50, LSP_PYTHON_EXT
-from dataclasses import dataclass, field
-from typing import Any
+from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_100, LOG_TRUNC_300, LSP_PYTHON_EXT
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class LocalAnalyzer:
             ".py": "python", ".js": "javascript", ".ts": "typescript",
             ".tsx": "typescript", ".jsx": "javascript", ".rs": "rust",
             ".go": "go", ".java": "java", ".cpp": "cpp", ".c": "c",
-            ".h": "c", ".hpp": "cpp", ".rs": "rust", ".rb": "ruby",
+            ".h": "c", ".hpp": "cpp", ".rb": "ruby",
             ".swift": "swift", ".kt": "kotlin",
         }.get(ext, "unknown")
 
@@ -215,7 +215,7 @@ def reset_lsp() -> None:
 
 def register_lsp_tools() -> None:
     """Register all LSP operations as agent-callable tools."""
-    from .tool_system.tool_spec import ToolSpec, ParamSpec, register, ToolRing
+    from .tool_system.tool_spec import ParamSpec, ToolRing, ToolSpec, register
 
     lsp = get_lsp()
 

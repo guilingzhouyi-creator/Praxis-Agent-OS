@@ -15,25 +15,27 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from l1.kernel.params.api import (
-    ENV_API_TOKEN,
-    API_GATEWAY_DEFAULT_PORT,
-    API_CORS_ORIGIN,
-    API_CORS_ALLOW_METHODS,
     API_CORS_ALLOW_HEADERS,
-    API_GATEWAY_PORT,
+    API_CORS_ALLOW_METHODS,
+    API_CORS_ORIGIN,
     API_GATEWAY_HOST,
-    API_MAX_BODY_BYTES,
+    API_GATEWAY_PORT,
     API_GATEWAY_QUEUE_TIMEOUT,
+    API_MAX_BODY_BYTES,
+    ENV_API_TOKEN,
+)
+from l4.api.api_middleware import (
+    CORSMiddleware,
+    LocaleMiddleware,
+    MiddlewareChain,
+    Request,
 )
 from l4.api_handlers import ApiHandlers
-from l4.api.api_middleware import (
-    MiddlewareChain, LocaleMiddleware, CORSMiddleware,
-    Request, Response,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +99,7 @@ class ApiGateway(ApiHandlers):
     def _register_defaults(self) -> None:
         """Load all routes from centralized api_routes.py + external modules."""
         import importlib
+
         from .api_routes import API_ROUTES
 
         for method, path, handler_ref, desc in API_ROUTES:
@@ -170,7 +173,7 @@ class ApiGateway(ApiHandlers):
         import urllib.parse
 
         class _Handler(http.server.BaseHTTPRequestHandler):
-            gateway: "ApiGateway" = None  # set after class definition (class-body scoping)
+            gateway: ApiGateway = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):
                 pass  # Suppress default http.server logging
@@ -273,7 +276,8 @@ class ApiGateway(ApiHandlers):
                 and stats.api.request events (consumed by /api/v2/stats/live).
                 """
                 try:
-                    from l3.bus.monitor_bus import MonitorEvent as _ME2, get_bus as _MB2
+                    from l3.bus.monitor_bus import MonitorEvent as _ME2
+                    from l3.bus.monitor_bus import get_bus as _MB2
                     _MB2().emit(_ME2(
                         type="stats.api.request", source="api_gateway",
                         severity="info",
@@ -286,7 +290,8 @@ class ApiGateway(ApiHandlers):
                 except Exception:
                     logger.debug("api_gateway: monitor emit failed")
                 try:
-                    from l3.services.stats_center import get_center as _SC2, MetricPoint as _MP2
+                    from l3.services.stats_center import MetricPoint as _MP2
+                    from l3.services.stats_center import get_center as _SC2
                     _ts = time.time()
                     _tags = {"endpoint": path, "method": method,
                              "status": str(getattr(resp, "status", 0))}
@@ -306,8 +311,9 @@ class ApiGateway(ApiHandlers):
                 self.send_header("Access-Control-Allow-Origin", API_CORS_ORIGIN)
                 self.end_headers()
                 try:
-                    from l4.sse.sse_bridge import subscribe, unsubscribe
                     import queue as _queue
+
+                    from l4.sse.sse_bridge import subscribe
                     client = subscribe()
                     q = client["queue"]
                     while True:

@@ -159,7 +159,7 @@ def handle_message_gate_list(body: dict) -> dict:
 def handle_message_gate_set(body: dict) -> dict:
     """POST /api/monitor/gate — add or update a message gate rule."""
     try:
-        from .bus.message_gate import get_gate, MessageGateRule
+        from .bus.message_gate import MessageGateRule, get_gate
         rule = MessageGateRule(
             id=body["id"],
             pattern=body.get("pattern", {}),

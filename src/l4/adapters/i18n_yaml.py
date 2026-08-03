@@ -18,9 +18,9 @@ import os
 import threading
 from typing import Any
 
-from l1.kernel.ports import I18nPort
 import l1.kernel.params.api as _api_params
 from l1.kernel.params.api import I18N_FALLBACK_TO_KEY
+from l1.kernel.ports import I18nPort
 
 logger = logging.getLogger(__name__)
 

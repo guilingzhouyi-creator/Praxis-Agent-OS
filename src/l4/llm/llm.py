@@ -22,12 +22,11 @@ import time
 from typing import Any
 
 from l1.kernel.device import get_device_manager
-from l1.kernel.params.system import CONTEXT_TRAIL_TRUNC, HASH_TRUNC_SHORT, LOG_TRUNC_200, LOG_TRUNC_60
-
+from l1.kernel.discovery import get_tool_config
 from l1.kernel.params.agent import (
     LLM_ANALYZE_MAX_TOKENS,
-    LLM_CACHE_RETENTION_THRESHOLD,
     LLM_CACHE_RETENTION_STRING,
+    LLM_CACHE_RETENTION_THRESHOLD,
     LLM_THINKING_BUFFER,
     LLM_TOOL_RESULT_TRUNCATION,
     LOOP_TURN_WARNING_THRESHOLD,
@@ -47,16 +46,18 @@ from l1.kernel.params.api import (
     LLM_RATE_LIMIT_WAIT,
     LLM_TRANSIENT_BACKOFF_BASE,
 )
+from l1.kernel.params.system import CONTEXT_TRAIL_TRUNC, HASH_TRUNC_SHORT, LOG_TRUNC_60, LOG_TRUNC_200
+from l1.kernel.params.system import TOOL_SEARCH_MAX_RESULTS as _TOOL_SEARCH_MAX_RESULTS
+from l1.kernel.params.system import TOOL_SEARCH_MIN_COUNT as _TOOL_SEARCH_MIN_COUNT
 from l1.kernel.params.tool import TOOL_HANDLER_TIMEOUT as _TOOL_HANDLER_TIMEOUT
-from l1.kernel.params.system import TOOL_SEARCH_MIN_COUNT as _TOOL_SEARCH_MIN_COUNT, TOOL_SEARCH_MAX_RESULTS as _TOOL_SEARCH_MAX_RESULTS
-from l1.kernel.discovery import get_tool_config
 
 # Resolve tool config at module level (lazy-safe: discovery may not be ready at import)
 _LLM_TOOL_TIMEOUT = get_tool_config("handler_timeout", _TOOL_HANDLER_TIMEOUT) or _TOOL_HANDLER_TIMEOUT
 
 # Base types extracted to llm_base.py
+from l3.tool_system.tool_spec import ToolSpec
+
 from .llm_base import (
-    _PROVIDER_REGISTRY,
     LLMConfig,
     LLMProvider,
     ToolSearch,
@@ -64,8 +65,7 @@ from .llm_base import (
 )
 
 # Provider implementations extracted to llm_providers.py
-from .llm_providers import MockProvider, WebSocketProvider
-from l3.tool_system.tool_spec import ToolSpec
+from .llm_providers import MockProvider
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,6 @@ class LLMEngine:
             return provider
 
         logger.warning("llm: no provider '%s', using MockProvider", p)
-        from .llm_providers import MockProvider
         return MockProvider()
 
     def _apply_strategy(self, overrides: dict) -> dict:
@@ -520,7 +519,7 @@ def _register_llm_port(engine: LLMEngine) -> None:
     Registered as "llm" so L3 callers can use ``get_port("llm")`` instead of
     importing from ``l4.llm.llm`` directly.
     """
-    from l1.kernel.ports import register_port, LLMPort
+    from l1.kernel.ports import LLMPort, register_port
 
     class _LLMEngineAdapter(LLMPort):
         """Thin adapter: LLMEngine → LLMPort interface."""

@@ -18,7 +18,6 @@ import time
 from typing import Any
 
 from l1.kernel.ports import ChannelPort
-from l1.kernel.params.api import CHANNEL_RING_CAPACITY
 
 
 class RingChannel(ChannelPort):

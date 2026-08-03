@@ -17,14 +17,21 @@ import os
 import shutil
 import threading
 import time
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from l1.kernel import get_rwlock
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.api import ENV_SANDBOX_ROOT
-from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE, HASH_TRUNC_LONG, SANDBOX_DEFAULT_TIMEOUT, DIFF_CONTEXT_LINES, DIFF_CHAR_LEVEL_MAX_LINES, DIFF_PINGPONG_WINDOW_SECONDS
+from l1.kernel.params.system import (
+    DIFF_CHAR_LEVEL_MAX_LINES,
+    DIFF_CONTEXT_LINES,
+    DIFF_PINGPONG_WINDOW_SECONDS,
+    HASH_TRUNC_LONG,
+    SANDBOX_DEFAULT_TIMEOUT,
+    SANDBOX_STATE_TEMPLATE,
+)
+from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_temp_dir as _get_temp_dir
 
 logger = logging.getLogger(__name__)
@@ -325,9 +332,7 @@ class SandboxEntry:
         color = scheme.get(s, "")
         colored_lines: list[str] = []
         for line in hr["diff"].split("\n"):
-            if line.startswith("+"):
-                colored_lines.append(f"{color}{line}{_RESET}")
-            elif line.startswith("-"):
+            if line.startswith("+") or line.startswith("-"):
                 colored_lines.append(f"{color}{line}{_RESET}")
             else:
                 colored_lines.append(line)
@@ -749,7 +754,8 @@ class CellSandbox:
 
             # 6. Emit FILE_CHANGED event via EventBus
             try:
-                from l1.kernel.event import get_bus as _get_ebus, Signal, SignalType
+                from l1.kernel.event import Signal, SignalType
+                from l1.kernel.event import get_bus as _get_ebus
                 ebus = _get_ebus()
                 ebus.emit(Signal(
                     type=SignalType.FILE_CHANGED,

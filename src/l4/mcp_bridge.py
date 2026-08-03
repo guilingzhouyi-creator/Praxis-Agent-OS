@@ -24,13 +24,13 @@ import os
 import threading
 import time
 import urllib.request as req
-import urllib.error
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
-from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, list_tools, ToolRing
-from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
+from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_TIMEOUT
 from l1.kernel.params.system import MCP_STATE_FILENAME, MCP_STATUS_OK
+from l3.tool_system.tool_spec import ToolRing, ToolSpec, list_tools, register
 
 logger = logging.getLogger(__name__)
 
@@ -326,7 +326,7 @@ class MCPBridge:
 
     def remove_server(self, server_name: str) -> dict:
         """Unregister all tools from an MCP server and remove."""
-        from l3.tool_system.tool_spec import list_tools, unregister_plugin, unregister
+        from l3.tool_system.tool_spec import unregister, unregister_plugin
         with self._lock:
             self._imported_servers.pop(server_name, None)
             self._server_status.pop(server_name, None)
@@ -354,7 +354,6 @@ class MCPBridge:
     def import_discover(self, registry_url: str = "") -> dict:
         """Scan a config section or registry for MCP servers and import all."""
         try:
-            from l3.tool_system.tool_spec import TOOL_REGISTRY
             imported = []
             config = _load_mcp_state()
             for name, info in config.items():
@@ -499,7 +498,6 @@ class MCPBridge:
     def export_tools(self, categories: list[str] | None = None,
                      include_muted: bool = False) -> dict:
         """Register selected Praxis tools as MCP-exportable."""
-        from l3.tool_system.tool_spec import list_tools
         tools = list_tools(include_muted=include_muted)
         if categories:
             tools = [t for t in tools if t.category in categories]

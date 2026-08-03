@@ -24,12 +24,12 @@ Adapter contract:
   - Thread-safe unless documented otherwise.
 """
 
-from l4.adapters.i18n_yaml import YamlI18nAdapter
-from l4.adapters.channel_ring import RingChannel
-from l4.adapters.worker_thread import ThreadPoolWorker
 from l4.adapters.bus_memory import MemoryBusAdapter
 from l4.adapters.card_registry import CardRegistryAdapter
+from l4.adapters.channel_ring import RingChannel
+from l4.adapters.i18n_yaml import YamlI18nAdapter
 from l4.adapters.monitor_bus import MonitorBusAdapter
+from l4.adapters.worker_thread import ThreadPoolWorker
 
 __all__ = [
     "YamlI18nAdapter",

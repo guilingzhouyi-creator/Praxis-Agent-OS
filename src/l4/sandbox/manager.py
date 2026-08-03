@@ -4,10 +4,9 @@ import asyncio
 import logging
 import os
 import shutil
-import sys
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -15,10 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 from l1.kernel.params.system import (
-    SANDBOX_PROFILE_READ_ONLY, SANDBOX_PROFILE_SAFE_WRITE,
-    SANDBOX_PROFILE_NETWORK, SANDBOX_PROFILE_FULL, SANDBOX_PROFILE_HOST,
-    LOG_TRUNC_500, LOG_TRUNC_2000,
-    HASH_TRUNC_SHORT, SANDBOX_DEFAULT_TIMEOUT,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_500,
+    LOG_TRUNC_2000,
+    SANDBOX_DEFAULT_TIMEOUT,
+    SANDBOX_PROFILE_FULL,
+    SANDBOX_PROFILE_HOST,
+    SANDBOX_PROFILE_NETWORK,
+    SANDBOX_PROFILE_READ_ONLY,
+    SANDBOX_PROFILE_SAFE_WRITE,
 )
 
 
@@ -97,7 +101,7 @@ class SandboxManager:
                 stdout, stderr = await asyncio.wait_for(
                     proc.communicate(), timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 try:
                     proc.kill()
                 except Exception:

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
-from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import GIT_TIMEOUT

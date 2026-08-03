@@ -6,18 +6,23 @@ Supports local execution and GitHub Actions integration.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
 
 from l1.kernel.params.api import CI_SHELL_TIMEOUT
-from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_DEFAULT_LIST_LIMIT, CI_DEFAULT_LOG_LINES, CI_MAX_RUNS, CI_PIPELINE_CACHE_TTL, HASH_TRUNC_SHORT, LOG_TRUNC_20, LOG_TRUNC_500
+from l1.kernel.params.system import (
+    CI_DEFAULT_LIST_LIMIT,
+    CI_DEFAULT_LOG_LINES,
+    CI_DEFAULT_TIMEOUT,
+    CI_MAX_RUNS,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_20,
+    LOG_TRUNC_500,
+)
 from l1.kernel.platform import shell_command
 from l3._base import BaseService
 
