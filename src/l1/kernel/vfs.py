@@ -229,9 +229,9 @@ class VFS:
 
     def sys_read(self, path: str) -> dict:
         """Read /sys files — system registry."""
+        from .params.system import KERNEL_VERSION
         from .registry import get_registry
         from .settings import get_settings
-        from .params.system import KERNEL_VERSION
         r = get_registry()
         parts = path.strip("/").split("/")
         if len(parts) == 1:
@@ -305,7 +305,7 @@ class VFS:
         if len(parts) == 1 and parts[0] == "proc":
             table = get_table()
             procs = table.list()
-            content = f"PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
+            content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
                 f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
                 for p in procs
             )
@@ -320,7 +320,7 @@ class VFS:
             if parts[1] == "processes":
                 table = get_table()
                 procs = table.list()
-                content = f"PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
+                content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
                     f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
                     for p in procs
                 )

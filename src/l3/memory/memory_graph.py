@@ -25,8 +25,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

@@ -209,8 +209,8 @@ class Session:
                     archived_session_id, inst.id, inst.history.count())
         # ── R5 群域图：恢复时扩散召回相关上下文（图启用时）──
         try:
-            from l3.memory.memory_graph import get_graph as _gg
             from l3.memory.central_memory import get_l3a_memory as _glm
+            from l3.memory.memory_graph import get_graph as _gg
             g = _gg()
             if g.enabled:
                 mem = _glm()

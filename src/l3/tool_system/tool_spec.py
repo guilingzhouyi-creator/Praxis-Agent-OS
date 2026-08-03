@@ -22,26 +22,26 @@ from l1.kernel.registry_base import RegisterableSpec
 
 from .tool_registry import (
     TOOL_REGISTRY,  # noqa: F401 — re-exported for callers
-    register,  # noqa: F401
-    register_plugin,  # noqa: F401
-    unregister_plugin,  # noqa: F401
-    register_middleware,  # noqa: F401
-    get_tool,  # noqa: F401
-    list_tools,  # noqa: F401
-    list_categories,  # noqa: F401
-    list_plugins,  # noqa: F401
-    tool_registry_to_json,  # noqa: F401
-    is_muted,  # noqa: F401
-    mute_tool,  # noqa: F401
-    unmute_tool,  # noqa: F401
-    mute_category,  # noqa: F401
-    unmute_category,  # noqa: F401
-    mute_plugin,  # noqa: F401
-    unmute_plugin,  # noqa: F401
-    mute_ring,  # noqa: F401
-    unmute_ring,  # noqa: F401
-    list_muted,  # noqa: F401
     clear_mutes,  # noqa: F401
+    get_tool,  # noqa: F401
+    is_muted,  # noqa: F401
+    list_categories,  # noqa: F401
+    list_muted,  # noqa: F401
+    list_plugins,  # noqa: F401
+    list_tools,  # noqa: F401
+    mute_category,  # noqa: F401
+    mute_plugin,  # noqa: F401
+    mute_ring,  # noqa: F401
+    mute_tool,  # noqa: F401
+    register,  # noqa: F401
+    register_middleware,  # noqa: F401
+    register_plugin,  # noqa: F401
+    tool_registry_to_json,  # noqa: F401
+    unmute_category,  # noqa: F401
+    unmute_plugin,  # noqa: F401
+    unmute_ring,  # noqa: F401
+    unmute_tool,  # noqa: F401
+    unregister_plugin,  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
