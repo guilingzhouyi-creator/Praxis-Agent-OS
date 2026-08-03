@@ -69,6 +69,19 @@ def dispatch(args: list[str], mgr: SessionManager,
     if sub == "context":
         return _context_dispatch(args[1:], registry)
 
+    if sub == "tasks":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        status = args[2] if len(args) > 2 else ""
+        return {"success": True, "session_id": sid,
+                "data": s.tasks.list(status=status),
+                "pending": s.tasks.pending_count(),
+                "count": len(s.tasks.all())}
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

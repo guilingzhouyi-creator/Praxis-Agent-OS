@@ -10,6 +10,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import os as _os
 import platform as _platform
 import shutil as _shutil
@@ -18,6 +19,8 @@ import sys as _sys
 import tempfile as _tempfile
 from pathlib import Path as _Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # ── OS family detection ──
@@ -35,12 +38,12 @@ if IS_WINDOWS:
     SHELL_PATH: str = _os.environ.get("COMSPEC", "cmd.exe")
     SHELL_NAME: str = "powershell.exe" if "powershell" in SHELL_PATH.lower() else "cmd.exe"
     SHELL_PROMPT: str = "PS > " if "powershell" in SHELL_PATH.lower() else "C:\\> "
-    DEFAULT_SHELL: str = "powershell.exe"
+    DEFAULT_SHELL: str = SHELL_PATH
 else:
     SHELL_PATH: str = _os.environ.get("SHELL", "/bin/bash")
     SHELL_NAME: str = "bash"
     SHELL_PROMPT: str = "$ "
-    DEFAULT_SHELL: str = "/bin/bash"
+    DEFAULT_SHELL: str = SHELL_PATH
 
 
 # ── Command adapters ──
@@ -88,24 +91,22 @@ def get_temp_dir() -> str:
 
 # ── Shell command wrappers ──
 
+def shell_command(cmd: str) -> list[str]:
+    """Build a command invocation for the detected system shell."""
+    return [SHELL_PATH, "/c" if IS_WINDOWS else "-c", cmd]
+
+
 def run_shell(cmd: str, timeout: float = 30.0, **kwargs: Any) -> _subprocess.CompletedProcess:
     """Run a command through the system shell, cross-platform."""
-    if IS_WINDOWS:
-        args = [DEFAULT_SHELL, "/c", cmd] if "powershell" in DEFAULT_SHELL.lower() else ["cmd.exe", "/c", cmd]
-    else:
-        args = ["bash", "-c", cmd]
     kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("capture_output", True)
     kwargs.setdefault("text", True)
-    return _subprocess.run(args, **kwargs)
+    return _subprocess.run(shell_command(cmd), **kwargs)
 
 
 def create_interactive_shell(cwd: str = "") -> _subprocess.Popen:
     """Create an interactive shell subprocess, cross-platform."""
-    if IS_WINDOWS:
-        cmd = ["cmd.exe"]
-    else:
-        cmd = [_os.environ.get("SHELL", "/bin/bash"), "-i"]
+    cmd = [SHELL_PATH] if IS_WINDOWS else [SHELL_PATH, "-i"]
     kwargs: dict = {}
     if cwd:
         kwargs["cwd"] = cwd
@@ -205,7 +206,16 @@ def tail_file(path: str, n_lines: int = 10) -> list[str]:
 
 # ── Async server helpers ──
 
-_SERVER_COUNTER: int = 0
+def _parse_tcp_endpoint(endpoint: str, default_host: str) -> tuple[str, int]:
+    """Parse the configured Windows IPC endpoint in ``host:port`` form."""
+    host, separator, port_text = endpoint.rpartition(":")
+    if not separator or not port_text:
+        raise ValueError(f"Windows IPC endpoint must use host:port, got {endpoint!r}")
+    try:
+        port = int(port_text)
+    except ValueError as exc:
+        raise ValueError(f"Windows IPC endpoint port must be an integer, got {endpoint!r}") from exc
+    return host or default_host, port
 
 async def create_ipc_server(handler: Any, socket_path: str, host: str = "127.0.0.1") -> Any:
     """Create an IPC server — Unix socket on POSIX, TCP on Windows.
@@ -214,21 +224,19 @@ async def create_ipc_server(handler: Any, socket_path: str, host: str = "127.0.0
     On POSIX the address is the socket_path; on Windows it's (host, port).
     """
     import asyncio as _asyncio
-    global _SERVER_COUNTER
     if IS_WINDOWS:
-        port = 42000 + (_SERVER_COUNTER % 1000)
-        _SERVER_COUNTER += 1
-        server = await _asyncio.start_server(handler, host=host, port=port)
-        return server, (host, port)
-    os.makedirs(os.path.dirname(socket_path) or ".", exist_ok=True)
+        tcp_host, port = _parse_tcp_endpoint(socket_path, host)
+        server = await _asyncio.start_server(handler, host=tcp_host, port=port)
+        return server, (tcp_host, port)
+    _os.makedirs(_os.path.dirname(socket_path) or ".", exist_ok=True)
     server = await _asyncio.start_unix_server(handler, path=socket_path)
     return server, socket_path
 
 
 def remove_ipc_socket(socket_path: str) -> None:
     """Remove a Unix socket file (noop on Windows)."""
-    if not IS_WINDOWS and os.path.exists(socket_path):
-        os.unlink(socket_path)
+    if not IS_WINDOWS and _os.path.exists(socket_path):
+        _os.unlink(socket_path)
 
 
 # ── Signal / shutdown ──

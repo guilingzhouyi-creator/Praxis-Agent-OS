@@ -123,6 +123,18 @@ def _l3a_peek(args: dict) -> dict:
     return get_l3a_pool().peek(task_id=args.get("task_id", ""))
 
 
+def _l3a_tasks(args: dict) -> dict:
+    from l3.cell.peers.l3a import get_daemon
+    sid = args.get("session_id", "")
+    s = get_daemon().get_session(sid)
+    if not s:
+        return {"success": False, "error": f"session not found: {sid}"}
+    return {"success": True, "session_id": sid,
+            "data": s.tasks.list(status=args.get("status", "")),
+            "pending": s.tasks.pending_count(),
+            "count": len(s.tasks.all())}
+
+
 def _schema(properties: dict, required: list[str]) -> dict:
     return {"type": "object", "properties": properties,
             "required": required, "additionalProperties": False}
@@ -198,6 +210,14 @@ _L3A_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": _schema(
             {"task_id": _str_prop("Task ID from l3a_spawn")}, ["task_id"]),
         "handler": _l3a_peek,
+    },
+    "l3a_tasks": {
+        "description": "Query the session card task table (status tracking buffer).",
+        "inputSchema": _schema(
+            {"session_id": _str_prop("Session ID"),
+             "status": _str_prop("Optional filter: queued|dispatched|running|completed|failed|cancelled")},
+            ["session_id"]),
+        "handler": _l3a_tasks,
     },
 }
 

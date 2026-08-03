@@ -51,13 +51,13 @@ class CellLifecycleMixin:
         self._pmu.increment("agent.boots")
         self._watchdog.register(agent_id)
         try:
-            from ..agent_terminal import get_terminal
+            from l3.agent_terminal import get_terminal
             term = get_terminal(agent_id)
             if term:
                 term.set_watchdog_pet(lambda aid: self._watchdog.pet(aid))
         except Exception as e:
             logger.warning("watchdog wire failed: %s", e)
-        from ..cell.components.cell_agent import _boot_agent
+        from l3.cell.components.cell_agent import _boot_agent
         return _boot_agent(self, agent_id)
 
     def boot_all(self) -> dict:
@@ -79,11 +79,11 @@ class CellLifecycleMixin:
                 hook()
             except Exception as e:
                 logger.warning("shutdown hook %s raised: %s", hook, e)
-        from ..agent_terminal import reset_terminals
+        from l3.agent_terminal import reset_terminals
         reset_terminals()
         with self._lock:
             for info in self._agents.values():
-                from ..cell.components.cell_types import AgentStatus
+                from l3.cell.components.cell_types import AgentStatus
                 info.status = AgentStatus.IDLE
         return {"success": True}
 
@@ -137,7 +137,7 @@ class CellLifecycleMixin:
         except Exception as e:
             logger.warning("reset_agent_context pause failed: %s", e)
         try:
-            from ..memory.memory import get_memory
+            from l3.memory.memory import get_memory
             mem = get_memory()
             mem.compact(agent_id)
             mem.forget_agent(agent_id)
@@ -161,20 +161,20 @@ class CellLifecycleMixin:
         if term:
             term.shutdown()
         try:
-            from ..memory.memory import get_memory
+            from l3.memory.memory import get_memory
             mem = get_memory()
             mem.forget_agent(agent_id)
             mem.compact(agent_id)
         except Exception as e:
             logger.warning("restart_agent memory clear: %s", e)
         try:
-            from ..memory.context_pool import unregister as _unreg
+            from l3.memory.context_pool import unregister as _unreg
             _unreg(agent_id)
         except Exception as e:
             logger.warning("cell/restart_agent: %s", e)
         self._mmu.flush_agent(agent_id)
         try:
-            from ..memory.context_pool import register as _reg
+            from l3.memory.context_pool import register as _reg
             _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=4096)
         except Exception as e:
             logger.warning("cell/restart_agent: %s", e)

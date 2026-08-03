@@ -127,8 +127,11 @@ class LifecycleRegistry:
         from l1.kernel.migration import SCHEMA_VERSION
         if rec.schema_version != SCHEMA_VERSION:
             return True
-        last_ok = rec.last_shutdown_clean if rec.last_shutdown else True
-        return not last_ok
+        # Unclean shutdown → reinstall
+        if rec.last_shutdown:
+            return not rec.last_shutdown_clean
+        # Booted but never cleanly shut down (crash without atexit) → reinstall
+        return rec.boot_count > 0
 
     def record_boot_success(self) -> None:
         self.load()

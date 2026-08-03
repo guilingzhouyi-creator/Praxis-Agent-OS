@@ -105,7 +105,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 
     # First-boot bootstrap wizard
     try:
-        from .config.bootstrap import needs_bootstrap, run_bootstrap
+        from l3.config.bootstrap import needs_bootstrap, run_bootstrap
         if needs_bootstrap():
             logger.info("first boot detected — running bootstrap wizard")
             br = run_bootstrap(interactive=interactive)
@@ -597,9 +597,11 @@ def _init_memory_and_archive() -> dict:
             results["swapper_wired"] = f"skip: {e}"
     except Exception as e: results["memory_restore"] = f"skip: {e}"
     try:
-        from tools._archive import init_archive
+        from l3.tools._archive import init_archive
         init_archive(); results["archive_init"] = "ok"
-    except Exception as e: results["archive_init"] = f"skip: {e}"
+    except Exception as e:
+        logger.warning("archive init failed: %s", e)
+        results["archive_init"] = f"skip: {e}"
     try:
         from .memory.archive_orchestrator import ring3_from_archive
         n = ring3_from_archive(get_memory())
@@ -699,7 +701,14 @@ def _init_services() -> dict:
         results["log_handler"] = "ok"
     except Exception as e:
         logger.warning("log handler install: %s", e)
-    return {"success": True, "services": list(results.keys()), "results": results}
+
+    # Surface real failures (values starting with "error:") instead of hiding them
+    failed = [k for k, v in results.items()
+              if isinstance(v, str) and v.startswith("error")]
+    if failed:
+        logger.error("boot services with errors: %s", ", ".join(failed))
+    return {"success": True, "services": list(results.keys()),
+            "results": results, "failed": failed}
 
 
 def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -> dict:
@@ -731,7 +740,7 @@ def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -
         from .card.card_registry import get_registry
         reg = get_registry()
         reg.register_cell(DEFAULT_CELL_ID, cell.territory)
-        reg.set_cell_resolver(lambda cid: get_cell(cid) if cid == DEFAULT_CELL_ID else get_cell(cid))
+        reg.set_cell_resolver(lambda cid: get_cell(cid))
         reg.start_dispatcher()
         # Wire PendingQueue approve → CardRegistry.restore_card
         from .card.pending_queue import get_queue

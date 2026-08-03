@@ -18,7 +18,7 @@ from typing import Any
 
 from l1.kernel.params.api import CI_SHELL_TIMEOUT
 from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, CI_DEFAULT_LIST_LIMIT, CI_DEFAULT_LOG_LINES, CI_MAX_RUNS, CI_PIPELINE_CACHE_TTL, HASH_TRUNC_SHORT, LOG_TRUNC_20, LOG_TRUNC_500
-from l1.kernel.platform import SHELL_PATH
+from l1.kernel.platform import shell_command
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -121,13 +121,9 @@ class CIService(BaseService):
                 # subprocess shell=True (which would re-expose us to shell
                 # quoting bugs and make the call harder to audit). The CI
                 # pipeline contract is that `cmd` is a single shell command
-                # string, so we hand it to the configured shell verbatim via
-                # `-c`/`/c` rather than letting subprocess split it.
-                from l1.kernel.platform import IS_WINDOWS
-                if IS_WINDOWS:
-                    shell_args = [SHELL_PATH, "/c", cmd]
-                else:
-                    shell_args = [SHELL_PATH, "-c", cmd]
+                # string, so the platform adapter supplies the configured
+                # shell and its platform-specific command flag.
+                shell_args = shell_command(cmd)
                 r = subprocess.run(
                     shell_args, cwd=cwd,
                     capture_output=True, text=True, timeout=step_timeout,

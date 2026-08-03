@@ -452,7 +452,8 @@ THINK_REASONING_DEFAULT: Final[str] = "none"
 PMU_HISTORY_SIZE: Final[int] = 3600
 PMU_SNAPSHOT_INTERVAL: Final[float] = 60.0
 PMU_COUNTER_GROUPS: Final[list[str]] = [
-    "cards", "tools", "cache", "scouts", "bus", "token", "agent", "watchdog",
+    "cards", "tools", "cache", "scouts", "bus", "token", "memory",
+    "agent", "watchdog", "icache", "tlb", "interrupt",
 ]
 
 

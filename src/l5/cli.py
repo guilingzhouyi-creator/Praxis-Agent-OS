@@ -9,12 +9,24 @@ def cmd_boot(args) -> dict:
     from l1.kernel.os import get_os
     from l1.kernel.params.agent import TERRITORY_PATHS, TERRITORY_MAP
     from l3.boot.boot import wire_kernel_os, boot as l3_boot
-    agent_config = []
-    for role, paths in TERRITORY_PATHS.items():
-        agent_config.append((f"agent-{role}", role, paths))
+
+    # Prefer restoring the previous boot snapshot (memories) so a restart
+    # resumes with the same agent topology; fall back to territory paths.
+    agent_config = None
+    try:
+        from l3.memory.memory_init import init_from_memories
+        m = init_from_memories()
+        if m.get("loaded"):
+            agent_config = m["agent_config"]
+    except Exception:
+        pass
     if not agent_config:
-        agent_config = [("agent-default", "default", ["."])]
-        TERRITORY_MAP["."] = "default"
+        agent_config = []
+        for role, paths in TERRITORY_PATHS.items():
+            agent_config.append((f"agent-{role}", role, paths))
+        if not agent_config:
+            agent_config = [("agent-default", "default", ["."])]
+            TERRITORY_MAP["."] = "default"
     osys = get_os()
     wire_kernel_os()
     osys.register_boot_handler(l3_boot)

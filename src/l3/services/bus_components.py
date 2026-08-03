@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ════════════════════════════════════════════════════════════════
 
 class CellPmuComponent(Component):
-    """Wraps CellPmu — 28 hardware-style performance counters per Cell."""
+    """Wraps CellPmu — 49 hardware-style performance counters across 12 groups per Cell."""
 
     meta = ComponentMeta(name="pmu", tags=["cell", "monitor"])
 

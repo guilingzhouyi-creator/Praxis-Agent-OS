@@ -13,6 +13,7 @@ from . import params as _p
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
 from .inbox import PromptInbox, Admission
+from .task_table import SessionTaskTable, SessionTask
 from . import archive as _archive
 from l3.error_bus import capture
 
@@ -128,6 +129,7 @@ class Session:
         self.max_turns: int = 0
         self._model_spec_cache: dict | None = None
         self._subscribed_cards: set[str] = set()
+        self.tasks: SessionTaskTable = SessionTaskTable(session_id)
 
     @classmethod
     def create(cls, title: str = "",
@@ -325,6 +327,7 @@ class Session:
             "card_count": self.card_count,
             "model_spec": "l3a",
             "tags": ["l3a", "session"],
+            "tasks": self.tasks.to_dict(),
         }
         _archive.store_session(sid, metadata, ctx)
         logger.info("l3a session: closed %s — %s (%d turns)",
@@ -365,6 +368,10 @@ class Session:
                 "model": self.model_config.show(),
                 "epoch": epoch_info,
                 "context": self.context_stats(),
+                "tasks": {
+                    "pending": self.tasks.pending_count(),
+                    "total": len(self.tasks.all()),
+                },
             }
 
     def _resolve_model_config(self) -> dict:
@@ -449,6 +456,7 @@ class Session:
             summary = str(result)[:LOG_TRUNC_200]
         text = (f"Card {card_id} ({title}) → {state}"
                 + (f": {summary}" if summary else ""))
+        self.tasks.update(card_id, state, result)
         with self._lock:
             self.history.append(Message(
                 id=f"card-{uuid.uuid4().hex[:4]}",
@@ -485,12 +493,14 @@ class Session:
         from .helpers import cardwrite_handler
 
         def _session_cardwrite(args: dict, agent_id: str = "") -> dict:
-            """Session-scoped cardwrite: create card + subscribe to completion."""
+            """Session-scoped cardwrite: create card + track + subscribe to completion."""
             r = cardwrite_handler(args, agent_id)
             if r.get("success"):
                 cid = r.get("card_id", "")
                 self.card_count += 1
                 self._subscribed_cards.add(cid)
+                self.tasks.track(cid, title=args.get("title", cid),
+                                 turn=self.turn_count)
                 try:
                     from l3.card.card_registry import get_registry
                     get_registry().subscribe(cid, self._on_card_completed)

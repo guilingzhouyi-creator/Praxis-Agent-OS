@@ -11,7 +11,7 @@ The Cell is the **CPU core** of Praxis. It holds N AgentTerminals (execution uni
 | Instruction pipeline | Card phases/steps |
 | Register file | `agent_map` (agent_id → AgentInfo) |
 | Cache L1/L2/L3 | Memory rings R1/R2/R3 |
-| PMU (performance counters) | `CellPmu` — 28 counters, 11 groups |
+| PMU (performance counters) | `CellPmu` — 49 counters, 12 groups |
 | Watchdog timer | `CellWatchdog` — per-agent liveness, auto-reboot |
 | I-Cache (instruction cache) | `ICache` — LFU eviction, 1h TTL |
 | MMU + TLB | `CellMmu` + `CellTlb` — 3-level territory→agent cascade |
@@ -37,7 +37,7 @@ flowchart TB
         SNAP["Snapshot/Rollback\n(pre-exec file snapshots)"]
         RB["_rollback_ring\nCircularBuffer(20)\nrollback context"]
         CH["_card_history\nCircularBuffer(100)\ncard event log"]
-        PMU["PMU: CellPmu\n28 counters, 11 groups\nauto-snapshots → MonitorBus"]
+        PMU["PMU: CellPmu\n49 counters, 12 groups\nauto-snapshots → MonitorBus"]
         WD["Watchdog: CellWatchdog\nper-agent liveness\nHEALTHY→UNRESPONSIVE→CRASHED"]
         IC["I-Cache: ICache\ninstructions/tools/templates\nLFU eviction, 1h TTL"]
         MMU["MMU + TLB:\nCellMmu + CellTlb\n3-level cascade:\nTLB → I-Cache → agents"]
@@ -111,8 +111,8 @@ flowchart TB
 |  +------------------+  +------------------+  +--------------+  |
 |  +------------------+  +------------------+  +--------------+  |
 |  | PMU: CellPmu     |  | Watchdog:        |  | I-Cache:     |  |
-|  | 28 counters      |  | CellWatchdog     |  | ICache       |  |
-|  | 11 groups        |  | HEALTHY→         |  | LFU eviction |  |
+|  | 49 counters      |  | CellWatchdog     |  | ICache       |  |
+|  | 12 groups        |  | HEALTHY→         |  | LFU eviction |  |
 |  | auto-snapshots   |  | UNRESPONSIVE→    |  | 1h TTL       |  |
 |  |                  |  | CRASHED+NMI+     |  |              |  |
 |  |                  |  | auto-reboot      |  |              |  |
@@ -209,7 +209,7 @@ sequenceDiagram
 | `_kill_hooks` | `list[Callable]` | Veto-capable kill hooks |
 | `_boot_hooks` | `list[Callable]` | Observation-only boot hooks |
 | `_shutdown_hooks` | `list[Callable]` | Observation-only shutdown hooks |
-| `_pmu` | `CellPmu` | Per-Cell performance counters (28 counters, 11 groups) |
+| `_pmu` | `CellPmu` | Per-Cell performance counters (49 counters, 12 groups) |
 | `_watchdog` | `CellWatchdog` | Per-agent liveness monitor (HEALTHY→UNRESPONSIVE→CRASHED) |
 | `_icache` | `ICache` | Instruction cache — tools, templates, territory maps (LFU, 1h TTL) |
 | `_tlb` | `CellTlb` | Translation lookaside buffer — 1st level of MMU cascade |
@@ -280,7 +280,7 @@ All three Peer Agents (`reader`, `writer`, `reviewer`) are **equal** — ring 3,
 
 `self._pmu: CellPmu` — per-Cell hardware-style performance counters. Created in `__init__()` after the Watchdog. Provides observability across all Cell operations.
 
-- **28 counters** across **11 groups** (agent, bus, cards, cache, constitution, deploy, memory, pipeline, scout, token, tool)
+- **49 counters** across **12 groups** (cards, tools, cache, scouts, bus, token, memory, agent, watchdog, icache, tlb, interrupt)
 - Each group exposes counters via `pmu.increment(group.counter)` and `pmu.read(group.counter)`
 - **Auto-snapshots** to `MonitorBus` on configurable interval — enables external observability without polling
 - Counter groups are frozen at class level; unknown counters log a warning and are discarded

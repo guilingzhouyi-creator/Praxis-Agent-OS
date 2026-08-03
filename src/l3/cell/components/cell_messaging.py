@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from l1.kernel import emit_signal, Signal, SignalType, EVENT_TASK_ASSIGN
+from l1.kernel import Signal, SignalType
 from l1.kernel.params.agent import CELL_MAILBOX_MAX_PER_AGENT, CELL_MAILBOX_TTL
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class CellMessagingMixin:
     def send_message(self, sender: str, target: str,
                      msg_type: Any, payload: Any = None) -> dict:
         """Send a message to an agent within this Cell."""
-        from ..cell.components.cell_types import CellMessage, MessageType
+        from l3.cell.components.cell_types import CellMessage, MessageType
         CONVENTION_TYPES = frozenset({
             MessageType.CONVENE, MessageType.CROSS_EXAMINE,
             MessageType.REBUT, MessageType.PROPOSE_ISSUE,
@@ -43,12 +43,12 @@ class CellMessagingMixin:
             self._bus.emit(Signal(type=SignalType.TASK_ASSIGN, sender=sender,
                                   target=target, data={"cell": self.cell_id, "msg_type": msg_type.name}))
         self._pmu.increment("bus.messages_sent")
-        from ..bus.comm_monitor import get_monitor
+        from l3.bus.comm_monitor import get_monitor
         get_monitor().record_message(channel="cell_mailbox", msg_type="send",
                                       direction="out", agent_id=sender, target=target)
         if msg_type in CONVENTION_TYPES:
             try:
-                from ..agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
+                from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
                 term = get_terminal(target)
                 from l1.kernel.params.agent import AGENT_STATUS_CRASHED
                 if term.status.name not in (AGENT_STATUS_CRASHED,):
@@ -78,7 +78,7 @@ class CellMessagingMixin:
 
     def agent_reachable(self, agent_id: str) -> dict:
         """Check if a specific agent can accept a direct message."""
-        from ..agent_terminal import get_terminals
+        from l3.agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"reachable": False, "reason": "no_terminal", "agent_id": agent_id}
@@ -86,7 +86,7 @@ class CellMessagingMixin:
 
     def send_direct_message(self, agent_id: str, text: str) -> dict:
         """Send a direct message to an agent via its stdin queue."""
-        from ..agent_terminal import get_terminals
+        from l3.agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"success": False, "error": f"unknown agent: {agent_id}"}
@@ -101,7 +101,7 @@ class CellMessagingMixin:
         Used by Shell (L2) Direct Mode to verify target reachability.
         Returns aggregate status: healthy / degraded / unreachable.
         """
-        from ..agent_terminal import get_terminals
+        from l3.agent_terminal import get_terminals
         terms = get_terminals()
         agent_results = {}
         healthy_count = 0
@@ -147,12 +147,12 @@ class CellMessagingMixin:
 
     def agent_status(self, agent_id: str) -> dict:
         """Return the current status of a specific agent."""
-        from ..cell.components.cell_agent import agent_status as _agent_status
+        from l3.cell.components.cell_agent import agent_status as _agent_status
         return _agent_status(self, agent_id)
 
     def close_direct_session(self, agent_id: str) -> dict:
         """Close a direct session for the given agent."""
-        from ..agent_terminal import get_terminals
+        from l3.agent_terminal import get_terminals
         term = get_terminals().get(agent_id)
         if not term:
             return {"success": False, "error": f"unknown agent: {agent_id}"}

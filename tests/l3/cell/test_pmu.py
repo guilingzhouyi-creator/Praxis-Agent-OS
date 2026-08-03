@@ -25,12 +25,16 @@ class TestInit:
     """PMU initialization."""
 
     def test_all_groups_enabled_by_default(self, pmu):
-        """8 counter groups from PMU_COUNTER_GROUPS initialized."""
+        """12 counter groups from PMU_COUNTER_GROUPS initialized."""
         stats = pmu.stats()
-        assert len(stats["enabled_groups"]) == 8
+        assert len(stats["enabled_groups"]) == 12
         assert "cards" in stats["enabled_groups"]
         assert "tools" in stats["enabled_groups"]
         assert "cache" in stats["enabled_groups"]
+        assert "memory" in stats["enabled_groups"]
+        assert "icache" in stats["enabled_groups"]
+        assert "tlb" in stats["enabled_groups"]
+        assert "interrupt" in stats["enabled_groups"]
 
     def test_all_counters_start_at_zero(self, pmu):
         stats = pmu.stats()

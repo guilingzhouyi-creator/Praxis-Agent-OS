@@ -2,35 +2,41 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
-import tempfile
+from importlib import import_module
 
 import pytest
 
 from l1.kernel.platform import (
-    IS_WINDOWS,
-    IS_MAC,
+    DEFAULT_SHELL,
+    IPC_TRANSPORT,
+    IPC_USE_UNIX_SOCKET,
     IS_LINUX,
+    IS_MAC,
     IS_NT,
     IS_POSIX,
-    SHELL_PATH,
-    SHELL_NAME,
-    SHELL_PROMPT,
-    DEFAULT_SHELL,
+    IS_WINDOWS,
     PING_PARAM,
     PYTHON_EXE,
-    IPC_USE_UNIX_SOCKET,
-    IPC_TRANSPORT,
-    which,
-    join_url,
+    SHELL_NAME,
+    SHELL_PATH,
+    SHELL_PROMPT,
+    create_interactive_shell,
+    create_ipc_server,
     get_config_dir,
     get_temp_dir,
-    run_shell,
-    create_interactive_shell,
     grep_cmd,
-    tail_file,
+    join_url,
     register_shutdown_handler,
+    remove_ipc_socket,
+    run_shell,
+    shell_command,
+    tail_file,
+    which,
 )
+
+platform = import_module("l1.kernel.platform")
 
 
 class TestOsDetection:
@@ -52,7 +58,7 @@ class TestOsDetection:
         assert IS_NT == IS_WINDOWS
 
     def test_posix_matches_non_windows(self):
-        assert IS_POSIX == (not IS_WINDOWS)
+        assert (not IS_WINDOWS) == IS_POSIX
 
 
 class TestShellDetection:
@@ -139,6 +145,15 @@ class TestRunShell:
         r = run_shell("exit 42")
         assert r.returncode == 42
 
+    def test_shell_command_uses_detected_shell(self, monkeypatch):
+        monkeypatch.setattr(platform, "IS_WINDOWS", True)
+        monkeypatch.setattr(platform, "SHELL_PATH", "C:\\Windows\\System32\\cmd.exe")
+        assert shell_command("echo hello") == ["C:\\Windows\\System32\\cmd.exe", "/c", "echo hello"]
+
+        monkeypatch.setattr(platform, "IS_WINDOWS", False)
+        monkeypatch.setattr(platform, "SHELL_PATH", "/bin/zsh")
+        assert shell_command("echo hello") == ["/bin/zsh", "-c", "echo hello"]
+
 
 class TestCreateInteractiveShell:
     def test_creates_popen(self):
@@ -197,6 +212,76 @@ class TestTailFile:
 
     def test_tail_nonexistent(self):
         assert tail_file("/nonexistent/path.log") == []
+
+    def test_falls_back_to_python_when_tail_fails(self, tmp_path, monkeypatch):
+        path = tmp_path / "test.log"
+        path.write_text("one\ntwo\n", encoding="utf-8")
+        monkeypatch.setattr(platform, "IS_WINDOWS", False)
+        monkeypatch.setattr(platform, "which", lambda _: "tail")
+
+        def fail_tail(*args, **kwargs):
+            raise OSError("tail unavailable")
+
+        monkeypatch.setattr(platform._subprocess, "run", fail_tail)
+        assert tail_file(str(path), n_lines=1) == ["two"]
+
+
+class TestIpcServer:
+    def test_windows_binds_declared_endpoint(self, monkeypatch):
+        received = {}
+
+        async def fake_start_server(handler, host, port):
+            received["handler"] = handler
+            received["host"] = host
+            received["port"] = port
+            return "server"
+
+        async def handler(reader, writer):
+            return None
+
+        monkeypatch.setattr(platform, "IS_WINDOWS", True)
+        monkeypatch.setattr(asyncio, "start_server", fake_start_server)
+
+        server, address = asyncio.run(create_ipc_server(handler, "127.0.0.1:42101"))
+
+        assert server == "server"
+        assert address == ("127.0.0.1", 42101)
+        assert received["handler"] is handler
+
+    def test_windows_rejects_non_tcp_endpoint(self, monkeypatch):
+        monkeypatch.setattr(platform, "IS_WINDOWS", True)
+
+        async def handler(reader, writer):
+            return None
+
+        with pytest.raises(ValueError, match="host:port"):
+            asyncio.run(create_ipc_server(handler, "/tmp/praxis.sock"))
+
+    def test_posix_creates_and_removes_socket_path(self, tmp_path, monkeypatch):
+        received = {}
+        socket_path = tmp_path / "ipc.sock"
+
+        async def fake_start_unix_server(handler, path):
+            received["handler"] = handler
+            received["path"] = path
+            return "server"
+
+        async def handler(reader, writer):
+            return None
+
+        monkeypatch.setattr(platform, "IS_WINDOWS", False)
+        monkeypatch.setattr(asyncio, "start_unix_server", fake_start_unix_server, raising=False)
+
+        server, address = asyncio.run(create_ipc_server(handler, str(socket_path)))
+
+        assert server == "server"
+        assert address == str(socket_path)
+        assert received["handler"] is handler
+        assert received["path"] == str(socket_path)
+
+        socket_path.write_text("socket", encoding="utf-8")
+        remove_ipc_socket(str(socket_path))
+        assert not socket_path.exists()
 
 
 class TestRegisterShutdownHandler:

@@ -10,6 +10,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 class TestConfigLoaderCore:
+    def test_find_config_uses_active_deployment_path(self, tmp_path, monkeypatch):
+        from l1.kernel.paths import reset_paths
+        from l3.config.config_loader import find_config
+
+        config_path = tmp_path / "praxis.yaml"
+        config_path.write_text("llm:\n  provider: test\n", encoding="utf-8")
+        monkeypatch.setenv("PRAXIS_DEPLOY_MODE", "pip")
+        monkeypatch.setenv("PRAXIS_DATA_DIR", str(tmp_path))
+        reset_paths()
+        try:
+            assert find_config() == str(config_path)
+        finally:
+            reset_paths()
+
     def test_register_handler(self):
         from l3.config.config_loader import register_config_handler, list_config_handlers
         before = len(list_config_handlers())

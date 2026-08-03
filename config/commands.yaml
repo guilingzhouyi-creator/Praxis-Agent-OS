@@ -478,6 +478,7 @@ l3a:
     - "/l3a info <id>                  — show session + epoch details"
     - "/l3a close <id>                 — close and archive session"
     - "/l3a messages <id> [limit]      — paginate through messages"
+    - "/l3a tasks <id> [status]        — session card task table (watcher buffer)"
     - "/l3a model show                 — show effective model config"
     - "/l3a model set provider openai  — override L3A model provider"
     - "/l3a model set model gpt-4o     — override L3A model"

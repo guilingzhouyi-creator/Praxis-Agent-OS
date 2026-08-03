@@ -204,13 +204,19 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
 
     # Snapshot CellCache keys currently visible to agents
     try:
-        cache_stats = cell._cache.stats() if cell._cache else {}
         cache_keys = (
-            list(cell._cache._kv.keys())[:100]
-            if hasattr(cell._cache, "_kv") else []
+            cell._cache.keys(limit=100)
+            if cell._cache else []
         )
     except Exception:
         cache_keys = []
+
+    # Enforce CELL_SNAPSHOT_MAX — evict the oldest snapshot when over capacity
+    # so `_card_snapshots` stays bounded (the cap was documented but never enforced).
+    while len(cell._card_snapshots) >= CELL_SNAPSHOT_MAX:
+        oldest_key = next(iter(cell._card_snapshots))
+        oldest = cell._card_snapshots.pop(oldest_key)
+        _cleanup_snapshot(cell, oldest.get("files", {}))
 
     cell._card_snapshots[card_id] = {
         "files": files, "ts": time.time(),

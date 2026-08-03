@@ -327,6 +327,12 @@ class CellCache:
             "flush_count": self._flush_count,
         }
 
+    def keys(self, limit: int = 0) -> list[str]:
+        """Return KV cache keys (optionally capped) without exposing internals."""
+        with self._lock:
+            keys = list(self._kv.keys())
+        return keys if limit <= 0 else keys[:limit]
+
     def clear(self) -> None:
         """Clear all cached data (called on Cell shutdown)."""
         self._hot.clear()

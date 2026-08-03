@@ -31,6 +31,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Self
 
+from .platform import IS_MAC, IS_WINDOWS
+
 
 class DeployMode(Enum):
     """Detected or configured deployment mode — determines all path defaults."""
@@ -79,10 +81,17 @@ def _get_data_dir(mode: DeployMode) -> str:
         return env_val
 
     home = Path.home()
+    if IS_WINDOWS:
+        user_data_dir = Path(os.environ.get("APPDATA", str(home))) / "praxis"
+    elif IS_MAC:
+        user_data_dir = home / "Library" / "Application Support" / "praxis"
+    else:
+        user_data_dir = home / ".local" / "share" / "praxis"
+
     base: dict[DeployMode, str] = {
         DeployMode.CLI_PROJECT: ".praxis",
-        DeployMode.PIP_PACKAGE: str(home / ".local" / "share" / "praxis"),
-        DeployMode.IDE_PLUGIN:  str(home / ".config" / "praxis"),
+        DeployMode.PIP_PACKAGE: str(user_data_dir),
+        DeployMode.IDE_PLUGIN: str(user_data_dir),
         DeployMode.DESKTOP_MAC: str(home / "Library" / "Application Support" / "praxis"),
         DeployMode.DESKTOP_WIN: str(Path(os.environ.get("APPDATA", str(home))) / "praxis"),
         DeployMode.DOCKER:      "/var/praxis",
@@ -157,7 +166,7 @@ class PraxisPaths:
     config_dir: str = ""
 
     # ── Config files ──
-    config_file: str = "config/praxis.yaml"
+    config_file: str = ""
     constitution_file: str = ".praxis-rules.md"
     settings_file: str = ".praxis_settings.json"
 
@@ -224,6 +233,11 @@ class PraxisPaths:
             self.data_dir = _get_data_dir(self.deploy_mode)
         if not self.config_dir:
             self.config_dir = _get_config_dir(self.deploy_mode)
+        if not self.config_file:
+            if self.deploy_mode == DeployMode.CLI_PROJECT:
+                self.config_file = "config/praxis.yaml"
+            else:
+                self.config_file = os.path.join(self.config_dir, "praxis.yaml")
         if not self.skill_dirs:
             self.skill_dirs = _get_skill_dirs(self.deploy_mode, self.data_dir)
         if not self.skill_evolved_dir:

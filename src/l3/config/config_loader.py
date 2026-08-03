@@ -64,7 +64,10 @@ def _discover_config_files() -> list[str]:
     env_path = os.environ.get("PRAXIS_CONFIG_PATH", "")
     if env_path:
         return [env_path]
-    return ["praxis.yaml", "praxis.yml", ".praxis.yaml", "config/praxis.yaml"]
+    from l1.kernel.paths import get_paths
+
+    candidates = [get_paths().config_file, "praxis.yaml", "praxis.yml", ".praxis.yaml", "config/praxis.yaml"]
+    return list(dict.fromkeys(candidates))
 
 
 _CONFIG_FILES = _discover_config_files()
@@ -104,7 +107,7 @@ def _interpolate_env(value: Any) -> Any:
 
 def find_config(path: str = "") -> str | None:
     """Find the first existing praxis config file."""
-    search_paths = [path] if path else _CONFIG_FILES
+    search_paths = [path] if path else _discover_config_files()
     for p in search_paths:
         if os.path.exists(p):
             return p

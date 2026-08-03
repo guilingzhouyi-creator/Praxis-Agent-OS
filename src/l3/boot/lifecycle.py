@@ -25,6 +25,18 @@ from l1.kernel.lifecycle import get_lifecycle, LifecycleState, transition
 
 logger = logging.getLogger(__name__)
 
+
+def _has_error(value: Any) -> bool:
+    """Recursively detect error markers ('error: ...') inside nested shutdown results."""
+    if isinstance(value, str):
+        return value.startswith("error")
+    if isinstance(value, dict):
+        return any(_has_error(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_has_error(v) for v in value)
+    return False
+
+
 _SHUTDOWN_IN_PROGRESS = False
 
 
@@ -86,7 +98,8 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
         results["r4_agent"] = f"error: {e}"
     try:
         from l3.cell.peers.l3a import stop_l3a_daemon
-        results["l3a_daemon"] = "stopped"
+        r = stop_l3a_daemon()
+        results["l3a_daemon"] = "ok" if r.get("success") else f"error: {r.get('error', 'stop failed')}"
     except Exception as e:
         results["l3a_daemon"] = f"error: {e}"
 
@@ -104,9 +117,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
             results["wipe"] = f"error: {e}"
 
     # 8. Record lifecycle
-    clean = not any(
-        isinstance(v, str) and v.startswith("error") for v in results.values()
-    )
+    clean = not any(_has_error(v) for v in results.values())
     try:
         lc = get_lifecycle()
         lc.record_shutdown(clean=clean)
@@ -193,12 +204,16 @@ def wipe_disk_state(wipe_config: bool = False) -> dict[str, str]:
         f"{_gp().memories_dir}/*",
         f"{_gp().data_dir}/archive.db",
         f"{_gp().data_dir}/praxis_state*",
+        f"{_gp().data_dir}/sandbox_state.json",
+        f"{_gp().data_dir}/skills/evolved/*",
+        f"{_gp().data_dir}/skills/lean/*",
+        f"{_gp().data_dir}/l3a_outputs/*",
+        f"{_gp().data_dir}/cache/*",
         ".praxis_state.db",
         ".praxis_settings.json",
         ".praxis/lifecycle.json",
         ".praxis/memory*",
         ".praxis/l3a_outputs/*",
-        f"{_gp().data_dir}/cache/*",
     ]
     for pattern in patterns:
         for path in _glob.glob(pattern):

@@ -13,6 +13,11 @@ import time as _time
 
 from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
 from l1.kernel.discovery import get_config as _get_config
+from l1.kernel.params.tool import (
+    TOOL_RATE_RING_1 as _TR1,
+    TOOL_RATE_RING_2_5 as _TR25,
+    TOOL_RATE_RING_3 as _TR3,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +34,10 @@ _RING_RATE = {}  # resolved below
 def _resolve_ring_rates() -> dict:
     """Resolve tool rates from config with params fallback."""
     cfg = _get_config("tool_rates") or {}
-    from l1.kernel.params.tool import TOOL_RATE_RING_1, TOOL_RATE_RING_2_5, TOOL_RATE_RING_3
     return {
-        _R1: cfg.get("ring_1", TOOL_RATE_RING_1),
-        _R25: cfg.get("ring_2_5", TOOL_RATE_RING_2_5),
-        _R3: cfg.get("ring_3", TOOL_RATE_RING_3),
+        _R1: cfg.get("ring_1", _TR1),
+        _R25: cfg.get("ring_2_5", _TR25),
+        _R3: cfg.get("ring_3", _TR3),
     }
 
 
@@ -54,7 +58,7 @@ class RateScheduler:
         self._counters: dict[str, list[float]] = {}
 
     def check(self, agent_id: str, tool_ring: str) -> dict:
-        rate = _RING_RATE.get(tool_ring, TOOL_RATE_RING_1)
+        rate = _RING_RATE.get(tool_ring, _TR1)
         key = f"{agent_id}:{tool_ring}"
         now = _time.time()
         with self._lock:

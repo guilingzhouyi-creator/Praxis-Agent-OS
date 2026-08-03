@@ -130,14 +130,24 @@ class OS:
             except Exception as e:
                 results[f"hook_{i}"] = str(e)
 
-        # Dump state to memories
+        # Dump state to memories (with timeout, like shutdown hooks)
         try:
             if self._shutdown_handler:
-                r = self._shutdown_handler()
+                holder: dict = {}
+                def _run() -> None:
+                    holder["r"] = self._shutdown_handler()
+                t = threading.Thread(target=_run, daemon=True)
+                t.start()
+                t.join(timeout=SHUTDOWN_TIMEOUT)
+                if t.is_alive():
+                    logger.warning("shutdown handler timed out after %.1fs", SHUTDOWN_TIMEOUT)
+                    results["memories"] = "timeout"
+                else:
+                    r = holder.get("r") or {"results": {}}
+                    results["memories"] = r.get("results", {})
             else:
                 logger.warning("no shutdown_handler registered — memories not persisted")
-                r = {"results": {}}
-            results["memories"] = r.get("results", {})
+                results["memories"] = {}
         except Exception as e:
             results["memories"] = f"error: {e}"
 
