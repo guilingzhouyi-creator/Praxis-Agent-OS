@@ -28,23 +28,42 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import threading
 import time
 import uuid
 from collections import deque
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from .memory_ring import MemEntry, RingLayer, _estimate_tokens
-from .memory_quality import _score_importance, _is_good_memory, _suggest_compact, _MIN_CONTENT_LEN
+from l1.kernel.params.system import (
+    CONTEXT_BUILD_MAX_TOKENS,
+    HASH_TRUNC_LONG,
+    LOG_TRUNC_60,
+    LOG_TRUNC_80,
+    LOG_TRUNC_100,
+    LOG_TRUNC_120,
+    LOG_TRUNC_150,
+    LOG_TRUNC_200,
+    LOG_TRUNC_500,
+    MEMORY_IMPORTANCE_BASE,
+    MEMORY_PERSIST_FILE_RING3,
+    MEMORY_PRESSURE_HIGH,
+    MEMORY_PRESSURE_MEDIUM,
+    MEMORY_PROMOTION_THRESHOLD,
+    MEMORY_RECALL_LIMIT_LARGE,
+    MEMORY_RING_LONG_BUDGET,
+    MEMORY_RING_LONG_TTL,
+    MEMORY_RING_SHORT_BUDGET,
+    MEMORY_RING_SHORT_TTL,
+    MEMORY_RING_WORKING_BUDGET,
+    MEMORY_RING_WORKING_TTL,
+)
+
 from .memory_context import build_context as _build_context
+from .memory_quality import _is_good_memory, _score_importance, _suggest_compact
+from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_search import search_long_term as _search_long_term
-from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_100, LOG_TRUNC_120, LOG_TRUNC_150, LOG_TRUNC_200, LOG_TRUNC_500, LOG_TRUNC_60, LOG_TRUNC_80, CONTEXT_BUILD_MAX_TOKENS, MEMORY_BUILD_CONTEXT_ENTRIES, MEMORY_IMPORTANCE_BASE, MEMORY_PAGER_RECALL_LIMIT, MEMORY_PERSIST_FILE_RING3, MEMORY_PRESSURE_HIGH, MEMORY_PRESSURE_MEDIUM, MEMORY_PROMOTION_THRESHOLD, MEMORY_RECALL_LIMIT, MEMORY_RECALL_LIMIT_LARGE, MEMORY_RING_LONG_BUDGET, MEMORY_RING_LONG_TTL, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_SHORT_TTL, MEMORY_RING_WORKING_BUDGET, MEMORY_RING_WORKING_TTL
 
 
 class MemoryManager:
@@ -296,7 +315,6 @@ class MemoryManager:
 
     def quality_report(self, agent_id: str | None = None) -> dict:
         """Report memory quality distribution for an agent."""
-        from l1.kernel.params.system import MEMORY_RECALL_LIMIT_LARGE
         entries = self.recall(agent_id=agent_id, limit=MEMORY_RECALL_LIMIT_LARGE)
         by_quality = {"good": 0, "ok": 0, "weak": 0}
         by_type: dict[str, int] = {}
@@ -323,8 +341,7 @@ class MemoryManager:
           ≥ 0.4 → Ring 2 (Short-term)
           < 0.4 → Ring 1 (Working)
         """
-        from l1.kernel.params.agent import SCOUT_RECALL_LIMIT
-        from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, COMPACT_RING2_IMPORTANCE
+        from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, COMPACT_RING2_IMPORTANCE, SCOUT_RECALL_LIMIT
         entries = self.recall(agent_id=agent_id, rings=[1, 2], limit=SCOUT_RECALL_LIMIT)
         candidates = _suggest_compact(entries)
         merged = 0
@@ -468,8 +485,10 @@ class MemoryManager:
 
     def _ensure_ring3_db(self) -> None:
         """Create Ring 3 SQLite table with FTS5 if not exists."""
-        import sqlite3, tempfile
+        import sqlite3
+        import tempfile
         from pathlib import Path
+
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
         data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
         db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
@@ -576,7 +595,7 @@ class MemoryManager:
         # Ring 2 ← JSONL
         jsonl_path = self._jsonl_path()
         if jsonl_path.exists():
-            with open(jsonl_path, "r", encoding="utf-8") as f:
+            with open(jsonl_path, encoding="utf-8") as f:
                 lines = f.readlines()
             before = len(lines)
             if ring2_limit > 0 and len(lines) > ring2_limit:
@@ -593,6 +612,7 @@ class MemoryManager:
         # Ring 3 ← SQLite FTS5
         import tempfile
         from pathlib import Path
+
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
         data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
         db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3

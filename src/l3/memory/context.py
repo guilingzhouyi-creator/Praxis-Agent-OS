@@ -16,15 +16,18 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
-from l3.memory.memory import get_memory
 from l1.kernel.params.system import (
     CONTEXT_MAX_REGISTER_TOKENS as MAX_REGISTER_TOKENS,
-    LOG_TRUNC_100, LOG_TRUNC_500, LOG_TRUNC_1000,
-    MEMORY_IMPORTANCE_HIGH,
-    MEMORY_IMPORTANCE_CRITICAL,
 )
+from l1.kernel.params.system import (
+    LOG_TRUNC_100,
+    LOG_TRUNC_500,
+    LOG_TRUNC_1000,
+    MEMORY_IMPORTANCE_CRITICAL,
+    MEMORY_IMPORTANCE_HIGH,
+)
+from l3.memory.memory import get_memory
 
 logger = logging.getLogger(__name__)
 

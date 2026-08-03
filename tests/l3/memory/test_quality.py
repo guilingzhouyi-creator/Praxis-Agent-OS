@@ -1,6 +1,9 @@
 """Tests for memory_quality.py — memory quality heuristics module."""
 from __future__ import annotations
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -48,6 +51,6 @@ def test_suggest_compact():
 
 
 def test_import_module():
-    from l3.memory.memory_quality import _MIN_CONTENT_LEN, _ALWAYS_SAVE
+    from l3.memory.memory_quality import _ALWAYS_SAVE, _MIN_CONTENT_LEN
     assert _MIN_CONTENT_LEN == 30
     assert "decision" in _ALWAYS_SAVE

@@ -9,11 +9,15 @@ import heapq
 import logging
 import time
 from collections import deque
-from dataclasses import dataclass, field, asdict
-from typing import Any
+from dataclasses import asdict, dataclass, field
+
 from l1.kernel.params.system import (
-    LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_500,
-    MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_MODERATE,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_500,
+    MEMORY_IMPORTANCE_BASE,
+    MEMORY_IMPORTANCE_HIGH,
+    MEMORY_IMPORTANCE_MODERATE,
 )
 
 logger = logging.getLogger(__name__)

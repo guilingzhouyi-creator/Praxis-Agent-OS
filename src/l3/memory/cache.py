@@ -13,15 +13,13 @@ Write by any agent → invalidates all cache entries for that path.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import threading
 import time
 from collections import OrderedDict
 from typing import Any
 
-from l1.kernel.params.system import FILE_CACHE_MAX_ENTRIES, FILE_CACHE_TTL, CACHE_DEFAULT_TTL
+from l1.kernel.params.system import CACHE_DEFAULT_TTL, FILE_CACHE_MAX_ENTRIES, FILE_CACHE_TTL
 
 logger = logging.getLogger(__name__)
 

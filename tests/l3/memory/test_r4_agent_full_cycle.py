@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -83,8 +82,8 @@ class TestR4Agent:
 
     def test_restore_ring3_returns_dict(self):
         """Verify restore_ring3() method exists and returns structured result (without starting thread)"""
+        from l3.memory.memory import reset_memory
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
-        from l3.memory.memory import get_memory, reset_memory
         stop_r4_agent()
         reset_memory()
         r4 = get_r4_agent()

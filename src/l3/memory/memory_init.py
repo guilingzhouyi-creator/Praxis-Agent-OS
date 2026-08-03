@@ -25,18 +25,26 @@ from __future__ import annotations
 import json
 import logging
 import os
-import shutil
-import signal
 import subprocess
 import sys
-import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.api import MEMORY_INIT_TIMEOUT
-from l1.kernel.params.system import AGENT_SESSION_TEMPLATE, ALERTS_FILE, BOOT_SNAPSHOT_GLOB, LOG_TRUNC_200, MEMORY_AGENT_SESSIONS_DIR, MEMORY_ALERT_EXPORT_LIMIT, MEMORY_DSL_COMPILER, MEMORY_DSL_DIR, MEMORY_OPS_DIR, MEMORY_PHASE_DIR
+from l1.kernel.params.system import (
+    AGENT_SESSION_TEMPLATE,
+    ALERTS_FILE,
+    BOOT_SNAPSHOT_GLOB,
+    LOG_TRUNC_200,
+    MEMORY_AGENT_SESSIONS_DIR,
+    MEMORY_ALERT_EXPORT_LIMIT,
+    MEMORY_DSL_COMPILER,
+    MEMORY_DSL_DIR,
+    MEMORY_OPS_DIR,
+    MEMORY_PHASE_DIR,
+)
 from l1.kernel.paths import get_paths as _get_paths
 
 logger = logging.getLogger(__name__)
@@ -60,7 +68,7 @@ def _ensure_dirs() -> None:
 # ── Snapshot agent config ──
 
 def _snapshot_path(prefix: str) -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     return str(AGENT_SESSIONS_DIR / AGENT_SESSION_TEMPLATE.format(ts=ts, prefix=prefix))
 
 
@@ -128,7 +136,7 @@ def save_boot_snapshot(agent_config: list[tuple[str, str, list[str]]]) -> str | 
     """
     _ensure_dirs()
     data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "agent_config": agent_config,
         "version": 1,
     }
@@ -156,8 +164,8 @@ def persist_all() -> dict:
 def archive_ring3() -> int:
     """Archive high-importance Ring 3 entries to Archive SQLite."""
     try:
-        from .memory import get_memory
         from .archive_orchestrator import archive_ring3 as _a3
+        from .memory import get_memory
         return _a3(get_memory())
     except Exception as e:
         logger.warning("archive_ring3 failed: %s", e)
@@ -182,7 +190,7 @@ def snapshot_cells() -> dict:
             }
         if snapshot:
             path = _snapshot_path("shutdown")
-            ok = _write_json(path, {"timestamp": datetime.now(timezone.utc).isoformat(),
+            ok = _write_json(path, {"timestamp": datetime.now(UTC).isoformat(),
                                      "cells": snapshot, "version": 1})
             return {"path": path, "written": bool(ok)}
         return {"note": "no_cells"}
@@ -218,7 +226,7 @@ def shutdown_to_memories() -> dict:
         alerts = ops.recent_alerts(limit=MEMORY_ALERT_EXPORT_LIMIT)
         if alerts:
             path = str(OPS_DIR / ALERTS_FILE)
-            _write_json(path, {"timestamp": datetime.now(timezone.utc).isoformat(), "alerts": alerts})
+            _write_json(path, {"timestamp": datetime.now(UTC).isoformat(), "alerts": alerts})
             results["ops_alerts"] = f"{len(alerts)} saved"
         else:
             results["ops_alerts"] = "no_alerts"

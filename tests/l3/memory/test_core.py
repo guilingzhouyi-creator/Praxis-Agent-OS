@@ -1,6 +1,8 @@
 """Memory three-ring memory system test — store/query/build-context/compact/pressure/quality/persistence"""
 
-import sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -178,6 +180,7 @@ class TestPersistence:
 
     def test_set_persist_dir(self):
         import tempfile
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         with tempfile.TemporaryDirectory() as d:
@@ -186,6 +189,7 @@ class TestPersistence:
 
     def test_persist_roundtrip(self):
         import tempfile
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-p", "test", "persist data entry with sufficient length for memory quality validation test", ring=2)
@@ -195,7 +199,6 @@ class TestPersistence:
             assert r["short_written"] >= 1
 
     def test_search_long_term_empty(self):
-        import tempfile
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         r = mem.search_long_term("test")

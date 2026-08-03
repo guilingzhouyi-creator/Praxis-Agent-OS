@@ -5,8 +5,9 @@ Contains MemoryManager.build_context() logic.
 
 from __future__ import annotations
 
-import time
 import logging
+import time
+
 from l1.kernel.params.system import LOG_TRUNC_300
 
 logger = logging.getLogger(__name__)

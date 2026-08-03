@@ -20,7 +20,7 @@ import threading
 import time
 from typing import Any
 
-from l1.kernel.params.system import MEMORY_RING_WORKING_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_LONG_BUDGET
+from l1.kernel.params.system import MEMORY_RING_LONG_BUDGET, MEMORY_RING_SHORT_BUDGET, MEMORY_RING_WORKING_BUDGET
 
 logger = logging.getLogger(__name__)
 

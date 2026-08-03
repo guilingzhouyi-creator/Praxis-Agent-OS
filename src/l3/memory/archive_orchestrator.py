@@ -11,7 +11,6 @@ Responsibilities:
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, ARCHIVE_RESTORE_LIMIT

@@ -8,7 +8,6 @@ for the CellTokenMerger to compute Cell-level token consumption.
 from __future__ import annotations
 
 import threading
-from typing import Any
 
 from .context import ContextManager
 

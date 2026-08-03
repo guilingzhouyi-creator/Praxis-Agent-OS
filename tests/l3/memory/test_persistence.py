@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
-from pathlib import Path
 
 import pytest
 
-from l1.kernel.versioning import check_and_migrate, stamp, register_migration
+from l1.kernel.versioning import check_and_migrate, register_migration, stamp
 from l3._persistable import PersistableMixin
-
 
 # ── Versioning tests ──
 
@@ -110,7 +107,7 @@ def test_persist_corrupted_file():
 
 # ── CardRegistry persistence tests ──
 
-from l3.card.card_registry import CardRegistry, get_registry, reset_registry
+from l3.card.card_registry import CardRegistry, reset_registry
 
 
 def test_card_registry_persist_round_trip():
@@ -153,7 +150,7 @@ def test_card_registry_persist_empty():
 
 # ── TodoTable persistence tests ──
 
-from l3.services.todo import TodoTable, TodoStatus
+from l3.services.todo import TodoStatus, TodoTable
 
 
 def test_todo_table_persist_round_trip():
@@ -173,7 +170,7 @@ def test_todo_table_persist_round_trip():
 
 # ── TransactionArea persistence tests ──
 
-from l3.card.transaction_area import get_service, reset_service
+from l3.card.transaction_area import reset_service
 
 
 def test_transaction_area_persist_round_trip():
@@ -195,7 +192,7 @@ def test_transaction_area_persist_round_trip():
 
 # ── ExecutionEngine persistence tests ──
 
-from l3.card.execution_engine import ExecutionEngine, ExecutionPlan, Step
+from l3.card.execution_engine import ExecutionEngine, ExecutionPlan
 
 
 def test_execution_engine_persist_round_trip():
@@ -309,7 +306,7 @@ def test_params_persistence_paths():
 
 # ── HTN Planner to_card tests ──
 
-from l3.bus.htn_planner import get_service as get_htn, Task, TaskType
+from l3.bus.htn_planner import get_service as get_htn
 
 
 def test_htn_decompose_to_card():
@@ -360,7 +357,7 @@ def test_htn_decompose_fallback_to_card_builder():
 
 # ── IssueCard / IssueTable tests ──
 
-from l3.card.issue import IssueCard, IssueItem, IssueStatus, IssueCardStatus, get_table, reset_table
+from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table, reset_table
 
 
 def test_issue_card_create():
@@ -495,7 +492,6 @@ def test_cache_doc_stats():
 # ── Convergence tests ──
 
 from l3.agent.convergence import converge, to_execution_card
-from l3.card.issue import IssueCard, IssueCardStatus
 
 
 def test_converge_card_not_found():
@@ -546,7 +542,6 @@ def test_to_execution_card():
 # ── Cell convene integration tests ──
 
 from l3.cell import Cell
-from l3.card.issue import IssueCard, get_table, reset_table, IssueCardStatus
 
 
 def test_cell_convene_starts_convention():
@@ -642,7 +637,7 @@ def test_cell_close_convention_full_flow():
 
 # ── Convention message dispatch to AgentTerminal tests ──
 
-from l3.agent_terminal import AgentTerminal, TerminalCard, CardMode as TermCardMode
+from l3.agent_terminal import AgentTerminal, TerminalCard
 
 
 def test_convention_terminal_card_dispatched():

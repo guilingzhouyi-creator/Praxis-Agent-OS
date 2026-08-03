@@ -25,14 +25,17 @@ import threading
 import time
 from typing import Any
 
-from l3.services.model_service import get_service as _get_model_service
-
 from l1.kernel import emit_signal
 from l1.kernel.params.agent import (
-    R4_AGENT_ID, R4_ROLE, R4_TERRITORY,
-    R4_STALE_SCAN_LIMIT, R4_CONSISTENCY_SCAN_LIMIT,
+    R4_AGENT_ID,
+    R4_CONSISTENCY_SCAN_LIMIT,
+    R4_ROLE,
+    R4_STALE_SCAN_LIMIT,
+    R4_TERRITORY,
+    SIGNAL_TARGET_L3,
 )
 from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200
+from l3.services.model_service import get_service as _get_model_service
 
 _MODEL_SPEC = "r4_agent"
 
@@ -274,9 +277,11 @@ class R4Agent:
                        args: dict, error: str, turn_log: list[dict]) -> None:
         """Record a tool call failure for later analysis and lean case generation."""
         try:
-            from l1.kernel.paths import get_paths as _gp
+            import json
+            import os
+
             from l1.kernel.params.system import SKILL_LEAN_CASE_TEMPLATE
-            import json, os
+            from l1.kernel.paths import get_paths as _gp
             lean_dir = _gp().skill_lean_dir
             entry = {
                 "agent_id": agent_id, "tool": tool_name, "args": args,
@@ -300,7 +305,9 @@ class R4Agent:
 
     def _process_failure_traces(self) -> int:
         """Scan pending failure traces and generate lean case Skill entries."""
-        import json, os
+        import json
+        import os
+
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
 
@@ -382,11 +389,13 @@ class R4Agent:
             return {"success": False, "error": "usage: /skills evolve <description>"}
 
         try:
-            from l4.llm.llm import get_engine
+            import json
+            import os
+
+            from l1.kernel.paths import get_paths as _gp
             from l1.kernel.prompts import get_prompt
             from l1.kernel.skill import get_skill_manager
-            import json, os
-            from l1.kernel.paths import get_paths as _gp
+            from l4.llm.llm import get_engine
 
             system = get_prompt("r4_agent.skill_architect", "")
             prompt = f"Create a skill for: {intent.strip()}"

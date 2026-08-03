@@ -35,10 +35,9 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any
 
+from l1.kernel.params.system import CHUNK_SIZE_TOKENS, MAX_WORKING_SET_SIZE, PAGER_RECALL_LIMIT
 from l3._base import BaseService
-from l1.kernel.params.system import CHUNK_SIZE_TOKENS, PAGER_RECALL_LIMIT, MAX_WORKING_SET_SIZE
 
 logger = logging.getLogger(__name__)
 

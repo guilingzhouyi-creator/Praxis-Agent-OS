@@ -19,7 +19,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import threading
 import time
 from collections import OrderedDict
@@ -101,9 +100,7 @@ class ResultStore:
             before = len(self._cache)
             keys_to_del = []
             for fp, entry in self._cache.items():
-                if entry["tool_name"] == tool_name:
-                    keys_to_del.append(fp)
-                elif inv_path and entry["path"] and inv_path in entry["path"]:
+                if entry["tool_name"] == tool_name or inv_path and entry["path"] and inv_path in entry["path"]:
                     keys_to_del.append(fp)
             for fp in keys_to_del:
                 del self._cache[fp]

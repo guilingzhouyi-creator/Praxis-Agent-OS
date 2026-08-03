@@ -10,9 +10,8 @@ Tests the full chain:
 
 from __future__ import annotations
 
-import sys
 import os
-import json
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 

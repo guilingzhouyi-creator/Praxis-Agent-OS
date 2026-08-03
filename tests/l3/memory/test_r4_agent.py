@@ -1,8 +1,8 @@
 """R4Agent tests — lifecycle, status, stale detection."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -62,7 +62,7 @@ class TestR4Agent:
         assert r1["archived"] >= 0
 
     def test_start_r4_agent_top_level(self):
-        from l3.memory.r4_agent import start_r4_agent, stop_r4_agent, get_r4_agent
+        from l3.memory.r4_agent import get_r4_agent, start_r4_agent, stop_r4_agent
         r = start_r4_agent()
         assert r.get("success")
         assert get_r4_agent()._running

@@ -1,16 +1,16 @@
 """Reference channel tests — ReferenceChannel event, card_lifecycle, export, count, stats, flush."""
 from __future__ import annotations
 
+import json
 import os
 import sys
-import json
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import pytest
-from l1.kernel.params.system import RC_EXPORT_LIMIT
 
+from l1.kernel.params.system import RC_EXPORT_LIMIT
 
 # ── Helpers ──
 
@@ -99,6 +99,7 @@ class TestReferenceChannelEvent:
 
     def test_event_auto_flush_on_interval(self, rc, rc_path: str):
         import time
+
         # Use a very short interval and small buffer so we don't hit buffer flush first
         from l3.bus.reference_channel import ReferenceChannel
 

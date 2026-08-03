@@ -19,8 +19,8 @@ class TestCentralMemoryRingRouting:
     """Verify 4-ring routing correctness — data reaches the correct backend"""
 
     def test_ring1_working(self):
-        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         reset_memory()
         cm = get_center()
@@ -37,8 +37,8 @@ class TestCentralMemoryRingRouting:
         assert stats["working"]["entries"] >= 1
 
     def test_ring2_short_term(self):
-        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         reset_memory()
         cm = get_center()
@@ -49,8 +49,8 @@ class TestCentralMemoryRingRouting:
         assert r["ring"] == 2
 
     def test_ring3_long_term(self):
-        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         reset_memory()
         cm = get_center()
@@ -62,8 +62,8 @@ class TestCentralMemoryRingRouting:
 
     def test_ring4_archive(self):
         """P0: Verify ring=4 writes to archive DB, not mistakenly into Ring 1"""
-        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         reset_memory()
         cm = get_center()
@@ -98,8 +98,8 @@ class TestCentralMemoryRecall:
     """Verify cross-ring retrieval + sort correctness"""
 
     def test_recall_all_rings(self):
+        from l3.memory import reset_memory
         from l3.memory.central_memory import get_center, reset_center
-        from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
         cm = get_center()
@@ -125,8 +125,8 @@ class TestCentralMemoryRecall:
         assert isinstance(results, list)
 
     def test_recall_ring_filter(self):
+        from l3.memory import reset_memory
         from l3.memory.central_memory import get_center, reset_center
-        from l3.memory import get_memory, reset_memory
         reset_center()
         reset_memory()
         cm = get_center()
@@ -143,8 +143,8 @@ class TestCentralMemoryCompact:
     """Verify compact triggers correctly"""
 
     def test_compact_ring1(self):
-        from l3.memory.central_memory import get_center, reset_center
         from l3.memory import get_memory, reset_memory
+        from l3.memory.central_memory import get_center, reset_center
         reset_center()
         reset_memory()
         mem = get_memory()

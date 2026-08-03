@@ -1,6 +1,10 @@
 """Memory 4-ring 持久化集成测试 — remember → pressure → swap → persist → restore → recall。"""
 from __future__ import annotations
-import os, sys, tempfile, time
+
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -187,6 +191,7 @@ class TestMemoryDirtyTrackingConcurrent:
     def test_concurrent_remember_ring2(self):
         """多线程同时 remember Ring 2 条目，所有应被标记为 dirty"""
         import threading
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         n_threads = 4
@@ -218,8 +223,9 @@ class TestMemoryDirtyTrackingConcurrent:
 
     def test_concurrent_remember_and_persist(self):
         """并发 remember + persist 不应丢失脏条目。persist 后新 remember 重新标记为 dirty。"""
-        import threading
         import tempfile
+        import threading
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         barrier = threading.Barrier(3)
@@ -262,6 +268,7 @@ class TestMemoryDirtyTrackingConcurrent:
     def test_concurrent_ring3_dirty(self):
         """多线程 remember Ring 3 条目，所有应标记为 _dirty_long"""
         import threading
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         errors = []
@@ -294,7 +301,9 @@ class TestPersistCrashSafety:
 
     def test_dirty_survives_failed_persist(self):
         """写入失败后脏条目不清除，可再次 persist 成功。"""
-        import tempfile, os
+        import os
+        import tempfile
+
         from l3.memory.memory import MemoryManager
         mem = MemoryManager()
 

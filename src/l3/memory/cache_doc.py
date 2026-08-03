@@ -15,7 +15,6 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.agent import CACHE_DOC_MAX_ENTRIES, CACHE_DOC_TTL
 from l1.kernel.params.system import HASH_TRUNC_MEDIUM
