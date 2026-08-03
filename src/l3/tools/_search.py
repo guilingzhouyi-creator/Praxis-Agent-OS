@@ -5,8 +5,8 @@ import os
 import re
 import subprocess
 
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
 from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.system import LOG_TRUNC_200, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
 
 logger = logging.getLogger(__name__)
 

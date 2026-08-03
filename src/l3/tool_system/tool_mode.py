@@ -17,10 +17,9 @@ import json
 import logging
 import os
 import threading
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.kernel import RING_2_5, RING_3
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 

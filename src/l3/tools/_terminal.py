@@ -2,9 +2,9 @@
 
 import subprocess
 
-from l1.kernel.params.system import LOG_TRUNC_2000, LOG_TRUNC_5000
 from l1.kernel.discovery import get_tool_config
-from l1.kernel.platform import IS_WINDOWS, run_shell
+from l1.kernel.params.system import LOG_TRUNC_2000, LOG_TRUNC_5000
+from l1.kernel.platform import run_shell
 
 
 def run_in_terminal(args: dict, agent_id: str) -> dict:

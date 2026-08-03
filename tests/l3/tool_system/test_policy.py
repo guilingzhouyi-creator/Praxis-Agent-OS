@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
@@ -38,7 +39,7 @@ class TestToolPolicy:
         assert isinstance(result, bool)
 
     def test_add_rule(self):
-        from l3.tool_system.tool_policy import ToolPolicy, PolicyAction, PolicyScope, PolicyRule
+        from l3.tool_system.tool_policy import PolicyAction, PolicyRule, PolicyScope, ToolPolicy
         rule = PolicyRule(action=PolicyAction.ENABLE, tool="read_file",
                           scope=PolicyScope.ROLE, scope_id="reader")
         ToolPolicy.add(rule)
@@ -46,7 +47,7 @@ class TestToolPolicy:
         assert len(rules) >= 1
 
     def test_add_rule_then_clear(self):
-        from l3.tool_system.tool_policy import ToolPolicy, PolicyAction, PolicyScope, PolicyRule
+        from l3.tool_system.tool_policy import PolicyAction, PolicyRule, PolicyScope, ToolPolicy
         rule = PolicyRule(action=PolicyAction.ENABLE, tool="tool_x",
                           scope=PolicyScope.GLOBAL, scope_id="*")
         ToolPolicy.add(rule)
@@ -54,7 +55,7 @@ class TestToolPolicy:
         assert len(ToolPolicy.list_rules()) == 0
 
     def test_add_and_remove_rule(self):
-        from l3.tool_system.tool_policy import ToolPolicy, PolicyAction, PolicyScope, PolicyRule
+        from l3.tool_system.tool_policy import PolicyAction, PolicyRule, PolicyScope, ToolPolicy
         rule = PolicyRule(action=PolicyAction.ENABLE, tool="tmp_tool",
                           scope=PolicyScope.GLOBAL, scope_id="*")
         ToolPolicy.add(rule)
@@ -69,7 +70,7 @@ class TestToolPolicy:
         assert isinstance(d, dict)
 
     def test_requires_approval_with_rule(self):
-        from l3.tool_system.tool_policy import ToolPolicy, PolicyAction, PolicyScope, PolicyRule
+        from l3.tool_system.tool_policy import PolicyAction, PolicyRule, PolicyScope, ToolPolicy
         rule = PolicyRule(action=PolicyAction.REQUIRE_APPROVAL, tool="risky_tool",
                           scope=PolicyScope.GLOBAL, scope_id="*")
         ToolPolicy.add(rule)

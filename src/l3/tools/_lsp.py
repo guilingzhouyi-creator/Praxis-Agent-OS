@@ -6,7 +6,6 @@ All operations are read-only (Ring 1).
 
 from __future__ import annotations
 
-
 from l1.kernel.params.system import TOOL_LSP_SYMBOL_LIMIT
 
 

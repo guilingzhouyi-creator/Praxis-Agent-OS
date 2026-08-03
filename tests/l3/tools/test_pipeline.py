@@ -1,8 +1,8 @@
 """ToolPipeline tests — clearance, rate limit, constitution, alloc, lock, execute."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 import pytest
 
@@ -34,8 +34,9 @@ class TestToolRateLimiter:
         assert r["allowed"]
 
     def test_reset_after_window(self):
-        from l3.tool_system.tool_pipeline import get_rate_scheduler
         import time as _t
+
+        from l3.tool_system.tool_pipeline import get_rate_scheduler
         rl = get_rate_scheduler()
         for _ in range(5):
             rl.check("reset-agent", "RING_3")
@@ -70,8 +71,8 @@ class TestToolPipelineExecute:
     def _pipeline_guard(self):
         """Isolate each test: reset global pipeline singleton to avoid hook/rate pollution.
         Also registers test agents in the system process table so gatechain passes."""
-        from l3.tool_system.tool_pipeline import reset_pipeline
         from l1.kernel import register_process
+        from l3.tool_system.tool_pipeline import reset_pipeline
         # Register test agents needed by gatechain
         for aid, ring_val in (("l3", 3), ("scout", 1), ("rate-hog", 3)):
             try:
@@ -84,7 +85,7 @@ class TestToolPipelineExecute:
 
     def _make_registry(self) -> dict:
         """Build a minimal tool registry with one Ring-1 read tool."""
-        from l3.tool_system.tool_spec import ToolSpec, ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec, ToolSpec
         spec = ToolSpec(
             name="read_file",
             description="Read a file",
@@ -122,7 +123,7 @@ class TestToolPipelineExecute:
         pipeline = get_pipeline()
         reg = self._make_registry()
         # Pretend scout has a Ring 3 spec
-        from l3.tool_system.tool_spec import ToolSpec, ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec, ToolSpec
         ring3_spec = ToolSpec(
             name="write_file",
             description="Write a file",
@@ -158,7 +159,7 @@ class TestToolPipelineExecute:
         """Rate limit gate should block excessive Ring 3 calls."""
         from l3.tool_system.tool_pipeline import get_pipeline
         pipeline = get_pipeline()
-        from l3.tool_system.tool_spec import ToolSpec, ParamSpec
+        from l3.tool_system.tool_spec import ParamSpec, ToolSpec
         reg = {
             "write_file": ToolSpec(
                 name="write_file",

@@ -1,14 +1,14 @@
 """Web tool handlers."""
 
 try:
-    import urllib.request as req
     import urllib.error
+    import urllib.request as req
     HAS_URLLIB = True
 except ImportError:
     HAS_URLLIB = False
 
-from l1.kernel.params.system import LOG_TRUNC_10000, TOOL_WEB_RESULTS_LIMIT
 from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.system import LOG_TRUNC_10000, TOOL_WEB_RESULTS_LIMIT
 
 
 def web_fetch(args: dict, agent_id: str) -> dict:

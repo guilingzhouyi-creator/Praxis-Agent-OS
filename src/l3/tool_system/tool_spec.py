@@ -10,28 +10,39 @@ Features:
 
 from __future__ import annotations
 
-import importlib
-import json
 import logging
-import os
-import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
 from l1.kernel.discovery import get_config
+from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import LOG_TRUNC_60, LOG_TRUNC_200
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.registry_base import RegisterableSpec
 
 from .tool_params import ParamSpec, ReturnSpec
 from .tool_registry import (
-    TOOL_REGISTRY,
-    register, register_plugin, unregister_plugin, register_middleware,
-    get_tool, list_tools, list_categories, list_plugins, tool_registry_to_json,
-    is_muted, mute_tool, unmute_tool, mute_category, unmute_category,
-    mute_plugin, unmute_plugin, mute_ring, unmute_ring,
-    list_muted, clear_mutes,
+    TOOL_REGISTRY,  # noqa: F401 — re-exported for callers
+    register,  # noqa: F401
+    register_plugin,  # noqa: F401
+    unregister_plugin,  # noqa: F401
+    register_middleware,  # noqa: F401
+    get_tool,  # noqa: F401
+    list_tools,  # noqa: F401
+    list_categories,  # noqa: F401
+    list_plugins,  # noqa: F401
+    tool_registry_to_json,  # noqa: F401
+    is_muted,  # noqa: F401
+    mute_tool,  # noqa: F401
+    unmute_tool,  # noqa: F401
+    mute_category,  # noqa: F401
+    unmute_category,  # noqa: F401
+    mute_plugin,  # noqa: F401
+    unmute_plugin,  # noqa: F401
+    mute_ring,  # noqa: F401
+    unmute_ring,  # noqa: F401
+    list_muted,  # noqa: F401
+    clear_mutes,  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
@@ -304,6 +315,7 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
 
     # ── ResultStore: try cache hit for read-only tools ──
     from l3.memory.result_store import get_result_store as _get_rs
+
     from .tool_config import ToolConfig as _TC
     _rs = _get_rs()
     is_write = tool_name in _TC.write_tool_names()

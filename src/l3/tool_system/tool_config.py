@@ -10,15 +10,14 @@ from __future__ import annotations
 import importlib
 import logging
 import os
-import sys
 from typing import Any
 
 import yaml
 
-from .tool_spec import ToolSpec, ParamSpec, ReturnSpec, register, list_tools, get_tool, ToolRing
 from l1.kernel.params.kernel import RING_1, RING_NAME_MAP, RING_NUM_MAP
 from l1.kernel.params.system import LOG_TRUNC_60, TOOLS_CONFIG_PATH
-from l1.kernel.paths import get_paths as _gp
+
+from .tool_spec import ParamSpec, ReturnSpec, ToolRing, ToolSpec, get_tool, list_tools, register
 
 logger = logging.getLogger(__name__)
 

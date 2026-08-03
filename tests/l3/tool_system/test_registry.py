@@ -23,7 +23,7 @@ class TestToolRegistry:
         reset_registry()
 
     def test_register_and_get(self):
-        from l3.tool_system.tool_registry import register, get_tool
+        from l3.tool_system.tool_registry import get_tool, register
         register(_make_spec("test_tool"))
         retrieved = get_tool("test_tool")
         assert retrieved is not None
@@ -34,7 +34,7 @@ class TestToolRegistry:
         assert get_tool("__unknown__") is None
 
     def test_register_duplicate_overwrites(self):
-        from l3.tool_system.tool_registry import register, get_tool
+        from l3.tool_system.tool_registry import get_tool, register
         register(_make_spec("dup", desc="first"))
         register(_make_spec("dup", desc="second"))
         retrieved = get_tool("dup")
@@ -56,29 +56,29 @@ class TestToolRegistryMute:
     """ToolRegistry mute/unmute system."""
 
     def setup_method(self):
-        from l3.tool_system.tool_registry import reset_registry, clear_mutes
+        from l3.tool_system.tool_registry import clear_mutes, reset_registry
         reset_registry()
         clear_mutes()
 
     def test_mute_tool(self):
-        from l3.tool_system.tool_registry import mute_tool, is_muted
+        from l3.tool_system.tool_registry import is_muted, mute_tool
         muted_dict = mute_tool("bad_tool")
         assert is_muted("bad_tool")
 
     def test_unmute_tool(self):
-        from l3.tool_system.tool_registry import mute_tool, unmute_tool, is_muted
+        from l3.tool_system.tool_registry import is_muted, mute_tool, unmute_tool
         mute_tool("bad_tool")
         unmute_tool("bad_tool")
         assert not is_muted("bad_tool")
 
     def test_list_muted(self):
-        from l3.tool_system.tool_registry import mute_tool, list_muted
+        from l3.tool_system.tool_registry import list_muted, mute_tool
         mute_tool("tool_a")
         muted = list_muted()
         assert "tools" in muted
 
     def test_clear_mutes(self):
-        from l3.tool_system.tool_registry import mute_tool, clear_mutes, list_muted
+        from l3.tool_system.tool_registry import clear_mutes, mute_tool
         mute_tool("x")
         clear_result = clear_mutes()
         assert clear_result is None
@@ -88,14 +88,14 @@ class TestToolRegistryPlugin:
     """Plugin system."""
 
     def test_register_plugin(self):
-        from l3.tool_system.tool_registry import register_plugin, list_plugins, reset_registry
+        from l3.tool_system.tool_registry import list_plugins, register_plugin, reset_registry
         reset_registry()
         register_plugin("my_plugin", [])
         plugins = list_plugins()
         assert "my_plugin" in plugins
 
     def test_unregister_plugin(self):
-        from l3.tool_system.tool_registry import register_plugin, unregister_plugin, list_plugins, reset_registry
+        from l3.tool_system.tool_registry import list_plugins, register_plugin, reset_registry, unregister_plugin
         reset_registry()
         register_plugin("tmp", [])
         unregister_plugin("tmp")
@@ -113,7 +113,7 @@ class TestToolRegistryIntegration:
         assert r1 is r2
 
     def test_reset_registry_clears(self):
-        from l3.tool_system.tool_registry import get_registry, reset_registry, register, list_tools
+        from l3.tool_system.tool_registry import list_tools, register, reset_registry
         reset_registry()
         register(_make_spec("will_reset"))
         reset_registry()

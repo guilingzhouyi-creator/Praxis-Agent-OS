@@ -1,7 +1,7 @@
 """Skill tools — list_skills, use_skill for L2 Shell / AgentLoop."""
 
 import logging
-from typing import Any
+
 from l1.kernel.params.system import LOG_TRUNC_60
 
 logger = logging.getLogger(__name__)

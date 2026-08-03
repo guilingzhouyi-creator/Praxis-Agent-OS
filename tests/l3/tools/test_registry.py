@@ -2,10 +2,18 @@
 from __future__ import annotations
 
 import pytest
+
 from l3.tool_system.tool_registry import (
-    TOOL_REGISTRY, register, get_tool, list_tools,
-    mute_tool, unmute_tool, is_muted, list_muted, clear_mutes,
-    register_plugin, unregister_plugin, register_middleware,
+    clear_mutes,
+    get_tool,
+    is_muted,
+    list_muted,
+    mute_tool,
+    register,
+    register_middleware,
+    register_plugin,
+    unmute_tool,
+    unregister_plugin,
 )
 
 

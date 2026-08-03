@@ -2,9 +2,8 @@
 
 import subprocess
 
+from l1.kernel.discovery import get_config, get_tool_config
 from l1.kernel.params.system import LOG_TRUNC_2000
-from l1.kernel.discovery import get_tool_config
-
 
 _BUILD_TIMEOUT = get_tool_config("build_timeout", 300)
 

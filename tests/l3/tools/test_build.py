@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 import l3.tools._build as _build
 
 

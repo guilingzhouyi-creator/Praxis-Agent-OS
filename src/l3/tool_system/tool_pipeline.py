@@ -8,18 +8,19 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from l1.kernel import Signal, SignalType, get_event_bus, get_rwlock, get_semaphore
 from l1.kernel.allocator import get_allocator
 from l1.kernel.constitution import get_constitution
+from l1.kernel.discovery import get_config, get_tool_config
 from l1.kernel.gatechain import get_gatechain as _get_gatechain
 from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
-from l1.kernel.params.kernel import RING_1 as _RING_1, RING_2_5, RING_NUM_MAP
+from l1.kernel.params.kernel import RING_1 as _RING_1
+from l1.kernel.params.kernel import RING_2_5, RING_NUM_MAP
 from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.tool_chain import get_tool_chain
-from l1.kernel.discovery import get_tool_config, get_config
-
 from l3.bus.reference_channel import get_rc as _get_rc
 from l3.card.approval_gate import get_gate as _get_approval_gate
 from l3.error_bus import error_boundary
@@ -131,6 +132,7 @@ class ToolPipeline:
             _parent_call_id: parent composite tool's call_id for chain tracking
         """
         _start = time.time()
+        lock_name = ""
         chain = get_tool_chain()
         ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
         spec_raw = (_registry or {}).get(tool_name) if _registry else None

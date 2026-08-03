@@ -19,7 +19,6 @@ import logging
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -154,15 +153,7 @@ class ToolPolicy:
         for r in rules_snapshot:
             if r.tool != "*" and r.tool != tool_name:
                 continue
-            if r.scope == PolicyScope.GLOBAL:
-                candidates.append((r.scope.priority, r))
-            elif r.scope == PolicyScope.CELL and r.scope_id == cell_id:
-                candidates.append((r.scope.priority, r))
-            elif r.scope == PolicyScope.ROLE and r.scope_id == role:
-                candidates.append((r.scope.priority, r))
-            elif r.scope == PolicyScope.AGENT and r.scope_id == agent_id:
-                candidates.append((r.scope.priority, r))
-            elif r.scope == PolicyScope.SESSION:
+            if r.scope == PolicyScope.GLOBAL or r.scope == PolicyScope.CELL and r.scope_id == cell_id or r.scope == PolicyScope.ROLE and r.scope_id == role or r.scope == PolicyScope.AGENT and r.scope_id == agent_id or r.scope == PolicyScope.SESSION:
                 candidates.append((r.scope.priority, r))
 
         # Sort by priority descending (highest wins)

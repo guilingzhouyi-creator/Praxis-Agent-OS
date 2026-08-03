@@ -2,6 +2,7 @@
 
 import os
 import shutil
+
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_4000
 
 
@@ -328,7 +329,8 @@ def file_diff_structured(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": f"invalid mode: {mode!r}"}
 
     try:
-        from l4.sandbox import get_manager as _get_sb, SandboxEntry
+        from l4.sandbox import SandboxEntry
+        from l4.sandbox import get_manager as _get_sb
         sb_mgr = _get_sb()
     except Exception as e:
         return {"success": False, "error": f"sandbox unavailable: {e}"}

@@ -10,7 +10,8 @@ from __future__ import annotations
 import json as _j
 import logging
 import os
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.registry_base import MapRegistry

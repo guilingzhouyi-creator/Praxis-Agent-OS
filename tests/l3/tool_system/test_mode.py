@@ -18,7 +18,7 @@ class TestToolMode:
         assert isinstance(mode, str)
 
     def test_set_mode(self):
-        from l3.tool_system.tool_mode import get_mode, set_mode, init_tool_mode
+        from l3.tool_system.tool_mode import get_mode, init_tool_mode, set_mode
         init_tool_mode()
         prev = get_mode()
         set_mode("read")

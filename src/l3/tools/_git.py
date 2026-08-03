@@ -2,8 +2,8 @@
 
 import subprocess
 
-from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
 from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
 
 
 def _git(args_list: list[str], timeout: int | None = None) -> dict:

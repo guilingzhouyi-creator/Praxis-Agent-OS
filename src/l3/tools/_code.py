@@ -3,7 +3,15 @@
 import logging
 import os
 import re
-from l1.kernel.params.system import LOG_TRUNC_30, LOG_TRUNC_100, LOG_TRUNC_200, TOOL_ISSUES_LIMIT, TOOL_RESULTS_LIMIT_DEFAULT, TOOL_RESULTS_LIMIT_LARGE
+
+from l1.kernel.params.system import (
+    LOG_TRUNC_30,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    TOOL_ISSUES_LIMIT,
+    TOOL_RESULTS_LIMIT_DEFAULT,
+    TOOL_RESULTS_LIMIT_LARGE,
+)
 
 logger = logging.getLogger(__name__)
 

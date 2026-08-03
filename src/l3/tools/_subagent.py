@@ -8,7 +8,8 @@ Two modes:
 """
 
 import logging
-from typing import Any
+import time
+
 from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
@@ -66,8 +67,9 @@ def _run_sync(mode: str, task: str, agent_id: str,
     """Run a synchronous SubAgent with restricted tools."""
     try:
         import time as _time
+
         from l3.agent.subagent import SubAgent
-        from l3.services.middleware import MiddlewareChain, ConfineMiddleware, BeforeOutcome
+        from l3.services.middleware import ConfineMiddleware, MiddlewareChain
 
         # Build middleware chain for confinement
         mw_chain = MiddlewareChain()

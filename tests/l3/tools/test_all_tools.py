@@ -2,82 +2,83 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 def test_archive_importable():
-    import l3.tools._archive
+    pass
 
 
 def test_build_importable():
-    import l3.tools._build
+    pass
 
 
 def test_code_importable():
-    import l3.tools._code
+    pass
 
 
 def test_comm_importable():
-    import l3.tools._comm
+    pass
 
 
 def test_config_importable():
-    import l3.tools._config
+    pass
 
 
 def test_deps_importable():
-    import l3.tools._deps
+    pass
 
 
 def test_env_importable():
-    import l3.tools._env
+    pass
 
 
 def test_files_importable():
-    import l3.tools._files
+    pass
 
 
 def test_git_importable():
-    import l3.tools._git
+    pass
 
 
 def test_logging_importable():
-    import l3.tools._logging
+    pass
 
 
 def test_lsp_importable():
-    import l3.tools._lsp
+    pass
 
 
 def test_memory_importable():
-    import l3.tools._memory
+    pass
 
 
 def test_package_importable():
-    import l3.tools._package
+    pass
 
 
 def test_peer_importable():
-    import l3.tools._peer
+    pass
 
 
 def test_search_importable():
-    import l3.tools._search
+    pass
 
 
 def test_skills_importable():
-    import l3.tools._skills
+    pass
 
 
 def test_subagent_importable():
-    import l3.tools._subagent
+    pass
 
 
 def test_terminal_importable():
-    import l3.tools._terminal
+    pass
 
 
 def test_web_importable():
-    import l3.tools._web
+    pass

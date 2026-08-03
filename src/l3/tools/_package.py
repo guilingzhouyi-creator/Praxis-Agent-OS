@@ -6,8 +6,6 @@ All operations return structured dicts for tool pipeline consumption.
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _get_mgr():
     from l3.services.package_manager import get_service

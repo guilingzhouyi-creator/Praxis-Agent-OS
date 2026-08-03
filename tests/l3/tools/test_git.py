@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
 from l3.tools._git import (
+    git_branch,
     git_commit,
     git_push,
-    git_branch,
 )
 
 
 def _guard_no_real_commit() -> None:
-    import os, subprocess
+    import subprocess
     try:
         r = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
                            capture_output=True, text=True, timeout=5)

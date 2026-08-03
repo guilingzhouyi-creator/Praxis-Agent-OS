@@ -1,15 +1,13 @@
 """Archive tool handlers and internal functions."""
 from __future__ import annotations
 
-import json
-import sqlite3
 import os
+import sqlite3
 import time
 from typing import Any
 
 from l1.kernel.params.system import LOG_TRUNC_500
 from l1.kernel.paths import get_paths as _gp
-
 
 _ARCHIVE_DB = os.environ.get("PRAXIS_ARCHIVE_DB", _gp().archive_db)
 _db_conn: sqlite3.Connection | None = None
