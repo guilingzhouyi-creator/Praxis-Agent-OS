@@ -8,8 +8,8 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import SIGNAL_TARGET_L3
-from l3.cell.components.cell_types import MessageType
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
+from l3.cell.components.cell_types import MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,8 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     except Exception:
         logger.debug("cell_convention: memory policy restore failed")
 
-    from l3.agent.convergence import converge as _converge, to_execution_card
+    from l3.agent.convergence import converge as _converge
+    from l3.agent.convergence import to_execution_card
     conv_r = _converge(issue_card_id)
     summary = conv_r.get("summary", "{}")
 
@@ -156,9 +157,9 @@ def handle_convention_message(cell: Any, agent_id: str,
 
     if msg_type == MessageType.REBUT:
         return conv.rebut(agent_id, payload.get("statement", ""))
-    elif msg_type == MessageType.PROPOSE_ISSUE:
+    if msg_type == MessageType.PROPOSE_ISSUE:
         return conv.propose(agent_id, payload.get("question", ""), payload.get("domain", ""))
-    elif msg_type == MessageType.CROSS_EXAMINE:
+    if msg_type == MessageType.CROSS_EXAMINE:
         return conv.cross_examine(agent_id, payload.get("target", ""),
                                   payload.get("statement", ""))
     return {"success": False, "error": f"unhandled convention message: {msg_type.name}"}

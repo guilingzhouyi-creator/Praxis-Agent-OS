@@ -20,11 +20,10 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any
-
-from . import params as _p
 
 from l3.error_bus import capture
+
+from . import params as _p
 
 logger = logging.getLogger(__name__)
 

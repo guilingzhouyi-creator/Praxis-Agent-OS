@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import tempfile
-import time
 
 import pytest
 
@@ -104,7 +103,7 @@ class TestRingBufferBasic:
         self.buf.stage(p, "new content")
         r = self.buf.commit(p)
         assert r.get("success"), f"commit failed: {r}"
-        with open(p, "r", encoding="utf-8") as f:
+        with open(p, encoding="utf-8") as f:
             assert f.read() == "new content"
 
     def test_commit_no_stage(self):
@@ -122,7 +121,7 @@ class TestRingBufferBasic:
         self.buf.stage(p, "staged but discarded")
         r = self.buf.discard(p)
         assert r.get("success"), f"discard failed: {r}"
-        with open(p, "r", encoding="utf-8") as f:
+        with open(p, encoding="utf-8") as f:
             assert f.read() == "original\n", "file should be unchanged after discard"
 
     def test_discard_no_stage(self):
@@ -139,6 +138,7 @@ class TestRingBufferConcurrency:
     def test_concurrent_stage(self):
         """多线程并发 stage 同一文件不应崩溃。"""
         import threading
+
         from l3.resource_buffer.ring import RingBuffer
         with tempfile.TemporaryDirectory() as tmpdir:
             buf = RingBuffer(root=tmpdir)

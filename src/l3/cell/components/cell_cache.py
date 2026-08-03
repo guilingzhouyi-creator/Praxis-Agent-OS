@@ -21,17 +21,28 @@ Architecture (in SoC terms):
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import deque
 from typing import Any
 
-from l1.kernel.params.system import CELL_CACHE_HOT_SIZE, CELL_CACHE_INDEX_SIZE, CELL_CACHE_KV_SIZE, LOG_TRUNC_200
-from l1.kernel.params.system import CELL_CACHE_HOT_TTL, CELL_CACHE_INDEX_TTL, CELL_CACHE_KV_TTL
 from l1.kernel.params.system import (
-    CELL_CACHE_SEARCH_LIMIT, CELL_CACHE_CONTEXT_MAX_TOKENS, TOKEN_CHARS_PER_TOKEN,
+    CELL_CACHE_CONTEXT_MAX_TOKENS,
+    CELL_CACHE_HOT_SIZE,
+    CELL_CACHE_HOT_TTL,
+    CELL_CACHE_INDEX_SIZE,
+    CELL_CACHE_INDEX_TTL,
+    CELL_CACHE_KV_SIZE,
+    CELL_CACHE_KV_TTL,
+    CELL_CACHE_SEARCH_LIMIT,
+    LOG_TRUNC_200,
+    MEMORY_IMPORTANCE_BASE,
+    MEMORY_IMPORTANCE_DECISION,
+    MEMORY_IMPORTANCE_MODERATE,
+    MEMORY_MIN_CONTENT_LEN,
+    TOKEN_CHARS_PER_TOKEN,
 )
-from l1.kernel.params.system import MEMORY_IMPORTANCE_BASE, MEMORY_IMPORTANCE_DECISION, MEMORY_IMPORTANCE_MODERATE, MEMORY_MIN_CONTENT_LEN
 from l3.cell.components.cell_types import CellCacheEntry, IndexEntry
 
 logger = logging.getLogger(__name__)

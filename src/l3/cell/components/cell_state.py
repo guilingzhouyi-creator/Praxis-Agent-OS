@@ -52,10 +52,13 @@ def restore_state(cell, path: str = "") -> dict:
         with cell._lock:
             for aid, d in state.get("agents", {}).items():
                 if aid not in cell._agents:
-                    from .cell_types import AgentStatus, AgentInfo
                     from l1.kernel.params.agent import (
-                        DEFAULT_AGENT_CONFIGS, DEFAULT_AGENT_RING, DEFAULT_MAX_CONCURRENT_SCOUTS,
+                        DEFAULT_AGENT_CONFIGS,
+                        DEFAULT_AGENT_RING,
+                        DEFAULT_MAX_CONCURRENT_SCOUTS,
                     )
+
+                    from .cell_types import AgentInfo, AgentStatus
                     cfg = DEFAULT_AGENT_CONFIGS.get(d.get("role", ""))
                     info = AgentInfo(
                         role=d.get("role", ""),

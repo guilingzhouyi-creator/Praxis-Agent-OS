@@ -28,10 +28,10 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from l1.kernel.params.system import TLB_MAX_ENTRIES, TLB_DEFAULT_RING, TLB_CLEARANCE_FALLBACK
+from l1.kernel.params.system import TLB_DEFAULT_RING, TLB_MAX_ENTRIES
 
 logger = logging.getLogger(__name__)
 

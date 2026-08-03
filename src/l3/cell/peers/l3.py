@@ -14,13 +14,12 @@ import logging
 import re
 import threading
 import time
-from typing import Any
 
-from l3.cell.peers.l3a import get_daemon, AssemblyMode, TaskCard, CardType
+from l1.kernel.params.kernel import WitnessStatus
+from l1.kernel.params.system import CARD_DEFAULT_PRIORITY, LOG_TRUNC_80, LOG_TRUNC_100
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
-from l1.kernel.params.kernel import WitnessStatus
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_80, CARD_DEFAULT_PRIORITY
+from l3.cell.peers.l3a import CardType, TaskCard, get_daemon
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +155,8 @@ class CentralController:
         multi_cell = len(self._cells) >= 2
         if multi_cell:
             try:
-                from .bus.htn_a import get_htn_a, get_shards as _get_shards
+                from .bus.htn_a import get_htn_a
+                from .bus.htn_a import get_shards as _get_shards
                 htn_a = get_htn_a()
                 htn_task = htn_a.decompose(card.intent, domain)
                 shards = _get_shards(htn_task)
@@ -242,8 +242,9 @@ class CentralController:
 
         try:
             if admin_action == "spawn_agent":
-                from .cell import get_cell
                 from l1.kernel.params.agent import AGENT_ROLE_MAP
+
+                from .cell import get_cell
                 role = AGENT_ROLE_MAP.get(3, "default")
                 cell = get_cell()
                 cell.add_agent(target_agent or f"auto-{int(time.time())}", role=role, territory=["."], auto_boot=True)

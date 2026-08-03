@@ -1,6 +1,8 @@
 """Cell Master Test — Init/Agent Management/Messages/Liveness/Emergency Stop/State Persistence"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -89,8 +91,8 @@ class TestBootAndShutdown:
     """Boot/Shutdown"""
 
     def test_boot_all(self):
-        from l3.cell import Cell, reset_cells
         from l3.agent_terminal import reset_terminals
+        from l3.cell import Cell, reset_cells
         reset_cells()
         reset_terminals()
         cell = Cell("boot-cell")
@@ -213,8 +215,10 @@ class TestSaveRestoreState:
     """Cell State Save/Restore"""
 
     def test_save_state(self):
+        import json
+        import tempfile
+
         from l3.cell import Cell, reset_cells
-        import tempfile, json
         reset_cells()
         cell = Cell("save-cell")
         cell.add_agent("save-a", role="reader")
@@ -229,8 +233,10 @@ class TestSaveRestoreState:
             os.unlink(path)
 
     def test_restore_state(self):
+        import json
+        import tempfile
+
         from l3.cell import Cell, reset_cells
-        import tempfile, json
         reset_cells()
         cell = Cell("rest-cell")
         cell.add_agent("rest-a", role="reader")

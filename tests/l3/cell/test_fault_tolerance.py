@@ -1,8 +1,8 @@
 """FaultTolerance tests — checkpoint, heartbeat, crash recovery."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -43,8 +43,8 @@ class TestFaultToleranceService:
         assert status is not None
 
     def test_check_heartbeats(self):
+
         from l3.services.fault_tolerance import FaultToleranceService
-        import time
         svc = FaultToleranceService()
         svc.heartbeat("crash-agent")
         svc._check_heartbeats()

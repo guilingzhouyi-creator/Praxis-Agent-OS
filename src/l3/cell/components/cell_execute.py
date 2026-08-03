@@ -12,11 +12,14 @@ import uuid
 
 from l1.kernel.params.agent import CELL_SNAPSHOT_MAX
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
-from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
 from l1.kernel.params.system import (
-    HASH_TRUNC_SHORT, LOG_TRUNC_60, LOG_TRUNC_80,
-    CELL_RING_NORMALIZE, SNAPSHOT_CACHE_KEY_LIMIT,
+    CELL_RING_NORMALIZE,
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_60,
+    LOG_TRUNC_80,
+    SNAPSHOT_CACHE_KEY_LIMIT,
 )
+from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +83,7 @@ def execute_card(
         agent_map = _auto_agent_map(card, cell.cell_id,
                                     ensure_terminal_fn=lambda a, r, t: cell._ensure_terminal(a, r, t or cell.territory))
 
-    from l3.agent_terminal import get_terminals, TerminalStatus
+    from l3.agent_terminal import TerminalStatus, get_terminals
     all_terms = get_terminals()
     for _, aid in agent_map.items():
         term = all_terms.get(aid)
@@ -155,7 +158,7 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         # ── SubAgent pool route (through card-type gate) ──
         subagent_spec = sl.get("subagent_spec", "") or (sub_card.subagent_spec if hasattr(sub_card, "subagent_spec") else "")
         if subagent_spec:
-            from l3.agent.subagent_gate import classify_card, build_spec
+            from l3.agent.subagent_gate import build_spec, classify_card
             pool = cell._subagent_pool
             card_type = classify_card(sub_card)
             spec = build_spec(card_type, spec_name=subagent_spec)
@@ -174,7 +177,6 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         if not agent_id and sub_agent_map:
             agent_id = list(sub_agent_map.values())[0]
         term = get_terminal(agent_id, role=role, territory=territory, cell_id=cell.cell_id)
-        from l3.agent_terminal import CardMode as TermCardMode
         sc = term.dispatch(sub_card)
         if not sc.get("success"):
             return {"success": False, "error": sc.get("error", "dispatch failed"),
@@ -237,7 +239,6 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
                  card_id, len(files), len(agent_snap), len(cache_keys))
     # Inject rollback context from previous rollbacks
     if cell._rollback_ring:
-        from l3.cell.components.cell_buffer import CircularBuffer
         for item in list(cell._rollback_ring._data):
             if isinstance(item, str) and item.startswith("Card "):
                 logger.info("rollback context injected for %s: %s", card_id, item[:LOG_TRUNC_80])
@@ -246,7 +247,8 @@ def _snapshot_and_inject(cell, card_id: str, card) -> None:
 
 def _take_snapshot(cell, path: str) -> str | None:
     """Snapshot a file by copying to temp dir. Returns tmp path or None."""
-    import os, tempfile
+    import os
+    import tempfile
     if not path or not os.path.exists(path) or os.path.isdir(path):
         return None
     try:

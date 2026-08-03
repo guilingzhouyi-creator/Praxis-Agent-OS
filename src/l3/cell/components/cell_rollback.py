@@ -8,10 +8,9 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from typing import Any
 
-from l3.cell.components.cell_buffer import CircularBuffer
 from l1.kernel.params.agent import CELL_HISTORY_RING_SIZE
+from l3.cell.components.cell_buffer import CircularBuffer
 
 logger = logging.getLogger(__name__)
 

@@ -7,8 +7,8 @@ after write/delete, blocks and waits for peer agent review.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from l1.kernel.discovery import get_tool_config
 from l3.cell.components.cell_types import MessageType, is_peer
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from l3.cell.components.cell_pmu import CellPmu, PmuSnapshot
+from l3.cell.components.cell_pmu import CellPmu
 
 
 @pytest.fixture

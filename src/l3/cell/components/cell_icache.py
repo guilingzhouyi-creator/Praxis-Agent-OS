@@ -30,8 +30,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.system import (
-    ICACHE_MAX_ENTRIES, ICACHE_TTL, ICACHE_LFU_DECAY, ICACHE_DECAY_INTERVAL,
+    ICACHE_DECAY_INTERVAL,
+    ICACHE_LFU_DECAY,
+    ICACHE_MAX_ENTRIES,
     ICACHE_SEARCH_LIMIT,
+    ICACHE_TTL,
 )
 
 logger = logging.getLogger(__name__)

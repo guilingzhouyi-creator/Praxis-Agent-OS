@@ -20,15 +20,15 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.params.system import (
-    CELL_WATCHDOG_POLL_INTERVAL,
     CELL_WATCHDOG_DEFAULT_TIMEOUT,
-    CELL_WATCHDOG_UNRESPONSIVE_ESCALATION,
+    CELL_WATCHDOG_POLL_INTERVAL,
     CELL_WATCHDOG_STOP_JOIN_TIMEOUT,
+    CELL_WATCHDOG_UNRESPONSIVE_ESCALATION,
 )
 
 logger = logging.getLogger(__name__)

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+
+from l3.error_bus import capture
 
 from . import params as _p
-from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 

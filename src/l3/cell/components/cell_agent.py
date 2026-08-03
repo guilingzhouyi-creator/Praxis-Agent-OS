@@ -7,7 +7,8 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS, DEFAULT_AGENT_RING, DEFAULT_MAX_CONCURRENT_SCOUTS
-from .cell_types import AgentStatus, AgentInfo
+
+from .cell_types import AgentInfo
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,6 @@ def add_agent(self, agent_id: str, role: str = "",
               max_scouts: int | None = None,
               auto_boot: bool = False) -> dict:
     """Register an agent in this Cell."""
-    from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode, TerminalStatus
     with self._lock:
         if agent_id in self._agents:
             return {"success": False, "error": f"agent {agent_id} already registered"}
@@ -46,7 +46,7 @@ def add_agent(self, agent_id: str, role: str = "",
 
 def _boot_agent(self, agent_id: str) -> dict:
     """Boot an agent terminal if not already running."""
-    from l3.agent_terminal import get_terminal, TerminalStatus
+    from l3.agent_terminal import TerminalStatus, get_terminal
     with self._lock:
         info = self._agents.get(agent_id)
         if not info:
@@ -61,7 +61,7 @@ def _boot_agent(self, agent_id: str) -> dict:
 
 def _ensure_terminal(self, aid: str, role: str, territory: list[str]) -> None:
     """Ensure an agent terminal exists and is booted."""
-    from l3.agent_terminal import get_terminal, TerminalStatus
+    from l3.agent_terminal import TerminalStatus, get_terminal
     from l3.tool_system.tool_spec import TOOL_REGISTRY
     term = get_terminal(aid, role=role, territory=territory, cell_id=self.cell_id)
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
@@ -112,10 +112,10 @@ def liveness(self) -> dict:
             agent_results[aid] = {"status": "no_terminal", "alive": False}
             continue
         from l1.kernel.params.agent import (
+            AGENT_STATUS_BOOTING,
             AGENT_STATUS_IDLE,
             AGENT_STATUS_PROCESSING,
             AGENT_STATUS_WAITING_SCOUT,
-            AGENT_STATUS_BOOTING,
         )
         if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
             agent_results[aid] = {"status": term.status.name, "alive": True}

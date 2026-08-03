@@ -16,43 +16,60 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-from l1.kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal
+if TYPE_CHECKING:
+    from ..card.card_unified import CardUnified as Card
+    from .components.cell_watchdog import WatchdogState
+
+from l1.kernel import EVENT_TASK_ASSIGN, emit_signal, get_event_bus
 from l1.kernel.bus import SystemBus
 from l1.kernel.params.agent import (
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+    CARD_WAIT_TIMEOUT,
+    CELL_HISTORY_RING_SIZE,
+    CELL_L3_SENDER,
+    CELL_ROLLBACK_RING_SIZE,
     DEFAULT_AGENT_CONFIGS,
     DEFAULT_AGENT_RING,
     DEFAULT_MAX_CONCURRENT_SCOUTS,
-    CELL_ROLLBACK_RING_SIZE,
-    CELL_HISTORY_RING_SIZE,
-    CELL_L3_SENDER,
-    AGENT_LOOP_DEFAULT_TIMEOUT,
-    CARD_WAIT_TIMEOUT,
 )
-from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
-from ..agent.scout import get_pool as get_scout_pool
+from l1.kernel.params.system import (
+    CROSS_REVIEW_TIMEOUT,
+    IRQ_DISPATCH_BATCH,
+    LOG_TRUNC_80,
+    LOG_TRUNC_5000,
+    SCOUT_CACHE_TTL,
+    SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT,
+)
 from l3.cell.components.cell_buffer import CircularBuffer
-from ..cell.components.cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
-from ..scheduler.think_registry import get_think_registry
+
+from ..agent.scout import get_pool as get_scout_pool
+from ..agent.scout import scout_cache_get
+from ..agent_terminal import CardMode as TermCardMode
+from ..agent_terminal import TerminalCard, TerminalStatus, get_terminal, get_terminals
+from ..card.issue import IssueCard as _IssueCard
+from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
+from ..cell.components.cell_decompose import auto_agent_map as _auto_agent_map
+from ..cell.components.cell_decompose import decompose_card as _decompose_card
+from ..cell.components.cell_execute import _execute_decomposed, _raw_to_card
+from ..cell.components.cell_execute import execute_card as _execute_card
 from ..cell.components.cell_lifecycle import CellLifecycleMixin
 from ..cell.components.cell_messaging import CellMessagingMixin
-from ..cell.components.cell_types import AgentInfo, CellMessage, MessageType
-from ..services.bus_components import (
-    CellPmuComponent, CellWatchdogComponent, CellICacheComponent,
-    CellMmuComponent, CellInterruptComponent, CellCacheComponent,
-    CellPermissionComponent,
-)
-from ..cell.components.cell_execute import execute_card as _execute_card, _raw_to_card, _execute_decomposed
 from ..cell.components.cell_rollback import rollback_card as _rollback_card
-from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
-from ..services.cell_orchestrate import SubAgentOrchestrator
-from ..card.issue import IssueCard as _IssueCard
-from l1.kernel.params.system import (
-    LOG_TRUNC_5000, LOG_TRUNC_80, SCOUT_CACHE_TTL,
-    CROSS_REVIEW_TIMEOUT, SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT,
-    IRQ_DISPATCH_BATCH,
+from ..cell.components.cell_types import AgentInfo, CellMessage, MessageType
+from ..scheduler.think_registry import get_think_registry
+from ..services.bus_components import (
+    CellCacheComponent,
+    CellICacheComponent,
+    CellInterruptComponent,
+    CellMmuComponent,
+    CellPermissionComponent,
+    CellPmuComponent,
+    CellWatchdogComponent,
 )
+from ..services.cell_orchestrate import SubAgentOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +337,8 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                        restores)
         """
         from l1.kernel.params.agent import (
-            CELL_MEMORY_POLICY_ISOLATED, CELL_MEMORY_POLICY_DELIBERATION,
+            CELL_MEMORY_POLICY_DELIBERATION,
+            CELL_MEMORY_POLICY_ISOLATED,
         )
         if policy not in (CELL_MEMORY_POLICY_ISOLATED, CELL_MEMORY_POLICY_DELIBERATION):
             logger.warning("cell %s: unknown memory policy %r", self.cell_id, policy)
@@ -397,8 +415,9 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         Prevents data loss: evicted items go to permanent cold storage.
         """
         try:
-            from tools._archive import archive_store
             import json as _json
+
+            from tools._archive import archive_store
             content = _json.dumps(item, default=str, ensure_ascii=False) if not isinstance(item, str) else item
             title = item.get("intent", str(item)[:LOG_TRUNC_80]) if isinstance(item, dict) else str(item)[:LOG_TRUNC_80]
             card_id = item.get("card_id", "evicted") if isinstance(item, dict) else "evicted"
@@ -625,8 +644,8 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
     def _bus_discussion_start(self, event: dict) -> None:
         """Bus event: start an AnswerSession for this Cell."""
         try:
-            from l3.discussion.answer_session import AnswerSession
             from l3.card.issue import get_table
+            from l3.discussion.answer_session import AnswerSession
             data = event.get("data", {})
             session_id = data.get("session_id", "")
             issue_card_id = data.get("issue_card_id", "")

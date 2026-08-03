@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
-from l3.cell.components.cell_mmu import CellTlb, CellMmu, TlbEntry
 from l1.kernel.params.system import TLB_MAX_ENTRIES
-
+from l3.cell.components.cell_mmu import CellMmu, CellTlb
 
 # ── Fixtures ──
 

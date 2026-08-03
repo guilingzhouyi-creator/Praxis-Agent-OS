@@ -25,16 +25,18 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from datetime import UTC
 from typing import Any
 
-from . import params as _p
-from .model import L3AModelConfig
-from .types import AssemblyMode, CardType, TaskCard, SessionRecord
-from .context import ContextRegistry, ContextSource, ContextEpoch
-from .session import Session, SessionManager, SessionHistory
-from . import archive as _archive
-from . import api as _api
 from l3.error_bus import capture
+
+from . import api as _api
+from . import archive as _archive
+from . import params as _p
+from .context import ContextEpoch, ContextRegistry, ContextSource
+from .model import L3AModelConfig
+from .session import Session, SessionHistory, SessionManager
+from .types import AssemblyMode, CardType, SessionRecord, TaskCard
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +78,7 @@ def _build_default_registry() -> ContextRegistry:
     from datetime import datetime, timezone
     reg.register(ContextSource(
         key="system_time",
-        loader=lambda: datetime.now(timezone.utc).isoformat(),
+        loader=lambda: datetime.now(UTC).isoformat(),
         render_baseline=lambda v: f"## Current time\n{v}",
         render_update=lambda o, n: f"## Time updated\n{n}",
     ))
@@ -129,8 +131,8 @@ def _l3a_memory_render(summaries: list[dict]) -> str:
 def _convergence_loader() -> list[dict]:
     """Load pending convention/convergence items from all Cells."""
     try:
-        from l3.discussion.cell_answer_repo import CellAnswerRepo
         from l3.cell import _cells
+        from l3.discussion.cell_answer_repo import CellAnswerRepo
         items = []
         for cid in list(_cells.keys()):
             try:
@@ -353,7 +355,8 @@ class L3ADaemon:
                 "total_cards": sum(s.get("card_count", 0) for s in active_sessions),
             }
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _mb
+                from l3.bus.monitor_bus import MonitorEvent as _ME
+                from l3.bus.monitor_bus import get_bus as _mb
                 _mb().emit(_ME(
                     type="l3a.governance",
                     source="l3a_daemon",
@@ -408,15 +411,15 @@ def dispatch(args: list[str] | None = None) -> dict:
 
 
 # ── Re-exports ──
-from .types import AssemblyMode, CardType, TaskCard, SessionRecord, L3ATask, L3ATaskGroup
-from .helpers import get_convergence_queue, cardwrite_handler, build_l3a_prompt
-from .model import L3AModelConfig
-from .context import ContextSource, ContextRegistry, ContextEpoch
-from .session import Session, SessionManager, SessionHistory
-from .task_table import SessionTaskTable, SessionTask
-from .summaries import L3ASummary, L3ASummaryStore, get_store as get_summary_store
-from .subagent import L3ASubAgentPool, get_pool as get_l3a_pool
 from . import params as l3a_params
+from .helpers import build_l3a_prompt, cardwrite_handler, get_convergence_queue
+from .model import L3AModelConfig
+from .subagent import L3ASubAgentPool
+from .subagent import get_pool as get_l3a_pool
+from .summaries import L3ASummary, L3ASummaryStore
+from .summaries import get_store as get_summary_store
+from .task_table import SessionTask, SessionTaskTable
+from .types import L3ATask, L3ATaskGroup
 
 start_l3a_daemon = start
 stop_l3a_daemon = stop

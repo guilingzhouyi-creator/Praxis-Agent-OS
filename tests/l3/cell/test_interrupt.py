@@ -8,9 +8,9 @@ import pytest
 
 from l1.kernel.params.system import IRQ_TABLE_SIZE
 from l3.cell.components.cell_interrupt import (
-    InterruptController, IrqPriority, IrqSlot, IrqEvent,
+    InterruptController,
+    IrqPriority,
 )
-
 
 # ── Fixtures ──
 

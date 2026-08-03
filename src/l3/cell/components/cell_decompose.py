@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from l1.kernel.params.agent import TERRITORY_MAP, TERRITORY_PATHS
+from l1.kernel.params.agent import TERRITORY_MAP
 
 
 def _card_phases_and_steps(card):

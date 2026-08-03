@@ -7,17 +7,17 @@ immutable baseline and change detection.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
-
-from . import params as _p
+from typing import Any
 
 from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN
 from l3.error_bus import capture
+
+from . import params as _p
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,6 @@ class ContextRegistry:
         return changes
 
 
-from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN
 
 
 class ContextEpoch:

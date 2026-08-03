@@ -48,7 +48,8 @@ class CellMessagingMixin:
                                       direction="out", agent_id=sender, target=target)
         if msg_type in CONVENTION_TYPES:
             try:
-                from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode
+                from l3.agent_terminal import CardMode as TermCardMode
+                from l3.agent_terminal import TerminalCard, get_terminal
                 term = get_terminal(target)
                 from l1.kernel.params.agent import AGENT_STATUS_CRASHED
                 if term.status.name not in (AGENT_STATUS_CRASHED,):
@@ -115,10 +116,10 @@ class CellMessagingMixin:
                 agent_results[aid] = {"status": "no_terminal", "alive": False}
                 continue
             from l1.kernel.params.agent import (
+                AGENT_STATUS_BOOTING,
                 AGENT_STATUS_IDLE,
                 AGENT_STATUS_PROCESSING,
                 AGENT_STATUS_WAITING_SCOUT,
-                AGENT_STATUS_BOOTING,
             )
             if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
                 agent_results[aid] = {"status": term.status.name.lower(), "alive": True}

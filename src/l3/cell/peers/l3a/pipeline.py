@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
-import logging
-from typing import Any
-
-from . import params as _p
 
 from l3.error_bus import capture
+
+from . import params as _p
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ def spill(content: str) -> str:
 
 def read(path: str) -> str | None:
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except (OSError, FileNotFoundError) as e:
         logger.warning("l3a pipeline: read spill failed: %s", e)

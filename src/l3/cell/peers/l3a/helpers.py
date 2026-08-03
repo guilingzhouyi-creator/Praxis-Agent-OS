@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from l1.kernel.params.system import LOG_TRUNC_60
-from l3.card.card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
-from . import params as _p
-
+from l3.card.card_unified import CardSummary, CardUnified, PhaseMode, list_card_types
 from l3.error_bus import capture
+from l3.services.assembly import AssemblyMode
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +62,7 @@ def wrapped_cardwrite(args: dict, agent_id: str = "") -> dict:
     return cardwrite_handler(args, agent_id)
 
 
-def _route_to_assembly(card: CardUnified) -> "AssemblyMode":
+def _route_to_assembly(card: CardUnified) -> AssemblyMode:
     from .types import AssemblyMode
     try:
         from l3.card.card_gate import evaluate as _gate_evaluate
@@ -88,8 +86,8 @@ def _route_to_assembly(card: CardUnified) -> "AssemblyMode":
 
 def get_convergence_queue(cell_id: str) -> list[dict]:
     try:
-        from l3.discussion.cell_answer_repo import CellAnswerRepo
         from l3.cell import get_cell
+        from l3.discussion.cell_answer_repo import CellAnswerRepo
         cell = get_cell(cell_id)
         if not cell:
             return []
@@ -157,9 +155,10 @@ def l3a_convention_handler(args: dict, agent_id: str = "") -> dict:
 
 def _read_convention_doc(issue_id: str) -> str | None:
     try:
+        import os as _os
+
         from l1.kernel.params.agent import CONVENTION_DOC_DIR
         from l1.kernel.paths import get_paths as _gp
-        import os as _os
         path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR, f"{issue_id}.md")
         if _os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
@@ -240,9 +239,7 @@ def _extract_block(content: str, anchor: str) -> str | None:
 def _extract_agent_lines(content: str, agent: str) -> str:
     out = [f"# Agent {agent} — convention transcript"]
     for line in content.splitlines():
-        if line.startswith("- [") and agent in line:
-            out.append(line)
-        elif f"({agent})" in line and "**Answer**" in line:
+        if line.startswith("- [") and agent in line or f"({agent})" in line and "**Answer**" in line:
             out.append(line)
     return "\n".join(out)
 

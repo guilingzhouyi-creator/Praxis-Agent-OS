@@ -5,10 +5,10 @@ Extracted from cell/__init__.py to reduce the 1091-line Cell class."""
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
 
-from l3.agent_terminal import get_terminals
 from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS, MEMORY_RESTORE_RING2_LIMIT
+from l3.agent_terminal import get_terminals
 
 logger = logging.getLogger(__name__)
 

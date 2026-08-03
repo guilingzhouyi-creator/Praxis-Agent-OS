@@ -16,7 +16,6 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +192,8 @@ class CellMonitor:
             self._event_count += 1
         # Also emit to MonitorBus
         try:
-            from .bus.monitor_bus import MonitorEvent, get_bus as _mb
+            from .bus.monitor_bus import MonitorEvent
+            from .bus.monitor_bus import get_bus as _mb
             severity_map = {"crash": "crit", "card_fail": "warn", "card_done": "info", "registered": "info"}
             _mb().emit(MonitorEvent(
                 type="service.cell." + event, source="cell_monitor",

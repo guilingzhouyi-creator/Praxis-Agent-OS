@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from l3.cell.components.cell_watchdog import CellWatchdog, WatchdogState, WatchdogSlot
+from l3.cell.components.cell_watchdog import CellWatchdog, WatchdogState
 
 
 @pytest.fixture

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -167,7 +166,9 @@ class TestCellStatePersistence:
         assert "path" in r
 
     def test_restore_state(self):
-        import tempfile, json
+        import json
+        import tempfile
+
         from l3.cell import get_cell, reset_cells
         reset_cells()
         cell = get_cell("cell-sp2", ["."])
@@ -278,9 +279,9 @@ class TestCellSubAgentDispatch:
     """Cell.subagent_dispatch → SubAgentPool integration"""
 
     def test_subagent_dispatch_returns_task_id(self, monkeypatch):
-        from l3.cell import get_cell, reset_cells
         # SubAgent delegation is globally gated — enable it for this test.
         from l1.kernel import params as _params
+        from l3.cell import get_cell, reset_cells
         monkeypatch.setattr(_params.system, "GLOBAL_SUBAGENT_ENABLED", True)
         reset_cells()
         cell = get_cell("cell-sd1", ["."])

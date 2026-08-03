@@ -31,11 +31,12 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Callable
+from typing import Any
 
-from l1.kernel.params.system import IRQ_TABLE_SIZE, IRQ_PRIORITY_LEVELS, IRQ_DISPATCH_BATCH
+from l1.kernel.params.system import IRQ_DISPATCH_BATCH, IRQ_TABLE_SIZE
 
 logger = logging.getLogger(__name__)
 

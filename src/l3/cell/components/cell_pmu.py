@@ -27,11 +27,14 @@ import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.system import (
-    PMU_HISTORY_SIZE, PMU_SNAPSHOT_INTERVAL, PMU_COUNTER_GROUPS,
-    PMU_QUERY_LIMIT, PMU_RATE_WINDOW, PMU_RATE_MIN_SECONDS,
+    PMU_COUNTER_GROUPS,
+    PMU_HISTORY_SIZE,
+    PMU_QUERY_LIMIT,
+    PMU_RATE_MIN_SECONDS,
+    PMU_RATE_WINDOW,
+    PMU_SNAPSHOT_INTERVAL,
 )
 
 logger = logging.getLogger(__name__)

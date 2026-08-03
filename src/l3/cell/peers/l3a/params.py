@@ -5,8 +5,9 @@ Compile-time constants here serve only as structural defaults (identity, paths, 
 """
 
 from l1.kernel.params.agent import (
-    L3A_AGENT_ID, L3A_MEMORY_RECALL_LIMIT, L3A_MEMORY_TYPE,
-    DEFAULT_CELL_ID,
+    L3A_AGENT_ID,
+    L3A_MEMORY_RECALL_LIMIT,
+    L3A_MEMORY_TYPE,
 )
 
 AGENT_ID = L3A_AGENT_ID

@@ -1,7 +1,6 @@
 """Tests for cell_rollback.py — Card rollback logic."""
 from __future__ import annotations
 
-import pytest
 from l3.cell import get_cell, reset_cells
 from l3.cell.components.cell_rollback import rollback_card
 

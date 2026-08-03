@@ -11,10 +11,13 @@ import threading
 import time
 from typing import Any
 
-from l1.kernel import get_event_bus, SignalType
+from l1.kernel import SignalType, get_event_bus
 from l1.kernel.params.system import (
-    TOKEN_CELL_QUOTA, TOKEN_GLOBAL_QUOTA,
-    TOKEN_HISTORY_WINDOW_SECONDS, TOKEN_HISTORY_MAX, TOKEN_HISTORY_SHOWN,
+    TOKEN_CELL_QUOTA,
+    TOKEN_GLOBAL_QUOTA,
+    TOKEN_HISTORY_MAX,
+    TOKEN_HISTORY_SHOWN,
+    TOKEN_HISTORY_WINDOW_SECONDS,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,7 +91,7 @@ class CentralCollector:
 
         # Push to global StatsCenter
         try:
-            from .services.stats_center import get_center, MetricPoint
+            from .services.stats_center import MetricPoint, get_center
             sc = get_center()
             ts = time.time()
             sc.ingest(MetricPoint(name="tokens.consumed", value=float(inp + out),
