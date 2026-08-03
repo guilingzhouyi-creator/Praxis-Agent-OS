@@ -6,14 +6,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, TERMINAL_CONTEXT_RECENT
-from l1.kernel.params.system import (
-    POLL_INTERVAL_HANDLER, TERMINAL_OUTPUT_MAX_LINES, TERMINAL_OUTPUT_MAX_CHARS,
-    LOG_TRUNC_40, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_1000, LOG_TRUNC_3000, LOG_TRUNC_4000,
-)
-from l1.kernel.params.tool import TOOL_TERMINAL_TIMEOUT
-from l1.kernel.params.api import SHELL_CMD_TIMEOUT
 from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, TERMINAL_CONTEXT_RECENT
+from l1.kernel.params.api import SHELL_CMD_TIMEOUT
+from l1.kernel.params.system import (
+    LOG_TRUNC_40,
+    LOG_TRUNC_200,
+    LOG_TRUNC_300,
+    LOG_TRUNC_1000,
+    LOG_TRUNC_2000,
+    LOG_TRUNC_3000,
+    LOG_TRUNC_4000,
+    POLL_INTERVAL_HANDLER,
+    TERMINAL_OUTPUT_MAX_CHARS,
+    TERMINAL_OUTPUT_MAX_LINES,
+)
 from l1.kernel.platform import grep_cmd as _grep_cmd
 
 logger = logging.getLogger(__name__)
@@ -92,8 +99,10 @@ def handle_scout(term, card, phases):
 
 def handle_shell(term, card, phases):
     """Execute shell command with prompt, coloring, session support, structured errors."""
-    import subprocess, shlex, os as _os, time as _time
-    from l1.kernel.platform import IS_WINDOWS, SHELL_PATH, SHELL_PROMPT
+    import subprocess
+    import time as _time
+
+    from l1.kernel.platform import SHELL_PATH, SHELL_PROMPT
 
     command = card.params.get("command", card.target)
     timeout = int(card.params.get("timeout", 30))
@@ -171,6 +180,7 @@ def _handle_grep(args, agent):
 def _handle_shell(args, agent):
     """Inline shell tool."""
     import subprocess as _sp
+
     from l1.kernel.platform import run_shell as _run_shell
     cmd = args.get("command", "")
     if not cmd:
@@ -205,9 +215,10 @@ def _handle_edit(args, agent):
 def handle_think(term, card, phases):
     phases.append("think")
     try:
+        import os as _os
+
         from .agent_loop import AgentLoop
         from .memory.memory import get_memory
-        import os as _os
 
         task = card.params.get("prompt", card.target)
 

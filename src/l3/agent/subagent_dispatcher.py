@@ -6,16 +6,16 @@ SubAgentPool.dispatch_from_text()).  This module is kept for
 backward compatibility with existing tests."""
 
 from __future__ import annotations
+
 import logging
 import re
 import threading
-import time
 import uuid
-from typing import Any
 
-from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS
-from .subagent_task import SubAgentTask
 from l1.kernel.params.system import HASH_TRUNC_MEDIUM
+
+from .subagent_spec import BUILTIN_SUBAGENTS, SubAgentSpec
+from .subagent_task import SubAgentTask
 
 logger = logging.getLogger(__name__)
 

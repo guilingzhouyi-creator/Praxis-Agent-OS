@@ -15,15 +15,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
-from l3.services.model_service import get_service as _get_model_service
-from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_4000
-from l3.tool_system.tool_spec import ToolRing
-from l1.kernel.params.agent import SUBAGENT_LOOP_TIMEOUT, SUBAGENT_LOOP_STEPS
+from l1.kernel.params.agent import SUBAGENT_LOOP_STEPS, SUBAGENT_LOOP_TIMEOUT
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
-from l1.kernel.params.system import MOCK_DELAY
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_500, LOG_TRUNC_4000
 from l1.kernel.platform import grep_cmd as _grep_cmd
+from l3.services.model_service import get_service as _get_model_service
 
 _MODEL_SPEC = "subagent"
 

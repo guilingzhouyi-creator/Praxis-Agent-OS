@@ -4,12 +4,12 @@ from __future__ import annotations
 import logging
 import threading
 import time
-import uuid
 from typing import Any
 
 from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS, SUBAGENT_SESSION_TTL
-from .subagent_spec import SubAgentSpec
 from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_2000
+
+from .subagent_spec import SubAgentSpec
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,6 @@ class SubAgentTask:
     def _run_generate(self) -> None:
         """Fast path — single LLM call, no tools."""
         from l4.llm.llm import get_engine
-        from l3.services.model_service import get_service as _ms
         engine = get_engine()
         model_kwargs = self._resolve_model_kwargs()
         from l1.kernel.prompts import get_prompt as _gpr

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 SNAPSHOT_VERSION = 1
 
@@ -52,6 +52,7 @@ class SessionSnapshot:
 # ── Truncation continuation ──
 
 from l1.kernel.prompts import get_prompt as _gp
+
 TRUNCATION_RESUME_NUDGE = _gp("session_snapshot.truncation_resume_nudge", "")
 
 # ── Steps-exhausted continuation ──

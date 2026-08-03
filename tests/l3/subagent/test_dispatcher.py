@@ -1,10 +1,8 @@
 """Tests for subagent_dispatcher.py — @mention parsing and task dispatch."""
 from __future__ import annotations
 
-import pytest
 from l3.agent.subagent_dispatcher import SubAgentDispatcher
 from l3.agent.subagent_spec import SubAgentSpec
-from l3.agent.subagent_task import SubAgentTask
 
 
 def test_dispatcher_creation():

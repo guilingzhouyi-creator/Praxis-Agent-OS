@@ -9,17 +9,17 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l3.agent._term_types import TerminalCard, CardResult
-from l3.services.model_service import get_service as _get_model_service
-from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.params.agent import (
-    CONVENTION_MAX_ROUNDS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
+    CONVENTION_MAX_ROUNDS,
     CONVENTION_SESSION_MAX_STEPS,
     CONVENTION_SESSION_TIMEOUT,
     CONVENTION_SUB_MAX_STEPS,
     CONVENTION_SUB_TIMEOUT,
 )
+from l1.kernel.params.system import LOG_TRUNC_200
+from l3.agent._term_types import CardResult, TerminalCard
+from l3.services.model_service import get_service as _get_model_service
 
 _MODEL_SPEC = "convention"
 
@@ -32,21 +32,21 @@ def convention_handler(term: Any, card: TerminalCard) -> CardResult:
     conv_id = card.target
     if msg_type == "CONVENE":
         return _convention_start(term, conv_id, payload)
-    elif msg_type == "CROSS_EXAMINE":
+    if msg_type == "CROSS_EXAMINE":
         return _convention_turn(term, conv_id, payload, is_examine=True)
-    elif msg_type == "REBUT":
+    if msg_type == "REBUT":
         return _convention_turn(term, conv_id, payload, is_examine=False)
-    elif msg_type == "PROPOSE_ISSUE":
+    if msg_type == "PROPOSE_ISSUE":
         return _convention_propose(term, conv_id, payload)
-    elif msg_type == "CONVENE_CLOSE":
+    if msg_type == "CONVENE_CLOSE":
         return _convention_close(term, conv_id, payload)
     return CardResult(card_id=card.card_id, action="convention",
                       success=False, error=f"unknown convention msg: {msg_type}")
 
 
 def _convention_start(term: Any, conv_id: str, payload: dict) -> CardResult:
-    from l3.card.issue import get_table
     from l3.agent.agent_loop import AgentLoop
+    from l3.card.issue import get_table
     table = get_table()
     issue_card = table.get(conv_id)
     if not issue_card:

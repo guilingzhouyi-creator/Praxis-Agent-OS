@@ -7,15 +7,15 @@ via subprocess and records evidence. Close gate blocks unverified edits.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class VerifyCadence:
     """Edit-then-verify with subprocess checks."""
-    from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS, LOG_TRUNC_200, LOG_TRUNC_500
     from l1.kernel.discovery import get_tool_config
+    from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
+    from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS
 
     def __init__(self):
         self._edited: set[str] = set()
@@ -63,6 +63,7 @@ class VerifyCadence:
         import shlex
         import subprocess as _sp
         from pathlib import Path
+
         from l1.kernel.discovery import get_tool_config as _get_tc
         if timeout is None:
             timeout = int(_get_tc("handler_timeout", 60))

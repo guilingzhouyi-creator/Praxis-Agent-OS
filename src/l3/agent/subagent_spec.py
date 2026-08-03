@@ -1,8 +1,9 @@
 """SubAgent specification definitions — built-in specs, lazy loading, YAML integration."""
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+
 from l1.kernel.params.system import LOG_TRUNC_100
 
 logger = logging.getLogger(__name__)
@@ -115,8 +116,9 @@ def load_specs() -> dict[str, SubAgentSpec]:
     YAML section ``subagent_specs:`` overrides individual specs by name.
     Specs not present in YAML retain their built-in definitions.
     """
-    import yaml
     import os
+
+    import yaml
     specs: dict[str, SubAgentSpec] = {}
 
     # Start from built-in defaults

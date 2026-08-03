@@ -1,7 +1,7 @@
 """Tests for subagent_gate.py — card type classification + spec builder."""
 from __future__ import annotations
 
-from l3.agent.subagent_gate import classify_card, build_spec
+from l3.agent.subagent_gate import build_spec, classify_card
 
 
 def test_classify_explore_empty():

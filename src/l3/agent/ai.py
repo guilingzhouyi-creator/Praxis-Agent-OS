@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import ast
 import logging
-from typing import Any
 
-from l3._base import BaseService
 from l1.kernel.params.system import LOG_TRUNC_80
+from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 

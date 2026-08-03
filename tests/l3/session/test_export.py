@@ -1,6 +1,8 @@
 """Session Export integration test — export/import/snapshot + API"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 

@@ -1,6 +1,8 @@
 """Scout + HTN Planner + Dialogue Session test"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -30,7 +32,7 @@ class TestHtnPlanner:
     """HTN planner"""
 
     def test_planner_create(self):
-        from l3.bus.htn_planner import get_service, HtnPlanner
+        from l3.bus.htn_planner import HtnPlanner
         planner = HtnPlanner()
         assert planner is not None
 

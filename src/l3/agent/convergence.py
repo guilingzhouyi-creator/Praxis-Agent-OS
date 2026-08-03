@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
-from l3.card.card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
-from l3.memory.cache_doc import get_store
-from l3.card.issue import IssueCardStatus
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
+from l3.card.card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMode
+from l3.card.issue import IssueCard, IssueCardStatus
+from l3.memory.cache_doc import get_store
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,15 @@
 """Tests for SubAgentDispatcher / ResultMerger / SubAgentSpec."""
 from __future__ import annotations
-import os, sys
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 class TestSubAgentSpec:
     def test_builtin_specs(self):
-        from l3.agent.subagent_spec import BUILTIN_SUBAGENTS, SubAgentSpec
+        from l3.agent.subagent_spec import BUILTIN_SUBAGENTS
         assert len(BUILTIN_SUBAGENTS) >= 2
         assert "security-auditor" in BUILTIN_SUBAGENTS
         assert "code-reviewer" in BUILTIN_SUBAGENTS

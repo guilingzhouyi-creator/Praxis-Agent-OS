@@ -7,9 +7,8 @@ Regression protection for Agent-Loop closed-loop behavior:
 Drives the loop via mock LLMEngine.tool_use, no real LLM dependency.
 """
 
-import sys
 import os
-import time
+import sys
 import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -30,8 +29,8 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
     only the source is ineffective because agent_loop.run() calls the
     name bound in its own module namespace.
     """
-    import l4.llm as llm_mod
     import l3.agent.agent_loop as al_mod
+    import l4.llm as llm_mod
 
     class _MockEngine:
         def __init__(self):
@@ -114,10 +113,10 @@ class TestAgentLoopMultistepChain:
         each step's result back to the LLM-engine loop contract + ToolChain
         chain integrity.
         """
-        from l3.agent.agent_loop import AgentLoop
-        from l1.kernel.tool_chain import get_tool_chain
-        import l4.llm as llm_mod
         import l3.agent.agent_loop as al_mod
+        import l4.llm as llm_mod
+        from l1.kernel.tool_chain import get_tool_chain
+        from l3.agent.agent_loop import AgentLoop
 
         tc = get_tool_chain()
 
@@ -208,7 +207,6 @@ class TestAgentLoopMultistepChain:
         """Tests the _trim re-root logic I fixed: construct max+1 chains to trigger trim,
         orphan child node's parent_id is cleared, prev_fp→GENESIS, verify should not misjudge."""
         from l1.kernel.tool_chain import ToolChain
-        from l1.kernel.params.kernel import TOOLCHAIN_MAX_CALLS
 
         # Use ToolChain directly, bypass AgentLoop.run, focus on _trim behavior
         small = ToolChain()
@@ -265,9 +263,8 @@ class TestAgentLoopToolFailureRetry:
     def test_failed_step_with_verifier_reports_corrections(self):
         """Tool failure + verifier.retry_allowed=True → corrections≥1,
         and loop_stopped=False (verifier drives retry, not hard stop)."""
-        from l3.agent.agent_loop import AgentLoop
         from l1.kernel.tool_chain import get_tool_chain
-        import l4.llm as llm_mod
+        from l3.agent.agent_loop import AgentLoop
 
         tc = get_tool_chain()
 

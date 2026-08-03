@@ -1,6 +1,9 @@
 """AgentLoop tests — reasoning main loop + tool registration + result folding + execution"""
 
-import sys, os, time
+import os
+import sys
+import time
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 

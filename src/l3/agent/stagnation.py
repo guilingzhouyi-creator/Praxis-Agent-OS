@@ -24,16 +24,13 @@ import hashlib
 import logging
 import threading
 import time
-from typing import Any
 
 from l1.kernel.params.kernel import (
-    STAGNATION_SPIN_THRESHOLD,
-    STAGNATION_OSCILLATION_CYCLES,
-    STAGNATION_NO_DRIFT_EPSILON,
     STAGNATION_DIMINISHING_RATE,
     STAGNATION_MAX_ITERATIONS,
+    STAGNATION_NO_DRIFT_EPSILON,
+    STAGNATION_SPIN_THRESHOLD,
 )
-
 from l1.kernel.params.system import HASH_TRUNC_LONG, HASH_TRUNC_SHORT
 
 logger = logging.getLogger(__name__)
@@ -142,7 +139,7 @@ class StagnationDetector:
     def _fire(self, agent_id: str, pattern: str, reason: str) -> None:
         """Fire stagnation interrupt and log."""
         try:
-            from l1.kernel.interrupt import fire, InterruptType
+            from l1.kernel.interrupt import InterruptType, fire
             fire(InterruptType.DEADLOCK_DETECTED, agent_id=agent_id,
                  reason=f"[{pattern}] {reason}")
         except Exception as e:

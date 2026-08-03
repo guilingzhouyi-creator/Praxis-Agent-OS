@@ -55,7 +55,7 @@ class TestSourceReputation:
     """source reputation tracking — record + moving average."""
 
     def test_record_and_avg(self):
-        from l3.services.content_trust import record_source_performance, get_source_reputation, reset_source_reputation
+        from l3.services.content_trust import get_source_reputation, record_source_performance, reset_source_reputation
         reset_source_reputation()
         record_source_performance("agent-a", 0.8)
         record_source_performance("agent-a", 0.9)
@@ -69,7 +69,7 @@ class TestSourceReputation:
         assert score == 0.0
 
     def test_record_capped(self):
-        from l3.services.content_trust import record_source_performance, get_source_reputation, reset_source_reputation
+        from l3.services.content_trust import get_source_reputation, record_source_performance, reset_source_reputation
         reset_source_reputation()
         for i in range(150):
             record_source_performance("agent-b", 0.5)

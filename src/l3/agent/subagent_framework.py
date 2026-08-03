@@ -25,11 +25,9 @@ import logging
 import threading
 from typing import Any
 
-from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS
-
-from .subagent_spec import SubAgentSpec
 from .subagent_dispatcher import SubAgentDispatcher
 from .subagent_merger import ResultMerger
+from .subagent_spec import SubAgentSpec
 
 logger = logging.getLogger(__name__)
 

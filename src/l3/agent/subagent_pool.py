@@ -29,13 +29,13 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
-from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT, SUBAGENT_POOL_EXPLORE_WORKERS, SUBAGENT_POOL_EXECUTE_WORKERS
 from l1.kernel.params.agent import SUBAGENT_SESSION_TTL
-from .subagent_spec import SubAgentSpec, BUILTIN_SUBAGENTS, load_specs
-from .subagent_task import SubAgentTask
+from l1.kernel.params.api import SUBAGENT_POOL_EXECUTE_WORKERS, SUBAGENT_POOL_EXPLORE_WORKERS, SUBAGENT_RUN_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_100
+
+from .subagent_spec import BUILTIN_SUBAGENTS, SubAgentSpec, load_specs
+from .subagent_task import SubAgentTask
 
 logger = logging.getLogger(__name__)
 

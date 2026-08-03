@@ -23,17 +23,29 @@ import json
 import logging
 import threading
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any
 
-from l1.kernel.params.agent import SCOUT_LOOP_STEPS, SCOUT_LOOP_TIMEOUT, SCOUT_FINDING_TRUNC, SCOUT_RESULT_TRUNC, SCOUT_FILE_READ_TRUNC
+from l1.kernel.params.agent import (
+    SCOUT_FILE_READ_TRUNC,
+    SCOUT_FINDING_TRUNC,
+    SCOUT_LOOP_STEPS,
+    SCOUT_LOOP_TIMEOUT,
+    SCOUT_RESULT_TRUNC,
+)
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
-from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_150, LOG_TRUNC_40, MAX_SCOUTS_PER_AGENT, SCOUT_CACHE_MAX_ENTRIES, SCOUT_CACHE_TTL, SCOUT_MONITOR_INTERVAL, SCOUT_POOL_MAX, SCOUT_TIMEOUT
-
+from l1.kernel.params.system import (
+    HASH_TRUNC_LONG,
+    LOG_TRUNC_40,
+    LOG_TRUNC_150,
+    MAX_SCOUTS_PER_AGENT,
+    SCOUT_CACHE_MAX_ENTRIES,
+    SCOUT_CACHE_TTL,
+    SCOUT_MONITOR_INTERVAL,
+    SCOUT_POOL_MAX,
+    SCOUT_TIMEOUT,
+)
 from l3.services.model_service import get_service as _get_model_service
-from l3.tool_system.tool_spec import ToolRing, execute_tool_spec, get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +143,6 @@ class ScoutSession:
 
     def _tool_grep(self, args: dict, agent_id: str = "") -> dict:
         import subprocess as _sp
-        from l1.kernel.platform import grep_cmd as _grep_cmd
         pattern = args.get("pattern", "")
         path = args.get("path", ".")
         try:
@@ -154,11 +165,10 @@ class ScoutSession:
             return {"success": False, "error": str(e)}
 
 
-import os  # needed for _try_symbols and _try_path_from_task
 
 # Lazy import to avoid circular import with services._base
-from l3._base import BaseService
 from l1.kernel.platform import grep_cmd as _grep_cmd
+from l3._base import BaseService
 
 _MODEL_SPEC = "scout"
 
@@ -351,7 +361,7 @@ _pool: ScoutPool | None = None
 
 def scout_cache_get(template: str, scope: dict | None, ttl: float = 30.0) -> dict | None:
     """Module-level cache lookup — delegates to pool's cache."""
-    import hashlib, json
+    import hashlib
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
     key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     return get_pool()._get_cached(key)
@@ -359,7 +369,7 @@ def scout_cache_get(template: str, scope: dict | None, ttl: float = 30.0) -> dic
 
 def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float = 30.0) -> None:
     """Module-level cache store — delegates to pool's cache."""
-    import hashlib, json
+    import hashlib
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
     key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     get_pool()._set_cached(key, result)

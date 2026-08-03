@@ -1,12 +1,7 @@
 """SubAgent result merging — combines multiple SubAgent outputs into unified results."""
 from __future__ import annotations
-import json
+
 import logging
-import threading
-import time
-import uuid
-from dataclasses import dataclass, field
-from typing import Any, Callable
 
 from l1.kernel.params.system import LOG_TRUNC_500
 

@@ -29,10 +29,28 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable
+from typing import Any
 
+from l1.kernel.params.agent import (
+    AGENT_LOOP_CONTEXT_TB_LIMIT,
+    AGENT_LOOP_DEFAULT_STEPS,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+    AGENT_LOOP_FUTURE_TIMEOUT,
+    AGENT_LOOP_MAX_CONTENT,
+    AGENT_LOOP_MAX_WORKERS,
+    AGENT_LOOP_UNLIMITED_STEPS,
+    LOOP_FOLD_LIST_PREVIEW,
+    LOOP_FOLD_LIST_TRUNCATION,
+)
+from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import (
+    CONTEXT_BUILD_MAX_TOKENS,
+    CONTEXT_PRESSURE_CRITICAL,
+    CONTEXT_PRESSURE_MEDIUM,
+    CONTEXT_PRESSURE_WARN,
+    CONTEXT_TRAIL_TRUNC,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_40,
     LOG_TRUNC_100,
@@ -40,37 +58,19 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
     LOG_TRUNC_300,
     LOG_TRUNC_500,
-    CONTEXT_PRESSURE_WARN,
-    CONTEXT_PRESSURE_MEDIUM,
-    CONTEXT_PRESSURE_CRITICAL,
-    CONTEXT_BUILD_MAX_TOKENS,
-    CONTEXT_BUILD_MIN_TOKENS,
-    CONTEXT_TRAIL_TRUNC,
-    MEMORY_PROMOTION_THRESHOLD,
-    MEMORY_IMPORTANCE_DECISION,
     MEMORY_IMPORTANCE_BASE,
+    MEMORY_IMPORTANCE_DECISION,
+    MEMORY_PROMOTION_THRESHOLD,
 )
-from l1.kernel.params.agent import (
-    AGENT_LOOP_DEFAULT_STEPS,
-    AGENT_LOOP_DEFAULT_TIMEOUT,
-    AGENT_LOOP_FUTURE_TIMEOUT,
-    AGENT_LOOP_MAX_WORKERS,
-    AGENT_LOOP_MAX_CONTENT,
-    AGENT_LOOP_UNLIMITED_STEPS,
-    AGENT_LOOP_CONTEXT_TB_LIMIT,
-    LOOP_FOLD_LIST_TRUNCATION,
-    LOOP_FOLD_LIST_PREVIEW,
-)
-from l1.kernel.params.kernel import RING_1
-from l1.kernel.prompts import get_prompt
-
 from l1.kernel.ports import get_port as _get_port
+from l1.kernel.prompts import get_prompt
 from l3.memory.memory_ring import _estimate_tokens
 from l3.scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
-from .session_snapshot import TRUNCATION_RESUME_NUDGE, should_compress
 from l3.services.todo_tracker import TodoTracker
 from l3.tool_system.tool_pipeline import get_pipeline
 from l3.tool_system.tool_spec import ParamSpec, ToolSpec
+
+from .session_snapshot import TRUNCATION_RESUME_NUDGE
 from .verify_cadence import VerifyCadence
 
 logger = logging.getLogger(__name__)
@@ -350,7 +350,8 @@ class AgentLoop:
         except Exception as e:
             logger.warning("services/agent_loop: %s", e)
         try:
-            from l3.services.stats_center import get_center as _sc3, MetricPoint as _Mp3
+            from l3.services.stats_center import MetricPoint as _Mp3
+            from l3.services.stats_center import get_center as _sc3
             for _k, _v in (result.get("side_execution") or {}).items():
                 if _v:
                     _sc3().ingest(_Mp3(
@@ -362,7 +363,8 @@ class AgentLoop:
         side = result.get("side_execution") or {}
         if side:
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME3, get_bus as _MB3
+                from l3.bus.monitor_bus import MonitorEvent as _ME3
+                from l3.bus.monitor_bus import get_bus as _MB3
                 _MB3().emit(_ME3(
                     type="stats.loop.side", source="agent_loop",
                     severity="info",
@@ -525,7 +527,8 @@ class AgentLoop:
         def _emit_memory_event(etype: str, data: dict) -> None:
             """Emit a memory event to the monitor bus for cross-Cell observability."""
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _MB
+                from l3.bus.monitor_bus import MonitorEvent as _ME
+                from l3.bus.monitor_bus import get_bus as _MB
                 _MB().emit(_ME(type=etype, source="agent_loop", severity="info",
                                agent_id=self.agent_id, cell_id=self._cell_id, data=data))
             except (ImportError, AttributeError):

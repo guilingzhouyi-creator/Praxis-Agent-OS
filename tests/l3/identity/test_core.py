@@ -1,8 +1,8 @@
 """Identity service tests — key generation, AgentProof, verification, persistence."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -55,7 +55,7 @@ class TestIdentityProof:
         assert not r.get("success")
 
     def test_create_and_verify_proof(self):
-        from l3.services.identity import IdentityService, PROOF_TTL
+        from l3.services.identity import IdentityService
         svc = IdentityService()
         svc.generate_keypair("proof-agent")
         create_r = svc.create_proof("proof-agent", cell_id="cell-1")
@@ -82,7 +82,7 @@ class TestIdentityProof:
         assert not r2.get("success"), "replay should be blocked"
 
     def test_expired_proof(self):
-        from l3.services.identity import IdentityService, AgentProof
+        from l3.services.identity import AgentProof, IdentityService
         svc = IdentityService()
         svc.generate_keypair("exp-agent")
         # Create a proof with old timestamp

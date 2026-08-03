@@ -14,10 +14,9 @@ import logging
 import time
 from typing import Any
 
-from l1.kernel import emit_signal
-from l1.kernel.prompts import get_prompt
 from l1.kernel.params.agent import REVIEW_MAX_ROUNDS
-from l1.kernel.params.system import LOG_TRUNC_3000, LOG_TRUNC_500
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_3000
+from l1.kernel.prompts import get_prompt
 
 logger = logging.getLogger(__name__)
 

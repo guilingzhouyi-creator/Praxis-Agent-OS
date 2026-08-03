@@ -13,24 +13,21 @@ Usage:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import threading
 import time
-from typing import Any
 
 from l1.kernel.params.api import (
-    PAL_FRUGAL_COST,
-    PAL_STANDARD_COST,
-    PAL_FRONTIER_COST,
-    PAL_FRUGAL_THRESHOLD,
-    PAL_STANDARD_THRESHOLD,
-    PAL_ESCALATE_AFTER,
-    PAL_DOWNGRADE_AFTER,
-    PAL_DEFAULT_TIER,
+    PAL_COMPLEXITY_MAX_DEPTH,
     PAL_COMPLEXITY_MAX_TOKENS,
     PAL_COMPLEXITY_MAX_TOOLS,
-    PAL_COMPLEXITY_MAX_DEPTH,
+    PAL_DOWNGRADE_AFTER,
+    PAL_ESCALATE_AFTER,
+    PAL_FRONTIER_COST,
+    PAL_FRUGAL_COST,
+    PAL_FRUGAL_THRESHOLD,
+    PAL_STANDARD_COST,
+    PAL_STANDARD_THRESHOLD,
 )
 
 logger = logging.getLogger(__name__)
