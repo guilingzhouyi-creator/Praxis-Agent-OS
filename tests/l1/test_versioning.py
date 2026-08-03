@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import pytest
+
 from l1.kernel.versioning import (
-    SNAPSHOT_VERSION, CHECKPOINT_VERSION,
-    register_migration, check_and_migrate, stamp,
+    CHECKPOINT_VERSION,
+    SNAPSHOT_VERSION,
+    check_and_migrate,
+    register_migration,
+    stamp,
 )
 
 
@@ -72,7 +76,6 @@ def test_migration_error_propagates() -> None:
 
 
 def test_multi_step_migration() -> None:
-    from l1.kernel.versioning import TODO_TABLE_VERSION
     calls = []
 
     def step1(d: dict) -> dict:
@@ -90,7 +93,6 @@ def test_multi_step_migration() -> None:
 
     d = {"_version": 1}
     # todo_table version is 1 by default, so we need to make sure it's at least 2
-    from l1.kernel.versioning import TODO_TABLE_VERSION
     # bump to 3 for 2-step migration
     import l1.kernel.versioning as vmod
     vmod.TODO_TABLE_VERSION = 3
@@ -114,8 +116,10 @@ def test_register_migration_unknown_kind() -> None:
 
 def test_version_constants_are_positive() -> None:
     from l1.kernel.versioning import (
-        SNAPSHOT_VERSION, CHECKPOINT_VERSION, SETTINGS_VERSION,
+        CHECKPOINT_VERSION,
         LOG_VERSION,
+        SETTINGS_VERSION,
+        SNAPSHOT_VERSION,
     )
     for v in (SNAPSHOT_VERSION, CHECKPOINT_VERSION, SETTINGS_VERSION, LOG_VERSION):
         assert v >= 1

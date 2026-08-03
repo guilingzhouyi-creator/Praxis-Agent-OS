@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Callable
-
 import pytest
 
 from l1.kernel.registry_base import (
+    MapRegistry,
     RegisterableSpec,
     Registry,
-    MapRegistry,
 )
 
 

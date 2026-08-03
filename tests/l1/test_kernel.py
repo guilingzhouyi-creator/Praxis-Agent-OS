@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import os
-import sys
 import threading
-import time
-
-import pytest
 
 from l1.kernel.params.kernel import (
-    PROCESS_INIT_NAME, PROCESS_INIT_ROLE, PROCESS_INIT_RING,
+    PROCESS_INIT_NAME,
+    PROCESS_INIT_RING,
+    PROCESS_INIT_ROLE,
 )
-
 
 # ═══════════════════════════════════════════════════════════════
 # Process Table
@@ -26,7 +22,7 @@ class TestProcessTable:
         assert t1 is t2
 
     def test_init_pid0(self):
-        from l1.kernel.process import get_table, ProcessState
+        from l1.kernel.process import ProcessState, get_table
         t = get_table()
         p = t.get(0)
         assert p is not None
@@ -45,7 +41,7 @@ class TestProcessTable:
         assert p.state.name == "READY"
 
     def test_exit_and_reap(self):
-        from l1.kernel.process import get_table, ProcessState
+        from l1.kernel.process import ProcessState, get_table
         t = get_table()
         p = t.spawn("reap-agent", role="scout")
         pid = p.pid
@@ -66,7 +62,7 @@ class TestProcessTable:
         assert t.get_by_name("nonexistent") is None
 
     def test_list(self):
-        from l1.kernel.process import get_table, ProcessState
+        from l1.kernel.process import get_table
         t = get_table()
         t.spawn("list-a")
         t.spawn("list-b")
@@ -96,7 +92,7 @@ class TestSyscall:
         assert isinstance(log, list)
 
     def test_emit_signal_crash(self):
-        from l1.kernel import emit_signal, EVENT_TASK_ASSIGN
+        from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
         try:
             emit_signal(EVENT_TASK_ASSIGN, sender="test", target="l3", data={"x": 1})
         except Exception:
@@ -154,7 +150,6 @@ class TestSemaphore:
 class TestBarrier:
     def test_barrier(self):
         from l1.kernel.sync import Barrier
-        import threading
         b = Barrier(name="test-barrier", count=3)
         results = []
         def arrive(agent):
@@ -184,7 +179,7 @@ class TestEventBus:
         assert bus is not None
 
     def test_on_and_emit(self):
-        from l1.kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import Signal, SignalType, get_event_bus
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.TASK_ASSIGN, lambda s: captured.append(s.sender))
@@ -193,7 +188,7 @@ class TestEventBus:
         assert "test-a" in captured
 
     def test_off(self):
-        from l1.kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import Signal, SignalType, get_event_bus
         bus = get_event_bus()
         captured = []
         def handler(s): captured.append(s.sender)
@@ -206,7 +201,7 @@ class TestEventBus:
         assert len(captured) == 0
 
     def test_wildcard_listener(self):
-        from l1.kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import Signal, SignalType, get_event_bus
         bus = get_event_bus()
         caught = []
         bus.on_any(lambda s: caught.append(s.type.name))
@@ -214,14 +209,14 @@ class TestEventBus:
         assert "STATE_CHANGE" in caught
 
     def test_history(self):
-        from l1.kernel import get_event_bus, SignalType, Signal
+        from l1.kernel import Signal, SignalType, get_event_bus
         bus = get_event_bus()
         bus.emit(Signal(type=SignalType.TERRITORY_QUERY, sender="h", target="cell"))
         history = bus.history(limit=5)
         assert len(history) >= 1
 
     def test_emit_signal_no_crash(self):
-        from l1.kernel import emit_signal, get_event_bus, EVENT_TASK_ASSIGN
+        from l1.kernel import EVENT_TASK_ASSIGN, emit_signal, get_event_bus
         bus = get_event_bus()
         emit_signal(EVENT_TASK_ASSIGN, sender="test", target="l3", data={"test": True})
         assert True
@@ -261,13 +256,13 @@ class TestVFS:
         assert vfs is not None
 
     def test_mount(self):
-        from l1.kernel.vfs import get_vfs, MountType
+        from l1.kernel.vfs import MountType, get_vfs
         vfs = get_vfs()
         r = vfs.mount("test", MountType.VIRTUAL, description="test mount")
         assert r.get("success")
 
     def test_virtual_read_write(self):
-        from l1.kernel.vfs import get_vfs, MountType
+        from l1.kernel.vfs import MountType, get_vfs
         vfs = get_vfs()
         vfs.mount("tmp", MountType.VIRTUAL, min_ring=1, description="tmp")
         w = vfs.write("/tmp/hello", "world")
@@ -288,7 +283,7 @@ class TestDeviceManager:
         assert dm is not None
 
     def test_register_device(self):
-        from l1.kernel.device import get_device_manager, DeviceType
+        from l1.kernel.device import DeviceType, get_device_manager
         dm = get_device_manager()
         r = dm.register("test-llm", DeviceType.LLM, rate_limit=5)
         assert r.get("success")
@@ -297,14 +292,14 @@ class TestDeviceManager:
         assert dev.device_type == DeviceType.LLM
 
     def test_list_devices(self):
-        from l1.kernel.device import get_device_manager, DeviceType
+        from l1.kernel.device import DeviceType, get_device_manager
         dm = get_device_manager()
         dm.register("list-llm", DeviceType.LLM)
         items = dm.list()
         assert any(d["name"] == "list-llm" for d in items)
 
     def test_rate_check(self):
-        from l1.kernel.device import get_device_manager, DeviceType
+        from l1.kernel.device import DeviceType, get_device_manager
         dm = get_device_manager()
         dm.register("rate-dev", DeviceType.LLM, rate_limit=1)
         r = dm.check_rate("rate-dev")

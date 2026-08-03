@@ -1,6 +1,8 @@
 """Error Bus integration test — error recording + query + stats + trend + API"""
 
-import sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -8,7 +10,7 @@ class TestErrorLogEntry:
     """Error log entry"""
 
     def test_fingerprint(self):
-        from l3.error_bus import ErrorLogEntry, _compute_fingerprint
+        from l3.error_bus import _compute_fingerprint
         fp = _compute_fingerprint("ERROR", "E_INTERNAL", "test.py:1", "test error")
         assert len(fp) == 16
 
@@ -217,7 +219,7 @@ class TestApiHandlers:
         assert isinstance(r["entries"], list)
 
     def test_handle_log_errors_with_data(self):
-        from l3.error_bus import handle_log_errors, get_bus, reset_bus
+        from l3.error_bus import get_bus, handle_log_errors, reset_bus
         reset_bus()
         bus = get_bus()
         bus.error("api test", error_code="E_API", source="api_test.py")

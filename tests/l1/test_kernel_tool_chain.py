@@ -2,17 +2,21 @@
 agent_calls, recent, stats. Covers fingerprint chain integrity and trimming."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
+from typing import TYPE_CHECKING
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+if TYPE_CHECKING:
+    from l1.kernel.tool_chain import ToolChain
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_chain(max_calls: int = 5000) -> "ToolChain":
+def _make_chain(max_calls: int = 5000) -> ToolChain:
     """Return a fresh ToolChain for test isolation."""
     from l1.kernel.tool_chain import ToolChain
     tc = ToolChain()

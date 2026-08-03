@@ -7,10 +7,12 @@ import time
 import pytest
 
 from l1.kernel.process import (
-    ProcessTable, PCB, ProcessState,
-    ResourceUsage, get_table, reset_table,
+    PCB,
+    ProcessState,
+    ProcessTable,
+    get_table,
+    reset_table,
 )
-
 
 # ── Fixtures ──
 

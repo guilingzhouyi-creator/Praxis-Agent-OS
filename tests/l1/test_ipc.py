@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Any
 
 from l1.kernel.ipc import (
-    LockOp, LockMessage, LockChannel, LockBus,
-    get_lock_bus, reset_lock_bus,
+    LockBus,
+    LockChannel,
+    LockMessage,
+    LockOp,
+    get_lock_bus,
+    reset_lock_bus,
 )
 
 

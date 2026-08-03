@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import pytest
 
+from l1.kernel.params.agent import (
+    REP_DEFAULT_REPUTATION,
+    REP_TASK_FAILURE,
+    REP_TASK_SUCCESS,
+)
 from l1.kernel.reputation import (
     ReputationSystem,
     get_reputation,
     reset_reputation,
 )
-from l1.kernel.params.agent import (
-    REP_DEFAULT_REPUTATION,
-    REP_TASK_SUCCESS,
-    REP_TASK_FAILURE,
-)
-
 
 # ═══════════════════════════════════════════════════════════════════
 # ReputationSystem

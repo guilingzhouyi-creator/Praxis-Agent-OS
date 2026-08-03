@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import time
-
 from l1.kernel.device import (
-    DeviceType, DeviceHealth, DeviceCapability, DeviceManager,
+    DeviceHealth,
+    DeviceManager,
+    DeviceType,
     register_device_type,
 )
 

@@ -1,10 +1,16 @@
 import sys
+
 sys.path.insert(0, r'C:\CODE_game-development\praxis\src')
 
 from l1.kernel.errors import (
-    PraxisError, error, catalog, set_locale, get_locale,
-    E_TIMEOUT, E_INTERNAL, register_error,
+    E_INTERNAL,
+    E_TIMEOUT,
+    PraxisError,
+    catalog,
+    error,
+    set_locale,
 )
+
 
 def test_basic_error():
     e = PraxisError(E_TIMEOUT, "Operation timed out", timeout=60)

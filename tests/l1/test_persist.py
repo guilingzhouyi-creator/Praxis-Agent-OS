@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 
@@ -11,11 +10,11 @@ import pytest
 from l1.kernel.persist import (
     append,
     append_many,
-    query,
     count,
     last_seq,
-    save,
+    query,
     restore,
+    save,
 )
 
 

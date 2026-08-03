@@ -1,9 +1,8 @@
 """Extended kernel module tests — reputation, IPC, registry, skill, swapper."""
 from __future__ import annotations
 
-import sys
 import os
-import time
+import sys
 import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -178,8 +177,9 @@ class TestSkillManager:
         assert isinstance(skills, list)
 
     def test_load_dir(self):
-        from l1.kernel.skill import SkillManager
         import tempfile
+
+        from l1.kernel.skill import SkillManager
         sm = SkillManager()
         td = tempfile.mkdtemp()
         # create a minimal skill file

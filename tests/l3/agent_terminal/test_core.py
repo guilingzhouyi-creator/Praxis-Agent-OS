@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from l3.agent_terminal import AgentTerminal, get_terminal, get_terminals, reset_terminals
+from l3.agent_terminal import AgentTerminal
 
 
 def test_create_agent_terminal():

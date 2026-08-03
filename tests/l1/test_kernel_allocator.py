@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -79,12 +79,12 @@ class TestAllocatorBasics:
     def test_usage_returns_all_resources(self):
         from l1.kernel.allocator import get_allocator, reset_allocator
         from l1.kernel.params.kernel import (
-            RESOURCE_TOKENS,
+            RESOURCE_PRIORITY,
             RESOURCE_RING1,
             RESOURCE_RING2,
             RESOURCE_RING3,
             RESOURCE_SANDBOX_KB,
-            RESOURCE_PRIORITY,
+            RESOURCE_TOKENS,
         )
         reset_allocator()
         a = get_allocator()
@@ -215,7 +215,7 @@ class TestOOMKiller:
 
     def test_oom_fires_interrupt(self):
         from l1.kernel.allocator import get_allocator, reset_allocator
-        from l1.kernel.interrupt import get_table, InterruptType
+        from l1.kernel.interrupt import get_table
         reset_allocator()
         int_table = get_table()
         # Reset counts for clean test
@@ -274,7 +274,7 @@ class TestOOMKiller:
 
     def test_oom_resource_exhaustion_interrupt(self):
         from l1.kernel.allocator import get_allocator, reset_allocator
-        from l1.kernel.interrupt import get_table, InterruptType
+        from l1.kernel.interrupt import get_table
         reset_allocator()
         int_table = get_table()
         before = int_table.counts().get("RESOURCE_EXHAUSTION", 0)
@@ -446,7 +446,6 @@ class TestCancellationAndEdgeCases:
 
     def test_alloc_zero_amount(self):
         from l1.kernel.allocator import get_allocator, reset_allocator
-        from l1.kernel.params.kernel import ALLOCATOR_DEFAULT_AMOUNT
         reset_allocator()
         a = get_allocator()
         r = a.alloc("zero_agent", "tokens", 0)
@@ -455,6 +454,7 @@ class TestCancellationAndEdgeCases:
 
     def test_thread_safety(self):
         import threading
+
         from l1.kernel.allocator import get_allocator, reset_allocator
         reset_allocator()
         a = get_allocator()
@@ -564,11 +564,11 @@ class TestAllocatorIntegration:
     def test_different_resource_types(self):
         from l1.kernel.allocator import get_allocator, reset_allocator
         from l1.kernel.params.kernel import (
-            RESOURCE_TOKENS,
             RESOURCE_RING1,
             RESOURCE_RING2,
             RESOURCE_RING3,
             RESOURCE_SANDBOX_KB,
+            RESOURCE_TOKENS,
         )
         reset_allocator()
         a = get_allocator()

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import time
-from concurrent.futures import ThreadPoolExecutor
-
 from l1.kernel.event import (
-    EventBus, Signal, SignalType, get_bus, reset_bus,
+    EventBus,
+    Signal,
+    SignalType,
+    get_bus,
     register_signal_type,
+    reset_bus,
 )
 
 

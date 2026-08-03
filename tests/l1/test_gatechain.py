@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import time
-
-import pytest
-
 from l1.kernel.gatechain import (
     GateResult,
-    ToolHistoryLedger,
     LedgerEntry,
-    GateChain,
+    ToolHistoryLedger,
     get_gatechain,
     reset_gatechain,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════
 # ToolHistoryLedger
