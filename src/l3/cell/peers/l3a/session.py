@@ -621,6 +621,13 @@ class Session:
             "Peek at a single subagent result (non-blocking).",
             {"task_id": "string"},
             l3a_peek_handler, parallel_safe=True)
+        from .helpers import l3a_convention_handler
+        self._loop.add_tool("l3a_convention",
+            "Read a converged convention document (issue_id). "
+            "Use max_chars to bound the read; 0 = full document. "
+            "Convention summaries appear in session history as references.",
+            {"issue_id": "string", "max_chars": "int"},
+            l3a_convention_handler, parallel_safe=True)
         if self._pmu:
             try:
                 self._loop.set_pmu(self._pmu)

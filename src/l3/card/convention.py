@@ -84,6 +84,7 @@ class ConventionProtocol:
         self._completed_at = 0.0
         self._cache_ref = ""       # CacheDocument buffer_id
         self._archive_ref = ""     # Archive entry_id
+        self._doc_path = ""        # persisted .md file path
         self._table = get_table()
 
     # ── Public API ──
@@ -176,6 +177,23 @@ class ConventionProtocol:
         card = self.issue_card
         doc = self._build_document()
 
+        # Persist as .md file (readable by L3A resource manager + humans)
+        try:
+            from l1.kernel.params.agent import CONVENTION_DOC_DIR
+            from l1.kernel.paths import get_paths as _gp
+            import os as _os
+            doc_dir = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR)
+            _os.makedirs(doc_dir, exist_ok=True)
+            doc_path = _os.path.join(doc_dir, f"{card.id}.md")
+            tmp = doc_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(doc)
+            _os.replace(tmp, doc_path)
+            self._doc_path = doc_path
+        except Exception as e:
+            logger.warning("convention doc file persist failed: %s", e)
+            self._doc_path = ""
+
         # Save to CacheDocument
         from l3.memory.cache_doc import get_store
         store = get_store()
@@ -231,6 +249,7 @@ class ConventionProtocol:
             "success": True, "card_id": card.id,
             "cache_ref": self._cache_ref,
             "archive_ref": self._archive_ref,
+            "doc_path": self._doc_path,
             "rounds": len(self._rounds),
             "transcripts": self._total_transcripts(),
         }

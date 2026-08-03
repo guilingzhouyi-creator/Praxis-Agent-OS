@@ -408,6 +408,9 @@ CONVENTION_MAX_ROUNDS: Final[int] = 2
 CONVENTION_MAX_AGENTS: Final[int] = 16
 CONVENTION_TIMEOUT: Final[float] = 600.0
 CONVENTION_ARCHIVE_IMPORTANCE: Final[float] = 0.85
+CONVENTION_DOC_DIR: Final[str] = "conventions"
+"""Subdir under data_dir where converged deliberation documents are persisted
+as .md files — readable by L3A (resource manager) and humans alike."""
 
 
 # ── Territory → role resolution ──

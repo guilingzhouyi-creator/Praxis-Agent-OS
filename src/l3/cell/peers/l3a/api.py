@@ -119,6 +119,15 @@ def dispatch(args: list[str], mgr: SessionManager,
         return {"success": True, "scope": "all", "data": items,
                 "count": len(items)}
 
+    if sub == "convention":
+        if len(args) < 2:
+            return {"success": False, "error": "issue_id required"}
+        from .helpers import l3a_convention_handler
+        return l3a_convention_handler({
+            "issue_id": args[1],
+            "max_chars": int(args[2]) if len(args) > 2 and args[2].isdigit() else 0,
+        })
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

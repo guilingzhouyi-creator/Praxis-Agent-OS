@@ -395,7 +395,12 @@ class CardRegistry(PersistableMixin):
 
     def _complete_convention_card(self, issue_card_id: str,
                                   convergence_doc: str = "") -> None:
-        """Complete the source card after a convention converges."""
+        """Complete the source card after a convention converges.
+
+        Only a bounded summary + file/archive references are injected into
+        the session — the full deliberation .md stays on disk (readable via
+        l3a_convention) to avoid polluting the session context window.
+        """
         try:
             from l3.card.issue import get_table
             issue = get_table().get(issue_card_id)
@@ -408,9 +413,26 @@ class CardRegistry(PersistableMixin):
             rec = self._cards.get(src)
             if not rec or rec.state == CardLifecycle.COMPLETED:
                 return
-        self.complete(src, result={"convergence": convergence_doc[:LOG_TRUNC_500],
-                                   "issue_card_id": issue_card_id})
-        logger.info("card %s completed after convention %s", src, issue_card_id)
+        # Locate persisted doc file for the reference
+        doc_path = ""
+        try:
+            from l1.kernel.params.agent import CONVENTION_DOC_DIR
+            from l1.kernel.paths import get_paths as _gp
+            import os as _os
+            doc_path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR,
+                                     f"{issue_card_id}.md")
+            if not _os.path.isfile(doc_path):
+                doc_path = ""
+        except Exception:
+            doc_path = ""
+        self.complete(src, result={
+            "convergence": convergence_doc[:LOG_TRUNC_500],
+            "issue_card_id": issue_card_id,
+            "doc_path": doc_path,
+            "archive_ref": f"CONVENTION:{issue_card_id}",
+        })
+        logger.info("card %s completed after convention %s (doc=%s)",
+                    src, issue_card_id, doc_path or "n/a")
 
     # ── Persistence ──
 

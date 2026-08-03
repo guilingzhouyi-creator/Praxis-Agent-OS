@@ -98,3 +98,46 @@ def get_convergence_queue(cell_id: str) -> list[dict]:
                 for a in answers]
     except Exception:
         return []
+
+
+def l3a_convention_handler(args: dict, agent_id: str = "") -> dict:
+    """Read a converged convention document on demand (bounded read).
+
+    The full deliberation .md lives on disk under data_dir/conventions/.
+    Sessions only carry a summary + reference; this tool fetches details
+    when the LLM actually needs them — avoiding context pollution.
+    """
+    issue_id = args.get("issue_id", "")
+    if not issue_id:
+        return {"success": False, "error": "issue_id required"}
+    max_chars = int(args.get("max_chars", 0))
+    try:
+        from l1.kernel.params.agent import CONVENTION_DOC_DIR
+        from l1.kernel.paths import get_paths as _gp
+        import os as _os
+        path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR, f"{issue_id}.md")
+        if not _os.path.isfile(path):
+            # fall back to R4 archive
+            from l3.tools._archive import _get_db
+            conn = _get_db()
+            row = conn.execute(
+                "SELECT content FROM archive WHERE fonds = ? ORDER BY id DESC LIMIT 1",
+                (f"CONVENTION:{issue_id}",),
+            ).fetchone()
+            if not row:
+                return {"success": False,
+                        "error": f"convention doc not found: {issue_id}"}
+            content = row[0]
+            source = "archive"
+        else:
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+            source = "file"
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+    size = len(content)
+    if max_chars > 0 and size > max_chars:
+        content = content[:max_chars] + f"\n... ({size - max_chars} chars elided, use max_chars=0 for full)"
+    return {"success": True, "issue_id": issue_id, "source": source,
+            "size": size, "content": content}
