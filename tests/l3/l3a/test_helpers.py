@@ -9,5 +9,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 
 class TestL3AHelpers:
     def test_importable(self):
-        from l3.cell.peers.l3a.helpers import set_card_counter
-        assert callable(set_card_counter)
+        from l3.cell.peers.l3a.helpers import (
+            cardwrite_handler,
+            build_l3a_prompt,
+            get_convergence_queue,
+            _route_to_assembly,
+        )
+        assert callable(cardwrite_handler)
+        assert callable(build_l3a_prompt)
+        assert callable(get_convergence_queue)
+        assert callable(_route_to_assembly)
+
+    def test_build_l3a_prompt(self):
+        from l3.cell.peers.l3a.helpers import build_l3a_prompt
+        prompt = build_l3a_prompt()
+        assert isinstance(prompt, str)
+        assert len(prompt) > 0
+
+    def test_get_convergence_queue_empty(self):
+        from l3.cell.peers.l3a.helpers import get_convergence_queue
+        r = get_convergence_queue("nonexistent-cell")
+        assert isinstance(r, list)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 
 from l1.kernel.params.system import LOG_TRUNC_60
 from l3.card.card_unified import CardUnified, CardSummary, PhaseMode, list_card_types
@@ -12,29 +11,6 @@ from . import params as _p
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
-
-_session_card_count: int = 0
-"""Module-level card counter for the active session (set by session.py)."""
-_session_card_lock = threading.Lock()
-
-
-def set_card_counter(initial: int = 0) -> None:
-    global _session_card_count
-    with _session_card_lock:
-        _session_card_count = initial
-
-
-def increment_card_counter() -> int:
-    global _session_card_count
-    with _session_card_lock:
-        _session_card_count += 1
-        return _session_card_count
-
-
-def reset_card_counter() -> None:
-    global _session_card_count
-    with _session_card_lock:
-        _session_card_count = 0
 
 
 def build_l3a_prompt() -> str:
@@ -78,7 +54,6 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
             reg._cards[cid] = card
         mode = _route_to_assembly(card)
         card.summary.columns["_assembly_mode"] = mode.value
-        increment_card_counter()
         return {"success": True, "card_id": card.id, "nature": nature,
                 "phases": len(phases_data), "message": f"Card {card.id} submitted"}
     except Exception as e:

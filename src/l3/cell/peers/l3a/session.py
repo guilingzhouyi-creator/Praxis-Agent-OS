@@ -127,6 +127,7 @@ class Session:
         self._cell_id: str = "l3a"
         self.max_turns: int = 0
         self._model_spec_cache: dict | None = None
+        self._subscribed_cards: set[str] = set()
 
     @classmethod
     def create(cls, title: str = "",
@@ -304,6 +305,17 @@ class Session:
             self._loop = None
             ctx = self.history.to_context_trail()
             self.history.clear()
+        # Unsubscribe all card completion callbacks (closed session must not
+        # receive zombie card results)
+        if self._subscribed_cards:
+            try:
+                from l3.card.card_registry import get_registry
+                reg = get_registry()
+                for cid in self._subscribed_cards:
+                    reg.unsubscribe(cid, self._on_card_completed)
+            except Exception:
+                logger.debug("l3a session: unsubscribe failed on close")
+            self._subscribed_cards.clear()
         # I/O outside lock
         metadata = {
             "session_id": sid, "title": title,
@@ -420,6 +432,8 @@ class Session:
 
     def _on_card_completed(self, card_id: str, state: str, result: dict) -> None:
         """Card completion callback — inject result into session history (closed loop)."""
+        if self.status != "active":
+            return
         title = ""
         try:
             from l3.card.card_registry import get_registry
@@ -475,7 +489,8 @@ class Session:
             r = cardwrite_handler(args, agent_id)
             if r.get("success"):
                 cid = r.get("card_id", "")
-                self._session_card_count += 1
+                self.card_count += 1
+                self._subscribed_cards.add(cid)
                 try:
                     from l3.card.card_registry import get_registry
                     get_registry().subscribe(cid, self._on_card_completed)
