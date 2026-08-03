@@ -10,8 +10,8 @@ import json
 import logging
 import time
 
-from l1.kernel.lifecycle import get_lifecycle, LifecycleState
-from l1.kernel.migration import run_pending, SCHEMA_VERSION
+from l1.kernel.lifecycle import LifecycleState, get_lifecycle
+from l1.kernel.migration import SCHEMA_VERSION, run_pending
 
 logger = logging.getLogger(__name__)
 

@@ -22,21 +22,17 @@ import logging
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from dataclasses import dataclass, field
-from typing import Any, Callable
 
-from l1.kernel.params.agent import TERRITORY_PATHS, DEFAULT_AGENT_CONFIGS, DEFAULT_CELL_ID
-from l1.kernel.params.api import LLM_RATE_LIMIT_DEFAULT, FILESYSTEM_RATE_LIMIT_DEFAULT
-from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL, KERNEL_VERSION
+from l1.kernel.lifecycle import LifecycleState, get_lifecycle, transition
+from l1.kernel.params.agent import DEFAULT_CELL_ID, TERRITORY_PATHS
+from l1.kernel.params.api import FILESYSTEM_RATE_LIMIT_DEFAULT, LLM_RATE_LIMIT_DEFAULT
+from l1.kernel.params.system import KERNEL_VERSION, PERSIST_AUTO, PERSIST_INTERVAL
 
-from l1.kernel.lifecycle import get_lifecycle, LifecycleState, transition
 from .boot_registry import (
-    BootStep,
-    register_boot_step,
-    resolve_boot_order,
     exec_step_with_timeout,
     lock_registry,
+    register_boot_step,
+    resolve_boot_order,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,9 +67,10 @@ def wire_kernel_os() -> None:
         return
     try:
         from l1.kernel.os import get_os
-        from .lifecycle import shutdown as _lifecycle_shutdown
         from l3.agent_terminal import reset_terminals
         from l3.cell import reset_cells
+
+        from .lifecycle import shutdown as _lifecycle_shutdown
         osys = get_os()
         osys.register_boot_handler(boot)
         osys.register_shutdown_handler(_lifecycle_shutdown)
@@ -141,7 +138,6 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 
     # Lifecycle: install check (migrations + seed)
     try:
-        from l1.kernel.lifecycle import get_lifecycle
         lc = get_lifecycle()
         lc.load()
         if lc.should_install():
@@ -214,7 +210,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     # (start_api, device registration, etc.) happens once in load_config.
     try:
         from l3.config.config_loader import load as _early_load
-        from l3.config.settings_center import get_center as _sc, SettingsCenter as _SC
+        from l3.config.settings_center import SettingsCenter as _SC
+        from l3.config.settings_center import get_center as _sc
         _ec = _early_load()
         if _ec.get("success") and _ec.get("data"):
             _sc().load_l2(_SC._flatten(_ec["data"]))
@@ -239,7 +236,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         try:
             # Emit boot step started event
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _mb
+                from l3.bus.monitor_bus import MonitorEvent as _ME
+                from l3.bus.monitor_bus import get_bus as _mb
                 _mb().emit(_ME(type="boot.step", source="boot", severity="info",
                                message=f"step:{name} status:running"))
             except Exception:
@@ -288,7 +286,8 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 
     # Emit boot complete event
     try:
-        from l3.bus.monitor_bus import MonitorEvent as _ME2, get_bus as _mb2
+        from l3.bus.monitor_bus import MonitorEvent as _ME2
+        from l3.bus.monitor_bus import get_bus as _mb2
         _mb2().emit(_ME2(type="boot.complete", source="boot", severity="info",
                          message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s"))
     except Exception:
@@ -331,9 +330,10 @@ def _load_constitution() -> dict:
     (from runtime API updates) so they survive restarts.
     """
     from pathlib import Path
+
+    from l1.kernel.constitution import TerritoryConstitution, get_constitution, load_territory
     from l1.kernel.params.agent import CONSTITUTION_ENV_VAR
     from l1.kernel.paths import get_paths
-    from l1.kernel.constitution import load_territory, TerritoryConstitution, get_constitution
     constitution_path = get_paths().constitution_file
     path = Path(os.environ.get(CONSTITUTION_ENV_VAR, constitution_path))
     result = {"source": str(path) if path.exists() else "none"}
@@ -401,12 +401,16 @@ def _init_discovery() -> dict:
     (load_config, load_tools, etc.) see the merged result.
     """
     from l1.kernel.discovery import (
-        register, register_discovery_dir, discover,
-        register_from_params,
+        discover,
+        register,
+        register_discovery_dir,
     )
-    from l1.kernel import params as _p
-    from l1.kernel.params import system as _ps, api as _pa, tool as _pt, agent as _pag
-    from l1.kernel.params import kernel as _pk, gatechain as _pgc
+    from l1.kernel.params import agent as _pag
+    from l1.kernel.params import api as _pa
+    from l1.kernel.params import gatechain as _pgc
+    from l1.kernel.params import kernel as _pk
+    from l1.kernel.params import system as _ps
+    from l1.kernel.params import tool as _pt
 
     # Register params-derived defaults for each config section
     register("build_detectors", {
@@ -641,13 +645,12 @@ def _load_config() -> dict:
 def _init_kernel_and_vfs() -> dict:
     """Init kernel core services + VFS + config + devices."""
     from l1.kernel import get_event_bus
-    from l1.kernel.constitution import get_constitution
     from l1.kernel.allocator import get_allocator
-    from l1.kernel.swapper import get_swapper
+    from l1.kernel.constitution import get_constitution
+    from l1.kernel.device import DeviceType, get_device_manager
     from l1.kernel.gatechain import get_gatechain
-    from l1.kernel.vfs import get_vfs, MountType
-    from l1.kernel.device import get_device_manager, DeviceType
-    from l1.kernel.params.system import KERNEL_VERSION
+    from l1.kernel.swapper import get_swapper
+    from l1.kernel.vfs import MountType, get_vfs
 
     results = {}
     for name, fn in [
@@ -675,7 +678,8 @@ def _init_kernel_and_vfs() -> dict:
     # re-load + flatten into SettingsCenter L2 so this step stays pure and
     # the apply side effects run exactly once per boot.
     from l3.config.config_loader import load as _cfg_load
-    from l3.config.settings_center import get_center, SettingsCenter as _SC
+    from l3.config.settings_center import SettingsCenter as _SC
+    from l3.config.settings_center import get_center
     try:
         _cfg_r = _cfg_load()
         if _cfg_r.get("success") and _cfg_r.get("data"):
@@ -796,7 +800,7 @@ def _init_system_bus() -> dict:
     """
     results = {}
     try:
-        from l1.kernel.bus import get_root_bus, SystemBus
+        from l1.kernel.bus import get_root_bus
         root = get_root_bus()
 
         # Mount sub-buses
@@ -804,8 +808,10 @@ def _init_system_bus() -> dict:
 
         # Register global components
         from l3.services.global_components import (
-            StatsCenterComponent, RecordCenterComponent,
-            EventBusComponent, CentralControllerComponent,
+            CentralControllerComponent,
+            EventBusComponent,
+            RecordCenterComponent,
+            StatsCenterComponent,
         )
         gs.register(StatsCenterComponent())
         gs.register(RecordCenterComponent())
@@ -840,7 +846,8 @@ def _init_services() -> dict:
     except Exception as e:
         logger.warning("monitor_bus init: %s", e)
     try:
-        from l3.bus.monitor_bus import MonitorEvent, get_bus as _mb
+        from l3.bus.monitor_bus import MonitorEvent
+        from l3.bus.monitor_bus import get_bus as _mb
         _mb().emit(MonitorEvent(type="system.boot", source="boot", severity="info", message="System booted"))
     except Exception:
         logger.debug("boot: boot event emit failed")
@@ -871,13 +878,13 @@ def _init_services() -> dict:
 
 def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -> dict:
     """Create Cell with configured agents + Scout pool."""
-    from l3.cell import get_cell
-    from l3.agent.scout import get_pool as get_scout_pool
     from l1.kernel import register_process
-    from l1.kernel.vfs import get_vfs, MountType
+    from l1.kernel.params.agent import AGENT_PRIORITY
+    from l1.kernel.vfs import MountType, get_vfs
+    from l3.agent.scout import get_pool as get_scout_pool
+    from l3.cell import get_cell
     from l3.scheduler.scheduler import get_time_scheduler
     from l3.services.fault_tolerance import get_service as get_ft
-    from l1.kernel.params.agent import AGENT_PRIORITY
 
     cell = get_cell(DEFAULT_CELL_ID)
     get_ft().start()

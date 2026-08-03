@@ -6,9 +6,9 @@ Extracted from boot/boot.py to reduce the 804-line file.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dataclasses import dataclass, field
-from typing import Any, Callable
 
 from l1.kernel.params.kernel import BOOT_STEP_TIMEOUT
 

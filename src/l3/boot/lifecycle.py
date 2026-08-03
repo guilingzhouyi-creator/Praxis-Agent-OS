@@ -21,7 +21,7 @@ import sys
 import time
 from typing import Any
 
-from l1.kernel.lifecycle import get_lifecycle, LifecycleState, transition
+from l1.kernel.lifecycle import LifecycleState, get_lifecycle, transition
 
 logger = logging.getLogger(__name__)
 

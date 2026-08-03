@@ -22,19 +22,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l1.kernel.ports import (
-    register_port, get_port, reset_ports,
-    TransportPort, ChannelPort, EventBusPort,
-    WorkerPort, I18nPort, CardRegistryPort, MonitorBusPort,
-)
 from l1.kernel.params.api import (
-    I18N_DEFAULT_LOCALE,
-    I18N_LOCALE_DIR,
     CHANNEL_RING_CAPACITY,
     CHANNEL_RING_OVERWRITE,
-    WORKER_POOL_MIN,
+    I18N_DEFAULT_LOCALE,
+    I18N_LOCALE_DIR,
     WORKER_POOL_MAX,
+    WORKER_POOL_MIN,
     WORKER_POOL_QUEUE_SIZE,
+)
+from l1.kernel.ports import (
+    get_port,
+    register_port,
+    reset_ports,
 )
 
 logger = logging.getLogger(__name__)
