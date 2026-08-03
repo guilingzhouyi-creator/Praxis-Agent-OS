@@ -51,8 +51,8 @@ class TestBootExecWithTimeout:
 
     def _get_fn(self):
         """Lazy import to avoid boot side-effects at module level."""
-        from l3.boot.boot import _exec_with_timeout, _get_executor
-        return _exec_with_timeout, _get_executor
+        from l3.boot.boot_registry import exec_step_with_timeout, _get_executor
+        return exec_step_with_timeout, _get_executor
 
     def test_exec_normal(self):
         """Normal execution returns the function result."""
@@ -106,8 +106,8 @@ class TestBootExecWithTimeout:
         assert e1 is e2, "_get_executor should return the same singleton"
 
     def test_executor_max_workers_one(self):
-        """Executor should have exactly 1 worker."""
+        """Executor pool should have a bounded worker count (4)."""
         _, get_exec = self._get_fn()
         exec_ft, _ = self._get_fn()
         pool = get_exec()
-        assert pool._max_workers == 1
+        assert pool._max_workers == 4

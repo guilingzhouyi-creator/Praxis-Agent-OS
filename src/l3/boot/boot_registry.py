@@ -90,13 +90,18 @@ def exec_step_with_timeout(fn: Callable, timeout: float = BOOT_STEP_TIMEOUT) -> 
     ex = _get_executor()
     fut = ex.submit(fn)
     try:
-        return fut.result(timeout=timeout)
+        result = fut.result(timeout=timeout)
     except TimeoutError:
         logger.warning("boot step timed out after %.1fs", timeout)
-        return {"success": False, "error": "timeout"}
+        return {"success": False, "error": "timed out"}
     except Exception as e:
         logger.warning("boot step failed: %s", e)
         return {"success": False, "error": str(e)}
+    if isinstance(result, dict):
+        return result
+    # Non-dict results are wrapped so callers always get a dict (boot steps
+    # call .get("success", True) on the result).
+    return {"success": True, "result": result}
 
 
 def lock_registry() -> None:
