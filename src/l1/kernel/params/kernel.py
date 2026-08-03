@@ -6,15 +6,13 @@ Split from:
   gatechain                   → params/gatechain.py
 """
 
-import os as _os_env
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Final
 
 # ── Backward-compatible re-exports (callers can still import from kernel.py) ──
 from .allocator import *  # noqa: F401, F403
-from .sync import *       # noqa: F401, F403
 from .gatechain import *  # noqa: F401, F403
-
+from .sync import *  # noqa: F401, F403
 
 # ── Event bus ──
 EVENT_MAX_HISTORY: Final[int] = 200

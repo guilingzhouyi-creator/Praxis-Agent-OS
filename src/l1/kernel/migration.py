@@ -7,7 +7,7 @@ Migrations are registered at module import time and executed during install().
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

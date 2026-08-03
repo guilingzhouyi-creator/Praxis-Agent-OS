@@ -29,6 +29,7 @@ import logging
 from typing import Any
 
 from l1.kernel.params.system import LOG_TRUNC_200
+
 logger = logging.getLogger(__name__)
 
 # ── ErrorBus capture callback (registered at boot from L3 wiring)

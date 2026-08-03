@@ -16,13 +16,12 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
 
 from .params.api import DEVICE_RATE_LIMIT_LLM
 from .params.kernel import (
-    DEVICE_HEALTH_INTERVAL,
     DEVICE_DEGRADED_THRESHOLD,
     DEVICE_DOWN_THRESHOLD,
+    DEVICE_HEALTH_INTERVAL,
     DEVICE_MIN_CALLS_DEGRADED,
     DEVICE_MIN_CALLS_DOWN,
 )

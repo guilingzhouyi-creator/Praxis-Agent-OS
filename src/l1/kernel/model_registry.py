@@ -24,17 +24,23 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from l1.kernel.discovery import get_config
-
 from l1.kernel.params.api import (
-    ENV_OPENAI_KEY, ENV_OPENAI_URL, ENV_OPENAI_MODEL,
-    ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
-    ENV_OLLAMA_URL, ENV_OLLAMA_MODEL,
-    ENV_LLM_WS_URL, ENV_LLM_WS_MODEL,
+    ENV_ANTHROPIC_KEY,
+    ENV_ANTHROPIC_MODEL,
+    ENV_ANTHROPIC_URL,
     ENV_DEEPSEEK_KEY,
+    ENV_LLM_WS_MODEL,
+    ENV_LLM_WS_URL,
+    ENV_OLLAMA_MODEL,
+    ENV_OLLAMA_URL,
+    ENV_OPENAI_KEY,
+    ENV_OPENAI_MODEL,
+    ENV_OPENAI_URL,
 )
 
 logger = logging.getLogger(__name__)

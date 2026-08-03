@@ -2,7 +2,6 @@
 
 from typing import Final
 
-
 # ── Mutex ──
 
 MUTEX_DEFAULT_TIMEOUT: Final[float] = 30.0

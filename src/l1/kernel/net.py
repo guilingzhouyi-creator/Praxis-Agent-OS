@@ -22,15 +22,18 @@ import os
 import socket
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
 
-from .params.api import PRAXIS_PORT_DEFAULT, ENV_PRAXIS_PORT
-from .params.system import NET_PEER_TIMEOUT
-from .net_transport import TransportConfig, TcpAdapter
+from .net_transport import TcpAdapter, TransportConfig
+from .params.api import ENV_PRAXIS_PORT, PRAXIS_PORT_DEFAULT
 from .ports import (
-    TransportPort, EventBusPort, I18nPort, CardRegistryPort,
-    Endpoint, Message, Event,
+    CardRegistryPort,
+    Endpoint,
+    Event,
+    EventBusPort,
+    I18nPort,
+    TransportPort,
     get_port,
 )
 

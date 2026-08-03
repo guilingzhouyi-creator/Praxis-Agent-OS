@@ -2,12 +2,6 @@
 
 from typing import Final
 
-from .system import (
-    MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX, SCOUT_TIMEOUT,
-    TOOL_SCOUT_RUN_TIMEOUT, TOOL_SCOUT_MAX_STEPS,
-)
-
-
 # ── Tool danger levels ──
 
 TOOL_DANGER_LEVEL: Final[dict[int, str]] = {

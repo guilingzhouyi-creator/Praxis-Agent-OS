@@ -24,7 +24,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_2000, LOG_TRUNC_50, LOG_TRUNC_60
+from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, LOG_TRUNC_200, LOG_TRUNC_2000
+
 logger = logging.getLogger(__name__)
 
 

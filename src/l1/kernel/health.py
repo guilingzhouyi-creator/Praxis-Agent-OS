@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.system import LOG_TRUNC_120
+
 logger = logging.getLogger(__name__)
 
 # Known kernel modules (must be importable at runtime)

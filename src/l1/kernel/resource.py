@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from .params.agent import DEFAULT_AGENT_CONFIGS
 from .params.kernel import (
-    RESOURCE_PROFILE_DEFAULTS,
+    RESOURCE_DEFAULT_COST,
     RESOURCE_FALLBACK_AGENT,
     RESOURCE_KEYS,
-    RESOURCE_DEFAULT_COST,
+    RESOURCE_PROFILE_DEFAULTS,
 )
 
 logger = logging.getLogger(__name__)

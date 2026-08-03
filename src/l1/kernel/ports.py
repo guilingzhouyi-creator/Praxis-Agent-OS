@@ -19,18 +19,16 @@ Usage:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
+from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
 from l1.kernel.params.api import (
-    DEFAULT_REASONING_EFFORT,
-    DEFAULT_THINKING_BUDGET,
     LLM_DEFAULT_CACHE_BREAKPOINTS,
     LLM_DEFAULT_MAX_TOKENS,
     LLM_DEFAULT_TEMPERATURE,
 )
-from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
-
 
 # ── Shared value types ──────────────────────────────────────────────────────
 

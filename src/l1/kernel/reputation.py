@@ -15,18 +15,17 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 
 from l1.kernel.params.agent import (
     REP_DEFAULT_REPUTATION,
-    REP_MIN,
+    REP_DISPUTE_DISMISSED,
+    REP_DISPUTE_UPHELD,
     REP_MAX,
-    REP_TASK_SUCCESS,
-    REP_TASK_FAILURE,
+    REP_MIN,
     REP_REVIEW_APPROVED,
     REP_REVIEW_REJECTED,
-    REP_DISPUTE_UPHELD,
-    REP_DISPUTE_DISMISSED,
+    REP_TASK_FAILURE,
+    REP_TASK_SUCCESS,
 )
 
 logger = logging.getLogger(__name__)

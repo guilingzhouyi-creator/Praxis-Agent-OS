@@ -2,7 +2,6 @@
 
 from typing import Final
 
-
 # ── GateChain ──
 
 LEDGER_MAX_ENTRIES: Final[int] = 200

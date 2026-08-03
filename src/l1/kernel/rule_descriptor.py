@@ -27,9 +27,9 @@ Usage:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
 
 
 class RuleSeverity(Enum):

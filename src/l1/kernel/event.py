@@ -1,16 +1,17 @@
 """Kernel event bus — publish/subscribe with history and async dispatch."""
 from __future__ import annotations
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor
-from enum import Enum, auto
-from dataclasses import dataclass, field
-from threading import RLock
-from typing import Any, Callable
 
 import logging
 import time as _time
+from collections import deque
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from threading import RLock
+from typing import Any
 
-from .params.kernel import EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT, EVENT_BUS_WORKERS
+from .params.kernel import EVENT_BUS_WORKERS, EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 

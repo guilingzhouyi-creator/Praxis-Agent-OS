@@ -1,8 +1,7 @@
 """Constants: API, network, LLM, IPC, transport."""
 
-from typing import Final
 import socket as _socket
-
+from typing import Final
 
 # ── PAL Router (cost-optimized LLM routing) ──
 PAL_FRUGAL_COST: Final[int] = 1
@@ -187,11 +186,10 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 
 
 # ── IPC / RPC ──
-from dataclasses import dataclass
 import os as _os
+
 from ..paths import get_paths as _gp
 from ..platform import IS_NT as _IS_WIN
-from .kernel import IPC_REQUEST_TIMEOUT
 
 IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
 

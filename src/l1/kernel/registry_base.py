@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, Protocol, TypeVar
+from typing import Any, Generic, TypeVar
 
 from l1.kernel.params.system import LOG_TRUNC_200
+
 T = TypeVar("T", bound="RegisterableSpec")
 
 

@@ -20,34 +20,34 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections import deque, defaultdict
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
 
 from .params.kernel import (
-    LEDGER_MAX_ENTRIES,
-    LEDGER_RECENT_LIMIT,
-    LEDGER_COUNT_WINDOW,
-    GATECHAIN_DEFAULT_DANGER,
     GATECHAIN_DANGER_LEVELS,
-    GATECHAIN_TOOLS_KEY,
-    GATECHAIN_FREQ_MULTIPLIER,
-    GATECHAIN_RISK_WARN_THRESHOLD,
-    GATECHAIN_ESCALATION_DANGER,
-    GATECHAIN_SENDER,
-    GATECHAIN_L3_TARGET,
-    GATECHAIN_G5_HISTORY_LIMIT,
-    GATECHAIN_REPEAT_THRESHOLD,
-    GATECHAIN_HIGH_FREQ_THRESHOLD,
     GATECHAIN_DANGER_WEIGHT,
-    GATECHAIN_HISTORY_WEIGHT,
+    GATECHAIN_DEFAULT_DANGER,
+    GATECHAIN_ESCALATION_DANGER,
+    GATECHAIN_FREQ_MULTIPLIER,
     GATECHAIN_FREQ_WEIGHT,
-    GATECHAIN_REP_HIGH_THRESHOLD,
-    GATECHAIN_REP_LOW_THRESHOLD,
     GATECHAIN_G1_INDEX,
     GATECHAIN_G3_INDEX,
-    GATECHAIN_PATTERN_TEMPLATE, GateStatus,
+    GATECHAIN_G5_HISTORY_LIMIT,
+    GATECHAIN_HIGH_FREQ_THRESHOLD,
+    GATECHAIN_HISTORY_WEIGHT,
+    GATECHAIN_L3_TARGET,
+    GATECHAIN_PATTERN_TEMPLATE,
+    GATECHAIN_REP_HIGH_THRESHOLD,
+    GATECHAIN_REP_LOW_THRESHOLD,
+    GATECHAIN_REPEAT_THRESHOLD,
+    GATECHAIN_RISK_WARN_THRESHOLD,
+    GATECHAIN_SENDER,
+    GATECHAIN_TOOLS_KEY,
+    LEDGER_COUNT_WINDOW,
+    LEDGER_MAX_ENTRIES,
+    LEDGER_RECENT_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -293,7 +293,7 @@ def _gate_g4(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     danger = ctx.get("_danger", 0)
     if danger >= GATECHAIN_ESCALATION_DANGER:
-        from .event import get_bus, Signal, SignalType
+        from .event import Signal, SignalType, get_bus
         get_bus().emit(Signal(type=SignalType.REVIEW_REQUESTED,
                                sender=GATECHAIN_SENDER, target=GATECHAIN_L3_TARGET,
                                data={"tool": ctx["tool"], "agent_id": ctx["agent_id"],

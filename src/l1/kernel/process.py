@@ -21,20 +21,19 @@ import logging
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any
 
 from .params.kernel import (
-    PROCESS_AUDIT_MAX,
-    PROCESS_INIT_NAME,
-    PROCESS_INIT_ROLE,
-    PROCESS_INIT_RING,
-    PROCESS_DEFAULT_RING,
     PROCESS_AUDIT_LOG_LIMIT,
-    ZOMBIE_REAPER_INTERVAL,
-    ZOMBIE_MAX_AGE,
+    PROCESS_AUDIT_MAX,
+    PROCESS_DEFAULT_RING,
+    PROCESS_INIT_NAME,
+    PROCESS_INIT_RING,
+    PROCESS_INIT_ROLE,
     PROCESS_TABLE_MAX,
+    ZOMBIE_MAX_AGE,
+    ZOMBIE_REAPER_INTERVAL,
 )
 
 logger = logging.getLogger(__name__)

@@ -26,18 +26,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 import threading
 import time
-from typing import Any
 
 from .params.system import (
-    PERSIST_AUTO,
-    PERSIST_INTERVAL,
-    PERSIST_QUERY_LIMIT,
     PERSIST_EXPORT_LIMIT,
-    PERSIST_EXPORT_INTERRUPT_LIMIT,
+    PERSIST_QUERY_LIMIT,
 )
 from .paths import get_paths as _gp
 
@@ -172,10 +167,11 @@ def replay() -> dict:
     Each event type maps to a handler that mutates kernel state.
     Cannot be used if kernel is already loaded (call before init).
     """
-    import l1.kernel.process as proc
     import l1.kernel.__init__ as kinit
     import l1.kernel.device as dev
-    from l1.kernel.interrupt import get_table as int_table, InterruptType
+    import l1.kernel.process as proc
+    from l1.kernel.interrupt import InterruptType
+    from l1.kernel.interrupt import get_table as int_table
 
     stats = {"events": 0, "processes": 0, "audit": 0, "devices": 0, "interrupts": 0}
 

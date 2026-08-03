@@ -15,10 +15,11 @@ import logging
 import threading
 import time
 import uuid
-from collections import defaultdict, deque
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
 from .params.kernel import IPC_DEFAULT_PRIORITY, IPC_MSG_ID_LENGTH, IPC_REQUEST_TIMEOUT
 

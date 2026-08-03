@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 
 from l1.kernel.params.system import LOG_TRUNC_80
+
 logger = logging.getLogger(__name__)
 
 # ── Built-in defaults ──

@@ -21,15 +21,15 @@ import logging
 import os as _os
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any, Callable
 
 from .params.kernel import (
     SHUTDOWN_TIMEOUT,
-    WATCHDOG_INTERVAL,
-    WATCHDOG_ZOMBIE_LIMIT,
     WATCHDOG_IDLE_LIMIT,
     WATCHDOG_INTERRUPT_LIMIT,
+    WATCHDOG_INTERVAL,
+    WATCHDOG_ZOMBIE_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,10 +100,9 @@ class OS:
                 self._boot_result = r
                 logger.info("OS boot OK: %s agents in %.2fs", r.get("agent_count", 0), r.get("elapsed", 0))
                 return r
-            else:
-                with self._lock:
-                    self.state = OSState.CRASHED
-                return r
+            with self._lock:
+                self.state = OSState.CRASHED
+            return r
         except Exception as e:
             with self._lock:
                 self.state = OSState.CRASHED
@@ -215,8 +214,8 @@ class OS:
 
     def _watchdog_tick(self) -> None:
         """Single watchdog check — process liveness, interrupt health (single pass)."""
-        from .process import get_table, ProcessState
         from .interrupt import get_table as int_table
+        from .process import get_table
 
         pt = get_table()
         procs = pt.list()

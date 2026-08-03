@@ -17,11 +17,9 @@ import json
 import logging
 import os
 import threading
-import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -136,19 +134,19 @@ class LifecycleRegistry:
     def record_boot_success(self) -> None:
         self.load()
         self._record.boot_count += 1
-        self._record.last_boot = datetime.now(timezone.utc).isoformat()
+        self._record.last_boot = datetime.now(UTC).isoformat()
         self._record.last_boot_success = True
         self.save()
 
     def record_boot_failure(self) -> None:
         self.load()
-        self._record.last_boot = datetime.now(timezone.utc).isoformat()
+        self._record.last_boot = datetime.now(UTC).isoformat()
         self._record.last_boot_success = False
         self.save()
 
     def record_shutdown(self, clean: bool = True) -> None:
         self.load()
-        self._record.last_shutdown = datetime.now(timezone.utc).isoformat()
+        self._record.last_shutdown = datetime.now(UTC).isoformat()
         self._record.last_shutdown_clean = clean
         self.save()
 

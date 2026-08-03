@@ -16,17 +16,18 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_100
+
 from .allocator import get_allocator
 from .params.kernel import (
-    SWAPPER_DEFAULT_INTERVAL,
-    SWAPPER_SWAP_COUNT,
-    SWAPPER_PRESSURE_LOW,
-    SWAPPER_PRESSURE_HIGH,
-    SWAPPER_SWAP_OUT_IMPORTANCE,
     SWAPPER_COMPACT_IMPORTANCE,
+    SWAPPER_DEFAULT_INTERVAL,
+    SWAPPER_PRESSURE_HIGH,
+    SWAPPER_PRESSURE_LOW,
     SWAPPER_RECALL_LIMIT,
+    SWAPPER_SWAP_COUNT,
+    SWAPPER_SWAP_OUT_IMPORTANCE,
 )
-from l1.kernel.params.system import LOG_TRUNC_100
 
 logger = logging.getLogger(__name__)
 

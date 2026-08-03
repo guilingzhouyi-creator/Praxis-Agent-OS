@@ -32,15 +32,14 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+
+from l1.kernel.params.system import LOG_TRUNC_40
 
 from .params.kernel import (
-    GATECHAIN_PATTERN_TEMPLATE,
+    CHAIN_KEY_ENV_VAR,
     TOOLCHAIN_MAX_CALLS,
     TOOLCHAIN_QUERY_LIMIT,
-    CHAIN_KEY_ENV_VAR,
 )
-from l1.kernel.params.system import LOG_TRUNC_40
 from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)

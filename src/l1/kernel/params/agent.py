@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from typing import Any, Final
 
-
 # ── Constitution rules ──
 
 @dataclass
@@ -198,6 +197,7 @@ CONSTITUTION_CUSTOM_SECTION: Final[str] = "§custom"
 
 import os as _os
 import tempfile as _tf
+
 _SANDBOX_DEFAULT = _os.path.join(_tf.gettempdir(), "praxis-sandbox")
 SANDBOX_ROOT_PATH: Final[str] = _os.environ.get("PRAXIS_SANDBOX_ROOT", _SANDBOX_DEFAULT)
 

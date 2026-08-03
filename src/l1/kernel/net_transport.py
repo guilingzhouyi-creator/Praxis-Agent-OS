@@ -22,33 +22,36 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import socket
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from .params.api import (
-    ENV_DISCOVERY_PORT,
-    ENV_PRAXIS_PORT,
-    DISCOVERY_PORT_DEFAULT,
-    PRAXIS_PORT_DEFAULT,
     BROADCAST_INTERVAL,
-    NET_TLS_ENABLED,
+    DISCOVERY_PORT_DEFAULT,
     NET_TLS_CERT_PATH,
+    NET_TLS_ENABLED,
     NET_TLS_KEY_PATH,
-    TCP_RECV_BUF_SIZE,
+    PRAXIS_PORT_DEFAULT,
     TCP_LISTEN_BACKLOG,
-    TRANSPORT_VERSION,
-    TRANSPORT_SOCKET_TIMEOUT,
+    TCP_RECV_BUF_SIZE,
     TRANSPORT_SOCKET_FAMILY,
+    TRANSPORT_SOCKET_TIMEOUT,
+    TRANSPORT_VERSION,
 )
 from .params.system import NET_PEER_TIMEOUT
-from .platform import IS_WINDOWS
 from .ports import (
-    TransportPort, WorkerPort, ChannelPort,
-    Endpoint, Result as PortResult, Message,
+    ChannelPort,
+    Endpoint,
+    Message,
+    TransportPort,
+    WorkerPort,
+)
+from .ports import (
+    Result as PortResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -281,7 +284,7 @@ class TcpAdapter(TransportPort):
             try:
                 data, addr = sock.recvfrom(1024)
                 self._on_announcement(data, addr)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except Exception:
                 logger.debug("discovery listener: unexpected error, continuing")
@@ -401,7 +404,7 @@ class TcpAdapter(TransportPort):
                 conn, addr = sock.accept()
                 # Connection handling via worker pool — no raw Thread
                 self._worker.submit(self._handle_conn, conn, addr)
-            except socket.timeout:
+            except TimeoutError:
                 continue
 
     def _handle_conn(self, conn: socket.socket, addr: tuple) -> None:

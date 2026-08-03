@@ -17,12 +17,11 @@ Also provides:
 
 from __future__ import annotations
 
-import json
 import logging
 import os as _os
 import re
 import threading
-import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -44,7 +43,7 @@ from .params.agent import (
     SANDBOX_ROOT_PATH,
 )
 from .params.system import DEFAULT_TOKEN_BUDGET
-from .rule_descriptor import RuleDescriptor, RuleSeverity, CheckResult, str_to_severity
+from .rule_descriptor import CheckResult, RuleDescriptor, RuleSeverity, str_to_severity
 
 logger = logging.getLogger(__name__)
 
