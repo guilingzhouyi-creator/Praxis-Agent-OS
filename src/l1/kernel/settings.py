@@ -32,6 +32,7 @@ DEFAULTS: dict[str, Any] = {
     "persist.enabled": True,
     "persist.interval": 30.0,
     "memory.graph.enabled": False,
+    "memory.mer.enabled": False,
 }
 
 

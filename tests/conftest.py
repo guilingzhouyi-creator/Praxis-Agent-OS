@@ -11,6 +11,7 @@ _RESETS = {
     "l3.card.issue": ("reset_table", None),
     "l3.memory.memory": ("reset_memory", None),
     "l3.memory.memory_graph": ("reset_graph", None),
+    "l3.memory.memory_mer": ("reset_mer", None),
     "l3.config.settings_center": ("reset_center", None),
     "l3.tool_system.tool_registry": ("clear_mutes", None),
     "l3.memory.r4_agent": ("stop_r4_agent", None),

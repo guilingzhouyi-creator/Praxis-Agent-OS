@@ -411,6 +411,36 @@ class ApiHandlers:
                 "edges": get_graph().semantic_edges(
                     limit=int((body or {}).get("limit", 50)))}
 
+    # ── Mer 符号化记忆（旁路）──────────────────────────────
+
+    def _memory_mer_status(self, body: dict | None = None) -> dict:
+        """GET /api/memory/mer — Mer transformer state + stats."""
+        from l3.memory.memory_mer import get_mer
+        return {"success": True, "mer": get_mer().stats()}
+
+    def _memory_mer_set(self, body: dict | None = None) -> dict:
+        """PUT /api/memory/mer — toggle Mer side-channel (persisted)."""
+        b = body or {}
+        if "enabled" not in b:
+            return {"success": False, "error": "enabled (bool) is required"}
+        flag = bool(b["enabled"])
+        try:
+            from l3.config.settings_center import get_center as _sc
+            _sc().set("memory.mer.enabled", flag)
+        except Exception:
+            pass
+        from l3.memory.memory_mer import get_mer
+        m = get_mer()
+        m.set_enabled(flag)
+        return {"success": True, "enabled": m.enabled,
+                "persisted": "memory.mer.enabled"}
+
+    def _memory_mer_transform(self, body: dict | None = None) -> dict:
+        """POST /api/memory/mer/transform — run one Mer pass (manual)."""
+        from l3.memory.memory_mer import get_mer
+        return get_mer().transform_and_archive(
+            scope_ids=(body or {}).get("scope_ids"))
+
     def _plugin_list(self, body: dict | None = None) -> dict:
         from l3.services.central_plugin import get_center
         kind = (body or {}).get("kind", "")

@@ -94,6 +94,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/memory/graph/compact", ".memory_graph_compact", "Run graph reduction (dry_run by default)"),
     ("POST", "/api/memory/graph/edge",    ".memory_graph_edge",   "Add a semantic edge (contradicts/depends_on/refines)"),
     ("GET", "/api/memory/graph/semantic", ".memory_graph_semantic", "List semantic edges"),
+    ("GET", "/api/memory/mer",            ".memory_mer_status",  "Mer symbolization state + stats"),
+    ("PUT", "/api/memory/mer",            ".memory_mer_set",     "Toggle Mer side-channel (persisted)"),
+    ("POST", "/api/memory/mer/transform", ".memory_mer_transform", "Run one Mer pass (manual)"),
 
     # Shell
     ("POST", "/api/shell",             ".shell_dispatch",     "Shell command dispatch"),

@@ -328,6 +328,21 @@ class L3ADaemon:
         if auto_compressed:
             results["auto_compressed_count"] = auto_compressed
 
+        # Mer 旁路：定期聚合多 Agent R1-R3 → 符号化 Mer 图 → 受控入 R4
+        # （开关 memory.mer.enabled 控制；旁路失败不影响主流程）
+        try:
+            from l3.memory.memory_mer import get_mer
+            mer = get_mer()
+            if mer.enabled:
+                mr = mer.transform_and_archive()
+                if mr.get("archived"):
+                    results["mer_archived"] = mr["archived"]
+                    results["mer_entries"] = mr.get("entries", 0)
+        except Exception as e:
+            capture("l3a: mer transform failed", error_code="E_L3A_DAEMON",
+                    component="l3a", context={"error": str(e)})
+            logger.debug("l3a: mer transform failed: %s", e)
+
         idle_timeout = _p.IDLE_TIMEOUT_DEFAULT
         try:
             from l3.config.settings_center import get_center
