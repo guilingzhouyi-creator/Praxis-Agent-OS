@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
 import threading
 import time
@@ -84,7 +83,7 @@ class TerminalManager:
         try:
             proc = create_interactive_shell(cwd=cwd or "")
         except FileNotFoundError:
-            return {"success": False, "error": f"shell not found"}
+            return {"success": False, "error": "shell not found"}
         except Exception as e:
             return {"success": False, "error": str(e)}
         session = TerminalSession(id=sid, pid=proc.pid, process=proc)

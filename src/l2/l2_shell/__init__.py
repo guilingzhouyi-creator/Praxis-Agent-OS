@@ -14,19 +14,33 @@ import logging
 import shlex
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.commands import get_command, get_handler, get_registry as _get_cmd_reg
+from l1.kernel.commands import get_command, get_handler
+from l1.kernel.commands import get_registry as _get_cmd_reg
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 
 from .commands import (
-    preconnect_enhanced, _pipeline, list_commands,
-    _cmd_connect, _cmd_disconnect, _cmd_mode, _cmd_agents, _cmd_help,
-    _cmd_status, _cmd_intents, _cmd_scheduler, _cmd_observe,
-    _cmd_skills, _cmd_memory, _cmd_plugins, _cmd_security,
-    _cmd_cells, _cmd_cross,
+    _cmd_agents,
+    _cmd_cells,
+    _cmd_connect,
+    _cmd_cross,
+    _cmd_disconnect,
+    _cmd_help,
+    _cmd_intents,
+    _cmd_memory,
+    _cmd_mode,
+    _cmd_observe,
+    _cmd_plugins,
+    _cmd_scheduler,
+    _cmd_security,
+    _cmd_skills,
+    _cmd_status,
+    _pipeline,
+    list_commands,
+    preconnect_enhanced,
 )
-from .completer import autocomplete, _complete_role, _complete_agent  # noqa: F401
+from .completer import _complete_agent, _complete_role, autocomplete  # noqa: F401
 from .output_guard import guard_output, set_output_guard  # noqa: F401
-from .state import get_state, reset_state, ShellState  # noqa: F401
+from .state import ShellState, get_state, reset_state  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

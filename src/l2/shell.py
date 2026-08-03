@@ -10,26 +10,30 @@ Tab completion extracted to shell_completer.py
 
 from __future__ import annotations
 
-import os as _os
+import logging
 import subprocess
-import time
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
 from l1.kernel.params.system import (
-    LOG_TRUNC_50, LOG_TRUNC_100, LOG_TRUNC_200,
+    LOG_TRUNC_50,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
     SCOUT_FINDINGS_DISPLAY_LIMIT,
     SHELL_AUTOCOMPLETE_DISPLAY_LIMIT,
     TERMINAL_OUTPUT_MAX_LINES,
     TOOL_RESULT_DISPLAY_LIMIT,
 )
-from l1.kernel.platform import IS_WINDOWS, run_shell
+from l1.kernel.platform import run_shell
 from l3.agent.scout import get_pool as _get_scout_pool
 from l3.cell import get_cell as _get_cell
-from l3.tool_system.tool_spec import get_tool, execute_tool_spec, list_tools as _list_tools_
+from l3.tool_system.tool_spec import execute_tool_spec, get_tool
 from l3.tool_system.tool_spec import execute_tool_spec as _execute_l3_tool
-from .shell_session import TerminalSession, TerminalManager, get_manager, reset_manager
-from .shell_completer import get_command_names, get_aliases, get_command_help, TerminalCompleter, get_tool_names
+from l3.tool_system.tool_spec import list_tools as _list_tools_
+
+from .shell_completer import TerminalCompleter, get_aliases, get_command_help, get_command_names
+
+logger = logging.getLogger(__name__)
 
 # ── Terminal REPL — Tab completion, command parsing, direct session ──
 
@@ -59,11 +63,11 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
     history_pos = 0
 
     print("Agent OS Terminal — Type 'help' for commands, 'exit' to quit")
-    print(f"  !<intent>              → L3A direct session")
-    print(f"  !<intent>@<cell>/<agent> → Route to specific Cell/Agent")  
-    print(f"  !scout <task>          → Scout investigation")
-    print(f"  $ <command>            → Raw system command (Bash/PowerShell)")
-    print(f"  <tool> <args>          → Tool execution (aliases: rf→read_file)")
+    print("  !<intent>              → L3A direct session")
+    print("  !<intent>@<cell>/<agent> → Route to specific Cell/Agent")
+    print("  !scout <task>          → Scout investigation")
+    print("  $ <command>            → Raw system command (Bash/PowerShell)")
+    print("  <tool> <args>          → Tool execution (aliases: rf→read_file)")
     print()
 
     while True:
@@ -81,20 +85,20 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
 
         if line == "exit" or line == "q":
             break
-        elif line in ("clear", "clr"):
+        if line in ("clear", "clr"):
             print("\033[2J\033[H", end="")  # ANSI clear screen (cross-platform)
             continue
-        elif line in ("help", "h"):
+        if line in ("help", "h"):
             _show_help()
             continue
-        elif line in ("tools", "tl"):
+        if line in ("tools", "tl"):
             _list_tools()
             continue
-        elif line in ("history", "hist"):
+        if line in ("history", "hist"):
             for i, h in enumerate(history[-TERMINAL_OUTPUT_MAX_LINES:], 1):
                 print(f"  {i:3d}  {h}")
             continue
-        elif line in ("status", "st"):
+        if line in ("status", "st"):
             _handle_tool_call("agent_status", agent_id)
         elif line.startswith("!"):
             rest = line[1:].strip()
@@ -185,8 +189,6 @@ def _handle_system_command(cmd: str) -> None:
     """Execute a raw system command via subprocess (Bash/PowerShell)."""
     if not cmd:
         return
-    import subprocess
-    import shlex
     try:
         proc = run_shell(cmd, timeout=SHELL_CMD_TIMEOUT)
         if proc.stdout:
@@ -199,7 +201,7 @@ def _handle_system_command(cmd: str) -> None:
     except subprocess.TimeoutExpired:
         print(f"  [Error] Command timed out after {SHELL_CMD_TIMEOUT}s")
     except FileNotFoundError:
-        print(f"  [Error] Shell not found")
+        print("  [Error] Shell not found")
     except Exception as e:
         print(f"  [Error] {e}")
 

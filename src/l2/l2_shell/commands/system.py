@@ -1,10 +1,13 @@
 from __future__ import annotations
-import logging, time
+
+import logging
+
 logger = logging.getLogger(__name__)
 
 def _cmd_status(args: list[str]) -> dict:
     from l1.kernel.health import safe_system_check as _health
-    from l1.kernel.process import get_table; from l3.agent_terminal import get_terminals
+    from l1.kernel.process import get_table
+    from l3.agent_terminal import get_terminals
     h = _health(); print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
     for name, r in h.get("subsystems", {}).items(): print(f"  [{r['status']}] {name}")
     print(f"\nProcesses: {len(get_table().list())}")
@@ -44,12 +47,13 @@ def _cmd_observe(args: list[str]) -> dict:
     return {"success": True, "data": get_obs_bus().summary()}
 
 def _cmd_skills(args: list[str]) -> dict:
-    from l1.kernel.skill import get_skill_manager; from l1.kernel.params.system import SKILL_LEAN_CASES_LIMIT
+    from l1.kernel.params.system import SKILL_LEAN_CASES_LIMIT
+    from l1.kernel.skill import get_skill_manager
     sm = get_skill_manager(); skills = sm.list()
     return {"success": True, "skills": skills[:SKILL_LEAN_CASES_LIMIT], "count": len(skills)}
 
 def _cmd_process(args: list[str]) -> dict:
-    from l1.kernel.process import get_table; from l1.kernel.registry import get_registry
+    from l1.kernel.process import get_table
     if args and args[0] == "audit": return {"success": True, "audit": get_table().audit_log()}
     return {"success": True, "processes": get_table().list()}
 
@@ -60,7 +64,8 @@ def _cmd_vfs(args: list[str]) -> dict:
     return r
 
 def _cmd_cache(args: list[str]) -> dict:
-    from l3.cell import get_cell; from l1.kernel.params.agent import DEFAULT_CELL_ID
+    from l1.kernel.params.agent import DEFAULT_CELL_ID
+    from l3.cell import get_cell
     cell = get_cell(DEFAULT_CELL_ID)
     return {"success": True, "cache": cell.cache.stats() if hasattr(cell, 'cache') else {}}
 
@@ -76,7 +81,7 @@ def _cmd_history(args: list[str]) -> dict:
     return {"success": True, "history": [], "limit": limit}
 
 def _cmd_lang(args: list[str]) -> dict:
-    from l2.i18n import set_locale, get_locale, get_available_locales
+    from l2.i18n import get_available_locales, get_locale, set_locale
     if args: set_locale(args[0])
     return {"success": True, "locale": get_locale(), "available": get_available_locales()}
 

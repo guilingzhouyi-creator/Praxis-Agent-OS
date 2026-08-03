@@ -1,6 +1,10 @@
 from __future__ import annotations
+
 import logging
 from typing import Any
+
+from l3.error_bus import capture
+
 logger = logging.getLogger(__name__)
 
 def _cmd_config(args: list[str]) -> dict:
@@ -43,8 +47,8 @@ def _coerce_str(v: str) -> Any:
     return v
 
 def _model_list() -> dict:
-    from l3.services.model_service import get_service as _ms
     from l1.kernel.params.agent import AGENT_ROLE_TYPES
+    from l3.services.model_service import get_service as _ms
     ms = _ms(); lines = [f"Providers ({len(AGENT_ROLE_TYPES)} registered):"]
     for role in AGENT_ROLE_TYPES:
         try:
@@ -55,8 +59,8 @@ def _model_list() -> dict:
     return {"success": True, "output": "\n".join(lines)}
 
 def _model_switch(role: str, provider: str, model: str = "") -> dict:
-    from l3.config.settings_center import get_center
     from l1.kernel.params.agent import AGENT_CLEARANCE
+    from l3.config.settings_center import get_center
     if role not in AGENT_CLEARANCE: return {"success": False, "error": f"unknown role: {role}"}
     center = get_center(); prefix = f"model.{role}"; center.set(f"{prefix}.provider", provider)
     if model: center.set(f"{prefix}.model", model)

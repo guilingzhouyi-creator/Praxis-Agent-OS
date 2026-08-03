@@ -1,10 +1,15 @@
 from __future__ import annotations
+
 import logging
+
 from l2.selector import preselect
+
 logger = logging.getLogger(__name__)
 
 def _cmd_help(args: list[str]) -> dict:
-    from l1.kernel.commands import get_command; from .common import list_commands
+    from l1.kernel.commands import get_command
+
+    from .common import list_commands
     try:
         if args:
             cmd_name = args[0].lower().lstrip("/"); cmd = get_command(cmd_name)
@@ -42,7 +47,10 @@ def _cmd_agents(args: list[str]) -> dict:
 def _cmd_connect(args: list[str]) -> dict:
     from l3.agent_terminal import get_terminals
     if not args: return {"success": False, "error": "usage: /connect <agent_id>"}
-    from l3.cell import get_cell; from ..state import get_state; from l1.kernel.params.agent import DEFAULT_CELL_ID
+    from l1.kernel.params.agent import DEFAULT_CELL_ID
+    from l3.cell import get_cell
+
+    from ..state import get_state
     agent_id = args[0]; terms = get_terminals()
     if agent_id not in terms: return {"success": False, "error": f"unknown agent: {agent_id}"}
     state = get_state(); cell_id = DEFAULT_CELL_ID

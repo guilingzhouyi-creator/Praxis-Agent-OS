@@ -19,9 +19,8 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
 
 # ── Action type constants ──
 _ACTION_THINK = "think"
@@ -29,12 +28,14 @@ _ACTION_TOOL_CALL = "tool_call"
 _ACTION_DECISION = "decision"
 
 from l1.kernel import (
-    get_event_bus, Signal, SignalType,
+    Signal,
+    SignalType,
+    get_event_bus,
     get_limiter,
 )
 from l1.kernel.constitution import get_constitution
-from l3.memory.memory import get_memory as _get_mem
 from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, LOG_TRUNC_500
+from l3.memory.memory import get_memory as _get_mem
 
 logger = logging.getLogger(__name__)
 

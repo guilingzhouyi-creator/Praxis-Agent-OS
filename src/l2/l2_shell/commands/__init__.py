@@ -18,42 +18,82 @@ logger = logging.getLogger(__name__)
 _registry = get_registry()
 
 # ── Import sub-modules to register their @system_command handlers ──
-from . import connect   # noqa: F401
-from . import system    # noqa: F401
-from . import memory    # noqa: F401
-from . import model     # noqa: F401
-from . import extra     # noqa: F401
-from . import l3a       # noqa: F401
+from . import (
+    connect,  # noqa: F401
+    extra,  # noqa: F401
+    l3a,  # noqa: F401
+    memory,  # noqa: F401
+    model,  # noqa: F401
+    system,  # noqa: F401
+)
 
 # ── Backward-compatible re-exports ──
 from .common import (
-    _coerce, _parse_agent_ref, _register_handler, _list_defs,
-    preconnect_enhanced, list_commands, resolve_scope, resolve_agents,
+    _coerce,
+    _list_defs,
+    _parse_agent_ref,
+    _register_handler,
+    list_commands,
+    preconnect_enhanced,
+    resolve_agents,
+    resolve_scope,
 )
 from .connect import (
-    _cmd_connect, _cmd_disconnect, _cmd_mode, _cmd_agents,
-)
-from .system import (
-    _cmd_help, _cmd_status, _cmd_process, _cmd_devices, _cmd_vfs,
-    _cmd_sysinfo, _cmd_clear, _cmd_history, _cmd_lang, _cmd_tools,
-    _cmd_cache, _cmd_observe, _cmd_skills, _cmd_intents, _cmd_scheduler,
-)
-from .memory import (
-    _cmd_memory, _cmd_card, _cmd_plugins, _cmd_spawn, _cmd_kill,
-    _cmd_destroy, _cmd_emergency, _cmd_audit,
-    _cmd_tokens, _cmd_agent_restart, _cmd_agent_refresh,
-    _cmd_cell_create,
-)
-from .model import (
-    _cmd_model, _cmd_config, _cmd_cron, _cmd_settings,
+    _cmd_agents,
+    _cmd_connect,
+    _cmd_disconnect,
+    _cmd_mode,
 )
 from .extra import (
-    _cmd_cluster, _cmd_htn, _cmd_cross, _cmd_buffer,
-    _cmd_security, _cmd_mcp, _cmd_cells,
+    _cmd_buffer,
+    _cmd_cells,
+    _cmd_cluster,
+    _cmd_cross,
+    _cmd_htn,
+    _cmd_mcp,
+    _cmd_security,
 )
 from .l3a import (
     _cmd_l3a,
 )
+from .memory import (
+    _cmd_agent_refresh,
+    _cmd_agent_restart,
+    _cmd_audit,
+    _cmd_card,
+    _cmd_cell_create,
+    _cmd_destroy,
+    _cmd_emergency,
+    _cmd_kill,
+    _cmd_memory,
+    _cmd_plugins,
+    _cmd_spawn,
+    _cmd_tokens,
+)
+from .model import (
+    _cmd_config,
+    _cmd_cron,
+    _cmd_model,
+    _cmd_settings,
+)
+from .system import (
+    _cmd_cache,
+    _cmd_clear,
+    _cmd_devices,
+    _cmd_help,
+    _cmd_history,
+    _cmd_intents,
+    _cmd_lang,
+    _cmd_observe,
+    _cmd_process,
+    _cmd_scheduler,
+    _cmd_skills,
+    _cmd_status,
+    _cmd_sysinfo,
+    _cmd_tools,
+    _cmd_vfs,
+)
+
 
 # ── _pipeline (shared, inlined) ──
 def _pipeline(segments: list[str]) -> dict:

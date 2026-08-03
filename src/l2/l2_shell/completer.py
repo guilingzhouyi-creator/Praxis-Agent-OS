@@ -2,8 +2,9 @@
 
 import logging
 
-from l1.kernel.commands import get_command, list_commands as _list_defs
-from l1.kernel.params.system import SHELL_AUTOCOMPLETE_LIMIT, SHELL_AUTOCOMPLETE_AGENT_LIMIT
+from l1.kernel.commands import get_command
+from l1.kernel.commands import list_commands as _list_defs
+from l1.kernel.params.system import SHELL_AUTOCOMPLETE_AGENT_LIMIT, SHELL_AUTOCOMPLETE_LIMIT
 
 logger = logging.getLogger(__name__)
 

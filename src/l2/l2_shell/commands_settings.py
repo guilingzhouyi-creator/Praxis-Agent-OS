@@ -75,7 +75,6 @@ def _settings_global(args: list[str]) -> dict:
 
 def _settings_cell(cell_id: str, args: list[str]) -> dict:
     """Cell scope — manage settings via ACB (Agent Control Block)."""
-    from ..scheduler.acb import ACBService
     from ..scheduler.acb import get_service as get_acb
 
     acb = get_acb()

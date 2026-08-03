@@ -104,7 +104,6 @@ class TerminalCompleter:
         return candidates one by one until ``None`` signals end.
         """
         try:
-            import readline
             if state == 0:
                 if ' ' in text:
                     cmd, _, partial = text.rpartition(' ')

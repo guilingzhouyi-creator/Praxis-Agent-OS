@@ -8,23 +8,21 @@ Flow:
 
 from __future__ import annotations
 
-import copy
 import logging
 import re
 import threading
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import (
+    INJECTION_HIGH_RISK_THRESHOLD,
+    INJECTION_LENGTH_BOOST,
+    INJECTION_LENGTH_THRESHOLD,
+    INJECTION_MEDIUM_RISK_THRESHOLD,
     INJECTION_PATTERN_ZH1,
     INJECTION_PATTERN_ZH2,
-    INJECTION_HIGH_RISK_THRESHOLD,
-    INJECTION_MEDIUM_RISK_THRESHOLD,
     INJECTION_REVIEW_BOOST,
     INJECTION_REVIEW_REWARD,
-    INJECTION_LENGTH_THRESHOLD,
-    INJECTION_LENGTH_BOOST,
 )
 from l1.kernel.params.system import TLB_DEFAULT_RING
 from l3.error_bus import capture

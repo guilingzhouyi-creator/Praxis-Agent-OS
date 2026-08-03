@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import time
-import sys
 
 
 def cmd_boot(args) -> dict:
     from l1.kernel.os import get_os
-    from l1.kernel.params.agent import TERRITORY_PATHS, TERRITORY_MAP
-    from l3.boot.boot import wire_kernel_os, boot as l3_boot
+    from l1.kernel.params.agent import TERRITORY_MAP, TERRITORY_PATHS
+    from l3.boot.boot import boot as l3_boot
+    from l3.boot.boot import wire_kernel_os
 
     # Prefer restoring the previous boot snapshot (memories) so a restart
     # resumes with the same agent topology; fall back to territory paths.
@@ -74,8 +74,7 @@ def cmd_card(args) -> dict:
         return {"success": False, "error": "intent required"}
     intent = " ".join(args)
     domain = "."
-    from l3.cell import get_cell, reset_cells
-    from l3.agent_terminal import reset_terminals
+    from l3.cell import get_cell
     cell = get_cell("shell-cell", [domain])
     t0 = time.time()
     result = cell.execute_card(intent, domain=domain)
@@ -196,7 +195,7 @@ def cmd_status(args) -> dict:
         from l4.ops_console import get_ops
         ops = get_ops()
         s = ops.summary()
-        print(f"\nOps Console:")
+        print("\nOps Console:")
         print(f"  Cells: {s.get('cell_count', 0)}")
         print(f"  Agents: {sum(len(c.get('agents', {})) for c in s.get('cells', {}).values())}")
         al = s.get('alerts', {})
@@ -204,7 +203,7 @@ def cmd_status(args) -> dict:
     except Exception:
             pass
     from l1.kernel.params.kernel import SYSCALL_AUDIT_MAX
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  Kernel: {cmd_health([])['status']}")
     print(f"  Processes: {len(get_table().list())}")
     print(f"  Terminals: {len(get_terminals())}")
