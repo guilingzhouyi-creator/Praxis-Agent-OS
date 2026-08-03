@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import logging
+
+from l3.error_bus import capture
+
 logger = logging.getLogger(__name__)
 
 def _cmd_cluster(args: list[str]) -> dict:
     from l3.cell.peers.l3 import get_coordinator
-    from l1.kernel.params.agent import DEFAULT_CELL_ID
     coord = get_coordinator()
     if not args: return {"success": True, "data": {"state": "single", "cells": []}}
     sub = args[0].lower()
@@ -38,13 +41,12 @@ def _cmd_security(args: list[str]) -> dict:
 
 def _cmd_mcp(args: list[str]) -> dict:
     try:
-        from l4.mcp_bridge import get_bridge, McpClient
+        from l4.mcp_bridge import get_bridge
         bridge = get_bridge(); sub = args[0].lower() if args else "status"
         if sub in ("status", "list"):
             data = {"servers": bridge.get_status()}
             try:
-                from l4.api_handlers.api_handlers_mcp import get_export_mode
-                from l4.api_handlers.api_handlers_mcp import handle_mcp_tools_list
+                from l4.api_handlers.api_handlers_mcp import get_export_mode, handle_mcp_tools_list
                 data["server_mode"] = get_export_mode()
                 data["exported_tools"] = handle_mcp_tools_list().get("count", 0)
             except Exception:
@@ -127,6 +129,17 @@ def _cmd_stats(args: list[str]) -> dict:
                      "card.execution.cell", "card.execution.agent"],
             window=window)}
 
+    if sub == "graph":
+        from l3.memory.memory_graph import get_graph
+        g = get_graph()
+        return {"success": True, "graph": {
+            "enabled": g.enabled,
+            "edge_mode": g.edge_mode,
+            "stats": g.stats(),
+            "semantic": g.semantic_edges(limit=20),
+            "compact": g.compact_report(min_degree=2),
+        }}
+
     if sub == "top":
         metric = args[1] if len(args) > 1 else "card.execution.total"
         from l3.services.stats_center import get_center as _sc
@@ -138,8 +151,8 @@ def _cmd_stats(args: list[str]) -> dict:
         return {"success": True, "metrics": _sc().query(window=window)}
 
     return {"success": False,
-            "error": "usage: /stats [timeline [n]|api|side|reasoning|top <metric>"
-                     "|tools|compression|cell|agent|cells] [1m|5m|1h|all]"}
+            "error": "usage: /stats [timeline [n]|api|side|reasoning|graph"
+                     "|top <metric>|tools|compression|cell|agent|cells] [1m|5m|1h|all]"}
 
 def _cmd_think(args: list[str]) -> dict:
     """Inspect or configure think quotas."""

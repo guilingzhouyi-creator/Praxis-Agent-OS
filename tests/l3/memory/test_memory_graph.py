@@ -263,3 +263,108 @@ def test_compress_triggers_graph_compact(tmp_path):
     r = s.compress(keep_last=2)
     assert r["success"]
     s.close()
+
+
+# Phase 5: edge-mode state machine + LLM extraction + resume recall
+
+
+def test_edge_mode_state_machine(tmp_path):
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    assert g.edge_mode == "off"
+    # off -> rules
+    r = g.set_edge_mode("rules")
+    assert r["success"] and g.edge_mode == "rules"
+    # rules -> hybrid
+    r = g.set_edge_mode("hybrid")
+    assert r["success"] and g.edge_mode == "hybrid"
+    # hybrid -> paused (auto-degrade target)
+    r = g.set_edge_mode("paused")
+    assert r["success"] and g.edge_mode == "paused"
+    # paused -> hybrid (recover)
+    r = g.set_edge_mode("hybrid")
+    assert r["success"]
+    # invalid transition: rules -> paused (must pass hybrid first)
+    g.set_edge_mode("rules")
+    r = g.set_edge_mode("paused")
+    assert not r["success"] and "invalid transition" in r["error"]
+    # invalid mode
+    r = g.set_edge_mode("banana")
+    assert not r["success"]
+
+
+def test_extract_semantic_edges_hybrid_only(tmp_path):
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    entries = [
+        {"id": "m1", "entry_type": "decision", "content": "use JWT rotation"},
+        {"id": "m2", "entry_type": "decision", "content": "drop JWT rotation, use opaque tokens"},
+    ]
+    # rules mode: refused
+    g.set_edge_mode("rules")
+    r = g.extract_semantic_edges(entries, engine=None)
+    assert not r["success"] and "not hybrid" in r["error"]
+    # hybrid mode with a fake engine
+    class FakeEngine:
+        def generate(self, prompt, **kw):
+            return {"content": "contradicts"}
+    g.set_edge_mode("hybrid")
+    r = g.extract_semantic_edges(entries, engine=FakeEngine())
+    assert r["success"] and r["added"] >= 1
+    sem = g.semantic_edges()
+    assert any(e["relation"] == "contradicts" for e in sem)
+
+
+def test_extract_failure_auto_degrades_to_paused(tmp_path):
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    g.set_edge_mode("hybrid")
+    entries = [
+        {"id": "m1", "entry_type": "decision", "content": "alpha"},
+        {"id": "m2", "entry_type": "decision", "content": "beta"},
+    ]
+    class BoomEngine:
+        def generate(self, prompt, **kw):
+            raise RuntimeError("llm down")
+    r = g.extract_semantic_edges(entries, engine=BoomEngine())
+    assert not r["success"]
+    assert g.edge_mode == "paused"  # 自动降级
+
+
+def test_stats_command_graph_subcommand(tmp_path):
+    from l2.l2_shell.commands.extra import _cmd_stats
+    reset_graph()
+    g = get_graph(db_path=str(tmp_path / "stats.db"))
+    g.set_enabled(True)
+    r = _cmd_stats(["graph"])
+    assert r["success"] and r["graph"]["enabled"] is True
+    assert "edge_mode" in r["graph"] and "semantic" in r["graph"]
+
+
+def test_resume_from_archive_graph_recall(tmp_path):
+    """会话恢复时图扩散召回相关上下文（图启用时）。"""
+    from l3.cell.peers.l3a import get_daemon
+    from l3.memory.central_memory import reset_center
+    reset_center()
+    _activate_graph(tmp_path, enabled=True)
+    d = get_daemon()
+    s = d.create_session("resume-graph")
+    s._ensure_loop()
+
+    def fake_run(**kw):
+        return {"answer": "ok", "success": True, "tool_calls": [],
+                "reasoning_trail": ["chain"], "reasoning_tokens": 1}
+    s._loop.run = fake_run
+    for i in range(3):
+        s.prompt(f"question {i}")
+    archived = s.close()
+    assert archived.get("success")
+    aid = archived.get("session_id") or archived.get("archived_session_id")
+
+    from l3.cell.peers.l3a.session import Session
+    s2 = Session.resume_from_archive(aid)
+    assert s2 is not None
+    graph_msgs = [m for m in s2.history._messages
+                  if m.metadata.get("graph_recall")]
+    assert graph_msgs, "graph recall context should be injected"
+    s2.close()

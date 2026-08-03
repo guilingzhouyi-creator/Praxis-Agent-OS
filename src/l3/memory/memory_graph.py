@@ -25,6 +25,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from typing import Any
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,26 @@ _REL_DEPENDS_ON = "depends_on"      # 决策依赖依据
 _REL_REFINES = "refines"            # 细化/补充
 
 _SEMANTIC_RELATIONS = {_REL_CONTRADICTS, _REL_DEPENDS_ON, _REL_REFINES}
+
+# ── 语义提取状态机（LLM 自动语义边的治理开关）──
+#   off    → 不提取（默认，纯规则边）
+#   rules  → 仅规则边（语义提取关闭）
+#   hybrid → 规则边 + LLM 语义边（压缩时自动提取）
+#   paused → 语义提取暂停（LLM 失败/成本超限自动降级）
+_EDGE_MODE_OFF = "off"
+_EDGE_MODE_RULES = "rules"
+_EDGE_MODE_HYBRID = "hybrid"
+_EDGE_MODE_PAUSED = "paused"
+_EDGE_MODES = (_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID, _EDGE_MODE_PAUSED)
+_EDGE_MODE_TRANSITIONS: dict[str, set[str]] = {
+    _EDGE_MODE_OFF: {_EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
+    _EDGE_MODE_RULES: {_EDGE_MODE_OFF, _EDGE_MODE_HYBRID},
+    _EDGE_MODE_HYBRID: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_PAUSED},
+    _EDGE_MODE_PAUSED: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
+}
+_LLM_EXTRACT_MAX_PAIRS = 5          # 每轮提取最多对比对数
+_LLM_EXTRACT_TIMEOUT = 10.0         # LLM 提取超时（秒）
+_LLM_EXTRACT_MAX_TOKENS = 256
 
 _DEFAULT_DB_NAME = "memory_graph.db"
 _DEFAULT_ENABLED = False
@@ -61,10 +82,19 @@ class MemoryGraph:
 
     def __init__(self, db_path: str = "", enabled: bool | None = None):
         self._enabled = _default_enabled() if enabled is None else enabled
+        self._edge_mode = self._default_edge_mode()
         self._lock = threading.RLock()
         self._db_path = db_path or str(Path.cwd() / _DEFAULT_DB_NAME)
         self._conn: sqlite3.Connection | None = None
         self._connect()
+
+    def _default_edge_mode(self) -> str:
+        try:
+            from l1.kernel.settings import get_settings
+            m = str(get_settings().get("memory.graph.edge_mode", _EDGE_MODE_OFF))
+            return m if m in _EDGE_MODES else _EDGE_MODE_OFF
+        except Exception:
+            return _EDGE_MODE_OFF
 
     # ── 存储 ────────────────────────────────────────────────
 
@@ -103,6 +133,38 @@ class MemoryGraph:
         if changed:
             self._emit_event("stats.memory.graph.switch",
                              {"enabled": self._enabled})
+
+    # ── 语义提取状态机 ─────────────────────────────────────
+
+    @property
+    def edge_mode(self) -> str:
+        return self._edge_mode
+
+    def set_edge_mode(self, mode: str) -> dict:
+        """Transition the semantic-extraction state machine.
+
+        off → rules → hybrid ⇄ paused
+        Invalid transitions are rejected (governance: no arbitrary jumps).
+        """
+        mode = str(mode).strip().lower()
+        if mode not in _EDGE_MODES:
+            return {"success": False,
+                    "error": f"edge_mode must be one of {list(_EDGE_MODES)}"}
+        if mode == self._edge_mode:
+            return {"success": True, "edge_mode": mode, "changed": False}
+        allowed = _EDGE_MODE_TRANSITIONS.get(self._edge_mode, set())
+        if mode not in allowed:
+            return {"success": False,
+                    "error": f"invalid transition: {self._edge_mode} -> {mode} "
+                             f"(allowed: {sorted(allowed)})"}
+        old = self._edge_mode
+        self._edge_mode = mode
+        logger.info("memory_graph: edge_mode %s -> %s", old, mode)
+        self._emit_event("stats.memory.graph.edge_mode", {
+            "from": old, "to": mode,
+        })
+        return {"success": True, "edge_mode": mode, "changed": True,
+                "from": old}
 
     def _emit_event(self, event_type: str, data: dict) -> None:
         """Publish graph lifecycle events to the monitoring bus."""
@@ -363,6 +425,108 @@ class MemoryGraph:
                     for r in cur.fetchall()]
         except Exception:
             return []
+
+    # ── LLM 语义边提取（仅 hybrid 状态运行）──────────────────
+
+    def extract_semantic_edges(self, entries: list[dict],
+                               engine: Any = None,
+                               max_pairs: int = _LLM_EXTRACT_MAX_PAIRS) -> dict:
+        """LLM extracts contradicts/depends_on/refines between entry pairs.
+
+        State machine: runs ONLY in hybrid mode. On LLM failure the mode
+        auto-degrades to paused (governance: cost/failure control).
+
+        Args:
+            entries: [{"id", "entry_type", "content"}] — candidate entries
+            engine:  injectable LLM engine (defaults to llm port)
+        Returns: {"success", "added": N, "relations": [...], "mode": ...}
+        """
+        if self._edge_mode != _EDGE_MODE_HYBRID:
+            return {"success": False, "added": 0,
+                    "error": f"edge_mode is {self._edge_mode}, not hybrid"}
+        if not self._enabled or self._conn is None:
+            return {"success": False, "added": 0, "error": "graph disabled"}
+        candidates = [e for e in entries
+                      if e and e.get("id") and e.get("content")]
+        if len(candidates) < 2:
+            return {"success": True, "added": 0, "relations": [],
+                    "mode": self._edge_mode}
+        try:
+            engine = engine or self._resolve_llm_engine()
+            pairs = self._pick_pairs(candidates, max_pairs)
+            relations: list[dict] = []
+            added = 0
+            engine_failures = 0
+            for a, b in pairs:
+                rel = self._ask_relation(engine, a, b)
+                if rel is None:
+                    engine_failures += 1
+                    continue
+                if rel in _SEMANTIC_RELATIONS:
+                    r = self.add_semantic_edge(
+                        a["id"], b["id"], rel, created_by="llm")
+                    if r.get("success"):
+                        added += 1
+                        relations.append({"from": a["id"], "to": b["id"],
+                                          "relation": rel})
+            if engine_failures and engine_failures == len(pairs):
+                raise RuntimeError("LLM semantic extraction engine failed")
+            return {"success": True, "added": added,
+                    "relations": relations, "mode": self._edge_mode}
+        except Exception as e:
+            # 自动降级：LLM 失败 → paused（可手动恢复）
+            logger.warning("memory_graph: LLM semantic extract failed, "
+                           "edge_mode -> paused: %s", e)
+            self.set_edge_mode(_EDGE_MODE_PAUSED)
+            return {"success": False, "added": 0, "error": str(e),
+                    "mode": self._edge_mode}
+
+    def _resolve_llm_engine(self):
+        try:
+            from l1.kernel.ports import get_port
+            return get_port("llm")
+        except Exception:
+            from l4.llm.llm import get_engine
+            return get_engine()
+
+    def _pick_pairs(self, candidates: list[dict],
+                    max_pairs: int) -> list[tuple[dict, dict]]:
+        """Pick the most informative pairs: same type (compare) + recent tail."""
+        pairs: list[tuple[dict, dict]] = []
+        by_type: dict[str, list[dict]] = {}
+        for e in candidates:
+            by_type.setdefault(e.get("entry_type", "?"), []).append(e)
+        for group in by_type.values():
+            if len(group) >= 2:
+                pairs.append((group[-2], group[-1]))
+        for i in range(1, len(candidates)):
+            if len(pairs) >= max_pairs:
+                break
+            a, b = candidates[i - 1], candidates[i]
+            if (a, b) not in pairs and (b, a) not in pairs:
+                pairs.append((a, b))
+        return pairs[:max_pairs]
+
+    def _ask_relation(self, engine, a: dict, b: dict) -> str:
+        """One LLM call: what is the semantic relation between A and B?"""
+        prompt = (
+            "Compare these two memory entries from an agent deliberation "
+            "history and answer with EXACTLY ONE word:\n"
+            f"A ({a.get('entry_type', '?')}): {a.get('content', '')[:300]}\n"
+            f"B ({b.get('entry_type', '?')}): {b.get('content', '')[:300]}\n"
+            "Choose: contradicts | depends_on | refines | none\n"
+            "contradicts=B overturns/conflicts with A, "
+            "depends_on=B builds on/requires A, refines=B refines A."
+        )
+        try:
+            r = engine.generate(prompt, max_tokens=_LLM_EXTRACT_MAX_TOKENS)
+            ans = (r.get("content", "") or "").strip().lower()
+            for rel in _SEMANTIC_RELATIONS:
+                if rel in ans:
+                    return rel
+            return ""
+        except Exception:
+            return None  # 引擎异常（区别于 "none" 无关系）
 
     # ── 查询 / 维护 ─────────────────────────────────────────
 

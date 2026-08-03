@@ -207,6 +207,36 @@ class Session:
                     continue
         logger.info("l3a session: resumed %s → %s (%d msgs)",
                     archived_session_id, inst.id, inst.history.count())
+        # ── R5 群域图：恢复时扩散召回相关上下文（图启用时）──
+        try:
+            from l3.memory.memory_graph import get_graph as _gg
+            from l3.memory.central_memory import get_l3a_memory as _glm
+            g = _gg()
+            if g.enabled:
+                mem = _glm()
+                recent = mem.recall(agent_id=_p.AGENT_ID, rings=[1, 2, 3], limit=5)
+                seeds = [e.id for e in recent if e and e.id]
+                if seeds:
+                    gr = g.recall(seeds, depth=2, limit=10)
+                    if gr["nodes"]:
+                        all_entries = mem.recall(
+                            agent_id=_p.AGENT_ID, rings=[1, 2, 3], limit=50)
+                        by_id = {e.id: e for e in all_entries}
+                        ctx_lines = []
+                        for nid in gr["nodes"][:6]:
+                            e = by_id.get(nid)
+                            if e and e.content and e.id not in seeds:
+                                ctx_lines.append(
+                                    f"- [{e.entry_type}] {e.content[:LOG_TRUNC_200]}")
+                        if ctx_lines:
+                            inst.history.append(Message(
+                                id=f"graph-{uuid.uuid4().hex[:4]}",
+                                role="system",
+                                content=("Related context from memory graph:\n"
+                                         + "\n".join(ctx_lines)),
+                                metadata={"graph_recall": True}))
+        except Exception:
+            logger.debug("l3a session: resume graph recall failed")
         return inst
 
     def prompt(self, text: str, mode: str = "steer") -> dict:
