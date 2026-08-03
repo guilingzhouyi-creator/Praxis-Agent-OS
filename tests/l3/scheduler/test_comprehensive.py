@@ -82,13 +82,13 @@ class TestRequestPool:
 
 class TestUnifiedScheduler:
     def test_get_scheduler(self):
-        from l3.scheduler import get_scheduler, reset_scheduler
+        from l3.scheduler.scheduler import get_scheduler, reset_scheduler
         reset_scheduler()
         s = get_scheduler()
         assert s is not None
 
     def test_stats(self):
-        from l3.scheduler import get_scheduler, reset_scheduler
+        from l3.scheduler.scheduler import get_scheduler, reset_scheduler
         reset_scheduler()
         s = get_scheduler()
         stats = s.stats()

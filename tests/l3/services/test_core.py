@@ -84,13 +84,20 @@ class TestLLMEngine:
     def test_mock_generate(self):
         from l1.kernel.settings import get_settings
         from l4.llm import LLMConfig, get_engine, reset_engine
-        get_settings().set("llm.provider", "mock")
-        cfg = LLMConfig(provider="mock")
-        reset_engine()
-        engine = get_engine(cfg)
-        r = engine.generate("say hi", system="")
-        assert bool(r.get("content", "")), "mock llm should generate content"
-        assert r.get("tokens", 0) >= 0
+        s = get_settings()
+        s.set("llm.provider", "mock")
+        try:
+            cfg = LLMConfig(provider="mock")
+            reset_engine()
+            engine = get_engine(cfg)
+            r = engine.generate("say hi", system="")
+            assert bool(r.get("content", "")), "mock llm should generate content"
+            assert r.get("tokens", 0) >= 0
+        finally:
+            # Clear the L3 override so it doesn't leak into other tests
+            # (config_loader's test_llm_handler reads llm.provider).  L1
+            # default is already "mock", so no restore is needed.
+            s.reset("llm.provider")
 
 
 class TestAgentLoop:
@@ -175,31 +182,38 @@ class TestAgentTerminal:
         s = get_settings()
         s.set("llm.provider", "mock")
         s.set("llm.model", "test")
-        from l4.llm import get_engine, reset_engine
-        reset_engine()
-        # Force-create engine with mock config
-        _ = get_engine()
-        from l1.kernel.process import get_table as _pt
-        from l3.agent_terminal import TerminalCard, get_terminal, reset_terminals
-        pcb = _pt().spawn("test-agent-term", role="test", ring=1)
-        pcb.identity_verified = True
-        term = get_terminal("test-agent-term", role="test", territory=[".", ".."], cell_id="test")
-        boot_r = term.boot()
-        assert boot_r.get("success"), "agent terminal should boot"
-        # Poll for terminal readiness instead of fixed sleep
-        deadline = time.time() + 2.0
-        while time.time() < deadline:
-            if term.status and term.status.name == "IDLE":
-                break
-            time.sleep(0.05)
-        card = TerminalCard(action="read_file", target=__file__,
-                            params={}, sender="test")
-        cid = term.dispatch(card)
-        result = term.wait_for_result(cid, timeout=5)
-        assert result is not None and result.success, "agent terminal should process card"
-        tools = term.list_tools()
-        assert isinstance(tools, list)
-        report = term.status_report()
-        assert report.get("alive"), "terminal status should show alive"
-        term.shutdown()
-        reset_terminals()
+        try:
+            from l4.llm import get_engine, reset_engine
+            reset_engine()
+            # Force-create engine with mock config
+            _ = get_engine()
+            from l1.kernel.process import get_table as _pt
+            from l3.agent_terminal import TerminalCard, get_terminal, reset_terminals
+            pcb = _pt().spawn("test-agent-term", role="test", ring=1)
+            pcb.identity_verified = True
+            term = get_terminal("test-agent-term", role="test", territory=[".", ".."], cell_id="test")
+            boot_r = term.boot()
+            assert boot_r.get("success"), "agent terminal should boot"
+            # Poll for terminal readiness instead of fixed sleep
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                if term.status and term.status.name == "IDLE":
+                    break
+                time.sleep(0.05)
+            card = TerminalCard(action="read_file", target=__file__,
+                                params={}, sender="test")
+            cid = term.dispatch(card)
+            result = term.wait_for_result(cid, timeout=5)
+            assert result is not None and result.success, "agent terminal should process card"
+            tools = term.list_tools()
+            assert isinstance(tools, list)
+            report = term.status_report()
+            assert report.get("alive"), "terminal status should show alive"
+            term.shutdown()
+            reset_terminals()
+        finally:
+            # Clear the L3 overrides so they don't leak into other tests
+            # (config_loader's test_llm_handler reads llm.provider).  L1
+            # defaults are already mock/"", so no restore is needed.
+            s.reset("llm.provider")
+            s.reset("llm.model")

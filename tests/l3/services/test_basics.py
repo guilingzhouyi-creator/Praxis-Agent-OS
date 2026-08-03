@@ -169,19 +169,31 @@ class TestToolSpec:
 
     def test_register_and_get(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, get_tool, register
-        saved = TOOL_REGISTRY.copy()
-        TOOL_REGISTRY.clear()
-        register(ToolSpec(name="t1", description="", category="g", ring="ring_1", danger=0))
-        assert get_tool("t1") is not None
-        assert get_tool("nonexistent") is None
-        TOOL_REGISTRY.update(saved)
+        saved = TOOL_REGISTRY.list()
+        for spec in saved:
+            TOOL_REGISTRY.unregister(spec.name)
+        try:
+            register(ToolSpec(name="t1", description="", category="g", ring="ring_1", danger=0))
+            assert get_tool("t1") is not None
+            assert get_tool("nonexistent") is None
+        finally:
+            for spec in TOOL_REGISTRY.list():
+                TOOL_REGISTRY.unregister(spec.name)
+            for spec in saved:
+                TOOL_REGISTRY.register(spec)
 
     def test_list_by_category(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, list_tools, register
-        saved = TOOL_REGISTRY.copy()
-        TOOL_REGISTRY.clear()
-        register(ToolSpec(name="a", description="", category="alpha", ring="ring_1", danger=0))
-        register(ToolSpec(name="b", description="", category="beta", ring="ring_1", danger=0))
-        assert len(list_tools(category="alpha")) == 1
-        assert len(list_tools()) >= 2
-        TOOL_REGISTRY.update(saved)
+        saved = TOOL_REGISTRY.list()
+        for spec in saved:
+            TOOL_REGISTRY.unregister(spec.name)
+        try:
+            register(ToolSpec(name="a", description="", category="alpha", ring="ring_1", danger=0))
+            register(ToolSpec(name="b", description="", category="beta", ring="ring_1", danger=0))
+            assert len(list_tools(category="alpha")) == 1
+            assert len(list_tools()) >= 2
+        finally:
+            for spec in TOOL_REGISTRY.list():
+                TOOL_REGISTRY.unregister(spec.name)
+            for spec in saved:
+                TOOL_REGISTRY.register(spec)
