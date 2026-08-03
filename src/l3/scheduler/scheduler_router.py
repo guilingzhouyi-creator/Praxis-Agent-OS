@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable
 
 from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
-from .scheduler_types import Task, AgentInfo
+
+from .scheduler_types import AgentInfo, Task
 
 logger = logging.getLogger(__name__)
 

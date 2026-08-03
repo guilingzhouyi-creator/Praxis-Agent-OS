@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from typing import Any
 
 from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
-from l1.kernel.params.system import SCHEDULER_BACKGROUND_PRIORITY, DEFAULT_QUANTUM, MAX_PREEMPT
+from l1.kernel.params.system import DEFAULT_QUANTUM, SCHEDULER_BACKGROUND_PRIORITY
 
 
 class TaskPriority(Enum):

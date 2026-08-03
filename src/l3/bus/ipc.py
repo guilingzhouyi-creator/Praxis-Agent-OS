@@ -20,14 +20,13 @@ MessageType categories:
 from __future__ import annotations
 
 import logging
-import os
+import threading
 import time
 import uuid
-import threading
 from collections import defaultdict, deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
 
 from l1.kernel.ipc import get_lock_bus
 from l3._base import BaseService

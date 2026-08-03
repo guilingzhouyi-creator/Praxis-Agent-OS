@@ -1,8 +1,8 @@
 """Convergence tests — converge function, execution card conversion."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -16,7 +16,7 @@ class TestConvergence:
 
     def test_to_execution_card(self):
         from l3.agent.convergence import to_execution_card
-        from l3.card.issue import IssueCard, IssueItem
+        from l3.card.issue import IssueCard
         issue = IssueCard(intent="test intent", domain="app/routes", agent_ids=["a"])
         card = to_execution_card(issue, summary="test convergence")
         assert card is not None

@@ -34,7 +34,7 @@ class TestIssueOrchestrator:
         assert len(sessions) >= 1
 
     def test_cell_answer_round_trip(self):
-        from l3.discussion.cell_answer_repo import CellAnswerRepo, CellAnswer
+        from l3.discussion.cell_answer_repo import CellAnswer, CellAnswerRepo
         repo = CellAnswerRepo(cell_id="cell-1", session_id="ds-test-1")
         answer = CellAnswer(
             session_id="ds-test-1",
@@ -87,7 +87,7 @@ class TestReportService:
     """ReportService — structured report generation."""
 
     def test_generate_report(self):
-        from l3.discussion.report_service import ReportService, get_service, reset_service
+        from l3.discussion.report_service import get_service, reset_service
         reset_service()
         svc = get_service()
         r = svc.generate(

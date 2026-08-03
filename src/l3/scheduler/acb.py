@@ -16,17 +16,16 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
-from l3._base import BaseService
 from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
 from l1.kernel.params.system import DEFAULT_TOKEN_BUDGET
+from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 

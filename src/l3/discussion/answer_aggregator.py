@@ -14,7 +14,6 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_80, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_500
 
@@ -194,7 +193,6 @@ class AnswerAggregator:
 
     def _find_divergences(self, answers: list[dict]) -> list[dict]:
         """Detect divergences: same topic, conflicting positions."""
-        from collections import Counter
         divergences: list[dict] = []
 
         # Group answers by type

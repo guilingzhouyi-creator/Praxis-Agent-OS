@@ -1,6 +1,9 @@
 """Tests for RateScheduler — per-ring tool rate limiting."""
 from __future__ import annotations
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -39,6 +42,5 @@ def test_get_scheduler():
 
 def test_agent_can_access():
     from l3.scheduler.scheduler_rate import agent_can_access
-    from l1.kernel.params.agent import AGENT_CLEARANCE
     result = agent_can_access("agent-writer", "RING_3")
     assert isinstance(result, bool)

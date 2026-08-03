@@ -17,13 +17,13 @@ returns the latest checkpoint so execution can resume.
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
-from .cell_answer_repo import CellAnswerRepo, CellAnswer, AnswerCheckpoint
-from l3.agent.agent_loop import AgentLoop
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_200
+from l3.agent.agent_loop import AgentLoop
+
+from .cell_answer_repo import AnswerCheckpoint, CellAnswer, CellAnswerRepo
 
 logger = logging.getLogger(__name__)
 
@@ -270,13 +270,13 @@ class AnswerSession:
     def _agent_supplement(self, agent_id: str) -> CellAnswer | None:
         """Ask agent to propose supplementary issues."""
         prompt = (
-            f"Review the discussion so far.\n\n"
-            f"Are there any NEW issues or questions that should be raised?\n"
-            f"Consider:\n"
-            f"- Gaps in the original issues\n"
-            f"- Questions that need cross-cell coordination\n"
-            f"- Topics that require human decision\n\n"
-            f"Return a list of new issues with: title, description, domain."
+            "Review the discussion so far.\n\n"
+            "Are there any NEW issues or questions that should be raised?\n"
+            "Consider:\n"
+            "- Gaps in the original issues\n"
+            "- Questions that need cross-cell coordination\n"
+            "- Topics that require human decision\n\n"
+            "Return a list of new issues with: title, description, domain."
         )
         result = self._run_agent_loop(agent_id, prompt)
         content = result.get("answer", "")

@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel import get_event_bus, Signal, SignalType
+from l1.kernel import get_event_bus
 
 logger = logging.getLogger(__name__)
 

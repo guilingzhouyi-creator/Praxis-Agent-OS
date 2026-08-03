@@ -18,12 +18,14 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.system import (
     CONVERGENCE_BUFFER_SIZE,
-    HASH_TRUNC_LONG, LOG_TRUNC_2000, LOG_TRUNC_5000,
-    MEMORY_IMPORTANCE_HIGH, MEMORY_IMPORTANCE_CRITICAL,
+    HASH_TRUNC_LONG,
+    LOG_TRUNC_2000,
+    LOG_TRUNC_5000,
+    MEMORY_IMPORTANCE_CRITICAL,
+    MEMORY_IMPORTANCE_HIGH,
 )
 
 logger = logging.getLogger(__name__)

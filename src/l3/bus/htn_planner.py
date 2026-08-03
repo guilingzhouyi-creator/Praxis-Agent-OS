@@ -19,12 +19,16 @@ import logging
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from l3._base import BaseService
 from l1.kernel.params.system import HASH_TRUNC_SHORT
+from l3._base import BaseService
+
+if TYPE_CHECKING:
+    from l3.card.card_unified import CardUnified as Card
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +349,7 @@ class HTNPlanner(BaseService):
                  domain=root.domain, depends_on=[f"{tid}-analyze"]),
         ]
 
-    def to_card(self, root: Task, task_id: str = "", domain: str = "") -> "Card":
+    def to_card(self, root: Task, task_id: str = "", domain: str = "") -> Card:
         """Convert an HTN decomposed Task tree into a Card with phases/steps.
 
         The root task's direct sub-tasks become phases. Compound sub-tasks
@@ -360,7 +364,7 @@ class HTNPlanner(BaseService):
         Returns a CardUnified ready for ExecutionPlan.
         """
         # Late import to avoid circular dependency at module level
-        from ..card.card_unified import CardUnified, CardPhase, CardTask, CardSummary
+        from ..card.card_unified import CardPhase, CardSummary, CardTask, CardUnified
 
         cid = task_id or f"htn-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         intent = root.name
@@ -422,8 +426,9 @@ class HTNPlanner(BaseService):
         """Map tool ring level to agent role.  Config-driven via AGENT_ROLE_MAP."""
         tool = task.tool or ""
         try:
-            from .tool_system.tool_config import ToolConfig as _TC
             from l1.kernel.params.agent import AGENT_ROLE_MAP
+
+            from .tool_system.tool_config import ToolConfig as _TC
             spec = _TC.get(tool)
             if spec:
                 return AGENT_ROLE_MAP.get(spec.ring, "default")

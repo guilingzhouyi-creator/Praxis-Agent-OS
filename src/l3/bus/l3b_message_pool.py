@@ -21,11 +21,18 @@ import sqlite3
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from l1.kernel.params.system import L3B_BACKPRESSURE_COOLDOWN, L3B_BACKPRESSURE_THRESHOLD, L3B_HOT_RING_SIZE, L3B_MESSAGE_DB, L3B_MESSAGE_DIR, L3B_PERSIST_HIGH_WATERMARK
+from l1.kernel.params.system import (
+    L3B_BACKPRESSURE_COOLDOWN,
+    L3B_BACKPRESSURE_THRESHOLD,
+    L3B_HOT_RING_SIZE,
+    L3B_MESSAGE_DB,
+    L3B_MESSAGE_DIR,
+    L3B_PERSIST_HIGH_WATERMARK,
+)
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)

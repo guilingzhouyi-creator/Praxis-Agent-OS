@@ -1,6 +1,9 @@
 """Tests for HTN-B / L3B bus / L3B message pool — cross-cell routing infra."""
 from __future__ import annotations
-import os, sys
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 

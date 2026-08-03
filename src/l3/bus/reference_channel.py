@@ -26,9 +26,17 @@ import os
 import threading
 import time
 from collections import deque
-from typing import Any
 
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, RC_EXPORT_LIMIT, RC_FLUSH_INTERVAL, RC_PATH, RC_RING_SIZE, RC_SHA256_TRUNC
+from l1.kernel.params.system import (
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_1000,
+    RC_EXPORT_LIMIT,
+    RC_FLUSH_INTERVAL,
+    RC_PATH,
+    RC_RING_SIZE,
+    RC_SHA256_TRUNC,
+)
 
 logger = logging.getLogger(__name__)
 

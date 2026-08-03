@@ -1,8 +1,8 @@
 """Assembly Mode tests — proposal, challenge, response, convergence."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -43,27 +43,26 @@ class TestAssemblyData:
         assert len(doc.proposals) == 1
 
     def test_issue_document_add_challenge(self):
-        from l3.discussion.assembly import IssueDocument, Challenge
+        from l3.discussion.assembly import Challenge, IssueDocument
         doc = IssueDocument(issue_id="iss-003", title="Test")
         doc.challenges.append(Challenge(from_agent="a", to_agent="b", question="?"))
         assert len(doc.challenges) == 1
 
     def test_issue_document_add_response(self):
-        from l3.discussion.assembly import IssueDocument, Challenge, Response
+        from l3.discussion.assembly import Challenge, IssueDocument
         doc = IssueDocument(issue_id="iss-004", title="Test")
         doc.challenges.append(Challenge(from_agent="a", to_agent="b", question="?"))
         doc.challenges[0].answered = True
         assert doc.challenges[0].answered
 
     def test_issue_document_add_answer(self):
-        from l3.discussion.assembly import IssueDocument, Challenge, Response
+        from l3.discussion.assembly import Challenge, IssueDocument
         doc = IssueDocument(issue_id="iss-005", title="Test")
         doc.challenges.append(Challenge(from_agent="a", to_agent="b", question="?"))
         doc.challenges[0].answered = True
         assert doc.challenges[0].answered
 
     def test_is_blank_constitution(self):
-        from l3.discussion.assembly import IssueDocument
         from l1.kernel.constitution import TerritoryConstitution
         tc = TerritoryConstitution()
         assert tc.is_blank()

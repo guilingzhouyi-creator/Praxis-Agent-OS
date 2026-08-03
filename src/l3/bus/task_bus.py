@@ -18,15 +18,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
-import urllib.request as req
 import urllib.error
+import urllib.request as req
 from dataclasses import dataclass, field
-from typing import Any, Callable
-
-from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +173,8 @@ class TaskBus:
                     "User-Agent": "Praxis-TaskBus/1.0",
                 }
                 if sub.secret:
-                    import hmac, hashlib
+                    import hashlib
+                    import hmac
                     sig = hmac.new(
                         sub.secret.encode(), payload.encode(), hashlib.sha256
                     ).hexdigest()

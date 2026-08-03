@@ -14,10 +14,10 @@ HTN-B constraints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+
+from l1.kernel.params.system import LOG_TRUNC_200
 
 from .htn_planner import HTNPlanner, Task, TaskType
-from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,6 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, COMM_HISTORY_MAX
 from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL

@@ -9,12 +9,11 @@ After cross-Cell aggregation produces an AggregatedReport, ReportService:
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
 import uuid
-from typing import Any
+
 from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)

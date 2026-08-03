@@ -11,22 +11,33 @@ import logging
 import threading
 import time as _time
 
-from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
 from l1.kernel.discovery import get_config as _get_config
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL
 from l1.kernel.params.tool import (
     TOOL_RATE_RING_1 as _TR1,
+)
+from l1.kernel.params.tool import (
     TOOL_RATE_RING_2_5 as _TR25,
+)
+from l1.kernel.params.tool import (
     TOOL_RATE_RING_3 as _TR3,
 )
 
 logger = logging.getLogger(__name__)
 
 from l1.kernel.params.kernel import (
-    RING_NUM_MAP as _RNM,
     RING_1 as _R1,
+)
+from l1.kernel.params.kernel import (
     RING_2_5 as _R25,
+)
+from l1.kernel.params.kernel import (
     RING_3 as _R3,
 )
+from l1.kernel.params.kernel import (
+    RING_NUM_MAP as _RNM,
+)
+
 _RING_ORDER = _RNM
 _RING_RATE = {}  # resolved below
 

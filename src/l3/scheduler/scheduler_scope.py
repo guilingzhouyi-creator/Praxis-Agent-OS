@@ -4,12 +4,10 @@ Extracted from ExecutionPlan + ScoutPool for scheduler matrix integration.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, SCOUT_LOOP_STEPS
-from l1.kernel.params.system import MAX_SCOUTS_PER_AGENT, SCOUT_POOL_MAX
 from l1.kernel.discovery import get_config as _get_config
-
+from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
+from l1.kernel.params.system import MAX_SCOUTS_PER_AGENT
 
 _MAX_SCOUTS = _get_config("cell", {}).get("scout", {}).get("max_per_agent", MAX_SCOUTS_PER_AGENT) if _get_config("cell") else MAX_SCOUTS_PER_AGENT
 

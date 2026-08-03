@@ -23,9 +23,9 @@ All share the same HTNPlanner class, only the registered methods differ.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+
 from .htn_planner import HTNPlanner, Task, TaskType
 
 logger = logging.getLogger(__name__)

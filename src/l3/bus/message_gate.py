@@ -20,11 +20,11 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel.params.agent import CARD_GATE_APPROVAL_TIMEOUT
-from .monitor_bus import MonitorEvent
 from l3._persistable import PersistableMixin
+
+from .monitor_bus import MonitorEvent
 
 logger = logging.getLogger(__name__)
 

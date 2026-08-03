@@ -22,15 +22,12 @@ import json
 import logging
 import os
 import threading
-import time
 from collections import defaultdict
-from typing import Any
 
 from l1.kernel.params.system import (
-    SEQ_MONITOR_PATH,
-    SEQ_MONITOR_NGRAM,
-    SEQ_MONITOR_MIN_SAMPLES,
     SEQ_MONITOR_ANOMALY_THRESHOLD,
+    SEQ_MONITOR_MIN_SAMPLES,
+    SEQ_MONITOR_NGRAM,
 )
 
 logger = logging.getLogger(__name__)

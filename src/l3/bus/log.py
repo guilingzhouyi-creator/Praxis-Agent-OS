@@ -13,22 +13,29 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from l1.kernel.params.system import (
+    LOG_EXPORT_FILE,
+    LOG_EXPORT_LIMIT,
+    LOG_MAX_FILE_SIZE,
+    LOG_MAX_FILES,
+    LOG_MAX_MEMORY_ENTRIES,
+    LOG_ROTATE_FILE,
+    LOG_ROTATE_GLOB,
+    LOG_TRUNC_500,
+)
 from l3._base import BaseService
-from l1.kernel.params.system import LOG_EXPORT_FILE, LOG_EXPORT_LIMIT, LOG_MAX_FILES, LOG_MAX_FILE_SIZE, LOG_MAX_MEMORY_ENTRIES, LOG_ROTATE_FILE, LOG_ROTATE_GLOB, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.platform import get_config_dir
+
 _LOG_DIR = Path(_gp().config_dir) / "logs"
 
 
@@ -67,7 +74,7 @@ class LogService(BaseService):
     def _on_start(self) -> dict:
         # Subscribe to kernel events for cross-service log collection
         try:
-            from l1.kernel import get_event_bus, SignalType
+            from l1.kernel import SignalType, get_event_bus
             bus = get_event_bus()
             bus.on(SignalType.STATE_CHANGE, lambda s: self.info(
                 f"State: {s.data}", s.source, s.data.get("agent_id", "")))

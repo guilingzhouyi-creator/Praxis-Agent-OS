@@ -12,14 +12,13 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
 
-from l1.kernel.params.system import DEFAULT_QUANTUM, MAX_PREEMPT
-from .scheduler_types import TaskPriority, Task, AgentInfo, TimeSlice
+from .scheduler_rate import get_rate_scheduler
 from .scheduler_router import L3Router, RequestPool
-from .scheduler_time import TimeScheduler, get_time_scheduler, reset_time_scheduler
-from .scheduler_rate import get_rate_scheduler, agent_can_access
 from .scheduler_scope import get_scope_scheduler
+from .scheduler_time import TimeScheduler
+from .scheduler_types import Task, TaskPriority
 
 logger = logging.getLogger(__name__)
 

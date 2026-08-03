@@ -1,6 +1,11 @@
 """TaskBus + CronScheduler integration tests."""
 from __future__ import annotations
-import sys, os, json, time, threading
+
+import json
+import os
+import sys
+import time
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -50,7 +55,7 @@ class TestTaskBusCore:
         assert n == 0  # no subscribers → 0
 
     def test_dispatch_skips_disabled(self):
-        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         # Directly add disabled subscriber
@@ -71,7 +76,7 @@ class TestTaskBusCore:
 
 class TestTaskBusFilters:
     def test_filter_matches(self):
-        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         sub = WebhookSubscriber(name="filtered", url="http://h/hook",
@@ -81,7 +86,7 @@ class TestTaskBusFilters:
         assert n == 1
 
     def test_filter_blocks(self):
-        from l3.bus.task_bus import get_task_bus, reset_task_bus, WebhookSubscriber
+        from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         sub = WebhookSubscriber(name="filtered", url="http://h/hook",
@@ -126,14 +131,12 @@ class TestCronValidate:
 
     def test_cron_matches(self):
         from l4.cron_scheduler import _cron_matches
-        import time
         now = time.localtime()
         # "* * * * *" matches any time
         assert _cron_matches("* * * * *", now)
 
     def test_cron_not_matches_wrong_minute(self):
         from l4.cron_scheduler import _cron_matches
-        import time
         now = time.struct_time((2026, 7, 25, 10, 0, 0, 5, 206, 0))
         # "30 * * * *" only matches minute=30, not minute=0
         assert not _cron_matches("30 * * * *", now)
@@ -191,9 +194,8 @@ class TestCronScheduler:
 
     def test_dispatch_card_via_cron(self):
         """Cron entry dispatches a card when cron matches."""
-        from l4.cron_scheduler import get_scheduler, reset_scheduler, _cron_matches
         from l3.card.card_registry import get_registry, reset_registry
-        import time
+        from l4.cron_scheduler import _cron_matches, get_scheduler, reset_scheduler
         reset_scheduler()
         reset_registry()
         s = get_scheduler()
@@ -229,8 +231,10 @@ class TestCronScheduler:
 class TestTaskBusSignature:
     def test_payload_has_hmac_when_secret_set(self):
         """_dispatch_one should set X-Praxis-Signature when secret is configured."""
+        import hashlib
+        import hmac
+
         from l3.bus.task_bus import TaskBus, WebhookSubscriber
-        import hashlib, hmac
         bus = TaskBus()
         sub = WebhookSubscriber(name="signed", url="http://localhost:1/hook",
                                  secret="test-secret")
@@ -256,7 +260,6 @@ class TestTaskBusRetry:
 class TestCronEdgeCases:
     def test_cron_every_5_minutes_matches(self):
         from l4.cron_scheduler import _cron_matches
-        import time
         # Every 5 minutes at 0, 5, 10...
         t1 = time.struct_time((2026, 7, 25, 10, 0, 0, 5, 206, 0))
         t2 = time.struct_time((2026, 7, 25, 10, 5, 0, 5, 206, 0))
@@ -267,7 +270,6 @@ class TestCronEdgeCases:
 
     def test_cron_daily_3am(self):
         from l4.cron_scheduler import _cron_matches
-        import time
         t_match = time.struct_time((2026, 7, 25, 3, 0, 0, 5, 206, 0))
         t_no = time.struct_time((2026, 7, 25, 10, 30, 0, 5, 206, 0))
         assert _cron_matches("0 3 * * *", t_match)
@@ -277,9 +279,8 @@ class TestCronEdgeCases:
 class TestCronTick:
     def test_tick_dispatches_matching_entry(self):
         """_tick should dispatch entry when cron matches and not recently dispatched."""
-        from l4.cron_scheduler import get_scheduler, reset_scheduler
         from l3.card.card_registry import reset_registry
-        import time
+        from l4.cron_scheduler import get_scheduler, reset_scheduler
         reset_scheduler()
         reset_registry()
         s = get_scheduler()
@@ -325,8 +326,8 @@ class TestCardRegistryTaskBusIntegration:
 class TestRestApiCron:
     def test_cron_list_endpoint(self):
         """Cron REST API endpoint should respond."""
+
         from l4.api_handlers import ApiHandlers
-        import types
         handler = ApiHandlers.__new__(ApiHandlers)
         r = handler._cron_list()
         assert "schedules" in r
@@ -355,8 +356,9 @@ class TestRestApiCron:
 class TestTaskBusConcurrency:
     def test_concurrent_dispatch_no_crash(self):
         """Multiple threads dispatching simultaneously should not crash."""
-        from l3.bus.task_bus import get_task_bus, reset_task_bus
         from concurrent.futures import ThreadPoolExecutor
+
+        from l3.bus.task_bus import get_task_bus, reset_task_bus
         reset_task_bus()
         bus = get_task_bus()
         bus.register("c1", "http://localhost:11/h1")
@@ -373,8 +375,9 @@ class TestTaskBusConcurrency:
 
     def test_concurrent_register_unregister(self):
         """Concurrent register/unregister should not corrupt internal state."""
+        from concurrent.futures import ThreadPoolExecutor
+
         from l3.bus.task_bus import get_task_bus, reset_task_bus
-        from concurrent.futures import ThreadPoolExecutor, as_completed
         reset_task_bus()
         bus = get_task_bus()
 
@@ -394,8 +397,9 @@ class TestTaskBusConcurrency:
 class TestCronSchedulerConcurrency:
     def test_concurrent_add_while_running(self):
         """Add cron entries while scheduler is running should not crash."""
-        from l4.cron_scheduler import get_scheduler, reset_scheduler
         from concurrent.futures import ThreadPoolExecutor
+
+        from l4.cron_scheduler import get_scheduler, reset_scheduler
         reset_scheduler()
         s = get_scheduler()
         s.start()
@@ -433,8 +437,9 @@ class TestTaskBusConfigLoad:
 class TestTaskBusLoadFromConfig:
     def test_load_from_temp_yaml(self, tmp_path):
         """Load webhook subscribers from a temporary YAML config."""
-        from l3.bus.task_bus import TaskBus
         import yaml
+
+        from l3.bus.task_bus import TaskBus
         cfg_path = tmp_path / "praxis.yaml"
         cfg_path.write_text(yaml.dump({
             "webhooks": {
