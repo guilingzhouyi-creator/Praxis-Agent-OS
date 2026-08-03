@@ -31,6 +31,7 @@ DEFAULTS: dict[str, Any] = {
     "device.health_check_interval": 60.0,
     "persist.enabled": True,
     "persist.interval": 30.0,
+    "memory.graph.enabled": False,
 }
 
 

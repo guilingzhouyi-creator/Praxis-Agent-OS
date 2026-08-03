@@ -11,6 +11,7 @@ _RESETS = {
     "l3.card.card_registry": ("reset_registry", None),
     "l3.card.issue": ("reset_table", None),
     "l3.memory.memory": ("reset_memory", None),
+    "l3.memory.memory_graph": ("reset_graph", None),
     "l3.config.settings_center": ("reset_center", None),
     "l3.tool_system.tool_registry": ("clear_mutes", None),
     "l3.memory.r4_agent": ("stop_r4_agent", None),
@@ -25,6 +26,9 @@ _RESETS = {
     "l1.kernel.event": ("reset_bus", None),
     "l4.lsp.lsp_manager": ("reset_manager", None),
     "l1.kernel.reputation": ("reset_reputation", None),
+    "l3.boot.boot": ("reset_boot_state", None),
+    "l3.boot.boot_registry": ("reset_registry", None),
+    "l1.kernel.settings": ("reset_settings", None),
 }
 
 

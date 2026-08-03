@@ -117,9 +117,42 @@ class MemoryManager:
                 self._dirty_short.add(eid)
             elif ring == 3:
                 self._dirty_long.add(eid)
+        # ── R5 群域图挂钩（默认关闭，失败不影响主流程）──
+        try:
+            from .memory_graph import get_graph as _get_graph
+            _recent = self._recent_entries(agent_id, cell_id, limit=3)
+            _get_graph().remember_hook(
+                entry_id=eid, agent_id=agent_id, entry_type=entry_type,
+                cell_id=cell_id, recent=_recent, created_by=agent_id or "system")
+        except Exception:
+            logger.debug("memory_graph: hook failed")  # graph is derived layer
         logger.debug("memory stored [%s] ring=%d imp=%.2f tokens=%d: %s",
                      entry_type, ring, importance, entry.tokens, content[:LOG_TRUNC_80])
         return eid
+
+    def _recent_entries(self, agent_id: str, cell_id: str,
+                        limit: int = 3) -> list[dict]:
+        """Snapshot the most recent entries (for graph edge building).
+
+        Collected before pushing the new entry — provides the "previous"
+        context the graph needs for sequential/type/cell chains.
+        """
+        recent: list[dict] = []
+        try:
+            for layer in (self.long, self.short, self.working):
+                with layer._lock:
+                    for e in reversed(list(layer._entries)):
+                        if len(recent) >= limit:
+                            break
+                        recent.append({
+                            "id": e.id, "entry_type": e.entry_type,
+                            "agent_id": e.agent_id, "cell_id": e.cell_id,
+                        })
+                if len(recent) >= limit:
+                    break
+        except Exception:
+            pass
+        return recent
 
     def working(self) -> list[MemEntry]:
         """Return a snapshot of all Ring 1 (working) entries.

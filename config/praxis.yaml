@@ -277,6 +277,13 @@ persist:
   enabled: true
   interval: 30                  # Auto-save interval (s)
 
+# ── R5 群域图记忆（语义拓扑索引层，默认关闭）──
+# 开启后：记忆写入自动建边（sequential/type_chain/cell_chain），
+# 支持扩散检索与图约简报告。关闭时零影响（R1-R4 线性记忆照常）。
+memory:
+  graph:
+    enabled: false              # 全局开关（可 Cell/会话级覆盖）
+
 # ── Network mesh ──
 network:
   discovery_port: 42069         # UDP broadcast port
