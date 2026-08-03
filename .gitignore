@@ -102,3 +102,6 @@ Code/_
 
 # Runtime artifacts
 .tmp
+
+# Vault runtime salt (auto-generated)
+.praxis_vault_salt
