@@ -10,11 +10,10 @@ Provides:
 from __future__ import annotations
 
 import logging
-import time
 import threading
+import time
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Any
 
 
 class ServiceState(Enum):
@@ -26,10 +25,10 @@ class ServiceState(Enum):
     ERROR = auto()
 
 
-_registry: dict[str, "BaseService"] = {}
+_registry: dict[str, BaseService] = {}
 
 
-def get_registry() -> dict[str, "BaseService"]:
+def get_registry() -> dict[str, BaseService]:
     return dict(_registry)
 
 

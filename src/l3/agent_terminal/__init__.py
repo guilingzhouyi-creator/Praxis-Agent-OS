@@ -14,34 +14,50 @@ import uuid
 from collections import OrderedDict, deque
 from typing import Any
 
-from l1.kernel import get_event_bus, emit_signal
-from l1.kernel.constitution import get_constitution
+from l1.kernel import emit_signal, get_event_bus
 from l1.kernel.allocator import get_allocator
+from l1.kernel.constitution import get_constitution
 from l1.kernel.params.agent import (
-    CARD_WAIT_TIMEOUT,
-    DEFAULT_AGENT_CONFIGS,
     AGENT_CLEARANCE,
-    AGENT_TERMINAL_MAX_SCOUTS,
-    AGENT_TERMINAL_WORKER_JOIN_TIMEOUT,
-    AGENT_TERMINAL_STDIN_MAX,
-    AGENT_TERMINAL_STDOUT_MAX,
-    AGENT_TERMINAL_STDERR_MAX,
-    AGENT_TERMINAL_RESULTS_MAX,
-    TERMINAL_MAX_WORKERS,
     AGENT_LOOP_DEFAULT_STEPS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
-    EVENT_TASK_ASSIGN,
+    AGENT_TERMINAL_MAX_SCOUTS,
+    AGENT_TERMINAL_RESULTS_MAX,
+    AGENT_TERMINAL_STDERR_MAX,
+    AGENT_TERMINAL_STDIN_MAX,
+    AGENT_TERMINAL_STDOUT_MAX,
+    AGENT_TERMINAL_WORKER_JOIN_TIMEOUT,
+    CARD_WAIT_TIMEOUT,
+    DEFAULT_AGENT_CONFIGS,
     EVENT_REVIEW_REQUESTED,
+    EVENT_TASK_ASSIGN,
+    TERMINAL_MAX_WORKERS,
 )
-from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_60, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_200, LOG_TRUNC_300, LOG_TRUNC_500, POLL_INTERVAL_FAST, POLL_INTERVAL_SLOW, POLL_INTERVAL_PAUSED, MEMORY_PROMOTION_THRESHOLD, MEMORY_IMPORTANCE_DECISION
-from ..memory.cache import get_file_cache, get_context_register
-from ..agent.scout import get_pool as get_scout_pool
-from ..agent._term_types import TerminalStatus, CardMode, TerminalCard, CardResult
+from l1.kernel.params.kernel import RING_1
+from l1.kernel.params.system import (
+    HASH_TRUNC_SHORT,
+    LOG_TRUNC_40,
+    LOG_TRUNC_60,
+    LOG_TRUNC_80,
+    LOG_TRUNC_120,
+    LOG_TRUNC_200,
+    LOG_TRUNC_300,
+    LOG_TRUNC_500,
+    MEMORY_IMPORTANCE_DECISION,
+    MEMORY_PROMOTION_THRESHOLD,
+    POLL_INTERVAL_FAST,
+    POLL_INTERVAL_PAUSED,
+    POLL_INTERVAL_SLOW,
+)
+from l3.services.model_service import get_service as _get_model_service
+
 from ..agent._term_handlers import get_action_handler
 from ..agent._term_lifecycle import run_cache_keepalive
-from l3.services.model_service import get_service as _get_model_service
-from ..tool_system.tool_pipeline import get_pipeline
+from ..agent._term_types import CardMode, CardResult, TerminalCard, TerminalStatus
+from ..agent.scout import get_pool as get_scout_pool
+from ..memory.cache import get_context_register, get_file_cache
 from ..memory.context import get_context as get_context_manager
+from ..tool_system.tool_pipeline import get_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +177,8 @@ class AgentTerminal:
     def list_tools(self) -> list[dict]:
         if not self._tool_registry:
             return []
-        from l3.tool_system.tool_spec import is_muted as _is_muted
         from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
+        from l3.tool_system.tool_spec import is_muted as _is_muted
         tools = []
         for name, spec in self._tool_registry.items():
             sr = getattr(spec, "ring", RING_1)
@@ -229,7 +245,6 @@ class AgentTerminal:
             self._snapshot_hook = None
             phases.append({"phase": "persist_init", "error": str(e)})
 
-        from l1.kernel.params.agent import EVENT_TASK_ASSIGN
         emit_signal(EVENT_TASK_ASSIGN, sender=self.agent_id, target="cell",
                      data={"event": "agent_boot", "role": self.role, "ring": self.ring})
         self._running = True
@@ -284,7 +299,7 @@ class AgentTerminal:
                 self.status = TerminalStatus.PROCESSING if self._active_cards > 0 else TerminalStatus.IDLE
                 self._current_card = card.card_id
                 self._loop_state = f"processing {card.action} on {card.target[:LOG_TRUNC_40]}"
-            from l3.error_bus import error_boundary, capture
+            from l3.error_bus import capture, error_boundary
             with error_boundary("worker card failed", component="services", agent_id=self.agent_id):
                 result = self._process_card(card)
             if result is None:
@@ -406,7 +421,7 @@ class AgentTerminal:
             cell.cache.inject(key=key, value=answer, summary=summary,
                               agent_id=self.agent_id, entry_type="decision", importance=MEMORY_PROMOTION_THRESHOLD)
         elif not success:
-            cell.cache.inject(key=key, value=ar.get("error", ""),
+            cell.cache.inject(key=key, value=answer,
                               summary=f"FAIL [{self.agent_id}]: {summary}",
                               agent_id=self.agent_id, entry_type="failure", importance=MEMORY_IMPORTANCE_DECISION)
 
@@ -759,7 +774,8 @@ class AgentTerminal:
 
     def send_direct_message(self, text: str, sender: str = "shell") -> dict:
         """Queue a direct message as a TerminalCard via stdin."""
-        from ..agent._term_types import TerminalCard, CardMode as TermCardMode
+        from ..agent._term_types import CardMode as TermCardMode
+        from ..agent._term_types import TerminalCard
         card = TerminalCard(
             mode=TermCardMode.EXECUTE,
             action="direct_message",

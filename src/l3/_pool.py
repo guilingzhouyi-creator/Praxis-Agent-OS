@@ -10,9 +10,10 @@ import logging
 import queue
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
 from l1.kernel.params.system import POLL_INTERVAL_DEFAULT
 

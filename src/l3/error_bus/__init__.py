@@ -24,16 +24,29 @@ import threading
 import time
 import traceback
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
-from l3._base import BaseService
-from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT, ERROR_BUS_TOP_SOURCES, ERROR_EXPORT_FILE, HASH_TRUNC_LONG, LOG_ROTATE_GLOB, LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, LOG_TRUNC_500
+from l1.kernel.params.system import (
+    ERROR_BUS_BUFFER,
+    ERROR_BUS_DEDUP_WINDOW,
+    ERROR_BUS_EXPORT_LIMIT,
+    ERROR_BUS_TOP_SOURCES,
+    ERROR_EXPORT_FILE,
+    HASH_TRUNC_LONG,
+    LOG_ROTATE_GLOB,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_500,
+    LOG_TRUNC_1000,
+)
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_config_dir
+from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +108,7 @@ class ErrorLogEntry:
             "source": self.source,
             "timestamp": self.timestamp,
             "datetime": datetime.fromtimestamp(
-                self.timestamp, tz=timezone.utc
+                self.timestamp, tz=UTC
             ).isoformat(),
             "agent_id": self.agent_id,
             "task_id": self.task_id,
@@ -510,7 +523,7 @@ class ErrorBus(BaseService):
 
         result = [
             {
-                "bucket": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
+                "bucket": datetime.fromtimestamp(ts, tz=UTC).isoformat(),
                 "count": count,
             }
             for ts, count in sorted(buckets.items())
@@ -689,7 +702,10 @@ def capture_exception(
 # ── Re-export API handlers from sub-module ──
 
 from .api import (  # noqa: F401
-    handle_log_errors, handle_log_errors_detail,
-    handle_log_errors_stats, handle_log_errors_trend,
-    handle_log_errors_clear, handle_log_errors_export,
+    handle_log_errors,
+    handle_log_errors_clear,
+    handle_log_errors_detail,
+    handle_log_errors_export,
+    handle_log_errors_stats,
+    handle_log_errors_trend,
 )
