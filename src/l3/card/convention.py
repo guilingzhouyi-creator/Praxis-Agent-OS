@@ -294,28 +294,46 @@ class ConventionProtocol:
             logger.warning("convention send to %s failed: %s", target, e)
 
     def _build_document(self) -> str:
+        """Build the anchored deliberation document (.md).
+
+        Strict format for L3A on-demand navigation:
+          - Issues numbered [I-1], [I-2], ... (supplemental issues continue the sequence)
+          - Answers addressable by agent: **Answer** (agent_id):
+          - Decisions numbered [D-1], [D-2], ... with source issue reference
+          - Transcript lines: [msg_type] speaker → target: statement
+        """
         card = self.issue_card
         lines = [f"# Convention: {card.title}",
-                 f"Domain: {card.domain}",
-                 f"Agents: {', '.join(self.agent_ids)}",
-                 f"Duration: {self._completed_at - self._started_at:.1f}s"
-                     if self._completed_at else "", ""]
+                 f"<!-- meta: issue={card.id} domain={card.domain} "
+                 f"agents={','.join(self.agent_ids)} rounds={len(self._rounds)} "
+                 f"duration={self._completed_at - self._started_at:.1f}s -->",
+                 ""]
 
         lines.append("## Issues")
-        for it in card.items:
-            status = "[x]" if it.status == IssueStatus.RESOLVED else "[ ]"
-            lines.append(f"\n### {status} {it.question} [{it.domain}]")
-            lines.append(f"  Proposed by: {it.proposed_by}")
-            lines.append(f"  Assigned to: {it.assigned_to}")
+        for idx, it in enumerate(card.items, start=1):
+            status = "resolved" if it.status == IssueStatus.RESOLVED else "open"
+            lines.append(f"\n### [I-{idx}] {it.question}")
+            lines.append(f"<!-- issue-id: I-{idx} | domain: {it.domain} | "
+                         f"proposed_by: {it.proposed_by} | assigned_to: {it.assigned_to} | "
+                         f"status: {status} -->")
             if it.answer:
-                lines.append(f"  Answer: {it.answer}")
+                lines.append(f"- **Answer** ({it.assigned_to}): {it.answer}")
 
-        lines.append("\n## Transcripts")
+        if card.converged_at:
+            lines.append("\n## Decisions")
+            for d_idx, item in enumerate(card.items, start=1):
+                if item.status == IssueStatus.RESOLVED:
+                    lines.append(f"\n### [D-{d_idx}] Resolution of [I-{d_idx}]")
+                    lines.append(f"<!-- decision-id: D-{d_idx} | from: I-{d_idx} | consensus: yes -->")
+                    lines.append(f"- {item.answer}")
+
+        lines.append("\n## Transcript")
         for r in self._rounds:
             lines.append(f"\n### Round {r.round_num}")
             for t in r.transcripts:
                 target_str = f" → {t.target}" if t.target else ""
-                lines.append(f"  [{t.msg_type}] {t.speaker}{target_str}: {t.statement[:LOG_TRUNC_200]}")
+                lines.append(f"- [{t.msg_type}] {t.speaker}{target_str}: "
+                             f"{t.statement[:LOG_TRUNC_500]}")
 
         return "\n".join(lines)
 

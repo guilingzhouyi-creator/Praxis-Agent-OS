@@ -101,43 +101,164 @@ def get_convergence_queue(cell_id: str) -> list[dict]:
 
 
 def l3a_convention_handler(args: dict, agent_id: str = "") -> dict:
-    """Read a converged convention document on demand (bounded read).
+    """Read a converged convention document on demand.
 
-    The full deliberation .md lives on disk under data_dir/conventions/.
-    Sessions only carry a summary + reference; this tool fetches details
-    when the LLM actually needs them — avoiding context pollution.
+    Three navigation modes (issue_id always required):
+      action=index   → structured index: issues [I-N] with status/assignee,
+                       decisions [D-M], participants, round count
+      anchor=I-2     → that issue block only (question + answer + meta)
+      anchor=D-1     → that decision block only
+      agent=agent-b  → all transcript lines where agent-b spoke or was addressed
+      (none)         → bounded full read (max_chars; 0 = full)
+
+    The full .md lives on disk under data_dir/conventions/ — sessions carry
+    only a summary + reference, this tool fetches details when needed.
     """
     issue_id = args.get("issue_id", "")
     if not issue_id:
         return {"success": False, "error": "issue_id required"}
+    action = args.get("action", "")
+    anchor = args.get("anchor", "")
+    agent_filter = args.get("agent", "")
     max_chars = int(args.get("max_chars", 0))
+
+    content = _read_convention_doc(issue_id)
+    if content is None:
+        return {"success": False,
+                "error": f"convention doc not found: {issue_id}"}
+    size = len(content)
+
+    if action == "index":
+        return {"success": True, "issue_id": issue_id, "action": "index",
+                "index": _build_index(content)}
+
+    if anchor:
+        block = _extract_block(content, anchor)
+        if block is None:
+            return {"success": False, "error": f"anchor not found: {anchor}",
+                    "valid_anchors": _list_anchors(content)}
+        return {"success": True, "issue_id": issue_id, "anchor": anchor,
+                "content": block, "size": len(block)}
+
+    if agent_filter:
+        block = _extract_agent_lines(content, agent_filter)
+        return {"success": True, "issue_id": issue_id, "agent": agent_filter,
+                "content": block, "lines": block.count("\n- ["),
+                "size": len(block)}
+
+    if max_chars > 0 and size > max_chars:
+        content = content[:max_chars] + f"\n... ({size - max_chars} chars elided, use action=index / anchor= to navigate)"
+    return {"success": True, "issue_id": issue_id, "size": size,
+            "content": content}
+
+
+def _read_convention_doc(issue_id: str) -> str | None:
     try:
         from l1.kernel.params.agent import CONVENTION_DOC_DIR
         from l1.kernel.paths import get_paths as _gp
         import os as _os
         path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR, f"{issue_id}.md")
-        if not _os.path.isfile(path):
-            # fall back to R4 archive
-            from l3.tools._archive import _get_db
-            conn = _get_db()
-            row = conn.execute(
-                "SELECT content FROM archive WHERE fonds = ? ORDER BY id DESC LIMIT 1",
-                (f"CONVENTION:{issue_id}",),
-            ).fetchone()
-            if not row:
-                return {"success": False,
-                        "error": f"convention doc not found: {issue_id}"}
-            content = row[0]
-            source = "archive"
-        else:
+        if _os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
-                content = f.read()
-            source = "file"
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+                return f.read()
+    except Exception:
+        pass
+    # fall back to R4 archive
+    try:
+        from l3.tools._archive import _get_db
+        conn = _get_db()
+        row = conn.execute(
+            "SELECT content FROM archive WHERE fonds = ? ORDER BY id DESC LIMIT 1",
+            (f"CONVENTION:{issue_id}",),
+        ).fetchone()
+        return row[0] if row else None
+    except Exception:
+        return None
 
-    size = len(content)
-    if max_chars > 0 and size > max_chars:
-        content = content[:max_chars] + f"\n... ({size - max_chars} chars elided, use max_chars=0 for full)"
-    return {"success": True, "issue_id": issue_id, "source": source,
-            "size": size, "content": content}
+
+def _build_index(content: str) -> dict:
+    issues, decisions, participants, rounds = [], [], [], 0
+    for line in content.splitlines():
+        if line.startswith("### [I-"):
+            issues.append({"anchor": f"I-{len(issues) + 1}",
+                           "title": line.split("]", 1)[1].strip()})
+        elif line.startswith("### [D-"):
+            decisions.append({"anchor": f"D-{len(decisions) + 1}"})
+        elif line.startswith("<!-- issue-id:"):
+            if issues:
+                m = _kv(line)
+                issues[-1].update({"status": m.get("status", ""),
+                                   "assigned_to": m.get("assigned_to", ""),
+                                   "domain": m.get("domain", ""),
+                                   "proposed_by": m.get("proposed_by", "")})
+        elif line.startswith("### Round "):
+            rounds += 1
+        elif line.startswith("- [") and " → " in line:
+            speaker = line.split("[", 1)[1].split("]", 1)[0].split(" ", 1)[-1]
+            # speaker is the second word after msg_type: "[cross_examine] agent-a"
+            parts = line.lstrip("- ").split("]", 1)
+            if len(parts) == 2:
+                speaker = parts[1].split(" → ")[0].strip()
+            if speaker and speaker not in participants:
+                participants.append(speaker)
+    # meta line for agents
+    for line in content.splitlines():
+        if line.startswith("<!-- meta:"):
+            m = _kv(line)
+            agents = m.get("agents", "")
+            if agents:
+                participants = [a for a in agents.split(",") if a]
+            rounds = int(m.get("rounds", rounds))
+            break
+    return {"issues": issues, "decisions": decisions,
+            "participants": participants, "rounds": rounds}
+
+
+def _extract_block(content: str, anchor: str) -> str | None:
+    lines = content.splitlines()
+    start = None
+    marker = f"### [{anchor}]" if anchor.startswith(("I-", "D-")) else None
+    for i, ln in enumerate(lines):
+        if marker and ln.startswith(marker):
+            start = i
+            break
+    if start is None:
+        return None
+    block = [lines[start]]
+    for ln in lines[start + 1:]:
+        if ln.startswith("### [") or ln.startswith("## "):
+            break
+        block.append(ln)
+    return "\n".join(block).strip()
+
+
+def _extract_agent_lines(content: str, agent: str) -> str:
+    out = [f"# Agent {agent} — convention transcript"]
+    for line in content.splitlines():
+        if line.startswith("- [") and agent in line:
+            out.append(line)
+        elif f"({agent})" in line and "**Answer**" in line:
+            out.append(line)
+    return "\n".join(out)
+
+
+def _list_anchors(content: str) -> list[str]:
+    anchors = []
+    for line in content.splitlines():
+        if line.startswith("### [I-"):
+            anchors.append("I-" + line.split("[I-", 1)[1].split("]", 1)[0])
+        elif line.startswith("### [D-"):
+            anchors.append("D-" + line.split("[D-", 1)[1].split("]", 1)[0])
+    return anchors
+
+
+def _kv(comment_line: str) -> dict:
+    """Parse '<!-- k: v | k2: v2 -->' into dict."""
+    inner = comment_line.strip()
+    inner = inner.removeprefix("<!--").removesuffix("-->").strip()
+    result = {}
+    for part in inner.split("|"):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            result[k.strip()] = v.strip()
+    return result

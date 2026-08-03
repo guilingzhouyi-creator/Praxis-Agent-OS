@@ -333,15 +333,20 @@ class Session:
     _ctx_window_cache: int = 0
 
     def _query_context_window(self) -> int:
-        if self._ctx_window_cache > 0:
+        if isinstance(self._ctx_window_cache, int) and self._ctx_window_cache > 0:
             return self._ctx_window_cache
         try:
             from l1.kernel.ports import get_port as _get_port
             engine = _get_port("llm")
-            self._ctx_window_cache = engine.context_window(
+            raw = engine.context_window(
                 cell_id=self._cell_id, agent_id=_p.AGENT_ID)
+            # The LLM port may return an int or a dict like
+            # {"context_window": N, "source": "llm"} — normalize both.
+            if isinstance(raw, dict):
+                raw = raw.get("context_window", raw.get("max", 0))
+            self._ctx_window_cache = int(raw or 0)
         except Exception:
-            self._ctx_window_cache = 128000
+            self._ctx_window_cache = _p.CONTEXT_WINDOW_FALLBACK
         return self._ctx_window_cache
 
     def close(self) -> dict:
@@ -623,10 +628,12 @@ class Session:
             l3a_peek_handler, parallel_safe=True)
         from .helpers import l3a_convention_handler
         self._loop.add_tool("l3a_convention",
-            "Read a converged convention document (issue_id). "
-            "Use max_chars to bound the read; 0 = full document. "
-            "Convention summaries appear in session history as references.",
-            {"issue_id": "string", "max_chars": "int"},
+            "Navigate a converged convention document. First call action=index "
+            "for the issue/decision catalog, then fetch specific blocks: "
+            "anchor=I-2 (issue), anchor=D-1 (decision), or agent=agent-b "
+            "(all lines for that agent). max_chars bounds reads.",
+            {"issue_id": "string", "action": "string", "anchor": "string",
+             "agent": "string", "max_chars": "int"},
             l3a_convention_handler, parallel_safe=True)
         if self._pmu:
             try:

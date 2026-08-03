@@ -55,6 +55,7 @@ DAEMON_STOP_TIMEOUT: float = 5.0
 DAEMON_TICK_INTERVAL: float = 60.0
 IDLE_TIMEOUT_DEFAULT: float = 3600.0
 MEMORY_MAX_TOKENS: int = 4096
+CONTEXT_WINDOW_FALLBACK: int = 128000     # used when LLM port query fails
 
 # ── API / Search ──
 DEFAULT_SEARCH_LIMIT: int = 20
