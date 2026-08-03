@@ -18,25 +18,24 @@ from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import (
-    TERRITORY_MAP,
-    role_for_domain,
-    DECOMPOSER_PLAN_PREFIX,
     DECOMPOSER_AGENT_PREFIX,
-    DECOMPOSER_SCOUT_ROLE,
-    DECOMPOSER_SCOUT_POOL,
     DECOMPOSER_DEFAULT_ACTION,
-    DECOMPOSER_FALLBACK_ROLE,
-    DECOMPOSER_FALLBACK_AGENT,
     DECOMPOSER_DEFAULT_PHASE,
-    DECOMPOSER_SENDER,
-    DECOMPOSER_L3_TARGET,
     DECOMPOSER_EVENT_DECOMPOSED,
+    DECOMPOSER_FALLBACK_AGENT,
+    DECOMPOSER_FALLBACK_ROLE,
     DECOMPOSER_ID_LENGTH,
-    CELL_SCOUT_ROLE,
+    DECOMPOSER_L3_TARGET,
+    DECOMPOSER_PLAN_PREFIX,
+    DECOMPOSER_SCOUT_POOL,
+    DECOMPOSER_SCOUT_ROLE,
+    DECOMPOSER_SENDER,
+    TERRITORY_MAP,
 )
-from .card_unified import CardUnified, CardPhase, CardTask, CardSummary
-from .card_builder import build_card as _build_card
 from l1.kernel.params.system import LOG_TRUNC_60
+
+from .card_builder import build_card as _build_card
+from .card_unified import CardPhase, CardSummary, CardTask, CardUnified
 
 logger = logging.getLogger(__name__)
 

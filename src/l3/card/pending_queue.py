@@ -24,18 +24,18 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.agent import HUMAN_SENDER
+from l1.kernel.params.agent import HUMAN_SENDER, SIGNAL_TARGET_L3
+from l1.kernel.params.kernel import WitnessStatus
 from l1.kernel.params.system import (
-    PENDING_QUEUE_AUTO_SAVE,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_60,
     LOG_TRUNC_80,
     LOG_TRUNC_120,
     LOG_TRUNC_200,
+    PENDING_QUEUE_AUTO_SAVE,
 )
+from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
-from l1.kernel.params.kernel import WitnessStatus
 
 logger = logging.getLogger(__name__)
 

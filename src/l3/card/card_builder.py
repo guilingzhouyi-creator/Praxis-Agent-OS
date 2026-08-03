@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
 
-from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
 from l1.kernel.params.agent import CARD_BUILDER_MODES
 from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_80
+
+from .card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMode
 
 logger = logging.getLogger(__name__)
 

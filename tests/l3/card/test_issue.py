@@ -1,8 +1,8 @@
 """IssueCard + IssueTable tests — submit, get, status, answer, supplement."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -42,7 +42,7 @@ class TestIssueTable:
         assert card is None
 
     def test_set_status(self):
-        from l3.card.issue import IssueCard, IssueItem, IssueCardStatus, get_table
+        from l3.card.issue import IssueCard, IssueCardStatus, get_table
         table = get_table()
         card = IssueCard(intent="Status", domain="t", agent_ids=["a"])
         card_id = table.submit(card)
@@ -71,7 +71,7 @@ class TestIssueTable:
         assert new_id is not None
 
     def test_list_by_status(self):
-        from l3.card.issue import IssueCard, IssueItem, IssueCardStatus, get_table
+        from l3.card.issue import IssueCard, IssueCardStatus, get_table
         table = get_table()
         card = IssueCard(intent="ListByStatus", domain="t", agent_ids=["a"])
         card_id = table.submit(card)

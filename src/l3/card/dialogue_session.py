@@ -27,12 +27,10 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import (
-    DIALOGUE_SESSION_AUTO_SAVE,
     DIALOGUE_IDLE_TIMEOUT,
+    DIALOGUE_SESSION_AUTO_SAVE,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_60,
     LOG_TRUNC_100,
@@ -40,6 +38,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_500,
     LOG_TRUNC_1000,
 )
+from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 

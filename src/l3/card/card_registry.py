@@ -18,16 +18,15 @@ import logging
 import threading
 import time
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from l3.services.model_service import get_service as _get_model_service
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.system import (
-    CARD_REGISTRY_AUTO_SAVE,
     CARD_DISPATCH_INTERVAL,
     CARD_QUEUE_PENDING_MAX,
+    CARD_REGISTRY_AUTO_SAVE,
     CARD_STALE_ESCALATE_SECONDS,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_40,
@@ -35,8 +34,12 @@ from l1.kernel.params.system import (
     LOG_TRUNC_80,
     LOG_TRUNC_500,
 )
+from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
-from .card_unified import CardUnified, CardLifecycle, CardSummary, CardExecution
+from l3.services.model_service import get_service as _get_model_service
+
+from .card_unified import CardExecution as _CardExecution
+from .card_unified import CardLifecycle, CardSummary, CardUnified
 
 _MODEL_SPEC = "card_planner"
 
@@ -387,7 +390,7 @@ class CardRegistry(PersistableMixin):
                     seen[aid] += el
                     continue
                 seen[aid] = el
-            rec.executions.append(CardExecution(
+            rec.executions.append(_CardExecution(
                     executor=aid, cell_id=cell_id,
                     phase=st.get("phase", "step"),
                     started_at=now - cell_elapsed, finished_at=now,
@@ -409,7 +412,8 @@ class CardRegistry(PersistableMixin):
             if e.executor and e.executor != cell_id:
                 agents[e.executor] = agents.get(e.executor, 0.0) + e.elapsed
         try:
-            from l3.bus.monitor_bus import MonitorEvent as _ME5, get_bus as _MB5
+            from l3.bus.monitor_bus import MonitorEvent as _ME5
+            from l3.bus.monitor_bus import get_bus as _MB5
             _MB5().emit(_ME5(
                 type="stats.card.execution", source="card_registry",
                 severity="info",
@@ -423,7 +427,8 @@ class CardRegistry(PersistableMixin):
         except Exception:
             logger.debug("card_registry: monitor emit failed")
         try:
-            from l3.services.stats_center import get_center as _SC5, MetricPoint as _MP5
+            from l3.services.stats_center import MetricPoint as _MP5
+            from l3.services.stats_center import get_center as _SC5
             _ts = time.time()
             _tags = {"card": card_id, "cell": cell_id}
             _SC5().ingest(_MP5(name="card.execution.total", value=total,
@@ -505,9 +510,10 @@ class CardRegistry(PersistableMixin):
         # Locate persisted doc file for the reference
         doc_path = ""
         try:
+            import os as _os
+
             from l1.kernel.params.agent import CONVENTION_DOC_DIR
             from l1.kernel.paths import get_paths as _gp
-            import os as _os
             doc_path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR,
                                      f"{issue_card_id}.md")
             if not _os.path.isfile(doc_path):

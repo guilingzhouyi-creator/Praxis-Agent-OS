@@ -11,13 +11,11 @@ import time
 from typing import Any
 
 from l1.kernel import EVENT_REVIEW_REQUESTED, emit_signal
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED as _EVT_REV
 from l1.kernel.discovery import get_tool_config
 
-
 _SANDBOX_EXEC_TIMEOUT = get_tool_config("exec_timeout", 300)
-from l3.card.plan_step_types import StepState
 from l3.card.models import PhaseMode
+from l3.card.plan_step_types import StepState
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +87,6 @@ def execute(plan, timeout: float | None = None) -> dict:
 
 def _run_phase(plan, pname: str, psteps: list[Any], pmode: Any, aggregated: dict, timeout: float) -> None:
     """Run a single phase."""
-    from l3.agent_terminal import get_terminal
     for ps in psteps:
         if plan._cancelled:
             break
@@ -105,7 +102,6 @@ def _run_phase(plan, pname: str, psteps: list[Any], pmode: Any, aggregated: dict
                 break
         elif pmode == PhaseMode.PARALLEL:
             from l3.card.execution_verify import execute_scout_verify
-            from l3.card.execution_plan import PlanStep
             step_count = len(psteps)
             if step_count <= 1:
                 result = _execute_step(plan, ps, timeout)
@@ -129,8 +125,7 @@ def _run_phase(plan, pname: str, psteps: list[Any], pmode: Any, aggregated: dict
 
 def _execute_step(plan, ps, timeout: float) -> dict:
     """Execute a single PlanStep."""
-    from l3.agent_terminal import get_terminal
-    from l3.card.execution_verify import execute_scout, execute_scout_verify, diff_verify
+    from l3.card.execution_verify import diff_verify, execute_scout_verify
     tool = ps.action
     agent_id = plan._resolve_agent(ps)
 
@@ -160,9 +155,8 @@ def _execute_scout(ps) -> dict:
 
 def _execute_agent(plan, ps, agent_id: str, timeout: float) -> dict:
     """Execute a step on an AgentTerminal."""
-    from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode, TerminalStatus
-    from l3.card.execution_verify import execute_scout_verify as _esv
-    from l3.cell.components.cell_types import is_scout, is_subagent
+    from l3.agent_terminal import CardMode as TermCardMode
+    from l3.agent_terminal import TerminalCard, TerminalStatus, get_terminal
     t_step = time.time()
     term = get_terminal(agent_id, role=ps.role, territory=ps.territory, cell_id=plan.card.cell_id or "")
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):

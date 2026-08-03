@@ -22,8 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from l1.kernel.params.system import HASH_TRUNC_SHORT, ISSUE_TABLE_AUTO_SAVE, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_500
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import HASH_TRUNC_SHORT, ISSUE_TABLE_AUTO_SAVE, LOG_TRUNC_120, LOG_TRUNC_500, LOG_TRUNC_80
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

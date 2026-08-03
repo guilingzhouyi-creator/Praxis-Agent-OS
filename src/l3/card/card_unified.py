@@ -18,14 +18,12 @@ Card lifecycle:
 
 from __future__ import annotations
 
-import copy
-import json
 import logging
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from typing import Any
 
 from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_80, LOG_TRUNC_200, LOG_TRUNC_500
@@ -323,8 +321,10 @@ class CardUnified:
         ExecutionPlan / cell.execute_card() can consume CardUnified
         without being rewritten all at once.
         """
-        from .models import Card as OldCard, CardMode as OldCardMode
-        from .models import Phase as OldPhase, PhaseMode as OldPhaseMode
+        from .models import Card as OldCard
+        from .models import CardMode as OldCardMode
+        from .models import Phase as OldPhase
+        from .models import PhaseMode as OldPhaseMode
         from .models import Step as OldStep
 
         # Map nature → CardMode
@@ -382,7 +382,7 @@ class CardUnified:
             review_prompt=review_prompt,
         )
         self.phases.append(phase)
-        self._track_mod(f"phases.add", None, name)
+        self._track_mod("phases.add", None, name)
         return phase
 
     def add_task(self, phase_name: str, action: str, target: str = "",

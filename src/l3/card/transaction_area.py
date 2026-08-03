@@ -18,10 +18,9 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, TRANSACTION_AREA_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
 
@@ -158,12 +157,12 @@ class TransactionArea(BaseService, PersistableMixin):
           Large cards → always require human approval
         """
         card_id = f"card-{uuid.uuid4().hex[:6]}"
-        
+
         # Determine auto-approval eligibility
         can_auto = auto_approve and size != "large"
         if can_auto and size == "medium" and priority > 5:
             can_auto = False  # High-priority medium cards need human review
-        
+
         card = TransactionCard(
             card_id=card_id, intent=intent, domain=domain,
             card_type=card_type, size=size, priority=priority,
@@ -173,20 +172,20 @@ class TransactionArea(BaseService, PersistableMixin):
             if len(self._queue) >= self._max_queue:
                 return {"success": False, "error": "transaction queue full"}
             self._queue[card_id] = card
-        
+
         # On-demand auto-approval for small cards
         if can_auto and size == "small":
             card.status = CardStatus.APPROVED
             card.approved_at = time.time()
             logger.info("card auto-approved (small): %s — %s", card_id, intent[:LOG_TRUNC_50])
             return {"success": True, "card_id": card_id, "status": "approved", "auto": True}
-        
+
         if can_auto and size == "medium":
             card.status = CardStatus.APPROVED
             card.approved_at = time.time()
             logger.info("card auto-approved (medium): %s — %s", card_id, intent[:LOG_TRUNC_50])
             return {"success": True, "card_id": card_id, "status": "approved", "auto": True}
-        
+
         logger.info("card enqueued: %s — %s (%s, waiting human)", card_id, intent[:LOG_TRUNC_50], size)
         return {"success": True, "card_id": card_id, "status": "pending"}
 

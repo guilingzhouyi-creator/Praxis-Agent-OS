@@ -1,6 +1,8 @@
 """Card + Execution tests — card model/build/gate/registry/execution engine"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -8,7 +10,7 @@ class TestCardModel:
     """Card data model"""
 
     def test_card_create(self):
-        from l3.card.models import Card, Phase, Step
+        from l3.card.models import Card
         card = Card(intent="fix bug", domain="src")
         assert card.intent == "fix bug"
         assert card.domain == "src"
@@ -103,7 +105,7 @@ class TestCardUnified:
     """Unified Card"""
 
     def test_register_card_type(self):
-        from l3.card.card_unified import register_card_type, list_card_types
+        from l3.card.card_unified import list_card_types, register_card_type
         register_card_type("custom_test", {
             "phases": ["analyze", "execute"],
             "default_prompts": {},

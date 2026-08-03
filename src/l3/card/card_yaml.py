@@ -1,10 +1,7 @@
 """YAML card loader — reads snake_card.yaml into a structured CardUnified."""
 from __future__ import annotations
 
-import os
-from typing import Any
-
-from .card_unified import CardUnified, CardPhase, CardTask, CardSummary, PhaseMode
+from .card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMode
 
 
 def load_card(path: str) -> dict:

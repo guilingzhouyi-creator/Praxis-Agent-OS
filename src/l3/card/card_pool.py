@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 from l1.kernel.params.system import CARD_YAML_EXPORT
 

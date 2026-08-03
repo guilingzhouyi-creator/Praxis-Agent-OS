@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from l3.card.issue import IssueCard, get_table
 from l3.cell import get_cell, reset_cells
-from l3.card.issue import get_table, reset_table, IssueCard
 from l3.cell.components.cell_types import MessageType
 
 

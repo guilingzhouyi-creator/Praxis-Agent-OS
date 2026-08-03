@@ -20,20 +20,21 @@ from __future__ import annotations
 import logging
 import threading
 import time
-import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.discovery import get_config as _get_config
-from l3.cell.components.cell_types import CellProtocol, MessageType
-from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500, MEMORY_IMPORTANCE_HIGH
+from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table
+from l3.cell.components.cell_types import CellProtocol, MessageType
 
 logger = logging.getLogger(__name__)
 
 # Resolve convention limits from config with params fallback
-from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS, CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT, SIGNAL_TARGET_L3
+from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS
+from l1.kernel.params.agent import CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT
+from l1.kernel.params.agent import SIGNAL_TARGET_L3
+
 _CONV_MAX_ROUNDS: int = _DEFAULT_ROUNDS
 _CONV_TIMEOUT: float = _DEFAULT_TIMEOUT
 _cfg = _get_config("services")
@@ -179,9 +180,10 @@ class ConventionProtocol:
 
         # Persist as .md file (readable by L3A resource manager + humans)
         try:
+            import os as _os
+
             from l1.kernel.params.agent import CONVENTION_DOC_DIR
             from l1.kernel.paths import get_paths as _gp
-            import os as _os
             doc_dir = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR)
             _os.makedirs(doc_dir, exist_ok=True)
             doc_path = _os.path.join(doc_dir, f"{card.id}.md")

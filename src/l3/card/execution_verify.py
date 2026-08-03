@@ -6,6 +6,7 @@ Extracted from execution_plan.py for modularity.
 from __future__ import annotations
 
 from typing import Any
+
 from l1.kernel.params.system import LOG_TRUNC_200
 
 

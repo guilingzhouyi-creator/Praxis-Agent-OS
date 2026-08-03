@@ -14,14 +14,15 @@ Flow:
 from __future__ import annotations
 
 import logging
-import time
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
 

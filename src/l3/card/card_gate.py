@@ -19,21 +19,21 @@ import logging
 import threading
 import time
 from enum import Enum, auto
-from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.agent import CARD_GATE_ARCH_KEYWORDS
-from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.discovery import get_config as _get_config
-from l3._persistable import PersistableMixin
+from l1.kernel.params.agent import CARD_GATE_ARCH_KEYWORDS, SIGNAL_TARGET_L3
 from l1.kernel.params.kernel import WitnessStatus
+from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.paths import get_paths as _gp
+from l3._persistable import PersistableMixin
 from l3.card.card_unified import CardLifecycle
 
 logger = logging.getLogger(__name__)
 
 # Resolve auto-save interval from config with params fallback
 from l1.kernel.params.system import CARD_GATE_AUTO_SAVE as _PARAMS_AUTO_SAVE
+
 _GATE_AUTO_SAVE: float = _PARAMS_AUTO_SAVE
 _cfg = _get_config("persistence")
 if _cfg:
@@ -211,8 +211,7 @@ class CardGate(PersistableMixin):
             if item["card_id"] == card_id:
                 if decision:
                     return pq.approve(item["id"], response)
-                else:
-                    return pq.reject(item["id"], response)
+                return pq.reject(item["id"], response)
         return {"success": False, "error": f"card {card_id} not in pending queue"}
 
     def list_pending(self) -> list[dict]:

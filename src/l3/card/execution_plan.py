@@ -14,19 +14,15 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_TIMEOUT, EVENT_REVIEW_REQUESTED
-from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from .models import Card, CardMode, PhaseMode, Step
-from l3.agent_terminal import AgentTerminal, TerminalCard, TerminalStatus, get_terminal, get_terminals, CardMode as TermCardMode
-from .plan_step_types import StepState, PlanStep
-from .execution_run import execute as _execute, _run_phase, _execute_step, _execute_agent, _execute_scout
-from l1.kernel.params.system import LOG_TRUNC_80
 from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.system import LOG_TRUNC_80
 
+from .execution_run import _execute_agent, _execute_step, _run_phase
+from .execution_run import execute as _execute
+from .models import Card, CardMode
+from .plan_step_types import PlanStep, StepState
 
 SANDBOX_EXEC_TIMEOUT = get_tool_config("exec_timeout", 300)
 
@@ -104,7 +100,6 @@ class ExecutionPlan:
         if self._is_unified:
             return self.card.nature
         mode = self.card.mode
-        from .models import CardMode
         return {CardMode.EXECUTE: "execution", CardMode.ISSUE: "issue",
                 CardMode.PARALLEL_ALL: "parallel_all"}.get(mode, "execution")
 
@@ -267,8 +262,9 @@ class ExecutionPlan:
         think actions     → all tools (general purpose)
         """
         try:
-            from .tool_system.tool_config import ToolConfig as _TC
             from l1.kernel.params.kernel import RING_1
+
+            from .tool_system.tool_config import ToolConfig as _TC
             read_tools = {t.name for t in _TC.by_ring(RING_1)}
             write_tools = _TC.write_tool_names()
             shell_tools = _TC.terminal_tool_names()

@@ -15,16 +15,16 @@ class TestExecutionPlanInit:
     """ExecutionPlan creation and basic attributes — card wrapping, agent map."""
 
     def test_init_with_card(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="test", domain=".")
         plan = ExecutionPlan(card, {"reader": "agent-r"})
         assert plan.card is not None
         assert plan.agent_map == {"reader": "agent-r"}
 
     def test_init_multi_agent(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="multi test", domain=".")
         amap = {"reader": "r1", "writer": "w1"}
         plan = ExecutionPlan(card, amap)
@@ -35,8 +35,8 @@ class TestExecutionPlanExecute:
     """execute() basic execution flow"""
 
     def test_execute_returns_dict(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="exec test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-a"})
         r = plan.execute()
@@ -45,8 +45,8 @@ class TestExecutionPlanExecute:
         assert "steps" in r, f"result missing 'steps' key: {r.keys()}"
 
     def test_execute_multi_step_card(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="multi step", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-b"})
         r = plan.execute()
@@ -58,8 +58,8 @@ class TestExecutionPlanSummary:
     """summary() execution summary"""
 
     def test_summary_returns_string_or_dict(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="summary test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-c"})
         plan.execute()
@@ -71,8 +71,8 @@ class TestExecutionPlanSteps:
     """steps property"""
 
     def test_steps_is_list(self):
-        from l3.card.models import Card
         from l3.card.execution_plan import ExecutionPlan
+        from l3.card.models import Card
         card = Card(intent="steps test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-d"})
         plan.execute()

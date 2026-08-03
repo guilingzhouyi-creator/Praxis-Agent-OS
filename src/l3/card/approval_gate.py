@@ -6,11 +6,10 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_100, LOG_TRUNC_200
 from l1.kernel.discovery import get_config as _get_config
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_100, LOG_TRUNC_200
+from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,9 @@ REJECTED = "rejected"
 TIMEOUT = "timeout"
 
 # Resolve persistence defaults from config with params fallback
-from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE as _DEFAULT_AUTO_SAVE, APPROVAL_GATE_WAIT_TIMEOUT as _DEFAULT_WAIT_TIMEOUT
+from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE as _DEFAULT_AUTO_SAVE
+from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT as _DEFAULT_WAIT_TIMEOUT
+
 _AUTO_SAVE: float = _DEFAULT_AUTO_SAVE
 _WAIT_TIMEOUT: float = _DEFAULT_WAIT_TIMEOUT
 _cfg = _get_config("persistence")
