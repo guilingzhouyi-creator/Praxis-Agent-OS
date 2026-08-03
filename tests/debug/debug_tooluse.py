@@ -1,5 +1,7 @@
 """Debug tool_use native function calling."""
-import os, sys, json
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 with open(os.path.join(os.path.dirname(__file__),"..","portal",".env"), encoding="utf-8") as f:
@@ -10,11 +12,13 @@ with open(os.path.join(os.path.dirname(__file__),"..","portal",".env"), encoding
             os.environ[k.strip()] = v.strip().strip("\"'")
 
 from l1.kernel.settings import get_settings
+
 s = get_settings()
 s.set_many({"llm.provider":"openai","llm.model":"deepseek-v4-flash",
             "llm.api_url":"https://api.deepseek.com/v1/chat/completions","llm.max_tokens":4096})
 
-from l4.llm import reset_engine, get_engine, ToolDef
+from l4.llm import ToolDef, get_engine, reset_engine
+
 reset_engine()
 engine = get_engine()
 
@@ -32,6 +36,7 @@ tools = [ToolDef("read_file", "Read file", {
     "required": ["path"]}, tool_read)]
 
 import time
+
 t0 = time.time()
 r = engine.tool_use(
     prompt="Read src/kernel/__init__.py and tell me how many lines it has.",

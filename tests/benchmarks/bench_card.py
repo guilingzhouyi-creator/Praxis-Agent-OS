@@ -2,23 +2,27 @@
 
 Scans for magic numbers, reads files, proposes constants.
 """
-import sys, os, time
+import os
+import sys
+import time
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from l3.cell import get_cell, reset_cells
-from l3.card.models import Card, CardMode, Phase, PhaseMode, Step
-from l3.agent_terminal import reset_terminals
-from l3.agent.scout import get_pool
 from l1.kernel.params.agent import TERMINAL_MAX_WORKERS
-from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT
+from l1.kernel.params.system import SCOUT_POOL_MAX_PER_AGENT, SCOUT_POOL_MAX_TOTAL
+from l3.agent.scout import get_pool
+from l3.agent_terminal import reset_terminals
+from l3.card.models import Card, CardMode, Phase, PhaseMode, Step
+from l3.cell import get_cell, reset_cells
 
 cell = get_cell("bench", ["/project"])
 cell.add_agent("agent_a", role="http",     territory=["/project"], ring=1, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_b", role="business", territory=["/project"], ring=2, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_c", role="security", territory=["/project"], ring=3, max_scouts=4, auto_boot=True)
 # Poll for all agents to be ready instead of fixed sleep(0.2)
-from l3.agent_terminal import get_terminal
 from l1.kernel.params.agent import AGENT_STATUS_IDLE
+from l3.agent_terminal import get_terminal
+
 _deadline = time.time() + 3.0
 for _aid in ("agent_a", "agent_b", "agent_c"):
     while time.time() < _deadline:
@@ -76,7 +80,6 @@ print(f"  Pool: max_total={SCOUT_POOL_MAX_TOTAL} max_per_agent={SCOUT_POOL_MAX_P
 print(f"  Workers: {TERMINAL_MAX_WORKERS} per agent\n")
 
 # Warmup: run a single scout to pre-warm Python cache
-from l3.agent.scout import get_pool
 get_pool().commission("warmup", "Search for import patterns in current directory")
 
 t0 = time.time()
