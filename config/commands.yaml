@@ -66,6 +66,15 @@ scheduler:
   examples:
     - "/scheduler          — show scheduler stats"
 
+think:
+  category: control
+  help: "Inspect or configure think quotas (ThinkRegistry)"
+  args:
+    - {name: sub, optional: true, description: "status — show all quotas"}
+  examples:
+    - "/think              — show think quota cells"
+    - "/think status       — show all think quotas"
+
 observe:
   category: control
   help: "Observability: alerts/health/metrics"
@@ -134,11 +143,12 @@ plugins:
 
 mcp:
   category: control
-  help: "Manage MCP server connections"
+  help: "Manage MCP connections + server export mode"
   args:
-    - {name: sub, optional: true, description: "status|add|remove|disable|enable"}
+    - {name: sub, optional: true, description: "status|mode|add|remove|disable|enable"}
   examples:
-    - "/mcp                — MCP server status"
+    - "/mcp                — MCP server status + export mode"
+    - "/mcp mode full      — switch export: normal|selected|full"
     - '/mcp add my-server http://YOUR_MCP_HOST:PORT/mcp/v1 — add server'
 
 process:
@@ -474,6 +484,7 @@ l3a:
     - "/l3a                            — show active sessions + model"
     - "/l3a create                     — create a new session"
     - "/l3a create \"My Task\"           — create with title"
+    - "/l3a resume <archived_id>       — resume an archived session from R4"
     - "/l3a list                       — list active + archived sessions"
     - "/l3a info <id>                  — show session + epoch details"
     - "/l3a close <id>                 — close and archive session"

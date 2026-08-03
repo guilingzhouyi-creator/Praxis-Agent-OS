@@ -36,7 +36,7 @@ def decompose_card(domain: str, card: Any, cell_id: str, ensure_terminal_fn=None
         list of {"card": Card, "role": str, "agent_id": str,
                  "agent_map": dict, "territory": list[str]}
     """
-    from .card.models import Card, Phase, PhaseMode
+    from l3.card.models import Card, Phase, PhaseMode
 
     is_unified = type(card).__name__ == "CardUnified"
     domain = domain or (card.summary.columns.get("domain", card.nature) if is_unified else card.domain)

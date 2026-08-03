@@ -438,6 +438,40 @@ class TestAutoDisconnect:
         assert not s.is_direct()
         assert s.mode == "L3A"
 
+    def test_direct_message_failure_auto_disconnects_cleanly(self, mocker):
+        """D1/D2 regression: direct message failure falls back to L3A without raising.
+
+        Guards against the old `from .cell import get_cell` (missing module) and
+        the unimported SIGNAL_TARGET_L3 (NameError) inside _auto_disconnect.
+        """
+        from l2.l2_shell import _direct_message, reset_state
+        from l2.l2_shell.state import get_state
+        reset_state()
+        s = get_state()
+        s.switch_to_direct("cell-1", "agent-test")
+        mock_cell = mocker.Mock()
+        mock_cell.send_direct_message.return_value = {"success": False, "error": "boom"}
+        mocker.patch("l3.cell.get_cell", return_value=mock_cell)
+        r = _direct_message(s, "hello")
+        assert r.get("success") is False
+        assert s.mode == "L3A"      # auto-disconnected
+        assert not s.is_direct()
+
+    def test_direct_message_cell_error_falls_back(self, mocker):
+        """D1/D2 regression: exception in send_direct_message also falls back."""
+        from l2.l2_shell import _direct_message, reset_state
+        from l2.l2_shell.state import get_state
+        reset_state()
+        s = get_state()
+        s.switch_to_direct("cell-1", "agent-test")
+        mock_cell = mocker.Mock()
+        mock_cell.send_direct_message.side_effect = RuntimeError("cell down")
+        mocker.patch("l3.cell.get_cell", return_value=mock_cell)
+        r = _direct_message(s, "hello")
+        assert r.get("success") is False
+        assert s.mode == "L3A"
+        assert not s.is_direct()
+
 
 # ═══════════════════════════════════════════════════════════════
 # dispatch Direct-mode routing

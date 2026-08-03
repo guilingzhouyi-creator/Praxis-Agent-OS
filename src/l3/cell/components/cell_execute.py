@@ -21,6 +21,13 @@ from l1.kernel.params.system import (
 logger = logging.getLogger(__name__)
 
 
+def _card_domain(card) -> str:
+    """Extract domain from Card or CardUnified (they store it differently)."""
+    if type(card).__name__ == "CardUnified":
+        return card.summary.columns.get("domain", card.nature)
+    return getattr(card, "domain", "")
+
+
 def execute_card(
     cell,
     card,
@@ -59,7 +66,7 @@ def execute_card(
     if isinstance(card, str):
         card = _raw_to_card(cell, card, domain)
 
-    domain = domain or card.domain
+    domain = domain or _card_domain(card)
     if domain and agent_map is None:
         from l3.cell.components.cell_decompose import decompose_card as _dc
         slices = _dc(domain, card, cell.cell_id, ensure_terminal_fn=cell._ensure_terminal)

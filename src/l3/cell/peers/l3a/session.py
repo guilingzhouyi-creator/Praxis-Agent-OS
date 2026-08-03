@@ -130,6 +130,8 @@ class Session:
         self._model_spec_cache: dict | None = None
         self._subscribed_cards: set[str] = set()
         self.tasks: SessionTaskTable = SessionTaskTable(session_id)
+        self._resumed_from: str = ""
+        self._resume_todos: list[dict] = []
 
     @classmethod
     def create(cls, title: str = "",
@@ -147,6 +149,52 @@ class Session:
             _ls().info(f"Session created: {title}", service="l3a", agent_id=_p.AGENT_ID, task_id=sid)
         except Exception:
             pass
+        return inst
+
+    @classmethod
+    def resume_from_archive(cls, archived_session_id: str,
+                            model_config: L3AModelConfig | None = None,
+                            registry: ContextRegistry | None = None) -> Session | None:
+        """Resume an archived session from R4 — new live session seeded with
+        the archived metadata, transcript, task table, and TODO list."""
+        blob = _archive.load_session_blob(archived_session_id)
+        if not blob:
+            return None
+        meta = blob.get("metadata", {})
+        transcript = blob.get("transcript", [])
+        tasks_data = meta.get("tasks", {})
+        todos_data = meta.get("todos", [])
+
+        inst = cls(session_id=f"l3a-{uuid.uuid4().hex[:_p.SID_LENGTH]}",
+                   title=(meta.get("title") or "Resumed session") + " (resumed)",
+                   model_config=model_config, registry=registry)
+        inst.epoch = ContextEpoch.create(registry or ContextRegistry())
+        inst.inbox.reload()
+        inst.turn_count = int(meta.get("turn_count", 0))
+        inst.card_count = int(meta.get("card_count", 0))
+        inst.tasks.from_dict(tasks_data or {})
+        inst._resumed_from = archived_session_id
+        if todos_data:
+            try:
+                from l3.services.todo_tracker import TodoTracker
+                inst._resume_todos = list(todos_data)
+            except Exception:
+                pass
+        if transcript:
+            for m in transcript:
+                try:
+                    inst.history.append(Message(
+                        id=m.get("id", f"r-{uuid.uuid4().hex[:4]}"),
+                        role=m.get("role", "user"),
+                        content=m.get("content", ""),
+                        tool_calls=m.get("tool_calls", []),
+                        created_at=float(m.get("created_at") or time.time()),
+                        metadata=m.get("metadata", {}),
+                    ))
+                except Exception:
+                    continue
+        logger.info("l3a session: resumed %s → %s (%d msgs)",
+                    archived_session_id, inst.id, inst.history.count())
         return inst
 
     def prompt(self, text: str, mode: str = "steer") -> dict:
@@ -304,6 +352,11 @@ class Session:
             self.status = "closed"
             self.closed_at = time.time()
             self.last_active_at = time.time()
+            # Capture TODO state BEFORE nulling the loop
+            try:
+                todo_state = self.todos()
+            except Exception:
+                todo_state = {"tasks": []}
             self._loop = None
             ctx = self.history.to_context_trail()
             self.history.clear()
@@ -319,10 +372,6 @@ class Session:
                 logger.debug("l3a session: unsubscribe failed on close")
             self._subscribed_cards.clear()
         # I/O outside lock
-        try:
-            todo_state = self.todos() if self._loop else {}
-        except Exception:
-            todo_state = {}
         metadata = {
             "session_id": sid, "title": title,
             "created_at": self.created_at,
@@ -526,6 +575,12 @@ class Session:
             cell_id=self._cell_id,
             todo_path=todo_path,
         )
+        # Seed resumed TODO items into the fresh TodoTracker
+        if self._resume_todos:
+            try:
+                self._loop._todo.load(self._resume_todos)
+            except Exception:
+                logger.debug("l3a session: resume todos seed failed")
         from .helpers import cardwrite_handler
 
         def _session_cardwrite(args: dict, agent_id: str = "") -> dict:

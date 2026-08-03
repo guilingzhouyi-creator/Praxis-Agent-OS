@@ -9,6 +9,14 @@ def _cmd_status(args: list[str]) -> dict:
     for name, r in h["modules"].items(): print(f"  [{r['status']}] {name}")
     print(f"\nProcesses: {len(get_table().list())}")
     print(f"Terminals: {len(get_terminals())}")
+    try:
+        from l1.kernel.lifecycle import get_lifecycle
+        lc = get_lifecycle()
+        rec = lc.load()
+        print(f"Lifecycle: {lc.state().value} (boots={rec.boot_count}, "
+              f"schema={rec.schema_version or 'unset'})")
+    except Exception:
+        pass
     return h
 
 def _cmd_intents(args: list[str]) -> dict:

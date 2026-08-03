@@ -206,7 +206,7 @@ class CellCache:
         return results
 
     def promote(self, key: str, summary: str, value: Any,
-                location: str = "l3", importance: float = 0.5) -> dict:
+                location: str = "l3", importance: float = MEMORY_IMPORTANCE_BASE) -> dict:
         """Promote a demoted entry back into the KV cache.
 
         Called when memory.recall() finds data relevant to this Cell.

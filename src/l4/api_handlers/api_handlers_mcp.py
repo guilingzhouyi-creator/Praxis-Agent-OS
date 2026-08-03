@@ -148,6 +148,23 @@ def _l3a_todos(args: dict) -> dict:
     return {"success": True, "session_id": sid, "data": s.todos()}
 
 
+def _l3a_resume(args: dict) -> dict:
+    from l3.cell.peers.l3a import get_daemon
+    from l3.cell.peers.l3a.session import Session
+    archived_id = args.get("archived_session_id", "")
+    if not archived_id:
+        return {"success": False, "error": "archived_session_id required"}
+    d = get_daemon()
+    s = Session.resume_from_archive(archived_id, model_config=d.model_config,
+                                    registry=d.registry)
+    if not s:
+        return {"success": False,
+                "error": f"archived session not found: {archived_id}"}
+    with d.manager._lock:
+        d.manager._sessions[s.id] = s
+    return {"success": True, "data": s.info(), "resumed_from": archived_id}
+
+
 def _schema(properties: dict, required: list[str]) -> dict:
     return {"type": "object", "properties": properties,
             "required": required, "additionalProperties": False}
@@ -241,6 +258,13 @@ _L3A_TOOLS: dict[str, dict[str, Any]] = {
              "status": _str_prop("pending|in_progress|verifying|verified|escalated|waived")},
             ["session_id"]),
         "handler": _l3a_todos,
+    },
+    "l3a_resume": {
+        "description": "Resume an archived session from R4 into a new live session.",
+        "inputSchema": _schema(
+            {"archived_session_id": _str_prop("Archived session ID from l3a_list")},
+            ["archived_session_id"]),
+        "handler": _l3a_resume,
     },
 }
 

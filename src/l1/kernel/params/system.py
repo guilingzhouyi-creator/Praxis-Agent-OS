@@ -93,6 +93,7 @@ CELL_CACHE_INDEX_TTL: Final[float] = 900.0  # 15 min
 CELL_CACHE_KV_TTL: Final[float] = 1800.0    # 30 min
 CONTEXT_MAX_REGISTER_TOKENS: Final[int] = 4096
 MEMORY_MIN_CONTENT_LEN: Final[int] = 30
+MEMORY_RESTORE_RING2_LIMIT: Final[int] = 50    # reset_agent_context ring2 restore cap
 
 
 # ── Identity ──

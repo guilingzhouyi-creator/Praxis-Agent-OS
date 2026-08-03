@@ -150,7 +150,6 @@ class L3BBus:
                 return []
 
             messages = []
-            remaining = deque(maxlen=mailbox.maxlen)
 
             for msg in mailbox:
                 # expiry check
@@ -166,20 +165,17 @@ class L3BBus:
                     "timestamp": msg.timestamp,
                 })
                 if len(messages) >= limit:
-                    if not clear:
-                        remaining.append(msg)
                     break
-                if not clear:
-                    remaining.append(msg)
 
             if clear:
-                # rebuild mailbox (keep unread messages)
+                # Destructive read: drop consumed messages, keep unread ones.
+                consumed_ids = {m["msg_id"] for m in messages}
+                kept = deque(maxlen=mailbox.maxlen)
                 for msg in mailbox:
-                    if not any(m["msg_id"] == msg.msg_id for m in messages):
-                        remaining.append(msg)
-
-            if not clear:
-                self._mailboxes[composite_id] = remaining
+                    if msg.msg_id not in consumed_ids:
+                        kept.append(msg)
+                self._mailboxes[composite_id] = kept
+            # clear=False → non-destructive: mailbox left untouched
 
             self._stats["received"] += len(messages)
             return messages

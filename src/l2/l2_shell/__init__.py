@@ -15,7 +15,7 @@ import shlex
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.commands import get_command, get_handler, get_registry as _get_cmd_reg
-from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 
 from .commands import preconnect_enhanced, _pipeline
 from .completer import autocomplete  # noqa: F401
@@ -101,7 +101,7 @@ def _direct_message(state: ShellState, text: str) -> dict:
     Passes the response through ``guard_output``.
     """
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(state.cell_id)
         r = cell.send_direct_message(state.agent_id, text)
         if not r.get("success"):
@@ -127,7 +127,7 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
         return
     logger.warning("auto-disconnect from %s: %s", state.agent_id, reason)
     try:
-        from .cell import get_cell
+        from l3.cell import get_cell
         cell = get_cell(state.cell_id)
         cell.close_direct_session(state.agent_id)
     except Exception:

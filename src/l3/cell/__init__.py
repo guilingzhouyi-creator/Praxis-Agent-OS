@@ -22,6 +22,8 @@ from l1.kernel import EVENT_TASK_ASSIGN, get_event_bus, emit_signal
 from l1.kernel.bus import SystemBus
 from l1.kernel.params.agent import (
     DEFAULT_AGENT_CONFIGS,
+    DEFAULT_AGENT_RING,
+    DEFAULT_MAX_CONCURRENT_SCOUTS,
     CELL_ROLLBACK_RING_SIZE,
     CELL_HISTORY_RING_SIZE,
     CELL_L3_SENDER,
@@ -166,9 +168,9 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                    auto_boot: bool = True) -> dict:
         """Register a new agent in this Cell."""
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
-        info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else 1),
+        info = AgentInfo(role=role, ring=ring or (defaults.ring if defaults else DEFAULT_AGENT_RING),
                          territory=territory or [],
-                         max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else 3))
+                         max_concurrent_scouts=max_scouts or (defaults.max_scouts if defaults else DEFAULT_MAX_CONCURRENT_SCOUTS))
         # Apply model_config: param overrides defaults, overrides registry
         if model_config:
             info.model_config = model_config

@@ -134,7 +134,11 @@ class L3BComposite:
     # ── HTN-B route decomposition ──
 
     def route_subtask(self, subtask: Any, prev_summary: str) -> list[Any]:
-        """Use HTN-B to decompose HTN-A subtasks and produce a row plan."""
+        """Use HTN-B to decompose HTN-A subtasks and produce a row plan.
+
+        TODO(HTN-B): decomposition is not yet implemented — currently returns
+        an empty plan; dispatch_to_next() handles routing directly.
+        """
         return []
 
     # ── Status ──

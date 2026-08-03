@@ -7,9 +7,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.params.agent import CELL_L3_SENDER
-from l3.agent_terminal import get_terminals, TerminalStatus
+from l3.agent_terminal import get_terminals
+from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS, MEMORY_RESTORE_RING2_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +140,7 @@ class CellLifecycleMixin:
             mem = get_memory()
             mem.compact(agent_id)
             mem.forget_agent(agent_id)
-            mem.restore(ring2_limit=50)
+            mem.restore(ring2_limit=MEMORY_RESTORE_RING2_LIMIT)
         except Exception as e:
             logger.warning("reset_agent_context memory reset failed: %s", e)
         try:
@@ -175,7 +174,7 @@ class CellLifecycleMixin:
         self._mmu.flush_agent(agent_id)
         try:
             from l3.memory.context_pool import register as _reg
-            _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=4096)
+            _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=CONTEXT_MAX_REGISTER_TOKENS)
         except Exception as e:
             logger.warning("cell/restart_agent: %s", e)
         self.boot_agent(agent_id)

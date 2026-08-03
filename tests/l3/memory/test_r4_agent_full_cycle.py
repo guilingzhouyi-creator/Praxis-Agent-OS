@@ -34,7 +34,7 @@ class TestArchiveOrchestrator:
 
     def test_archive_ring3_empty(self):
         from l3.memory.archive_orchestrator import archive_ring3
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         n = archive_ring3(mem)
         assert isinstance(n, int)
@@ -42,14 +42,14 @@ class TestArchiveOrchestrator:
 
     def test_ring3_from_archive_empty(self):
         from l3.memory.archive_orchestrator import ring3_from_archive
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         n = ring3_from_archive(mem)
         assert isinstance(n, int)
 
     def test_archive_ring3_with_important_entry(self):
         from l3.memory.archive_orchestrator import archive_ring3
-        from l3.memory import MemoryManager
+        from l3.memory.memory import MemoryManager
         mem = MemoryManager()
         mem.remember("agent-a", "decision",
                       "This is an important decision with high importance for archival storage.",
@@ -84,7 +84,7 @@ class TestR4Agent:
     def test_restore_ring3_returns_dict(self):
         """Verify restore_ring3() method exists and returns structured result (without starting thread)"""
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
-        from l3.memory import get_memory, reset_memory
+        from l3.memory.memory import get_memory, reset_memory
         stop_r4_agent()
         reset_memory()
         r4 = get_r4_agent()

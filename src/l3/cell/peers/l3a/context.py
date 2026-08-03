@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 from . import params as _p
 
+from l1.kernel.params.system import TOKEN_CHARS_PER_TOKEN
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)

@@ -25,6 +25,20 @@ def dispatch(args: list[str], mgr: SessionManager,
         s = mgr.create(title=title, model_config=model_cfg, registry=registry)
         return {"success": True, "data": s.info()}
 
+    if sub == "resume":
+        if len(args) < 2:
+            return {"success": False, "error": "archived session_id required"}
+        from .session import Session
+        s = Session.resume_from_archive(
+            args[1], model_config=model_cfg, registry=registry)
+        if not s:
+            return {"success": False,
+                    "error": f"archived session not found: {args[1]}"}
+        with mgr._lock:
+            mgr._sessions[s.id] = s
+        return {"success": True, "data": s.info(),
+                "resumed_from": args[1]}
+
     if sub == "list":
         active = mgr.list_active()
         arch = _archive.search_sessions(limit=_p.DEFAULT_SEARCH_LIMIT)

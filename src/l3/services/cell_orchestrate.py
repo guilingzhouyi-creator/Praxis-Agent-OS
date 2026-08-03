@@ -74,7 +74,8 @@ class SubAgentOrchestrator:
 
         # Join: Future-driven collect_all
         if not self._task_ids:
-            return {"success": True, "dispatched": 0, "buffer_1": self.buffer_1}
+            return {"success": True, "dispatched": 0, "completed": 0,
+                    "failed": 0, "timed_out": 0, "buffer_1": self.buffer_1}
 
         joined = self._pool.collect_all(self._task_ids, timeout=timeout)
         self.buffer_1.extend(joined.get("results", []))

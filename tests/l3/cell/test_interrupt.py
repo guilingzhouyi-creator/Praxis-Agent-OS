@@ -38,12 +38,12 @@ def irq_with_pmu():
 # ── Built-in IRQ tests ──
 
 class TestBuiltinIrqs:
-    """16 built-in IRQs registered at init."""
+    """17 built-in IRQs registered at init (0-16, incl. cell.rollback)."""
 
     def test_16_builtin_irqs(self, irq):
-        """16 IRQs (0-15) pre-registered."""
+        """IRQs 0-16 pre-registered (17 total, cell.rollback added as IRQ16)."""
         stats = irq.stats()
-        assert stats["registered_irqs"] == 16
+        assert stats["registered_irqs"] == 17
 
     def test_builtin_nmi_priorities(self, irq):
         """IRQ 0-3 are NMI priority."""
@@ -183,7 +183,7 @@ class TestDispatch:
         irq.trigger(12)  # LOW
         irq.trigger(8)   # NORMAL
         irq.trigger(4)   # HIGH
-        count = irq.dispatch_pending(max_per_priority=5)
+        count = irq.dispatch_pending(max_total=5)
         assert count == 3
         assert dispatched[0][0] == "high"
         assert dispatched[1][0] == "norm"
@@ -211,12 +211,12 @@ class TestDispatch:
         assert count == 0
 
     def test_dispatch_max_per_priority(self, irq):
-        """max_per_priority caps total dispatched across all priority levels."""
+        """max_total caps total dispatched across all priority levels."""
         for _ in range(10):
             irq.trigger(4)   # HIGH
             irq.trigger(8)   # NORMAL
-        # Actual behavior: max_per_priority is a global cap, not per-priority
-        count = irq.dispatch_pending(max_per_priority=3)
+        # max_total is a global cap, not per-priority
+        count = irq.dispatch_pending(max_total=3)
         assert count == 3  # total cap, not per-priority
 
 
@@ -358,7 +358,7 @@ class TestThreadSafety:
                 irq.trigger(8)
         def dispatcher():
             for _ in range(10):
-                irq.dispatch_pending(max_per_priority=5)
+                irq.dispatch_pending(max_total=5)
         threads = [threading.Thread(target=triggerer) for _ in range(2)]
         threads += [threading.Thread(target=dispatcher) for _ in range(2)]
         for t in threads: t.start()

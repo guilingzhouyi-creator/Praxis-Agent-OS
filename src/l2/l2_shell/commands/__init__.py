@@ -87,7 +87,13 @@ except Exception:
     logger.warning("failed to load default commands from commands.yaml")
     capture("load default commands failed", error_code="E_CMD_INIT", component="l2")
 
+_registered_names: set[str] = set()
 for _name, _fn, _meta in _SYSTEM_COMMANDS:
+    if _name in _registered_names:
+        # Duplicate definitions across sub-modules (e.g. _cmd_help in
+        # connect.py and system.py) — register only the first occurrence.
+        continue
+    _registered_names.add(_name)
     try:
         _reg.register_system(_name, _fn, metadata=_meta or None)
     except Exception as _e:

@@ -7,7 +7,7 @@ from l3.cell.components.cell_decompose import decompose_card, auto_agent_map
 class TestCellDecompose:
     def test_decompose_card(self):
         from l3.cell.components.cell_decompose import decompose_card
-        from l3.card import Card
+        from l3.card.models import Card
         card = Card(intent="modify config", domain="app/config")
         result = decompose_card(domain="app/config", card=card, cell_id="cell-1")
         assert result is not None
@@ -15,7 +15,7 @@ class TestCellDecompose:
 
     def test_auto_agent_map(self):
         from l3.cell.components.cell_decompose import auto_agent_map
-        from l3.card import Card, Phase, Step
+        from l3.card.models import Card, Phase, Step
         card = Card(intent="test", domain="t")
         card.phases.append(Phase(name="p", steps=[Step(action="read_file", target=".", agent="reader")]))
         mapping = auto_agent_map(card, cell_id="cell-1")
