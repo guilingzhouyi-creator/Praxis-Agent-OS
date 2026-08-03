@@ -1,10 +1,9 @@
 """Tests for config_loader — load, apply, validate, and handler registration."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import tempfile
-import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -25,7 +24,7 @@ class TestConfigLoaderCore:
             reset_paths()
 
     def test_register_handler(self):
-        from l3.config.config_loader import register_config_handler, list_config_handlers
+        from l3.config.config_loader import list_config_handlers, register_config_handler
         before = len(list_config_handlers())
         def _test_handler(_cfg, _s, _r): pass
         register_config_handler("test_section", _test_handler, override=True)
@@ -103,8 +102,8 @@ class TestConfigHandlers:
         assert len(handlers) >= 15
 
     def test_llm_handler(self):
-        from l3.config.config_loader import apply
         from l1.kernel.settings import get_settings
+        from l3.config.config_loader import apply
         s = get_settings()
         old_provider = s.get("llm.provider")
         r = apply({"llm": {"provider": "ollama", "temperature": 0.5}})

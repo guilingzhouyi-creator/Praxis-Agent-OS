@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from l3.config.settings_center import SettingsCenter, get_center
+from l3.config.settings_center import get_center
 
 
 class Settings:

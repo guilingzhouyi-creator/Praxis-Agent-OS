@@ -11,38 +11,52 @@ from __future__ import annotations
 import logging
 import os
 import re
-from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from l1.kernel.params.agent import (
-    TERRITORY_MAP,
-    TERRITORY_PATHS,
-    SHARED_PATHS,
-    DEFAULT_AGENT_CONFIGS,
-    AGENT_CLEARANCE,
-    TERMINAL_MAX_WORKERS,
-    TERMINAL_POLL_INTERVAL,
-    CARD_WAIT_TIMEOUT,
-)
-from l1.kernel.params.kernel import ALLOCATOR_DEFAULTS
-from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
-from l1.kernel.device import get_device_manager, DeviceType
 from .config_handlers import (
-    cfg_kernel, cfg_cell, cfg_llm, cfg_constitution, cfg_gatechain,
-    cfg_tool_rates, cfg_tool, cfg_htn, cfg_cache, cfg_persist, cfg_persistence, cfg_network,
-    cfg_api, cfg_api_routes, cfg_prompts, cfg_credentials, cfg_card_gate, cfg_card_types, cfg_content_trust, cfg_commands, cfg_mcp,
-    cfg_devices, cfg_territories, cfg_clearance, cfg_agents,
-    cfg_agent_role_map, cfg_agent_priority,
+    cfg_agent_priority,
+    cfg_agent_role_map,
+    cfg_agents,
+    cfg_api,
+    cfg_api_routes,
+    cfg_cache,
+    cfg_card_gate,
+    cfg_card_pool,
+    cfg_card_types,
+    cfg_cell,
+    cfg_clearance,
+    cfg_commands,
+    cfg_constitution,
+    cfg_content_trust,
+    cfg_credentials,
+    cfg_devices,
+    cfg_diff,
+    cfg_gatechain,
+    cfg_htn,
+    cfg_kernel,
+    cfg_l3a,
+    cfg_language,
+    cfg_llm,
+    cfg_loop_control,
+    cfg_mcp,
     cfg_model_spec,
-    cfg_think, cfg_loop_control, cfg_diff, cfg_l3a,
-    cfg_services, cfg_card_pool, cfg_language,
+    cfg_network,
+    cfg_persist,
+    cfg_persistence,
+    cfg_prompts,
+    cfg_services,
+    cfg_territories,
+    cfg_think,
+    cfg_tool,
+    cfg_tool_rates,
 )
 
 logger = logging.getLogger(__name__)
 
 # ── Config handler registry ──
 
-_CONFIG_HANDLERS: dict[str, Callable[[dict, "Any", dict], None]] = {}
+_CONFIG_HANDLERS: dict[str, Callable[[dict, Any, dict], None]] = {}
 
 
 def register_config_handler(section: str, handler: Callable,
@@ -284,9 +298,9 @@ def watch_config(interval: float = 30.0, callback: callable | None = None) -> di
     path = find_config()
     if not path:
         return {"success": False, "error": "no config file found"}
-    
+
     last_mtime = os.path.getmtime(path)
-    
+
     def _watcher():
         nonlocal last_mtime
         while True:
@@ -300,7 +314,7 @@ def watch_config(interval: float = 30.0, callback: callable | None = None) -> di
                         callback(r)
             except Exception as e:
                 logger.warning("config loader: %s", e)
-    
+
     t = threading.Thread(target=_watcher, daemon=True)
     t.start()
     return {"success": True, "path": path, "interval": interval}

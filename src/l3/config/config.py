@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
-import time
 from pathlib import Path
 from typing import Any
 
-from l1.kernel.params.api import API_GATEWAY_PORT, API_GATEWAY_HOST
-from l1.kernel.params.system import CI_DEFAULT_TIMEOUT, RING1_CAPACITY, RING2_CAPACITY, RING3_CAPACITY, FAULT_CHECK_INTERVAL
-from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
 from l1.kernel.params.agent import LOOP_MAX_ATTEMPTS
-
+from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
+from l1.kernel.params.system import (
+    CI_DEFAULT_TIMEOUT,
+    FAULT_CHECK_INTERVAL,
+    RING1_CAPACITY,
+    RING2_CAPACITY,
+    RING3_CAPACITY,
+)
+from l1.kernel.params.tool import TOOL_SEARCH_TIMEOUT
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)

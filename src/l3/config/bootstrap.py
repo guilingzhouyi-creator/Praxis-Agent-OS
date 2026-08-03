@@ -20,11 +20,17 @@ import yaml
 
 from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES
 from l1.kernel.params.api import (
-    API_GATEWAY_HOST, API_GATEWAY_PORT, LLM_PROVIDER_URLS,
-    DEFAULT_MODEL_OPENAI, DEFAULT_MODEL_OPENAI_MINI,
-    DEFAULT_MODEL_ANTHROPIC_SONNET, DEFAULT_MODEL_ANTHROPIC_HAIKU,
-    DEFAULT_MODEL_DEEPSEEK_V4, DEFAULT_MODEL_DEEPSEEK_CHAT,
-    DEFAULT_MODEL_OLLAMA, DEFAULT_MODEL_MOCK,
+    API_GATEWAY_HOST,
+    API_GATEWAY_PORT,
+    DEFAULT_MODEL_ANTHROPIC_HAIKU,
+    DEFAULT_MODEL_ANTHROPIC_SONNET,
+    DEFAULT_MODEL_DEEPSEEK_CHAT,
+    DEFAULT_MODEL_DEEPSEEK_V4,
+    DEFAULT_MODEL_MOCK,
+    DEFAULT_MODEL_OLLAMA,
+    DEFAULT_MODEL_OPENAI,
+    DEFAULT_MODEL_OPENAI_MINI,
+    LLM_PROVIDER_URLS,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,19 +48,13 @@ _BACKUP_SUFFIX = ".bak"
 
 def default_config() -> dict:
     """Return the default configuration dict from kernel/params.py constants."""
-    from l1.kernel.params.agent import TERMINAL_MAX_WORKERS, CARD_TIMEOUT
+    from l1.kernel.params.agent import CARD_TIMEOUT, TERMINAL_MAX_WORKERS
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     from l1.kernel.params.kernel import ALLOCATOR_DEFAULTS, SWAPPER_DEFAULT_INTERVAL
     from l1.kernel.params.system import (
-        SCOUT_POOL_MAX_PER_AGENT,
         SCOUT_CACHE_TTL,
         SCOUT_POOL_MAX,
-        MEMORY_RING_WORKING_BUDGET,
-        MEMORY_RING_SHORT_BUDGET,
-        MEMORY_RING_LONG_BUDGET,
-        MEMORY_RING_WORKING_TTL,
-        MEMORY_RING_SHORT_TTL,
-        MEMORY_RING_LONG_TTL,
+        SCOUT_POOL_MAX_PER_AGENT,
     )
     return {
         "cell": {
@@ -91,12 +91,12 @@ def needs_bootstrap() -> bool:
 def get_defaults() -> dict:
     """Return default config values for TUI to pre-fill forms."""
     from l1.kernel.params.system import (
-        MEMORY_RING_WORKING_BUDGET,
-        MEMORY_RING_SHORT_BUDGET,
         MEMORY_RING_LONG_BUDGET,
-        MEMORY_RING_WORKING_TTL,
-        MEMORY_RING_SHORT_TTL,
         MEMORY_RING_LONG_TTL,
+        MEMORY_RING_SHORT_BUDGET,
+        MEMORY_RING_SHORT_TTL,
+        MEMORY_RING_WORKING_BUDGET,
+        MEMORY_RING_WORKING_TTL,
     )
     cfg = default_config()
     return {

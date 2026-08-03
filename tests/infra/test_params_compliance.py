@@ -10,14 +10,12 @@ Violations are reported and cause test failure.
 
 from __future__ import annotations
 
-import ast
 import os
 import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import pytest
 
 # Known constants and their values
 LOG_TRUNC_VALUES: dict[int, str] = {
@@ -125,10 +123,10 @@ class TestParamConstantsExist:
 
     def test_resource_buffer_dir_constants_exist(self):
         from l1.kernel.params.system import (
-            RESOURCE_BUFFER_PENDING_DIR,
-            RESOURCE_BUFFER_HIDDEN_DIR,
             RESOURCE_BUFFER_CHECKPOINT_FILE,
+            RESOURCE_BUFFER_HIDDEN_DIR,
             RESOURCE_BUFFER_JOURNAL_FILE,
+            RESOURCE_BUFFER_PENDING_DIR,
             RESOURCE_BUFFER_ROOT_DIR,
         )
         assert RESOURCE_BUFFER_PENDING_DIR == "_pending"
@@ -138,24 +136,21 @@ class TestParamConstantsExist:
         assert RESOURCE_BUFFER_ROOT_DIR == "resource_buffer"
 
     def test_config_path_constants_exist(self):
-        from l1.kernel.params.system import TOOLS_CONFIG_PATH, COMMANDS_CONFIG_PATH
+        from l1.kernel.params.system import COMMANDS_CONFIG_PATH, TOOLS_CONFIG_PATH
         assert TOOLS_CONFIG_PATH == "config/tools.yaml"
         assert COMMANDS_CONFIG_PATH == "config/commands.yaml"
 
     def test_file_template_constants_exist(self):
         from l1.kernel.params.system import (
-            LOG_EXPORT_FILE, LOG_ROTATE_FILE, ERROR_EXPORT_FILE,
-            AGENT_SNAPSHOT_FILE, AGENT_TRANSCRIPT_FILE,
-            CARD_YAML_EXPORT, CHECKPOINT_JSON_FILE, PATCH_JSON_FILE,
-            ALERTS_FILE, BOOT_SNAPSHOT_GLOB, SNAPSHOT_GLOB, LOG_ROTATE_GLOB,
+            CARD_YAML_EXPORT,
+            LOG_EXPORT_FILE,
         )
         assert LOG_EXPORT_FILE  # just check importable, format varies
         assert CARD_YAML_EXPORT == "{name}.card.yaml"
 
     def test_memory_subdir_constants_exist(self):
         from l1.kernel.params.system import (
-            MEMORY_AGENT_SESSIONS_DIR, MEMORY_OPS_DIR,
-            MEMORY_PHASE_DIR, MEMORY_DSL_DIR, MEMORY_DSL_COMPILER,
+            MEMORY_AGENT_SESSIONS_DIR,
             MEMORY_WORKSPACES_FILE,
         )
         assert MEMORY_AGENT_SESSIONS_DIR == "AGENT/sessions"

@@ -6,21 +6,18 @@ its values to the corresponding kernel/service configuration.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
+from l1.kernel.device import DeviceType, get_device_manager
 from l1.kernel.params.agent import (
+    AGENT_CLEARANCE,
+    DEFAULT_AGENT_CONFIGS,
     TERRITORY_MAP,
     TERRITORY_PATHS,
-    SHARED_PATHS,
-    DEFAULT_AGENT_CONFIGS,
-    AGENT_CLEARANCE,
-    TERMINAL_MAX_WORKERS,
-    TERMINAL_POLL_INTERVAL,
-    CARD_WAIT_TIMEOUT,
 )
-from l1.kernel.params.kernel import ALLOCATOR_DEFAULTS
-from l1.kernel.params.system import SCOUT_POOL_MAX_TOTAL, SCOUT_POOL_MAX_PER_AGENT, SCOUT_CACHE_TTL
-from l1.kernel.device import get_device_manager, DeviceType
 
 
 def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
@@ -341,6 +338,7 @@ def cfg_persist(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_network(cfg: dict, s: Any, results: dict) -> None:
     import os as _os
+
     import l1.kernel.params.api as _api_mod
     import l1.kernel.params.system as _sys_mod
     if "discovery_port" in cfg:
@@ -361,8 +359,8 @@ def cfg_network(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_api(cfg: dict, s: Any, results: dict) -> None:
-    from l4.api.api_gateway import start_api
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
+    from l4.api.api_gateway import start_api
     host = cfg.get("host", API_GATEWAY_HOST)
     port = int(cfg.get("port", API_GATEWAY_PORT))
     token = cfg.get("auth_token", "")

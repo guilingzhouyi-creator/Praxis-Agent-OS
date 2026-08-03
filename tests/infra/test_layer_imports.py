@@ -101,7 +101,7 @@ def extract_imports(filepath):
             tree = ast.parse(f.read(), filename=str(filepath))
         except SyntaxError:
             return []
-    
+
     imports = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -241,7 +241,7 @@ class TestLayerImports:
                             continue
                         violations.append(f"{rel}: imports {imp_mod} ({source_layer}→{target_layer})")
 
-        assert not violations, f"Layer import violations:\n  " + "\n  ".join(violations)
+        assert not violations, "Layer import violations:\n  " + "\n  ".join(violations)
 
 
 # ═══════════════════════════════════════════════════════
@@ -283,7 +283,7 @@ class TestLayerConstraints:
                     )
 
         assert not violations, (
-            f"Layer import violations:\n" + "\n".join(violations[:30])
+            "Layer import violations:\n" + "\n".join(violations[:30])
         )
 
     def test_l1_imports_upper_allowlisted(self):
@@ -297,7 +297,7 @@ class TestLayerConstraints:
                 dst = _import_layer(module)
                 if dst >= 2 and not _is_allowlisted(1, dst, module):
                     violations.append(f"{fpath.name}: imports {module} (L1→L{dst})")
-        assert not violations, f"L1 unauthorized imports upper layer:\n" + "\n".join(violations)
+        assert not violations, "L1 unauthorized imports upper layer:\n" + "\n".join(violations)
 
     def test_l5_can_import_any(self):
         """L5 should be able to import any layer (no restrictions)"""
@@ -346,14 +346,11 @@ class TestFullScanL3toL4:
                     if not _is_allowlisted(3, 4, module):
                         violations.append(f"{fpath.relative_to('src')}: {module}")
         assert not violations, (
-            f"L3→L4 imports not in allowlist:\n" + "\n".join(violations)
+            "L3→L4 imports not in allowlist:\n" + "\n".join(violations)
         )
 
     def test_all_l3_l4_imports_documented(self):
         """Verify all L3→L4 imports match documentation"""
-        import l3.tool_system.tool_config as _tc
-        import l3.config.cache_strategy as _cs
-        import l3.services.model_service as _ms
         assert True
 
 
@@ -372,5 +369,5 @@ class TestFullScanL2toL3:
                     if not _is_allowlisted(2, 3, module):
                         violations.append(f"{fpath.relative_to('src')}: {module}")
         assert not violations, (
-            f"L2→L3 imports not in allowlist:\n" + "\n".join(violations[:20])
+            "L2→L3 imports not in allowlist:\n" + "\n".join(violations[:20])
         )

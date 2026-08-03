@@ -6,7 +6,9 @@ configurable constants in params.py and correctly consumed by callers.
 
 from __future__ import annotations
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -18,8 +20,10 @@ class TestRCExportLimit:
         assert RC_EXPORT_LIMIT == 999999
 
     def test_used_in_count(self):
+        import os as _os
+        import tempfile
+
         from l3.bus.reference_channel import ReferenceChannel
-        import tempfile, os as _os
         tmp = _os.path.join(tempfile.gettempdir(), "_test_rc_count.jsonl")
         rc = ReferenceChannel(path=tmp)
         rc.event("test", {"msg": "hello"})
