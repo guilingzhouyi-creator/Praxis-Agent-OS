@@ -29,7 +29,7 @@ import os
 import threading
 import time
 
-from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE, FILE_EDITOR_MAX_HISTORY
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -130,7 +130,7 @@ class Patch:
 class EditEngine:
     """File edit engine — Diff semantic matching + atomic batch + history stack."""
 
-    def __init__(self, max_history: int = 100):
+    def __init__(self, max_history: int = FILE_EDITOR_MAX_HISTORY):
         self._history: list[EditOperation] = []
         self._redo_stack: list[EditOperation] = []
         self._lock = threading.RLock()

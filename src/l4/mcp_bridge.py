@@ -30,7 +30,7 @@ from typing import Any, Callable
 
 from l3.tool_system.tool_spec import ToolSpec, register, is_muted, get_tool, list_tools, ToolRing
 from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_DEFAULT_URL, MCP_TIMEOUT
-from l1.kernel.params.system import MCP_STATE_FILENAME
+from l1.kernel.params.system import MCP_STATE_FILENAME, MCP_STATUS_OK
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class McpClient:
         try:
             r = self._opener.open(req.Request(f"{self.endpoint}/ping", headers=self._headers),
                                   timeout=MCP_TIMEOUT)
-            return r.status == 200
+            return r.status == MCP_STATUS_OK
         except Exception:
             return False
 

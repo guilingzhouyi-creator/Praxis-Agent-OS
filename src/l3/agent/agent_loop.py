@@ -45,6 +45,7 @@ from l1.kernel.params.system import (
     CONTEXT_PRESSURE_CRITICAL,
     CONTEXT_BUILD_MAX_TOKENS,
     CONTEXT_BUILD_MIN_TOKENS,
+    CONTEXT_TRAIL_TRUNC,
     MEMORY_PROMOTION_THRESHOLD,
     MEMORY_IMPORTANCE_DECISION,
     MEMORY_IMPORTANCE_BASE,
@@ -55,6 +56,10 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_FUTURE_TIMEOUT,
     AGENT_LOOP_MAX_WORKERS,
     AGENT_LOOP_MAX_CONTENT,
+    AGENT_LOOP_UNLIMITED_STEPS,
+    AGENT_LOOP_CONTEXT_TB_LIMIT,
+    LOOP_FOLD_LIST_TRUNCATION,
+    LOOP_FOLD_LIST_PREVIEW,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.prompts import get_prompt
@@ -248,6 +253,26 @@ class AgentLoop:
                 parallel_safe=False,
             ))
 
+    def _truncate_trail(self, keep: int = CONTEXT_TRAIL_TRUNC) -> int:
+        """Fold older context_trail messages into a single summary line.
+
+        Keeps the most recent `keep` messages; older ones become one
+        system summary message. Returns number of messages removed.
+        """
+        if not self._context_trail or len(self._context_trail) <= keep:
+            return 0
+        old = self._context_trail[:-keep]
+        recent = self._context_trail[-keep:]
+        removed = len(old)
+        user_lines = [m.get("content", "")[:LOG_TRUNC_200]
+                      for m in old if m.get("role") == "user"]
+        summary = ("[HISTORY TRUNCATED] earlier context: "
+                   + "; ".join(user_lines[:5])
+                   + (f" (+{len(user_lines) - 5} more)" if len(user_lines) > 5 else ""))
+        self._context_trail = [{"role": "system", "content": summary}] + recent
+        logger.debug("agent_loop: trail truncated, removed %d msgs", removed)
+        return removed
+
     def _fold_result(self, result: dict, max_chars: int = LOG_TRUNC_500) -> dict:
         """Head+tail truncation: keeps both ends, elides middle.
 
@@ -265,8 +290,8 @@ class AgentLoop:
                 folded[k] = f"{head}\n...[truncated: {len(v) - max_chars} chars elided]...\n{tail}"
                 folded[k + "_truncated"] = len(v) - max_chars
                 truncated = True
-            elif isinstance(v, list) and len(v) > 20:
-                folded[k] = v[:15]
+            elif isinstance(v, list) and len(v) > LOOP_FOLD_LIST_TRUNCATION:
+                folded[k] = v[:LOOP_FOLD_LIST_PREVIEW]
                 folded[k + "_total"] = len(v)
                 truncated = True
             elif isinstance(v, dict):
@@ -420,7 +445,7 @@ class AgentLoop:
             except (ImportError, KeyError):
                 max_steps = AGENT_LOOP_DEFAULT_STEPS
         # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
-        _UNLIMITED = 999999
+        _UNLIMITED = AGENT_LOOP_UNLIMITED_STEPS
         if max_steps <= 0:
             max_steps = _UNLIMITED
         self._max_steps = max_steps
@@ -484,7 +509,18 @@ class AgentLoop:
 
         if ctx_window > 0:
             est_tokens = _estimate_tokens(self.task)
-            est_total = est_tokens + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+            # Include the persistent conversation trail (context_trail) —
+            # persistent loops accumulate history across cards/runs; without
+            # it the guard underestimates the real request size and history
+            # can silently exceed the window.
+            trail_tokens = 0
+            if self._context_trail:
+                trail_tokens = sum(
+                    _estimate_tokens(str(m.get("content", "")))
+                    for m in self._context_trail
+                )
+            est_total = (est_tokens + len(system) // 4
+                         + CONTEXT_BUILD_MAX_TOKENS + trail_tokens)
             ratio = est_total / ctx_window
 
             # Phase 1: Try compression first (WARN → then MEDIUM escalation)
@@ -500,7 +536,8 @@ class AgentLoop:
                         self._pmu.increment("memory.stub_compact.saved_bytes", sr.get("saved_bytes", 0))
                     _emit_memory_event("memory.stub_compact", {"ratio": ratio, "stubbed": sr.get("stubbed", 0), "saved_bytes": sr.get("saved_bytes", 0)})
                     # Re-estimate after stub compaction
-                    est_total = _estimate_tokens(self.task) + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+                    est_total = (_estimate_tokens(self.task) + len(system) // 4
+                                 + CONTEXT_BUILD_MAX_TOKENS + trail_tokens)
                     ratio = est_total / ctx_window
                 except Exception as e:
                     logger.warning("agent_loop L1 stub_compact failed: %s", e)
@@ -511,6 +548,11 @@ class AgentLoop:
                     mem = _gm()
                     cr = mem.compact(self.agent_id)
                     mem.forget_agent(self.agent_id, ring=1)
+                    # Truncate the persistent conversation trail: keep the
+                    # most recent messages, fold older ones into one summary
+                    # line — prevents unbounded history growth in persistent
+                    # loops (Cell Peer Agents + L3A sessions).
+                    trail_removed = self._truncate_trail()
                     logger.info("pre-send L2 compact+forget_R1: ~%d/%d (%.0f%%)",
                                 est_total, ctx_window, ratio * 100)
                     if self._pmu:
@@ -518,9 +560,16 @@ class AgentLoop:
                         self._pmu.increment("memory.compacts")
                         self._pmu.increment("memory.compact.merges", cr.get("merged", 0))
                         self._pmu.increment("memory.compact.saved_tokens", cr.get("saved_tokens", 0))
-                    _emit_memory_event("memory.compact", {"ratio": ratio, "merges": cr.get("merged", 0), "saved_tokens": cr.get("saved_tokens", 0)})
+                    _emit_memory_event("memory.compact", {"ratio": ratio, "merges": cr.get("merged", 0), "saved_tokens": cr.get("saved_tokens", 0), "trail_removed": trail_removed})
                     # Re-estimate after full compaction
-                    est_total = _estimate_tokens(self.task) + len(system) // 4 + CONTEXT_BUILD_MAX_TOKENS
+                    trail_tokens = 0
+                    if self._context_trail:
+                        trail_tokens = sum(
+                            _estimate_tokens(str(m.get("content", "")))
+                            for m in self._context_trail
+                        )
+                    est_total = (_estimate_tokens(self.task) + len(system) // 4
+                                 + CONTEXT_BUILD_MAX_TOKENS + trail_tokens)
                     ratio = est_total / ctx_window
                 except Exception as e:
                     logger.warning("agent_loop L2 compact failed: %s", e)
@@ -591,7 +640,7 @@ class AgentLoop:
         # ── Post-tool stub compression guard ──
         try:
             tb = sum(len(str(tc)) for tc in tool_results)
-            if tb > 50000 and ctx_window > 0:
+            if tb > AGENT_LOOP_CONTEXT_TB_LIMIT and ctx_window > 0:
                 from .memory.memory import get_memory
                 get_memory().stub_compact(self.agent_id)
         except Exception as e:

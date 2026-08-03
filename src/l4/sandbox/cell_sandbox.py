@@ -24,7 +24,7 @@ from typing import Any
 from l1.kernel import get_rwlock
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.api import ENV_SANDBOX_ROOT
-from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE, HASH_TRUNC_LONG, SANDBOX_DEFAULT_TIMEOUT
+from l1.kernel.params.system import SANDBOX_STATE_AUTO_SAVE, SANDBOX_STATE_TEMPLATE, HASH_TRUNC_LONG, SANDBOX_DEFAULT_TIMEOUT, DIFF_CONTEXT_LINES, DIFF_CHAR_LEVEL_MAX_LINES, DIFF_PINGPONG_WINDOW_SECONDS
 from l1.kernel.platform import get_temp_dir as _get_temp_dir
 
 logger = logging.getLogger(__name__)
@@ -531,14 +531,14 @@ class CellSandbox:
                 "timestamp": timestamp,
             }
 
-            # Context lines (up to 3 before/after)
-            ctx_before = max(0, i1 - 3)
+            # Context lines (up to DIFF_CONTEXT_LINES before/after)
+            ctx_before = max(0, i1 - DIFF_CONTEXT_LINES)
             hunk["context_before"] = [l.rstrip("\n") for l in old_lines[ctx_before:i1]]
-            ctx_after = min(len(old_lines), i2 + 3)
+            ctx_after = min(len(old_lines), i2 + DIFF_CONTEXT_LINES)
             hunk["context_after"] = [l.rstrip("\n") for l in old_lines[i2:ctx_after]]
 
             # Character-level changes for replace hunks (VSCode ICharChange style)
-            if op == "replace" and (i2 - i1) <= 10 and (j2 - j1) <= 10:
+            if op == "replace" and (i2 - i1) <= DIFF_CHAR_LEVEL_MAX_LINES and (j2 - j1) <= DIFF_CHAR_LEVEL_MAX_LINES:
                 removed_text = "".join(old_lines[i1:i2])
                 added_text = "".join(new_lines[j1:j2])
                 char_matcher = difflib.SequenceMatcher(None, removed_text, added_text)
@@ -609,7 +609,7 @@ class CellSandbox:
         if other.agent_id == agent_id:
             # Same agent modifying again — only warn if rapid cycle
             age = time.time() - other.modified_at
-            if age < 30 and other.status in ("pending", "staged"):
+            if age < DIFF_PINGPONG_WINDOW_SECONDS and other.status in ("pending", "staged"):
                 return "warn"
             return "none"
         # Different agent

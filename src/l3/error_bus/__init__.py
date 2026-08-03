@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 from l3._base import BaseService
-from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT, ERROR_EXPORT_FILE, HASH_TRUNC_LONG, LOG_ROTATE_GLOB, LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, LOG_TRUNC_500
+from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_DEDUP_WINDOW, ERROR_BUS_EXPORT_LIMIT, ERROR_BUS_TOP_SOURCES, ERROR_EXPORT_FILE, HASH_TRUNC_LONG, LOG_ROTATE_GLOB, LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_200, LOG_TRUNC_500
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_config_dir
 
@@ -456,8 +456,8 @@ class ErrorBus(BaseService):
             if e.agent_id:
                 agents.add(e.agent_id)
 
-        # Sort top_sources, take top 10
-        sorted_sources = sorted(top_sources.items(), key=lambda x: -x[1])[:10]
+        # Sort top_sources, take top ERROR_BUS_TOP_SOURCES
+        sorted_sources = sorted(top_sources.items(), key=lambda x: -x[1])[:ERROR_BUS_TOP_SOURCES]
 
         result = {
             "success": True,

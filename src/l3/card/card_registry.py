@@ -28,6 +28,7 @@ from l1.kernel.params.system import (
     CARD_REGISTRY_AUTO_SAVE,
     CARD_DISPATCH_INTERVAL,
     CARD_QUEUE_PENDING_MAX,
+    CARD_STALE_ESCALATE_SECONDS,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_40,
     LOG_TRUNC_60,
@@ -215,7 +216,7 @@ class CardRegistry(PersistableMixin):
         now = time.time()
         with self._lock:
             for cid, rec in list(self._cards.items()):
-                if rec.state == CardLifecycle.QUEUED and (now - rec.timestamps.created_at) > 3600:
+                if rec.state == CardLifecycle.QUEUED and (now - rec.timestamps.created_at) > CARD_STALE_ESCALATE_SECONDS:
                     logger.warning("card %s stale (>1h), escalating", cid)
                     rec.state = CardLifecycle.CANCELLED
                     if cid in self._queue:
