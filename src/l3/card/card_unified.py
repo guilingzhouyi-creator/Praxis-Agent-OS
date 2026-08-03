@@ -189,6 +189,33 @@ class CardTimestamps:
 # ── Modification record (hidden, versioned) ──
 
 @dataclass
+class CardExecution:
+    """One executor's wall-time contribution to a card.
+
+    Two granularities:
+      cell-level:  executor == "<cell>" (whole Cell.execute_card elapsed)
+      agent-level: executor == agent_id (one Peer Agent step, from ExecutionPlan)
+    """
+    executor: str = ""
+    cell_id: str = ""
+    phase: str = ""          # phase/step label
+    started_at: float = 0.0
+    finished_at: float = 0.0
+    elapsed: float = 0.0
+    success: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "executor": self.executor,
+            "cell_id": self.cell_id,
+            "phase": self.phase,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "elapsed": round(self.elapsed, 3),
+            "success": self.success,
+        }
+
+@dataclass
 class CardModification:
     version: int = 0
     timestamp: float = 0.0
@@ -225,6 +252,7 @@ class CardUnified:
     # ── Hidden system fields ──
     timestamps: CardTimestamps = field(default_factory=CardTimestamps)
     modifications: list[CardModification] = field(default_factory=list)
+    executions: list[CardExecution] = field(default_factory=list)
     _gate_scope: str = ""
     """GateChain enforcement scope — NOT exposed to LLM context. Passed to GateChain."""
     _completion_summary: str = ""
@@ -421,6 +449,7 @@ class CardUnified:
         if include_hidden:
             base["timestamps"] = self.timestamps.to_dict()
             base["modifications"] = [m.to_dict() for m in self.modifications]
+            base["executions"] = [e.to_dict() for e in self.executions]
             base["_completion_summary"] = self._completion_summary[:LOG_TRUNC_500]
             base["_changes"] = list(self._changes)[-20:]
         return base
@@ -461,6 +490,11 @@ class CardUnified:
                 "version": m.version, "timestamp": m.timestamp,
                 "field": m.field,
             } for m in self.modifications],
+            "executions": [{
+                "executor": e.executor, "cell_id": e.cell_id, "phase": e.phase,
+                "started_at": e.started_at, "finished_at": e.finished_at,
+                "elapsed": e.elapsed, "success": e.success,
+            } for e in self.executions],
             "_completion_summary": self._completion_summary,
             "_changes": list(self._changes)[-50:],
         }
@@ -511,6 +545,16 @@ class CardUnified:
                 version=md.get("version", 0),
                 timestamp=md.get("timestamp", 0.0),
                 field=md.get("field", ""),
+            ))
+        for ed in data.get("executions", []):
+            card.executions.append(CardExecution(
+                executor=ed.get("executor", ""),
+                cell_id=ed.get("cell_id", ""),
+                phase=ed.get("phase", ""),
+                started_at=ed.get("started_at", 0.0),
+                finished_at=ed.get("finished_at", 0.0),
+                elapsed=ed.get("elapsed", 0.0),
+                success=ed.get("success", False),
             ))
         card._completion_summary = data.get("_completion_summary", "")
         card._changes = list(data.get("_changes", []))

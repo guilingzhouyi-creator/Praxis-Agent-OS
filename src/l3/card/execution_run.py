@@ -163,6 +163,7 @@ def _execute_agent(plan, ps, agent_id: str, timeout: float) -> dict:
     from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode, TerminalStatus
     from l3.card.execution_verify import execute_scout_verify as _esv
     from l3.cell.components.cell_types import is_scout, is_subagent
+    t_step = time.time()
     term = get_terminal(agent_id, role=ps.role, territory=ps.territory, cell_id=plan.card.cell_id or "")
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
         term.boot()
@@ -184,17 +185,25 @@ def _execute_agent(plan, ps, agent_id: str, timeout: float) -> dict:
         phases = []
         output, findings, ok = handler(term, tc, phases)
         return {"step": ps.action, "target": ps.target, "success": ok,
-                "output": output, "findings": findings, "phase": ps.phase}
+                "output": output, "findings": findings, "phase": ps.phase,
+                "agent_id": agent_id, "cell_id": plan.card.cell_id or "",
+                "elapsed": round(time.time() - t_step, 3)}
 
     r = term.dispatch(tc)
     if not r.get("success"):
         return {"step": ps.action, "target": ps.target, "success": False,
-                "error": r.get("error", "dispatch failed"), "phase": ps.phase}
+                "error": r.get("error", "dispatch failed"), "phase": ps.phase,
+                "agent_id": agent_id, "cell_id": plan.card.cell_id or "",
+                "elapsed": round(time.time() - t_step, 3)}
     result = term.wait_for_result(tc.card_id, timeout=timeout)
     if result:
         return {"step": ps.action, "target": ps.target,
                 "output": result.output, "findings": result.findings,
                 "success": result.success, "error": result.error, "phase": ps.phase,
-                "card_id": tc.card_id}
+                "card_id": tc.card_id,
+                "agent_id": agent_id, "cell_id": plan.card.cell_id or "",
+                "elapsed": round(time.time() - t_step, 3)}
     return {"step": ps.action, "target": ps.target, "success": False,
-            "error": "timeout or no result", "phase": ps.phase}
+            "error": "timeout or no result", "phase": ps.phase,
+            "agent_id": agent_id, "cell_id": plan.card.cell_id or "",
+            "elapsed": round(time.time() - t_step, 3)}
