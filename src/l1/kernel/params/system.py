@@ -460,6 +460,7 @@ PMU_COUNTER_GROUPS: Final[list[str]] = [
 ICACHE_MAX_ENTRIES: Final[int] = 500
 ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes slowly
 ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
+ICACHE_DECAY_INTERVAL: Final[int] = 100    # decay frequencies every N cache accesses
 
 
 # ── Discussion / convergence buffer ──
@@ -483,6 +484,7 @@ TLB_CLEARANCE_FALLBACK: Final[int] = 1
 # ── InterruptController (Priority Interrupt) defaults ──
 IRQ_TABLE_SIZE: Final[int] = 32
 IRQ_PRIORITY_LEVELS: Final[int] = 4        # NMI=0, HIGH=1, NORMAL=2, LOW=3
+IRQ_DISPATCH_BATCH: Final[int] = 5         # max queued IRQ events dispatched per call
 
 
 # ── StatsCenter (Unified Statistics Center) defaults ──

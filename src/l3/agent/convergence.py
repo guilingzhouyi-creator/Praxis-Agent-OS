@@ -32,7 +32,7 @@ def converge(card_id: str, llm_call: callable | None = None) -> dict:
     Returns:
         {"success", "summary", "cache_ref", "archive_ref"}
     """
-    from .card.issue import get_table
+    from l3.card.issue import get_table
     table = get_table()
     issue_card = table.get(card_id)
     if not issue_card:

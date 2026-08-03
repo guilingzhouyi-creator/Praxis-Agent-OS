@@ -355,6 +355,8 @@ CELL_SCOUT_ROLE: Final[str] = "scout"
 # ── Archive thresholds (Four-Tier Memory Architecture) ──
 ARCHIVE_IMPORTANCE_THRESHOLD: Final[float] = 0.7
 ARCHIVE_RESTORE_LIMIT: Final[int] = 100
+R4_STALE_SCAN_LIMIT: Final[int] = 50
+R4_CONSISTENCY_SCAN_LIMIT: Final[int] = 20
 
 # ── R4Agent identity defaults ──
 R4_AGENT_ID: Final[str] = "r4-agent"

@@ -102,7 +102,7 @@ class ApiGateway(ApiHandlers):
             if handler_ref.startswith("."):
                 handler = getattr(self, handler_ref[1:], None)
                 if not handler:
-                    logger.warning("route handler not found: %s", handler_ref)
+                    logger.debug("route handler not found (not yet implemented): %s", handler_ref)
                     continue
             else:
                 try:
@@ -163,10 +163,8 @@ class ApiGateway(ApiHandlers):
         import http.server
         import urllib.parse
 
-        gateway = self
-
         class _Handler(http.server.BaseHTTPRequestHandler):
-            gateway = gateway
+            gateway: "ApiGateway" = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):
                 pass  # Suppress default http.server logging
@@ -308,6 +306,8 @@ class ApiGateway(ApiHandlers):
                 self.send_header("Access-Control-Allow-Methods", API_CORS_ALLOW_METHODS)
                 self.send_header("Access-Control-Allow-Headers", API_CORS_ALLOW_HEADERS)
                 self.end_headers()
+
+        _Handler.gateway = self
 
         try:
             addr = (self.host, self.port)

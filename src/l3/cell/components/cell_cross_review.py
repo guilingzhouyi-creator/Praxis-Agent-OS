@@ -38,23 +38,25 @@ def auto_cross_review(cell, completed_agent: str, action: str,
 
     resp_events: dict[str, _Event] = {p: _Event() for p in peers}
     resp_results: dict[str, dict] = {}
+    bus = None
+    _on_signal = None
 
     def _on_resp(sender: str, payload: dict) -> None:
         if sender in resp_events:
             resp_results[sender] = payload
             resp_events[sender].set()
 
+    def _on_signal(sig: Any) -> None:
+        if (hasattr(sig, 'data') and
+                isinstance(sig.data, dict) and
+                sig.data.get("msg_type") == "CROSS_REVIEW_RESP" and
+                sig.data.get("card_id") == card_id):
+            _on_resp(sig.sender, sig.data)
+
     try:
         from l1.kernel.event import get_bus as _get_bus
         bus = _get_bus()
-        bus.on_any(lambda sig: (
-            _on_resp(sig.sender, sig.data) if (
-                hasattr(sig, 'data') and
-                isinstance(sig.data, dict) and
-                sig.data.get("msg_type") == "CROSS_REVIEW_RESP" and
-                sig.data.get("card_id") == card_id
-            ) else None
-        ))
+        bus.on_any(_on_signal)
     except Exception as e:
         logger.warning("cross-review subscription failed: %s", e)
 
@@ -82,16 +84,25 @@ def auto_cross_review(cell, completed_agent: str, action: str,
 
     approved = True
     reasons = []
-    for peer, evt in resp_events.items():
-        ok = evt.wait(timeout=timeout)
-        if ok:
-            resp = resp_results.get(peer, {})
-            verdict = resp.get("verdict", resp.get("status", "APPROVED"))
-            if verdict in ("REJECT", "REJECTED", "NEEDS_CHANGES"):
-                approved = False
-                reasons.append(f"{peer}: {resp.get('reason', verdict)}")
-        else:
-            reasons.append(f"{peer}: timeout after {timeout}s")
+    try:
+        for peer, evt in resp_events.items():
+            ok = evt.wait(timeout=timeout)
+            if ok:
+                resp = resp_results.get(peer, {})
+                verdict = resp.get("verdict", resp.get("status", "APPROVED"))
+                if verdict in ("REJECT", "REJECTED", "NEEDS_CHANGES"):
+                    approved = False
+                    reasons.append(f"{peer}: {resp.get('reason', verdict)}")
+            else:
+                reasons.append(f"{peer}: timeout after {timeout}s")
+    finally:
+        # Unsubscribe the wildcard listener to avoid leaking a permanent
+        # event-bus subscriber on every cross-review call.
+        if bus is not None and _on_signal is not None:
+            try:
+                bus.off_any(_on_signal)
+            except Exception as e:
+                logger.warning("cross-review unsubscription failed: %s", e)
 
     return {
         "approved": approved,

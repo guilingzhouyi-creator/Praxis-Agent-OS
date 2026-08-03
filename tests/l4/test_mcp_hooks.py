@@ -21,11 +21,19 @@ class TestMCPStateMachine:
         assert MCP_STATUS_NEEDS_REGISTRATION == "needs_client_registration"
 
     def test_bridge_init_empty(self):
-        from l4.mcp_bridge import MCPBridge
-        bridge = MCPBridge()
-        s = bridge.status()
-        assert s["servers"] == {}
-        assert s["count"] == 0
+        import tempfile
+        from l4 import mcp_bridge as mb
+        orig_path = mb.MCP_STATE_PATH
+        with tempfile.TemporaryDirectory() as d:
+            mb.MCP_STATE_PATH = os.path.join(d, "mcp_state.json")
+            try:
+                from l4.mcp_bridge import MCPBridge
+                bridge = MCPBridge()
+                s = bridge.status()
+                assert s["servers"] == {}
+                assert s["count"] == 0
+            finally:
+                mb.MCP_STATE_PATH = orig_path
 
     def test_set_disabled_and_enabled(self):
         from l4.mcp_bridge import MCPBridge

@@ -31,6 +31,7 @@ BATCH_1 = [
     ("l3/agent", "test_loop"), ("l3/agent", "test_correction"),
     ("l3/agent", "test_loop_subprocess"), ("l3/agent", "test_steps_exhausted"),
     ("l3/agent", "test_terminal_lifecycle"),
+    ("l3/agent_terminal", "test_core"),
     ("l3/bus", "test_htn_a"), ("l3/bus", "test_htn_b"),
     ("l3/bus", "test_htn_planner"), ("l3/bus", "test_l3b_bus"),
     ("l3/bus", "test_message_gate"), ("l3/bus", "test_message_pool"),

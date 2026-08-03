@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
+from l1.kernel.params.agent import SIGNAL_TARGET_L3
 from l3.cell.components.cell_types import MessageType
 from l1.kernel.params.system import LOG_TRUNC_200
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def convene(cell: Any, issue_card: Any) -> dict:
-    from .card.issue import IssueCard, IssueCardStatus, get_table
+    from l3.card.issue import IssueCard, IssueCardStatus, get_table
 
     if not isinstance(issue_card, IssueCard):
         return {"success": False, "error": "expected IssueCard"}
@@ -32,7 +33,7 @@ def convene(cell: Any, issue_card: Any) -> dict:
         if not it.assigned_to:
             it.assigned_to = _match_agent(cell, it.domain or domain)
 
-    from .card.convention import ConventionProtocol
+    from l3.card.convention import ConventionProtocol
     conv = ConventionProtocol(issue_card, cell)
     cell._conventions[iid] = conv
     result = conv.start()
@@ -56,11 +57,11 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     if not close_r.get("success", True):
         return close_r
 
-    from .agent.convergence import converge as _converge, to_execution_card
+    from l3.agent.convergence import converge as _converge, to_execution_card
     conv_r = _converge(issue_card_id)
     summary = conv_r.get("summary", "{}")
 
-    from .card.issue import get_table
+    from l3.card.issue import get_table
     table = get_table()
     issue_card = table.get(issue_card_id)
     if not issue_card:
@@ -70,7 +71,7 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
 
     cid = ""
     try:
-        from .card.card_registry import get_registry
+        from l3.card.card_registry import get_registry
         registry = get_registry()
         cid = registry.submit(
             intent=exec_card.intent,
@@ -108,7 +109,7 @@ def handle_convention_message(cell: Any, agent_id: str,
                               msg_type: MessageType, payload: dict) -> dict:
     """Route a convention message to the ConventionProtocol."""
     card_id = payload.get("card_id", "")
-    from .card.issue import get_table
+    from l3.card.issue import get_table
     table = get_table()
     card = table.get(card_id)
     if not card:
@@ -142,7 +143,7 @@ def _get_convention(cell: Any, issue_card: Any) -> Any:
     conv = cell._conventions.get(issue_card.id)
     if conv:
         return conv
-    from .card.convention import ConventionProtocol as ConvCls
+    from l3.card.convention import ConventionProtocol as ConvCls
     conv = ConvCls(issue_card, cell)
     cell._conventions[issue_card.id] = conv
     return conv

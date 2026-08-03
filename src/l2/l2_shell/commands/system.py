@@ -13,11 +13,11 @@ def _cmd_status(args: list[str]) -> dict:
 
 def _cmd_intents(args: list[str]) -> dict:
     from l3.scheduler.think_registry import get_think_registry
-    reg = get_think_registry(); return {"success": True, "intents": reg.list_intents()}
+    reg = get_think_registry(); return {"success": True, "intents": reg.stats()}
 
 def _cmd_scheduler(args: list[str]) -> dict:
     from l3.scheduler.scheduler import get_scheduler
-    s = get_scheduler(); return {"success": True, "data": s.status()}
+    s = get_scheduler(); return {"success": True, "data": s.stats()}
 
 def _cmd_observe(args: list[str]) -> dict:
     from l3.bus.observability_bus import get_obs_bus

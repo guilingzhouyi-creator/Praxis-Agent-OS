@@ -212,16 +212,17 @@ class L3ADaemon:
             except Exception as e:
                 logger.debug("l3a: PMU snapshot failed: %s", e)
 
-        idle_timeout = 3600.0
+        idle_timeout = _p.IDLE_TIMEOUT_DEFAULT
         try:
             from l3.config.settings_center import get_center
-            idle_timeout = get_center().get("l3a.idle_timeout", 3600.0)
+            idle_timeout = get_center().get("l3a.idle_timeout", _p.IDLE_TIMEOUT_DEFAULT)
         except Exception:
             pass
         for s in self.manager.list_active():
             if s.get("status") != "active":
                 continue
-            idle = time.time() - s.get("created_at", 0)
+            last_active = s.get("last_active_at") or s.get("created_at", 0)
+            idle = time.time() - last_active
             if idle > idle_timeout:
                 sid = s.get("session_id", "")
                 self.manager.close(sid)

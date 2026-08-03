@@ -30,7 +30,7 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_TIMEOUT,
 )
 from ..agent_terminal import TerminalCard, CardMode as TermCardMode, TerminalStatus, get_terminal, get_terminals
-from ..cell.components.cell_agent import add_agent, _boot_agent
+from ..cell.components.cell_agent import add_agent, _boot_agent, agent_status as _agent_status
 from ..agent.scout import get_pool as get_scout_pool
 from l3.cell.components.cell_buffer import CircularBuffer
 from ..cell.components.cell_decompose import decompose_card as _decompose_card, auto_agent_map as _auto_agent_map
@@ -241,6 +241,11 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             get_memory().forget_agent(agent_id)
         except Exception as e:
             logger.warning("cell/__init__: %s", e)
+        # Emit cell bus event for sandbox _path_index cleanup
+        try:
+            self._cell_bus.emit("cell.agent_removed", {"agent_id": agent_id, "cell_id": self.cell_id})
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
         return {"success": True, "agent_id": agent_id, "action": "removed"}
 
     # ══ Cell state persistence ══
@@ -376,6 +381,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             )
             if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
                 agent_results[aid] = {"status": term.status.name.lower(), "alive": True}
+                healthy_count += 1
             elif term.status.name in (AGENT_STATUS_BOOTING,):
                 agent_results[aid] = {"status": "booting", "alive": True}
                 healthy_count += 1
@@ -906,6 +912,12 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         except Exception as e:
             logger.warning("cell/__init__: %s", e)
 
+        # Wire agent removal → sandbox cleanup
+        try:
+            self._cell_bus.on("cell.agent_removed", self._bus_agent_removed)
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
+
         # Wire discussion events (Layer 3 integration)
         try:
             self._cell_bus.on("discussion.start", lambda e: self._bus_discussion_start(e))
@@ -985,6 +997,19 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                     self._pmu.increment("agent.recoveries")
         except Exception as e:
             logger.warning("watchdog reboot failed: %s", e)
+
+    def _bus_agent_removed(self, event: dict) -> None:
+        """Cell bus event: agent removed → clean up sandbox _path_index."""
+        agent_id = event.get("data", {}).get("agent_id", "")
+        if not agent_id:
+            return
+        try:
+            from l4.sandbox.cell_sandbox import get_manager as _get_sm
+            sb = _get_sm().get_cell(self.cell_id)
+            if sb:
+                sb.discard(agent_id)
+        except Exception as e:
+            logger.warning("sandbox cleanup for %s failed: %s", agent_id, e)
 
     def dispatch_pending_interrupts(self, max_per: int = 5) -> int:
         """Dispatch pending queued interrupts. Called periodically."""

@@ -14,7 +14,6 @@ from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
 from .inbox import PromptInbox, Admission
 from . import archive as _archive
-from . import pipeline as _pipeline
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -111,6 +110,7 @@ class Session:
         self.id = session_id
         self.title = title
         self.created_at = time.time()
+        self.last_active_at = time.time()
         self.closed_at: float | None = None
         self.turn_count = 0
         self.card_count = 0
@@ -151,6 +151,7 @@ class Session:
         if limits["max_turns"] > 0 and self.turn_count >= limits["max_turns"]:
             return {"success": False, "error": f"max turns reached ({limits['max_turns']})"}
         admission = self.inbox.admit(text, mode=mode)
+        self.last_active_at = time.time()
         self._ensure_epoch()
         changes = self.epoch.sync(self.registry) if self.registry else []
         for c in changes:
@@ -299,6 +300,7 @@ class Session:
             status = self.status
             self.status = "closed"
             self.closed_at = time.time()
+            self.last_active_at = time.time()
             self._loop = None
             ctx = self.history.to_context_trail()
             self.history.clear()
@@ -342,6 +344,7 @@ class Session:
                 "title": self.title,
                 "status": self.status,
                 "created_at": self.created_at,
+                "last_active_at": self.last_active_at,
                 "closed_at": self.closed_at,
                 "turn_count": self.turn_count,
                 "card_count": self.card_count,

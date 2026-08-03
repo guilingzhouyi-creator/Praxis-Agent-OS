@@ -174,6 +174,10 @@ def cfg_api(cfg: dict, s: Any, results: dict) -> None:
     port = int(cfg.get("port", API_GATEWAY_PORT))
     token = cfg.get("auth_token", "")
     start_api(host, port, token)
+    mcp_mode = cfg.get("mcp_mode", "")
+    if mcp_mode:
+        from l4.api_handlers.api_handlers_mcp import set_export_mode
+        set_export_mode(mcp_mode)
     results["api"] = True
 
 

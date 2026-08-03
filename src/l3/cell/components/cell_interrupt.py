@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Callable
 
-from l1.kernel.params.system import IRQ_TABLE_SIZE, IRQ_PRIORITY_LEVELS
+from l1.kernel.params.system import IRQ_TABLE_SIZE, IRQ_PRIORITY_LEVELS, IRQ_DISPATCH_BATCH
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class InterruptController:
             self._pending[slot.priority].append(event)
             return {"success": True, "delivery": "queued"}
 
-    def dispatch_pending(self, max_per_priority: int = 5) -> int:
+    def dispatch_pending(self, max_total: int = IRQ_DISPATCH_BATCH) -> int:
         """Dispatch pending interrupts, highest priority first.
 
         Args:
@@ -180,7 +180,7 @@ class InterruptController:
             if priority == IrqPriority.NMI:
                 continue  # NMI is never queued
             queue = self._pending.get(priority, [])
-            while queue and dispatched < max_per_priority:
+            while queue and dispatched < max_total:
                 event = queue.pop(0)
                 with self._lock:
                     slot = self._table.get(event.irq_num)
@@ -293,6 +293,7 @@ class InterruptController:
             (13, "scout.progress", IrqPriority.LOW),
             (14, "cache.flush", IrqPriority.LOW),
             (15, "token.usage", IrqPriority.LOW),
+            (16, "cell.rollback", IrqPriority.NORMAL),
         ]
         for irq_num, name, priority in builtin:
             self._table[irq_num] = IrqSlot(

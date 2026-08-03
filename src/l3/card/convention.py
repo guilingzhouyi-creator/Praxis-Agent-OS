@@ -33,7 +33,7 @@ from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500, MEMORY_IMPORTA
 logger = logging.getLogger(__name__)
 
 # Resolve convention limits from config with params fallback
-from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS, CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT
+from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS, CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT, SIGNAL_TARGET_L3
 _CONV_MAX_ROUNDS: int = _DEFAULT_ROUNDS
 _CONV_TIMEOUT: float = _DEFAULT_TIMEOUT
 _cfg = _get_config("services")
@@ -177,7 +177,7 @@ class ConventionProtocol:
         doc = self._build_document()
 
         # Save to CacheDocument
-        from .memory.cache_doc import get_store
+        from l3.memory.cache_doc import get_store
         store = get_store()
         cache_id = store.put(
             title=f"Convention: {card.title}",
@@ -239,7 +239,7 @@ class ConventionProtocol:
     def get_document(self) -> str:
         """Get discussion doc (prefer CacheDocument cache)."""
         if self._cache_ref:
-            from .memory.cache_doc import get_store
+            from l3.memory.cache_doc import get_store
             doc = get_store().get_content(self._cache_ref)
             if doc:
                 return doc

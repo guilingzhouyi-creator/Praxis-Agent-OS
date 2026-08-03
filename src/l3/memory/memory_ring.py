@@ -195,10 +195,24 @@ class RingLayer:
     def forget_cell(self, cell_id: str) -> int:
         """Remove all entries for a given cell. Returns number removed."""
         with self._lock:
-            before = len(self._entries)
-            self._entries = deque([e for e in self._entries if e.cell_id and e.cell_id != cell_id], maxlen=self.max_entries)
-            self._rebuild_token_count()
-            return before - len(self._entries)
+            removed = [e for e in self._entries if e.cell_id == cell_id]
+            for e in removed:
+                self._entries.remove(e)
+                self._token_count = max(0, self._token_count - e.tokens)
+                for lst in (self._agent_index.get(e.agent_id),
+                            self._type_index.get(e.entry_type)):
+                    if lst:
+                        try: lst.remove(e)
+                        except ValueError: pass
+                for tag in e.tags:
+                    tl = self._tag_index.get(tag)
+                    if tl:
+                        try: tl.remove(e)
+                        except ValueError: pass
+            self._evict_heap = [(i, t, eid) for i, t, eid in self._evict_heap
+                                if eid not in {id(e) for e in removed}]
+            heapq.heapify(self._evict_heap)
+            return len(removed)
 
     def to_dict(self) -> list[dict]:
         """Serialize all entries to a list of dicts."""

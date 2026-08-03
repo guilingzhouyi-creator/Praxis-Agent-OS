@@ -166,7 +166,7 @@ class CentralMemory:
         try:
             from .r4_agent import get_r4_agent
             r4 = get_r4_agent()
-            r4s = r4.stats() if hasattr(r4, 'stats') else {}
+            r4s = r4.status() if hasattr(r4, "status") else {}
             base["r4_stats"] = r4s
         except Exception:
             logger.debug("central_memory: r4 stats failed")

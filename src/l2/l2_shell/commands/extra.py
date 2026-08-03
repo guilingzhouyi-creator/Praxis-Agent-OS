@@ -40,7 +40,7 @@ def _cmd_mcp(args: list[str]) -> dict:
     try:
         from l4.mcp_bridge import get_bridge, McpClient
         bridge = get_bridge(); sub = args[0].lower() if args else "status"
-        if sub in ("status", "list"): return {"success": True, "servers": bridge.get_status()}
+        if sub in ("status", "list"): return {"success": True, "data": {"servers": bridge.get_status()}}
         if sub == "enable" and len(args) >= 2: return bridge.set_enabled(args[1])
         if sub == "disable" and len(args) >= 2: return bridge.set_disabled(args[1])
         return {"success": False, "error": "usage: /mcp [status|enable|disable]"}

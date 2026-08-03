@@ -131,6 +131,23 @@ class AgentTerminal:
         # PMU reference (set by Cell._inject_tools)
         self._pmu: Any = None
 
+    def set_max_workers(self, count: int) -> dict:
+        """Dynamically adjust the max worker thread count.
+
+        If the terminal is already running and *count* exceeds the current
+        worker count, additional worker threads are spawned immediately.
+        Reduced counts take effect as workers finish their current card.
+        """
+        self._max_workers = max(1, count)
+        if self._running:
+            current = len([w for w in self._workers if w.is_alive()])
+            for i in range(current, self._max_workers):
+                w = threading.Thread(target=self._worker, daemon=True,
+                                     name=f"term-{self.agent_id}-w{i}")
+                w.start()
+                self._workers.append(w)
+        return {"success": True, "max_workers": self._max_workers}
+
     def set_pmu(self, pmu: Any) -> None:
         self._pmu = pmu
 

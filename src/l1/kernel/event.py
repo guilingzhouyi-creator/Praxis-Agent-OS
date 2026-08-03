@@ -95,6 +95,12 @@ class EventBus:
         with self._lock:
             self._wildcard_listeners.append(cb)
 
+    def off_any(self, cb: Callable) -> None:
+        """Unsubscribe a wildcard listener previously added via on_any()."""
+        with self._lock:
+            if cb in self._wildcard_listeners:
+                self._wildcard_listeners.remove(cb)
+
     def off(self, st: SignalType, cb: Callable | None = None) -> None:
         with self._lock:
             if cb:

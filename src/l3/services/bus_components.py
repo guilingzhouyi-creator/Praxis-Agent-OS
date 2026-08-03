@@ -89,7 +89,7 @@ class CellWatchdogComponent(Component):
         self._watchdog = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_watchdog import CellWatchdog
+        from l3.cell.components.cell_watchdog import CellWatchdog
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._watchdog = CellWatchdog(self.cell_id, pmu=pmu)
@@ -144,7 +144,7 @@ class CellICacheComponent(Component):
         self._icache = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_icache import ICache
+        from l3.cell.components.cell_icache import ICache
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._icache = ICache(self.cell_id, pmu=pmu, **self._ic_kwargs)
@@ -183,7 +183,7 @@ class CellMmuComponent(Component):
         self._tlb = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_mmu import CellMmu, CellTlb
+        from l3.cell.components.cell_mmu import CellMmu, CellTlb
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         ic = bus.get("icache")
@@ -235,7 +235,7 @@ class CellInterruptComponent(Component):
         self._interrupt = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_interrupt import InterruptController
+        from l3.cell.components.cell_interrupt import InterruptController
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._interrupt = InterruptController(self.cell_id, pmu=pmu, **self._ic_kwargs)
@@ -278,7 +278,7 @@ class CellCacheComponent(Component):
         self._cache = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_cache import CellCache
+        from l3.cell.components.cell_cache import CellCache
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._cache = CellCache(self.cell_id, pmu=pmu, **self._cache_kwargs)
@@ -321,7 +321,7 @@ class CellPermissionComponent(Component):
         self._permission = None
 
     def bus_init(self, bus: SystemBus) -> None:
-        from .cell.components.cell_permission import SubAgentRegistry
+        from l3.cell.components.cell_permission import SubAgentRegistry
         self._permission = SubAgentRegistry(self.cell_id)
 
     @property

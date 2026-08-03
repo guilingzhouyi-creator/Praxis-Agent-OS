@@ -28,7 +28,10 @@ from typing import Any
 from l3.services.model_service import get_service as _get_model_service
 
 from l1.kernel import emit_signal
-from l1.kernel.params.agent import R4_AGENT_ID, R4_ROLE, R4_TERRITORY
+from l1.kernel.params.agent import (
+    R4_AGENT_ID, R4_ROLE, R4_TERRITORY,
+    R4_STALE_SCAN_LIMIT, R4_CONSISTENCY_SCAN_LIMIT,
+)
 from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200
 
 _MODEL_SPEC = "r4_agent"
@@ -200,7 +203,7 @@ class R4Agent:
             rows = conn.execute(
                 "SELECT id, fonds, series, title, ttl, created_at "
                 "FROM archive WHERE ttl > 0 AND (created_at + ttl) < ? "
-                "ORDER BY created_at ASC LIMIT 50",
+                f"ORDER BY created_at ASC LIMIT {R4_STALE_SCAN_LIMIT}",
                 (now,),
             ).fetchall()
             for row in rows:
@@ -254,7 +257,7 @@ class R4Agent:
                 "b.id, b.fonds, b.series "
                 "FROM archive a JOIN archive b ON a.title = b.title "
                 "AND a.id != b.id AND a.content != b.content "
-                "LIMIT 20",
+                f"LIMIT {R4_CONSISTENCY_SCAN_LIMIT}",
             ).fetchall()
             for row in rows:
                 contradictions.append({
@@ -288,6 +291,12 @@ class R4Agent:
                 json.dump(entry, f, indent=2)
         except Exception as e:
             logger.warning("R4Agent: track failure failed: %s", e)
+
+    def track_tool_failure(self, agent_id: str, tool_name: str,
+                           args: dict, error: str, turn_log: list[dict]) -> None:
+        """Public entry for the tool pipeline — records a failure for lean-case generation."""
+        self._track_failure(agent_id=agent_id, tool_name=tool_name,
+                            args=args, error=error, turn_log=turn_log)
 
     def _process_failure_traces(self) -> int:
         """Scan pending failure traces and generate lean case Skill entries."""

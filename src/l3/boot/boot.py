@@ -60,7 +60,7 @@ def wire_kernel_os() -> None:
     try:
         from l1.kernel.os import get_os
         from .lifecycle import shutdown as _lifecycle_shutdown
-        from .agent_terminal import reset_terminals
+        from l3.agent_terminal import reset_terminals
         from .cell import reset_cells
         osys = get_os()
         osys.register_boot_handler(boot)
@@ -784,7 +784,7 @@ def _post_boot_health_check() -> dict:
     except Exception as e:
         checks["devices"] = f"error: {e}"
     try:
-        from .agent_terminal import get_terminals
+        from l3.agent_terminal import get_terminals
         terms = get_terminals()
         checks["terminals"] = f"{len(terms)} active"
     except Exception as e:

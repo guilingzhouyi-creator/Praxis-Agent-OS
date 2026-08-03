@@ -177,6 +177,8 @@ API_GATEWAY_QUEUE_TIMEOUT: Final[float] = 30.0
 R4_AGENT_JOIN_TIMEOUT: Final[float] = 5.0
 SUBAGENT_RUN_TIMEOUT: Final[float] = 120.0
 SUBAGENT_JOIN_TIMEOUT: Final[float] = 30.0
+MCP_EXPORT_MODE: Final[str] = "full"
+"""MCP server export mode: normal (base tools only) | selected (L3A only) | full (both)."""
 SEARCH_MAX_WORKERS: Final[int] = 8
 
 

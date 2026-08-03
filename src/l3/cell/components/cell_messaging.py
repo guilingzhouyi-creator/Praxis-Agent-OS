@@ -96,7 +96,11 @@ class CellMessagingMixin:
         return term.send_direct_message(text)
 
     def liveness(self) -> dict:
-        """Check Cell and all agent terminals liveness."""
+        """Check Cell and all agent terminals liveness.
+
+        Used by Shell (L2) Direct Mode to verify target reachability.
+        Returns aggregate status: healthy / degraded / unreachable.
+        """
         from ..agent_terminal import get_terminals
         terms = get_terminals()
         agent_results = {}
@@ -111,25 +115,50 @@ class CellMessagingMixin:
                 agent_results[aid] = {"status": "no_terminal", "alive": False}
                 continue
             from l1.kernel.params.agent import (
-                AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING,
-                AGENT_STATUS_WAITING_SCOUT, AGENT_STATUS_BOOTING,
+                AGENT_STATUS_IDLE,
+                AGENT_STATUS_PROCESSING,
+                AGENT_STATUS_WAITING_SCOUT,
+                AGENT_STATUS_BOOTING,
             )
             if term.status.name in (AGENT_STATUS_IDLE, AGENT_STATUS_PROCESSING, AGENT_STATUS_WAITING_SCOUT):
                 agent_results[aid] = {"status": term.status.name.lower(), "alive": True}
+                healthy_count += 1
             elif term.status.name in (AGENT_STATUS_BOOTING,):
                 agent_results[aid] = {"status": "booting", "alive": True}
+                healthy_count += 1
             else:
-                agent_results[aid] = {"status": "stopped", "alive": False}
-        healthy_agents = sum(1 for v in agent_results.values() if v.get("alive"))
-        if not agent_ids:
-            return {"overall": "healthy", "agents": {}, "healthy": "idle"}
-        missing = total_count - healthy_count
-        if missing == 0 and healthy_agents == total_count:
-            return {"overall": "healthy", "agents": agent_results, "healthy": healthy_agents}
-        if healthy_agents > 0:
-            return {"overall": "degraded", "agents": agent_results, "healthy": healthy_agents}
-        return {"overall": "unreachable", "agents": agent_results, "healthy": 0}
+                agent_results[aid] = {"status": term.status.name, "alive": False}
+
+        if healthy_count == total_count:
+            overall = "healthy"
+        elif healthy_count > 0:
+            overall = "degraded"
+        else:
+            overall = "unreachable"
+
+        return {
+            "cell_id": self.cell_id,
+            "overall": overall,
+            "agents": agent_results,
+            "healthy": healthy_count,
+            "total": total_count,
+            "territory": self.territory,
+        }
 
     def agent_status(self, agent_id: str) -> dict:
-        """Quick one-line agent status."""
-        return self.liveness().get("agents", {}).get(agent_id, {"status": "unknown", "alive": False})
+        """Return the current status of a specific agent."""
+        from ..cell.components.cell_agent import agent_status as _agent_status
+        return _agent_status(self, agent_id)
+
+    def close_direct_session(self, agent_id: str) -> dict:
+        """Close a direct session for the given agent."""
+        from ..agent_terminal import get_terminals
+        term = get_terminals().get(agent_id)
+        if not term:
+            return {"success": False, "error": f"unknown agent: {agent_id}"}
+        r = term.session_reachable()
+        if not r.get("reachable"):
+            return {"success": True, "note": "session already closed"}
+        # Direct session is stateless per message — no persistent session to close.
+        # Future: send a DIRECT_SESSION_END IPC message for stateful tracking.
+        return {"success": True, "agent_id": agent_id}

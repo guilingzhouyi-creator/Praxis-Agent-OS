@@ -262,7 +262,11 @@ def _ensure_layer_allowlist() -> None:
         (2, 3, "l3.services"),
         (2, 3, "l3.cell.components"),
         (2, 3, "l3.tool_system"),
+        (2, 3, "l3.error_bus"),
+        (2, 3, "l3.card"),
         (2, 4, "l4.adapters"),
+        (3, 4, "l4.mcp_bridge"),
+        (3, 4, "l4.cron_scheduler"),
     ]:
         _LAYER_ALLOWLIST.add((src, dst, prefix))
 

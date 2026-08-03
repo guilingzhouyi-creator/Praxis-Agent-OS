@@ -29,7 +29,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from l1.kernel.params.system import ICACHE_MAX_ENTRIES, ICACHE_TTL, ICACHE_LFU_DECAY
+from l1.kernel.params.system import (
+    ICACHE_MAX_ENTRIES, ICACHE_TTL, ICACHE_LFU_DECAY, ICACHE_DECAY_INTERVAL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +56,14 @@ class ICache:
         max_entries: int = ICACHE_MAX_ENTRIES,
         default_ttl: float = ICACHE_TTL,
         lfu_decay: float = ICACHE_LFU_DECAY,
+        decay_interval: int = ICACHE_DECAY_INTERVAL,
         pmu: Any = None,
     ):
         self.cell_id = cell_id
         self._max_entries = max_entries
         self._default_ttl = default_ttl
         self._lfu_decay = lfu_decay
+        self._decay_interval = max(1, decay_interval)
         self._pmu = pmu
         self._entries: dict[str, ICacheEntry] = {}
         self._lock = threading.RLock()
@@ -105,6 +109,7 @@ class ICache:
             entry.frequency += 1
             if self._pmu:
                 self._pmu.increment("icache.hits")
+            self._maybe_decay()
             return entry.value
 
     def load_entry(self, key: str) -> ICacheEntry | None:
@@ -118,6 +123,7 @@ class ICache:
                 self._entries.pop(key, None)
                 return None
             entry.frequency += 1
+            self._maybe_decay()
             return entry
 
     def search(self, entry_type: str = "", tag: str = "",
@@ -165,11 +171,18 @@ class ICache:
 
     def decay_frequencies(self) -> None:
         """Decay all frequency counters to age out hot-but-stale entries.
-        Called periodically (e.g. every 100 accesses or by a timer).
+        Called periodically (e.g. every ICACHE_DECAY_INTERVAL accesses).
         """
         with self._lock:
             for entry in self._entries.values():
                 entry.frequency = int(entry.frequency * self._lfu_decay)
+
+    def _maybe_decay(self) -> None:
+        """Increment the access counter and decay frequencies at the interval."""
+        self._decay_counter += 1
+        if self._decay_counter >= self._decay_interval:
+            self._decay_counter = 0
+            self.decay_frequencies()
 
     # ── Bulk operations ───────────────────────────────────────────
 

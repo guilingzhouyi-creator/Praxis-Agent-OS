@@ -56,7 +56,20 @@ class PromptInbox:
         return a
 
     def promote(self) -> Admission | None:
+        """Promote the next pending admission.
+
+        Ordering semantics (per l3a-assembly.md):
+          - ``steer`` admissions promote first (drain ASAP);
+          - ``queue`` admissions only promote when no steer is pending
+            (i.e. when the session would otherwise be idle).
+        """
         with self._lock:
+            for a in self._entries:
+                if a.status == "pending" and a.mode == "steer":
+                    a.status = "promoted"
+                    a.promoted_at = time.time()
+                    self._persist()
+                    return a
             for a in self._entries:
                 if a.status == "pending":
                     a.status = "promoted"

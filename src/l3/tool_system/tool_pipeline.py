@@ -102,6 +102,20 @@ class ToolPipeline:
                 logger.warning("tool-definition hook failed for %s: %s", tool_name, e)
         return spec
 
+    def _record_tool_failure(self, agent_id: str, tool_name: str,
+                             args: dict, error: str, turn_log: list) -> None:
+        """Record a tool execution failure for R4Agent lean-case generation.
+
+        Lazily imports R4Agent so the pipeline stays decoupled from memory.
+        """
+        try:
+            from l3.memory.r4_agent import get_r4_agent
+            get_r4_agent().track_tool_failure(
+                agent_id=agent_id, tool_name=tool_name,
+                args=args, error=error, turn_log=turn_log)
+        except Exception as e:
+            logger.debug("tool_pipeline: failure tracking skipped: %s", e)
+
     def execute(self, tool_name: str, agent_id: str,
                 args: dict | None = None,
                 domain: str = "",
@@ -278,6 +292,15 @@ class ToolPipeline:
                 self._pmu.increment(f"tools.executed.{ring_label}")
                 if not result["success"]:
                     self._pmu.increment("tools.rejected")
+
+        # 9b. R4Agent failure tracking → lean-case learning loop
+        if not result.get("success", False):
+            self._record_tool_failure(
+                agent_id=agent_id, tool_name=tool_name,
+                args=args or {},
+                error=str((result.get("result") or {}).get("error", "tool failed")),
+                turn_log=result.get("steps", []),
+            )
 
         # 10. Release
         if lock_name:

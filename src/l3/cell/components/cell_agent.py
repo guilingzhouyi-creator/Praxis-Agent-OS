@@ -23,7 +23,7 @@ def add_agent(self, agent_id: str, role: str = "",
               max_scouts: int | None = None,
               auto_boot: bool = False) -> dict:
     """Register an agent in this Cell."""
-    from .agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode, TerminalStatus
+    from l3.agent_terminal import get_terminal, TerminalCard, CardMode as TermCardMode, TerminalStatus
     with self._lock:
         if agent_id in self._agents:
             return {"success": False, "error": f"agent {agent_id} already registered"}
@@ -46,7 +46,7 @@ def add_agent(self, agent_id: str, role: str = "",
 
 def _boot_agent(self, agent_id: str) -> dict:
     """Boot an agent terminal if not already running."""
-    from .agent_terminal import get_terminal, TerminalStatus
+    from l3.agent_terminal import get_terminal, TerminalStatus
     with self._lock:
         info = self._agents.get(agent_id)
         if not info:
@@ -61,7 +61,7 @@ def _boot_agent(self, agent_id: str) -> dict:
 
 def _ensure_terminal(self, aid: str, role: str, territory: list[str]) -> None:
     """Ensure an agent terminal exists and is booted."""
-    from .agent_terminal import get_terminal, TerminalStatus
+    from l3.agent_terminal import get_terminal, TerminalStatus
     from l3.tool_system.tool_spec import TOOL_REGISTRY
     term = get_terminal(aid, role=role, territory=territory, cell_id=self.cell_id)
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
@@ -98,7 +98,7 @@ def agent_status(self, agent_id: str) -> dict:
 
 def liveness(self) -> dict:
     """Check Cell and all agent terminals liveness."""
-    from .agent_terminal import get_terminals
+    from l3.agent_terminal import get_terminals
     terms = get_terminals()
     agent_results = {}
     healthy_count = 0
@@ -110,6 +110,7 @@ def liveness(self) -> dict:
         term = terms.get(aid)
         if term is None:
             agent_results[aid] = {"status": "no_terminal", "alive": False}
+            continue
         from l1.kernel.params.agent import (
             AGENT_STATUS_IDLE,
             AGENT_STATUS_PROCESSING,

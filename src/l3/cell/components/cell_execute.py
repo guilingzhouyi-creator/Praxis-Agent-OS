@@ -171,12 +171,13 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
                     "results": results}
         r = term.wait_for_result(sub_card.id, timeout=SUBAGENT_RUN_TIMEOUT)
         if r:
-            results.append(r.to_dict() if hasattr(r, "to_dict") else r.to_dict())
+            from dataclasses import asdict
+            results.append(asdict(r) if hasattr(r, "__dataclass_fields__") else dict(r))
             if not r.success:
                 all_passed = False
                 break
     cell._pmu.increment("cards.decomposed", delta=len(slices))
-    return {"success": all_passed, "results": results, "elapsed": round(_time.time() - t0, 2)}
+    return {"success": all_passed, "results": results, "elapsed": round(time.time() - t0, 2)}
 
 
 def _snapshot_and_inject(cell, card_id: str, card) -> None:
