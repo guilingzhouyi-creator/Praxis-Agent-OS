@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -41,7 +42,7 @@ class TestMiddlewareChain:
         assert result.status == 200
 
     def test_use_middleware(self):
-        from l4.api.api_middleware import MiddlewareChain, Middleware, Request, Response
+        from l4.api.api_middleware import Middleware, MiddlewareChain, Request, Response
 
         class TestMw(Middleware):
             def process(self, request):
@@ -55,7 +56,7 @@ class TestMiddlewareChain:
         assert result.data.get("mw") == "ran"
 
     def test_middleware_aborts_chain(self):
-        from l4.api.api_middleware import MiddlewareChain, Middleware, Request, Response
+        from l4.api.api_middleware import Middleware, MiddlewareChain, Request, Response
 
         class AbortMw(Middleware):
             def process(self, request):

@@ -1,6 +1,8 @@
 """LLM inference engine test — invoke/retry/analyze/tool-use/log hooks"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -114,7 +116,7 @@ class TestHooks:
     """LLM call hooks"""
 
     def test_pre_hook(self):
-        from l4.llm import on_llm_call, _LLM_HOOKS
+        from l4.llm import _LLM_HOOKS, on_llm_call
         _LLM_HOOKS.clear()
         records = []
         @on_llm_call("pre")
@@ -128,7 +130,7 @@ class TestHooks:
         assert len(records) >= 0
 
     def test_post_hook(self):
-        from l4.llm import on_llm_call, _LLM_HOOKS
+        from l4.llm import _LLM_HOOKS, on_llm_call
         _LLM_HOOKS.clear()
         records = []
         @on_llm_call("post")

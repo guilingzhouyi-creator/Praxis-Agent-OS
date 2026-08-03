@@ -1,6 +1,8 @@
 """Config API integration test — config list/read/override/categories + API"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -26,7 +28,7 @@ class TestFetchConfig:
         assert isinstance(r["value"], str)
 
     def test_fetch_override_source(self):
-        from l4.api_handlers.api_handlers_config import _fetch, _CONFIG_OVERRIDES
+        from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, _fetch
         _CONFIG_OVERRIDES.clear()
         # Initially source is "default"
         r = _fetch("API_GATEWAY_PORT")
@@ -88,7 +90,7 @@ class TestConfigSet:
     """Runtime override"""
 
     def test_set_and_get(self):
-        from l4.api_handlers.api_handlers_config import handle_config_set, handle_config_get, _CONFIG_OVERRIDES
+        from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, handle_config_get, handle_config_set
         _CONFIG_OVERRIDES.clear()
 
         r = handle_config_set({"key": "TEST_OVERRIDE", "value": "custom_value"})
@@ -101,7 +103,7 @@ class TestConfigSet:
         assert r2["source"] == "override"
 
     def test_set_int(self):
-        from l4.api_handlers.api_handlers_config import handle_config_set, _CONFIG_OVERRIDES
+        from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, handle_config_set
         _CONFIG_OVERRIDES.clear()
         r = handle_config_set({"key": "MAX_TEST", "value": 999})
         assert r["success"]

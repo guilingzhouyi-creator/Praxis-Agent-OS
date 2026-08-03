@@ -1,6 +1,8 @@
 """LSP Manager integration test — diagnostics + feedback + API"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tempfile
@@ -16,7 +18,7 @@ class TestDiagnosticCache:
         assert r is None
 
     def test_cache_set_get(self):
-        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
+        from l4.lsp.lsp_manager import DiagnosticCache, DiagnosticEntry, FileDiagnostics
 
         dc = DiagnosticCache(ttl=30.0)
         fd = FileDiagnostics(
@@ -35,6 +37,7 @@ class TestDiagnosticCache:
 
     def test_cache_ttl(self):
         import time
+
         from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics
 
         dc = DiagnosticCache(ttl=0.1)
@@ -64,7 +67,7 @@ class TestDiagnosticCache:
         assert stats["cached_files"] == 0
 
     def test_stats_summary(self):
-        from l4.lsp.lsp_manager import DiagnosticCache, FileDiagnostics, DiagnosticEntry
+        from l4.lsp.lsp_manager import DiagnosticCache, DiagnosticEntry, FileDiagnostics
 
         dc = DiagnosticCache()
         fd = FileDiagnostics(
@@ -158,7 +161,7 @@ class TestApiHandlers:
         assert "servers" in r
 
     def test_handle_lsp_start_stop(self):
-        from l4.lsp.lsp_manager import handle_lsp_start, handle_lsp_servers
+        from l4.lsp.lsp_manager import handle_lsp_start
         # Just test that the handlers are callable
         r = handle_lsp_start({"language": "python"})
         assert isinstance(r, dict)

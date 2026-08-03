@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -19,7 +20,7 @@ class TestNotify:
         try:
             r = svc.send("test-agent", "hello", channel="log")
             assert isinstance(r, dict)
-        except Exception as e:
+        except Exception:
             # send may fail if channels not configured, that's ok
             assert True
 

@@ -6,9 +6,9 @@
 
 import pytest
 
+from l3.memory.central_memory import get_center, reset_center
 from l3.memory.memory import MemoryManager, reset_memory
 from l3.memory.memory_graph import get_graph, reset_graph
-from l3.memory.central_memory import get_center, reset_center
 from l4.api_handlers import ApiHandlers
 
 

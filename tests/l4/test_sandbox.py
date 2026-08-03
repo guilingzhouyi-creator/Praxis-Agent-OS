@@ -1,6 +1,9 @@
 """Sandbox isolation test — Agent registration/file read-write/stage/flush/discard"""
 
-import sys, os, tempfile
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 

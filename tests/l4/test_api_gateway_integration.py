@@ -1,6 +1,9 @@
 """API Gateway 集成测试 — HTTP route→handler→middleware→response。"""
 from __future__ import annotations
-import os, sys
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -52,13 +55,13 @@ class TestAPIRoutesInit:
 
 class TestMiddlewareIntegration:
     def test_middleware_chain_importable(self):
-        from l4.api.api_middleware import MiddlewareChain, LocaleMiddleware, CORSMiddleware
+        from l4.api.api_middleware import MiddlewareChain
         chain = MiddlewareChain()
         assert chain is not None
 
     def test_cors_middleware(self):
+        from l1.kernel.params.api import API_CORS_ORIGIN
         from l4.api.api_middleware import CORSMiddleware
-        from l1.kernel.params.api import API_CORS_ORIGIN, API_CORS_ALLOW_METHODS
         mw = CORSMiddleware()
         assert mw is not None
         assert API_CORS_ORIGIN == "*"

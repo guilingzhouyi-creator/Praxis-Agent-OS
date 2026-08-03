@@ -1,6 +1,8 @@
 """SSE Bridge integration test — event broadcast + subscription + API"""
 
-import sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -27,7 +29,7 @@ class TestSseBridgeCore:
         unsubscribe(client["client_id"])
 
     def test_push_and_receive(self):
-        from l4.sse.sse_bridge import subscribe, push_event, unsubscribe
+        from l4.sse.sse_bridge import push_event, subscribe, unsubscribe
 
         client = subscribe(event_types={"test_type"})
         q = client["queue"]
@@ -43,7 +45,7 @@ class TestSseBridgeCore:
             unsubscribe(client["client_id"])
 
     def test_type_filter(self):
-        from l4.sse.sse_bridge import subscribe, push_event, unsubscribe
+        from l4.sse.sse_bridge import push_event, subscribe, unsubscribe
 
         # Subscribe only to test_a
         client = subscribe(event_types={"test_a"})
@@ -69,7 +71,7 @@ class TestEnsureActive:
     """Active check"""
 
     def test_ensure_active(self):
-        from l4.sse.sse_bridge import ensure_active, _ACTIVE
+        from l4.sse.sse_bridge import _ACTIVE, ensure_active
         old = _ACTIVE
         ensure_active()
         # Should not raise

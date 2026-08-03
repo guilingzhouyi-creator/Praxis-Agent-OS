@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -28,7 +27,7 @@ class TestSseBridge:
         assert r["client_id"].startswith("sse-")
 
     def test_broadcast_delivers_to_subscriber(self):
-        from l4.sse.sse_bridge import subscribe, _broadcast
+        from l4.sse.sse_bridge import _broadcast, subscribe
         r = subscribe()
         q = r["queue"]
         _broadcast("test.event", {"msg": "hello"})

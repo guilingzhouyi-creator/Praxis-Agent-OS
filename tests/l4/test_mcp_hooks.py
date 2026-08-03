@@ -1,6 +1,10 @@
 """MCP bridge, tool pipeline hooks, and AgentLoop chat.params hook tests."""
 from __future__ import annotations
-import sys, os, json, tempfile
+
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -11,8 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestMCPStateMachine:
     def test_status_constants(self):
         from l4.mcp_bridge import (
-            MCP_STATUS_CONNECTED, MCP_STATUS_DISABLED, MCP_STATUS_FAILED,
-            MCP_STATUS_NEEDS_AUTH, MCP_STATUS_NEEDS_REGISTRATION,
+            MCP_STATUS_CONNECTED,
+            MCP_STATUS_DISABLED,
+            MCP_STATUS_FAILED,
+            MCP_STATUS_NEEDS_AUTH,
+            MCP_STATUS_NEEDS_REGISTRATION,
         )
         assert MCP_STATUS_CONNECTED == "connected"
         assert MCP_STATUS_DISABLED == "disabled"
@@ -21,7 +28,6 @@ class TestMCPStateMachine:
         assert MCP_STATUS_NEEDS_REGISTRATION == "needs_client_registration"
 
     def test_bridge_init_empty(self):
-        import tempfile
         from l4 import mcp_bridge as mb
         orig_path = mb.MCP_STATE_PATH
         with tempfile.TemporaryDirectory() as d:
@@ -70,12 +76,12 @@ class TestMCPStateMachine:
 
 class TestMCPStatePersistence:
     def test_save_and_load_state(self, tmp_path):
-        from l4.mcp_bridge import (
-            _save_mcp_state, _load_mcp_state,
-            _mcp_state_path, MCP_STATUS_DISABLED,
-        )
         # Temporarily override state path
         import l4.mcp_bridge as mb
+        from l4.mcp_bridge import (
+            _load_mcp_state,
+            _save_mcp_state,
+        )
         original_path = mb.MCP_STATE_PATH
         try:
             test_path = os.path.join(str(tmp_path), "mcp_state.json")

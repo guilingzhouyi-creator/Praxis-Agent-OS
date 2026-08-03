@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
@@ -11,8 +12,8 @@ class TestMemoryBusAdapter:
     """MemoryBusAdapter — emit/subscribe/unsubscribe/stats/clear."""
 
     def test_subscribe_and_emit(self):
-        from l4.adapters.bus_memory import MemoryBusAdapter
         from l1.kernel.event import Signal, SignalType
+        from l4.adapters.bus_memory import MemoryBusAdapter
         bus = MemoryBusAdapter()
         received = []
 
@@ -25,8 +26,8 @@ class TestMemoryBusAdapter:
         assert len(received) == 1
 
     def test_unsubscribe(self):
-        from l4.adapters.bus_memory import MemoryBusAdapter
         from l1.kernel.event import Signal, SignalType
+        from l4.adapters.bus_memory import MemoryBusAdapter
         bus = MemoryBusAdapter()
         received = []
 

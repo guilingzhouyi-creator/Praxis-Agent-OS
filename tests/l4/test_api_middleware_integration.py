@@ -12,7 +12,6 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import json
 
 
 class TestCORSMiddleware:
@@ -51,8 +50,8 @@ class TestLocaleMiddleware:
         assert out.locale in ("zh-CN", "zh")  # exact parsing depends on implementation
 
     def test_locale_defaults_to_en(self):
-        from l4.api.api_middleware import LocaleMiddleware, Request
         from l1.kernel.params.api import I18N_DEFAULT_LOCALE
+        from l4.api.api_middleware import LocaleMiddleware, Request
         mw = LocaleMiddleware()
         req = Request(method="GET", path="/api/health")
         out = mw.process(req)
@@ -64,8 +63,10 @@ class TestMiddlewareChain:
 
     def test_chain_handles_request(self):
         from l4.api.api_middleware import (
-            MiddlewareChain, CORSMiddleware, LocaleMiddleware,
-            Request, Response,
+            CORSMiddleware,
+            LocaleMiddleware,
+            MiddlewareChain,
+            Request,
         )
         chain = MiddlewareChain([
             CORSMiddleware(origin="*"),
@@ -78,7 +79,10 @@ class TestMiddlewareChain:
 
     def test_chain_short_circuits(self):
         from l4.api.api_middleware import (
-            MiddlewareChain, Middleware, Request, Response,
+            Middleware,
+            MiddlewareChain,
+            Request,
+            Response,
         )
 
         class BlockMiddleware(Middleware):
@@ -92,7 +96,9 @@ class TestMiddlewareChain:
 
     def test_chain_processes_response(self):
         from l4.api.api_middleware import (
-            MiddlewareChain, CORSMiddleware, Request, Response,
+            CORSMiddleware,
+            MiddlewareChain,
+            Request,
         )
         chain = MiddlewareChain([CORSMiddleware(origin="https://app.com")])
         req = Request(method="GET", path="/api/health")

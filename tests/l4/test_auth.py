@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from l4.vault.auth import KeyVault, AuthService, get_service, reset_service
+from l4.vault.auth import AuthService, KeyVault, get_service, reset_service
 
 
 class TestKeyVault:
