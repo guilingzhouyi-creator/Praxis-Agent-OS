@@ -15,8 +15,8 @@ Usage:
   python main.py status                # Full system status
 """
 
-import sys
 import os
+import sys
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR) if _SCRIPT_DIR.endswith("src") else _SCRIPT_DIR
@@ -27,7 +27,6 @@ from l5.cli import COMMANDS
 
 def repl():
     """Interactive REPL loop — type commands at the prompt."""
-    import atexit
     print("NOMOS Praxis Agent OS  —  type 'help' for commands, 'exit' to quit")
 
     try:

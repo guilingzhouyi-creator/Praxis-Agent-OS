@@ -1,12 +1,11 @@
 """Tool call ring buffer — records and queries tool execution history per ring."""
+import time as _time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-import time as _time
-from .constants import (
-    PraxisRing, GateStatus, ToolRing as ToolRingConst,
-    RequestPoolConfig, AGENT_REPUTATION_DEFAULTS,
-)
+from datetime import UTC, datetime
+
+from l1.kernel.params.gatechain import GateStatus
+from l1.kernel.params.kernel import PraxisRing, RequestPoolConfig
 
 
 @dataclass
@@ -17,7 +16,7 @@ class ToolCallRecord:
     gate_result: str = GateStatus.PASS
     fingerprint: str = ""
     error: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass

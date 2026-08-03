@@ -6,8 +6,9 @@ Depends: services/ipc.py (message bus), constants.py (WitnessStatus)
 from __future__ import annotations
 
 from typing import Any
-from l3.bus.ipc import get_bus, IPCMessage, MessageType
-from .constants import WitnessStatus
+
+from l1.kernel.params.gatechain import WitnessStatus
+from l3.bus.ipc import IPCMessage, MessageType, get_bus
 
 
 def request_ring3_approval(tool_name: str, agent_id: str,
