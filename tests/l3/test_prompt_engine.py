@@ -1,10 +1,11 @@
 """Prompt Engine integration test — context assembly + layered Prompt + API"""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tempfile
-from pathlib import Path
 
 
 class TestContextAssembler:

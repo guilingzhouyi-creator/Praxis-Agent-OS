@@ -1,8 +1,8 @@
 """ArchiveOrchestrator tests — ring3 archiving, classify, restore."""
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -21,15 +21,15 @@ class TestArchiveOrchestrator:
         assert series is not None
 
     def test_archive_ring3_empty(self):
-        from l3.memory.archive_orchestrator import archive_ring3
         from l3.memory import MemoryManager
+        from l3.memory.archive_orchestrator import archive_ring3
         mem = MemoryManager()
         n = archive_ring3(mem)
         assert n >= 0
 
     def test_ring3_from_archive_empty(self):
-        from l3.memory.archive_orchestrator import ring3_from_archive
         from l3.memory import MemoryManager
+        from l3.memory.archive_orchestrator import ring3_from_archive
         mem = MemoryManager()
         n = ring3_from_archive(mem)
         assert n >= 0

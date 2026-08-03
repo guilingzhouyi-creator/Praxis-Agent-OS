@@ -1,6 +1,8 @@
 """Tests for tool_ring — ToolRing (Ring 1) + RequestPool (Ring 2.5) + weighted scheduling."""
 
-import sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
@@ -8,14 +10,14 @@ class TestToolRing:
     """Ring 1 per-agent tool call history."""
 
     def test_record_and_count(self):
-        from tool_ring import ToolRing, ToolCallRecord
+        from tool_ring import ToolCallRecord, ToolRing
         ring = ToolRing(capacity=5)
         assert ring.count() == 0
         ring.record(ToolCallRecord(tool_name="read_file", agent_id="a", success=True))
         assert ring.count() == 1
 
     def test_record_capped(self):
-        from tool_ring import ToolRing, ToolCallRecord
+        from tool_ring import ToolCallRecord, ToolRing
         ring = ToolRing(capacity=3)
         for i in range(5):
             ring.record(ToolCallRecord(tool_name=f"t{i}", agent_id="a", success=True))
@@ -23,7 +25,7 @@ class TestToolRing:
         assert ring.recent()[0].tool_name == "t2"
 
     def test_recent_returns_n(self):
-        from tool_ring import ToolRing, ToolCallRecord
+        from tool_ring import ToolCallRecord, ToolRing
         ring = ToolRing(capacity=20)
         for i in range(10):
             ring.record(ToolCallRecord(tool_name=f"t{i}", agent_id="a", success=True))
@@ -38,7 +40,7 @@ class TestToolRing:
         assert stats["PASS"] == 0 and stats["BLOCK"] == 0
 
     def test_gate_stats_tracks_results(self):
-        from tool_ring import ToolRing, ToolCallRecord, GateStatus
+        from tool_ring import GateStatus, ToolCallRecord, ToolRing
         ring = ToolRing()
         ring.record(ToolCallRecord("t1", "a", True, gate_result=GateStatus.PASS))
         ring.record(ToolCallRecord("t2", "a", False, gate_result=GateStatus.BLOCK))
