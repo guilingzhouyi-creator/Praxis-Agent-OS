@@ -35,6 +35,13 @@ _REL_SEQUENTIAL = "sequential"      # 同 agent 连续写入链
 _REL_TYPE_CHAIN = "type_chain"      # 同 agent + 同 entry_type 链
 _REL_CELL_CHAIN = "cell_chain"      # 同 cell 链
 
+# ── 语义边（hybrid 模式——由调用方/LLM 提取后显式写入）──
+_REL_CONTRADICTS = "contradicts"    # 新知识推翻旧知识
+_REL_DEPENDS_ON = "depends_on"      # 决策依赖依据
+_REL_REFINES = "refines"            # 细化/补充
+
+_SEMANTIC_RELATIONS = {_REL_CONTRADICTS, _REL_DEPENDS_ON, _REL_REFINES}
+
 _DEFAULT_DB_NAME = "memory_graph.db"
 _DEFAULT_ENABLED = False
 _COMPACT_MIN_EDGES = 4          # 图小于此边数不执行剪枝（防新生图被剪空）
@@ -100,7 +107,8 @@ class MemoryGraph:
     def _emit_event(self, event_type: str, data: dict) -> None:
         """Publish graph lifecycle events to the monitoring bus."""
         try:
-            from l3.bus.monitor_bus import MonitorEvent as _ME, get_bus as _MB
+            from l3.bus.monitor_bus import MonitorEvent as _ME
+            from l3.bus.monitor_bus import get_bus as _MB
             _MB().emit(_ME(type=event_type, source="memory_graph",
                            severity="info", data=data))
         except Exception:
@@ -301,6 +309,60 @@ class MemoryGraph:
                 "leaves_pruned": len(leaf_ids), "edges_removed": removed,
                 "edges_before": rep["edges"], "edges_after": after,
                 "hubs_kept": len(rep["hubs"])}
+
+    # ── 语义边（显式写入——contradicts/depends_on/refines）────────
+
+    def add_semantic_edge(self, from_id: str, to_id: str, relation: str,
+                          weight: float = 1.5, created_by: str = "llm") -> dict:
+        """Add a semantic edge (contradicts/depends_on/refines).
+
+        Unlike rule-based edges (automatic, zero cost), semantic edges are
+        explicit knowledge: callers (LLM extraction, review passes, humans)
+        decide the relation and attribution is recorded.
+
+        Returns: {"success": True, "edge_id": ...} or error dict.
+        """
+        if self._conn is None:
+            return {"success": False, "error": "no connection"}
+        if not self._enabled:
+            return {"success": False, "error": "graph disabled"}
+        rel = relation.strip().lower()
+        if rel not in _SEMANTIC_RELATIONS:
+            return {"success": False,
+                    "error": f"relation must be one of {sorted(_SEMANTIC_RELATIONS)}"}
+        if not from_id or not to_id or from_id == to_id:
+            return {"success": False, "error": "from_id/to_id required and distinct"}
+        if self._edge_exists(from_id, to_id, rel):
+            return {"success": False, "error": "edge already exists"}
+        try:
+            eid = self._insert_edge(from_id, to_id, rel, float(weight),
+                                    created_by, time.time())
+            if not eid:
+                return {"success": False, "error": "insert failed"}
+            self._emit_event("stats.memory.graph.semantic", {
+                "relation": rel, "from_id": from_id, "to_id": to_id,
+                "created_by": created_by,
+            })
+            return {"success": True, "edge_id": eid, "relation": rel}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def semantic_edges(self, limit: int = 50) -> list[dict]:
+        """List semantic edges only (contradicts/depends_on/refines)."""
+        if self._conn is None:
+            return []
+        try:
+            ph = ",".join("?" * len(_SEMANTIC_RELATIONS))
+            cur = self._conn.execute(
+                "SELECT from_id, to_id, relation, weight, created_by, created_at "
+                f"FROM memory_edges WHERE relation IN ({ph}) "
+                "ORDER BY created_at DESC LIMIT ?",
+                list(_SEMANTIC_RELATIONS) + [limit])
+            return [{"from_id": r[0], "to_id": r[1], "relation": r[2],
+                     "weight": r[3], "created_by": r[4], "created_at": r[5]}
+                    for r in cur.fetchall()]
+        except Exception:
+            return []
 
     # ── 查询 / 维护 ─────────────────────────────────────────
 

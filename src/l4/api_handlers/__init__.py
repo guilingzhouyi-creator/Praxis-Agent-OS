@@ -390,6 +390,27 @@ class ApiHandlers:
         from l3.memory.memory_graph import get_graph
         return get_graph().compact(min_degree=min_degree, dry_run=bool(dry))
 
+    def _memory_graph_edge(self, body: dict | None = None) -> dict:
+        """POST /api/memory/graph/edge — add a semantic edge.
+
+        Body: {"from_id", "to_id", "relation": "contradicts|depends_on|refines",
+               "weight": 1.5, "created_by": "llm"}
+        """
+        b = body or {}
+        from l3.memory.memory_graph import get_graph
+        return get_graph().add_semantic_edge(
+            from_id=b.get("from_id", ""), to_id=b.get("to_id", ""),
+            relation=b.get("relation", ""),
+            weight=float(b.get("weight", 1.5)),
+            created_by=b.get("created_by", "llm"))
+
+    def _memory_graph_semantic(self, body: dict | None = None) -> dict:
+        """GET /api/memory/graph/semantic — list semantic edges."""
+        from l3.memory.memory_graph import get_graph
+        return {"success": True,
+                "edges": get_graph().semantic_edges(
+                    limit=int((body or {}).get("limit", 50)))}
+
     def _plugin_list(self, body: dict | None = None) -> dict:
         from l3.services.central_plugin import get_center
         kind = (body or {}).get("kind", "")

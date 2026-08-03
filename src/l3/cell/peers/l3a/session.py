@@ -10,17 +10,23 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import params as _p
 from l1.kernel.params.system import (
-    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_100, LOG_TRUNC_200,
-    LOG_TRUNC_300, LOG_TRUNC_500, LOG_TRUNC_2000,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_300,
+    LOG_TRUNC_500,
+    LOG_TRUNC_2000,
+    SESSION_MSG_OVERHEAD,
+    TOKEN_CHARS_PER_TOKEN,
 )
-from .model import L3AModelConfig
-from .context import ContextEpoch, ContextRegistry
-from .inbox import PromptInbox, Admission
-from .task_table import SessionTaskTable, SessionTask
-from . import archive as _archive
 from l3.error_bus import capture
+
+from . import archive as _archive
+from . import params as _p
+from .context import ContextEpoch, ContextRegistry
+from .inbox import PromptInbox
+from .model import L3AModelConfig
+from .task_table import SessionTaskTable
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +189,6 @@ class Session:
         inst._resumed_from = archived_session_id
         if todos_data:
             try:
-                from l3.services.todo_tracker import TodoTracker
                 inst._resume_todos = list(todos_data)
             except Exception:
                 pass
@@ -267,7 +272,8 @@ class Session:
         rtok = int(result.get("reasoning_tokens", 0) or 0)
         if rtok > 0:
             try:
-                from l3.services.stats_center import get_center, MetricPoint as _Mp
+                from l3.services.stats_center import MetricPoint as _Mp
+                from l3.services.stats_center import get_center
                 ts = time.time()
                 get_center().ingest(_Mp(
                     name="l3a.tokens.reasoning", value=float(rtok),
@@ -277,7 +283,8 @@ class Session:
                 logger.debug("l3a session: reasoning token stats failed")
         if rtok > 0:
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME4, get_bus as _MB4
+                from l3.bus.monitor_bus import MonitorEvent as _ME4
+                from l3.bus.monitor_bus import get_bus as _MB4
                 _MB4().emit(_ME4(
                     type="stats.l3a.reasoning", source="l3a",
                     severity="info",
@@ -294,7 +301,8 @@ class Session:
         if tool_calls:
             t0 = time.time()
             try:
-                from l3.services.stats_center import get_center, MetricPoint as _Mp
+                from l3.services.stats_center import MetricPoint as _Mp
+                from l3.services.stats_center import get_center
                 sc = get_center()
                 ts = time.time()
                 for tc in tool_calls:
@@ -321,7 +329,8 @@ class Session:
         post_tokens = self.context_stats()["projected_tokens"]
         token_saved = pre_tokens - post_tokens
         try:
-            from l3.services.stats_center import get_center, MetricPoint as _Mp
+            from l3.services.stats_center import MetricPoint as _Mp
+            from l3.services.stats_center import get_center
             sc = get_center()
             ts = time.time()
             sc.ingest(_Mp(name="l3a.tokens.projected", value=float(pre_tokens),
@@ -522,8 +531,9 @@ class Session:
         # ── 1. Lossless snapshot to R4 (deferred access, not loss) ──
         snapshot_ref = ""
         try:
-            from l3.tools._archive import _cmd_archive_store
             import json as _json
+
+            from l3.tools._archive import _cmd_archive_store
             snapshot = {
                 "session_id": self.id,
                 "turn": self.turn_count,
@@ -622,6 +632,14 @@ class Session:
         after_tokens = len(summary_text) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
         logger.info("l3a session %s: compressed %d msgs → summary (+%d kept)",
                     self.id, len(old), keep_last)
+        # ── R5 群域图联动：压缩后图约简（派生层，失败不影响）──
+        try:
+            from l3.memory.memory_graph import get_graph as _gg
+            g = _gg()
+            if g.enabled:
+                g.compact(min_degree=2, dry_run=False)
+        except Exception:
+            logger.debug("l3a session: graph compact after compress failed")
         return {
             "success": True, "session_id": self.id,
             "compressed": len(old), "kept": keep_last,
@@ -801,7 +819,7 @@ class Session:
                 self._pmu.increment("memory.context.warnings")
 
         try:
-            from l3.services.stats_center import get_center, MetricPoint
+            from l3.services.stats_center import MetricPoint, get_center
             sc = get_center()
             ts = time.time()
             sc.ingest(MetricPoint(name="l3a.epoch.tokens", value=float(est),
@@ -931,6 +949,7 @@ class Session:
         if self._loop is not None:
             return
         from l3.agent.agent_loop import AgentLoop
+
         from .helpers import build_l3a_prompt
 
         self._base_system = build_l3a_prompt()
@@ -983,7 +1002,7 @@ class Session:
             _session_cardwrite,
             parallel_safe=False,
         )
-        from .subagent import l3a_spawn_handler, l3a_collect_handler, l3a_peek_handler
+        from .subagent import l3a_collect_handler, l3a_peek_handler, l3a_spawn_handler
         self._loop.add_tool("l3a_spawn",
             "Spawn an async subagent. Returns task_id immediately.",
             {"spec": "string", "task": "string", "group": "string"},

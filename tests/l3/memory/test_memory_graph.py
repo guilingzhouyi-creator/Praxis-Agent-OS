@@ -6,7 +6,7 @@
 所有测试走生产路径：MemoryManager 挂钩 → get_graph() 单例。
 """
 
-from l3.memory.memory import MemoryManager, reset_memory
+from l3.memory.memory import MemoryManager
 from l3.memory.memory_graph import get_graph, reset_graph
 
 
@@ -195,3 +195,71 @@ def test_central_recall_passes_diffusion(tmp_path):
     mem.remember("a1", "summary", "central wrap", ring=3)
     r = center.recall(scope_id="l3a", limit=10, graph_diffusion=True)
     assert r and len(r) >= 3
+
+
+# Phase 4: semantic edges + compression linkage
+
+
+def test_semantic_edge_add_and_validate(tmp_path):
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    ok = g.add_semantic_edge("e1", "e2", "contradicts", created_by="review")
+    assert ok["success"] and ok["relation"] == "contradicts"
+    bad = g.add_semantic_edge("e1", "e2", "loves")
+    assert not bad["success"] and "relation" in bad["error"]
+    dup = g.add_semantic_edge("e1", "e2", "contradicts")
+    assert not dup["success"] and "already exists" in dup["error"]
+    selfloop = g.add_semantic_edge("e1", "e1", "refines")
+    assert not selfloop["success"]
+    g.set_enabled(False)
+    off = g.add_semantic_edge("e1", "e3", "depends_on")
+    assert not off["success"] and "disabled" in off["error"]
+
+
+def test_semantic_edges_listing(tmp_path):
+    _activate_graph(tmp_path, enabled=True)
+    g = get_graph()
+    g.add_semantic_edge("a1", "a2", "contradicts", created_by="llm")
+    g.add_semantic_edge("b1", "b2", "depends_on", created_by="llm")
+    import time as _t
+    g._insert_edge("x1", "x2", "sequential", 1.0, "system", _t.time())
+    sem = g.semantic_edges()
+    assert len(sem) == 2
+    assert {e["relation"] for e in sem} == {"contradicts", "depends_on"}
+
+
+def test_semantic_edge_api(tmp_path):
+    from l4.api_handlers import ApiHandlers
+    reset_graph()
+    g = get_graph(db_path=str(tmp_path / "sem.db"))
+    g.set_enabled(True)
+    api = ApiHandlers()
+    r = api._memory_graph_edge({"from_id": "a", "to_id": "b",
+                                "relation": "contradicts"})
+    assert r["success"]
+    lst = api._memory_graph_semantic()
+    assert lst["success"] and len(lst["edges"]) == 1
+    r2 = api._memory_graph_edge({"from_id": "a", "to_id": "b",
+                                 "relation": "nope"})
+    assert not r2["success"]
+
+
+def test_compress_triggers_graph_compact(tmp_path):
+    """Compression auto-triggers graph reduction (graph enabled)."""
+    from l3.cell.peers.l3a import get_daemon
+    from l3.memory.central_memory import reset_center
+    reset_center()
+    _activate_graph(tmp_path, enabled=True)
+    d = get_daemon()
+    s = d.create_session("compact-link")
+    s._ensure_loop()
+
+    def fake_run(**kw):
+        return {"answer": "ok", "success": True, "tool_calls": [],
+                "reasoning_trail": ["t"], "reasoning_tokens": 1}
+    s._loop.run = fake_run
+    for i in range(3):
+        s.prompt(f"bulk question {i}")
+    r = s.compress(keep_last=2)
+    assert r["success"]
+    s.close()

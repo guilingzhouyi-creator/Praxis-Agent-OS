@@ -92,6 +92,8 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/memory/graph",       ".memory_graph_status", "R5 graph switch state + stats"),
     ("PUT", "/api/memory/graph",       ".memory_graph_set",   "Toggle R5 graph switch (persisted)"),
     ("POST", "/api/memory/graph/compact", ".memory_graph_compact", "Run graph reduction (dry_run by default)"),
+    ("POST", "/api/memory/graph/edge",    ".memory_graph_edge",   "Add a semantic edge (contradicts/depends_on/refines)"),
+    ("GET", "/api/memory/graph/semantic", ".memory_graph_semantic", "List semantic edges"),
 
     # Shell
     ("POST", "/api/shell",             ".shell_dispatch",     "Shell command dispatch"),
