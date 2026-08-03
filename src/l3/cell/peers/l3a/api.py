@@ -128,6 +128,18 @@ def dispatch(args: list[str], mgr: SessionManager,
             "max_chars": int(args[2]) if len(args) > 2 and args[2].isdigit() else 0,
         })
 
+    if sub == "summaries":
+        from .helpers import l3a_summary_handler
+        if len(args) >= 3 and args[1].lower() == "get":
+            return l3a_summary_handler({"action": "get",
+                                        "issue_id": args[2]})
+        if len(args) >= 3 and args[1].lower() == "search":
+            return l3a_summary_handler({"action": "search",
+                                        "query": " ".join(args[2:])})
+        domain = args[1] if len(args) >= 2 else ""
+        return l3a_summary_handler({"action": "latest", "domain": domain,
+                                    "limit": 10})
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

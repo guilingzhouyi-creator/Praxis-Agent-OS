@@ -539,6 +539,9 @@ class Session:
             summary = result.get("answer", "")
         if not summary:
             summary = str(result)[:LOG_TRUNC_200]
+        # Convention convergence → distill L3A summary into dedicated store
+        if result.get("issue_card_id") or result.get("doc_path"):
+            self._distill_convention_summary(card_id, title, result)
         text = (f"Card {card_id} ({title}) → {state}"
                 + (f": {summary}" if summary else ""))
         self.tasks.update(card_id, state, result)
@@ -550,6 +553,70 @@ class Session:
                 metadata={"card_id": card_id, "card_state": state},
             ))
         logger.info("l3a session %s: card %s → %s", self.id, card_id, state)
+
+    def _distill_convention_summary(self, card_id: str, title: str,
+                                    result: dict) -> None:
+        """Distill a convention convergence into the L3A summary store.
+
+        Reads the anchored doc index (issues/decisions/agents), performs
+        second-pass dedup (overlap detection on top of in-Cell dedup), and
+        persists the distilled summary to L3A's dedicated memory space.
+        """
+        issue_id = result.get("issue_card_id", "")
+        if not issue_id:
+            return
+        try:
+            from .helpers import l3a_convention_handler
+            idx_r = l3a_convention_handler({"issue_id": issue_id,
+                                            "action": "index"})
+            if not idx_r.get("success"):
+                logger.debug("l3a: summary distill index failed: %s",
+                             idx_r.get("error"))
+                return
+            idx = idx_r.get("index", {})
+            issues = []
+            for it in idx.get("issues", []):
+                block = l3a_convention_handler({"issue_id": issue_id,
+                                                "anchor": it.get("anchor", "")})
+                answer = ""
+                if block.get("success"):
+                    for ln in block["content"].splitlines():
+                        if "**Answer**" in ln:
+                            answer = ln.split("):", 1)[-1].strip() if "):" in ln else ln
+                issues.append({
+                    "anchor": it.get("anchor", ""),
+                    "title": it.get("title", ""),
+                    "domain": it.get("domain", ""),
+                    "assigned_to": it.get("assigned_to", ""),
+                    "status": it.get("status", ""),
+                    "answer": answer,
+                })
+            decisions = []
+            for d in idx.get("decisions", []):
+                block = l3a_convention_handler({"issue_id": issue_id,
+                                                "anchor": d.get("anchor", "")})
+                text = ""
+                if block.get("success"):
+                    for ln in block["content"].splitlines():
+                        if ln.startswith("- "):
+                            text = ln[2:].strip()
+                decisions.append({"anchor": d.get("anchor", ""), "text": text})
+
+            from .summaries import build_summary, get_store
+            domain = ""
+            if issues and issues[0].get("domain"):
+                domain = issues[0]["domain"]
+            s = build_summary(
+                issue_id=issue_id, source_card_id=card_id, title=title,
+                domain=domain,
+                agents=idx.get("participants", []),
+                issues=issues, decisions=decisions,
+                doc_path=result.get("doc_path", ""),
+                archive_ref=result.get("archive_ref", ""),
+            )
+            get_store().save(s)
+        except Exception as e:
+            logger.debug("l3a: summary distill failed: %s", e)
 
     def _ensure_epoch(self) -> None:
         if self.epoch is not None:
@@ -635,6 +702,14 @@ class Session:
             {"issue_id": "string", "action": "string", "anchor": "string",
              "agent": "string", "max_chars": "int"},
             l3a_convention_handler, parallel_safe=True)
+        from .helpers import l3a_summary_handler
+        self._loop.add_tool("l3a_summary",
+            "Query L3A deliberation-memory: action=latest [domain] for recent "
+            "convention distillations, action=search <query> for keyword hits, "
+            "action=get <issue_id> for one full summary with overlap notes.",
+            {"action": "string", "issue_id": "string", "query": "string",
+             "domain": "string", "limit": "int"},
+            l3a_summary_handler, parallel_safe=True)
         if self._pmu:
             try:
                 self._loop.set_pmu(self._pmu)

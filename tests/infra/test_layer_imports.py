@@ -108,6 +108,7 @@ ALLOWLIST = {
     ("l3/services/prompt_engine.py", "l4.lsp.lsp"),
     ("l3/tool_system/tool_pipeline.py", "l4.sandbox.manager"),
     ("l3/config/config_handlers.py", "l4.api.api_gateway"),
+    ("l3/config/config_handlers.py", "l4.api_handlers.api_handlers_mcp"),
     ("l3/config/config_loader.py", "l4.llm.llm"),
     ("l3/memory/r4_agent.py", "l4.llm.llm"),
     # L3→L4 wiring/adapters (dependency injection)
@@ -147,6 +148,7 @@ ALLOWLIST = {
     ("l2/l2_shell/commands.py", "l3.central_memory"),
     ("l2/l2_shell/commands.py", "l3.central_plugin"),
     ("l2/l2_shell/commands.py", "l4.mcp_bridge"),
+    ("l2/l2_shell/commands/extra.py", "l4.api_handlers.api_handlers_mcp"),
     ("l2/l2_shell/commands.py", "l4.cron_scheduler"),
     ("l2/l2_shell/commands.py", "l3.resource_buffer.manager"),
     ("l2/l2_shell/commands.py", "l3.card_pool"),

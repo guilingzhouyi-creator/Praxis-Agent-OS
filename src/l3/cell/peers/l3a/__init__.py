@@ -92,7 +92,34 @@ def _build_default_registry() -> ContextRegistry:
         render_update=lambda o, n: _convergence_render(n),
     ))
 
+    reg.register(ContextSource(
+        key="l3a_memory",
+        loader=lambda: _l3a_memory_loader(),
+        render_baseline=lambda v: _l3a_memory_render(v),
+        render_update=lambda o, n: _l3a_memory_render(n),
+    ))
+
     return reg
+
+
+def _l3a_memory_loader() -> list[dict]:
+    """Load L3A's distilled deliberation summaries (旁路记忆, latest 5)."""
+    try:
+        from .summaries import get_store
+        return [s.to_dict() for s in get_store().latest(limit=5)]
+    except Exception:
+        return []
+
+
+def _l3a_memory_render(summaries: list[dict]) -> str:
+    if not summaries:
+        return "## L3A memory\n(no distilled deliberations yet)"
+    lines = ["## L3A memory (recent deliberations)"]
+    for s in summaries:
+        lines.append(f"- [{s.get('issue_id', '?')}] {s.get('title', '')} "
+                     f"(domain={s.get('domain', '')})")
+        lines.append(f"  {s.get('summary', '')[:150]}")
+    return "\n".join(lines)
 
 
 def _convergence_loader() -> list[dict]:
@@ -347,6 +374,7 @@ from .model import L3AModelConfig
 from .context import ContextSource, ContextRegistry, ContextEpoch
 from .session import Session, SessionManager, SessionHistory
 from .task_table import SessionTaskTable, SessionTask
+from .summaries import L3ASummary, L3ASummaryStore, get_store as get_summary_store
 from .subagent import L3ASubAgentPool, get_pool as get_l3a_pool
 from . import params as l3a_params
 

@@ -262,3 +262,41 @@ def _kv(comment_line: str) -> dict:
             k, v = part.split(":", 1)
             result[k.strip()] = v.strip()
     return result
+
+
+def l3a_summary_handler(args: dict, agent_id: str = "") -> dict:
+    """Query L3A's dedicated deliberation-memory store (旁路记忆).
+
+    action=latest [domain] [limit]  → recent distilled summaries
+    action=search <query> [limit]   → keyword search across summaries
+    action=get <issue_id>           → one full summary (incl. overlap notes)
+    (default)                       → store stats
+    """
+    from .summaries import get_store
+    store = get_store()
+    action = args.get("action", "stats")
+    if action == "get":
+        issue_id = args.get("issue_id", "")
+        s = store.get(issue_id)
+        if not s:
+            return {"success": False,
+                    "error": f"summary not found: {issue_id}"}
+        return {"success": True, "data": s.to_dict()}
+    if action == "search":
+        query = args.get("query", "")
+        if not query:
+            return {"success": False, "error": "query required"}
+        limit = int(args.get("limit", 5))
+        hits = store.search(query, limit=limit)
+        return {"success": True, "data": [s.to_dict() for s in hits],
+                "count": len(hits)}
+    if action == "latest":
+        domain = args.get("domain", "")
+        limit = int(args.get("limit", 5))
+        hits = store.latest(domain=domain, limit=limit)
+        return {"success": True, "data": [s.to_dict() for s in hits],
+                "count": len(hits)}
+    return {"success": True, "data": {
+        "total": store.count(),
+        "recent": [s.to_dict() for s in store.latest(limit=3)],
+    }}

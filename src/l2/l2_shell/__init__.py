@@ -20,8 +20,11 @@ from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from .commands import (
     preconnect_enhanced, _pipeline, list_commands,
     _cmd_connect, _cmd_disconnect, _cmd_mode, _cmd_agents, _cmd_help,
+    _cmd_status, _cmd_intents, _cmd_scheduler, _cmd_observe,
+    _cmd_skills, _cmd_memory, _cmd_plugins, _cmd_security,
+    _cmd_cells, _cmd_cross,
 )
-from .completer import autocomplete, _complete_role  # noqa: F401
+from .completer import autocomplete, _complete_role, _complete_agent  # noqa: F401
 from .output_guard import guard_output, set_output_guard  # noqa: F401
 from .state import get_state, reset_state, ShellState  # noqa: F401
 
