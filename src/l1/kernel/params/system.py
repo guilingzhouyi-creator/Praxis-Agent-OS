@@ -133,6 +133,7 @@ LOG_EXPORT_LIMIT: Final[int] = 10000
 ERROR_BUS_BUFFER: Final[int] = 5000
 ERROR_BUS_DEDUP_WINDOW: Final[int] = 300
 ERROR_BUS_EXPORT_LIMIT: Final[int] = 10000
+ERROR_BUS_TOP_SOURCES: Final[int] = 10
 
 # ── Observability Bus defaults ──
 OBS_AUDIT_LIMIT: Final[int] = 20
@@ -365,6 +366,11 @@ SANDBOX_PROFILE_NETWORK: Final[str] = "DANGER_2"
 SANDBOX_PROFILE_FULL: Final[str] = "DANGER_3"
 SANDBOX_PROFILE_HOST: Final[str] = "DANGER_4"
 # SANDBOX_TMP_ROOT moved to l1.kernel.paths.get_paths().sandbox_root
+
+# ── Sandbox diff / cross-review tuning ──
+DIFF_CONTEXT_LINES: Final[int] = 3          # context lines before/after a hunk
+DIFF_CHAR_LEVEL_MAX_LINES: Final[int] = 10  # replace hunks <= N lines get char-level diff
+DIFF_PINGPONG_WINDOW_SECONDS: Final[float] = 30.0  # same-agent rapid edit warn window
 SANDBOX_EXEC_TIMEOUT: Final[float] = 300.0
 
 # ── Fault tolerance ──
@@ -389,6 +395,13 @@ VAULT_KEY_BYTES: Final[int] = 32
 VAULT_NONCE_LENGTH: Final[int] = 12
 AUTH_SIGN_KEY_BYTES: Final[int] = 32
 MCP_STATE_FILENAME: Final[str] = "mcp_state.json"
+MCP_STATUS_OK: Final[int] = 200
+
+# ── File editor ──
+FILE_EDITOR_MAX_HISTORY: Final[int] = 100
+
+# ── Card registry ──
+CARD_STALE_ESCALATE_SECONDS: Final[int] = 3600  # QUEUED card older than this is escalated
 
 
 # ── Ops console defaults ──

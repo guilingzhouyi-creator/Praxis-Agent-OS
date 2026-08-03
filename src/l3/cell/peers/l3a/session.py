@@ -80,7 +80,7 @@ class SessionHistory:
             return len(self._messages)
 
     def messages_page(self, cursor: str | None = None,
-                      limit: int = 20) -> Page:
+                      limit: int = _p.SESSION_PAGE_SIZE) -> Page:
         with self._lock:
             msgs = list(self._messages)
         start = 0
@@ -406,7 +406,7 @@ class Session:
         return {"success": True, "session_id": sid, "title": title}
 
     def messages(self, cursor: str | None = None,
-                 limit: int = 20) -> Page:
+                 limit: int = _p.SESSION_PAGE_SIZE) -> Page:
         return self.history.messages_page(cursor=cursor, limit=limit)
 
     # ── Session TODO table (LLM task list via todowrite tool) ──
@@ -435,7 +435,7 @@ class Session:
 
     # ── Manual context compression ──
 
-    def compress(self, keep_last: int = 10, summary: str = "") -> dict:
+    def compress(self, keep_last: int = _p.SESSION_COMPRESS_KEEP, summary: str = "") -> dict:
         """Compress session history into a summary, keeping the last N messages.
 
         Old messages (beyond keep_last) are folded into a single system
@@ -509,7 +509,49 @@ class Session:
 
     # ── R1-R3 memory usage / ingress rate ──
 
-    def memory_usage(self, window: float = 3600.0) -> dict:
+    def auto_compress_check(self, force: bool = False) -> dict:
+        """System-monitored auto-compression: checks context pressure against
+        the configured threshold and compresses when exceeded.
+
+        Strategy (SettingsCenter):
+          l3a.auto_compress           — master switch (default True)
+          l3a.auto_compress_threshold — pressure_ratio trigger (default 0.6)
+          l3a.auto_compress_keep      — messages kept (default 10)
+        """
+        try:
+            from l3.config.settings_center import get_center
+            sc = get_center()
+            enabled = bool(sc.get("l3a.auto_compress", True))
+            threshold = float(sc.get("l3a.auto_compress_threshold", 0.6))
+            keep = int(sc.get("l3a.auto_compress_keep", 10))
+        except Exception:
+            enabled, threshold, keep = True, 0.6, 10
+
+        if not enabled and not force:
+            return {"success": True, "action": "skipped",
+                    "reason": "auto_compress disabled"}
+        if self.status != "active":
+            return {"success": True, "action": "skipped",
+                    "reason": "session closed"}
+
+        stats = self.context_stats()
+        pressure = stats.get("pressure_ratio", 0.0)
+        if pressure < threshold and not force:
+            return {"success": True, "action": "none",
+                    "pressure": pressure, "threshold": threshold}
+        if self.history.count() <= keep:
+            return {"success": True, "action": "none",
+                    "pressure": pressure, "threshold": threshold,
+                    "reason": "history below keep size"}
+        r = self.compress(keep_last=keep)
+        r["action"] = "compressed"
+        r["pressure_before"] = pressure
+        r["threshold"] = threshold
+        logger.info("l3a session %s: auto-compressed at pressure %.2f "
+                    "(threshold %.2f)", self.id, pressure, threshold)
+        return r
+
+    def memory_usage(self, window: float = _p.SESSION_MEMORY_WINDOW_SECONDS) -> dict:
         """Report the session's R1-R3 ring usage and ingress rates.
 
         window: seconds for the ingress-rate window (default 1h).
@@ -598,12 +640,12 @@ class Session:
             sc = get_center()
             l3a_steps = sc.get("l3a.max_steps", 0)
             loop_steps = sc.get("loop.max_steps", 0)
-            steps = l3a_steps if l3a_steps > 0 else (loop_steps if loop_steps > 0 else 999999)
+            steps = l3a_steps if l3a_steps > 0 else (loop_steps if loop_steps > 0 else _p.SESSION_MAX_STEPS_UNLIMITED)
             timeout = sc.get("l3a.timeout", sc.get("loop.timeout", 0))
             max_turns = sc.get("l3a.max_turns", sc.get("session.max_turns", 0))
         except Exception:
             capture("l3a session: limits resolve failed", error_code="E_L3A_SESSION", component="l3a")
-            steps = 999999
+            steps = _p.SESSION_MAX_STEPS_UNLIMITED
             timeout = 0
             max_turns = 0
         return {"max_steps": steps, "timeout": timeout, "max_turns": max_turns}

@@ -301,6 +301,31 @@ class L3ADaemon:
         if synced:
             results["tasks_synced"] = synced
 
+        # Auto-compression monitor: check context pressure per session
+        auto_compressed = 0
+        for s in self.manager.list_active():
+            sid = s.get("session_id", "")
+            sess = self.manager.get(sid)
+            if not sess:
+                continue
+            try:
+                r = sess.auto_compress_check()
+                if r.get("action") == "compressed":
+                    auto_compressed += 1
+                    self._auto_compressions = getattr(
+                        self, "_auto_compressions", 0) + 1
+                    results.setdefault("auto_compressed", []).append({
+                        "session_id": sid,
+                        "compressed": r.get("compressed", 0),
+                        "pressure": r.get("pressure_before", 0),
+                        "threshold": r.get("threshold", 0),
+                    })
+            except Exception as e:
+                capture("l3a: auto-compress check failed", error_code="E_L3A_DAEMON", component="l3a", context={"session_id": sid, "error": str(e)})
+                logger.debug("l3a: auto-compress failed for %s: %s", sid, e)
+        if auto_compressed:
+            results["auto_compressed_count"] = auto_compressed
+
         idle_timeout = _p.IDLE_TIMEOUT_DEFAULT
         try:
             from l3.config.settings_center import get_center

@@ -106,6 +106,10 @@ _L1_DEFAULTS: dict[str, Any] = {
     "l3a.idle_timeout": 3600.0,
     "l3a.archive_importance": 0.7,
     "session.max_turns": 0,  # deprecated — use l3a.max_turns
+    # ── L3A auto-compression (system-monitored context thresholds) ──
+    "l3a.auto_compress": True,
+    "l3a.auto_compress_threshold": 0.6,   # pressure_ratio to trigger
+    "l3a.auto_compress_keep": 10,         # messages kept after auto-compress
 
     # ── Loop control (AgentLoop self-correction) ──
     "loop.max_steps": 0,  # 0 = unlimited by default; > 0 = step-limited mode

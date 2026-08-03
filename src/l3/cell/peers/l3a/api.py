@@ -162,6 +162,38 @@ def dispatch(args: list[str], mgr: SessionManager,
         m = get_center().monitor()
         return {"success": True, "data": m}
 
+    if sub == "compress-status":
+        from l3.config.settings_center import get_center
+        sc = get_center()
+        policy = {
+            "enabled": bool(sc.get("l3a.auto_compress", True)),
+            "threshold": float(sc.get("l3a.auto_compress_threshold", 0.6)),
+            "keep_last": int(sc.get("l3a.auto_compress_keep", 10)),
+        }
+        # live pressure for all active sessions
+        live = []
+        for s in mgr.list_active():
+            sess = mgr.get(s.get("session_id", ""))
+            if sess:
+                try:
+                    cs = sess.context_stats()
+                    live.append({"session_id": s["session_id"],
+                                 "pressure": cs.get("pressure_ratio", 0),
+                                 "level": cs.get("pressure_level", "ok"),
+                                 "history": sess.history.count()})
+                except Exception:
+                    continue
+        return {"success": True, "policy": policy, "live": live}
+
+    if sub == "compress-force":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        return s.auto_compress_check(force=True)
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 
