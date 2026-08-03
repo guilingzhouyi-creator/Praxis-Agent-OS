@@ -468,7 +468,7 @@
 │  ├── stagno/detectors (loop detection)       ✅                │
 │  ├── r4_agent.py (archive + skills)          ✅                │
 │  ├── record_center.py (unified record facade) ✅               │
-│  ├── cell_pmu.py (28 counters)               ✅                │
+│  ├── cell_pmu.py (49 counters)               ✅                │
 │  ├── cell_watchdog.py (per-agent timer)      ✅                │
 │  ├── cell_icache.py (LFU instruction cache)   ✅                │
 │  ├── cell_mmu.py (MMU + TLB)                 ✅                │

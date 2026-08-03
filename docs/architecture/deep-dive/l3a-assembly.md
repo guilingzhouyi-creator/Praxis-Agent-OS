@@ -34,6 +34,7 @@ src/l3/cell/peers/l3a/
 ├── model.py       → L3AModelConfig (prompt > L3A > 全局 > 编译时)
 ├── archive.py     → R4 archive store / search / transcript restore
 ├── pipeline.py    → ManagedToolOutput (大结果 spill 文件)
+├── task_table.py  → SessionTaskTable (卡任务监视缓存区)
 ├── helpers.py     → cardwrite_handler, build_l3a_prompt, convergence
 ├── api.py         → L2 Shell 命令路由
 ├── types.py       → 共享枚举和 dataclass
@@ -191,10 +192,81 @@ resolve(override) → {provider, model, max_tokens, temperature}
 /l3a info <id>                      → 会话详情 + context stats
 /l3a close <id>                     → 关闭 + R4 归档
 /l3a messages <id> [limit]          → 消息分页
+/l3a tasks <id> [status]            → 卡任务监视表
+/l3a todos <id> [update <c> <s>]    → 会话 TODO 表
 /l3a model show                     → 有效模型配置
 /l3a model set <key> <value>        → 覆盖 L3A 模型
 /l3a context sources                → 注册的 ContextSource
+
+/card list|submit|cancel            → 卡区操作
+/card approve <id>                  → 审批通过 (HOLD → QUEUED)
+/card reject <id> [reason]          → 审批拒绝 (HOLD → CANCELLED)
 ```
+
+## 会话三张表
+
+L3A 会话维护三个互不冲突的状态结构：
+
+```
+SessionHistory        → 对话消息流 + 卡完成注入 (system 消息)
+SessionTaskTable      → 卡区执行状态监视 (daemon watcher 对账)
+Session TODO 表        → LLM 任务清单 (todowrite 状态机, 会话级隔离)
+```
+
+### SessionTaskTable（卡任务监视缓存区）
+
+```
+cardwrite → tasks.track(card_id, title, turn)   ← queued 登记
+  → Card 执行 (后台)                              ← 不阻塞 prompt
+  → 完成回调 → tasks.update(status, result)       ← 即时更新
+  → L3ADaemon.tick() → sync_from_registry()      ← 60s 对账补偿
+close() → tasks 持久化到 R4 归档 metadata
+查询: /l3a tasks <sid> [status] | MCP l3a_tasks
+```
+
+### Session TODO 表
+
+每个会话独立持久化 `.praxis/l3a_todos_<sid>.json`（修复了全局共享覆盖 bug）。
+
+```
+状态机: pending → in_progress → verifying → verified | escalated | waived
+工具:   todowrite (AgentLoop 自动注册, LLM 可用)
+别名:   add→pending, completed→verified
+查询:   /l3a todos <sid> [update <content> <status>] | MCP l3a_todos
+```
+
+### 卡闭环（异步，不阻塞）
+
+```
+prompt → cardwrite
+  ├── CardRegistry.submit() → QUEUED
+  ├── SessionTaskTable.track()
+  ├── registry.subscribe(cid, _on_card_completed)
+  └── prompt 立即返回
+        ↓ (后台)
+  Card 执行完成 → _notify_subscribers()
+    ├── SessionTaskTable.update(status, result)
+    └── history.append("Card <id> → completed: <summary>")
+```
+
+## MCP Server 模式
+
+Praxis 可被外部 Agent (OpenCode/Claude Code/Cursor) 通过 MCP 协议驱动。
+
+```
+外部 Agent → Authorization: Bearer <PRAXIS_API_TOKEN>
+  → GET  /api/mcp/tools/list   → 工具清单 (按模式)
+  → POST /api/mcp/tools/call   → 执行工具
+  → GET  /api/mcp/ping         → 健康检查
+```
+
+三种暴露模式 (`praxis.yaml api.mcp_mode`)：
+
+| 模式 | 工具 | 内容 |
+|------|------|------|
+| `normal` | ~68 | TOOL_REGISTRY 基础工具 |
+| `selected` | 10 | L3A 会话工具 (create/prompt/spawn/collect/tasks/todos...) |
+| `full` | ~78 | 基础 + L3A |
 
 ## 三种路由模式
 

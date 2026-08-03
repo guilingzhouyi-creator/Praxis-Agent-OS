@@ -112,6 +112,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
   - `model.py` — L3AModelConfig (model provider config, inheritance chain)
   - `archive.py` — R4 archive store/restore helpers
   - `pipeline.py` — ManagedToolOutput (oversized tool result spill)
+  - `task_table.py` — SessionTaskTable (per-session card task monitor buffer)
   - `helpers.py` — cardwrite handler, prompt builder, convergence
   - `api.py` — L2 Shell command routing
   - `types.py` — shared enums and dataclasses
