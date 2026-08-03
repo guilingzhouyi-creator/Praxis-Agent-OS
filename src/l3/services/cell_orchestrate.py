@@ -24,13 +24,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
-from l1.kernel.discovery import get_tool_config
+from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_1000, LOG_TRUNC_2000
 from l3.agent.subagent_pool import SubAgentPool
 from l3.agent.subagent_spec import SubAgentSpec
-from l1.kernel.params.system import LOG_TRUNC_1000, LOG_TRUNC_2000, LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
 

@@ -20,7 +20,6 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

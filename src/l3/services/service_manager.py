@@ -10,7 +10,6 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
 
 from l1.kernel.params.system import POLL_INTERVAL_PAUSED
 from l3._base import BaseService, get_registry
@@ -105,13 +104,11 @@ class ServiceManager(BaseService):
                         info.healthy = True
                         info.error = ""
                     return {"success": True, "service": name, "state": "running"}
-                else:
-                    with self._lock:
-                        info.state = ServiceState.ERROR
-                        info.error = r.get("error", "start failed")
-                    return {"success": False, "error": info.error}
-            else:
-                return {"success": False, "error": f"service {name} not found in registry"}
+                with self._lock:
+                    info.state = ServiceState.ERROR
+                    info.error = r.get("error", "start failed")
+                return {"success": False, "error": info.error}
+            return {"success": False, "error": f"service {name} not found in registry"}
         except Exception as e:
             with self._lock:
                 info.state = ServiceState.ERROR

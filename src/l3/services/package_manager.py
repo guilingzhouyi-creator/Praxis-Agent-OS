@@ -9,16 +9,18 @@ from __future__ import annotations
 import logging
 import subprocess
 import threading
-import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
-from l1.kernel.params.tool import (
-    TOOL_PACKAGE_MANAGER_TIMEOUT, TOOL_PIP_INSTALL_TIMEOUT,
-    TOOL_PACKAGE_LIST_TIMEOUT, TOOL_NPM_INSTALL_TIMEOUT,
-    TOOL_APT_INSTALL_TIMEOUT, TOOL_CARGO_INSTALL_TIMEOUT,
-)
 from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
+from l1.kernel.params.tool import (
+    TOOL_APT_INSTALL_TIMEOUT,
+    TOOL_APT_SEARCH_TIMEOUT,
+    TOOL_CARGO_INSTALL_TIMEOUT,
+    TOOL_NPM_INSTALL_TIMEOUT,
+    TOOL_PACKAGE_LIST_TIMEOUT,
+    TOOL_PACKAGE_MANAGER_TIMEOUT,
+    TOOL_PIP_INSTALL_TIMEOUT,
+)
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)

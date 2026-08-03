@@ -45,7 +45,7 @@ class CentralPlugin:
     def install_tool_plugin(self, name: str, tools: list[Any],
                             description: str = "", version: str = "0.1.0") -> dict:
         """Register a tool plugin via tool_spec.register_plugin()."""
-        from .tool_system.tool_spec import register_plugin, list_tools, get_tool
+        from .tool_system.tool_spec import get_tool, register_plugin
         try:
             register_plugin(name, tools)
             count = sum(1 for t in tools if get_tool(t.name) is not None)
@@ -60,7 +60,7 @@ class CentralPlugin:
 
     def remove_tool_plugin(self, name: str) -> dict:
         """Unregister a tool plugin via tool_spec.unregister_plugin()."""
-        from .tool_system.tool_spec import unregister_plugin, list_tools
+        from .tool_system.tool_spec import list_tools, unregister_plugin
         try:
             before = len(list_tools())
             unregister_plugin(name)

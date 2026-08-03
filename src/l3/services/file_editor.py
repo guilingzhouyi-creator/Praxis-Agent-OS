@@ -25,14 +25,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import threading
 import time
-
-from l1.kernel.params.system import HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE, FILE_EDITOR_MAX_HISTORY
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from l1.kernel.params.system import FILE_EDITOR_MAX_HISTORY, HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE
 
 logger = logging.getLogger(__name__)
 

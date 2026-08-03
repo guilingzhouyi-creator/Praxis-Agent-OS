@@ -1,8 +1,7 @@
 """Service layer tests — cache, llm, agent_loop, cell, scout."""
 
-import sys
 import os
-import pytest
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -83,8 +82,8 @@ class TestContextRegister:
 
 class TestLLMEngine:
     def test_mock_generate(self):
-        from l4.llm import LLMConfig, reset_engine, get_engine
         from l1.kernel.settings import get_settings
+        from l4.llm import LLMConfig, get_engine, reset_engine
         get_settings().set("llm.provider", "mock")
         cfg = LLMConfig(provider="mock")
         reset_engine()
@@ -126,8 +125,6 @@ class TestCardBuilder:
 
 class TestCardYaml:
     def test_load_card(self, tmp_path):
-        import yaml
-        import tempfile
         yaml_content = """
 card:
   id: "test-yaml"
@@ -157,7 +154,7 @@ phases:
 
 class TestScoutPool:
     def test_stats(self):
-        from l3.agent.scout import get_pool, reset_pool
+        from l3.agent.scout import get_pool
         pool = get_pool()
         stats = pool.stats()
         assert stats.get("max_total", 0) > 0
@@ -172,17 +169,18 @@ class TestScoutPool:
 class TestAgentTerminal:
     def test_boot_and_process(self):
         import time
+
         # Ensure LLM mock mode so keepalive thread won't block
         from l1.kernel.settings import get_settings
         s = get_settings()
         s.set("llm.provider", "mock")
         s.set("llm.model", "test")
-        from l4.llm import reset_engine, LLMConfig, get_engine
+        from l4.llm import get_engine, reset_engine
         reset_engine()
         # Force-create engine with mock config
         _ = get_engine()
-        from l3.agent_terminal import get_terminal, TerminalCard, reset_terminals
         from l1.kernel.process import get_table as _pt
+        from l3.agent_terminal import TerminalCard, get_terminal, reset_terminals
         pcb = _pt().spawn("test-agent-term", role="test", ring=1)
         pcb.identity_verified = True
         term = get_terminal("test-agent-term", role="test", territory=[".", ".."], cell_id="test")

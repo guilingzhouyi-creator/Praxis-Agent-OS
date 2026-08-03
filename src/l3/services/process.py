@@ -11,7 +11,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import IO, Any
+from typing import IO
 
 from l1.kernel.params.kernel import PROCESS_WAIT_TIMEOUT
 

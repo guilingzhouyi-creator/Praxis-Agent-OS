@@ -6,12 +6,11 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import MEMORY_WORKSPACES_FILE, WORKSPACE_MAX_RECENT
+from l1.kernel.paths import get_paths as _gp
 
 CONFIG_DIR = Path(_gp().config_dir)
 CONFIG_FILE = CONFIG_DIR / MEMORY_WORKSPACES_FILE

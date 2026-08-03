@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any
 
 from l1.kernel.params.kernel import GATECHAIN_DANGER_LEVELS
 

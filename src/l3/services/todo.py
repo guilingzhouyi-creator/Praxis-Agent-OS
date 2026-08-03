@@ -21,10 +21,9 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
 
-from l1.kernel.paths import get_paths as _gp
 from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40, LOG_TRUNC_50, TODO_TABLE_AUTO_SAVE
+from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
 
 logger = logging.getLogger(__name__)

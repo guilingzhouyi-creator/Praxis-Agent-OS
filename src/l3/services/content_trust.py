@@ -17,13 +17,12 @@ Trust policies are configurable via praxis.yaml -> content_trust: section.
 
 from __future__ import annotations
 
-import copy
-import json
 import logging
 import time
 from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Any, Callable
+from enum import Enum
+
+from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ API:
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -20,7 +21,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
-from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, KERNEL_VERSION, LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_2000, LOG_TRUNC_80, PRAXIS_CODENAME
+from l1.kernel.params.system import (
+    CONTEXT_BUILD_MAX_TOKENS,
+    KERNEL_VERSION,
+    LOG_TRUNC_80,
+    LOG_TRUNC_100,
+    LOG_TRUNC_200,
+    LOG_TRUNC_2000,
+    PRAXIS_CODENAME,
+)
 
 logger = logging.getLogger(__name__)
 

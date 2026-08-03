@@ -1,16 +1,15 @@
 """Services core module tests — todo, stagnation, pal_router, tool_spec."""
 from __future__ import annotations
 
-import sys
 import os
-import time
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 class TestTodoTable:
     def test_add_and_next(self):
-        from l3.services.todo import TodoTable, TodoStatus
+        from l3.services.todo import TodoStatus, TodoTable
         t = TodoTable("test-agent")
         tid = t.add("do something", priority=3)
         assert tid.startswith("test-agent-")
@@ -32,7 +31,7 @@ class TestTodoTable:
         assert t.next().intent == "low"
 
     def test_dependencies(self):
-        from l3.services.todo import TodoTable, TodoStatus
+        from l3.services.todo import TodoStatus, TodoTable
         t = TodoTable("dep-agent")
         a = t.add("task A")
         b = t.add("task B", depends_on=[a])
@@ -160,7 +159,7 @@ class TestToolSpec:
         assert p.validate("bad") is not None  # string not int
 
     def test_tool_spec_gates(self):
-        from l3.tool_system.tool_spec import ToolSpec, ToolRing
+        from l3.tool_system.tool_spec import ToolRing, ToolSpec
         t1 = ToolSpec(name="r1", description="", category="t", ring=ToolRing.RING_1, danger=0)
         assert t1.gates == ["G1", "G2"]
         t2 = ToolSpec(name="r25", description="", category="t", ring=ToolRing.RING_2_5, danger=1)
@@ -169,7 +168,7 @@ class TestToolSpec:
         assert "G5" in t3.gates
 
     def test_register_and_get(self):
-        from l3.tool_system.tool_spec import ToolSpec, register, get_tool, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, get_tool, register
         saved = TOOL_REGISTRY.copy()
         TOOL_REGISTRY.clear()
         register(ToolSpec(name="t1", description="", category="g", ring="ring_1", danger=0))
@@ -178,7 +177,7 @@ class TestToolSpec:
         TOOL_REGISTRY.update(saved)
 
     def test_list_by_category(self):
-        from l3.tool_system.tool_spec import list_tools, ToolSpec, register, TOOL_REGISTRY
+        from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, list_tools, register
         saved = TOOL_REGISTRY.copy()
         TOOL_REGISTRY.clear()
         register(ToolSpec(name="a", description="", category="alpha", ring="ring_1", danger=0))

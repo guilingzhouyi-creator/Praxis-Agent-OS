@@ -6,7 +6,6 @@ Used for: code generation, report generation, document templates.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from l3._base import BaseService
 
@@ -27,7 +26,7 @@ class TemplateService(BaseService):
 
     def render(self, template: str, variables: dict | None = None) -> dict:
         try:
-            from jinja2 import Environment, BaseLoader, TemplateNotFound
+            from jinja2 import BaseLoader, Environment, TemplateNotFound
             env = Environment(loader=BaseLoader(), autoescape=False)
             tpl = env.from_string(template)
             output = tpl.render(**(variables or {}))
@@ -58,7 +57,7 @@ class TemplateService(BaseService):
 
     def list_variables(self, template: str) -> dict:
         try:
-            from jinja2 import Environment, BaseLoader, meta
+            from jinja2 import BaseLoader, Environment, meta
             env = Environment(loader=BaseLoader())
             ast = env.parse(template)
             variables = meta.find_undeclared_variables(ast)

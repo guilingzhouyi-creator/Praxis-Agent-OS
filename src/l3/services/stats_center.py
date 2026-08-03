@@ -25,8 +25,8 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
 
 from l1.kernel.params.system import (
     STATS_BUCKET_SIZE,

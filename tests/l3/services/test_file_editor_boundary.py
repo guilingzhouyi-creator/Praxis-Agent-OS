@@ -1,6 +1,10 @@
 """FileEditor + TransactionArea 边界场景测试。"""
 from __future__ import annotations
-import os, sys, tempfile
+
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
@@ -21,7 +25,7 @@ class TestFileEditorBoundary:
         assert p is not None
 
     def test_empty_edit(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             f.write("content\n")
@@ -34,7 +38,7 @@ class TestFileEditorBoundary:
             os.unlink(tmp)
 
     def test_simple_replace(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             f.write("def old_func():\n    pass\n")
@@ -47,7 +51,7 @@ class TestFileEditorBoundary:
             os.unlink(tmp)
 
     def test_api_handlers_importable(self):
-        from l3.services.file_editor import handle_fs_edit, handle_fs_batch_edit
+        from l3.services.file_editor import handle_fs_batch_edit, handle_fs_edit
         assert callable(handle_fs_edit)
         assert callable(handle_fs_batch_edit)
 

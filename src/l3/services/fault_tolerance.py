@@ -11,31 +11,31 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
 
 from l3._base import BaseService
-
 from l3.error_bus import capture
+
 logger = logging.getLogger(__name__)
 
 from l1.kernel.platform import get_config_dir
+
 CHECKPOINT_DIR = Path(get_config_dir()) / "checkpoints"
 
 # Import configurable constants from kernel params
 from l1.kernel.params.system import (
-    HEARTBEAT_TIMEOUT,
+    CHECKPOINT_JSON_FILE,
     CRASH_TIMEOUT,
+    FAULT_AUTONOMOUS_RECONNECT_INTERVAL,
     FAULT_CHECK_INTERVAL,
     FAULT_RETRY_INTERVAL,
-    FAULT_AUTONOMOUS_RECONNECT_INTERVAL,
-    CHECKPOINT_JSON_FILE,
+    HEARTBEAT_TIMEOUT,
 )
+
 AUTONOMOUS_RECONNECT_INTERVAL = FAULT_AUTONOMOUS_RECONNECT_INTERVAL  # Autonomous mode reconnect interval
 
 

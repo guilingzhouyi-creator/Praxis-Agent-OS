@@ -19,7 +19,7 @@ def get_llm_engine():
 
 def get_mcp_bridge():
     """Get the MCP bridge and client (wraps l4.mcp_bridge)."""
-    from l4.mcp_bridge import get_bridge, McpClient  # noqa: F401
+    from l4.mcp_bridge import McpClient, get_bridge  # noqa: F401
     return get_bridge(), McpClient
 
 

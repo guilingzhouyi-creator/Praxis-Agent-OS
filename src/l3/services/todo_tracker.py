@@ -10,8 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
-from typing import Any
+
 from l1.kernel.params.system import LOG_TRUNC_40
 from l1.kernel.paths import get_paths as _gp
 

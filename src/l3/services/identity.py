@@ -14,23 +14,21 @@ Private key persistence (P7 fix):
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import os
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
 
+from l1.kernel.params.system import NONCE_CLEANUP_AGE, PROOF_TTL
 from l3._base import BaseService
-from l1.kernel.params.system import PROOF_TTL, NONCE_CLEANUP_AGE
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
 from l1.kernel.platform import get_config_dir
+
 KEY_DIR = Path(get_config_dir()) / "keys"
 _SYSTEM_KEY_FILE = KEY_DIR / ".system_key"
 
@@ -186,7 +184,10 @@ class IdentityService(BaseService):
         try:
             from cryptography.hazmat.primitives.asymmetric import ed25519
             from cryptography.hazmat.primitives.serialization import (
-                Encoding, PrivateFormat, PublicFormat, NoEncryption,
+                Encoding,
+                NoEncryption,
+                PrivateFormat,
+                PublicFormat,
             )
             private_key = ed25519.Ed25519PrivateKey.generate()
             public_key = private_key.public_key()
@@ -250,7 +251,6 @@ class IdentityService(BaseService):
 
         try:
             from cryptography.hazmat.primitives.asymmetric import ed25519
-            from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
 
             private_key = ed25519.Ed25519PrivateKey.from_private_bytes(priv_bytes)
             signature = private_key.sign(payload).hex()
@@ -299,7 +299,6 @@ class IdentityService(BaseService):
         # 4. Verify signature
         try:
             from cryptography.hazmat.primitives.asymmetric import ed25519
-            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
             public_key = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
             payload = f"{agent_id}:{proof.get('cell_id', '')}:{ts}:{nonce}".encode()

@@ -1,9 +1,11 @@
 """File Editor integration test — Diff edit + atomic batch + Patch system + Undo/Redo + API endpoints"""
 
-import sys, os, json, tempfile, threading
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-import pytest
 from pathlib import Path
 
 
@@ -11,7 +13,7 @@ class TestDiffEdit:
     """Diff semantic editing core functionality"""
 
     def test_simple_replace(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -29,7 +31,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_replace_not_found(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -44,7 +46,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_file_not_found(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         edit = DiffEdit(path="/tmp/nonexistent_file_xyz.txt", old_str="a", new_str="b")
@@ -52,7 +54,7 @@ class TestDiffEdit:
         assert not r["success"]
 
     def test_case_sensitive(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -66,7 +68,7 @@ class TestDiffEdit:
             os.unlink(tmp)
 
     def test_case_insensitive(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -86,7 +88,7 @@ class TestBatchEdit:
     """Atomic batch editing"""
 
     def test_batch_success(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         files = []
@@ -114,7 +116,7 @@ class TestBatchEdit:
                 os.unlink(p)
 
     def test_batch_rollback(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         f1 = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8")
@@ -143,7 +145,7 @@ class TestUndoRedo:
     """Undo / Redo"""
 
     def test_undo_redo(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -185,7 +187,7 @@ class TestUndoRedo:
         assert "nothing to redo" in r.get("error", "")
 
     def test_history(self):
-        from l3.services.file_editor import EditEngine, DiffEdit
+        from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
@@ -205,7 +207,7 @@ class TestPatchSystem:
     """Patch create/apply/rollback"""
 
     def test_patch_create_and_apply(self):
-        from l3.services.file_editor import EditEngine, DiffEdit, PatchManager
+        from l3.services.file_editor import DiffEdit, EditEngine, PatchManager
 
         engine = EditEngine()
         mgr = PatchManager(engine)
@@ -268,7 +270,7 @@ class TestApiHandlers:
         assert r["success"]
 
     def test_handle_fs_undo_redo(self):
-        from l3.services.file_editor import handle_fs_undo, handle_fs_redo, get_engine
+        from l3.services.file_editor import get_engine, handle_fs_redo, handle_fs_undo
         # Ensure clean state
         eng = get_engine()
         while eng._history:

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import os, sys
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 class TestMiddleware:
     def test_importable(self):
-        from l3.services.middleware import ToolMiddleware, BeforeOutcome, AfterOutcome
+        from l3.services.middleware import ToolMiddleware
         assert callable(ToolMiddleware)

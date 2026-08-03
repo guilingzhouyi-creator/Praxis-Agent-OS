@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 import uuid
@@ -22,8 +21,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.platform import get_config_dir
 from l1.kernel.params.system import HASH_TRUNC_MEDIUM, HASH_TRUNC_SHORT, SNAPSHOT_GLOB, SNAPSHOT_PATH_TEMPLATE
+from l1.kernel.platform import get_config_dir
 
 _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 

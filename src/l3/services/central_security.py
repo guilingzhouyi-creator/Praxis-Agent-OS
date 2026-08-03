@@ -118,7 +118,7 @@ class CentralSecurity:
             if mode == "read":
                 write_names = _TC.write_tool_names()
                 if action in write_names:
-                    verdict.add_gate("tool_mode", False, f"read mode, write blocked", score=0.8)
+                    verdict.add_gate("tool_mode", False, "read mode, write blocked", score=0.8)
         except Exception as e:
             verdict.add_gate("tool_mode", True, f"tool_mode unavailable: {e}")
 
@@ -126,7 +126,9 @@ class CentralSecurity:
         try:
             from .tool_system.tool_pipeline import get_pipeline as _gp
             pipe = _gp()
-            from l1.kernel.params.kernel import RING_1, RING_2_5, RING_NUM_MAP as _RNM
+            from l1.kernel.params.kernel import RING_1, RING_2_5
+            from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
+
             from .tool_system.tool_config import ToolConfig as _TC
             tool_ring = _RNM.get(RING_2_5 if action in _TC.write_tool_names() else RING_1, 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)

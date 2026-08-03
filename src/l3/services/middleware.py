@@ -9,7 +9,6 @@ Each middleware implements before/after hooks for a single concern:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

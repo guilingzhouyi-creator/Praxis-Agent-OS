@@ -12,17 +12,16 @@ Persistence: JSON via save_snapshot() / restore_snapshot().
 
 from __future__ import annotations
 
-import os
 import json
-import time
 import logging
+import os
+import time
 from abc import ABC
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
 
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.params.system import STATECHARTS_AUTO_SAVE
 
 logger = logging.getLogger(__name__)
 

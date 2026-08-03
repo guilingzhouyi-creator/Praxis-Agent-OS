@@ -22,9 +22,12 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
-from l1.kernel.constitution import TerritoryConstitution, merge_proposal, render_territory, save_territory, load_territory
+from l1.kernel.constitution import (
+    load_territory,
+    merge_proposal,
+    save_territory,
+)
 from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_50
 
 logger = logging.getLogger(__name__)

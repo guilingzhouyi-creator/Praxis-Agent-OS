@@ -17,13 +17,12 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
+from l1.kernel.params.system import ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE
 from l1.kernel.platform import get_config_dir
-from l1.kernel.params.system import ERROR_BUS_BUFFER, ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +253,7 @@ class RecordCenter:
                 logger.debug("record_center: reference aggregate failed")
 
         export_data = {
-            "exported_at": datetime.now(tz=timezone.utc).isoformat(),
+            "exported_at": datetime.now(tz=UTC).isoformat(),
             "exported_at_ts": time.time(),
             "sources": sources,
             "counts": counts,
@@ -308,7 +307,7 @@ class RecordCenter:
     # ── Internal ─────────────────────────────────────────────────
 
     def _auto_export_path(self) -> str:
-        ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
         return os.path.join(self._export_dir, RECORDS_EXPORT_FILE.format(ts=ts))
 
     def _apply_retention(self) -> int:
