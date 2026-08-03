@@ -12,7 +12,8 @@ from typing import Any
 
 from . import params as _p
 from l1.kernel.params.system import (
-    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_200, LOG_TRUNC_300,
+    TOKEN_CHARS_PER_TOKEN, SESSION_MSG_OVERHEAD, LOG_TRUNC_100, LOG_TRUNC_200,
+    LOG_TRUNC_300,
 )
 from .model import L3AModelConfig
 from .context import ContextEpoch, ContextRegistry
@@ -247,6 +248,7 @@ class Session:
         )
         self.history.append(answer_msg)
         self._persist_state()
+        self._ingest_tool_results(result, admitted.text)
         result["session_id"] = self.id
         result["turn"] = self.turn_count
 
@@ -533,13 +535,36 @@ class Session:
         # Persist the summary into L3A's own memory (ring 2) before folding
         try:
             from l3.memory.central_memory import get_l3a_memory
-            get_l3a_memory().remember(
+            mem = get_l3a_memory()
+            mem.remember(
                 agent_id=_p.AGENT_ID,
                 entry_type="session_compression",
                 content=f"[session:{self.id}] turn={self.turn_count}: {summary_text}",
                 tags=["l3a", "compression", self.id],
                 importance=0.6,
                 ring=2,
+            )
+            # Link compression into all three rings:
+            # R1 — compression action record (recent activity)
+            mem.remember(
+                agent_id=_p.AGENT_ID,
+                entry_type="l3a_compression_action",
+                content=f"[session:{self.id}] turn={self.turn_count}: "
+                        f"compressed {len(old)} msgs, snapshot={snapshot_ref}",
+                tags=["l3a", "compression", self.id],
+                importance=0.4,
+                ring=1,
+            )
+            # R3 — long-term compression index with lossless snapshot ref
+            mem.remember(
+                agent_id=_p.AGENT_ID,
+                entry_type="l3a_compression_index",
+                content=f"[session:{self.id}] turn={self.turn_count}: "
+                        f"compressed {len(old)} msgs | high-value kept "
+                        f"{len(high)} | snapshot: {snapshot_ref or 'n/a'}",
+                tags=["l3a", "compression", "index", self.id],
+                importance=0.8,
+                ring=3,
             )
         except Exception:
             logger.debug("l3a session: compression memory persist failed")
@@ -956,6 +981,68 @@ class Session:
             except Exception:
                 capture("l3a session: set_pmu on AgentLoop failed", error_code="E_L3A_SESSION", component="l3a")
                 logger.warning("l3a session: set_pmu on AgentLoop failed")
+
+    def _ingest_tool_results(self, result: dict, user_text: str) -> None:
+        """Ingest this turn's tool results into L3A's three-ring memory.
+
+        Mirrors the Cell Peer Agent pattern (context.py end()):
+          tool_call results  → L3A ring 1 (entry_type=l3a_tool_call)
+          decision-grade     → L3A ring 2 (entry_type=l3a_tool_decision)
+          turn summary       → L3A ring 3 (entry_type=l3a_turn_summary)
+        """
+        try:
+            from l3.memory.central_memory import get_l3a_memory
+            mem = get_l3a_memory()
+        except Exception:
+            return
+        tool_results = result.get("tool_call_results", []) or []
+        if not tool_results:
+            return
+        high_value_tools = {"cardwrite", "l3a_collect", "l3a_convention",
+                            "l3a_spawn", "l3a_summary"}
+        decision_entries = []
+        for sr in tool_results:
+            tool_name = sr.get("tool_name", "") or sr.get("action", "?")
+            if isinstance(sr, dict) and "result" in sr:
+                payload = sr.get("result", {})
+            else:
+                payload = sr
+            content = (f"[turn:{self.turn_count}] {tool_name} "
+                       f"→ {str(payload)[:LOG_TRUNC_300]}")
+            ring = 2 if tool_name in high_value_tools else 1
+            entry_type = ("l3a_tool_decision" if ring == 2
+                          else "l3a_tool_call")
+            try:
+                mem.remember(
+                    agent_id=_p.AGENT_ID,
+                    entry_type=entry_type,
+                    content=content,
+                    tags=["l3a", tool_name, self.id],
+                    importance=0.7 if ring == 2 else 0.5,
+                    ring=ring,
+                    cell_id=self._cell_id,
+                )
+                if ring == 2:
+                    decision_entries.append(content[:LOG_TRUNC_200])
+            except Exception:
+                logger.debug("l3a session: tool result memory ingest failed")
+        # Turn summary → ring 3 (long-term, importance weighted)
+        try:
+            summary = (f"[session:{self.id} turn:{self.turn_count}] "
+                       f"user: {user_text[:LOG_TRUNC_100]}"
+                       + (f" | decisions: {'; '.join(decision_entries)[:LOG_TRUNC_300]}"
+                          if decision_entries else ""))
+            mem.remember(
+                agent_id=_p.AGENT_ID,
+                entry_type="l3a_turn_summary",
+                content=summary,
+                tags=["l3a", "turn_summary", self.id],
+                importance=0.6,
+                ring=3,
+                cell_id=self._cell_id,
+            )
+        except Exception:
+            logger.debug("l3a session: turn summary ingest failed")
 
     def _persist_state(self) -> None:
         try:

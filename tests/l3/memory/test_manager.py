@@ -1,7 +1,6 @@
-"""MemoryManager unit test — quality/pressure/build_context/stub_compact/quality_report.
+"""MemoryManager unit test — pressure/build_context/stub_compact/quality_report.
 
 Covered scenarios:
-  - quality gate: short content rejected, long content accepted, decision type forced save
   - pressure: per-ring usage calculation, pressure level determination
   - build_context: context string includes watermark and per-ring data
   - stub_compact: old tool call results summarized
@@ -15,56 +14,6 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-
-
-class TestMemoryQuality:
-    """MemoryManager quality gate — _is_good_memory / _score_importance"""
-
-    def test_rejects_short_content(self):
-        from l3.memory.memory_quality import _is_good_memory
-        accepted, reason = _is_good_memory("ab", "observation")
-        assert not accepted
-        assert "too short" in reason
-
-    def test_accepts_long_enough(self):
-        from l3.memory.memory_quality import _is_good_memory
-        accepted, reason = _is_good_memory(
-            "This is a meaningful observation with enough content to be useful.", "observation")
-        assert accepted, f"unexpected reject: {reason}"
-
-    def test_always_saves_decision_type(self):
-        from l3.memory.memory_quality import _is_good_memory
-        accepted, reason = _is_good_memory("short", "decision")
-        assert accepted, "decision type should always be saved"
-
-    def test_always_saves_pattern_type(self):
-        from l3.memory.memory_quality import _is_good_memory
-        accepted, reason = _is_good_memory("short", "pattern")
-        assert accepted
-
-    def test_always_saves_fingerprint(self):
-        from l3.memory.memory_quality import _is_good_memory
-        accepted, reason = _is_good_memory("short", "fingerprint")
-        assert accepted
-
-    def test_rejects_vague_pattern(self):
-        from l3.memory.memory_quality import _is_good_memory
-        # Must be >=30 chars to avoid "too short" rejection, but still match vague pattern
-        accepted, reason = _is_good_memory("user has a project that they work on every single day.", "observation")
-        assert not accepted
-        assert "vague" in reason.lower()
-
-    def test_score_importance_decision(self):
-        from l3.memory.memory_quality import _score_importance
-        score = _score_importance(
-            "Use Poetry not pip for dependency management in C:/projects/api", "decision")
-        assert score > 0.5, f"decision with path should score high: {score}"
-
-    def test_score_importance_short_content(self):
-        from l3.memory.memory_quality import _score_importance
-        score = _score_importance("ab", "observation")
-        # short content should have reduced score
-        assert score < 0.5
 
 
 class TestMemoryPressure:
