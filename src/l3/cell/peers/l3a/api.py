@@ -203,6 +203,12 @@ def dispatch(args: list[str], mgr: SessionManager,
             return {"success": False, "error": f"session not active: {sid}"}
         return s.ask_status()
 
+    if sub == "ask-pending":
+        from l3.tools._comm import pending_questions
+        agent = args[1] if len(args) > 1 else ""
+        items = pending_questions(agent)
+        return {"success": True, "data": items, "count": len(items)}
+
     if sub == "answer":
         if len(args) < 2:
             return {"success": False, "error": "session_id required"}

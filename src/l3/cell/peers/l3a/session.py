@@ -343,6 +343,8 @@ class Session:
                 logger.debug("l3a session: reasoning monitor emit failed")
         result["session_id"] = self.id
         result["turn"] = self.turn_count
+        if self._ask and self._ask.status == _p.ASK_STATUS_AWAITING:
+            result["ask"] = self._ask.to_dict()
 
         # Record tool call metrics to StatsCenter
         if tool_calls:

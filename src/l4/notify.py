@@ -104,3 +104,15 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
+
+
+def send_notification(agent_id: str, message: str, channel: str = "log") -> dict:
+    """Convenience entry for tool handlers: notify via the log channel.
+
+    Used by L3 tool handlers (l3.tools._comm, allowlisted cross-layer) to
+    surface user-facing messages. The ``log`` channel is always available
+    (no SMTP/webhook configuration required); richer channels can be
+    configured per deployment.
+    """
+    return get_service().send(channel=channel, to=agent_id,
+                              subject="Praxis notification", body=message)
