@@ -124,7 +124,6 @@ API_CORS_ALLOW_HEADERS: Final[str] = "Content-Type"
 
 # ── HTTP User-Agent ──
 HTTP_USER_AGENT: Final[str] = "Praxis/1.0"
-DUCKDUCKGO_SEARCH_URL: Final[str] = "https://api.duckduckgo.com/"
 
 
 # ── Notify / webhook ──

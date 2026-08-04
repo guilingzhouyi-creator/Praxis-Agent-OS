@@ -66,7 +66,7 @@ _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
      "https://api.openai.com/v1/chat/completions",
      ENV_OPENAI_KEY),
     ("deepseek",  ENV_DEEPSEEK_KEY,  "",                "",
-     "https://api.openai.com/v1/chat/completions",
+     "https://api.deepseek.com/v1",
      ENV_DEEPSEEK_KEY),
     ("anthropic", ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
      "https://api.anthropic.com/v1/messages",
