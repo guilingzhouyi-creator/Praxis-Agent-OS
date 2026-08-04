@@ -85,6 +85,13 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 - **Double-green merge rule**: feature branch tests pass AND main tests pass → merge with `--no-ff`; discard = proposal rejected.
 - Check `git stash list` after interrupted commands (killed shells skip `git stash pop`).
 
+## Parallel collaboration (see `docs/workflow/collaboration.md`)
+
+- **Peer-level domain partition**: 7 work domains (K kernel / M memory / S sessions / T tools / C card-cell / B bus-services / A bridge-shell). Each agent owns exactly one domain and never edits files outside it without announcing.
+- **Branch per agent**: `feature/<agent>-<area>`; merge order K → M/T/S → C/B → A.
+- **Shared files register**: `l3.py`, `params/*.py`, `l3/boot/`, `tests/conftest.py`, `test_layer_imports.py`, `config/praxis.yaml` — one writer at a time; cross-domain API additions commit to main first.
+- **Per-agent gates**: layer-import test + params-compliance test + domain tests + full baseline + ruff, all green before push.
+
 ## Testing quirks
 
 - **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~20 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.
