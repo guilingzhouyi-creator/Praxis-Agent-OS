@@ -11,7 +11,7 @@ from enum import Enum, auto
 from threading import RLock
 from typing import Any
 
-from .params.kernel import EVENT_BUS_WORKERS, EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
+from .params.kernel import EVENT_BUS_MAX_QUEUED, EVENT_BUS_WORKERS, EVENT_MAX_HISTORY, EVENT_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class EventBus:
         self._lock = RLock()
         self._executor = ThreadPoolExecutor(max_workers=EVENT_BUS_WORKERS, thread_name_prefix="evt")
         self._shutdown = False
-        self._MAX_EVT_QUEUED = 500
+        self._MAX_EVT_QUEUED = EVENT_BUS_MAX_QUEUED
         """Max pending tasks in executor queue; beyond this, new tasks are dropped."""
 
     def on(self, st: SignalType, cb: Callable) -> None:

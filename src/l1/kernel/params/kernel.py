@@ -18,6 +18,7 @@ from .sync import *  # noqa: F401, F403
 EVENT_MAX_HISTORY: Final[int] = 200
 EVENT_QUERY_LIMIT: Final[int] = 20
 EVENT_BUS_WORKERS: Final[int] = 4
+EVENT_BUS_MAX_QUEUED: Final[int] = 500
 HEARTBEAT_INTERVAL: Final[float] = 15.0
 
 # ── Event extras ──
@@ -57,6 +58,7 @@ WATCHDOG_INTERRUPT_LIMIT: Final[int] = 1000
 # ── Swapper ──
 
 SWAPPER_DEFAULT_INTERVAL: Final[float] = 30.0
+SWAPPER_BOOT_INTERVAL: Final[float] = 60.0
 SWAPPER_PRESSURE_LOW: Final[float] = 60.0
 SWAPPER_PRESSURE_MEDIUM: Final[float] = 75.0
 SWAPPER_PRESSURE_HIGH: Final[float] = 90.0

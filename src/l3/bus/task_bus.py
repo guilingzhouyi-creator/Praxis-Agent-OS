@@ -22,13 +22,15 @@ import threading
 import time
 import urllib.error
 import urllib.request as req
+
+from l1.kernel.params.api import TOOL_WEBHOOK_TIMEOUT
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
 _WEBHOOK_MAX_RETRIES = 3
 _WEBHOOK_BACKOFF = [1.0, 4.0, 10.0]
-_WEBHOOK_TIMEOUT = 15
+_WEBHOOK_TIMEOUT = TOOL_WEBHOOK_TIMEOUT
 
 
 @dataclass

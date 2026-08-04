@@ -41,6 +41,7 @@ LLM_MAX_EMPTY_RETRIES: Final[int] = 3
 LLM_PROVIDER_URLS: Final[dict[str, str]] = {
     "openai":    "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
+    "deepseek":  "https://api.deepseek.com/v1",
     "ollama":    "http://localhost:11434",
 }
 ANTHROPIC_DEFAULT_URL: Final[str] = LLM_PROVIDER_URLS["anthropic"]
@@ -107,6 +108,7 @@ LLM_HTTP_TIMEOUT: Final[int] = 60
 LLM_LIGHTWEIGHT_TIMEOUT: Final[int] = 30
 SHELL_CMD_TIMEOUT: Final[int] = 30
 MEMORY_INIT_TIMEOUT: Final[int] = 30
+TOOL_WEBHOOK_TIMEOUT: Final[int] = 15
 
 
 # ── API / network defaults ──

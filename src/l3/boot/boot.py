@@ -25,6 +25,7 @@ import time
 
 from l1.kernel.lifecycle import LifecycleState, get_lifecycle, transition
 from l1.kernel.params.agent import DEFAULT_CELL_ID, TERRITORY_PATHS
+from l1.kernel.params.kernel import SWAPPER_BOOT_INTERVAL
 from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL
 
 from .boot_registry import (
@@ -553,7 +554,7 @@ def _init_kernel_and_vfs() -> dict:
     for name, fn in [
         ("constitution", get_constitution), ("event_bus", get_event_bus),
         ("allocator", get_allocator), ("gatechain", get_gatechain),
-        ("swapper", lambda: get_swapper(interval=60.0)),
+        ("swapper", lambda: get_swapper(interval=SWAPPER_BOOT_INTERVAL)),
     ]:
         try:
             fn(); results[name] = "ok"

@@ -12,7 +12,7 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
-from l1.kernel.params.system import THINK_BUDGET_GLOBAL_DEFAULT, THINK_REASONING_DEFAULT
+from l1.kernel.params.system import THINK_BUDGET_GLOBAL_DEFAULT, THINK_REASONING_DEFAULT, THREAD_JOIN_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class CapabilityDetector:
                 return None
             if isinstance(entry, Future):
                 try:
-                    result = entry.result(timeout=5)
+                    result = entry.result(timeout=THREAD_JOIN_TIMEOUT)
                     self._cache[key] = result
                     logger.debug("probe %s/%s completed: supports=%s", provider_name, model,
                                  result.get("supports", set()))

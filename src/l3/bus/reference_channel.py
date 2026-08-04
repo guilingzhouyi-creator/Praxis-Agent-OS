@@ -35,6 +35,7 @@ from l1.kernel.params.system import (
     RC_FLUSH_INTERVAL,
     RC_PATH,
     RC_RING_SIZE,
+    THREAD_JOIN_TIMEOUT_QUICK,
     RC_SHA256_TRUNC,
 )
 
@@ -277,7 +278,7 @@ class ReferenceChannel:
         """Stop the flusher thread and flush remaining events."""
         self._running = False
         if self._thread:
-            self._thread.join(timeout=2)
+            self._thread.join(timeout=THREAD_JOIN_TIMEOUT_QUICK)
         self._flush()
 
 

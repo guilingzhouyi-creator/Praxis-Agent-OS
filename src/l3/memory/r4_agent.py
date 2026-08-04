@@ -34,7 +34,7 @@ from l1.kernel.params.agent import (
     R4_TERRITORY,
     SIGNAL_TARGET_L3,
 )
-from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200
+from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200, THREAD_JOIN_TIMEOUT
 from l3.services.model_service import get_service as _get_model_service
 
 _MODEL_SPEC = "r4_agent"
@@ -106,7 +106,7 @@ class R4Agent:
         """Stop the R4Agent background loop."""
         self._running = False
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=THREAD_JOIN_TIMEOUT)
         logger.info("R4Agent stopped: %d archived, %d alerts", self._total_archived, self._total_alerts)
         return {"success": True, "archived": self._total_archived, "alerts": self._total_alerts}
 

@@ -25,6 +25,8 @@ import sqlite3
 import threading
 import time
 import uuid
+
+from l1.kernel.params.system import MEMORY_GRAPH_LLM_TIMEOUT
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +62,7 @@ _EDGE_MODE_TRANSITIONS: dict[str, set[str]] = {
     _EDGE_MODE_PAUSED: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
 }
 _LLM_EXTRACT_MAX_PAIRS = 5          # max comparison pairs per extraction round
-_LLM_EXTRACT_TIMEOUT = 10.0         # LLM extraction timeout (seconds)
+_LLM_EXTRACT_TIMEOUT = MEMORY_GRAPH_LLM_TIMEOUT
 _LLM_EXTRACT_MAX_TOKENS = 256
 
 _DEFAULT_DB_NAME = "memory_graph.db"

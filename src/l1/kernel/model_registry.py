@@ -41,6 +41,7 @@ from l1.kernel.params.api import (
     ENV_OPENAI_KEY,
     ENV_OPENAI_MODEL,
     ENV_OPENAI_URL,
+    LLM_PROVIDER_URLS,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,16 +64,16 @@ class ModelInfo:
 
 _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
     ("openai",    ENV_OPENAI_KEY,    ENV_OPENAI_URL,    ENV_OPENAI_MODEL,
-     "https://api.openai.com/v1/chat/completions",
+     LLM_PROVIDER_URLS["openai"],
      ENV_OPENAI_KEY),
     ("deepseek",  ENV_DEEPSEEK_KEY,  "",                "",
-     "https://api.deepseek.com/v1",
+     LLM_PROVIDER_URLS["deepseek"],
      ENV_DEEPSEEK_KEY),
     ("anthropic", ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
-     "https://api.anthropic.com/v1/messages",
+     LLM_PROVIDER_URLS["anthropic"],
      ENV_ANTHROPIC_KEY),
     ("ollama",    "",                ENV_OLLAMA_URL,    ENV_OLLAMA_MODEL,
-     "http://localhost:11434",
+     LLM_PROVIDER_URLS["ollama"],
      ""),
     ("websocket", "",                ENV_LLM_WS_URL,   ENV_LLM_WS_MODEL,
      "",

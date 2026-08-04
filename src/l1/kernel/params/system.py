@@ -271,6 +271,7 @@ MEMORY_RECALL_DEFAULT_LIMIT: Final[int] = 10
 MEMORY_ID_HASH_MOD: Final[int] = 10000
 MEMORY_PERSIST_FILE_RING2: Final[str] = "memory_ring2.jsonl"
 MEMORY_PERSIST_FILE_RING3: Final[str] = "memory_ring3.db"
+MEMORY_GRAPH_LLM_TIMEOUT: Final[float] = 10.0     # LLM semantic-extraction timeout (seconds)
 
 
 # ── Memory query limits ──
@@ -305,6 +306,15 @@ RESOURCE_BUFFER_HIDDEN_DIR: Final[str] = "_hidden"
 RESOURCE_BUFFER_CHECKPOINT_FILE: Final[str] = "_checkpoint.dat"
 RESOURCE_BUFFER_JOURNAL_FILE: Final[str] = "_journal.jsonl"
 RESOURCE_BUFFER_ROOT_DIR: Final[str] = "resource_buffer"
+
+
+# ── Lifecycle state ──
+LIFECYCLE_STATE_FILE: Final[str] = ".praxis/lifecycle.json"
+
+
+# ── Thread shutdown timeouts ──
+THREAD_JOIN_TIMEOUT: Final[float] = 5.0          # daemon/service thread join on shutdown
+THREAD_JOIN_TIMEOUT_QUICK: Final[float] = 2.0    # light thread join (poll/reference channels)
 
 
 # ── L3B Message Pool ──

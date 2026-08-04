@@ -21,9 +21,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 
+from .params.system import LIFECYCLE_STATE_FILE
+
 logger = logging.getLogger(__name__)
 
-_LIFECYCLE_FILE = ".praxis/lifecycle.json"
+_LIFECYCLE_FILE = LIFECYCLE_STATE_FILE
 
 
 class LifecycleState(Enum):

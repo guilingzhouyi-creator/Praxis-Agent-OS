@@ -11,6 +11,7 @@ import threading
 import time
 
 from l1.kernel.bus import Component, ComponentMeta, SystemBus
+from l1.kernel.params.system import THREAD_JOIN_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class StatsCenterComponent(Component):
     def bus_stop(self) -> None:
         self._running = False
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=THREAD_JOIN_TIMEOUT)
 
     def _collect(self, bus: SystemBus) -> None:
         """Collect stats from all child buses and ingest into StatsCenter."""
