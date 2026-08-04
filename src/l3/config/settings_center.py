@@ -31,7 +31,7 @@ from l1.kernel.params.agent import (
     LOOP_TOOL_REPEAT_WARN,
     TERMINAL_MAX_WORKERS,
 )
-from l1.kernel.params.api import NOTIFY_WEBHOOK_TIMEOUT
+from l1.kernel.params.api import DEFAULT_MODEL_OLLAMA_CODER, NOTIFY_WEBHOOK_TIMEOUT
 from l1.kernel.params.kernel import GATECHAIN_HIGH_FREQ_THRESHOLD, GATECHAIN_REPEAT_THRESHOLD
 from l1.kernel.params.system import (
     CACHE_DEFAULT_TTL,
@@ -137,7 +137,7 @@ _L1_DEFAULTS: dict[str, Any] = {
 
     # ── LLM global (model_service reads via SettingsCenter) ──
     "llm.provider": "ollama",
-    "llm.model": "qwen2.5-coder:7b",
+    "llm.model": DEFAULT_MODEL_OLLAMA_CODER,
     "llm.api_key": "",
     "llm.api_url": "",
 
@@ -161,6 +161,10 @@ _L1_DEFAULTS: dict[str, Any] = {
 
     # ── Constitution runtime rules (L3-persisted custom rules) ──
     "constitution.custom_rules": [],
+
+    # ── Skills (developer-only write gate) ──
+    "skill.write_min_ring": 3,          # min ring clearance to mutate skills
+    "skill.write_roles": ["l3", "reviewer", "deployer"],
 }
 
 

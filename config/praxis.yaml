@@ -1,4 +1,4 @@
-# Praxis Agent OS — project configuration
+# Agent OS — project configuration
 # Copy to your project root and edit.
 # Environment variables: ${VAR_NAME} is supported in string values.
 
@@ -304,7 +304,7 @@ clearance:
 # Keys correspond to kernel/prompts.py built-in defaults.
 # Uncomment to override; format variables depend on the key.
 # prompts:
-#   agent_loop.system: "You are an agent in Praxis. Task: {task}"
+#   agent_loop.system: "You are an agent. Task: {task}"
 #   agent_loop.system.reader: "You are the reader agent. Read files and report."
 #   scout.system: "You are a scout. Investigate: {task}"
 #   convention.system: "Custom convention prompt..."

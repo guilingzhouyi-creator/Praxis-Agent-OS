@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from l1.kernel.params.api import DEFAULT_MODEL_OLLAMA_CODER
+
 # Re-export legacy DEFAULTS for callers that reference kernel.settings.DEFAULTS
 DEFAULTS: dict[str, Any] = {
     "l1.kernel.allocator.tokens": 4096,
@@ -23,7 +25,7 @@ DEFAULTS: dict[str, Any] = {
     "cell.terminal.poll": 0.05,
     "cell.card.timeout": 30.0,
     "llm.provider": "ollama",
-    "llm.model": "qwen2.5-coder:7b",
+    "llm.model": DEFAULT_MODEL_OLLAMA_CODER,
     "llm.max_tokens": 2048,
     "llm.temperature": 0.3,
     "llm.rate_limit": 10,

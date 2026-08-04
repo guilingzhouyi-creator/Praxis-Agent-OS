@@ -55,6 +55,8 @@ DEFAULT_MODEL_ANTHROPIC_HAIKU: Final[str] = "claude-haiku-3-5"
 DEFAULT_MODEL_DEEPSEEK_V4: Final[str] = "deepseek-v4"
 DEFAULT_MODEL_DEEPSEEK_CHAT: Final[str] = "deepseek-chat"
 DEFAULT_MODEL_OLLAMA: Final[str] = "qwen2.5"
+DEFAULT_MODEL_OLLAMA_CODER: Final[str] = "qwen2.5-coder:7b"
+"""Default ollama coding model (documented deployment default)."""
 DEFAULT_MODEL_MOCK: Final[str] = "mock"
 
 

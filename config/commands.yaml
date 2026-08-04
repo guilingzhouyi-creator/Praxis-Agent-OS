@@ -86,12 +86,18 @@ observe:
 
 skills:
   category: control
-  help: "List/view/evolve R4Agent skills"
+  help: "List/view/manage skills (mutations developer-only)"
   args:
-    - {name: sub, optional: true, description: "list|lean|evolve <intent>"}
+    - {name: sub, optional: true, description: "list|get <name>|create|update|delete|reload|permissions"}
+    - {name: "--role", optional: true, description: "Caller role for write-gate (e.g. l3)"}
+    - {name: "--agent", optional: true, description: "Caller agent id for write-gate"}
   examples:
-    - "/skills             — list skills"
-    - "/skills evolve add input validation — evolve a skill"
+    - "/skills                    — list skills"
+    - "/skills get kernel         — show skill detail"
+    - "/skills permissions        — show write-gate policy"
+    - "/skills create <name> <desc> <prompt> --role l3 — create skill (developer)"
+    - "/skills delete <name> --role l3 — delete skill (developer)"
+    - "/skills reload --role l3   — reload built-in skills (developer)"
 
 cells:
   category: control
@@ -365,8 +371,8 @@ model:
   examples:
     - "/model list               — list registered providers"
     - "/model status              — show all model specs"
-    - "/model switch scout ollama qwen2.5-coder:1.5b — switch scout model"
-    - "/model health openai       — test provider connectivity"
+    - "/model switch scout <provider> <model> — switch scout model"
+    - "/model health <provider>  — test provider connectivity"
 
 tokens:
   category: audit
@@ -493,6 +499,6 @@ l3a:
     - "/l3a compress-force <id>         — force auto-compress check for a session"
     - "/l3a memory [id] [window]        — R1-R3 ring usage + ingress rate (default 1h)"
     - "/l3a model show                 — show effective model config"
-    - "/l3a model set provider openai  — override L3A model provider"
-    - "/l3a model set model gpt-4o     — override L3A model"
+    - "/l3a model set provider <provider> — override L3A model provider"
+    - "/l3a model set model <model>  — override L3A model"
     - "/l3a context sources            — list registered context sources"

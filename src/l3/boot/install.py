@@ -12,6 +12,7 @@ import time
 
 from l1.kernel.lifecycle import LifecycleState, get_lifecycle
 from l1.kernel.migration import SCHEMA_VERSION, run_pending
+from l1.kernel.params.agent import CARD_TIMELINE_EXECUTION, CARD_TIMELINE_REVIEW
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ _CARD_TYPE_DEFAULTS: dict = {
         "max_phases": 5,
         "concurrent_phases": False,
         "allow_fail": False,
-        "timeline": 3600,
+        "timeline": CARD_TIMELINE_EXECUTION,
         "metadata_schema": {},
     },
     "review": {
@@ -102,7 +103,7 @@ _CARD_TYPE_DEFAULTS: dict = {
         "max_phases": 1,
         "concurrent_phases": False,
         "allow_fail": True,
-        "timeline": 1800,
+        "timeline": CARD_TIMELINE_REVIEW,
         "metadata_schema": {},
     },
     "issue": {

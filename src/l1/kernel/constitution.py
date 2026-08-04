@@ -330,6 +330,41 @@ def load_territory(path: str = "") -> TerritoryConstitution:
     return parse_territory(p.read_text(encoding="utf-8"), source=str(p))
 
 
+# ── Scalar key setters (registration-style; extend by adding to _KEY_SETTERS) ──
+
+
+def _set_default_reputation(c: TerritoryConstitution, value: str) -> None:
+    """Parse the default_reputation scalar (float, 0..1)."""
+    try:
+        c.default_reputation = float(value)
+    except Exception:
+        logger.warning("constitution: invalid default_reputation: %s", value)
+
+
+def _set_token_budget(c: TerritoryConstitution, value: str) -> None:
+    """Parse the token_budget scalar (int)."""
+    try:
+        c.token_budget = int(value)
+    except Exception:
+        logger.warning("constitution: invalid token_budget: %s", value)
+
+
+def _set_version(c: TerritoryConstitution, value: str) -> None:
+    """Parse the version scalar (int)."""
+    try:
+        c.version = int(value)
+    except Exception:
+        logger.warning("constitution: invalid version: %s", value)
+
+
+# Exact-key setters — registration-style dispatch (dict lookup, no elif chain).
+_KEY_SETTERS: dict[str, Callable[[TerritoryConstitution, str], None]] = {
+    "default_reputation": _set_default_reputation,
+    "token_budget": _set_token_budget,
+    "version": _set_version,
+}
+
+
 def parse_territory(text: str, source: str = "") -> TerritoryConstitution:
     """Parse territory constitution text into a TerritoryConstitution."""
     c = TerritoryConstitution(source=source)
@@ -343,18 +378,10 @@ def parse_territory(text: str, source: str = "") -> TerritoryConstitution:
             c.territories[key] = [t.strip() for t in value.split(",") if t.strip()]
         elif key.startswith("G") and len(key) <= 3:
             c.gate_rules[key] = value
-        elif key == "default_reputation":
-            try: c.default_reputation = float(value)
-            except Exception:
-                logger.warning("constitution: invalid default_reputation: %s", value)
-        elif key == "token_budget":
-            try: c.token_budget = int(value)
-            except Exception:
-                logger.warning("constitution: invalid token_budget: %s", value)
-        elif key == "version":
-            try: c.version = int(value)
-            except Exception:
-                logger.warning("constitution: invalid version: %s", value)
+        else:
+            setter = _KEY_SETTERS.get(key)
+            if setter:
+                setter(c, value)
     return c
 
 

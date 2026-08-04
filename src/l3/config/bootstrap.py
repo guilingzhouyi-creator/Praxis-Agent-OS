@@ -180,7 +180,7 @@ def run_bootstrap(interactive: bool = True) -> dict:
     config["kernel"] = {"allocator": {"tokens": _prompt_int("  Max tokens", default=131072)}, "swapper": {"interval": 60.0}}
     config["llm"] = {
         "provider": _prompt_string("  LLM Provider", default="openai"),
-        "model": _prompt_string("  Model", default="gpt-4o"),
+        "model": _prompt_string("  Model", default=DEFAULT_MODEL_OPENAI),
         "api_url": _prompt_string("  API URL", default="https://api.openai.com/v1"),
         "max_tokens": _prompt_int("  Max output tokens", default=4096),
         "temperature": 0.3,

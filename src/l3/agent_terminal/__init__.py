@@ -48,6 +48,7 @@ from l1.kernel.params.system import (
     POLL_INTERVAL_FAST,
     POLL_INTERVAL_PAUSED,
     POLL_INTERVAL_SLOW,
+    SCOUT_COLLECT_TIMEOUT,
 )
 from l3.services.model_service import get_service as _get_model_service
 
@@ -679,7 +680,7 @@ class AgentTerminal:
                 ev.set()
             self._async_scout_count = max(0, self._async_scout_count - 1)
 
-    def collect_scout(self, scout_id: str, timeout: float = 310.0) -> dict:
+    def collect_scout(self, scout_id: str, timeout: float = SCOUT_COLLECT_TIMEOUT) -> dict:
         event = threading.Event()
         with self._lock:
             if scout_id in self._async_scouts:
@@ -689,7 +690,7 @@ class AgentTerminal:
         with self._lock:
             return self._async_scouts.pop(scout_id, {"success": False, "error": "timeout"})
 
-    def collect_all_scouts(self, timeout: float = 310.0) -> list[dict]:
+    def collect_all_scouts(self, timeout: float = SCOUT_COLLECT_TIMEOUT) -> list[dict]:
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:

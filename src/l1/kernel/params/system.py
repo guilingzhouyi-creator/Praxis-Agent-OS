@@ -27,6 +27,7 @@ SCOUT_POOL_IDLE_TIMEOUT: Final[float] = 60.0
 SCOUT_CACHE_TTL: Final[float] = 30.0
 SCOUT_CACHE_MAX_ENTRIES: Final[int] = 200
 SCOUT_TIMEOUT: Final[float] = 300.0
+SCOUT_COLLECT_TIMEOUT: Final[float] = 310.0  # async scout collection wait (s)
 TOOL_SCOUT_RUN_TIMEOUT: Final[int] = 180
 TOOL_SCOUT_MAX_STEPS: Final[int] = 10
 
@@ -149,6 +150,8 @@ SHELL_AUTOCOMPLETE_DISPLAY_LIMIT: Final[int] = 15  # commands shown in help
 TOOL_RESULT_DISPLAY_LIMIT: Final[int] = 5
 SCOUT_FINDINGS_DISPLAY_LIMIT: Final[int] = 5
 SKILL_LEAN_CASES_LIMIT: Final[int] = 20
+SKILL_WRITE_MIN_RING: Final[int] = 3        # minimum ring clearance to create/update/delete skills
+SKILL_WRITE_ROLES: Final[tuple[str, ...]] = ("l3", "reviewer", "deployer")
 CELL_EVENTS_LIMIT: Final[int] = 20
 CRON_DEFAULT_PRIORITY: Final[int] = 5
 DEFAULT_CELL_INITIAL_ROLES: Final[int] = 3  # max default roles when creating a Cell

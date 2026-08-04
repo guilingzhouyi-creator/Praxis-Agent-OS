@@ -271,6 +271,8 @@ CARD_GATE_ARCH_KEYWORDS: Final[list[str]] = [
 CARD_GATE_APPROVAL_TIMEOUT: Final[float] = 3600.0
 CARD_GATE_CONVENTION_TIMEOUT: Final[float] = 7200.0
 CARD_GATE_HISTORY_LIMIT: Final[int] = 50
+CARD_TIMELINE_EXECUTION: Final[int] = 3600  # execution card default timeline (s)
+CARD_TIMELINE_REVIEW: Final[int] = 1800  # review card default timeline (s)
 
 # ── Plan generation constants ──
 PLAN_GENERATION_MAX_TOKENS: Final[int] = 1024
