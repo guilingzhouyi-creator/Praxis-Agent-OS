@@ -31,7 +31,7 @@ from l1.kernel.params.agent import (
     LOOP_TOOL_REPEAT_WARN,
     TERMINAL_MAX_WORKERS,
 )
-from l1.kernel.params.api import NETWORK_DEFAULT_TIMEOUT, NOTIFY_WEBHOOK_TIMEOUT
+from l1.kernel.params.api import NOTIFY_WEBHOOK_TIMEOUT
 from l1.kernel.params.kernel import GATECHAIN_HIGH_FREQ_THRESHOLD, GATECHAIN_REPEAT_THRESHOLD
 from l1.kernel.params.system import (
     CACHE_DEFAULT_TTL,
@@ -140,10 +140,6 @@ _L1_DEFAULTS: dict[str, Any] = {
     "llm.model": "qwen2.5-coder:7b",
     "llm.api_key": "",
     "llm.api_url": "",
-
-    # ── Network ──
-    "network.timeout": NETWORK_DEFAULT_TIMEOUT,
-    "network.user_agent": "praxis-agent-os",
 
     # ── Device ──
     "device.rate_limit_default": 10,
