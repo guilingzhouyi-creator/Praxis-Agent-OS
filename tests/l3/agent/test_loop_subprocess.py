@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
 def _install_mock_engine(tool_call_results, generate_responses=None):
-    """Replace services.llm.get_engine with a mock that returns canned results.
+    """Replace the ``llm`` port with a mock that returns canned results.
 
     tool_call_results: list of dicts the mock tool_use() should return as
         ``tool_call_results``; each turn of AgentLoop.run iterates this list.
@@ -23,14 +23,11 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
         (default returns ``{"content": ""}``).
     Returns (mock_engine, uninstall).
 
-    NB: we patch ``get_engine`` in BOTH ``services.llm`` (source) and
-    ``services.agent_loop`` (the module that does ``from .llm import
-    get_engine`` at import time, binding the reference locally) — patching
-    only the source is ineffective because agent_loop.run() calls the
-    name bound in its own module namespace.
+    NB: AgentLoop.run() resolves its engine via ``_get_port("llm")``
+    (l1.kernel.ports), so we register the mock as the ``llm`` port and
+    restore the previous adapter on uninstall.
     """
-    import l3.agent.agent_loop as al_mod
-    import l4.llm as llm_mod
+    from l1.kernel.ports import _PORTS, register_port
 
     class _MockEngine:
         def __init__(self):
@@ -81,14 +78,14 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
             return {"content": content}
 
     mock = _MockEngine()
-    saved_llm = llm_mod.get_engine
-    saved_al = al_mod.get_engine
-    llm_mod.get_engine = lambda *a, **kw: mock
-    al_mod.get_engine = lambda *a, **kw: mock
+    saved = _PORTS.get("llm")
+    register_port("llm", mock)
 
     def _uninstall():
-        llm_mod.get_engine = saved_llm
-        al_mod.get_engine = saved_al
+        if saved is None:
+            _PORTS.pop("llm", None)
+        else:
+            _PORTS["llm"] = saved
 
     return mock, _uninstall
 
@@ -166,15 +163,16 @@ class TestAgentLoopMultistepChain:
         loop.add_tool("verify", "Verify changes", {}, _noop_handler)
 
         mock = _ChainingMockEngine()
-        saved_llm = llm_mod.get_engine
-        saved_al = al_mod.get_engine
-        llm_mod.get_engine = lambda *a, **kw: mock
-        al_mod.get_engine = lambda *a, **kw: mock
+        from l1.kernel.ports import _PORTS, register_port
+        saved = _PORTS.get("llm")
+        register_port("llm", mock)
         try:
             r = loop.run(max_steps=5, timeout=30)
         finally:
-            llm_mod.get_engine = saved_llm
-            al_mod.get_engine = saved_al
+            if saved is None:
+                _PORTS.pop("llm", None)
+            else:
+                _PORTS["llm"] = saved
 
         # run should complete successfully
         assert r["success"], f"loop failed: {r.get('error', '')}"

@@ -5,8 +5,15 @@ from __future__ import annotations
 import l3.tools._build as _build
 
 
+def _no_toolchain_run(cmd, **kwargs):
+    """Simulate "no such build toolchain" — avoids executing real build/test
+    commands in the repo root when no path is provided."""
+    raise FileNotFoundError("no such toolchain")
+
+
 class TestBuildProject:
-    def test_no_path(self):
+    def test_no_path(self, monkeypatch):
+        monkeypatch.setattr(_build.subprocess, "run", _no_toolchain_run)
         r = _build.build_project({}, "agent-a")
         assert isinstance(r, dict)
         assert "success" in r
@@ -18,7 +25,8 @@ class TestBuildProject:
 
 
 class TestTestProject:
-    def test_no_path(self):
+    def test_no_path(self, monkeypatch):
+        monkeypatch.setattr(_build.subprocess, "run", _no_toolchain_run)
         r = _build.test_project({}, "agent-a")
         assert isinstance(r, dict)
         assert "success" in r

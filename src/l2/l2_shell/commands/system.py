@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _cmd_status(args: list[str]) -> dict:
-    from l1.kernel.health import safe_system_check as _health
+    from l1.kernel.healthcheck import safe_system_check as _health
     from l1.kernel.process import get_table
     from l3.agent_terminal import get_terminals
     h = _health(); print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")

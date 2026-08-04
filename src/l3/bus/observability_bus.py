@@ -73,7 +73,7 @@ class ObservabilityBus:
 
     def _health_report(self, source: str, data: dict) -> dict:
         try:
-            from l1.kernel.health import health
+            from l1.kernel import health
             return health()
         except (ImportError, AttributeError) as e:
             return {"success": False, "error": str(e)}
@@ -114,7 +114,7 @@ class ObservabilityBus:
             result["ops"] = {}
 
         try:
-            from l1.kernel.health import health
+            from l1.kernel import health
             result["health"] = health()
         except (ImportError, AttributeError):
             result["health"] = {}

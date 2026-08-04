@@ -26,24 +26,24 @@ class TestLoopDetectors:
     """Loop detector importable and initializable"""
 
     def test_tool_loop_detector_importable(self):
-        from l3.agent.loop_detectors import ToolLoopDetector
+        from l3.scheduler.loop_detectors import ToolLoopDetector
         d = ToolLoopDetector()
         assert d is not None
 
     def test_tool_loop_detector_check_called(self):
-        from l3.agent.loop_detectors import ToolLoopDetector
+        from l3.scheduler.loop_detectors import ToolLoopDetector
         d = ToolLoopDetector()
         result = d.check("read_file", {"path": "/x"}, {"data": "ok"})
         # Don't assume return type — just verify the call doesn't crash
         assert result is not None
 
     def test_coarse_repeat_detector_importable(self):
-        from l3.agent.loop_detectors import CoarseRepeatDetector
+        from l3.scheduler.loop_detectors import CoarseRepeatDetector
         d = CoarseRepeatDetector()
         assert d is not None
 
     def test_coarse_repeat_detector_check_called(self):
-        from l3.agent.loop_detectors import CoarseRepeatDetector
+        from l3.scheduler.loop_detectors import CoarseRepeatDetector
         d = CoarseRepeatDetector()
         result = d.check("read_file")
         assert result is not None

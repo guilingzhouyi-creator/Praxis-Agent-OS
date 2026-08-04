@@ -185,6 +185,14 @@ class EditEngine:
         except (ImportError, AttributeError) as e:
             return {"success": False, "error": f"buffer stage failed: {e}"}
 
+        # Write back to disk (batch_edit parity) — buffer stage records the
+        # sandbox intent; the file itself must reflect the edit so undo/redo
+        # and direct readers see the change.
+        try:
+            path.write_text(final, encoding="utf-8")
+        except OSError as e:
+            return {"success": False, "error": f"write failed: {e}"}
+
         op = EditOperation(
             edits=[{"path": str(path), "old": old, "new": new,
                      "line": edit.start_line or 1}],

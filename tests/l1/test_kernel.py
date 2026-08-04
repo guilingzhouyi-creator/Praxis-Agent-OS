@@ -374,13 +374,13 @@ class TestOSLifecycle:
 
 class TestKernelHealth:
     def test_kernel_modules_list(self):
-        from l1.kernel.health import _KERNEL_MODULES
+        from l1.kernel.healthcheck import _KERNEL_MODULES
         assert len(_KERNEL_MODULES) >= 15
         assert "l1.kernel.constitution" in _KERNEL_MODULES
 
     def test_health_imports(self):
-        import l1.kernel.health
-        assert hasattr(l1.kernel.health, "_KERNEL_MODULES")
+        import l1.kernel.healthcheck
+        assert hasattr(l1.kernel.healthcheck, "_KERNEL_MODULES")
 
 
 # ═══════════════════════════════════════════════════════════════
