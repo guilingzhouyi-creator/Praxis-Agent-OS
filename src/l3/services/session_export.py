@@ -17,7 +17,6 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -328,12 +327,4 @@ def handle_session_snapshot_delete(body: dict | None = None) -> dict:
 
 
 # ── Route Registration ──
-
-SESSION_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/session/export", handle_session_export, "Export session as JSON"),
-    ("POST", "/api/session/import", handle_session_import, "Import session from JSON"),
-    ("GET", "/api/session/snapshots", handle_session_snapshots, "List snapshots"),
-    ("POST", "/api/session/snapshot", handle_session_snapshot_create, "Create snapshot"),
-    ("POST", "/api/session/snapshot/restore", handle_session_snapshot_restore, "Restore snapshot"),
-    ("POST", "/api/session/snapshot/delete", handle_session_snapshot_delete, "Delete snapshot"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

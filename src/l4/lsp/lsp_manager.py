@@ -33,7 +33,6 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from l1.kernel.params.api import LSP_MANAGER_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_200
@@ -606,12 +605,4 @@ def handle_lsp_feedback(body: dict | None = None) -> dict:
 
 
 # ── Route Registration ──
-
-LSP_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/lsp/diagnostics", handle_lsp_diagnostics, "Get file diagnostics"),
-    ("POST", "/api/lsp/hover", handle_lsp_hover, "Get hover info"),
-    ("GET", "/api/lsp/servers", handle_lsp_servers, "List LSP server status"),
-    ("POST", "/api/lsp/start", handle_lsp_start, "Start LSP server"),
-    ("POST", "/api/lsp/stop", handle_lsp_stop, "Stop LSP server"),
-    ("POST", "/api/lsp/feedback", handle_lsp_feedback, "Post-edit feedback loop"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

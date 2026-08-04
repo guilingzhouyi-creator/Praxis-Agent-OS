@@ -108,7 +108,7 @@ def _build_default_registry() -> ContextRegistry:
 
 
 def _l3a_memory_loader() -> list[dict]:
-    """Load L3A's distilled deliberation summaries (旁路记忆, latest 5)."""
+    """Load L3A's distilled deliberation summaries (bypass memory, latest 5)."""
     try:
         from .summaries import get_store
         return [s.to_dict() for s in get_store().latest(limit=5)]
@@ -328,8 +328,8 @@ class L3ADaemon:
         if auto_compressed:
             results["auto_compressed_count"] = auto_compressed
 
-        # Mer 旁路：定期聚合多 Agent R1-R3 → 符号化 Mer 图 → 受控入 R4
-        # （开关 memory.mer.enabled 控制；旁路失败不影响主流程）
+        # Mer bypass: periodically aggregate multi-agent R1-R3 → symbolic Mer graph → controlled entry into R4
+        # (toggled by memory.mer.enabled; bypass failure does not affect the main flow)
         try:
             from l3.memory.memory_mer import get_mer
             mer = get_mer()

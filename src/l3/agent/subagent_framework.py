@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any
 
 from .subagent_dispatcher import SubAgentDispatcher
 from .subagent_merger import ResultMerger
@@ -137,13 +136,4 @@ def handle_subagent_merge(body: dict | None = None) -> dict:
 
 
 # ── Route Registration ──
-
-SUBAGENT_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/subagent/dispatch", handle_subagent_dispatch, "Dispatch subagent (@mention or spec+prompt)"),
-    ("POST", "/api/subagent/result", handle_subagent_result, "Get subagent task result"),
-    ("POST", "/api/subagent/cancel", handle_subagent_cancel, "Cancel subagent task"),
-    ("POST", "/api/subagent/tasks", handle_subagent_list, "List subagent tasks"),
-    ("GET", "/api/subagent/specs", handle_subagent_specs, "List subagent specs"),
-    ("POST", "/api/subagent/spec", handle_subagent_spec_register, "Register subagent spec"),
-    ("POST", "/api/subagent/merge", handle_subagent_merge, "Merge multiple subagent results"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

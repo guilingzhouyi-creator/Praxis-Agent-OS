@@ -1,4 +1,4 @@
-"""L3ASummaryStore — L3A's dedicated deliberation-memory space (旁路).
+"""L3ASummaryStore — L3A's dedicated deliberation-memory space (bypass).
 
 Independent of the shared R1-R3 MemoryManager rings (which serve Cell agents):
   - Cache: in-memory dict (bounded by L3A_SUMMARY_CACHE_MAX)

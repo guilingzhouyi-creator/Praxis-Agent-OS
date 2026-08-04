@@ -136,7 +136,7 @@ class MemoryManager:
                 self._dirty_short.add(eid)
             elif ring == 3:
                 self._dirty_long.add(eid)
-        # ── R5 群域图挂钩（默认关闭，失败不影响主流程）──
+        # ── R5 swarm-domain graph hook (off by default; failures do not affect the main flow) ──
         try:
             from .memory_graph import get_graph as _get_graph
             _recent = self._recent_entries(agent_id, cell_id, limit=3)
@@ -253,7 +253,7 @@ class MemoryManager:
                              back to the given Cell's L2 cache so other agents
                              in the same Cell can find them via cell.cache.search().
             graph_diffusion: If set (and R5 graph enabled), expands results
-                             along graph edges from the linear hits (子图导航).
+                             along graph edges from the linear hits (subgraph navigation).
         """
         rings = rings or [1, 2, 3]
         results: list[MemEntry] = []
@@ -264,7 +264,7 @@ class MemoryManager:
         results.sort(key=lambda e: e.timestamp, reverse=True)
         results = results[:limit]
 
-        # ── R5 群域图扩散（开关控制，失败回退线性）──
+        # ── R5 swarm-domain graph diffusion (toggle-controlled; falls back to linear on failure) ──
         if graph_diffusion:
             try:
                 from .memory_graph import get_graph as _get_graph

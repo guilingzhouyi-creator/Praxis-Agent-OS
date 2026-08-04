@@ -146,7 +146,7 @@ class CentralMemory:
         on demand (dispatch), without persisting Cell state into its context.
 
         graph_diffusion=True expands results along R5 graph edges (when the
-        graph is enabled) — 子图导航 from the linear hits.
+        graph is enabled) — subgraph navigation from the linear hits.
         """
         tags = tags or []
         rings = rings or [1, 2, 3]

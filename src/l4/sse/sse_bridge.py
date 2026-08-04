@@ -141,7 +141,4 @@ def handle_sse(body: dict | None = None) -> dict:
 
 
 # ── Routes ──
-
-SSE_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("GET", "/api/events", handle_sse, "SSE event stream (EventBus over HTTP)"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

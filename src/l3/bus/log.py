@@ -18,7 +18,6 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from l1.kernel.params.system import (
     LOG_EXPORT_FILE,
@@ -283,9 +282,4 @@ def handle_log_export(body: dict | None = None) -> dict:
     )
 
 
-LOG_SERVICE_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/logs/query", handle_log_query, "Query logs with filters"),
-    ("GET", "/api/logs/recent", handle_log_recent, "Recent log entries"),
-    ("GET", "/api/logs/stats", handle_log_stats, "Log statistics"),
-    ("POST", "/api/logs/export", handle_log_export, "Export logs to JSON"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

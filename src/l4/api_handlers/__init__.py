@@ -345,7 +345,7 @@ class ApiHandlers:
         from l3.memory.central_memory import get_center
         return {"success": True, "stats": get_center().stats()}
 
-    # ── R5 群域图（前端可切换）──────────────────────────────
+    # ── R5 swarm-domain graph (frontend-switchable) ──
 
     def _memory_graph_status(self, body: dict | None = None) -> dict:
         """GET /api/memory/graph — graph switch state + stats."""
@@ -411,7 +411,7 @@ class ApiHandlers:
                 "edges": get_graph().semantic_edges(
                     limit=int((body or {}).get("limit", 50)))}
 
-    # ── Mer 符号化记忆（旁路）──────────────────────────────
+    # ── Mer symbolic memory (bypass) ──
 
     def _memory_mer_status(self, body: dict | None = None) -> dict:
         """GET /api/memory/mer — Mer transformer state + stats."""
@@ -897,7 +897,15 @@ class ApiHandlers:
         for r in self._routes:
             display = r.path + "<id>" if r.path.endswith("/") else r.path
             lines.append(f"{r.method:4s} {display:30s}  {r.description}")
-        return {"endpoints": lines}
+        result: dict = {"endpoints": lines}
+        # centralized manifest summary (see l4/api/api_endpoints.py)
+        try:
+            from l4.api.api_endpoints import summary, validate
+            result["manifest"] = summary()
+            result["manifest_ok"] = validate()["ok"]
+        except Exception:
+            pass
+        return result
 
     def _endpoints(self) -> list[str]:
         return self._list_endpoints().get("endpoints", [])

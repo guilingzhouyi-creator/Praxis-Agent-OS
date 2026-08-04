@@ -9,7 +9,7 @@ with environment variable interpolation and credential injection.
 Architecture:
   ModelService (singleton)
     ├── resolve(spec_name, overrides) → LLMConfig
-    │     继承链: overrides > yaml spec > platform default > llm global
+    │     inheritance chain: overrides > yaml spec > platform default > llm global
     ├── inject_credentials(config) → config (with api_key from vault)
     └── health_check(provider_name) → {"status": "ok"|"error"}
 """

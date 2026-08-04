@@ -24,7 +24,7 @@ class SubAgentSpec:
     timeout: float = 60.0
     read_only: bool = True
     tags: list[str] = field(default_factory=list)
-    model_spec: str = "subagent"            # model_spec 引用名, 在 praxis.yaml 中定义
+    model_spec: str = "subagent"            # model_spec reference name, defined in praxis.yaml
     model_config: dict | None = None        # per-spec model override dict
     sandbox_profile: str = ""          # empty=no sandbox, "safe"/"isolated"/"danger"
     post_actions: list[dict] = field(default_factory=list)

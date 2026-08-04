@@ -47,13 +47,6 @@ _CATEGORIES: dict[str, str] = {
     "TOOL_HTTP_TIMEOUT_MEDIUM": "tools",
     "TOOL_HTTP_TIMEOUT_LONG": "tools",
     "SANDBOX_ROOT_PATH": "sandbox",
-    "PRAXIS_DATA_DIR": "paths",
-    "PRAXIS_EVENTS_DB": "paths",
-    "PRAXIS_CARD_REGISTRY": "paths",
-    "PRAXIS_CARD_GATE": "paths",
-    "PRAXIS_MUTE_STATE": "paths",
-    "PRAXIS_MODE_STATE": "paths",
-    "PRAXIS_TODO_STATE": "paths",
     "EVENT_STORE_MAX_QUERY": "kernel",
     "ERROR_BUS_BUFFER": "kernel",
     "AGENT_REPUTATION_DEFAULTS": "agents",
@@ -157,10 +150,4 @@ def handle_config_categories(body: dict | None = None) -> dict:
 
 
 # ── Route registration ──
-
-CONFIG_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/config", handle_config_list, "List all config (optional filter: {category})"),
-    ("POST", "/api/config/get", handle_config_get, "Get config value by key"),
-    ("PUT", "/api/config/set", handle_config_set, "Set config override at runtime"),
-    ("GET", "/api/config/categories", handle_config_categories, "List config categories"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

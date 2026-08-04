@@ -19,7 +19,6 @@ import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from l1.kernel.params.system import (
     DOC_SEARCH_RESULTS,
@@ -567,11 +566,4 @@ def handle_search_index_doc(body: dict | None = None) -> dict:
 
 
 # ── Route registration ──
-
-SEARCH_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/search", handle_search, "Unified search (auto-select mode)"),
-    ("POST", "/api/search/semantic", handle_search_semantic, "Semantic code search"),
-    ("POST", "/api/search/symbol", handle_search_symbol, "Symbol search (AST-based)"),
-    ("POST", "/api/search/docs", handle_search_docs, "API documentation search"),
-    ("POST", "/api/search/docs/index", handle_search_index_doc, "Index custom API doc"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

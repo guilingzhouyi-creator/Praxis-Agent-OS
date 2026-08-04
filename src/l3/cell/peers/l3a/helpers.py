@@ -267,7 +267,7 @@ def _kv(comment_line: str) -> dict:
 
 
 def l3a_summary_handler(args: dict, agent_id: str = "") -> dict:
-    """Query L3A's dedicated deliberation-memory store (旁路记忆).
+    """Query L3A's dedicated deliberation-memory store (bypass memory).
 
     action=latest [domain] [limit]  → recent distilled summaries
     action=search <query> [limit]   → keyword search across summaries

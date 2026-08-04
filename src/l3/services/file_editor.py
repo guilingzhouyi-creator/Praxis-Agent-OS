@@ -29,7 +29,6 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from l1.kernel.params.system import FILE_EDITOR_MAX_HISTORY, HASH_TRUNC_MEDIUM, LOG_TRUNC_100, PATCH_JSON_FILE
 
@@ -663,16 +662,4 @@ def handle_fs_patch_get(body: dict | None = None) -> dict:
 
 
 # ── Route Registration ──
-
-FS_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/fs/edit", handle_fs_edit, "Semantic file edit (search/replace)"),
-    ("POST", "/api/fs/batch_edit", handle_fs_batch_edit, "Atomic batch multi-file edit"),
-    ("POST", "/api/fs/history", handle_fs_history, "File operation history"),
-    ("POST", "/api/fs/undo", handle_fs_undo, "Undo file operation"),
-    ("POST", "/api/fs/redo", handle_fs_redo, "Redo file operation"),
-    ("POST", "/api/fs/patch", handle_fs_patch_create, "Create patch from history"),
-    ("POST", "/api/fs/patch/apply", handle_fs_patch_apply, "Apply patch"),
-    ("POST", "/api/fs/patch/revert", handle_fs_patch_revert, "Revert patch"),
-    ("POST", "/api/fs/patches", handle_fs_patch_list, "List all patches"),
-    ("POST", "/api/fs/patch/get", handle_fs_patch_get, "Get patch detail"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

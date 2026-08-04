@@ -469,10 +469,4 @@ def handle_prompt_template_register(body: dict | None = None) -> dict:
 
 
 # ── Route Registration ──
-
-PROMPT_ROUTES: list[tuple[str, str, Any, str]] = [
-    ("POST", "/api/prompt/build", handle_prompt_build, "Build full prompt with context assembly"),
-    ("POST", "/api/prompt/context", handle_prompt_context, "Assemble context only (preview)"),
-    ("GET", "/api/prompt/templates", handle_prompt_templates, "List prompt templates"),
-    ("POST", "/api/prompt/template", handle_prompt_template_register, "Register custom template"),
-]
+# Routes are consolidated in l4/api/api_endpoints.py (ENDPOINT_MANIFEST); no duplicate list maintained here.

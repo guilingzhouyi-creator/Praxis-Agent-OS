@@ -1,21 +1,21 @@
-"""MemoryGraph — R5 群域图层：R1-R4 之上的语义拓扑索引。
+"""MemoryGraph — R5 swarm-domain graph layer: semantic topology index over R1-R4.
 
-分层定位：
-  R1-R3  操作记忆（agent 运行时快速存取）
-  R4     无损档案（全量、可回滚、审计基线）
-  R5     群域图（本模块）——档案的语义拓扑索引：
-           节点 = 各环的 MemEntry（天然节点：id/type/tags/importance）
-           边   = 规则建边（sequential / type_chain / cell_chain）
-           检索 = 扩散激活（种子沿边遍历）
-           压缩 = 图约简（度中心性：保留 hub 剪叶子）
+Layered architecture:
+  R1-R3  Operational memory (agent runtime fast access)
+  R4     Lossless archive (full, rollback-capable, audit baseline)
+  R5     Swarm-domain graph (this module) — semantic topology index of the archive:
+           Nodes = MemEntry per ring (natural nodes: id/type/tags/importance)
+           Edges = Rule-based edges (sequential / type_chain / cell_chain)
+           Retrieval = Diffusion activation (seed traversal along edges)
+           Reduction = Graph reduction (degree centrality: keep hubs, prune leaves)
 
-治理语义：
-  - 开关：enabled（默认 false——读 settings ``memory.graph.enabled``）
-  - 归因：每条边记录 created_by（谁建的边）
-  - 派生：图可从 R4 重建（出错不影响档案，档案是 ground truth）
-  - 隔离：每个 MemoryManager 实例持有独立图（scope 隔离）
+Governance semantics:
+  - Toggle: enabled (default false — reads settings ``memory.graph.enabled``)
+  - Attribution: each edge records created_by (who built the edge)
+  - Derivation: graph can be rebuilt from R4 (errors do not affect the archive, which is ground truth)
+  - Isolation: each MemoryManager instance holds an independent graph (scope isolation)
 
-存储：SQLite ``memory_edges`` 表（独立库，与 knowledge 表分离）。
+Storage: SQLite ``memory_edges`` table (separate database, separated from knowledge table).
 """
 
 from __future__ import annotations
@@ -32,22 +32,22 @@ logger = logging.getLogger(__name__)
 
 _EDGE_ID_LEN = 12
 
-_REL_SEQUENTIAL = "sequential"      # 同 agent 连续写入链
-_REL_TYPE_CHAIN = "type_chain"      # 同 agent + 同 entry_type 链
-_REL_CELL_CHAIN = "cell_chain"      # 同 cell 链
+_REL_SEQUENTIAL = "sequential"      # same-agent sequential write chain
+_REL_TYPE_CHAIN = "type_chain"      # same-agent + same entry_type chain
+_REL_CELL_CHAIN = "cell_chain"      # same-cell chain
 
-# ── 语义边（hybrid 模式——由调用方/LLM 提取后显式写入）──
-_REL_CONTRADICTS = "contradicts"    # 新知识推翻旧知识
-_REL_DEPENDS_ON = "depends_on"      # 决策依赖依据
-_REL_REFINES = "refines"            # 细化/补充
+# ── Semantic edges (hybrid mode — explicitly written by caller/LLM) ──
+_REL_CONTRADICTS = "contradicts"    # new knowledge overrides old knowledge
+_REL_DEPENDS_ON = "depends_on"      # decision dependency basis
+_REL_REFINES = "refines"            # refine / supplement
 
 _SEMANTIC_RELATIONS = {_REL_CONTRADICTS, _REL_DEPENDS_ON, _REL_REFINES}
 
-# ── 语义提取状态机（LLM 自动语义边的治理开关）──
-#   off    → 不提取（默认，纯规则边）
-#   rules  → 仅规则边（语义提取关闭）
-#   hybrid → 规则边 + LLM 语义边（压缩时自动提取）
-#   paused → 语义提取暂停（LLM 失败/成本超限自动降级）
+# ── Semantic extraction state machine (governance toggle for LLM auto-semantic edges) ──
+#   off    → no extraction (default, rule-based only)
+#   rules  → rule-based edges only (semantic extraction disabled)
+#   hybrid → rule-based edges + LLM semantic edges (auto-extraction during reduction)
+#   paused → semantic extraction paused (auto-downgraded on LLM failure / cost overrun)
 _EDGE_MODE_OFF = "off"
 _EDGE_MODE_RULES = "rules"
 _EDGE_MODE_HYBRID = "hybrid"
@@ -59,13 +59,13 @@ _EDGE_MODE_TRANSITIONS: dict[str, set[str]] = {
     _EDGE_MODE_HYBRID: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_PAUSED},
     _EDGE_MODE_PAUSED: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
 }
-_LLM_EXTRACT_MAX_PAIRS = 5          # 每轮提取最多对比对数
-_LLM_EXTRACT_TIMEOUT = 10.0         # LLM 提取超时（秒）
+_LLM_EXTRACT_MAX_PAIRS = 5          # max comparison pairs per extraction round
+_LLM_EXTRACT_TIMEOUT = 10.0         # LLM extraction timeout (seconds)
 _LLM_EXTRACT_MAX_TOKENS = 256
 
 _DEFAULT_DB_NAME = "memory_graph.db"
 _DEFAULT_ENABLED = False
-_COMPACT_MIN_EDGES = 4          # 图小于此边数不执行剪枝（防新生图被剪空）
+_COMPACT_MIN_EDGES = 4          # skip pruning when graph has fewer edges than this (prevent newborn graph from being pruned empty)
 
 
 def _default_enabled() -> bool:
@@ -78,7 +78,7 @@ def _default_enabled() -> bool:
 
 
 class MemoryGraph:
-    """群域图引擎：边表管理 + 规则建边 + 扩散检索 + 图约简。"""
+    """Semantic graph engine: edge table management, rule-based edge building, diffusion retrieval, graph reduction."""
 
     def __init__(self, db_path: str = "", enabled: bool | None = None):
         self._enabled = _default_enabled() if enabled is None else enabled
@@ -96,7 +96,7 @@ class MemoryGraph:
         except Exception:
             return _EDGE_MODE_OFF
 
-    # ── 存储 ────────────────────────────────────────────────
+    # ── Storage ────────────────────────────────────────────────
 
     def _connect(self) -> None:
         try:
@@ -134,7 +134,7 @@ class MemoryGraph:
             self._emit_event("stats.memory.graph.switch",
                              {"enabled": self._enabled})
 
-    # ── 语义提取状态机 ─────────────────────────────────────
+    # ── Semantic extraction state machine ─────────────────────────────────────
 
     @property
     def edge_mode(self) -> str:
@@ -176,7 +176,7 @@ class MemoryGraph:
         except Exception:
             logger.debug("memory_graph: monitor emit failed")
 
-    # ── 规则建边（零成本，无 LLM）────────────────────────────
+    # ── Rule-based edges (zero cost, no LLM) ────────────────────────────
 
     def remember_hook(self, entry_id: str, agent_id: str, entry_type: str,
                       cell_id: str, recent: list[dict],
@@ -203,7 +203,7 @@ class MemoryGraph:
                         rel = _REL_SEQUENTIAL
                         w = 1.0
                         if entry_type and r.get("entry_type") == entry_type:
-                            rel = _REL_TYPE_CHAIN  # 同 agent + 同类型 = 最强
+                            rel = _REL_TYPE_CHAIN  # same-agent + same type = strongest
                             w = 1.2
                     elif r.get("cell_id") and r.get("cell_id") == cell_id:
                         rel = _REL_CELL_CHAIN
@@ -242,7 +242,7 @@ class MemoryGraph:
             logger.debug("memory_graph: insert failed: %s", e)
             return None
 
-    # ── 扩散检索（种子沿边遍历）──────────────────────────────
+    # ── Diffusion retrieval (seed traversal along edges) ──────────────────────────────
 
     def recall(self, seeds: list[str], depth: int = 2,
                limit: int = 20) -> dict:
@@ -290,7 +290,7 @@ class MemoryGraph:
         return {"nodes": nodes, "edges": edges,
                 "stats": {"seeds": len(seeds), "depth": depth, "reached": len(nodes)}}
 
-    # ── 图约简（度中心性分析 + 可执行剪枝）──────────────────
+    # ── Graph reduction (degree centrality analysis + executable pruning) ──────────────────
 
     def compact_report(self, min_degree: int = 2) -> dict:
         """Graph reduction analysis: keep hubs, prune leaves.
@@ -372,7 +372,7 @@ class MemoryGraph:
                 "edges_before": rep["edges"], "edges_after": after,
                 "hubs_kept": len(rep["hubs"])}
 
-    # ── 语义边（显式写入——contradicts/depends_on/refines）────────
+    # ── Semantic edges (explicit writes — contradicts/depends_on/refines) ────────
 
     def add_semantic_edge(self, from_id: str, to_id: str, relation: str,
                           weight: float = 1.5, created_by: str = "llm") -> dict:
@@ -426,7 +426,7 @@ class MemoryGraph:
         except Exception:
             return []
 
-    # ── LLM 语义边提取（仅 hybrid 状态运行）──────────────────
+    # ── LLM semantic edge extraction (hybrid mode only) ──────────────────
 
     def extract_semantic_edges(self, entries: list[dict],
                                engine: Any = None,
@@ -474,7 +474,7 @@ class MemoryGraph:
             return {"success": True, "added": added,
                     "relations": relations, "mode": self._edge_mode}
         except Exception as e:
-            # 自动降级：LLM 失败 → paused（可手动恢复）
+            # Auto-degrade: LLM failure → paused (manually recoverable)
             logger.warning("memory_graph: LLM semantic extract failed, "
                            "edge_mode -> paused: %s", e)
             self.set_edge_mode(_EDGE_MODE_PAUSED)
@@ -526,9 +526,9 @@ class MemoryGraph:
                     return rel
             return ""
         except Exception:
-            return None  # 引擎异常（区别于 "none" 无关系）
+            return None  # engine exception (distinct from "none" = no relation)
 
-    # ── 查询 / 维护 ─────────────────────────────────────────
+    # ── Query / Maintenance ─────────────────────────────────────────
 
     def edges_of(self, entry_id: str, limit: int = 20) -> list[dict]:
         if self._conn is None:

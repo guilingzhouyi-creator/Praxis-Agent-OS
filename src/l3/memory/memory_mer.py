@@ -1,14 +1,14 @@
-"""MerTransformer — 符号化 Mer 图旁路（定期聚合多 Agent R1-R3 → Mermaid → R4）。
+"""MerTransformer — symbolic Mer graph bypass (periodic aggregation of multi-agent R1-R3 → Mermaid → R4).
 
-设计（旁路语义）：
-  1. 不干扰主记忆流程——独立模块、开关控制、失败零影响
-  2. 定期聚合 CentralMemory 多 scope（Cell memories + L3A）的 R1-R3 高价值条目
-  3. 符号化：条目 + 群域图边 → Mermaid flowchart（记忆的"可视化浓缩版"）
-  4. 受控归档：转化产物入 R4（fonds=AGENT:l3a, series=memory_mer_snapshot）
-     ——R4 是回滚基线/审计源：Mer 图错了可丢弃，原始记忆无损
+Design (bypass semantics):
+  1. Does not interfere with the main memory flow — independent module, toggle-controlled, zero impact on failure
+  2. Periodically aggregates CentralMemory multi-scope (Cell memories + L3A) high-value R1-R3 entries
+  3. Symbolization: entries + swarm-domain graph edges → Mermaid flowchart (a "visualized condensed version" of memory)
+  4. Controlled archiving: transformation products into R4 (fonds=AGENT:l3a, series=memory_mer_snapshot)
+     — R4 is the rollback baseline / audit source: Mer graph can be discarded on error, original memory intact
 
-开关：memory.mer.enabled（默认 false）
-事件：stats.memory.mer.transform / .archived（时间总线）
+Toggle: memory.mer.enabled (default false)
+Events: stats.memory.mer.transform / .archived (time bus)
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ import uuid
 logger = logging.getLogger(__name__)
 
 _DEFAULT_ENABLED = False
-_MER_MIN_IMPORTANCE = 0.4       # 只转化 importance >= 阈值的条目
-_MER_ENTRIES_PER_SCOPE = 10     # 每 scope 最多取多少条
-_MER_MAX_SCOPES = 8             # 最多聚合多少个 scope
+_MER_MIN_IMPORTANCE = 0.4       # transform only entries with importance >= threshold
+_MER_ENTRIES_PER_SCOPE = 10     # max entries per scope
+_MER_MAX_SCOPES = 8             # max scopes aggregated
 _MER_FONDS = "AGENT:l3a"
 _MER_SERIES = "memory_mer_snapshot"
 _MER_ID_LEN = 8
@@ -38,7 +38,7 @@ def _default_enabled() -> bool:
 
 
 class MerTransformer:
-    """符号化 Mer 图转化器（旁路）。"""
+    """Symbolic Mer graph transformer (bypass)."""
 
     def __init__(self, enabled: bool | None = None):
         self._enabled = _default_enabled() if enabled is None else enabled
@@ -56,7 +56,7 @@ class MerTransformer:
         if changed:
             self._emit_event("stats.memory.mer.switch", {"enabled": self._enabled})
 
-    # ── 聚合：多 Agent R1-R3 ──────────────────────────────
+    # ── Aggregation: multi-agent R1-R3 ──────────────────────────────
 
     def collect_entries(self, scope_ids: list[str] | None = None,
                         limit: int = _MER_ENTRIES_PER_SCOPE) -> list[dict]:
@@ -106,7 +106,7 @@ class MerTransformer:
         except Exception:
             return []
 
-    # ── 符号化：Mermaid 生成 ──────────────────────────────
+    # ── Symbolization: Mermaid generation ──────────────────────────────
 
     def to_mermaid(self, entries: list[dict], edges: list[dict] | None = None,
                    title: str = "Memory") -> str:
@@ -128,7 +128,7 @@ class MerTransformer:
         lines.append("    end")
         return "\n".join(lines)
 
-    # ── 受控归档：入 R4 ──────────────────────────────────
+    # ── Controlled archiving: to R4 ──────────────────────────────────
 
     def archive_to_r4(self, mermaid: str, meta: dict | None = None) -> dict:
         """Archive the Mer graph to R4 (audit baseline, recoverable)."""
@@ -154,7 +154,7 @@ class MerTransformer:
             logger.debug("memory_mer: R4 archive failed: %s", e)
             return {"success": False, "error": str(e)}
 
-    # ── 一次完整转化（旁路入口）──────────────────────────
+    # ── One full transform (bypass entry) ──────────────────────────
 
     def transform_and_archive(self, scope_ids: list[str] | None = None) -> dict:
         """Full side-channel pass: collect → symbolize → archive to R4."""

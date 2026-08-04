@@ -1,7 +1,7 @@
 """ModelStrategyEngine — three-layer think config + CapabilityDetector.
 
-Global → Cell → Agent 三层配置覆盖。
-CapabilityDetector 用旁路线程池异步探测 LLM provider 能力。
+Global → Cell → Agent three-layer configuration override.
+CapabilityDetector probes LLM provider capabilities asynchronously via a side-channel thread pool.
 """
 
 from __future__ import annotations
