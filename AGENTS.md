@@ -91,6 +91,11 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 - **Branch per agent**: `feature/<agent>-<area>`; merge order K → M/T/S → C/B → A.
 - **Shared files register**: `l3.py`, `params/*.py`, `l3/boot/`, `tests/conftest.py`, `test_layer_imports.py`, `config/praxis.yaml` — one writer at a time; cross-domain API additions commit to main first.
 - **Per-agent gates**: layer-import test + params-compliance test + domain tests + full baseline + ruff, all green before push.
+- **One working tree per agent — use `git worktree`**: `git worktree add <path> <branch>` gives each parallel agent a physically isolated directory (shared `.git`, zero cross-branch drift). Never share a single working tree across branches: uncommitted changes follow `git checkout` and silently pollute the other branch (see the network-refactor drift incident). Rules:
+  - Each agent works in its own worktree: `git worktree add ../praxis-<area> feature/<agent>-<area>`.
+  - **Always `git status` before `git checkout`/`git switch`**: uncommitted changes must be committed, stashed, or committed as WIP first — never switch branches with a dirty tree.
+  - If dirty changes are found on the wrong branch, `git checkout <their-branch>` first so they follow back home, then commit/stash.
+  - Clean up after merging: `git worktree remove <path>`; `git worktree list` shows all checkouts.
 
 ## Testing quirks
 
