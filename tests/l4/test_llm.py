@@ -26,7 +26,7 @@ class TestAnalyze:
 
     def test_analyze_basic(self):
         from l4.llm import analyze
-        r = analyze("review this", "code snippet", context="test")
+        r = analyze(["review this"], context="code snippet")
         assert isinstance(r, dict)
         assert "content" in r or "error" in r
 

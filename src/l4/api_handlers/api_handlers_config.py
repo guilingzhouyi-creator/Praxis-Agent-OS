@@ -60,13 +60,52 @@ _EXCLUDED = {"_DEFAULT_DATA_ROOT", "_SANDBOX_DEFAULT", "_DEFAULT_URL",
 """Keys excluded from GET /api/config listing (complex types that are exposed via dedicated getter)."""
 
 
+def _find_param(key: str) -> Any:
+    """Look up a constant across the params package and all its sub-modules.
+
+    ``params/__init__.py`` intentionally does not re-export sub-module
+    constants (see its docstring), so package-level getattr alone misses
+    most keys.
+    """
+    import importlib
+    import pkgutil
+
+    from l1.kernel import params
+
+    value = getattr(params, key, None)
+    if value is not None:
+        return value
+    for mod in pkgutil.iter_modules(params.__path__):
+        module = importlib.import_module(f"{params.__name__}.{mod.name}")
+        value = getattr(module, key, None)
+        if value is not None:
+            return value
+    return None
+
+
+def _all_param_keys() -> list[str]:
+    """Collect all public uppercase constants from params and its sub-modules."""
+    import importlib
+    import pkgutil
+
+    from l1.kernel import params
+
+    names: set[str] = set(dir(params))
+    for mod in pkgutil.iter_modules(params.__path__):
+        module = importlib.import_module(f"{params.__name__}.{mod.name}")
+        names.update(n for n in dir(module) if n.isupper())
+    return [
+        name for name in names
+        if name.isupper() and not name.startswith("_") and name not in _EXCLUDED
+    ]
+
+
 def _fetch(key: str) -> dict:
     """Fetch a config value: override > params module."""
     if key in _CONFIG_OVERRIDES:
         return {"success": True, "key": key, "value": _CONFIG_OVERRIDES[key],
                 "source": "override", "category": _CATEGORIES.get(key, "misc")}
-    from l1.kernel import params
-    value = getattr(params, key, None)
+    value = _find_param(key)
     if value is None:
         return {"success": False, "error": f"unknown config key: {key}"}
     return {"success": True, "key": key, "value": _serialize(value),
@@ -97,12 +136,9 @@ def _serialize(value: Any) -> Any:
 
 def handle_config_list(body: dict | None = None) -> dict:
     """GET /api/config — List all registered config keys with values."""
-    from l1.kernel import params
     b = body or {}
     category_filter = b.get("category", "")
-    keys = [name for name in dir(params)
-            if name.isupper() and not name.startswith("_")
-            and name not in _EXCLUDED]
+    keys = _all_param_keys()
 
     entries = []
     for key in keys:

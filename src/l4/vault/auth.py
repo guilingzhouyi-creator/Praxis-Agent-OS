@@ -139,6 +139,7 @@ def get_service() -> AuthService:
         with _service_lock:
             if _service is None:
                 _service = AuthService()
+                _service.start()
     return _service
 
 

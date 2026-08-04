@@ -235,6 +235,24 @@ class LLMEngine:
         return {"name": fn_name, "arguments": fn_args, "error": "no handler", "call_id": call_id,
                 "elapsed": round(time.time() - t_start, 3) if t_start else 0.0}
 
+    @staticmethod
+    def _tool_def_to_api(tool: Any) -> dict:
+        """Convert a tool definition to the LLM function-calling format.
+
+        ToolSpec (canonical) exposes ``to_api_format``; the deprecated
+        ToolDef type does not, so fall back to the plain mapping.
+        """
+        if hasattr(tool, "to_api_format"):
+            return tool.to_api_format()
+        return {
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.parameters,
+            },
+        }
+
     def tool_use(self, prompt: str, tools: list[ToolSpec], system: str = "",
                  max_turns: int = 5, user_id: str = "",
                  context_trail: list[dict] | None = None,
@@ -272,7 +290,7 @@ class LLMEngine:
         else:
             active_tools = tools
 
-        tool_defs = [t.to_api_format() for t in active_tools]
+        tool_defs = [self._tool_def_to_api(t) for t in active_tools]
         tool_map = {t.name: t for t in tools}
         all_calls = []
         reasoning_trail: list[str] = []
@@ -608,7 +626,7 @@ def analyze(findings: list, context: str = "", user_id: str = "") -> dict:
 
 def optimize_prompt(prompt: str, system: str = "") -> tuple[str, str]:
     """Optimize prompt structure for token efficiency and cache matching.
-    
+
     Based on Copilot's Treatment B approach:
     - Structured [System]/[Task]/[Context] sections for cache prefix alignment
     - Minimized redundant whitespace

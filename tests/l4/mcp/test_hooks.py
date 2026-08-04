@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -12,6 +13,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 # ═══════════════════════════════════════════════════════════════
 
 class TestMCPStateMachine:
+    def setup_method(self):
+        """Isolate each test from persisted MCP bridge state (mcp_state.json)."""
+        import l4.mcp_bridge as mcp
+        mcp.MCP_STATE_PATH = os.path.join(tempfile.mkdtemp(), "mcp_state.json")
+        mcp.reset_bridge()
+
     def test_status_constants(self):
         from l4.mcp_bridge import (
             MCP_STATUS_CONNECTED,

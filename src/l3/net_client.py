@@ -2,6 +2,9 @@
 
 Uses only stdlib (urllib) — no external dependencies.
 Supports GET/POST JSON, SSL, and configurable timeouts.
+
+Canonical home of ``NetClient`` (a generic HTTP utility within L3). Consumers
+import it directly: ``from l3.net_client import NetClient``.
 """
 
 from __future__ import annotations
@@ -22,8 +25,7 @@ class NetClient:
     """Generic HTTP client for Praxis internal network requests."""
 
     @staticmethod
-    def get(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT,
-            headers: dict | None = None) -> dict:
+    def get(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT, headers: dict | None = None) -> dict:
         """GET JSON from URL. Returns {"success": True, "data": ...} or error."""
         try:
             req = urllib.request.Request(
@@ -48,8 +50,7 @@ class NetClient:
             return {"success": False, "error": str(e)}
 
     @staticmethod
-    def post(url: str, data: dict, timeout: float = NETWORK_DEFAULT_TIMEOUT,
-             headers: dict | None = None) -> dict:
+    def post(url: str, data: dict, timeout: float = NETWORK_DEFAULT_TIMEOUT, headers: dict | None = None) -> dict:
         """POST JSON to URL, return JSON response."""
         try:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -77,7 +78,6 @@ class NetClient:
             req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 content = resp.read().decode("utf-8", errors="replace")
-                return {"success": True, "content": content, "status": resp.status,
-                        "url": url}
+                return {"success": True, "content": content, "status": resp.status, "url": url}
         except Exception as e:
             return {"success": False, "error": str(e), "url": url}

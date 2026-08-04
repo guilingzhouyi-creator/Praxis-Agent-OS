@@ -161,7 +161,8 @@ class TestCellSandboxStatus:
     def test_status_after_write(self):
         from l4.sandbox.cell_sandbox import CellSandbox
         with tempfile.TemporaryDirectory() as td:
-            sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
+            sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"),
+                             state_path=os.path.join(td, "state.json"))
             sb.register_agent("agent-a")
             s0 = sb.status()
             assert s0["pending"] == 0
