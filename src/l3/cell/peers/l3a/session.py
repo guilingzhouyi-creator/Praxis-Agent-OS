@@ -207,7 +207,7 @@ class Session:
                     continue
         logger.info("l3a session: resumed %s → %s (%d msgs)",
                     archived_session_id, inst.id, inst.history.count())
-        # ── R5 群域图：恢复时扩散召回相关上下文（图启用时）──
+        # ── R5 swarm-domain graph: diffusion recall of related context on restore (when graph enabled) ──
         try:
             from l3.memory.central_memory import get_l3a_memory as _glm
             from l3.memory.memory_graph import get_graph as _gg
@@ -266,6 +266,18 @@ class Session:
             capture("l3a session: stats report failed", error_code="E_L3A_STATS", component="l3a")
             logger.warning("l3a session: stats report failed")
         ctx_trail = self.history.to_context_trail()
+        # 任务感知注入：提示词决定维度（execute→summary, decide→Mer, resume→layered）
+        try:
+            from l3.memory.memory_inject import build_context as _inject
+            inject_block = _inject(_p.AGENT_ID, prompt=admitted.text,
+                                   max_tokens=1024)
+            if inject_block:
+                ctx_trail.insert(0, {
+                    "role": "system",
+                    "content": f"[Task-Aware Memory]\n{inject_block}",
+                })
+        except Exception:
+            logger.debug("l3a session: task-aware injection failed")
         self._ensure_loop()
         self._loop._context_trail = ctx_trail
         self._loop.task = admitted.text
@@ -662,7 +674,7 @@ class Session:
         after_tokens = len(summary_text) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
         logger.info("l3a session %s: compressed %d msgs → summary (+%d kept)",
                     self.id, len(old), keep_last)
-        # ── R5 群域图联动：压缩后图约简（派生层，失败不影响）──
+        # ── R5 swarm-domain graph linkage: graph reduction after compaction (derived layer, failures non-blocking) ──
         try:
             from l3.memory.memory_graph import get_graph as _gg
             g = _gg()

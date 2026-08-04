@@ -226,7 +226,15 @@ def handle_think(term, card, phases):
         memory = get_memory()
         ctx_parts = []
         from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
-        ring_context = memory.build_context(term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
+        # 任务感知注入：卡信息决定维度（execute→summary, decide→Mer, resume→layered）
+        try:
+            from l3.memory.memory_inject import build_context as _inject
+            ring_context = _inject(term.agent_id, card=card,
+                                   max_tokens=CONTEXT_BUILD_MAX_TOKENS,
+                                   memory=memory)
+        except Exception:
+            ring_context = memory.build_context(
+                term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
         if ring_context:
             ctx_parts.append(ring_context)
         recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
