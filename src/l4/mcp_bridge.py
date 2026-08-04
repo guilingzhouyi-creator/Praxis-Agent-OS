@@ -28,7 +28,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from l1.kernel.params.api import LLM_HTTP_TIMEOUT, MCP_BRIDGE_TIMEOUT, MCP_TIMEOUT
+from l1.kernel.params.api import (
+    LLM_HTTP_TIMEOUT,
+    MCP_BRIDGE_TIMEOUT,
+    MCP_OAUTH_REDIRECT_PORT,
+    MCP_TIMEOUT,
+)
 from l1.kernel.params.system import MCP_STATE_FILENAME, MCP_STATUS_OK
 from l3.tool_system.tool_spec import ToolRing, ToolSpec, list_tools, register
 
@@ -442,7 +447,7 @@ class MCPBridge:
             body = json.dumps({
                 "grant_type": "authorization_code",
                 "code": authorization_code,
-                "redirect_uri": f"http://localhost:{auth_data.get('redirect_port', 19876)}/mcp/oauth/callback",
+                "redirect_uri": f"http://localhost:{auth_data.get('redirect_port', MCP_OAUTH_REDIRECT_PORT)}/mcp/oauth/callback",
                 "client_id": auth_data.get("client_id", ""),
             }).encode()
             r = _req.urlopen(

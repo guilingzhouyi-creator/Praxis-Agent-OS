@@ -246,7 +246,6 @@ _RESET_L4: list[tuple[str, str]] = [
     ("l4.cron_scheduler", "reset_scheduler"),
     ("l4.lsp.lsp_manager", "reset_manager"),
     ("l4.lsp.lsp", "reset_lsp"),
-    ("l4.network", "reset_service"),
     ("l4.notify", "reset_service"),
     ("l4.user_session", "reset_service"),
     ("l4.vault.auth", "reset_service"),

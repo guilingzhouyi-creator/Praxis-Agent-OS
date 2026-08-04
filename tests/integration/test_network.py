@@ -1,4 +1,4 @@
-"""Network service tests — NetKernel (with TransportPort mock) + NetworkService.
+"""NetKernel tests — with a mock TransportPort.
 
 MockTransport implements ``kernel.ports.TransportPort`` for isolated unit tests
 without real sockets.
@@ -170,24 +170,3 @@ class TestNetKernel:
         nk._peers.clear()
         nk._on_peer_announce({"peer_id": "self-node", "host": "127.0.0.1", "port": 9999})
         assert "self-node" not in nk._peers
-
-
-class TestNetworkService:
-    def test_service_create(self):
-        from l4.network import NetworkService
-        svc = NetworkService()
-        assert svc is not None
-
-    def test_start_stop(self):
-        from l4.network import NetworkService
-        svc = NetworkService()
-        r = svc.start()
-        assert r.get("success")
-        r2 = svc.stop()
-        assert r2.get("success")
-
-    def test_register_service(self):
-        from l4.network import NetworkService
-        svc = NetworkService()
-        r = svc.register_service("test-api", "localhost", 8080)
-        assert r is None or r.get("success", True)

@@ -432,7 +432,6 @@ TOOL_SEARCH_MIN_COUNT: Final[int] = 10
 TOOL_SEARCH_MAX_RESULTS: Final[int] = 10
 TOOL_SEARCH_MAX_TOOLS: Final[int] = 20
 CONTEXT_TRAIL_TRUNC: Final[int] = 30
-NETWORK_RECV_BUF_SIZE: Final[int] = 8192
 
 
 # ── Sandbox defaults ──

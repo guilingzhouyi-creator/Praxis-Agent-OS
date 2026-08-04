@@ -26,7 +26,6 @@ DEVICE_RATE_LIMIT_STORAGE: Final[int] = 100
 
 # ── Network service ──
 NETWORK_DEFAULT_TIMEOUT: Final[int] = 30
-NETWORK_FETCH_MAX_CHARS: Final[int] = 5000
 
 
 # ── LLM retry backoff parameters ──
@@ -125,12 +124,8 @@ API_CORS_ALLOW_HEADERS: Final[str] = "Content-Type"
 
 # ── HTTP User-Agent ──
 HTTP_USER_AGENT: Final[str] = "Praxis/1.0"
-HTTP_TOOL_USER_AGENT: Final[str] = "Praxis-Agent/1.0"
 DUCKDUCKGO_SEARCH_URL: Final[str] = "https://api.duckduckgo.com/"
 
-
-# ── Network fetch ──
-NETWORK_FETCH_TIMEOUT: Final[int] = 5
 
 # ── Notify / webhook ──
 NOTIFY_WEBHOOK_TIMEOUT: Final[int] = 15
