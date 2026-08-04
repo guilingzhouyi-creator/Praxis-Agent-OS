@@ -87,7 +87,7 @@ HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
     "write": "write_file", "create": "create_file", "replace": "replace_string_in_file",
     "extract": "extract_method", "build": "build_project", "test": "test_project",
     "lint": "lint", "review": "review_code", "doc": "generate_doc",
-    "fix": "write_file", "plan": "write_file",
+    "fix": "create_file", "plan": "create_file",
 }
 
 # ── Scout ──

@@ -1,6 +1,6 @@
 # Praxis Agent OS — Technical Architecture
 
-> NOMOS Praxis v0.3.0 codename "Aether"  
+> NOMOS Praxis v0.4.0 codename "Aether"  
 > Based on `src/` (commit: current working tree).  
 > All references are to `src/l1/`, `src/l2/`, `src/l3/`, `src/l4/`, `src/l5/`.
 

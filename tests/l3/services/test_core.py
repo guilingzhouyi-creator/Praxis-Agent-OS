@@ -95,8 +95,8 @@ class TestLLMEngine:
             assert r.get("tokens", 0) >= 0
         finally:
             # Clear the L3 override so it doesn't leak into other tests
-            # (config_loader's test_llm_handler reads llm.provider).  L1
-            # default is already "mock", so no restore is needed.
+            # (config_loader's test_llm_handler reads llm.provider).
+            # reset() restores the default (ollama), which is fine here.
             s.reset("llm.provider")
 
 
@@ -213,7 +213,7 @@ class TestAgentTerminal:
             reset_terminals()
         finally:
             # Clear the L3 overrides so they don't leak into other tests
-            # (config_loader's test_llm_handler reads llm.provider).  L1
-            # defaults are already mock/"", so no restore is needed.
+            # (config_loader's test_llm_handler reads llm.provider).
+            # reset() restores the defaults (ollama / qwen2.5-coder:7b).
             s.reset("llm.provider")
             s.reset("llm.model")

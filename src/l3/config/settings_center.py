@@ -136,8 +136,8 @@ _L1_DEFAULTS: dict[str, Any] = {
     "loop.verify_cadence": True,
 
     # ── LLM global (model_service reads via SettingsCenter) ──
-    "llm.provider": "mock",
-    "llm.model": "",
+    "llm.provider": "ollama",
+    "llm.model": "qwen2.5-coder:7b",
     "llm.api_key": "",
     "llm.api_url": "",
 

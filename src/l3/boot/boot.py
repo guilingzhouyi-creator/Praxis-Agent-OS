@@ -25,8 +25,7 @@ import time
 
 from l1.kernel.lifecycle import LifecycleState, get_lifecycle, transition
 from l1.kernel.params.agent import DEFAULT_CELL_ID, TERRITORY_PATHS
-from l1.kernel.params.api import FILESYSTEM_RATE_LIMIT_DEFAULT, LLM_RATE_LIMIT_DEFAULT
-from l1.kernel.params.system import KERNEL_VERSION, PERSIST_AUTO, PERSIST_INTERVAL
+from l1.kernel.params.system import PERSIST_AUTO, PERSIST_INTERVAL
 
 from .boot_registry import (
     exec_step_with_timeout,
@@ -428,21 +427,14 @@ def _init_discovery() -> dict:
         "vstest": {"cmd": ["vstest.console"]},
     })
     register("provider_urls", dict(_pa.LLM_PROVIDER_URLS))
-    register("default_models", {k: v for k, v in vars(_pa).items() if k.startswith("DEFAULT_MODEL_")})
-    register("error_codes", {})
-    register("danger_levels", dict(_pt.TOOL_DANGER_LEVEL))
-    register("danger_to_gates", dict(_pt.DANGER_TO_GATES))
     # Ring → gate requirements (tool_spec.py reads get_config("ring_gates"))
     register("ring_gates", {
         _pk.RING_1: ["G1", "G2"],
         _pk.RING_2_5: ["G1", "G2", "G3", "G4"],
         _pk.RING_3: ["G1", "G2", "G3", "G4", "G5"],
     })
-    register("ring_num_map", dict(_pk.RING_NUM_MAP))
-    register("ring_name_map", dict(_pk.RING_NAME_MAP))
     # GateChain action-level danger ratings (gatechain.py reads this)
     register("gatechain_danger_levels", dict(_pgc.GATECHAIN_DANGER_LEVELS))
-    register("gatechain_pattern_template", _pgc.GATECHAIN_PATTERN_TEMPLATE)
     # Constitution action sets (constitution.py reads get_config("constitution"))
     register("constitution", {
         "file_actions": sorted(_pag.CONSTITUTION_FILE_ACTIONS),
@@ -475,77 +467,7 @@ def _init_discovery() -> dict:
         "convention_timeout": _pag.CONVENTION_TIMEOUT,
     })
 
-    # ── providers.yaml sections ──
-    register("provider_discovery", {})
-    register("anthropic_api_version", _pa.ANTHROPIC_API_VERSION)
-    register("llm", {"empty_response_waits": list(_pa.LLM_EMPTY_RESPONSE_WAITS)})
-    register("reasoning_effort_levels", {
-        "none": _pa.REASONING_EFFORT_NONE,
-        "low": _pa.REASONING_EFFORT_LOW,
-        "medium": _pa.REASONING_EFFORT_MEDIUM,
-        "high": _pa.REASONING_EFFORT_HIGH,
-    })
-    register("mcp_default_url", _pa.MCP_DEFAULT_URL)
-    register("search_default_url", "https://api.duckduckgo.com/")
-    register("ipc_sockets", {
-        "kernel": _pa.IPC_KERNEL_SOCKET,
-        "llm": _pa.IPC_LLM_SOCKET,
-        "sandbox": _pa.IPC_SANDBOX_SOCKET,
-    })
-    register("env_vars", {
-        "praxis_discovery_port": "PRAXIS_DISCOVERY_PORT",
-        "praxis_port": "PRAXIS_PORT",
-        "praxis_api_token": "PRAXIS_API_TOKEN",
-        "praxis_sandbox_root": _pa.ENV_SANDBOX_ROOT,
-        "praxis_default_cell": _pa.ENV_DEFAULT_CELL,
-        "praxis_constitution": "PRAXIS_CONSTITUTION",
-    })
-
-    # ── agent_configs.yaml sections ──
-    register("central_default_roles", list(_pag.CENTRAL_DEFAULT_ROLES))
-    register("priority_gradient", dict(_pag.PRIORITY_GRADIENT))
-    register("reputation_defaults", dict(_pag.AGENT_REPUTATION_DEFAULTS))
-    register("agent_id_prefixes", list(_pag.AGENT_ID_PREFIXES))
-    register("event_types", {
-        "task_assign": _pag.EVENT_TASK_ASSIGN,
-        "review_requested": _pag.EVENT_REVIEW_REQUESTED,
-        "token_usage": _pag.EVENT_TOKEN_USAGE,
-        "cross_review": _pag.EVENT_CROSS_REVIEW,
-    })
-    register("card_builder_modes", dict(_pag.CARD_BUILDER_MODES))
-    register("injection_patterns", {})
-    register("terminal_valid_modes", ["assembly", "direct"])
-    register("resource_keys", list(_pk.RESOURCE_KEYS))
-    register("r4_agent_territory", list(_pag.R4_TERRITORY))
-    register("htn_default_tools", dict(_pt.HTN_DEFAULT_TOOLS))
-    register("builtin_rule_defs", list(_pag.BUILTIN_RULE_DEFS))
-    register("memory_persist_files", {
-        "ring2": _ps.MEMORY_PERSIST_FILE_RING2,
-        "ring3": _ps.MEMORY_PERSIST_FILE_RING3,
-    })
-    register("search", {
-        "exclude_dirs": sorted(_ps.SEARCH_EXCLUDE_DIRS),
-        "exclude_exts": sorted(_ps.SEARCH_EXCLUDE_EXTS),
-    })
-    register("resource_buffer", {
-        "slot_name_template": _ps.RESOURCE_BUFFER_SLOT_NAME,
-        "slot_glob": _ps.RESOURCE_BUFFER_SLOT_GLOB,
-        "pending_dir": _ps.RESOURCE_BUFFER_PENDING_DIR,
-        "hidden_dir": _ps.RESOURCE_BUFFER_HIDDEN_DIR,
-        "checkpoint_file": _ps.RESOURCE_BUFFER_CHECKPOINT_FILE,
-        "journal_file": _ps.RESOURCE_BUFFER_JOURNAL_FILE,
-        "root_dir": _ps.RESOURCE_BUFFER_ROOT_DIR,
-    })
-    register("monitoring", {
-        "seq_monitor_path": _ps.SEQ_MONITOR_PATH,
-        "reference_channel_path": _ps.RC_PATH,
-    })
-    register("l3b_message_dir", _ps.L3B_MESSAGE_DIR)
-    register("agent_defaults", {})
-    register("central_roles", list(_pag.CENTRAL_ROLES))
-    register("agent_clearance", dict(_pag.AGENT_CLEARANCE))
-    register("agent_priority", dict(_pag.AGENT_PRIORITY))
-    register("agent_role_map", dict(_pag.AGENT_ROLE_MAP))
+    # ── agent_configs.yaml sections (consumed only) ──
     register("skill_dirs", [".praxis/skills", "skills", ".skills"])
     register("shell_aliases", {
         "rf": "read_file", "wf": "write_file", "ls": "list_directory",
@@ -574,20 +496,6 @@ def _init_discovery() -> dict:
         "exec_token_budget": _pt.TOOL_EXEC_TOKEN_BUDGET,
     })
 
-    # Register cache defaults (params → get_config fallback)
-    register("cache", {
-        "cell_hot_size": _ps.CELL_CACHE_HOT_SIZE,
-        "cell_index_size": _ps.CELL_CACHE_INDEX_SIZE,
-        "cell_kv_size": _ps.CELL_CACHE_KV_SIZE,
-        "cell_hot_ttl": _ps.CELL_CACHE_HOT_TTL,
-        "cell_index_ttl": _ps.CELL_CACHE_INDEX_TTL,
-        "cell_kv_ttl": _ps.CELL_CACHE_KV_TTL,
-        "scout_cache_ttl": _ps.SCOUT_CACHE_TTL,
-        "scout_cache_max_entries": _ps.SCOUT_CACHE_MAX_ENTRIES,
-        "result_store_ttl": _ps.RESULT_STORE_TTL,
-        "result_store_max": _ps.RESULT_STORE_MAX_ENTRIES,
-    })
-
     # Register persistence defaults (params → get_config fallback)
     register("persistence", {
         "interval": _ps.PERSIST_INTERVAL,
@@ -602,17 +510,6 @@ def _init_discovery() -> dict:
         "statecharts": _ps.STATECHARTS_AUTO_SAVE,
         "execution_results": _ps.EXECUTION_RESULTS_AUTO_SAVE,
         "dialogue_session": _ps.DIALOGUE_SESSION_AUTO_SAVE,
-    })
-
-    # Register loop defaults (params → get_config fallback)
-    register("loop", {
-        "max_attempts": _pag.LOOP_MAX_ATTEMPTS,
-        "tool_repeat_warn": _pag.LOOP_TOOL_REPEAT_WARN,
-        "tool_repeat_stop": _pag.LOOP_TOOL_REPEAT_STOP,
-        "coarse_repeat_nudge": _pag.LOOP_COARSE_REPEAT_NUDGE,
-        "coarse_repeat_stop": _pag.LOOP_COARSE_REPEAT_STOP,
-        "verify_cadence": _pag.LOOP_VERIFY_CADENCE,
-        "continuation_nudge": _pag.LOOP_CONTINUATION_NUDGE,
     })
 
     # Register discovery directory
@@ -647,7 +544,7 @@ def _init_kernel_and_vfs() -> dict:
     from l1.kernel import get_event_bus
     from l1.kernel.allocator import get_allocator
     from l1.kernel.constitution import get_constitution
-    from l1.kernel.device import DeviceType, get_device_manager
+    from l1.kernel.device import get_device_manager
     from l1.kernel.gatechain import get_gatechain
     from l1.kernel.swapper import get_swapper
     from l1.kernel.vfs import MountType, get_vfs
@@ -688,8 +585,8 @@ def _init_kernel_and_vfs() -> dict:
         logger.warning("boot config: %s", e)
 
     dm = get_device_manager()
-    dm.register("llm", DeviceType.LLM, rate_limit=LLM_RATE_LIMIT_DEFAULT, version=KERNEL_VERSION)
-    dm.register("filesystem", DeviceType.STORAGE, rate_limit=FILESYSTEM_RATE_LIMIT_DEFAULT, version=KERNEL_VERSION)
+    # 设备注册由 load_config 步骤的 cfg_devices（praxis.yaml devices: 节）完成，
+    # 此处不再硬编码注册（重复注册会被 device_manager 静默拒绝）。
     dm.start_health_checks()
     return {"success": True, "results": results}
 

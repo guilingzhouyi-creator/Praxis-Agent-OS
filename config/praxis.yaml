@@ -38,9 +38,9 @@ llm:
   provider: ollama              # mock | ollama | openai | anthropic
   model: qwen2.5-coder:7b
   api_url: http://localhost:11434
-  api_key: ${DEEPSEEK_API_KEY}  # or set env var directly
-  max_tokens: 1024
-  temperature: 0.1
+  api_key: ""                   # ollama needs no key; use the matching env vars for cloud providers (OPENAI_API_KEY / DEEPSEEK_API_KEY, etc.)
+  max_tokens: 2048              # keep in sync with params/api.py LLM_DEFAULT_MAX_TOKENS
+  temperature: 0.3              # keep in sync with params/api.py LLM_DEFAULT_TEMPERATURE
   rate_limit: 10                # LLM API calls per second
   cache:                        # Per-provider prefix cache strategy
     defaults:
@@ -155,13 +155,9 @@ htn:
     plan: create_file
 
 # ── Card pool (external registries for card type distribution) ──
-# Replace <url> with your actual card registry endpoint.
+# No registry configured: when registries is empty, card_pool uses built-in types only.
 card_pool:
-  registries:
-    - name: "community"
-      url: "https://registry.example.com/api/v1"    # ← replace with your registry
-
-      priority: 1
+  registries: []
   auto_sync: false
   sync_interval: 3600
 
@@ -171,16 +167,6 @@ cache:
   max_size_mb: 10               # File cache size limit
   ttl: 60                       # File cache TTL (s)
   context_max: 200              # Context register entries
-  cell_hot_size: 50             # CellCache Hot Ring: latest summaries
-  cell_index_size: 200          # CellCache Index Chain: key → summary
-  cell_kv_size: 100             # CellCache KV: full values
-  cell_hot_ttl: 300             # CellCache Hot TTL (s, 5min)
-  cell_index_ttl: 900           # CellCache Index TTL (s, 15min)
-  cell_kv_ttl: 1800             # CellCache KV TTL (s, 30min)
-  scout_cache_ttl: 30           # Scout result cache TTL (s)
-  scout_cache_max_entries: 200  # Scout result cache max entries
-  result_store_ttl: 300         # Tool result store TTL (s)
-  result_store_max: 500         # Tool result store max entries
 
 # ── Persistence (auto-save intervals) ──
 persistence:
@@ -272,17 +258,12 @@ mcp:
     #   endpoint: "http://localhost:3501/mcp/v1"
     # Replace localhost:3500/3501 with your MCP server address.
 
-# ── Persistence ──
-persist:
-  enabled: true
-  interval: 30                  # Auto-save interval (s)
-
-# ── R5 群域图记忆（语义拓扑索引层，默认关闭）──
-# 开启后：记忆写入自动建边（sequential/type_chain/cell_chain），
-# 支持扩散检索与图约简报告。关闭时零影响（R1-R4 线性记忆照常）。
+# ── R5 swarm-domain graph memory (semantic topology index layer, off by default) ──
+# When enabled: memory writes auto-create edges (sequential/type_chain/cell_chain),
+# with diffusion retrieval and graph-reduction reports. Zero impact when disabled (R1-R4 linear memory as usual).
 memory:
   graph:
-    enabled: false              # 全局开关（可 Cell/会话级覆盖）
+    enabled: false              # global toggle (overridable at Cell/session level)
 
 # ── Network mesh ──
 network:
@@ -298,16 +279,18 @@ api:
   auth_token: ${PRAXIS_API_TOKEN}  # Bearer token (empty = no auth)
   mcp_mode: full                    # MCP export: normal | selected | full
 
-# ── Territory → role mapping ──
+# ── Territory → role mapping (paths must exist in this repo) ──
 territories:
   reader:
-    - src/web
-    - src/config
+    - src/l1
+    - src/l2
+    - docs
   writer:
-    - src/api
-    - src/services
+    - src/l3
+    - src/l4
   reviewer:
-    - src/security
+    - src/l5
+    - config
 
 # ── Clearance (role → ring) ──
 clearance:

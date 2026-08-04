@@ -1,36 +1,14 @@
-# Tool danger level labels and gate/ring mappings.
-# Auto-discovered by ConfigDiscovery; overlays params/tool.py and params/kernel.py.
-
-# ── Danger level labels (level → name) ──
-danger_levels:
-  0: read_only
-  1: safe_write
-  2: dangerous
-  3: destructive
-
-# ── Danger level → gate requirements ──
-danger_to_gates:
-  0: [G1, G2]
-  1: [G1, G2, G3, G4]
-  2: [G1, G2, G3, G4]
-  3: [G1, G2, G3, G4, G5]
+# Tool ring → gate requirements and GateChain action danger ratings.
+# Auto-discovered by ConfigDiscovery; overlays params/tool.py and params/gatechain.py.
+# Only `ring_gates` (tool_spec.py) and `gatechain_danger_levels` (gatechain.py)
+# are consumed at runtime. Other danger-level metadata lives in
+# src/l1/kernel/params/tool.py / params/gatechain.py — do not duplicate it here.
 
 # ── Tool ring → gate requirements ──
 ring_gates:
   RING_1:   [G1, G2]
   RING_2_5: [G1, G2, G3, G4]
   RING_3:   [G1, G2, G3, G4, G5]
-
-# ── Ring number ↔ name maps ──
-ring_num_map:
-  RING_1: 1
-  RING_2_5: 2
-  RING_3: 3
-
-ring_name_map:
-  1: RING_1
-  2: RING_2_5
-  3: RING_3
 
 # ── GateChain action-level danger ratings (action → danger level) ──
 gatechain_danger_levels:
@@ -47,6 +25,3 @@ gatechain_danger_levels:
   write: 2
   replace: 2
   format: 2
-
-# ── GateChain pattern template ──
-gatechain_pattern_template: "G1-{g1}_G3-{g3}"

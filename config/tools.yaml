@@ -163,6 +163,23 @@ layer_1:
       description: "Check installed package version"
       handler: l3.tools._deps.check_version
       params: [{name: package, type: string, required: true}]
+    pip_list:
+      description: "List installed Python packages"
+      handler: l3.tools._package.pip_list
+
+  lsp:
+    hover_info:
+      description: "Get hover documentation for a symbol"
+      handler: l3.tools._lsp.hover_info
+      params: [{name: path, type: string, required: true}, {name: line, type: int, optional: true}, {name: column, type: int, optional: true}]
+    diagnostics:
+      description: "Get diagnostics (errors/warnings) for a file"
+      handler: l3.tools._lsp.diagnostics
+      params: [{name: path, type: string, required: true}]
+    workspace_symbols:
+      description: "Search for symbols across the workspace"
+      handler: l3.tools._lsp.workspace_symbols
+      params: [{name: query, type: string, required: true}]
 
 # ═══════════════════════════════════════════════════════════════
 # Layer 2 — Write (RING_2_5, danger >= 1)
@@ -257,10 +274,6 @@ layer_2:
       danger: 1
       handler: l3.tools._package.pip_install
       params: [{name: package, type: string, required: true}, {name: version, type: string, optional: true}]
-    pip_list:
-      description: "List installed Python packages"
-      danger: 0
-      handler: l3.tools._package.pip_list
     npm_install:
       description: "Install npm package"
       danger: 1
@@ -271,23 +284,6 @@ layer_2:
       danger: 1
       handler: l3.tools._package.apt_install
       params: [{name: package, type: string, required: true}]
-
-  lsp:
-    hover_info:
-      description: "Get hover documentation for a symbol"
-      danger: 0
-      handler: l3.tools._lsp.hover_info
-      params: [{name: path, type: string, required: true}, {name: line, type: int, optional: true}, {name: column, type: int, optional: true}]
-    diagnostics:
-      description: "Get diagnostics (errors/warnings) for a file"
-      danger: 0
-      handler: l3.tools._lsp.diagnostics
-      params: [{name: path, type: string, required: true}]
-    workspace_symbols:
-      description: "Search for symbols across the workspace"
-      danger: 0
-      handler: l3.tools._lsp.workspace_symbols
-      params: [{name: query, type: string, required: true}]
 
 # ═══════════════════════════════════════════════════════════════
 # Layer 3 — Destructive (RING_3, danger >= 4)
@@ -365,13 +361,3 @@ layer_3:
         - {name: mode, type: string, optional: true, description: "review|deploy|scout"}
         - {name: task, type: string, required: true, description: "Task description"}
         - {name: timeout, type: int, optional: true, description: "Max seconds"}
-
-# ═══════════════════════════════════════════════════════════════
-# Hidden — Not registered in TOOL_REGISTRY, used as references
-# ═══════════════════════════════════════════════════════════════
-
-_hidden:
-  _replace_string:
-    description: "Replace string in file (internal)"
-    layer: 2
-    danger: 1

@@ -273,12 +273,6 @@ audit:
     - "/audit              — show last 20 audit entries"
     - "/audit 100          — show last 100"
 
-settings:
-  category: audit
-  help: "View runtime system settings"
-  examples:
-    - "/settings           — show system settings"
-
 devices:
   category: audit
   help: "List registered kernel devices"

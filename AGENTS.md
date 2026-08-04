@@ -33,7 +33,7 @@ python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # re
 ## Architecture
 
 ```
-src/l5/ — User layer: cli.py (296 lines), agent_runtime.py
+src/l5/ — User layer: cli.py (310 lines), agent_runtime.py
 src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP, vault
 src/l3/ — Cell layer (~19K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
@@ -109,8 +109,8 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | `config/praxis.yaml` | Main config (kernel, cell, LLM, constitution, gatechain, API) |
 | `config/commands.yaml` | 40 L2 shell command definitions |
 | `config/tools.yaml` | 70+ tool definitions by ring layer |
-| `config/.praxis-rules.md` | Constitution rules (parsed by `constitution.py`) |
-| `config/.mcp.json` | MCP server definitions |
+| `.praxis-rules.md` | Constitution rules (parsed by `constitution.py`; repo root) |
+| `config/praxis.yaml` `mcp:` | MCP server definitions |
 | `locales/` | i18n: en, zh-CN, ja, ko |
 | `memories/` | Runtime agent memory persistence |
 | `.praxis/skills/` | 7 Praxis-specific skills (architecture, card, cell, kernel, scout, self, tool-pipeline) |
