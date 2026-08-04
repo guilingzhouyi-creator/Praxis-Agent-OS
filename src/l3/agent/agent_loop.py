@@ -695,6 +695,15 @@ class AgentLoop:
                 break
             tool_name = step_result.get("name", "unknown") if isinstance(step_result, dict) else "?"
 
+            # ── ASK awaiting: break early when a tool requests user clarification ──
+            res_body = step_result.get("result", {}) if isinstance(step_result, dict) else {}
+            if isinstance(res_body, dict) and res_body.get("awaiting_input"):
+                step_result["_awaiting_input"] = True
+                processed_results.append(step_result)
+                all_passed = True
+                result["finish_reason"] = "awaiting_input"
+                break
+
             if self._loop_detector.check(tool_name, step_result.get("args", {}), step_result) == "stop":
                 step_result["_loop_stopped"] = True
                 processed_results.append(step_result)
@@ -892,4 +901,7 @@ class AgentLoop:
             "verifier_used": verifier_used,
             "corrections": corrections,
             "loop_stopped": any(s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)),
+            "awaiting_input": any(
+                isinstance(s, dict) and s.get("_awaiting_input")
+                for s in processed_results),
         }, t0=t0, turns=turns, corrections=corrections, processed_count=len(processed_results))

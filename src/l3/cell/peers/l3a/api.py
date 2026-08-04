@@ -194,6 +194,35 @@ def dispatch(args: list[str], mgr: SessionManager,
             return {"success": False, "error": f"session not active: {sid}"}
         return s.auto_compress_check(force=True)
 
+    if sub == "ask":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        return s.ask_status()
+
+    if sub == "answer":
+        if len(args) < 2:
+            return {"success": False, "error": "session_id required"}
+        sid = args[1]
+        s = mgr.get(sid)
+        if not s:
+            return {"success": False, "error": f"session not active: {sid}"}
+        answers: dict = {}
+        free_form = ""
+        for part in args[2:]:
+            if "=" in part:
+                k, _, v = part.partition("=")
+                answers[k.strip()] = v.strip()
+            else:
+                free_form = (free_form + " " + part).strip()
+        r = s.submit_answers(answers, free_form)
+        if r.get("success"):
+            return s.resume_after_ask()
+        return r
+
     return {"success": False, "error": f"unknown subcommand: {sub}"}
 
 

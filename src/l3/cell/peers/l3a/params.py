@@ -73,3 +73,11 @@ SESSION_MAX_STEPS_UNLIMITED: int = 999999    # sentinel for "unlimited" step cap
 # ── Reasoning trail (thinking-mode ingestion) ──
 REASONING_TRAIL_MAX_TURNS: int = 8           # max thinking rounds folded into one memory entry
 REASONING_TRAIL_IMPORTANCE: float = 0.6
+
+# ── ASK clarification tool (l3a_ask) ──
+ASK_MAX_QUESTIONS: int = 5                   # max questions per l3a_ask call
+ASK_MAX_ANSWER_CHARS: int = 4000             # per-answer length cap
+ASK_FREE_FORM_KEY: str = "_free"             # free-form custom input key in answers dict
+ASK_STATUS_AWAITING: str = "awaiting"        # session is waiting for user answers
+ASK_STATUS_ANSWERED: str = "answered"        # answers submitted, execution may resume
+ASK_STATUS_EXPIRED: str = "expired"          # answers never arrived before session close

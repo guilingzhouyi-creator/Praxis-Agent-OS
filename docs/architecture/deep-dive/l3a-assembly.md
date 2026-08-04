@@ -287,3 +287,31 @@ l3a:
   idle_timeout: 3600        # 空闲自动关闭
   archive_importance: 0.7   # R4 归档重要性阈值
 ```
+
+## ASK 澄清工具 (l3a_ask)
+
+当用户提示词歧义或关键信息缺失时，L3A 调用 `l3a_ask` 工具向用户提问
+（最多 `ASK_MAX_QUESTIONS` 个，可带选项/必答标记），会话进入 `awaiting`
+状态，AgentLoop 检测到 `awaiting_input` 标记提前结束本轮，问题列表返回调用方。
+
+```
+prompt(text) → loop → LLM 调 l3a_ask → session 记录问题 → loop break
+  → 返回 {ask: [...], status: "awaiting"}
+  → 用户回答（三种通道）→ submit_answers → resume_after_ask
+  → Q&A 块注入 history → loop 恢复执行
+```
+
+回答通道（三通道全支持，聊天框为本质语义）：
+
+| 通道 | 形式 | 行为 |
+|------|------|------|
+| 聊天框 | 会话内直接输入下一条消息 | `prompt()` 检测 awaiting → 自动作为回答并恢复执行 |
+| 命令 | `/l3a ask <sid>` / `/l3a answer <sid> q1=.. q2=.. [自由文本]` | 查询状态 / 填充回答并自动恢复 |
+| REST | `POST /api/l3a/ask/status` / `POST /api/l3a/ask/answer` | 前端 UI 使用；answer 体 `{session_id, answers: {q1: ...}, free_form: ...}` |
+
+特性：
+- **部分回答**：允许只回答部分问题，未答必答问题在返回的 `missing` 列表中
+- **结构化语法**：`q1=windows; q2=python` 精确填充；其余文本进入 free-form
+- **持久化**：pending 问题随 session 快照持久化，恢复会话可继续澄清
+- **自定义输入**：`free_form` 承载用户非结构化的补充信息，注入 `[User Clarification]` 块
+- **常量**：`ASK_MAX_QUESTIONS` / `ASK_MAX_ANSWER_CHARS` / `ASK_STATUS_*`（l3a/params.py）
