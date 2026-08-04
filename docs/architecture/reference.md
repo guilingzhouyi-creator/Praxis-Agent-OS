@@ -75,7 +75,7 @@ praxis/
 �?  �?  ├── net_transport.py         # Transport layer + TLS (282 lines)
 �?  �?  ├── ports.py                 # Port interfaces (335 lines)
 �?  �?  ├── registry.py              # Central system registry (90 lines)
-�?  �?  ├── health.py                # Kernel health check (162 lines)
+�?  �?  ├── healthcheck.py            # Kernel health check (162 lines)
 �?  �?  ├── resource.py              # Resource limiter (136 lines)
 �?  �?  ├── prompts.py               # Prompt registry (368 lines)
 �?  �?  ├── commands.py              # CommandRegistry �?sys/user cmds, YAML+API metadata (294 lines)
@@ -251,7 +251,7 @@ praxis/
 �?  �?  �?  ├── scheduler_types.py   # Dataclasses (57 lines)
 �?  �?  �?  ├── sequence_monitor.py  # Anomaly detection (263 lines)
 �?  �?  �?  └── think_registry.py    # Think quota registry (247 lines)
-�?  �?  �?�?  �?  ├── services/                # Stats, Records, Model, etc. (29 files)
+�?  �?  �?�?  �?  ├── services/                # Stats, Records, Model, etc. (31 files)
 �?  �?  �?  ├── __init__.py
 �?  �?  �?  ├── assembly.py          # Constitutional assembly (212 lines)
 �?  �?  �?  ├── bus_components.py    # Bus component registration
@@ -349,8 +349,6 @@ praxis/
 �?  �?  ├── cron_scheduler.py        # Cron scheduling (224 lines)
 �?  �?  ├── user_session.py          # User sessions (149 lines)
 �?  �?  ├── notify.py                # Webhooks (99 lines)
-�?  �?  ├── net_client.py            # HTTP client (83 lines)
-�?  �?  ├── network.py               # Network mesh
 �?  �?  ├── ops_console.py           # Dashboard (289 lines)
 �?  �?  ├── ci.py                    # Internal CI pipeline (231 lines)
 �?  �?  ├── git.py                   # Git ops (149 lines)

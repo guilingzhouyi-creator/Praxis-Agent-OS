@@ -40,7 +40,7 @@ src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent po
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
 src/l2/ — Shell: 40 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/api/system)
+src/l1/kernel/params/ — 817 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
 ```
 
 ### Import rules (enforced by `tests/test_layer_imports.py`)
@@ -121,7 +121,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 |------|-------------|
 | `config/praxis.yaml` | Main config (kernel, cell, LLM, constitution, gatechain, API) |
 | `config/commands.yaml` | 40 L2 shell command definitions |
-| `config/tools.yaml` | 70+ tool definitions by ring layer |
+| `config/tools.yaml` | 68 tool definitions by ring layer |
 | `.praxis-rules.md` | Constitution rules (parsed by `constitution.py`; repo root) |
 | `config/praxis.yaml` `mcp:` | MCP server definitions |
 | `locales/` | i18n: en, zh-CN, ja, ko |
@@ -138,7 +138,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
-- `src/l3/cell/peers/l3a/` — **L3A session system (11 modules):**
+- `src/l3/cell/peers/l3a/` — **L3A session system (14 modules):**
   - `__init__.py` — L3ADaemon lifecycle + singleton
   - `session.py` — Session, SessionHistory, SessionManager
   - `subagent.py` — L3ASubAgentPool + spawn/collect/peek tool handlers
@@ -152,6 +152,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
   - `api.py` — L2 Shell command routing
   - `types.py` — shared enums and dataclasses
   - `params.py` — structural constants (paths, sizes)
+  - `ask.py` — l3a_ask clarification state machine (awaiting flow)
 - `src/l3/cell/peers/l3.py` — CentralController (L3A+L3B+CardRegistry)
 
 ## Sandbox / Structured Diff System

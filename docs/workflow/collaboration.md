@@ -60,7 +60,7 @@ announce intent (in commit message of the announcing commit, or this file) first
 | Shared file | Why | Preferred owner |
 |-------------|-----|-----------------|
 | `src/l3/cell/peers/l3.py` | CentralController hub: L3A + L3B + CardRegistry | c-agent, coordination with s-agent |
-| `src/l1/kernel/params/*.py` | 694 constants; strict compliance test | k-agent (others: add via review, not parallel) |
+| `src/l1/kernel/params/*.py` | 817 constants; strict compliance test | k-agent (others: add via review, not parallel) |
 | `src/l3/boot/` (boot.py, wiring.py) | all domains depend on wiring | b-agent |
 | `tests/conftest.py` | singleton reset registry `_RESETS` | whoever adds a new singleton; must not conflict |
 | `tests/infra/test_layer_imports.py` | cross-layer allowlist | whoever adds a new cross-layer import |

@@ -62,7 +62,7 @@ flowchart TB
         TOOLS["tools/\n17 Tool Implementations"]
         TLSYS["tool_system/\nPipeline, Policy, Spec (8 files)"]
         BUF["resource_buffer/\nRing Buffer (4 files)"]
-        SVCS["services/\nStats, Records, Model (29 files)"]
+        SVCS["services/\nStats, Records, Model (31 files)"]
         CFG["config/\nConfig Loading (8 files)"]
         DISC["discussion/\nAnswer+Convergence (7 files)"]
     end
@@ -90,7 +90,7 @@ flowchart TB
         REP["reputation.py\nTrust Scores"]
         SWAP["swapper.py\nRing Swapper"]
         PORTS["ports.py\nPort Interfaces"]
-        P["params/\n694 Constants"]
+        P["params/\n817 Constants"]
         ERR["errors.py\n20 Error Codes"]
         CMD["commands.py\nCmd Registry"]
         PLAT["platform.py\nCross-Platform"]
@@ -99,7 +99,7 @@ flowchart TB
         NET["net.py\nCross-Cell Mesh"]
         NTP["net_transport.py\nTransport + TLS"]
         REG["registry.py\nSystem Registry"]
-        HLT["health.py\nKernel Health"]
+        HLT["healthcheck.py\nKernel Health"]
         RSC["resource.py\nResource Limiter"]
         PRM["prompts.py\nPrompt Registry"]
         MDR["model_registry.py\nModel Registry"]
@@ -176,7 +176,7 @@ flowchart TB
 
 ## Layer Details
 
-### L1 — Kernel (`src/l1/kernel/`) — 38 Files
+### L1 — Kernel (`src/l1/kernel/`) — 44 Files
 
 | Subsystem | File | Purpose |
 |-----------|------|---------|
@@ -200,8 +200,8 @@ flowchart TB
 | OS | `os.py` | Lifecycle coordinator (boot/shutdown/restart/watchdog) |
 | Errors | `errors.py` | Centralized error system — 20 error codes |
 | Ports | `ports.py` | Hexagonal architecture port interfaces (7 ports) |
-| Params | `params/` | 694 Final constants across 5 sub-modules |
-| Health | `health.py` | Kernel health self-check |
+| Params | `params/` | 817 Final constants across 8 sub-modules |
+| Health | `healthcheck.py` | Kernel health self-check |
 | Platform | `platform.py` | Cross-platform detection, grep_cmd, run_shell |
 | Settings | `settings.py` | Config store proxy (delegates to SettingsCenter) |
 | Skill | `skill.py` | Skill manager — load/execute built-in skills |
@@ -258,7 +258,7 @@ flowchart TB
 | **tool_system/** | `tool_pipeline.py`, `tool_spec.py`, `tool_registry.py` (8 files) | Tool pipeline, spec registry, policy, config, mode |
 | **tools/** | `_files.py`, `_code.py`, `_git.py`, `_build.py`, etc. (17 files) | Tool implementations — file, code, git, web, search, terminal |
 
-### L4 — Bridge (`src/l4/`) — 46 Files Across 11 Root Files + 8 Subdirectories, ~6,500 Lines
+### L4 — Bridge (`src/l4/`) — 49 Files Across 11 Root Files + 8 Subdirectories
 
 | Subdirectory / File | Key Modules | Purpose |
 |--------------------|-------------|---------|
@@ -273,7 +273,7 @@ flowchart TB
 | **rpc/** | `transport.py`, `protocol.py` | IPC framework |
 | **adapters/** | `bus_memory.py`, `channel_ring.py`, `i18n_yaml.py`, etc. (6 files) | Port→adapter wiring |
 | **llm_worker/** | `server.py` | LLM worker process (Unix socket IPC) |
-| Root files | `supervisor.py`, `mcp_bridge.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `net_client.py`, `network.py`, `notify.py`, `ops_console.py`, `user_session.py` | Process supervision, MCP, cron, CI pipeline, git ops, network mesh, webhooks, dashboard |
+| Root files | `supervisor.py`, `mcp_bridge.py`, `cron_scheduler.py`, `ci.py`, `git.py`, `notify.py`, `ops_console.py`, `user_session.py` | Process supervision, MCP, cron, CI pipeline, git ops, webhooks, dashboard |
 
 ### L5 — User (`src/l5/`) — 2 Files, ~470 Lines
 
@@ -409,8 +409,8 @@ IssueCard → IssueOrchestrator
 
 ```
 src/
-├── l1/kernel/          # 38 files — OS primitives
-│   └── params/         # 5 sub-modules, 694 constants
+├── l1/kernel/          # 44 files — OS primitives
+│   └── params/         # 8 sub-modules, 817 constants
 ├── l2/                 # 9 files — Shell layer (40 commands)
 ├── l3/                 # 3 root files + 15 subdirectories — Cell layer
 │   ├── agent/          # AgentLoop, Scout, SubAgent (24 files)
@@ -425,10 +425,10 @@ src/
 │   ├── memory/         # 4-ring memory (17 files)
 │   ├── resource_buffer/# Ring buffer (4 files)
 │   ├── scheduler/      # 5D scheduler + ACB (11 files)
-│   ├── services/       # Stats, Records, Model (29 files)
+│   ├── services/       # Stats, Records, Model (31 files)
 │   ├── tool_system/    # Pipeline, policy, spec (8 files)
 │   └── tools/          # 17 tool implementations
-├── l4/                 # 46 files — Bridge layer
+├── l4/                 # 49 files — Bridge layer
 │   ├── api/            # Gateway, routes, middleware
 │   ├── api_handlers/   # 11 handler modules
 │   ├── llm/            # LLM engine + providers

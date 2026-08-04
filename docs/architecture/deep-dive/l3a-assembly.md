@@ -1,6 +1,6 @@
 # L3A — 会话系统与决策路由
 
-> **Sources:** `src/l3/cell/peers/l3a/` (11 模块包)
+> **Sources:** `src/l3/cell/peers/l3a/` (14 模块包)
 
 ## 架构位置
 

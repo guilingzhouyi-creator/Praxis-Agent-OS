@@ -63,14 +63,14 @@ Cell tracks performance via PMU (hardware counters)
 
 ```
 src/
-├── l1/kernel/          # 38 files — OS primitives, params (694 constants)
-├── l2/                 # 9 files — Shell layer
-├── l3/                 # 15 subdirs — Cell layer (~19K lines)
+├── l1/kernel/          # 44 files — OS primitives, params (817 constants, 8 sub-modules)
+├── l2/                 # 16 files — Shell layer (40 commands)
+├── l3/                 # 205 files — Cell layer (~19K lines)
 │   ├── card/           # Unit-of-work lifecycle (NOT playing cards)
 │   ├── agent/          # AgentLoop execution engine
 │   ├── cell/           # Agent orchestration unit
 │   └── memory/         # 4-ring hierarchical memory
-├── l4/                 # 46 files — Bridge layer
+├── l4/                 # 49 files — Bridge layer (API gateway, LLM, sandbox)
 ├── l5/                 # 2 files — User CLI
 ├── main.py             # Entry point
 ├── tool_ring.py        # Per-agent tool ring
