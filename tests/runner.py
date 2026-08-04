@@ -107,7 +107,17 @@ def run_batch(tests: list[tuple[str, str]], label: str) -> int:
 
 
 def main():
-    pattern = sys.argv[1] if len(sys.argv) > 1 else ""
+    argv = sys.argv[1:]
+    # `--batch 1|2` selects one batch; default runs both (backward compatible).
+    if "--batch" in argv:
+        idx = argv.index("--batch")
+        if idx + 1 < len(argv):
+            sel = argv[idx + 1]
+            if sel == "1":
+                return run_batch(BATCH_1, "fast core")
+            if sel == "2":
+                return run_batch(BATCH_2, "slow extended")
+    pattern = argv[0] if argv else ""
     if pattern:
         return run_batch([pattern], pattern)
 

@@ -86,8 +86,8 @@ class TestCrossReviewDiffPayload:
     """cross-review 消息携带结构化 diff 数据"""
 
     def test_get_sandbox_entries_function_exists(self):
-        from l3.cell.components.cell_cross_review import _get_sandbox_entry
-        assert callable(_get_sandbox_entry)
+        from l3.cell.components.cell_cross_review import _get_sandbox_entries
+        assert callable(_get_sandbox_entries)
 
 
 class TestSandboxEntryHumanReadable:

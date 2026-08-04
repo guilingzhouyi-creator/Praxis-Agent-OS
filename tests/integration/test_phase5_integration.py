@@ -213,7 +213,7 @@ class TestSubAgentTool:
 
     def test_subagent_tool_no_task(self, mocker):
         from l3.tools._subagent import subagent_tool
-        mocker.patch("l3.subagent.SubAgent.run", return_value=mocker.Mock(
+        mocker.patch("l3.agent.subagent.SubAgent.run", return_value=mocker.Mock(
             success=False, findings=[], error="no task", elapsed=0.0))
         r = subagent_tool({"mode": "review"}, "agent")
         assert not r["success"]
@@ -224,7 +224,7 @@ class TestSubAgentTool:
         mock_result.success = True
         mock_result.findings = []
         mock_result.error = ""
-        mocker.patch("l3.subagent.SubAgent.run", return_value=mock_result)
+        mocker.patch("l3.agent.subagent.SubAgent.run", return_value=mock_result)
         r = subagent_tool({"mode": "review", "task": "check file"}, "agent")
         assert r["success"]
 

@@ -1,10 +1,16 @@
-.PHONY: install test lint typecheck clean dev
+.PHONY: install test test-fast test-extended test-all lint typecheck clean dev hooks precommit
 
 install:
 	pip install -e ".[test]"
 
 test:
-	python -m pytest tests/test_kernel.py -x -q --tb=short
+	python tests/runner.py --batch 1
+
+test-fast:
+	python tests/runner.py --batch 1
+
+test-extended:
+	python tests/runner.py --batch 2
 
 test-all:
 	python tests/runner.py
@@ -26,6 +32,9 @@ typecheck:
 
 hooks:
 	git config core.hooksPath .githooks
+
+precommit:
+	pre-commit run --all-files
 
 clean:
 	python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]"

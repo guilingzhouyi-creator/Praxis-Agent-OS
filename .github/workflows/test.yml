@@ -27,43 +27,41 @@ jobs:
           pip install -e ".[test]"
 
       - name: Layer import constraints
-        run: python -m pytest tests/infra/test_layer_imports.py -x -q --tb=short -k "not test_no_upward_imports"
+        run: python -m pytest tests/infra/test_layer_imports.py --maxfail=5 -q --tb=short
 
       - name: Params compliance
-        run: python -m pytest tests/infra/test_params_compliance.py -x -q --tb=short
+        run: python -m pytest tests/infra/test_params_compliance.py --maxfail=5 -q --tb=short
 
       - name: Hardcoded-fixes regression
-        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q --tb=short
-        continue-on-error: true
+        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py --maxfail=5 -q --tb=short
 
       - name: L1 Kernel
-        run: python -m pytest tests/l1/test_kernel.py -x -q --tb=short
+        run: python -m pytest tests/l1/test_kernel.py --maxfail=5 -q --tb=short
 
       - name: L2 Shell
-        run: python -m pytest tests/l2/ -x -q --tb=short
+        run: python -m pytest tests/l2/ --maxfail=5 -q --tb=short
 
       - name: L3 Cell + Tools
         run: |
-          python -m pytest tests/l3/cell/ -x -q --tb=short
-          python -m pytest tests/l3/tools/ -x -q --tb=short
-          python -m pytest tests/l3/bus/ -x -q --tb=short
-          python -m pytest tests/l3/config/ -x -q --tb=short
+          python -m pytest tests/l3/cell/ --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/tools/ --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/bus/ --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/config/ --maxfail=5 -q --tb=short
 
       - name: L3 Memory
-        run: python -m pytest tests/l3/memory/ -x -q --tb=short -k "not r4"
+        run: python -m pytest tests/l3/memory/ --maxfail=5 -q --tb=short -k "not r4"
 
       - name: L3 Discussion + SubAgent
         run: |
-          python -m pytest tests/l3/discussion/ -x -q --tb=short
-          python -m pytest tests/l3/subagent/ -x -q --tb=short
+          python -m pytest tests/l3/discussion/ --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/subagent/ --maxfail=5 -q --tb=short
 
       - name: L4 Bridge
-        run: python -m pytest tests/l4/test_sandbox.py -x -q --tb=short
+        run: python -m pytest tests/l4/test_sandbox.py --maxfail=5 -q --tb=short
 
       - name: Integration
-        run: python -m pytest tests/integration/ -x -q --tb=short
+        run: python -m pytest tests/integration/ --maxfail=5 -q --tb=short
         timeout-minutes: 5
-        continue-on-error: true
 
       - name: Summary
         run: echo "CI completed for Python ${{ matrix.python-version }}"
