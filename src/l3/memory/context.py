@@ -38,6 +38,7 @@ _ROLE_ASSISTANT = "assistant"
 
 @dataclass
 class RegisterEntry:
+    """RegisterEntry — register entry record (role, content, tokens, source, timestamp)."""
     role: str        # system | user | assistant | tool | memory
     content: str
     tokens: int = 0

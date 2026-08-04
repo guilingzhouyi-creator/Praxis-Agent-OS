@@ -29,6 +29,7 @@ _LIFECYCLE_FILE = LIFECYCLE_STATE_FILE
 
 
 class LifecycleState(Enum):
+    """LifecycleState — enum of HALTED, INSTALLING, BOOTING, ACTIVE...."""
     HALTED = "halted"
     INSTALLING = "installing"
     BOOTING = "booting"
@@ -49,6 +50,7 @@ _VALID_TRANSITIONS: dict[LifecycleState, set[LifecycleState]] = {
 
 @dataclass
 class LifecycleRecord:
+    """LifecycleRecord — lifecycle record record (install_version, schema_version, last_boot, last_boot_success, last_shutdown)."""
     install_version: int = 0
     schema_version: str = ""
     last_boot: str = ""
@@ -160,6 +162,7 @@ _lifecycle_lock = threading.Lock()
 
 
 def get_lifecycle() -> LifecycleRegistry:
+    """Get the system lifecycle state machine singleton."""
     global _lifecycle
     if _lifecycle is None:
         with _lifecycle_lock:
@@ -178,4 +181,5 @@ def state() -> LifecycleState:
 
 
 def transition(target: LifecycleState) -> bool:
+    """Apply a lifecycle state transition (validate and persist)."""
     return get_lifecycle().transition(target)

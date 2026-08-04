@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Admission:
+    """Admission — admission record (id, session_id, text, mode, status)."""
     id: str
     session_id: str
     text: str
@@ -35,6 +36,7 @@ class Admission:
 
 
 class PromptInbox:
+    """PromptInbox — prompt inbox."""
     def __init__(self, session_id: str):
         self._session_id = session_id
         self._entries: list[Admission] = []

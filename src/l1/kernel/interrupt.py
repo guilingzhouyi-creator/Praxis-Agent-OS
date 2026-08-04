@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class InterruptType(Enum):
+    """InterruptType — enum of AGENT_CRASH, RESOURCE_EXHAUSTION, DEADLOCK_DETECTED, OOM_KILL."""
     AGENT_CRASH = auto()
     RESOURCE_EXHAUSTION = auto()
     DEADLOCK_DETECTED = auto()
@@ -22,6 +23,7 @@ class InterruptType(Enum):
 
 @dataclass
 class Interrupt:
+    """Interrupt — interrupt record (type, agent_id, reason, data)."""
     type: InterruptType
     agent_id: str = ""
     reason: str = ""

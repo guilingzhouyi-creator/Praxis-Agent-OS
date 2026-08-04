@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ICacheEntry:
+    """ICacheEntry — i cache entry record (key, value, entry_type, frequency, loaded_at)."""
     key: str = ""
     value: Any = None
     entry_type: str = ""          # "tool" | "template" | "htn" | "constitution" | "territory" | "config"

@@ -56,6 +56,7 @@ _RING_RATE = _resolve_ring_rates()
 
 
 def agent_can_access(agent_id: str, tool_ring: str) -> bool:
+    """Check whether the agent may access the given tool/ring."""
     from l1.kernel.params.agent import AGENT_CLEARANCE
     level = AGENT_CLEARANCE.get(agent_id, 1)
     return level >= _RING_ORDER.get(tool_ring, 0)
@@ -91,6 +92,7 @@ _rate_scheduler: RateScheduler | None = None
 
 
 def get_rate_scheduler() -> RateScheduler:
+    """Get the rate scheduler singleton."""
     global _rate_scheduler
     if _rate_scheduler is None:
         _rate_scheduler = RateScheduler()

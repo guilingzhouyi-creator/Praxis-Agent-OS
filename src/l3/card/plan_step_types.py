@@ -7,6 +7,7 @@ from enum import Enum, auto
 
 
 class StepState(Enum):
+    """StepState — enum of PENDING, RUNNING, DONE, FAILED...."""
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()

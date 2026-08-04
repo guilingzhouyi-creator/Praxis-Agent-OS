@@ -114,6 +114,7 @@ RING_NAME_MAP: Final[dict[int, str]] = {1: RING_1, 2: RING_2_5, 3: RING_3}
 
 
 class PraxisRing:
+    """PraxisRing — praxis ring record (TOOL_RING_CAPACITY)."""
     TOOL_RING_CAPACITY: int = 50
 
 
@@ -121,6 +122,7 @@ class PraxisRing:
 
 @dataclass
 class RequestPoolConfig:
+    """RequestPoolConfig — request pool config record (CAPACITY, EVICT_ON_FULL, WEIGHT_REPUTATION, WEIGHT_PRIORITY, WEIGHT_WAIT)."""
     CAPACITY: int = 8
     EVICT_ON_FULL: bool = True
     WEIGHT_REPUTATION: float = 0.40

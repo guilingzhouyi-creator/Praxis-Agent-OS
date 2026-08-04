@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class IssueStatus(Enum):
+    """IssueStatus — enum of PENDING, ANSWERED, SUPPLEMENTED, RESOLVED...."""
     PENDING = auto()
     ANSWERED = auto()
     SUPPLEMENTED = auto()
@@ -38,6 +39,7 @@ class IssueStatus(Enum):
 
 
 class IssueCardStatus(Enum):
+    """IssueCardStatus — enum of DRAFT, DELIBERATING, CONVERGED, ARCHIVED...."""
     DRAFT = auto()
     DELIBERATING = auto()
     CONVERGED = auto()

@@ -10,6 +10,7 @@ from l1.kernel.params.kernel import PraxisRing, RequestPoolConfig
 
 @dataclass
 class ToolCallRecord:
+    """ToolCallRecord — tool call record record (tool_name, agent_id, success, gate_result, fingerprint)."""
     tool_name: str
     agent_id: str
     success: bool

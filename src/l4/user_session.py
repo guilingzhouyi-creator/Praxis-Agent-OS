@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class UserSession:
+    """UserSession — user session record (id, user_id, agent_id, cell_id, status)."""
     id: str
     user_id: str
     agent_id: str = ""

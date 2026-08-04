@@ -294,6 +294,7 @@ _chain_lock = threading.Lock()
 
 
 def get_tool_chain() -> ToolChain:
+    """Get the tool chain singleton."""
     global _chain
     if _chain is None:
         with _chain_lock:

@@ -24,12 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 class PolicyAction(str, Enum):
+    """PolicyAction — enum of DISABLE, ENABLE, REQUIRE_APPROVAL."""
     DISABLE = "disable"
     ENABLE = "enable"
     REQUIRE_APPROVAL = "require_approval"
 
 
 class PolicyScope(str, Enum):
+    """PolicyScope — enum of GLOBAL, CELL, ROLE, AGENT...."""
     GLOBAL = "global"
     CELL = "cell"
     ROLE = "role"

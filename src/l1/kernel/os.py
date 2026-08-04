@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class OSState(Enum):
+    """OSState — enum of DOWN, STARTING, RUNNING, STOPPING...."""
     DOWN = auto()
     STARTING = auto()
     RUNNING = auto()

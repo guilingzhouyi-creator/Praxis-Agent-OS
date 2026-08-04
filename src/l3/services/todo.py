@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class TodoStatus(Enum):
+    """TodoStatus — enum of PENDING, IN_PROGRESS, DONE, FAILED...."""
     PENDING = auto()
     IN_PROGRESS = auto()
     DONE = auto()
@@ -40,6 +41,7 @@ class TodoStatus(Enum):
 
 @dataclass
 class TodoItem:
+    """TodoItem — todo item record (id, intent, domain, priority, status)."""
     id: str = ""
     intent: str = ""
     domain: str = ""

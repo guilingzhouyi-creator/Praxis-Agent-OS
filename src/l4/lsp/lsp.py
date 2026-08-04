@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Symbol:
+    """Symbol — symbol record (name, kind, file, line, column)."""
     name: str
     kind: str = ""
     file: str = ""

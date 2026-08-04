@@ -89,6 +89,7 @@ def get_card_type(name: str) -> dict:
 
 
 def list_card_types() -> list[dict]:
+    """List all registered card types (metadata dicts)."""
     with _registry_lock:
         return [
             {"name": k, **v}

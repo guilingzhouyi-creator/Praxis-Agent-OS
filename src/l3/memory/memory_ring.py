@@ -42,6 +42,7 @@ def _estimate_tokens(text: str, provider: str = "") -> int:
 
 @dataclass
 class MemEntry:
+    """MemEntry — mem entry record (id, agent_id, entry_type, content, cell_id)."""
     id: str
     agent_id: str
     entry_type: str

@@ -326,6 +326,7 @@ _center: SettingsCenter | None = None
 
 
 def get_center() -> SettingsCenter:
+    """Get the SettingsCenter singleton."""
     global _center
     if _center is None:
         _center = SettingsCenter()

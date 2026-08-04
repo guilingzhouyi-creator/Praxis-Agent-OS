@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ProcessHandle:
+    """ProcessHandle — process handle record (id, name, process, output, started_at)."""
     id: str
     name: str
     process: subprocess.Popen | None = None
@@ -44,6 +45,7 @@ class ProcessHandle:
 
 
 class ProcessManager:
+    """ProcessManager — process manager."""
     def __init__(self):
         self._processes: dict[str, ProcessHandle] = {}
         self._lock = threading.Lock()

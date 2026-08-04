@@ -17,6 +17,7 @@ from . import params as _p
 
 @dataclass
 class L3AModelConfig:
+    """L3AModelConfig — l3 a model config record (provider, model, max_tokens, temperature, reasoning_effort)."""
     provider: str = ""
     model: str = ""
     max_tokens: int = _p.L3A_MODEL_MAX_TOKENS

@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class PendingStatus(Enum):
+    """PendingStatus — enum of PENDING, APPROVED, REJECTED, ESCALATED...."""
     PENDING = auto()
     APPROVED = auto()
     REJECTED = auto()
@@ -50,6 +51,7 @@ class PendingStatus(Enum):
 
 @dataclass
 class PendingMessage:
+    """PendingMessage — pending message record (id, card_id, intent, domain, size)."""
     id: str = ""
     card_id: str = ""
     intent: str = ""

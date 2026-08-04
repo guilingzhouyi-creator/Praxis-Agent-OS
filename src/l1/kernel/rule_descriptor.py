@@ -33,12 +33,14 @@ from enum import Enum, auto
 
 
 class RuleSeverity(Enum):
+    """RuleSeverity — enum of MUST, SHOULD, MAY."""
     MUST = auto()
     SHOULD = auto()
     MAY = auto()
 
 
 class CheckResult(Enum):
+    """CheckResult — enum of PASS, WARN, BLOCK."""
     PASS = auto()
     WARN = auto()
     BLOCK = auto()

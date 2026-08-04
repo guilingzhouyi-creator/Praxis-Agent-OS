@@ -48,6 +48,7 @@ def register_slot(slot_name: str, default: Any = None, description: str = "",
 
 @dataclass
 class SlotEntry:
+    """SlotEntry — slot entry record (name, value, version, updated_at, updated_by)."""
     name: str
     value: Any
     version: int = 1

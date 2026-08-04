@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class DecomposeState(Enum):
+    """DecomposeState — enum of DRAFT, CONFIRMED, DISPATCHED, RUNNING...."""
     DRAFT = auto()       # freshly decomposed, awaiting confirmation
     CONFIRMED = auto()   # human confirmed
     DISPATCHED = auto()  # dispatched to Cell

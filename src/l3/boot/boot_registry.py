@@ -22,6 +22,7 @@ _boot_registry_locked: bool = False
 
 @dataclass
 class BootStep:
+    """BootStep — boot step record (name, fn, depends_on)."""
     name: str = ""
     fn: Callable = lambda: {}
     depends_on: list[str] = field(default_factory=list)

@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class SessionState(Enum):
+    """SessionState — enum of IDLE, ACTIVE, WAITING, COMPLETED...."""
     IDLE = auto()        # Created, not started
     ACTIVE = auto()      # In multi-turn dialogue
     WAITING = auto()     # Awaiting external tool result
@@ -65,6 +66,7 @@ class TurnRecord:
 
 @dataclass
 class SessionConfig:
+    """SessionConfig — session config record (max_turns, max_context_tokens, idle_timeout, persist_after)."""
     max_turns: int = 20
     max_context_tokens: int = 4096
     idle_timeout: float = DIALOGUE_IDLE_TIMEOUT  # 5 min

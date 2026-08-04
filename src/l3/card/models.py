@@ -19,12 +19,14 @@ logger.warning("DEPRECATED: import from services.card — use services.card_unif
 
 
 class CardMode(Enum):
+    """CardMode — enum of EXECUTE, ISSUE, PARALLEL_ALL."""
     EXECUTE = auto()
     ISSUE = auto()
     PARALLEL_ALL = auto()
 
 
 class PhaseMode(Enum):
+    """PhaseMode — enum of SEQUENTIAL, PARALLEL."""
     SEQUENTIAL = auto()
     PARALLEL = auto()
 

@@ -81,6 +81,7 @@ def set_color_scheme(scheme: dict[str, str]) -> None:
 
 
 def reset_color_scheme() -> None:
+    """Reset the sandbox diff color scheme to defaults."""
     _COLOR_SCHEME.clear()
     _COLOR_SCHEME.update(_DEFAULT_COLOR_SCHEME)
 
@@ -1014,6 +1015,7 @@ _manager_lock = threading.Lock()
 
 
 def get_manager(sandbox_root: str | None = None) -> SandboxManager:
+    """Get the sandbox manager singleton."""
     global _manager
     if _manager is None:
         with _manager_lock:

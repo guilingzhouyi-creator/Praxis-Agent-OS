@@ -34,11 +34,13 @@ logger = logging.getLogger(__name__)
 
 
 class TaskType(Enum):
+    """TaskType — enum of PRIMITIVE, COMPOUND."""
     PRIMITIVE = auto()   # Atomic action, can be executed directly
     COMPOUND = auto()   # Has sub-tasks, needs decomposition
 
 
 class TaskStatus(Enum):
+    """TaskStatus — enum of PENDING, RUNNING, DONE, FAILED...."""
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()

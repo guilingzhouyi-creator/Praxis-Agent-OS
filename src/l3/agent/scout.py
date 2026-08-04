@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ScoutReport:
+    """ScoutReport — scout report record (scout_id, agent_id, task, status, findings)."""
     scout_id: str
     agent_id: str
     task: str = ""
@@ -392,6 +393,7 @@ def scout_cache_stats() -> dict:
 
 
 def get_pool() -> ScoutPool:
+    """Get the scout pool singleton."""
     global _pool
     if _pool is None:
         _pool = ScoutPool()

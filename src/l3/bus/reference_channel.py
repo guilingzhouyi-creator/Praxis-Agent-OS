@@ -289,6 +289,7 @@ _rc_lock = threading.Lock()
 
 
 def get_rc() -> ReferenceChannel:
+    """Get the reference channel singleton."""
     global _rc
     if _rc is None:
         with _rc_lock:

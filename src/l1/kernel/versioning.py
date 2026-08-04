@@ -65,6 +65,7 @@ def register_migration(kind: str, from_version: int, label: str, fn: callable) -
 
 
 def check_and_migrate(data: dict, kind: str) -> dict:
+    """Check and apply pending persistence migrations."""
     entry = _REGISTRY.get(kind)
     if entry is None:
         logger.warning("versioning: unknown kind %s, skipping", kind)
@@ -100,6 +101,7 @@ def check_and_migrate(data: dict, kind: str) -> dict:
 
 
 def stamp(data: dict, kind: str) -> dict:
+    """Stamp a version marker into persistence."""
     entry = _REGISTRY.get(kind)
     if entry is None:
         return data

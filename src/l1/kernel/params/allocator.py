@@ -7,6 +7,7 @@ from typing import Final
 
 @dataclass
 class AllocatorDefaults:
+    """AllocatorDefaults — allocator defaults record (tokens, ring1, ring2, ring3, sandbox_kb)."""
     tokens: int = 4096
     ring1: int = 32
     ring2: int = 200
@@ -54,6 +55,7 @@ ZOMBIE_MAX_AGE: Final[float] = 300.0
 
 @dataclass
 class ResourceProfileDefaults:
+    """ResourceProfileDefaults — resource profile defaults record (max_tokens, max_workers, max_scouts, max_memory, priority)."""
     max_tokens: int = 4096
     max_workers: int = 4
     max_scouts: int = 3

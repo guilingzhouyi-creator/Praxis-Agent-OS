@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SignalType(Enum):
+    """SignalType — enum of TASK_ASSIGN, TASK_CANCEL, REVIEW_RESULT, CONSTITUTION_UPDATE...."""
     # L3 → Agent
     TASK_ASSIGN = auto()
     TASK_CANCEL = auto()
@@ -64,6 +65,7 @@ def register_signal_type(name: str) -> SignalType:
 
 @dataclass
 class Signal:
+    """Signal — signal record (type, data, sender, target, timestamp)."""
     type: SignalType
     data: dict = field(default_factory=dict)
     sender: str = ""

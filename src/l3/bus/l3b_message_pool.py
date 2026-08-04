@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CacheMessage:
+    """CacheMessage — cache message record (msg_id, msg_type, sender, target, payload)."""
     msg_id: str
     msg_type: str
     sender: str

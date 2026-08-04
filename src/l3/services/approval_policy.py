@@ -68,6 +68,7 @@ _policy: ApprovalPolicy | None = None
 
 
 def get_policy() -> ApprovalPolicy:
+    """Get the approval policy singleton."""
     global _policy
     if _policy is None:
         _policy = ApprovalPolicy()

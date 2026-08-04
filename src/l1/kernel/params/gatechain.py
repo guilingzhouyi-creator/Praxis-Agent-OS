@@ -35,6 +35,7 @@ GATECHAIN_REP_LOW_THRESHOLD: Final[float] = 0.7
 
 
 class GateStatus:
+    """GateStatus — gate status record (PASS, WARN, BLOCK, REPORT)."""
     PASS: str = "PASS"
     WARN: str = "WARN"
     BLOCK: str = "BLOCK"
@@ -42,6 +43,7 @@ class GateStatus:
 
 
 class WitnessStatus:
+    """WitnessStatus — witness status record (PENDING, AWAITING, STILL_WAITING, APPROVED, REJECTED)."""
     PENDING: str = "PENDING"
     AWAITING: str = "AWAITING"
     STILL_WAITING: str = "STILL_WAITING"

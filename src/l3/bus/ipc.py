@@ -38,6 +38,7 @@ from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 class MessageType(Enum):
+    """MessageType — enum of TASK_ASSIGN, TASK_CANCEL, REVIEW_RESULT, CONSTITUTION_UPDATE...."""
     # L3 → Agent
     TASK_ASSIGN = "task.assign"
     TASK_CANCEL = "task.cancel"
@@ -311,6 +312,7 @@ _bus: IpcBus | None = None
 
 
 def get_bus() -> IpcBus:
+    """Get the IPC bus singleton."""
     global _bus
     if _bus is None:
         _bus = IpcBus()

@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessState(Enum):
+    """ProcessState — enum of READY, RUNNING, BLOCKED, ZOMBIE...."""
     READY = auto()
     RUNNING = auto()
     BLOCKED = auto()
@@ -101,6 +102,7 @@ def _apply_transition(pcb: PCB, action: str) -> bool:
 
 @dataclass
 class ResourceUsage:
+    """ResourceUsage — resource usage record (tokens_allocated, tokens_used, workers_active, scouts_active, memory_entries)."""
     tokens_allocated: int = 0
     tokens_used: int = 0
     workers_active: int = 0

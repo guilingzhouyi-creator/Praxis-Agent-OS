@@ -33,6 +33,7 @@ if _cfg:
 
 @dataclass
 class ApprovalRequest:
+    """ApprovalRequest — approval request record (id, tool_name, agent_id, args, reason)."""
     id: str = field(default_factory=lambda: f"apr-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     tool_name: str = ""
     agent_id: str = ""

@@ -38,6 +38,7 @@ _STOPWORDS = frozenset({
 
 @dataclass
 class L3ASummary:
+    """L3ASummary — l3 a summary record (issue_id, source_card_id, title, domain, created_at)."""
     issue_id: str = ""
     source_card_id: str = ""
     title: str = ""
@@ -59,6 +60,7 @@ class L3ASummary:
 
 
 class L3ASummaryStore:
+    """L3ASummaryStore — l3 a summary store."""
     def __init__(self, persist_dir: str = ""):
         try:
             from l1.kernel.paths import get_paths as _gp

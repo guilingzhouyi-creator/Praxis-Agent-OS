@@ -173,6 +173,7 @@ class ApiGateway(ApiHandlers):
         import urllib.parse
 
         class _Handler(http.server.BaseHTTPRequestHandler):
+            """_Handler — _ handler record (gateway)."""
             gateway: ApiGateway = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):

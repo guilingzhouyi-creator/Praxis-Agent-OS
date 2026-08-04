@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class PersistableMixin(ABC):
+    """PersistableMixin — persistable mixin record (persistence_kind, _persist_path, _auto_save_interval, _lock, _auto_save_stop)."""
     persistence_kind: str = ""
     _persist_path: str = ""
     _auto_save_interval: float = 30.0

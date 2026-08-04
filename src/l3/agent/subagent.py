@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SubAgentResult:
+    """SubAgentResult — sub agent result record (task, findings, error, elapsed, success)."""
     task: str = ""
     findings: list[dict] = field(default_factory=list)
     error: str = ""

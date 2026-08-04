@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ResourceProfile:
+    """ResourceProfile — resource profile record (max_tokens, max_workers, max_scouts, max_memory, priority)."""
     max_tokens: int = RESOURCE_PROFILE_DEFAULTS.max_tokens
     max_workers: int = RESOURCE_PROFILE_DEFAULTS.max_workers
     max_scouts: int = RESOURCE_PROFILE_DEFAULTS.max_scouts

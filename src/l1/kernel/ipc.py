@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class LockOp(Enum):
+    """LockOp — enum of ACQUIRE, RELEASE, STATUS, BOOST."""
     ACQUIRE = auto()
     RELEASE = auto()
     STATUS = auto()
@@ -35,6 +36,7 @@ class LockOp(Enum):
 
 @dataclass
 class LockMessage:
+    """LockMessage — lock message record (op, lock_name, agent_id, priority, reply_to)."""
     op: LockOp
     lock_name: str
     agent_id: str = ""
@@ -136,6 +138,7 @@ _lock_bus_lock = threading.Lock()
 
 
 def get_lock_bus() -> LockBus:
+    """Get the IPC lock bus singleton."""
     global _lock_bus
     if _lock_bus is None:
         with _lock_bus_lock:

@@ -47,6 +47,7 @@ _L3A_SPECS: dict[str, dict] = {
 
 
 class L3ASubAgentPool:
+    """L3ASubAgentPool — l3 a sub agent pool."""
     def __init__(self, max_workers: int = 4):
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="l3a-sa")

@@ -7,6 +7,7 @@ from typing import Any, Final
 
 @dataclass
 class ConstitutionRuleDef:
+    """ConstitutionRuleDef — constitution rule def record (section, severity, description)."""
     section: str
     severity: str  # MUST | SHOULD | MAY
     description: str
@@ -69,6 +70,7 @@ CONSTITUTION_SCOUT_BLOCKED: frozenset[str] = frozenset({
 
 @dataclass
 class AgentDefaults:
+    """AgentDefaults — agent defaults record (max_scouts, max_tokens, max_workers, priority, ring)."""
     max_scouts: int = 3
     max_tokens: int = 4096
     max_workers: int = 4

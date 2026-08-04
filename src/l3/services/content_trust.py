@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # ── Source types ──
 
 class SourceType(Enum):
+    """SourceType — enum of TOOL, AGENT, HUMAN, SYSTEM...."""
     TOOL = "tool"               # tool execution result (write_file, read_file, ...)
     AGENT = "agent"             # agent-generated (AgentLoop response)
     HUMAN = "human"             # direct human input (L2 Shell / API)

@@ -285,6 +285,7 @@ _REGISTRY_LOCK = __import__("threading").Lock()
 
 
 def get_registry() -> CommandRegistry:
+    """Get the command registry singleton."""
     global _REGISTRY
     if _REGISTRY is None:
         with _REGISTRY_LOCK:
@@ -327,6 +328,7 @@ def register_command(name: str, handler: Callable,
 
 
 def get_command(name: str) -> dict | None:
+    """Look up a registered command by name."""
     cd = get_registry().get(name)
     if cd is None:
         return None
@@ -342,10 +344,12 @@ def get_command(name: str) -> dict | None:
 
 
 def get_handler(name: str) -> Callable | None:
+    """Get a registered command handler by name (or None)."""
     return get_registry().get_handler(name)
 
 
 def list_commands() -> list[dict]:
+    """List registered system commands."""
     return [{
         "name": c["name"],
         "help": c["help"],

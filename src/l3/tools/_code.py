@@ -127,6 +127,7 @@ def find_callees(args: dict, agent_id: str) -> dict:
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
         class _CallVisitor(ast.NodeVisitor):
+            """_CallVisitor — _ call visitor."""
             def __init__(self):
                 self.calls = []
             def visit_Call(self, node):  # noqa: N802

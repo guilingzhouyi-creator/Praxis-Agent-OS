@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class CacheEntry:
+    """CacheEntry — cache entry."""
     def __init__(self, key: str, value: Any, tags: set[str] | None = None,
                  ttl: float = FILE_CACHE_TTL):
         self.key = key

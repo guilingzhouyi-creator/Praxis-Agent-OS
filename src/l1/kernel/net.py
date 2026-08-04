@@ -47,6 +47,7 @@ def _peer_timeout() -> float:
 
 @dataclass
 class Peer:
+    """Peer — peer record (id, host, port, last_seen, cell_count)."""
     id: str
     host: str
     port: int

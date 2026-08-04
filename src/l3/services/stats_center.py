@@ -41,6 +41,7 @@ _SseCallback = Callable[[dict], None]
 
 @dataclass
 class MetricPoint:
+    """MetricPoint — metric point record (name, value, tags, timestamp, metric_type)."""
     name: str = ""
     value: float = 0.0
     tags: dict = field(default_factory=dict)

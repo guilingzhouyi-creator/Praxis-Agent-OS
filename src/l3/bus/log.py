@@ -40,6 +40,7 @@ _LOG_DIR = Path(_gp().config_dir) / "logs"
 
 @dataclass
 class LogEntry:
+    """LogEntry — log entry record (level, service, message, timestamp, agent_id)."""
     level: str
     service: str
     message: str
@@ -191,6 +192,7 @@ class LogService(BaseService):
         import logging as _logging
 
         class _LogServiceHandler(_logging.Handler):
+            """_LogServiceHandler — _ log service handler."""
             def __init__(self, svc: LogService):
                 super().__init__()
                 self._svc = svc

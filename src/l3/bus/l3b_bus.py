@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class L3BMessageType(Enum):
+    """L3BMessageType — enum of CARD_FORWARD, RESULT_BACK, STATUS_CHECK, BACKPRESSURE...."""
     CARD_FORWARD = auto()        # forward card fragments
     RESULT_BACK = auto()         # send execution results backward
     STATUS_CHECK = auto()        # status query
@@ -41,6 +42,7 @@ class L3BMessageType(Enum):
 
 @dataclass
 class L3BMessage:
+    """L3BMessage — l3 b message record (msg_id, msg_type, sender, target, payload)."""
     msg_id: str = ""
     msg_type: L3BMessageType = L3BMessageType.CARD_FORWARD
     sender: str = ""             # composite_id
@@ -227,6 +229,7 @@ _bus_lock = threading.Lock()
 
 
 def get_bus() -> L3BBus:
+    """Get the L3B message bus singleton."""
     global _bus
     if _bus is None:
         with _bus_lock:

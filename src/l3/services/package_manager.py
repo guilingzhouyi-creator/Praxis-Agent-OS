@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Package:
+    """Package — package record (name, version, manager, description, installed)."""
     name: str
     version: str = ""
     manager: str = ""

@@ -248,6 +248,7 @@ _service: ModelService | None = None
 
 
 def get_service() -> ModelService:
+    """Get the ModelService singleton (lazy init)."""
     global _service
     if _service is None:
         _service = ModelService()

@@ -31,6 +31,7 @@ _LOG_DIR = Path(get_config_dir()) / "logs"
 
 @dataclass
 class RecordQuery:
+    """RecordQuery — record query record (sources, level, service, agent_id, error_code)."""
     sources: list[str] | None = None    # "error" | "log" | "reference"
     level: str = ""
     service: str = ""
@@ -344,6 +345,7 @@ _center_lock = threading.Lock()
 
 
 def get_record_center() -> RecordCenter:
+    """Get the record center singleton."""
     global _center
     if _center is None:
         with _center_lock:

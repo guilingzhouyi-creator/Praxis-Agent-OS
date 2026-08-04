@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceState:
+    """ServiceState — service state."""
     STOPPED = "stopped"
     STARTING = "starting"
     RUNNING = "running"
@@ -28,6 +29,7 @@ class ServiceState:
 
 @dataclass
 class ServiceInfo:
+    """ServiceInfo — service info record (name, state, uptime, started_at, healthy)."""
     name: str
     state: str = ServiceState.UNKNOWN
     uptime: float = 0.0

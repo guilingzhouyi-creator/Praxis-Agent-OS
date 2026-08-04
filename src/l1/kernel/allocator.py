@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Allocation:
+    """Allocation — allocation record (agent_id, resource, amount, allocated_at, expires_at)."""
     agent_id: str
     resource: str
     amount: int

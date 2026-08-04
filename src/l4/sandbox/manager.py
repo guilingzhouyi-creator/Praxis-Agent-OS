@@ -27,6 +27,7 @@ from l1.kernel.params.system import (
 
 
 class SandboxProfile(str, Enum):
+    """SandboxProfile — enum of READ_ONLY, SAFE_WRITE, NETWORK, FULL...."""
     READ_ONLY = SANDBOX_PROFILE_READ_ONLY
     SAFE_WRITE = SANDBOX_PROFILE_SAFE_WRITE
     NETWORK = SANDBOX_PROFILE_NETWORK
@@ -36,6 +37,7 @@ class SandboxProfile(str, Enum):
 
 @dataclass
 class SandboxResult:
+    """SandboxResult — sandbox result record (success, stdout, stderr, exit_code, sandbox_id)."""
     success: bool = False
     stdout: str = ""
     stderr: str = ""

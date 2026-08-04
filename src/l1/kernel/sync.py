@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class LockState(Enum):
+    """LockState — enum of FREE, LOCKED, CONTENDED."""
     FREE = auto()
     LOCKED = auto()
     CONTENDED = auto()

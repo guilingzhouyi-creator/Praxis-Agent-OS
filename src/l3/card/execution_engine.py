@@ -82,6 +82,7 @@ _register_default_rollbacks()
 
 
 class StepStatus(Enum):
+    """StepStatus — enum of PENDING, RUNNING, DONE, FAILED...."""
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -91,6 +92,7 @@ class StepStatus(Enum):
 
 
 class RecoveryStrategy(Enum):
+    """RecoveryStrategy — enum of ABORT, RETRY, SKIP, ROLLBACK."""
     ABORT = "abort"        # Stop execution, mark failed
     RETRY = "retry"        # Retry N times
     SKIP = "skip"          # Skip this step, continue

@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class CardStatus(Enum):
+    """CardStatus — enum of PENDING, APPROVED, DISPATCHED, POSTPONED...."""
     PENDING = auto()       # In queue, waiting for decision
     APPROVED = auto()      # Approved, ready to dispatch
     DISPATCHED = auto()    # Sent to Cell

@@ -41,6 +41,7 @@ if _cfg:
 
 
 class CardSize(Enum):
+    """CardSize — enum of SMALL, MEDIUM, LARGE, DISPUTED."""
     SMALL = auto()
     MEDIUM = auto()
     LARGE = auto()
@@ -48,6 +49,7 @@ class CardSize(Enum):
 
 
 class ApprovalStatus(Enum):
+    """ApprovalStatus — enum of PENDING, AUTO_APPROVED, HUMAN_APPROVED, HUMAN_REJECTED...."""
     PENDING = auto()
     AUTO_APPROVED = auto()
     HUMAN_APPROVED = auto()

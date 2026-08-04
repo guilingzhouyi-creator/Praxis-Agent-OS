@@ -17,6 +17,7 @@ from enum import Enum, auto
 
 
 class ServiceState(Enum):
+    """ServiceState — enum of CREATED, STARTING, RUNNING, STOPPING...."""
     CREATED = auto()
     STARTING = auto()
     RUNNING = auto()
@@ -29,6 +30,7 @@ _registry: dict[str, BaseService] = {}
 
 
 def get_registry() -> dict[str, BaseService]:
+    """Get the service registry dict."""
     return dict(_registry)
 
 

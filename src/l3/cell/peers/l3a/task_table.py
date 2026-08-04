@@ -24,6 +24,7 @@ from l3.error_bus import capture
 
 @dataclass
 class SessionTask:
+    """SessionTask — session task record (card_id, title, status, turn, created_at)."""
     card_id: str = ""
     title: str = ""
     status: str = "queued"

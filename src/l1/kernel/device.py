@@ -254,6 +254,7 @@ _manager_lock = threading.Lock()
 
 
 def get_device_manager() -> DeviceManager:
+    """Get the device manager singleton."""
     global _manager
     if _manager is None:
         with _manager_lock:

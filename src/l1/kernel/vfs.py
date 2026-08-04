@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class MountType(Enum):
+    """MountType — enum of PROJECT, SANDBOX, TEMP, VIRTUAL...."""
     PROJECT = auto()       # real project directory
     SANDBOX = auto()       # sandbox directory (COW)
     TEMP = auto()          # temporary directory
@@ -35,6 +36,7 @@ class MountType(Enum):
 
 @dataclass
 class MountPoint:
+    """MountPoint — mount point record (name, mount_type, real_path, min_ring, read_only)."""
     name: str
     mount_type: MountType
     real_path: str = ""

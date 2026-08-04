@@ -340,6 +340,7 @@ _pipeline: ToolPipeline | None = None
 
 
 def get_pipeline() -> ToolPipeline:
+    """Get the tool pipeline singleton."""
     global _pipeline
     if _pipeline is None:
         _pipeline = ToolPipeline()

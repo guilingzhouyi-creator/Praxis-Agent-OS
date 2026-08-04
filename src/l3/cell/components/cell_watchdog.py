@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class WatchdogState(Enum):
+    """WatchdogState — enum of HEALTHY, UNRESPONSIVE, CRASHED."""
     HEALTHY = auto()
     UNRESPONSIVE = auto()
     CRASHED = auto()
@@ -42,6 +43,7 @@ class WatchdogState(Enum):
 
 @dataclass
 class WatchdogSlot:
+    """WatchdogSlot — watchdog slot record (agent_id, timeout, last_pet, state, auto_reboot)."""
     agent_id: str = ""
     timeout: float = CELL_WATCHDOG_DEFAULT_TIMEOUT
     last_pet: float = 0.0

@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineStatus:
+    """PipelineStatus — pipeline status."""
     PENDING = "pending"
     RUNNING = "running"
     PASSED = "passed"

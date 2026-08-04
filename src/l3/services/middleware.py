@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BeforeOutcome:
+    """BeforeOutcome — before outcome."""
     PROCEED = "proceed"
     ALLOW = "allow"
     ASK = "ask"
@@ -21,6 +22,7 @@ class BeforeOutcome:
 
 
 class AfterOutcome:
+    """AfterOutcome — after outcome."""
     PROCEED = "proceed"
     BLOCK = "block"
 

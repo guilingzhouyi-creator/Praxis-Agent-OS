@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Action:
+    """Action — action record (type, target, params, acquired_locks)."""
     type: str         # tool_call | read_file | write_file | scout | think
     target: str       # file path or tool name or domain
     params: dict = field(default_factory=dict)

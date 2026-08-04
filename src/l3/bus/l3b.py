@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CellInfo:
+    """CellInfo — cell info record (id, territory, load, agents, status)."""
     id: str
     territory: list[str] = field(default_factory=list)
     load: float = 0.0

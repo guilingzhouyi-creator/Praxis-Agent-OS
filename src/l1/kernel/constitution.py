@@ -667,6 +667,7 @@ _constitution_lock = threading.Lock()
 
 
 def get_constitution() -> Constitution:
+    """Get the Constitution engine singleton."""
     global _constitution
     if _constitution is None:
         with _constitution_lock:

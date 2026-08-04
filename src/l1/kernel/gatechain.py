@@ -381,6 +381,7 @@ _gatechain_lock = threading.Lock()
 
 
 def get_gatechain() -> GateChain:
+    """Get the GateChain singleton."""
     global _gatechain
     if _gatechain is None:
         with _gatechain_lock:

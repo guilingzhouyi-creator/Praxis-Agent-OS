@@ -140,6 +140,7 @@ _store: CacheDocumentStore | None = None
 
 
 def get_store() -> CacheDocumentStore:
+    """Get the cache documentation store singleton."""
     global _store
     if _store is None:
         _store = CacheDocumentStore()
