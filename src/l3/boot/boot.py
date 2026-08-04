@@ -586,8 +586,9 @@ def _init_kernel_and_vfs() -> dict:
         logger.warning("boot config: %s", e)
 
     dm = get_device_manager()
-    # 设备注册由 load_config 步骤的 cfg_devices（praxis.yaml devices: 节）完成，
-    # 此处不再硬编码注册（重复注册会被 device_manager 静默拒绝）。
+    # Device registration is completed by the load_config step (cfg_devices,
+    # praxis.yaml devices: section); nothing is hardcoded here because
+    # re-registration is silently rejected by device_manager.
     dm.start_health_checks()
     return {"success": True, "results": results}
 

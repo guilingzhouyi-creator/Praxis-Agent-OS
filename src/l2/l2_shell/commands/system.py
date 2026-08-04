@@ -1,3 +1,5 @@
+"""L2 Shell: system commands (status, devices, process, history, lang, clear, help)."""
+
 from __future__ import annotations
 
 import logging

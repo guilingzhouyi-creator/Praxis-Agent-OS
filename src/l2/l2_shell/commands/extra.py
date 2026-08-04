@@ -1,3 +1,5 @@
+"""L2 Shell: extended commands (buffer, cells, cluster, cross, htn, mcp, security, stats, think)."""
+
 from __future__ import annotations
 
 import logging

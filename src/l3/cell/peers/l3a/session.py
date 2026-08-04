@@ -271,7 +271,7 @@ class Session:
             capture("l3a session: stats report failed", error_code="E_L3A_STATS", component="l3a")
             logger.warning("l3a session: stats report failed")
         ctx_trail = self.history.to_context_trail()
-        # 任务感知注入：提示词决定维度（execute→summary, decide→Mer, resume→layered）
+        # Task-aware injection: prompt keywords pick the dimension (execute→summary, decide→Mer, resume→layered)
         try:
             from l3.memory.memory_inject import build_context as _inject
             inject_block = _inject(_p.AGENT_ID, prompt=admitted.text,

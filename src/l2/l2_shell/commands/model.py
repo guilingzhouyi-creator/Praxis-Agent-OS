@@ -1,3 +1,5 @@
+"""L2 Shell: model and settings commands (config, cron, model, settings)."""
+
 from __future__ import annotations
 
 import logging

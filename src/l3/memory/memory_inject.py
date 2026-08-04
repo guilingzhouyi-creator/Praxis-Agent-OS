@@ -1,18 +1,18 @@
-"""MemoryInjector — 任务感知的动态记忆注入。
+"""MemoryInjector — task-aware dynamic memory injection (side-channel).
 
-激活路径（按任务来源分类）：
-  Cell 路径：按卡信息分类（card.nature / card.action / card.target 关键词）
-  L3A 路径：按提示词分类（prompt 关键词）
+Activation paths (classified by task source):
+  Cell path: classify by card metadata (card.nature / card.action / card.target keywords)
+  L3A path:  classify by prompt keywords
 
-注入维度（压缩维度的选择，非固定混合）：
-  summary（执行流）——线性叙事（现有 build_context 行为，零改变）
-  mer    （决策流）——群域图扩散骨架（关系视角：contradicts/depends_on）
-  layered（恢复/复杂）——骨架 + 摘要（分层注入，token 预算内）
+Injection dimensions (dimension selected by task, not a fixed mix):
+  summary (execution) — linear narrative (existing build_context behavior, zero change)
+  mer    (decision)   — swarm-domain graph diffusion skeleton (relation view: contradicts/depends_on)
+  layered (resume/complex) — skeleton + summary (layered injection, token-budget aware)
 
-策略（memory.injection.strategy）：
-  auto     ——按任务分类自动选择（默认）
-  summary  ——强制摘要
-  mer      ——强制 Mer 骨架
+Strategy (memory.injection.strategy):
+  auto     — auto-select by task classification (default)
+  summary  — force summary
+  mer      — force Mer skeleton
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ── 任务类型 ─────────────────────────────────────────────
+# ── Task types ────────────────────────────────────────────
 
 TASK_EXECUTE = "execute"
 TASK_DECIDE = "decide"
@@ -83,7 +83,7 @@ def resolve_strategy() -> str:
         return "auto"
 
 
-# ── 注入器 ────────────────────────────────────────────────
+# ── Injector ──────────────────────────────────────────────
 
 _MER_MAX_NODES = 30
 _MER_NODE_CHARS = 120

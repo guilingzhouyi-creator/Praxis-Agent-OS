@@ -70,6 +70,14 @@ src/l1/kernel/params/ — 694 constants across 5 sub-modules (kernel/agent/tool/
 - **File path strings**: centralize in `params/system.py` or `paths.py`. Avoid `"*.json"`, `"foo/bar.yaml"` in implementation code.
 - **Package manager timeouts**: use `TOOL_PACKAGE_MANAGER_TIMEOUT`, `TOOL_PIP_INSTALL_TIMEOUT`, etc. from `params/tool.py`.
 
+## Comment conventions
+
+- **English is the baseline language for ALL comments, docstrings, and module/class/function docs** — CJK is only allowed inside intentional data (i18n translation dicts, injection-detection keywords). A comment audit runs periodically; 0 CJK residue is the target.
+- **Module docstring required** for every module (one-liner explaining purpose is enough); `commands/*.py` in L2 included.
+- **Class docstring required** for every public class (dataclasses included — one line describing the role).
+- **Public function docstring required** (what it does + returns); simple getters/setters and private helpers (`_*`) may skip.
+- Docstring style: triple-double-quoted, first line = short imperative/descriptive sentence; sections (Args/Returns/Examples) only when non-obvious.
+
 ## Commit conventions (enforced by `.githooks/commit-msg`)
 
 - **Commit messages MUST be written in English** (CJK characters are rejected).

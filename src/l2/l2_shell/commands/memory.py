@@ -1,3 +1,5 @@
+"""L2 Shell: memory and agent control commands (audit, card, memory, spawn, kill, plugins, tokens)."""
+
 from __future__ import annotations
 
 import logging

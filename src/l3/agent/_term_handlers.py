@@ -226,7 +226,7 @@ def handle_think(term, card, phases):
         memory = get_memory()
         ctx_parts = []
         from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
-        # 任务感知注入：卡信息决定维度（execute→summary, decide→Mer, resume→layered）
+        # Task-aware injection: card metadata picks the dimension (execute→summary, decide→Mer, resume→layered)
         try:
             from l3.memory.memory_inject import build_context as _inject
             ring_context = _inject(term.agent_id, card=card,

@@ -1,3 +1,5 @@
+"""L2 Shell: connection and mode commands (agents, connect, mode, help)."""
+
 from __future__ import annotations
 
 import logging
