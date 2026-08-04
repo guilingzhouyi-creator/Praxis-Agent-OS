@@ -37,6 +37,7 @@ class CellProtocol(Protocol):
 
 
 class AgentStatus(Enum):
+    """AgentStatus — enum of agent status variants."""
     IDLE = auto()
     BUSY = auto()
     WAITING = auto()
@@ -44,6 +45,7 @@ class AgentStatus(Enum):
 
 
 class MessageType(Enum):
+    """MessageType — enum of message type variants."""
     TASK_HANDOFF = auto()
     SCOUT_RESULT = auto()
     CONSULT = auto()
@@ -82,6 +84,7 @@ def is_subagent(agent_id: str) -> bool:
 
 @dataclass
 class AgentInfo:
+    """AgentInfo — agent info record (role, ring, territory, max_concurrent_scouts, active_scouts)."""
     role: str = ""
     ring: int = 1
     territory: list[str] = field(default_factory=list)
@@ -97,6 +100,7 @@ class AgentInfo:
 
 @dataclass
 class CellMessage:
+    """CellMessage — cell message record (msg_id, msg_type, sender, target, payload)."""
     msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     msg_type: MessageType = MessageType.CONSULT
     sender: str = ""

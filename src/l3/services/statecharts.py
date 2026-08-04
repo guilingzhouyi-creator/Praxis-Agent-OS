@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
+    """EventType — enum of event type variants."""
     TASK_ASSIGN = auto(); TASK_CANCEL = auto()
     ANALYSIS_DONE = auto(); CHANGES_DONE = auto()
     SELF_CHECK_PASS = auto(); SELF_CHECK_FAIL = auto()
@@ -47,15 +48,18 @@ class EventType(Enum):
 
 @dataclass
 class Transition:
+    """Transition — transition record (to, reason, ctx)."""
     to: str; reason: str = ""; ctx: dict = field(default_factory=dict)
 
 @dataclass
 class EventCtx:
+    """EventCtx — event ctx record (type, data, ts)."""
     type: EventType; data: dict = field(default_factory=dict)
     ts: float = field(default_factory=time.time)
 
 
 class Region(ABC):
+    """Region — region record (name, state, parent, history, _transitions)."""
     name: str = ""; state: str = ""; parent: str | None = None
     history: dict[str, str] = {}
     _transitions: dict = {}
@@ -80,6 +84,7 @@ class Region(ABC):
 
 
 class TaskRegion(Region):
+    """TaskRegion — task region."""
     name = "Task"
     def __init__(self):
         self.state = "IDLE"
@@ -104,6 +109,7 @@ class TaskRegion(Region):
 
 
 class HealthRegion(Region):
+    """HealthRegion — health region."""
     name = "Health"
     def __init__(self, ft=3, st=5, hto=15, cto=30):
         self.state = "HEALTHY"
@@ -149,6 +155,7 @@ class HealthRegion(Region):
 
 
 class ReviewRegion(Region):
+    """ReviewRegion — review region."""
     name = "Review"
     def __init__(self):
         self.state = "NOT_UNDER_REVIEW"
@@ -178,6 +185,7 @@ class ReviewRegion(Region):
 
 
 class ResourceRegion(Region):
+    """ResourceRegion — resource region."""
     name = "Resource"
     def __init__(self, tb=73000, ml=500):
         self.state = "NORMAL"
@@ -200,6 +208,7 @@ class ResourceRegion(Region):
 
 
 class CommRegion(Region):
+    """CommRegion — comm region."""
     name = "Comm"
     def __init__(self, dt=10.0, dst=30.0):
         self.state = "CONNECTED"
@@ -224,6 +233,7 @@ class CommRegion(Region):
 
 
 class AgentStatecharts:
+    """Statechart engine for a Cell agent (task/health/review/resource/comm regions)."""
     def __init__(self, agent_id="", persist_path=""):
         self.agent_id = agent_id
         self.task = TaskRegion(); self.health = HealthRegion()

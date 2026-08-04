@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # ── Lifecycle ──
 
 class CardLifecycle(Enum):
+    """CardLifecycle — enum of card lifecycle variants."""
     DRAFT = "draft"
     QUEUED = "queued"
     HOLD = "hold"           # held for approval / awaiting human decision
@@ -47,6 +48,7 @@ class CardLifecycle(Enum):
 # ── Phase execution mode ──
 
 class PhaseMode(Enum):
+    """PhaseMode — enum of phase mode variants."""
     SINGLE = "single"       # one agent handles all tasks
     MULTI = "multi"         # tasks distributed to multiple agents
 
@@ -106,6 +108,7 @@ def load_card_types(cfg: dict) -> None:
 
 @dataclass
 class CardSummary:
+    """CardSummary — card summary record (title, description, columns)."""
     title: str = ""
     description: str = ""
     columns: dict[str, str] = field(default_factory=dict)
@@ -126,6 +129,7 @@ class CardSummary:
 
 @dataclass
 class CardTask:
+    """CardTask — card task record (action, target, params, agent, state)."""
     action: str = ""
     target: str = ""
     params: dict = field(default_factory=dict)
@@ -148,6 +152,7 @@ class CardTask:
 
 @dataclass
 class CardPhase:
+    """CardPhase — card phase record (name, mode, agents, tasks, review_prompt)."""
     name: str = ""
     mode: PhaseMode = PhaseMode.SINGLE
     agents: list[str] = field(default_factory=list)  # assigned agents; empty=auto
@@ -170,6 +175,7 @@ class CardPhase:
 
 @dataclass
 class CardTimestamps:
+    """CardTimestamps — card timestamps record (created_at, submitted_at, dispatched_at, completed_at)."""
     created_at: float = field(default_factory=time.time)      # L3A creates card
     submitted_at: float = 0.0    # registered in queue
     dispatched_at: float = 0.0   # sent to Cell
@@ -215,6 +221,7 @@ class CardExecution:
 
 @dataclass
 class CardModification:
+    """CardModification — card modification record (version, timestamp, field, old_value, new_value)."""
     version: int = 0
     timestamp: float = 0.0
     field: str = ""            # "summary.title", "phases[0].tasks", "priority", etc.
@@ -235,6 +242,7 @@ class CardModification:
 
 @dataclass
 class CardUnified:
+    """CardUnified — card unified record (id, nature, priority, state, summary)."""
     id: str = field(default_factory=lambda: f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     nature: str = "execution"           # card type name from registry
     priority: int = 5                   # 1-10, 1=highest

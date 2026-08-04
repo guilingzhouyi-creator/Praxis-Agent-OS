@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 class GateResult(Enum):
+    """GateResult — enum of gate result variants."""
     PASS = auto()
     WARN = auto()
     BLOCK = auto()
@@ -61,6 +62,7 @@ class GateResult(Enum):
 
 
 class PatternKey(Enum):
+    """PatternKey — enum of pattern key variants."""
     TERRITORY = auto()
     FREQUENCY = auto()
     DANGER = auto()
@@ -70,6 +72,7 @@ class PatternKey(Enum):
 
 @dataclass
 class LedgerEntry:
+    """LedgerEntry — ledger entry record (agent_id, tool, target, result, timestamp)."""
     agent_id: str
     tool: str
     target: str

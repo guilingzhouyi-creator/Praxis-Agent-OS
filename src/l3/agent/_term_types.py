@@ -10,18 +10,21 @@ from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 class TerminalStatus(Enum):
+    """TerminalStatus — enum of terminal status variants."""
     BOOTING = auto(); IDLE = auto(); PROCESSING = auto()
     WAITING_SCOUT = auto(); WAITING_CONSENSUS = auto()
     REVIEWING = auto(); BLOCKED = auto(); CRASHED = auto(); STOPPED = auto()
 
 
 class CardMode(Enum):
+    """CardMode — enum of card mode variants."""
     EXECUTE = auto()
     ISSUE = auto()
 
 
 @dataclass
 class TerminalCard:
+    """TerminalCard — terminal card record (card_id, mode, action, target, params)."""
     card_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     mode: CardMode = CardMode.EXECUTE
     action: str = ""
@@ -35,6 +38,7 @@ class TerminalCard:
 
 @dataclass
 class CardResult:
+    """CardResult — card result record (card_id, action, success, output, error)."""
     card_id: str
     action: str
     success: bool

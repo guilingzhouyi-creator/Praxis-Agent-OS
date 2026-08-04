@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class AlertLevel:
+    """AlertLevel — alert level."""
     INFO = "info"
     WARN = "warn"
     CRIT = "crit"
@@ -40,6 +41,7 @@ class AlertLevel:
 
 @dataclass
 class Alert:
+    """Alert — alert record (level, source, message, timestamp, data)."""
     level: str
     source: str
     message: str
@@ -49,6 +51,7 @@ class Alert:
 
 @dataclass
 class CellStatus:
+    """CellStatus — cell status record (cell_id, agents, agent_status, agent_uptime, agent_cards)."""
     cell_id: str
     agents: dict[str, str] = field(default_factory=dict)  # agent_id → role
     agent_status: dict[str, str] = field(default_factory=dict)  # agent_id → status

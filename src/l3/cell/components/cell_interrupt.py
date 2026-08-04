@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class IrqPriority(IntEnum):
+    """IrqPriority — irq priority."""
     NMI = 0
     HIGH = 1
     NORMAL = 2
@@ -50,6 +51,7 @@ class IrqPriority(IntEnum):
 
 @dataclass
 class IrqSlot:
+    """IrqSlot — irq slot record (irq_num, name, handler, priority, masked)."""
     irq_num: int = 0
     name: str = ""
     handler: Callable | None = None
@@ -62,6 +64,7 @@ class IrqSlot:
 
 @dataclass
 class IrqEvent:
+    """IrqEvent — irq event record (irq_num, name, priority, data, timestamp)."""
     irq_num: int = 0
     name: str = ""
     priority: IrqPriority = IrqPriority.NORMAL

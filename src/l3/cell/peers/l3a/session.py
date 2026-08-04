@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Page:
+    """Page — page record (items, cursor, total)."""
     items: list[dict]
     cursor: str | None = None
     total: int = 0
@@ -40,6 +41,7 @@ class Page:
 
 @dataclass
 class Message:
+    """Message — message record (id, role, content, tool_calls, reasoning_content)."""
     id: str
     role: str
     content: str
@@ -50,6 +52,7 @@ class Message:
 
 
 class SessionHistory:
+    """Ordered session message history with token projection."""
     def __init__(self):
         self._messages: list[Message] = []
         self._lock = threading.RLock()
@@ -118,6 +121,7 @@ def _est_tokens(text: str) -> int:
 
 
 class Session:
+    """Live L3A session — history, inbox, task table, ask state, model config."""
     def __init__(self, session_id: str, title: str,
                  model_config: L3AModelConfig | None = None,
                  registry: ContextRegistry | None = None):
@@ -1303,6 +1307,7 @@ class Session:
 
 
 class SessionManager:
+    """Active-session registry for the L3A daemon."""
     def __init__(self):
         self._sessions: dict[str, Session] = {}
         self._lock = threading.RLock()

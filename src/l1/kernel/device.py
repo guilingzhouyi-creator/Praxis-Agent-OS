@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeviceType(Enum):
+    """DeviceType — enum of device type variants."""
     LLM = auto()
     DATABASE = auto()
     NETWORK = auto()
@@ -64,6 +65,7 @@ def register_device_type(name: str) -> DeviceType:
 
 
 class DeviceHealth(Enum):
+    """DeviceHealth — enum of device health variants."""
     HEALTHY = auto()
     DEGRADED = auto()
     DOWN = auto()
@@ -71,12 +73,14 @@ class DeviceHealth(Enum):
 
 @dataclass
 class DeviceCapability:
+    """DeviceCapability — device capability record (name, description)."""
     name: str
     description: str = ""
 
 
 @dataclass
 class Device:
+    """Device — device record (name, device_type, health, rate_limit, rate_window)."""
     name: str
     device_type: DeviceType
     health: DeviceHealth = DeviceHealth.HEALTHY

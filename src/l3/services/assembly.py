@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Proposal:
+    """Proposal — proposal record (agent_id, content, rationale, created_at)."""
     agent_id: str
     content: dict  # e.g. {"agent_a": ["app/routes", ...], ...}
     rationale: str = ""
@@ -43,6 +44,7 @@ class Proposal:
 
 @dataclass
 class Challenge:
+    """Challenge — challenge record (from_agent, to_agent, question, created_at, answered)."""
     from_agent: str
     to_agent: str
     question: str
@@ -52,6 +54,7 @@ class Challenge:
 
 @dataclass
 class Response:
+    """Response — response record (agent_id, challenge_id, answer, created_at)."""
     agent_id: str
     challenge_id: int
     answer: str

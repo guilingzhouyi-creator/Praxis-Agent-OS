@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ContextSource:
+    """ContextSource — context source record (key, loader, render_baseline, render_update, render_removal)."""
     key: str
     loader: Callable[[], Any]
     render_baseline: Callable[[Any], str]
@@ -34,12 +35,14 @@ class ContextSource:
 
 @dataclass
 class MidConversationMessage:
+    """MidConversationMessage — mid conversation message record (key, text, created_at)."""
     key: str
     text: str
     created_at: float = field(default_factory=time.time)
 
 
 class ContextRegistry:
+    """Registry of context sources with loaders and renderers."""
     def __init__(self):
         self._sources: dict[str, ContextSource] = {}
 
@@ -103,6 +106,7 @@ class ContextRegistry:
 
 
 class ContextEpoch:
+    """Epoch-scoped context snapshot with turn tracking."""
     def __init__(self, eid: str, baseline: str, snapshot: dict,
                  created_at: float, turn_count: int = 0):
         self.id = eid

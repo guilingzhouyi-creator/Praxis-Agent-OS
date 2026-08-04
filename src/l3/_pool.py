@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskState(Enum):
+    """TaskState — enum of task state variants."""
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -30,6 +31,7 @@ class TaskState(Enum):
 
 @dataclass
 class WorkTask:
+    """WorkTask — work task record (id, fn, args, kwargs, priority)."""
     id: str
     fn: Callable
     args: tuple = ()

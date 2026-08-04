@@ -48,12 +48,14 @@ MCP_NAME_SEP = ":"
 
 @dataclass
 class McpTool:
+    """McpTool — mcp tool record (name, description, input_schema)."""
     name: str
     description: str
     input_schema: dict  # JSON Schema
 
 
 class McpClientError(Exception):
+    """McpClientError — mcp client error."""
     pass
 
 
