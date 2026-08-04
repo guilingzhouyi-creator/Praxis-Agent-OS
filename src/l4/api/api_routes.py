@@ -161,6 +161,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/discussion/{id}/supplement",       "l4.api_handlers.api_handlers_discussion.handle_discussion_supplement",            "Submit supplement issue"),
     ("POST", "/api/v2/discussion/push-to-l3a",           "l4.api_handlers.api_handlers_discussion.handle_discussion_push_l3a",              "Push report to L3A"),
 
+    # L3A ASK clarification
+    ("POST", "/api/l3a/ask/status",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_status",  "Get pending clarification state of an L3A session"),
+    ("POST", "/api/l3a/ask/answer",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_answer",  "Submit answers to pending clarification and resume"),
+
     # Agent config
     ("GET", "/api/v1/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v1/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),

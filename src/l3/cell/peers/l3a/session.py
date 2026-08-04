@@ -145,6 +145,7 @@ class Session:
         self.tasks: SessionTaskTable = SessionTaskTable(session_id)
         self._resumed_from: str = ""
         self._resume_todos: list[dict] = []
+        self._ask: Any = None
 
     @classmethod
     def create(cls, title: str = "",
@@ -243,6 +244,10 @@ class Session:
         limits = self._resolve_limits()
         if limits["max_turns"] > 0 and self.turn_count >= limits["max_turns"]:
             return {"success": False, "error": f"max turns reached ({limits['max_turns']})"}
+        # ASK awaiting: the chat input is treated as answers to the pending
+        # clarification questions (chat-window semantics), then the loop resumes.
+        if self._ask and self._ask.status == _p.ASK_STATUS_AWAITING:
+            return self._continue_after_ask(text)
         admission = self.inbox.admit(text, mode=mode)
         self.last_active_at = time.time()
         self._ensure_epoch()
@@ -813,6 +818,7 @@ class Session:
                     "pending": self.tasks.pending_count(),
                     "total": len(self.tasks.all()),
                 },
+                "ask": self._ask.to_dict() if self._ask else None,
             }
 
     def _resolve_model_config(self) -> dict:
@@ -1074,12 +1080,105 @@ class Session:
             {"action": "string", "issue_id": "string", "query": "string",
              "domain": "string", "limit": "int"},
             l3a_summary_handler, parallel_safe=True)
+        from .ask import ask_handler as _l3a_ask_handler
+        self._loop.add_tool("l3a_ask",
+            "Ask the user to clarify the request. Call when the user's prompt "
+            "is ambiguous or critical information is missing (target platform, "
+            "scope, constraints, acceptance criteria, etc.). Pass up to "
+            f"{_p.ASK_MAX_QUESTIONS} questions as a list of dicts "
+            "{question, options?, required?}. Execution pauses until the user "
+            "answers in the chat window; answers are injected back before "
+            "resuming.",
+            {"questions": "list"},
+            lambda args, agent_id="": _l3a_ask_handler(self, args, agent_id),
+            parallel_safe=False)
         if self._pmu:
             try:
                 self._loop.set_pmu(self._pmu)
             except Exception:
                 capture("l3a session: set_pmu on AgentLoop failed", error_code="E_L3A_SESSION", component="l3a")
                 logger.warning("l3a session: set_pmu on AgentLoop failed")
+
+    def ask_status(self) -> dict:
+        """Public status of the pending clarification (empty when none)."""
+        st = self._ask
+        if not st:
+            return {"success": True, "status": "none"}
+        return {"success": True, "status": st.status, "ask": st.to_dict()}
+
+    def submit_answers(self, answers: dict, free_form: str = "") -> dict:
+        """Fill answers for pending questions (command/API path)."""
+        from .ask import submit_answers as _submit
+        r = _submit(self, answers, free_form)
+        if r.get("success"):
+            self._persist_state()
+        return r
+
+    def _continue_after_ask(self, text: str) -> dict:
+        """Chat-window path: the next user input answers the pending questions.
+
+        The raw text becomes the free-form answer plus a per-question fallback
+        (structured ``q1=..; q2=..`` syntax is honored); the Q&A block is
+        injected into history and the tool loop resumes.
+        """
+        from .ask import submit_answers as _submit
+        answers: dict = {}
+        if "=" in text:
+            pairs = [part.strip() for part in text.split(";")]
+            answers = {
+                part.split("=", 1)[0].strip(): part.split("=", 1)[1].strip()
+                for part in pairs if "=" in part
+            }
+        _submit(self, answers, text)
+        return self.resume_after_ask()
+
+    def resume_after_ask(self) -> dict:
+        """Inject the answered Q&A block into history and resume the loop."""
+        from .ask import build_answer_block
+        st = self._ask
+        if not st or st.status != _p.ASK_STATUS_ANSWERED:
+            return {"success": False, "error": "no answered questions to resume"}
+        block = build_answer_block(st)
+        self.history.append(Message(
+            id=f"ask-{uuid.uuid4().hex[:4]}",
+            role="user", content=block,
+            metadata={"kind": "ask_answer"},
+        ))
+        self.last_active_at = time.time()
+        try:
+            self._report_stats()
+        except Exception:
+            pass
+        ctx_trail = self.history.to_context_trail()
+        self._ensure_loop()
+        self._loop._context_trail = ctx_trail
+        self._loop.task = st.free_form or "continue after clarification"
+        limits = self._resolve_limits()
+        model_cfg = self._resolve_model_config()
+        result = self._loop.run(
+            max_steps=limits["max_steps"],
+            timeout=limits["timeout"],
+            model_config=model_cfg,
+        )
+        self.turn_count += 1
+        answer = result.get("answer", "")
+        tool_calls = result.get("tool_calls", [])
+        answer_msg = Message(
+            id=f"asst-{uuid.uuid4().hex[:4]}",
+            role="assistant", content=answer,
+            tool_calls=tool_calls,
+        )
+        self.history.append(answer_msg)
+        self._persist_state()
+        self._ingest_tool_results(result, st.free_form or "clarification")
+        return {
+            "success": True,
+            "session_id": self.id,
+            "answer": answer,
+            "tool_calls": tool_calls,
+            "ask_resolved": True,
+            "turn_count": self.turn_count,
+        }
 
     def _ingest_tool_results(self, result: dict, user_text: str) -> None:
         """Ingest this turn's tool results into L3A's three-ring memory.
@@ -1097,7 +1196,7 @@ class Session:
         tool_results = result.get("tool_call_results", []) or []
         if not tool_results:
             return
-        high_value_tools = {"cardwrite", "l3a_collect", "l3a_convention",
+        high_value_tools = {"cardwrite", "l3a_ask", "l3a_collect", "l3a_convention",
                             "l3a_spawn", "l3a_summary"}
         decision_entries = []
         for sr in tool_results:
@@ -1184,12 +1283,18 @@ class Session:
     def _persist_state(self) -> None:
         try:
             from l3.agent.agent_persist import save_snapshot
-            save_snapshot(_p.AGENT_ID, {
+            payload = {
                 "session_id": self.id, "title": self.title,
                 "turn_count": self.turn_count,
                 "card_count": self.card_count,
                 "model_config": self.model_config.show(),
-            })
+            }
+            if self._ask:
+                try:
+                    payload["ask"] = self._ask.to_dict()
+                except Exception:
+                    logger.debug("l3a session: ask state serialize failed")
+            save_snapshot(_p.AGENT_ID, payload)
         except Exception:
             capture("l3a session: state persist failed", error_code="E_L3A_SESSION", component="l3a")
             logger.warning("l3a session: state persist failed")

@@ -45,6 +45,7 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/constitution": "constitution", "/api/discussion": "discussion",
     "/api/providers": "provider", "/api/model-spec": "provider",
     "/api/subagent": "subagent", "/api/scout": "scout", "/api/r4": "r4",
+    "/api/l3a": "l3a",
     "/api/convention": "convention", "/api/stats": "stats", "/api/records": "records",
     "/api/communication": "comm", "/api/cron": "cron", "/api/credentials": "credential",
     "/api/bootstrap": "lifecycle", "/api/boot": "lifecycle", "/api/shutdown": "lifecycle",
