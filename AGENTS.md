@@ -136,6 +136,14 @@ Key conventions:
 - Merge/revert commits are exempt (git-generated messages).
 - Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1`.
 
+## Remote strategy & CI
+
+- **Dual remotes**: `origin` = GitCode (`gitcode.com/Aplese/PraxisAgentOS`, canonical source of truth); `github` = GitHub mirror (`guilingzhouyi-creator/Praxis-Agent-OS`, CI carrier).
+- **Every push to main MUST go to BOTH remotes**: `git push origin main; git push github main`. Pushing only to GitCode silently skips CI.
+- **CI runs on GitHub Actions** via `.github/workflows/test.yml` (native GitHub format, matrix 3.11/3.12, explicit `-n 4` — Linux fork makes xdist profitable there).
+- GitCode's AtomGit Action (`.gitcode/workflows/test.yml`) is still in gray release (no Pipeline tab even on public repos) — keep the file, it activates once the platform rolls it out.
+- **Platform note**: on local Windows, xdist spawns a fresh interpreter per worker (full src re-import) and is a net slowdown — pin `-n 0` locally; rely on CI for the parallel pass.
+
 ## Branching workflow (see `docs/workflow/branching.md`)
 
 - **Semi-finished work never enters mainline** — commit it or branch it; never leave in-flight refactors in the working tree.
