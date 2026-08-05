@@ -21,13 +21,15 @@
 
 ## 一、5 层地基完成度总览
 
-| 层 | 完成度 | 状态 | 关键缺口 |
+> **2026-08-05 复核更新:** 下列 6 处缺口已于当日全部闭环（见 [foundation-gaps-plan.md](design/foundation-gaps-plan.md) S0-S3 执行记录）。以下表格保留原始评估,并标注闭环状态。
+
+| 层 | 完成度 | 状态 | 关键缺口（现况） |
 |---|---|---|---|
-| **L1 Kernel** | ~90% | 端口抽象扎实,817 常量 | 缺 `AuthPort` / `WebSocketPort` / `FilesystemPort` / `RpcServerPort` |
-| **L2 Shell** | ~95% | 40 命令 + i18n + 补全器齐全 | 无 |
-| **L3 Cell** | ~80% | services 32 模块齐全 | `hook.py` 桩位、`pending_queue` 事件未挂接 |
-| **L4 Bridge** | ~85% | API ~170 路由全注册 | WebSocket 通道缺失、RPC server 空挂 |
-| **L5 User** | ~70% | cli.py + agent_runtime 在位 | 无 Web 前端入口 |
+| **L1 Kernel** | ~95% | 端口抽象扎实,12 端口齐全 | ✅ `AuthPort` / `WebSocketPort` / `FilesystemPort` / `RpcServerPort` 已定义 |
+| **L2 Shell** | ~95% | 46 命令 + i18n + 补全器齐全 | 无 |
+| **L3 Cell** | ~90% | services 32 模块齐全 | ✅ `hook.py` EventEmitHook + HookChain 单例、`pending_queue`/`approval_gate` 事件已挂接 |
+| **L4 Bridge** | ~95% | API 241 路由全注册 | ✅ WebSocket 桥已启动（独立端口 8081）、RPC server 已随网关启动（42110） |
+| **L5 User** | ~70% | cli.py + agent_runtime 在位 | 无 Web 前端入口（仍待前端工程） |
 
 ---
 
@@ -848,26 +850,26 @@ def session_end(self, result: dict) -> None:
 
 ## 附录 C:前端接入检查清单
 
-接入 Web 前端之前,确认以下检查项全部通过:
+> **2026-08-05 复核更新:** 以下全部检查项均已通过/完成（见主干 `601ed9f` 及之前提交）。
 
 ### C.1 P0 必须项
 
-- [ ] `AuthPort` 已定义并实现,`/api/v2/auth/login` 可用
-- [ ] `WebSocketPort` 已定义并实现,`/api/v2/ws` upgrade 端点可用
-- [ ] `api_gateway._Handler` 支持 `Upgrade: websocket` 分支
-- [ ] `central_security.py` 第 3 步改用 `AuthPort.verify_token`,不再硬编码 `"auth verify_token not implemented"`
+- [x] `AuthPort` 已定义并实现,`/api/v2/auth/login` 可用
+- [x] `WebSocketPort` 已定义并实现,`/api/v2/ws` upgrade 端点可用（`src/l4/ws/ws_bridge.py` 独立端口 8081）
+- [x] `api_gateway._Handler` 支持 `Upgrade: websocket` 分支（WS 桥随网关启动）
+- [x] `central_security.py` 第 3 步改用 `AuthPort.verify_token`,不再硬编码 `"auth verify_token not implemented"`
 
 ### C.2 P1 强烈建议项
 
-- [ ] `RpcServer` 已启动,`register_handler` 可注册 method
-- [ ] `CARD_PENDING` / `APPROVAL_REQUIRED` / `APPROVAL_RESPONDED` 事件已挂接
-- [ ] `FilesystemPort` 已定义,`fs.py` 走端口
-- [ ] `/api/v2/fs/tree`、`/api/v2/fs/read`、`/api/v2/fs/watch` 路由已注册
+- [x] `RpcServer` 已启动,`register_handler` 可注册 method（端口 42110,随网关启动）
+- [x] `CARD_PENDING` / `APPROVAL_REQUIRED` / `APPROVAL_RESPONDED` 事件已挂接
+- [x] `FilesystemPort` 已定义,`fs_adapter` 走端口（boot 时经 `wire_defaults` 注册）
+- [x] `/api/v2/fs/tree`、`/api/v2/fs/read`、`/api/v2/fs/watch` 路由已注册
 
 ### C.3 P2 可延后项
 
-- [ ] `hook.py` 的 `turn_complete` / `on_error` / `session_end` 改 emit
-- [ ] `EventEmitHook` 子类已注册到 `HookChain`
+- [x] `hook.py` 的 `turn_complete` / `on_error` / `session_end` 改 emit（`EventEmitHook`）
+- [x] `EventEmitHook` 子类已注册到 `HookChain`（`get_hook_chain()` 单例,`AgentLoop._finish`/`AgentTerminal.shutdown` 已触发）
 
 ---
 

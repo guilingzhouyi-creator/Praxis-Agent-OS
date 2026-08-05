@@ -9,15 +9,17 @@
 
 ## 0. 总览
 
-| 阶段 | 缺口 | 优先级 | 主域 | 依赖 |
-|---|---|---|---|---|
-| **S0** | L1 端口地基（4 个 Port 抽象 + SignalType + 常量） | P0 前置 | K | 无 |
-| **S1a** | 缺口 2: WebSocket 通道 | P0 | A | S0 |
-| **S1b** | 缺口 1: AuthPort 登录态 | P0 | A + C | S0 |
-| **S2a** | 缺口 3: RPC server | P1 | A + B | S0 |
-| **S2b** | 缺口 5: Card/Approval 事件 | P1 | C | S0 |
-| **S2c** | 缺口 4: FilesystemPort | P1 | T + A | S0 |
-| **S3** | 缺口 6: Hook emit | P2 | C + B | S0（可延后） |
+> **2026-08-05 执行状态:** 全部阶段已闭环合入主干（含承接 Agent 的 L4 实现与本 Agent 的三处接线/配置化收口）。分支均按约定保留：`feature/foundation-ports`（S0）、`feature/tui-contract-l3a-api`（S1/S2 实现载体）。
+
+| 阶段 | 缺口 | 优先级 | 主域 | 依赖 | 状态 |
+|---|---|---|---|---|---|
+| **S0** | L1 端口地基（4 个 Port 抽象 + SignalType + 常量） | P0 前置 | K | 无 | ✅ 已合入（`6c82f6b`/merge `52d549c`） |
+| **S1a** | 缺口 2: WebSocket 通道 | P0 | A | S0 | ✅ 已合入（`ws_bridge.py` 独立端口 8081,随网关启动） |
+| **S1b** | 缺口 1: AuthPort 登录态 | P0 | A + C | S0 | ✅ 已合入（`AuthService(AuthPort)` + `/api/v2/auth/*`） |
+| **S2a** | 缺口 3: RPC server | P1 | A + B | S0 | ✅ 已合入（`rpc/server.py` + 网关启动接线 `d8025b8`） |
+| **S2b** | 缺口 5: Card/Approval 事件 | P1 | C | S0 | ✅ 已合入（`CARD_PENDING`/`APPROVAL_*` 事件挂接） |
+| **S2c** | 缺口 4: FilesystemPort | P1 | T + A | S0 | ✅ 已合入（`fs_adapter.py` + boot 注册 `d8025b8`） |
+| **S3** | 缺口 6: Hook emit | P2 | C + B | S0（可延后） | ✅ 已合入（`EventEmitHook` + `get_hook_chain()` + AgentLoop 触发 `33ec9d5`） |
 
 **施工铁律（引自 AGENTS.md）:**
 
@@ -41,7 +43,7 @@
 | 新增端口 | 抽象方法 |
 |---|---|
 | `AuthPort` | `issue_token(identity, ttl)` / `verify_token(token)` / `revoke_token(token)` / `refresh_token(token)` |
-| `WebSocketPort` | `upgrade(request)` / `recv()` / `send(msg)` / `close()` / `broadcast(event, data)` |
+| `WebSocketPort` | `upgrade(request)` → conn / `recv(conn)` / `send(conn, msg)` / `close(conn)` / `broadcast(event, data)`（**审查修复 `8a5b2fe`：显式连接句柄模型**，每实例可服务多客户端，无隐式共享状态） |
 | `RpcServerPort` | `register_handler(method, fn)` / `call(method, params)` / `notify(method, params)` |
 | `FilesystemPort` | `read(path)` / `write(path, content)` / `list_tree(root)` / `watch(root, cb)` |
 
