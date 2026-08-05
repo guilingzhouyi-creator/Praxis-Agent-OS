@@ -2,28 +2,41 @@
 name: api-doc
 description: Generate and update API documentation for NOMOS Praxis API Gateway. Extracts routes, parameters, and handler signatures from api_gateway.py and api_handlers*.py.
 disable-model-invocation: true
+allowed-tools: Read, Grep, Glob, Write
 ---
 
-## Context
+## Overview
 
-NOMOS Praxis API Gateway has 129+ routes registered in `src/services/api_gateway.py`, with handlers in `src/services/api_handlers.py`, `api_handlers_agent.py`, `api_handlers_cards.py`, `api_handlers_config.py`, `api_handlers_monitor.py`.
+Generates and updates OpenAPI documentation for the Praxis API Gateway. Reads routes from `src/l4/api/api_gateway.py` and handler signatures from `src/l4/api/api_handlers*.py`, then produces or merges API documentation.
+
+## When to Use
+
+Invoke via `/api-doc` when:
+- Adding new API routes or handlers.
+- Modifying existing route parameters or responses.
+- Updating the API reference documentation.
 
 ## Workflow
 
 ### 1. Scan API Routes
 
-Read `api_gateway.py` to find all `register_route()` calls and the handler dispatch table:
+Read `src/l4/api/api_routes.py` and `src/l4/api/api_gateway.py` to find all registered routes:
 
 ```python
-# Key structure in api_gateway.py:
+# Key structures:
 #   Route(method, path, handler, description)
 #   _register_defaults() registers all routes
-#   Handlers in ApiHandlers base class
+#   Handlers in api_handlers_*.py files
 ```
 
-Read handler files to extract function signatures and docstrings.
+### 2. Read Handler Signatures
 
-### 2. Generate Documentation
+Read handler files from `src/l4/api/` and `src/l4/api_handlers/` to extract:
+- Function signatures (parameters, return types).
+- Docstrings describing behavior.
+- Error response patterns.
+
+### 3. Generate Documentation
 
 Format as OpenAPI 3.0 (YAML or Markdown table):
 
@@ -31,18 +44,18 @@ Format as OpenAPI 3.0 (YAML or Markdown table):
 ## API Reference
 
 ### `GET /health`
-- **Handler**: `api_handlers.handle_health`
+- **Handler**: `handle_health`
 - **Description**: System health check
 - **Response**: `{"status": str, "uptime": float}`
 ```
 
-### 3. Update Existing Docs
+### 4. Merge with Existing Docs
 
-Merge with any existing docs in `docs/` directory. Flag:
-- New routes without docs
-- Routes whose handler signatures changed
-- Deprecated routes still documented
+Read existing docs in `docs/` directory. Flag:
+- New routes without documentation.
+- Routes whose handler signatures changed.
+- Deprecated routes still documented.
 
-### Output
+## Output
 
-Write to `docs/api-reference.md` or update the existing API documentation file.
+Write to `docs/api-reference.md` or update the existing API documentation file. Report a summary of what was added, updated, or removed.
