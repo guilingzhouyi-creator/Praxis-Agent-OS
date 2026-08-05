@@ -106,7 +106,30 @@ flowchart TB
 
 1. **New to Praxis**: [l1-kernel.md](l1-kernel.md) → [l3-card-lifecycle.md](l3-card-lifecycle.md) → [l3a-central.md](l3a-central.md)
 2. **Frontend / contract work**: [l4-bridge.md](l4-bridge.md) → [l5-user.md](l5-user.md) → [cross-cutting.md](cross-cutting.md)
-3. **Memory / agents**: [l3-memory.md](l3-memory.md) → [cross-cutting.md](cross-cutting.md)
+3. **Memory / agents**: [l3-memory.md](l3-memory.md) → [l3-scheduler.md](l3-scheduler.md) → [l3-tools.md](l3-tools.md)
+4. **Governance / QA / skills**: [cross-cutting.md](cross-cutting.md)
+
+## Main data flows
+
+```
+INTENT: user will → L3A session (profile reference) → cardwrite → card
+CARD:   produce → execute (plan/agents/tools via GateChain) → approve → complete → R4 archive
+EVENT:  source → EventBus (async) → SSE /api/events + WS :8081 → frontends
+SESSION:send → inbox → loop → history (cursor-paged) → close → archive → resume_from_archive
+```
+
+## Design principles
+
+| Principle | What it means in practice |
+|-----------|--------------------------|
+| **Will cannot violate the constitution** | Constitution is the highest authority; every tool call passes GateChain G1–G5 before execution |
+| **Bypass side-channels** | Mer/R5/profile never mutate the main flow; on error they degrade to no-ops — originals stay intact |
+| **Language-agnostic contract** | Frontends (TUI/desktop/TS) talk to the kernel only over `/api/v2/*` + WS/SSE — the kernel may sink or multi-language without rewriting the UI |
+| **Port abstractions, duck-typed** | `get_port(name)` resolves adapters at runtime; swapping the kernel changes adapters only |
+| **User-configurable injection** | Every system-prompt block is gated by `prompt.inject.<domain>`; settings failure falls back to enabled (safety never stripped silently) |
+| **Versioned API, validated manifest** | `/api/v2/*` only; `api_endpoints.validate()` rejects naming violations; bumps are atomic |
+| **Discipline is executable** | worktree checks, layer-import tests, params-compliance, commit hooks — rules become machine checks, not advice |
+| **Anti-blowup by construction** | cursor paging, token caps, bounded queues, display windowing — no unbounded accumulation anywhere |
 
 ## Archived
 
