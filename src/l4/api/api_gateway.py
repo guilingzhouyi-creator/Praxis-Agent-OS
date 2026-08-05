@@ -133,22 +133,62 @@ class ApiGateway(ApiHandlers):
     # ── Route matching ───────────────────────────────────────────────────
 
     def _match_route(self, method: str, path: str) -> tuple[Callable, dict]:
-        """Find matching route. Returns (handler, path_params)."""
+        """Find matching route. Returns (handler, path_params).
+
+        Matching priority (fixes the trailing-slash prefix hijack where a
+        wildcard like ``/api/skills/`` captured explicit sub-paths such as
+        ``/api/skills/permissions``):
+
+          1. Exact match (``path == r.path``).
+          2. ``{param}`` pattern match (e.g. ``/api/v2/discussion/{id}``).
+          3. Legacy trailing-slash prefix fallback (``/api/card/`` →
+             ``/api/card/<id>``) — only when nothing above matched.
+        """
+        # Pass 1: exact + {param} patterns (highest priority)
         for r in self._routes:
-            if r.method != method:
+            if r.method != method or r.path.endswith("/"):
                 continue
-            if r.path.endswith("/"):
-                prefix = r.path.rstrip("/")
-                if path.startswith(prefix + "/"):
-                    remainder = path[len(prefix) + 1:]
-                    if remainder == "":
-                        return r.handler, {"id": ""}
-                    if "/" not in remainder:
-                        return r.handler, {"id": remainder}
-                    continue
+            if "{" in r.path:
+                params = self._match_param_pattern(r.path, path)
+                if params is not None:
+                    return r.handler, params
             elif path == r.path:
                 return r.handler, {}
+        # Pass 2: legacy trailing-slash prefix fallback
+        for r in self._routes:
+            if r.method != method or not r.path.endswith("/"):
+                continue
+            prefix = r.path.rstrip("/")
+            if path.startswith(prefix + "/"):
+                remainder = path[len(prefix) + 1:]
+                if remainder == "":
+                    return r.handler, {"id": ""}
+                if "/" not in remainder:
+                    return r.handler, {"id": remainder}
         return self._not_found, {}
+
+    @staticmethod
+    def _match_param_pattern(pattern: str, path: str) -> dict | None:
+        """Match a ``{param}`` path pattern against a concrete path.
+
+        Returns the extracted params dict, or None when the path does not
+        match the pattern.  Segment-wise comparison — ``{name}`` captures a
+        single path segment.
+
+        Example: ``/api/v2/discussion/{id}`` vs ``/api/v2/discussion/abc``
+                 → ``{"id": "abc"}``
+        """
+        p_segs = pattern.strip("/").split("/")
+        r_segs = path.strip("/").split("/")
+        if len(p_segs) != len(r_segs):
+            return None
+        params: dict[str, str] = {}
+        for p, r in zip(p_segs, r_segs):
+            if p.startswith("{") and p.endswith("}"):
+                params[p[1:-1]] = r
+            elif p != r:
+                return None
+        return params
 
     def _not_found(self, body: dict) -> dict:
         return {"error": "not found"}

@@ -60,26 +60,90 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/card_types": "card", "/api/card_unified": "card", "/api/cards/plan": "card",
 }
 
+# ── 7 work-domain groups (AGENTS.md parallel-collaboration domains) ───────────
+# Fine-grained domain → top-level work group.  Every endpoint's `group` field
+# is derived here; the fine `domain` is kept for sub-grouping and future
+# per-group routing prefixes (/api/v2/<group>/...).
+_DOMAIN_GROUP: dict[str, str] = {
+    # A — bridge/shell (user-facing surface)
+    "system": "shell", "lifecycle": "shell", "config": "shell",
+    "shell": "shell", "comm": "shell", "sse": "shell", "monitor": "shell",
+    # K — kernel (security / constitution / credentials)
+    "security": "kernel", "constitution": "kernel", "credential": "kernel",
+    "token": "kernel", "trust": "kernel", "rollback": "kernel",
+    # M — memory (rings / search / records / logs)
+    "memory": "memory", "search": "memory", "records": "memory",
+    "log": "memory", "cache": "memory",
+    # S — sessions (L3A / discussion / session lifecycle)
+    "session": "sessions", "l3a": "sessions", "discussion": "sessions",
+    # T — tools (filesystem / LSP / prompt / diff / skills)
+    "tool": "tools", "fs": "tools", "lsp": "tools", "prompt": "tools",
+    "diff": "tools", "skill": "tools", "buffer": "tools", "loop": "tools",
+    # C — card-cell (cards / approvals / pending / cell / cluster)
+    "card": "card-cell", "approval": "card-cell", "cell": "card-cell",
+    "cluster": "card-cell", "dispatch": "card-cell",
+    # B — bus-services (MCP / plugins / subagents / providers / cron)
+    "mcp": "bus-services", "plugin": "bus-services", "subagent": "bus-services",
+    "scout": "bus-services", "r4": "bus-services", "provider": "bus-services",
+    "cron": "bus-services", "stats": "bus-services", "agent": "bus-services",
+    # fallback
+    "misc": "misc",
+}
+
+_VERSION_PREFIXES = ("/api/v1/", "/api/v2/", "/api/v3/")
+
+
+def _strip_version(path: str) -> str:
+    """Strip a leading version prefix so classification ignores versioning.
+
+    ``/api/v2/providers`` → ``/api/providers``; unversioned paths pass through.
+    """
+    for prefix in _VERSION_PREFIXES:
+        if path.startswith(prefix):
+            return "/api/" + path[len(prefix):]
+    return path
+
 
 def _infer_domain(path: str) -> str:
-    """Infer the functional domain from the path prefix (basis for naming normalization)."""
+    """Infer the functional domain from the path prefix (basis for naming normalization).
+
+    Version prefixes (``/api/v1/``, ``/api/v2/``) are stripped before matching
+    so versioned endpoints classify identically to their unversioned siblings
+    (previously all ``/api/v2/*`` fell through to ``misc``).
+    """
+    stripped = _strip_version(path)
     for prefix, domain in sorted(_DOMAIN_BY_PREFIX.items(), key=lambda kv: -len(kv[0])):
-        if path.startswith(prefix):
+        if stripped.startswith(prefix):
             return domain
     return "misc"
 
 
+def _infer_group(domain: str) -> str:
+    """Map a fine-grained domain to its 7-work-domain group."""
+    return _DOMAIN_GROUP.get(domain, "misc")
+
+
 @dataclass(frozen=True)
 class ApiEndpoint:
-    """A single registered API endpoint entry."""
+    """A single registered API endpoint entry.
+
+    ``group`` is derived (property) from ``domain`` via the 7-work-domain
+    mapping — it is not a stored field, so positional construction elsewhere
+    (scattered/outbound lists) is unaffected.
+    """
 
     method: str
     path: str
     handler_ref: str = ""
     description: str = ""
-    domain: str = ""
+    domain: str = ""            # fine-grained functional domain (e.g. "skill")
     source: str = ""            # original registration source (module path or "api_routes")
     kind: str = "http"          # http=gateway inbound endpoint; outbound=external protocol endpoint
+
+    @property
+    def group(self) -> str:
+        """7-work-domain group derived from the fine-grained domain."""
+        return _infer_group(self.domain)
 
     def to_tuple(self) -> tuple[str, str, str, str]:
         """Convert back to the 4-tuple (method, path, handler_ref, description) used by api_routes."""
@@ -176,29 +240,77 @@ _OUTBOUND: list[ApiEndpoint] = [
 # ── Full manifest ────────────────────────────────────────────────────────────────
 ENDPOINT_MANIFEST: list[ApiEndpoint] = _CENTRAL + _SCATTERED + _OUTBOUND
 
+# ── Public group catalogue (for consumers / docs / future /api/v2/<group>/) ─────
+DOMAIN_GROUPS: tuple[str, ...] = (
+    "shell", "kernel", "memory", "sessions", "tools", "card-cell", "bus-services", "misc",
+)
 
-def get_endpoints(domain: str = "", source: str = "", kind: str = "") -> list[ApiEndpoint]:
-    """Filter the manifest by domain / source / kind."""
+
+def get_endpoints(domain: str = "", group: str = "",
+                  source: str = "", kind: str = "") -> list[ApiEndpoint]:
+    """Filter the manifest by domain / group / source / kind."""
     return [e for e in ENDPOINT_MANIFEST
             if (not domain or e.domain == domain)
+            and (not group or e.group == group)
             and (not source or e.source == source)
             and (not kind or e.kind == kind)]
+
+
+def register_domain(domain: str, group: str) -> dict:
+    """Register a new fine-grained domain under a 7-work-domain group.
+
+    Extension point: new endpoint families can be added at runtime without
+    editing ``_DOMAIN_BY_PREFIX`` — just declare the domain once here and
+    pass it explicitly to ``register_endpoint(domain=...)``.
+    """
+    domain = domain.strip().lower()
+    group = group.strip().lower()
+    _DOMAIN_GROUP.setdefault(domain, group)
+    return {"success": True, "domain": domain, "group": group,
+            "groups": sorted(set(_DOMAIN_GROUP.values()))}
+
+
+def register_group(name: str) -> dict:
+    """Register a new top-level work-domain group (rarely needed)."""
+    name = name.strip().lower()
+    if name not in _DOMAIN_GROUP.values():
+        # Give every domain a fallback mapping to the new group only when
+        # explicitly requested by the caller via register_domain.
+        _DOMAIN_GROUP.setdefault(name, name)
+    return {"success": True, "group": name, "groups": sorted(set(_DOMAIN_GROUP.values()))}
 
 
 def register_endpoint(method: str, path: str, handler_ref: str = "",
                       description: str = "", domain: str = "",
                       source: str = "", kind: str = "http") -> ApiEndpoint:
-    """Register a new endpoint (extension point for the upcoming unified naming convention)."""
+    """Register a new endpoint (extension point for the unified naming convention).
+
+    ``domain`` defaults to ``_infer_domain(path)``; the 7-work-domain ``group``
+    is derived automatically from ``domain`` via ``_DOMAIN_GROUP``.  Unknown
+    domains are auto-registered under the ``misc`` group — pass an explicit
+    ``domain=`` (after ``register_domain``) to control the group.
+    """
+    resolved_domain = (domain or _infer_domain(path)).strip().lower()
+    if resolved_domain not in _DOMAIN_GROUP:
+        _DOMAIN_GROUP[resolved_domain] = "misc"
     ep = ApiEndpoint(method=method, path=path, handler_ref=handler_ref,
                      description=description,
-                     domain=domain or _infer_domain(path),
+                     domain=resolved_domain,
                      source=source, kind=kind)
     ENDPOINT_MANIFEST.append(ep)
     return ep
 
 
 def validate() -> dict:
-    """Validate the manifest: no duplicates in the central table + all scattered endpoints merged in."""
+    """Validate the manifest: no duplicates in the central table + all scattered endpoints merged in.
+
+    Also enforces naming-style rules that the unified prefix convention
+    requires (see docs/architecture/overview.md):
+      - no snake_case path segments (use kebab-case)
+      - no legacy trailing-slash parameter style (use {param})
+      - no duplicate (method, path) pairs anywhere in the manifest
+      - classification coverage — misc should be (near) empty
+    """
     issues: list[str] = []
     # 1) no duplicates allowed inside the central table (registration source of truth)
     seen: set[tuple[str, str]] = set()
@@ -214,23 +326,50 @@ def validate() -> dict:
         if (e.method, e.path) not in central_keys:
             issues.append(f"scattered endpoint not in API_ROUTES: {e.method} {e.path} "
                           f"(source={e.source})")
+
+    # 3) classification coverage — misc should be (near) empty
+    misc_paths = sorted({f"{e.method} {e.path}" for e in ENDPOINT_MANIFEST if e.domain == "misc"})
+    if len(misc_paths) > 1:
+        issues.append(f"{len(misc_paths)} unclassified endpoints (domain=misc): {misc_paths[:8]}...")
+
+    # 4) naming style — snake_case path segments (unified prefix uses kebab-case)
+    snake_paths = sorted({f"{e.method} {e.path}" for e in ENDPOINT_MANIFEST
+                          if any("_" in seg for seg in e.path.strip("/").split("/") if seg)})
+    if snake_paths:
+        issues.append(f"snake_case path segments (use kebab-case): {snake_paths[:10]}...")
+
+    # 5) naming style — trailing-slash parameter routes (unified prefix uses {param})
+    slash_paths = sorted({f"{e.method} {e.path}" for e in ENDPOINT_MANIFEST
+                          if e.path.endswith("/")})
+    if slash_paths:
+        issues.append(f"trailing-slash parameter style (use {{param}}): {slash_paths[:10]}...")
+
+    # 6) group consistency — every domain must map to a known 7-work-domain group
+    unknown_groups = sorted({e.group for e in ENDPOINT_MANIFEST
+                             if e.group not in DOMAIN_GROUPS})
+    if unknown_groups:
+        issues.append(f"unknown domain groups (not in {DOMAIN_GROUPS}): {unknown_groups}")
+
     return {"ok": not issues, "issues": issues, "total": len(ENDPOINT_MANIFEST),
             "central": len(_CENTRAL), "scattered": len(_SCATTERED),
-            "outbound": len(_OUTBOUND)}
+            "outbound": len(_OUTBOUND), "misc": len(misc_paths)}
 
 
 def summary() -> dict:
-    """Count by functional domain (reference for naming normalization)."""
+    """Count by functional domain and 7-work-domain group (reference for naming normalization)."""
     domains: dict[str, int] = {}
+    groups: dict[str, int] = {}
     for e in ENDPOINT_MANIFEST:
         domains[e.domain] = domains.get(e.domain, 0) + 1
+        groups[e.group] = groups.get(e.group, 0) + 1
     unique_http = {(e.method, e.path) for e in ENDPOINT_MANIFEST if e.kind == "http"}
     return {"total": len(ENDPOINT_MANIFEST),
             "unique_http": len(unique_http),
             "central": len(_CENTRAL),
             "scattered": len(_SCATTERED),
             "outbound": len(_OUTBOUND),
-            "domains": dict(sorted(domains.items()))}
+            "domains": dict(sorted(domains.items())),
+            "groups": dict(sorted(groups.items()))}
 
 
 def _dump() -> None:
