@@ -99,10 +99,10 @@ def wire_defaults() -> dict[str, str]:
     get_fs_adapter()
     registry["fs"] = "fs_adapter"
 
-    # Hook chain — shared LifecycleHooks chain with EventEmitHook pre-registered
+    # Hook chain — shared LifecycleHooks singleton with EventEmitHook
+    # pre-registered. Not a port: consumed via hook.get_hook_chain().
     from l3.services.hook import get_hook_chain
     get_hook_chain()
-    registry["hook_chain"] = "event_emit"
 
     logger.info("wiring: default adapters registered: %s", registry)
     return registry
