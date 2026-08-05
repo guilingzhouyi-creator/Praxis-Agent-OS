@@ -52,6 +52,30 @@ from .params.kernel import (
 
 logger = logging.getLogger(__name__)
 
+# ── Stagnation callback (registered at boot from L3 wiring) ──
+# Avoids direct ``from l3.agent.stagnation import ...`` in kernel layer.
+_stagnation_callback: Callable | None = None
+
+
+def register_stagnation_callback(fn: Callable | None) -> None:
+    """Register a break_loop callback (called by G5 on repeated-tool detection).
+
+    The callback receives (agent_id, pattern) and returns a dict with
+    ``action`` / ``reason`` keys. Registered at boot from L3 wiring.
+    """
+    global _stagnation_callback
+    _stagnation_callback = fn
+
+
+def _break_loop(agent_id: str, pattern: str) -> dict:
+    if _stagnation_callback is None:
+        return {"action": "", "reason": "stagnation module unavailable"}
+    try:
+        return _stagnation_callback(agent_id, {"pattern": pattern}) or {}
+    except Exception as e:
+        logger.warning("kernel/gatechain: break_loop failed: %s", e)
+        return {"action": "", "reason": str(e)}
+
 
 class GateResult(Enum):
     """GateResult — enum of gate result variants."""
@@ -332,30 +356,14 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
                       "reputation": round(rep, 2)})
         return steps, GateResult.BLOCK
     elif repeated and high_freq_same_tool:
-        try:
-            from l3.agent.stagnation import get_detector
-            _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "SPINNING"})
-        except ImportError:
-            logger.warning("kernel/gatechain: stagnation module unavailable, skipping break_loop")
-            _ba = {"action": "", "reason": "stagnation module unavailable"}
-        except Exception as e:
-            logger.warning("kernel/gatechain: break_loop failed: %s", e)
-            _ba = {"action": "", "reason": str(e)}
+        _ba = _break_loop(ctx["agent_id"], "SPINNING")
         steps.append({"gate": "G5", "result": "REPORT",
                       "reason": f"{len(history)} calls, {same_tool_count}x '{ctx['tool']}', rep={rep:.2f}, score={score:.1f}",
                       "break_action": _ba.get("action", ""),
                       "break_reason": _ba.get("reason", "")})
         return steps, GateResult.REPORT
     elif repeated:
-        try:
-            from l3.agent.stagnation import get_detector
-            _ba = get_detector().break_loop(ctx["agent_id"], {"pattern": "OSCILLATION"})
-        except ImportError:
-            logger.warning("kernel/gatechain: stagnation module unavailable, skipping break_loop")
-            _ba = {"action": "", "reason": "stagnation module unavailable"}
-        except Exception as e:
-            logger.warning("kernel/gatechain: break_loop failed: %s", e)
-            _ba = {"action": "", "reason": str(e)}
+        _ba = _break_loop(ctx["agent_id"], "OSCILLATION")
         outcome = "REPORT" if rep < GATECHAIN_REP_LOW_THRESHOLD else "WARN"
         steps.append({"gate": "G5", "result": outcome,
                       "reason": f"{len(history)} calls, rep={rep:.2f}, score={score:.1f}",

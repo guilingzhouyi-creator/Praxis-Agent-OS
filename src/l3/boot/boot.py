@@ -109,6 +109,26 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 
     wire_kernel_os()
 
+    # Bridge L1 PraxisError → L3 ErrorBus. Registered early so any kernel
+    # error raised during boot is captured (idempotent; safe to re-register).
+    try:
+        from l1.kernel.errors import set_error_capture_handler
+
+        def _kernel_error_handler(message: str, error_code: str,
+                                  cause: Exception | None, context: dict | None) -> None:
+            """Forward a kernel PraxisError into the L3 ErrorBus."""
+            try:
+                from l3.error_bus import capture
+                capture(message=message, error_code=error_code, component="kernel",
+                        exc=cause, context=context or {})
+            except Exception as e:
+                logger.debug("boot: error capture bridge failed: %s", e)
+
+        set_error_capture_handler(_kernel_error_handler)
+        _BOOT_STEPS.append("error_capture_wiring")
+    except Exception as e:
+        logger.warning("boot: error capture wiring failed: %s", e)
+
     # Register default port adapters (i18n, worker, channel, event_bus, ...)
     # early so cfg_language (load_config step) can switch the active locale
     # and other services can resolve ports instead of relying on lazy fallbacks.
@@ -546,9 +566,16 @@ def _init_kernel_and_vfs() -> dict:
     from l1.kernel.allocator import get_allocator
     from l1.kernel.constitution import get_constitution
     from l1.kernel.device import get_device_manager
-    from l1.kernel.gatechain import get_gatechain
+    from l1.kernel.gatechain import get_gatechain, register_stagnation_callback
     from l1.kernel.swapper import get_swapper
     from l1.kernel.vfs import MountType, get_vfs
+
+    # Wire the stagnation break_loop callback into GateChain G5 (L3 -> L1)
+    try:
+        from l3.agent.stagnation import get_detector as _get_detector
+        register_stagnation_callback(_get_detector().break_loop)
+    except Exception as e:
+        logger.warning("boot: stagnation callback wiring failed: %s", e)
 
     results = {}
     for name, fn in [
@@ -669,7 +696,16 @@ def _init_memory_and_archive() -> dict:
         results["archive_restore"] = f"{n} entries"
     except Exception as e: results["archive_restore"] = f"skip: {e}"
     try:
-        from l3.memory.r4_agent import start_r4_agent; start_r4_agent(); results["r4_agent"] = "started"
+        from l3.memory.r4_agent import start_r4_agent, get_r4_agent
+        r4 = get_r4_agent()
+        try:
+            from l3.cell import get_cell
+            cell = get_cell("default")
+            if cell and getattr(cell, "_pmu", None):
+                r4.set_pmu(cell._pmu)
+        except Exception as e:
+            logger.debug("r4 pmu wire skipped: %s", e)
+        start_r4_agent(); results["r4_agent"] = "started"
     except Exception as e: results["r4_agent"] = f"error: {e}"
     try:
         from l3.cell.peers.l3a import start_l3a_daemon; start_l3a_daemon(); results["l3a_daemon"] = "started"
@@ -787,6 +823,19 @@ def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -
 
     cell = get_cell(DEFAULT_CELL_ID)
     get_ft().start()
+
+    # ── Skill binding from config (回灌到 Cell) — optional; missing → global pool ──
+    try:
+        from l3.config.settings_center import get_center as _gc
+        cell_skills = _gc().get("cell.skills", {})
+        if isinstance(cell_skills, dict):
+            names = cell_skills.get(DEFAULT_CELL_ID) or cell_skills.get("*")
+            if names:
+                r = cell.bind_skills(names)
+                logger.info("boot: bound %d skills to cell %s", r.get("bound", 0), DEFAULT_CELL_ID)
+    except Exception as e:
+        logger.debug("boot: skill binding skipped: %s", e)
+
     registered = []
     for agent_id, role, territory in agent_config or []:
         cell.add_agent(agent_id, role=role, territory=territory, auto_boot=True)

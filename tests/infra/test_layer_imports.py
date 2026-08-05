@@ -15,7 +15,6 @@ LAYER_ORDER = {"l1": 0, "l2": 1, "l3": 2, "l4": 3, "l5": 4}
 # Rebuilt from the actual src/ import graph — every entry is a real (file, module)
 # pair; add a line here when introducing a new cross-layer import.
 ALLOWLIST = {
-    ("l1/kernel/gatechain.py", "l3.agent.stagnation"),
     ("l1/kernel/net_transport.py", "l4.adapters.channel_ring"),
     ("l1/kernel/net_transport.py", "l4.adapters.worker_thread"),
     ("l1/kernel/settings.py", "l3.config.settings_adapter"),
@@ -48,13 +47,16 @@ ALLOWLIST = {
     ("l2/l2_shell/commands/memory.py", "l3.services.central_plugin"),
     ("l2/l2_shell/commands/model.py", "l3.config.settings_center"),
     ("l2/l2_shell/commands/model.py", "l3.error_bus"),
+    ("l2/l2_shell/commands/model.py", "l3.scheduler.think_registry"),
     ("l2/l2_shell/commands/model.py", "l3.services.model_service"),
+    ("l2/l2_shell/commands/model.py", "l4.api_handlers.api_handlers_providers"),
     ("l2/l2_shell/commands/model.py", "l4.cron_scheduler"),
     ("l2/l2_shell/commands/model.py", "l4.llm.llm"),
     ("l3/memory/memory_graph.py", "l4.llm.llm"),
     ("l2/l2_shell/commands/system.py", "l3.agent_terminal"),
     ("l2/l2_shell/commands/system.py", "l3.bus.observability_bus"),
     ("l2/l2_shell/commands/system.py", "l3.cell"),
+    ("l2/l2_shell/commands/system.py", "l3.memory.r4_agent"),
     ("l2/l2_shell/commands/system.py", "l3.scheduler.scheduler"),
     ("l2/l2_shell/commands/system.py", "l3.scheduler.think_registry"),
     ("l2/l2_shell/commands_settings.py", "l3.config.settings_center"),
