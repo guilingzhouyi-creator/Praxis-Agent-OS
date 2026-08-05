@@ -5,7 +5,7 @@ description = "Praxis — Agent OS (headless core)"
 requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6.0",
-    "Jinja2>=3.0",
+    "Jinja2>=3.1.6",
     "websocket-client>=1.0",
     "websockets>=13",
     "cryptography>=41.0",
