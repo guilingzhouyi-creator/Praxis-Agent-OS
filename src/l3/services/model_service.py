@@ -190,30 +190,37 @@ class ModelService:
 
         parts = spec_name.split(".")
 
-        # 1. Try exact: model_spec.{spec_name}
-        full = self._read_dict(sc, "model_spec." + spec_name)
+        # 1. Try exact: model_spec.{spec_name} (leaf keys only, so a
+        #    model_spec.l3a.defaults.* subtree is not mistaken for an
+        #    exact l3a spec)
+        full = self._read_dict(sc, "model_spec." + spec_name, leaf_only=True)
         if full:
             return full
 
         # 2. Try model_spec.{prefix}.specs.{name}
         if len(parts) >= 2:
-            full = self._read_dict(sc, f"model_spec.{parts[0]}.specs.{parts[-1]}")
+            full = self._read_dict(
+                sc, f"model_spec.{parts[0]}.specs.{parts[-1]}", leaf_only=True)
             if full:
                 return full
 
         # 3. Try platform defaults: model_spec.{prefix}.defaults
         if len(parts) >= 1:
-            defaults = self._read_dict(sc, "model_spec." + parts[0] + ".defaults")
+            defaults = self._read_dict(
+                sc, "model_spec." + parts[0] + ".defaults", leaf_only=True)
             if defaults:
                 return defaults
 
         return None
 
-    def _read_dict(self, sc: Any, prefix: str) -> dict | None:
+    def _read_dict(self, sc: Any, prefix: str, leaf_only: bool = False) -> dict | None:
         """Read a flattened key prefix from SettingsCenter as a dict.
 
         SettingsCenter values like llm.provider, llm.model are stored as
-        flat keys.  This reconstructs them into nested dicts.
+        flat keys.  This reconstructs them into nested dicts. With
+        ``leaf_only``, only direct children (sub_key without further dots)
+        are collected — used to avoid matching deeper subtrees such as
+        ``model_spec.x.defaults.*`` when resolving the exact spec ``x``.
         """
         try:
             result = {}
@@ -221,6 +228,8 @@ class ModelService:
             for key, value in all_.items():
                 if key.startswith(prefix + "."):
                     sub_key = key[len(prefix) + 1:]
+                    if leaf_only and "." in sub_key:
+                        continue
                     result[sub_key] = value
             return result if result else None
         except Exception:

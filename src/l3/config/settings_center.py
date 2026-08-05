@@ -165,6 +165,33 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── Skills (developer-only write gate) ──
     "skill.write_min_ring": 3,          # min ring clearance to mutate skills
     "skill.write_roles": ["l3", "reviewer", "deployer"],
+
+    # ── R4 Agent ──
+    "r4_agent.model_spec": "r4_agent",  # model spec name for skill evolution / archive ops
+
+    # ── Per-executor model specs (model_service reads model_spec.{name}.defaults) ──
+    # Mirrors the model_spec section of config/praxis.yaml; `model` inherits
+    # from llm.model unless set per executor.
+    "model_spec.scout.defaults.max_tokens": 2048,
+    "model_spec.scout.defaults.temperature": 0.3,
+    "model_spec.scout.defaults.reasoning_effort": "none",
+    "model_spec.scout.defaults.thinking_budget": 0,
+    "model_spec.l3a.defaults.max_tokens": 4096,
+    "model_spec.l3a.defaults.temperature": 0.7,
+    "model_spec.l3a.defaults.reasoning_effort": "none",
+    "model_spec.l3a.defaults.thinking_budget": 0,
+    "model_spec.l3a_subagent.defaults.max_tokens": 2048,
+    "model_spec.l3a_subagent.defaults.temperature": 0.3,
+    "model_spec.l3a_subagent.defaults.reasoning_effort": "none",
+    "model_spec.l3a_subagent.defaults.thinking_budget": 0,
+    "model_spec.subagent.defaults.max_tokens": 2048,
+    "model_spec.subagent.defaults.temperature": 0.3,
+    "model_spec.subagent.defaults.reasoning_effort": "none",
+    "model_spec.subagent.defaults.thinking_budget": 0,
+    "model_spec.r4_agent.defaults.max_tokens": 2048,
+    "model_spec.r4_agent.defaults.temperature": 0.3,
+    "model_spec.r4_agent.defaults.reasoning_effort": "none",
+    "model_spec.r4_agent.defaults.thinking_budget": 0,
 }
 
 

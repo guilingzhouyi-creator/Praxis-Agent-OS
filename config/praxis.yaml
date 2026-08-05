@@ -60,6 +60,43 @@ llm:
     ollama:
       optimize_prompt: false
 
+# ── Per-executor model specs (model_service cascade: overrides > model_spec > llm global) ──
+# Consumed by resolve_dict("scout"|"l3a"|"l3a_subagent"|"subagent"|"r4_agent").
+# `model` is omitted here so every executor inherits llm.model; set it per
+# executor to diverge. reasoning_effort: none|low|medium|high;
+# thinking_budget: token budget for reasoning (0 = provider default).
+model_spec:
+  scout:
+    defaults:
+      max_tokens: 2048
+      temperature: 0.3
+      reasoning_effort: none
+      thinking_budget: 0
+  l3a:
+    defaults:
+      max_tokens: 4096
+      temperature: 0.7
+      reasoning_effort: none
+      thinking_budget: 0
+  l3a_subagent:
+    defaults:
+      max_tokens: 2048
+      temperature: 0.3
+      reasoning_effort: none
+      thinking_budget: 0
+  subagent:
+    defaults:
+      max_tokens: 2048
+      temperature: 0.3
+      reasoning_effort: none
+      thinking_budget: 0
+  r4_agent:
+    defaults:
+      max_tokens: 2048
+      temperature: 0.3
+      reasoning_effort: none
+      thinking_budget: 0
+
 # ── L3A session limits (0 = unlimited) ──
 l3a:
   max_steps: 0                  # Tool-calling turns per prompt

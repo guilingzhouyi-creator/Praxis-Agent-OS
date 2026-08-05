@@ -89,6 +89,41 @@ POST /api/settings     # set a key
 L2 Shell /settings     # view/modify settings
 ```
 
+## Per-executor Model Specs (`model_spec`)
+
+`config/praxis.yaml` section `model_spec:` configures model / context /
+reasoning strength per executor. Resolution cascade in
+`ModelService.resolve_dict(spec_name)` (higher wins):
+
+```
+1. overrides (per-call, e.g. spec.model_config)
+2. model_spec.{name}            (exact spec, e.g. model_spec.scout.temperature)
+3. model_spec.{prefix}.defaults (platform defaults, e.g. model_spec.scout.defaults.*)
+4. llm.*                         (global llm section)
+```
+
+Supported executor spec names and their consumers:
+
+| spec_name | Consumer | Default |
+|-----------|----------|---------|
+| `scout` | Scout pool (`scout.py`) | 2048 tokens / 0.3 temp |
+| `l3a` | L3A session main model | 4096 tokens / 0.7 temp |
+| `l3a_subagent` | L3A subagent pool (`l3a/subagent.py`) | 2048 / 0.3 |
+| `subagent` | Cell SubAgent (`subagent_task.py`, spec.model_spec) | 2048 / 0.3 |
+| `r4_agent` | R4 archive agent (`r4_agent.model_spec`) | 2048 / 0.3 |
+
+Keys per spec: `max_tokens`, `temperature`, `reasoning_effort`
+(`none|low|medium|high`), `thinking_budget` (token budget, 0 = provider
+default). `model` is omitted by default and inherits `llm.model`; set it
+per executor to diverge.
+
+Runtime override (persisted to `.praxis_settings.json`):
+
+```
+PUT /api/v2/model-spec/{name}   {"temperature": 0.5, "reasoning_effort": "medium"}
+GET /api/v2/model-spec          # list resolved specs
+```
+
 ## Reading Configuration in Code
 
 ```python
