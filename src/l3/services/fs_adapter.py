@@ -10,8 +10,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
 
 from l1.kernel.ports import FilesystemPort
 
@@ -78,7 +78,8 @@ class FsAdapter(FilesystemPort):
             with self._lock:
                 if root in self._watchers:
                     return {"success": False, "error": f"already watching: {root}"}
-                self._watchers[root] = {"mtime": self._snapshot(p), "stop": False}
+                self._watchers[root] = {"mtime": self._snapshot(p), "stop": False,
+                                        "callback": callback}
             threading.Thread(target=self._poll, args=(str(p), root),
                              name=f"fs-watch-{root[:16]}", daemon=True).start()
             return {"success": True, "watching": root}
@@ -109,7 +110,7 @@ class FsAdapter(FilesystemPort):
                 if mtime != watcher["mtime"]:
                     watcher["mtime"] = mtime
                     try:
-                        callback({"root": root, "changed_at": time.time()})
+                        watcher["callback"]({"root": root, "changed_at": time.time()})
                     except Exception as e:
                         logger.debug("fs watch callback failed: %s", e)
             except OSError:

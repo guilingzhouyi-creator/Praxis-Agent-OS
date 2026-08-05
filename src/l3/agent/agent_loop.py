@@ -456,6 +456,16 @@ class AgentLoop:
 
         result["total_elapsed"] = round(elapsed, 2)
         result["total_steps"] = turns + corrections
+
+        # ── Lifecycle hook chain: turn_complete (always) + on_error (on failure) ──
+        try:
+            from l3.services.hook import get_hook_chain as _get_hc
+            _get_hc().turn_complete(result, elapsed)
+            if not result.get("success"):
+                _get_hc().on_error(result.get("error", "agent loop failed"))
+        except Exception as e:
+            logger.debug("agent_loop: hook chain emit failed: %s", e)
+
         return result
 
     def continue_run(self, task: str, timeout: float | None = None,

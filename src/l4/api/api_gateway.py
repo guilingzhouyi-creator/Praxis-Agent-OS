@@ -231,7 +231,7 @@ class ApiGateway(ApiHandlers):
         if len(p_segs) != len(r_segs):
             return None
         params: dict[str, str] = {}
-        for p, r in zip(p_segs, r_segs):
+        for p, r in zip(p_segs, r_segs, strict=False):
             if p.startswith("{") and p.endswith("}"):
                 params[p[1:-1]] = r
             elif p != r:
@@ -413,9 +413,9 @@ class ApiGateway(ApiHandlers):
                 and stats.api.request events (consumed by /api/v2/stats/live).
                 """
                 try:
-                    from l3.bus.monitor_bus import MonitorEvent as _ME2
-                    from l3.bus.monitor_bus import get_bus as _MB2
-                    _MB2().emit(_ME2(
+                    from l3.bus.monitor_bus import MonitorEvent
+                    from l3.bus.monitor_bus import get_bus as _mb2
+                    _mb2().emit(MonitorEvent(
                         type="stats.api.request", source="api_gateway",
                         severity="info",
                         message=f"{method} {path} -> {getattr(resp, 'status', '?')}",
@@ -427,15 +427,15 @@ class ApiGateway(ApiHandlers):
                 except Exception:
                     logger.debug("api_gateway: monitor emit failed")
                 try:
-                    from l3.services.stats_center import MetricPoint as _MP2
-                    from l3.services.stats_center import get_center as _SC2
+                    from l3.services.stats_center import MetricPoint
+                    from l3.services.stats_center import get_center as _sc2
                     _ts = time.time()
                     _tags = {"endpoint": path, "method": method,
                              "status": str(getattr(resp, "status", 0))}
-                    _SC2().ingest(_MP2(name="api.request.latency", value=latency_ms,
-                                       tags=_tags, timestamp=_ts, metric_type="gauge"))
-                    _SC2().ingest(_MP2(name="api.request.count", value=1.0,
-                                       tags=_tags, timestamp=_ts, metric_type="counter"))
+                    _sc2().ingest(MetricPoint(name="api.request.latency", value=latency_ms,
+                                              tags=_tags, timestamp=_ts, metric_type="gauge"))
+                    _sc2().ingest(MetricPoint(name="api.request.count", value=1.0,
+                                              tags=_tags, timestamp=_ts, metric_type="counter"))
                 except Exception:
                     logger.debug("api_gateway: stats emit failed")
 

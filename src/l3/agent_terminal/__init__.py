@@ -762,6 +762,14 @@ class AgentTerminal:
         self._convention_loops.clear()
         self._results.clear()
         self.status = TerminalStatus.STOPPED
+        # Lifecycle hook chain: session_end (agent session terminated)
+        try:
+            from l3.services.hook import get_hook_chain as _get_hc
+            _get_hc().session_end({"agent_id": self.agent_id,
+                                   "cards_processed": self._cards_processed,
+                                   "status": "stopped"})
+        except Exception as e:
+            logger.debug("agent_terminal: session_end hook emit failed: %s", e)
         return {"success": True, "agent_id": self.agent_id, "cards_processed": self._cards_processed}
 
     def session_reachable(self) -> dict:
