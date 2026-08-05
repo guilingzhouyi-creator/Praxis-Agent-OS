@@ -57,9 +57,9 @@ class TestApiRoutesTable:
 
     def test_known_routes_present(self):
         paths = {(m, p) for m, p, _, _ in API_ROUTES}
-        assert ("GET", "/api/health") in paths
-        assert ("GET", "/api/monitor/events") in paths
-        assert ("DELETE", "/api/monitor/gate/") in paths
+        assert ("GET", "/api/v2/health") in paths
+        assert ("GET", "/api/v2/monitor/events") in paths
+        assert ("DELETE", "/api/v2/monitor/gate/{id}") in paths
 
     def test_prefix_routes_end_with_slash(self):
         """All prefix routes in API_ROUTES end with '/'."""
