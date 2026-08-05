@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 
-from l1.kernel.params.system import MEMORY_GRAPH_LLM_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_300, MEMORY_GRAPH_LLM_TIMEOUT
 from pathlib import Path
 from typing import Any
 
@@ -288,7 +288,7 @@ class MemoryGraph:
                 edges.append({"from_id": fid, "to_id": tid,
                               "relation": rel, "weight": w})
         except Exception:
-            pass
+            logger.debug("memory_graph: edge query failed, returning empty edges", exc_info=True)
         return {"nodes": nodes, "edges": edges,
                 "stats": {"seeds": len(seeds), "depth": depth, "reached": len(nodes)}}
 
@@ -514,8 +514,8 @@ class MemoryGraph:
         prompt = (
             "Compare these two memory entries from an agent deliberation "
             "history and answer with EXACTLY ONE word:\n"
-            f"A ({a.get('entry_type', '?')}): {a.get('content', '')[:300]}\n"
-            f"B ({b.get('entry_type', '?')}): {b.get('content', '')[:300]}\n"
+            f"A ({a.get('entry_type', '?')}): {a.get('content', '')[:LOG_TRUNC_300]}\n"
+            f"B ({b.get('entry_type', '?')}): {b.get('content', '')[:LOG_TRUNC_300]}\n"
             "Choose: contradicts | depends_on | refines | none\n"
             "contradicts=B overturns/conflicts with A, "
             "depends_on=B builds on/requires A, refines=B refines A."
@@ -577,7 +577,7 @@ class MemoryGraph:
             try:
                 self._conn.close()
             except Exception:
-                pass
+                logger.debug("memory_graph: connection close failed, ignored", exc_info=True)
             self._conn = None
 
 
@@ -603,5 +603,5 @@ def reset_graph() -> None:
             try:
                 _graph.close()
             except Exception:
-                pass
+                logger.debug("memory_graph: singleton close failed, ignored", exc_info=True)
             _graph = None

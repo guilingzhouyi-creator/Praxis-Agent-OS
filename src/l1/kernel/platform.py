@@ -104,6 +104,20 @@ def run_shell(cmd: str, timeout: float = 30.0, **kwargs: Any) -> _subprocess.Com
     return _subprocess.run(shell_command(cmd), **kwargs)
 
 
+def run_args(args: list[str], timeout: float = 30.0, **kwargs: Any) -> _subprocess.CompletedProcess:
+    """Run a command as an argument list (no shell), cross-platform.
+
+    Mirrors ``run_shell()`` defaults but takes a pre-split argument list,
+    so caller-controlled values (commit messages, package names, paths)
+    are never re-interpreted by a shell. Use for fixed executables such
+    as git/pip/npm; prefer ``grep_cmd()`` for grep-style searches.
+    """
+    kwargs.setdefault("timeout", timeout)
+    kwargs.setdefault("capture_output", True)
+    kwargs.setdefault("text", True)
+    return _subprocess.run(args, **kwargs)
+
+
 def create_interactive_shell(cwd: str = "") -> _subprocess.Popen:
     """Create an interactive shell subprocess, cross-platform."""
     cmd = [SHELL_PATH] if IS_WINDOWS else [SHELL_PATH, "-i"]
@@ -251,4 +265,4 @@ def register_shutdown_handler(handler: Any) -> None:
             _signal.signal(_signal.SIGTERM, handler)
             _signal.signal(_signal.SIGINT, handler)
         except (ValueError, AttributeError):
-            pass
+            logger.debug("platform: signal handlers not registered (non-main thread?)")

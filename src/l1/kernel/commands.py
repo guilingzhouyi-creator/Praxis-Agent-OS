@@ -373,7 +373,8 @@ def list_all_definitions() -> dict:
 
 
 def _default_yaml_path() -> str:
+    from l1.kernel.params.system import COMMANDS_CONFIG_PATH
     return os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-        "config", "commands.yaml",
+        COMMANDS_CONFIG_PATH,
     )

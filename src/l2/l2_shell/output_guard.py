@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_100
+
 logger = logging.getLogger(__name__)
 
 _output_guard_callback = None
@@ -36,7 +38,7 @@ def guard_output(agent_id: str, response: str) -> dict:
                 merged["safe"] = bool(result.get("safe", True))
                 if not merged["safe"]:
                     replacement = result.get("replacement", "")
-                    merged["output"] = replacement or response[:100]
+                    merged["output"] = replacement or response[:LOG_TRUNC_100]
                 else:
                     merged["output"] = response
                 return merged

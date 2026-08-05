@@ -31,7 +31,9 @@ class CardPool:
         """Load remote registry URLs from praxis.yaml card_pool.registries."""
         try:
             import yaml
-            cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "praxis.yaml")
+
+            from l1.kernel.paths import get_paths
+            cfg_path = get_paths().config_file
             if os.path.exists(cfg_path):
                 with open(cfg_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f)

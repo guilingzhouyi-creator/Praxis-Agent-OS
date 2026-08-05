@@ -1,9 +1,8 @@
 """Build/test tool handlers."""
 
-import subprocess
-
 from l1.kernel.discovery import get_config, get_tool_config
 from l1.kernel.params.system import LOG_TRUNC_2000
+from l1.kernel.platform import run_args
 
 _BUILD_TIMEOUT = get_tool_config("build_timeout", 300)
 
@@ -30,7 +29,7 @@ def build_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
     for cmd in _get_build_detectors():
         try:
-            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=_BUILD_TIMEOUT)
+            r = run_args(list(cmd), cwd=path, timeout=_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:LOG_TRUNC_2000]}
         except Exception:
@@ -42,7 +41,7 @@ def test_project(args: dict, agent_id: str) -> dict:
     path = args.get("path", ".")
     for cmd in _get_test_detectors():
         try:
-            r = subprocess.run(list(cmd), cwd=path, capture_output=True, text=True, timeout=_BUILD_TIMEOUT)
+            r = run_args(list(cmd), cwd=path, timeout=_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:LOG_TRUNC_2000]}
         except Exception:

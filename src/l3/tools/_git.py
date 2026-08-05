@@ -1,16 +1,15 @@
 """Git tool handlers."""
 
-import subprocess
-
 from l1.kernel.discovery import get_tool_config
 from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
+from l1.kernel.platform import run_args
 
 
 def _git(args_list: list[str], timeout: int | None = None) -> dict:
     if timeout is None:
         timeout = get_tool_config("git_timeout", 30)
     try:
-        r = subprocess.run(["git"] + args_list, capture_output=True, text=True, timeout=timeout)
+        r = run_args(["git"] + args_list, timeout=timeout)
         return {"success": r.returncode == 0, "stdout": r.stdout.strip()[:LOG_TRUNC_2000], "stderr": r.stderr.strip()[:LOG_TRUNC_500]}
     except Exception as e:
         return {"success": False, "error": str(e)}

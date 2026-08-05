@@ -46,25 +46,23 @@ def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
 
 
 def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
-    """Run ripgrep (rg) with fallback to grep, then pure Python."""
-    # Try rg first
-    cmd = ["rg", "-rn", "--no-heading", pattern, path] if not fixed else ["rg", "-rnF", "--no-heading", pattern, path]
+    """Run the platform-appropriate grep command, then pure Python fallback.
+
+    Uses ``l1.kernel.platform.grep_cmd()`` for cross-platform command
+    selection (rg → grep/findstr); falls back to pure Python only when
+    the command itself fails (per project convention, no hand-rolled
+    platform dispatch in implementation code).
+    """
+    from l1.kernel.platform import grep_cmd
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=get_tool_config("search_timeout", 30))
+        cmd = grep_cmd(pattern, path, fixed=fixed)
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=get_tool_config("search_timeout", 30))
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
-    except FileNotFoundError:
-        logger.debug("_search: rg not found, trying grep")
+        logger.debug("_search: grep_cmd returned %s", r.returncode)
     except Exception:
-        logger.debug("_search: rg run failed")
-    # Fallback to grep
-    try:
-        cmd2 = ["grep", "-rn"] + (["-F"] if fixed else []) + [pattern, path]
-        r = subprocess.run(cmd2, capture_output=True, text=True, timeout=get_tool_config("search_timeout", 30))
-        if r.returncode == 0:
-            return _parse_grep_output(r.stdout.splitlines())
-    except Exception:
-        logger.debug("_search: grep run failed, falling back to pure Python")
+        logger.debug("_search: grep_cmd run failed, falling back to pure Python")
     # Pure Python fallback (works on all platforms)
     return _py_grep(pattern, path, fixed=fixed)
 

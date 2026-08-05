@@ -53,8 +53,9 @@ class PackageManager(BaseService):
 
     def _run(self, cmd: list[str], timeout: int = TOOL_PACKAGE_MANAGER_TIMEOUT) -> dict:
         """Run a package manager command."""
+        from l1.kernel.platform import run_args
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            r = run_args(cmd, timeout=timeout)
             with self._lock:
                 self._total_operations += 1
                 if r.returncode != 0:

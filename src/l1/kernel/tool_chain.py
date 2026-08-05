@@ -33,7 +33,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
-from l1.kernel.params.system import LOG_TRUNC_40
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_40
 
 from .params.kernel import (
     CHAIN_KEY_ENV_VAR,
@@ -112,7 +112,7 @@ class ToolChain:
 
         If parent_id is provided, links this call as a child of the parent.
         """
-        call_id = f"call-{uuid.uuid4().hex[:8]}"
+        call_id = f"call-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             prev_fp = ""
             if parent_id and parent_id in self._calls:

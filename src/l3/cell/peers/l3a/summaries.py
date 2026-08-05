@@ -21,6 +21,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from l1.kernel.params.system import LOG_TRUNC_60, LOG_TRUNC_120
 from l3.error_bus import capture
 
 from . import params as _p
@@ -143,7 +144,7 @@ class L3ASummaryStore:
             capture("l3a summaries: R3 cold backup failed", error_code="E_L3A_SUMMARY", component="l3a")
             logger.debug("l3a summaries: R3 cold backup failed")
         logger.info("l3a summary saved: %s — %s (session=%s)",
-                    summary.issue_id, summary.title[:60], summary.session_id)
+                    summary.issue_id, summary.title[:LOG_TRUNC_60], summary.session_id)
 
     # ── Read (system-managed last_accessed_at) ──
 
@@ -152,7 +153,7 @@ class L3ASummaryStore:
         try:
             self._append(s)
         except Exception:
-            pass
+            logger.debug("l3a.summaries: append failed, ignored", exc_info=True)
 
     def get(self, issue_id: str) -> L3ASummary | None:
         with self._lock:
@@ -252,7 +253,7 @@ def build_summary(issue_id: str, source_card_id: str, title: str,
     elif resolved:
         lines.append("Resolved issues:")
         for i in resolved:
-            lines.append(f"- {i.get('title', '')} → {i.get('answer', '')[:120]}")
+            lines.append(f"- {i.get('title', '')} → {i.get('answer', '')[:LOG_TRUNC_120]}")
     if overlap:
         lines.append("")
         lines.append("Overlap (second-pass dedup):")
