@@ -97,35 +97,40 @@ class CentralController:
 
     def process_intent(self, text: str, use_llm: bool = True) -> dict:
         """Full intent lifecycle: session prompt → card dispatch → result."""
-
         if use_llm:
             session = self._ensure_session()
-            result = session.prompt(text)
-            parsed = result
+            parsed = session.prompt(text)
+            if isinstance(parsed, dict):
+                return self._process_llm_result(text, parsed)
         else:
             parsed = self._rule_parse(text)
+            if isinstance(parsed, dict):
+                return self._process_llm_result(text, parsed)
+        return self._process_taskcard_result(parsed)
 
-        if isinstance(parsed, dict):
-            answer = parsed.get("answer", "")
-            cid = ""
-            for sr in parsed.get("steps", []):
-                if "cardwrite" in sr.get("action", ""):
-                    cid = sr.get("result", {}).get("card_id", "")
-            if not cid:
-                m = re.search(r'card-[\da-f]{8}', answer or "")
-                cid = m.group(0) if m else ""
-            status = "queued" if cid else "parsed"
-            with self._lock:
-                self._intents[cid or text[:8]] = {
-                    "card": None, "card_id": cid or "", "status": status.upper(),
-                    "created_at": time.time(), "result": parsed,
-                }
-            return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80],
-                    "status": status, "answer": answer}
+    def _process_llm_result(self, text: str, parsed: dict) -> dict:
+        """Handle a dict-shaped result (LLM prompt output or rule parse)."""
+        answer = parsed.get("answer", "")
+        cid = ""
+        for sr in parsed.get("steps", []):
+            if "cardwrite" in sr.get("action", ""):
+                cid = sr.get("result", {}).get("card_id", "")
+        if not cid:
+            m = re.search(r"card-[\da-f]{8}", answer or "")
+            cid = m.group(0) if m else ""
+        status = "queued" if cid else "parsed"
+        with self._lock:
+            self._intents[cid or text[:8]] = {
+                "card": None, "card_id": cid or "", "status": status.upper(),
+                "created_at": time.time(), "result": parsed,
+            }
+        return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80],
+                "status": status, "answer": answer}
 
-        card = parsed
+    def _process_taskcard_result(self, card: TaskCard) -> dict:
+        """Handle a TaskCard result: submit, queue, route cross-cell (HTN-A)."""
         domain = card.domain or ""
-        admin_action = getattr(card, 'admin_action', '')
+        admin_action = getattr(card, "admin_action", "")
         if domain == "cluster" or admin_action:
             return self._process_admin_card(card)
 
@@ -134,7 +139,7 @@ class CentralController:
             from .card.card_registry import get_registry
             cid = get_registry().submit(
                 intent=card.intent, domain=domain,
-                priority=getattr(card, 'priority', CARD_DEFAULT_PRIORITY),
+                priority=getattr(card, "priority", CARD_DEFAULT_PRIORITY),
             )
         except Exception as e:
             logger.warning("card registry submit failed: %s", e)
@@ -148,7 +153,7 @@ class CentralController:
 
         result = {
             "card_id": cid, "intent": card.intent, "domain": domain,
-            "card_type": card.card_type.name if hasattr(card, 'card_type') else "execution",
+            "card_type": card.card_type.name if hasattr(card, "card_type") else "execution",
             "status": "queued",
         }
 

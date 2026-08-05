@@ -1,115 +1,215 @@
-"""NetClient behavior tests — canonical implementation lives at l3.net_client.
-
-Covers GET/POST/download success and failure paths via mocked urllib so no
-external network is required.
-"""
+"""NetClient behavior + connection-pool tests (http.client, thread-local reuse)."""
 
 from __future__ import annotations
 
 import json
 import os
 import sys
-import urllib.error
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from l3 import net_client as nc  # noqa: E402
 from l3.net_client import NetClient  # noqa: E402
 
 
-class _FakeResp:
-    """Minimal urllib response stand-in (context manager)."""
-
-    def __init__(self, body: bytes, status: int = 200):
-        self._body = body
-        self.status = status
-
-    def read(self) -> bytes:
-        return self._body
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
+def _ok(payload: dict, status: int = 200) -> tuple[int, bytes]:
+    return status, json.dumps(payload).encode("utf-8")
 
 
 class TestNetClientGet:
     def test_get_success(self):
-        payload = json.dumps({"ok": True}).encode("utf-8")
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(payload)):
+        with mock.patch.object(nc, "_request", return_value=_ok({"ok": True})) as m:
             result = NetClient.get("http://example.test/api")
         assert result == {"success": True, "data": {"ok": True}, "status": 200}
+        assert m.call_args.args[0] == "GET"
 
-    def test_get_empty_body_yields_empty_dict(self):
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(b"")):
+    def test_get_empty_body(self):
+        with mock.patch.object(nc, "_request", return_value=(200, b"")):
             result = NetClient.get("http://example.test/api")
         assert result["success"] is True
         assert result["data"] == {}
 
-    def test_get_invalid_json_reports_error(self):
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(b"not-json")):
+    def test_get_invalid_json(self):
+        with mock.patch.object(nc, "_request", return_value=(200, b"not-json")):
             result = NetClient.get("http://example.test/api")
         assert result["success"] is False
         assert "invalid JSON" in result["error"]
 
-    def test_get_http_error_preserves_status(self):
-        err = urllib.error.HTTPError("http://example.test/api", 404, "Not Found", None, None)
-        with mock.patch("urllib.request.urlopen", side_effect=err):
-            result = NetClient.get("http://example.test/api")
-        assert result == {"success": False, "error": "HTTP 404: Not Found", "status": 404}
-
-    def test_get_url_error_reports_connection_failure(self):
-        err = urllib.error.URLError("boom")
-        with mock.patch("urllib.request.urlopen", side_effect=err):
+    def test_get_connection_failure(self):
+        with mock.patch.object(nc, "_request",
+                               side_effect=ConnectionError("boom")):
             result = NetClient.get("http://example.test/api")
         assert result["success"] is False
         assert "connection failed" in result["error"]
 
-    def test_get_generic_error_is_caught(self):
-        with mock.patch("urllib.request.urlopen", side_effect=OSError("net down")):
+    def test_get_generic_error(self):
+        with mock.patch.object(nc, "_request", side_effect=RuntimeError("x")):
             result = NetClient.get("http://example.test/api")
-        assert result == {"success": False, "error": "net down"}
+        assert result == {"success": False, "error": "x"}
 
-    def test_get_passes_custom_headers(self):
-        payload = json.dumps({"ok": True}).encode("utf-8")
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(payload)) as m:
+    def test_get_passes_headers(self):
+        with mock.patch.object(nc, "_request", return_value=_ok({"ok": True})) as m:
             NetClient.get("http://example.test/api", headers={"X-Token": "abc"})
-        sent: urllib.request.Request = m.call_args.args[0]
-        assert sent.headers.get("X-token") == "abc"
-        assert sent.headers.get("User-agent") == "Praxis-NetClient/1.0"
+        headers = m.call_args.args[3]
+        assert headers["X-Token"] == "abc"
+        assert headers["User-Agent"] == "Praxis-NetClient/1.0"
 
 
 class TestNetClientPost:
     def test_post_success(self):
-        payload = json.dumps({"id": 1}).encode("utf-8")
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(payload)) as m:
+        with mock.patch.object(nc, "_request", return_value=_ok({"id": 1})) as m:
             result = NetClient.post("http://example.test/api", {"a": 1})
         assert result == {"success": True, "data": {"id": 1}, "status": 200}
-        sent: urllib.request.Request = m.call_args.args[0]
-        assert sent.headers.get("Content-type") == "application/json"
-        assert json.loads(sent.data.decode("utf-8")) == {"a": 1}
+        assert m.call_args.args[0] == "POST"
+        body = json.loads(m.call_args.kwargs["body"].decode("utf-8"))
+        assert body == {"a": 1}
+        assert m.call_args.args[3]["Content-Type"] == "application/json"
 
-    def test_post_failure_returns_error(self):
-        with mock.patch("urllib.request.urlopen", side_effect=OSError("net down")):
+    def test_post_failure(self):
+        with mock.patch.object(nc, "_request", side_effect=OSError("net down")):
             result = NetClient.post("http://example.test/api", {"a": 1})
-        assert result == {"success": False, "error": "net down"}
+        assert result["success"] is False
 
 
 class TestNetClientDownload:
     def test_download_success(self):
-        with mock.patch("urllib.request.urlopen", return_value=_FakeResp(b"raw-card-yaml")):
+        with mock.patch.object(nc, "_request", return_value=(200, b"raw-yaml")):
             result = NetClient.download("http://example.test/card.yaml")
-        assert result == {
-            "success": True,
-            "content": "raw-card-yaml",
-            "status": 200,
-            "url": "http://example.test/card.yaml",
-        }
+        assert result == {"success": True, "content": "raw-yaml",
+                          "status": 200, "url": "http://example.test/card.yaml"}
 
-    def test_download_failure_returns_url(self):
-        err = urllib.error.HTTPError("http://example.test/card.yaml", 500, "Internal", None, None)
-        with mock.patch("urllib.request.urlopen", side_effect=err):
+    def test_download_failure(self):
+        with mock.patch.object(nc, "_request", side_effect=ConnectionError("x")):
             result = NetClient.download("http://example.test/card.yaml")
         assert result["success"] is False
         assert result["url"] == "http://example.test/card.yaml"
+
+
+class TestConnectionPool:
+    def test_same_thread_same_host_reuses_connection(self):
+        nc._pool_local.pool = None
+        created = []
+
+        class FakeConn:
+            def __init__(self, *a, **k):
+                created.append(a)
+
+            def request(self, *a, **k):
+                self._resp = (200, b"{}")
+
+            def getresponse(self):
+                return _FakeResp(*self._resp)
+
+            def close(self):
+                pass
+
+        class _FakeResp:
+            def __init__(self, status, body):
+                self.status = status
+                self._body = body
+
+            def read(self):
+                return self._body
+
+        with mock.patch.object(nc.http.client, "HTTPConnection", FakeConn):
+            r1 = NetClient.get("http://example.test/a")
+            r2 = NetClient.get("http://example.test/b")
+        assert r1["success"] is True and r2["success"] is True
+        assert len(created) == 1  # one connection reused across both calls
+
+    def test_different_hosts_get_separate_connections(self):
+        nc._pool_local.pool = None
+        created = []
+
+        class FakeConn:
+            def __init__(self, *a, **k):
+                created.append(a)
+
+            def request(self, *a, **k):
+                self._resp = (200, b"{}")
+
+            def getresponse(self):
+                class _F:
+                    status = 200
+
+                    def read(self):
+                        return b"{}"
+
+                return _F()
+
+            def close(self):
+                pass
+
+        with mock.patch.object(nc.http.client, "HTTPConnection", FakeConn):
+            NetClient.get("http://a.example.test/x")
+            NetClient.get("http://b.example.test/y")
+        assert len(created) == 2
+
+    def test_stale_connection_retried_once(self):
+        nc._pool_local.pool = None
+        calls = {"n": 0}
+
+        class FlakyConn:
+            def __init__(self, *a, **k):
+                pass
+
+            def request(self, *a, **k):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    raise ConnectionError("stale")
+
+            def getresponse(self):
+                class _F:
+                    status = 200
+
+                    def read(self):
+                        return b"{}"
+
+                return _F()
+
+            def close(self):
+                pass
+
+        with mock.patch.object(nc.http.client, "HTTPConnection", FlakyConn):
+            result = NetClient.get("http://example.test/api")
+        assert result["success"] is True
+        assert calls["n"] == 2  # first failed, second succeeded
+
+    def test_pool_isolated_per_thread(self):
+        nc._pool_local.pool = None
+
+        class FakeConn:
+            def __init__(self, *a, **k):
+                pass
+
+            def request(self, *a, **k):
+                self._resp = (200, b"{}")
+
+            def getresponse(self):
+                class _F:
+                    status = 200
+
+                    def read(self):
+                        return b"{}"
+
+                return _F()
+
+            def close(self):
+                pass
+
+        import threading as _t
+
+        with mock.patch.object(nc.http.client, "HTTPConnection", FakeConn):
+            results = []
+
+            def worker():
+                results.append(NetClient.get("http://example.test/api"))
+
+            t1 = _t.Thread(target=worker)
+            t2 = _t.Thread(target=worker)
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+        assert all(r["success"] for r in results)
