@@ -63,9 +63,12 @@ APPROVAL_RESPONDED = auto() # 审批响应已提交
 
 | 常量 | 建议默认值 | 说明 |
 |---|---|---|
-| `PRAXIS_RPC_PORT` | `42071` | RPC server 监听端口（缺口 3） |
+| `RPC_SERVER_PORT` | `42110` | RPC server 监听端口（缺口 3，既有常量，服务器已接线） |
 | `AUTH_TOKEN_TTL_SECONDS` | `86400` | 登录 token 有效期（缺口 1） |
-| `WS_MAX_QUEUED_PER_CLIENT` | `256` | WS 单客户端队列上限（缺口 2，镜像 `SSE_QUEUE_MAXSIZE`） |
+
+> WS 缺口 2：`src/l4/ws/ws_bridge.py` 为同步直发模型（`conn.send()`，无每客户端队列），
+> 镜像 `SSE_QUEUE_MAXSIZE` 的 `WS_MAX_QUEUED_PER_CLIENT` 无自然消费者，已删除；
+> 若后续引入每客户端有界队列再恢复该常量。
 
 > 当前 `params/api.py` 无任何 RPC/WS 端口常量，必须补（硬编码端口会被 params-compliance 拦截）。
 
@@ -167,11 +170,11 @@ python tests/runner.py
 
 | 文件 | 操作 | 说明 |
 |---|---|---|
-| `src/l4/rpc/server.py` | 新建 | `RpcServer`：`asyncio.start_server` 监听 `PRAXIS_RPC_PORT`，`RpcMessage.method` 路由到 `register_handler` 注册的 handler，复用 `RpcTransport.send/recv`（4 字节长度前缀 + JSON，已有） |
+| `src/l4/rpc/server.py` | 新建 | `RpcServer`：`asyncio.start_server` 监听 `RPC_SERVER_PORT`（既有常量，42110），`RpcMessage.method` 路由到 `register_handler` 注册的 handler，复用 `RpcTransport.send/recv`（4 字节长度前缀 + JSON，已有） |
 | `src/l1/kernel/ports.py` | 编辑 | `RpcServerPort` 已在 S0，`wiring.py` 注册实现 |
 | `src/l3/boot/wiring.py` | 编辑 | `wire_defaults()` 中 `register_port("rpc_server", RpcServer(...))` |
 | `src/l4/api/api_gateway.py` | 编辑 | `start()` 时同步启动 RPC server（独立线程/进程） |
-| `src/l1/kernel/params/api.py` | 编辑 | `PRAXIS_RPC_PORT`（S0 已加） |
+| `src/l1/kernel/params/api.py` | 已存在 | `RPC_SERVER_PORT`（既有常量，S0 曾新增重复的 `PRAXIS_RPC_PORT` 已移除，统一单一来源） |
 
 ### 注意
 

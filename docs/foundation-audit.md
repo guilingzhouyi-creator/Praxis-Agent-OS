@@ -141,7 +141,7 @@ verdict.add_gate("auth", False, "auth verify_token not implemented", score=0.5)
 | `src/l4/rpc/server.py` | 新建,基于 `asyncio.start_server` 监听,把 `RpcMessage.method` 路由到 handler |
 | `src/l1/kernel/ports.py` | 新增 `RpcServerPort`（抽象类:`register_handler` / `call` / `notify`） |
 | `src/l3/boot/wiring.py` | boot 时 wire `RpcServer` 到 `RpcServerPort` |
-| `src/l4/api/api_gateway.py` | `start()` 时同步起 RPC server（独立端口,如 `PRAXIS_RPC_PORT`） |
+| `src/l4/api/api_gateway.py` | `start()` 时同步起 RPC server（独立端口,如 `RPC_SERVER_PORT`） |
 
 **RPC server 骨架建议:**
 
