@@ -18,6 +18,8 @@ import threading
 import time
 import uuid
 
+from l1.kernel.params.system import LOG_TRUNC_50
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_ENABLED = False
@@ -106,9 +108,9 @@ class MerTransformer:
             node_set = set(node_ids or [])
             edges = g.semantic_edges(limit=100)
             if not node_set:
-                return edges[:50]
+                return edges[:LOG_TRUNC_50]
             return [ed for ed in edges
-                    if ed.get("from_id") in node_set or ed.get("to_id") in node_set][:50]
+                    if ed.get("from_id") in node_set or ed.get("to_id") in node_set][:LOG_TRUNC_50]
         except Exception:
             return []
 

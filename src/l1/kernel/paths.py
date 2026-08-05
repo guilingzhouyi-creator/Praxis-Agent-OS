@@ -121,8 +121,8 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
     project = Path.cwd()
     base: dict[DeployMode, list[str]] = {
         DeployMode.CLI_PROJECT: [
-            ".praxis/skills",
-            ".praxis/skills",
+            "config/skills",     # built-in skills — shipped with the repo (read-only)
+            ".praxis/skills",    # runtime skill store (evolved/lean/user)
             "skills",
             "skills/evolved",   # project-scoped evolved skills (round-trip with skill_project_evolved_dir)
             ".skills",
