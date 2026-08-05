@@ -192,13 +192,12 @@ class CronScheduler:
     def _dispatch(self, entry: dict) -> None:
         """Submit a card for a cron entry."""
         try:
-            from .card.card_registry import get_registry
+            from l3.card.card_registry import get_registry
             reg = get_registry()
             cid = reg.submit(
                 intent=entry["intent"],
                 domain=entry.get("domain", ""),
                 priority=entry.get("priority", 5),
-                source="cron",
             )
             logger.info("cron: dispatched '%s' → card_id=%s", entry["id"], cid)
         except Exception as e:

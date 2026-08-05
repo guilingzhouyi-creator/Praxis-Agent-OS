@@ -40,10 +40,16 @@ _error_capture_handler: Any = None
 def set_error_capture_handler(handler: Any) -> None:
     """Register a callback for ErrorBus capture (called at boot from L3 wiring).
 
-    The handler receives ``(message, error_code, component, exc, context)``.
+    The handler receives ``(message, error_code, cause, context)``.
     """
     global _error_capture_handler
     _error_capture_handler = handler
+
+
+def reset_error_capture_handler() -> None:
+    """Clear the registered ErrorBus capture handler (test isolation)."""
+    global _error_capture_handler
+    _error_capture_handler = None
 
 
 # ── Locale helpers (delegate to I18nPort, backward-compatible) ──

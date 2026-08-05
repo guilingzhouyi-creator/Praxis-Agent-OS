@@ -348,8 +348,12 @@ class ErrorBus(BaseService):
 
         # ── Push to EventBus ──
         try:
-            from l1.kernel import emit_event
-            emit_event("error_log", result_entry.to_dict(), source=component)
+            from l1.kernel.event import get_bus
+            # String-typed emit under "error_log" so _on_error_event and SSE
+            # type filters (types={"error_log"}) receive the event; push_event
+            # would force SignalType.TASK_ASSIGN and break the contract.
+            get_bus().emit_event("error_log", result_entry.to_dict(),
+                                 source=component)
         except Exception as e:
             logger.warning("error_bus: event push failed: %s", e)
 

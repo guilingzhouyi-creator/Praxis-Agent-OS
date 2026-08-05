@@ -37,21 +37,24 @@ def search_sessions(limit: int = 10, cursor: str | None = None,
     archive_search truncates content to LOG_TRUNC_500 which breaks
     JSON parsing for large session blobs."""
     try:
-        from l3.tools._archive import _get_db
+        from l3.tools._archive import _get_db, _normalize_fonds
         conn = _get_db()
+        # store_session persists via _cmd_archive_store which normalizes the
+        # fonds name; query with the same normalization or nothing matches.
+        fonds = _normalize_fonds(_p.FONDS)
         if session_id:
             rows = conn.execute(
                 "SELECT id, content FROM archive "
                 "WHERE fonds = ? AND series = ? AND content LIKE ? "
                 "ORDER BY created_at DESC LIMIT 1",
-                (_p.FONDS, _p.SERIES, f"%{session_id}%"),
+                (fonds, _p.SERIES, f"%{session_id}%"),
             ).fetchall()
         else:
             rows = conn.execute(
                 "SELECT id, content FROM archive "
                 "WHERE fonds = ? AND series = ? "
                 "ORDER BY created_at DESC LIMIT ?",
-                (_p.FONDS, _p.SERIES, limit),
+                (fonds, _p.SERIES, limit),
             ).fetchall()
     except Exception:
         capture("l3a archive: search_sessions failed", error_code="E_L3A_SEARCH",
