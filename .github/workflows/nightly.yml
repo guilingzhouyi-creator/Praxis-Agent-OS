@@ -18,10 +18,5 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
       - run: pip install -e ".[test]"
-      - run: pip install pytest-cov
       - name: Full test suite
         run: python -m pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term -q --ignore=tests/benchmarks/bench_card.py
-      - uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: true

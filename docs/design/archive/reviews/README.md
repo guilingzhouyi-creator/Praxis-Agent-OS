@@ -37,3 +37,8 @@ debt is tracked below. The documents are preserved here for reference
 3. **L2→L4 direct imports (P0, 2 sites)**: resolved via the layer-import
    allowlist (documented in `tests/infra/test_layer_imports.py`), not via an
    L3 bridge — acceptable per allowlist policy.
+4. **Ruff findings (P2, 713 sites)**: `ruff check src/ tests/` reports 713
+   findings (F401×127, E702×117, E701×97, E402×95, F841×68, B007×33, I001×25,
+   ...). The CI lint job (`.github/workflows/ci.yml`) is non-gating and reports
+   them; clear in batches via `ruff check --fix` (auto-fixable: F401, I001) +
+   manual review. Never weaken `select` in `pyproject.toml` to hide them.
