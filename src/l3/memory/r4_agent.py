@@ -576,13 +576,15 @@ class R4Agent:
                           tags: list[str], allowed_tools: list[str] | None = None,
                           rules: list[str] | None = None,
                           procedures: list[dict] | None = None,
-                          variables: dict | None = None) -> str:
+                          variables: dict | None = None,
+                          disable_model_invocation: bool = False) -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
 
-        Frontmatter carries name/description/tags/allowed_tools/variables so a
-        reload via SkillManager._load_markdown() restores them; the prompt is
-        the body.  Shared by evolve_skill (LLM) and _generalize_lean_cases
-        (rule-based) so both survive restart via the boot discovery dirs.
+        Frontmatter carries name/description/tags/allowed_tools/variables/
+        disable-model-invocation so a reload via
+        SkillManager._load_markdown() restores them; the prompt is the body.
+        Shared by evolve_skill (LLM) and _generalize_lean_cases (rule-based)
+        so both survive restart via the boot discovery dirs.
         """
         import os
 
@@ -590,6 +592,8 @@ class R4Agent:
         md_path = self._skill_md_path(name)
         os.makedirs(os.path.dirname(md_path), exist_ok=True)
         meta = {"name": name, "description": description, "tags": tags}
+        if disable_model_invocation:
+            meta["disable-model-invocation"] = True
         if allowed_tools:
             meta["allowed_tools"] = allowed_tools
         if variables:

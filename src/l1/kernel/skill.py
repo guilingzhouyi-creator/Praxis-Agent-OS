@@ -590,6 +590,10 @@ class SkillManager:
             "variables": meta.get("variables"),
             "tags": meta.get("tags") or [],
             "prompt": body.strip(),
+            # Matt-Pocock-style invocation model: user-invoked skills
+            # (disable-model-invocation: true) are excluded from automatic
+            # context injection; they only fire on explicit use.
+            "disable_model_invocation": bool(meta.get("disable-model-invocation", False)),
             # Field defaults so reloaded skills match programmatic create()
             # (round-trip integrity — tags/useful_count/last_used must survive).
             "useful_count": 0,
