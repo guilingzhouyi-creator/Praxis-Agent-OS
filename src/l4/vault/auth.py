@@ -21,6 +21,7 @@ import uuid
 
 from l1.kernel.params.api import AUTH_TOKEN_TTL_SECONDS
 from l1.kernel.params.system import AUTH_SIGN_KEY_BYTES, HASH_TRUNC_LONG
+from l1.kernel.ports import AuthPort
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -50,8 +51,8 @@ class KeyVault:
             return list(self._keys.keys())
 
 
-class AuthService(BaseService):
-    """Authentication and cryptography service."""
+class AuthService(AuthPort, BaseService):
+    """Authentication and cryptography service (implements the AuthPort adapter)."""
 
     def __init__(self):
         super().__init__("auth")
