@@ -40,14 +40,19 @@ feature/<agent>-<area>    one branch per agent per feature, e.g. feature/m-agent
 - Double-green rule: branch tests pass AND main tests pass (`--no-ff` merge).
 - If a merge conflicts: the branch merged later rebases onto main (`git rebase main`),
   resolves conflicts, re-runs its domain tests, then merges.
-- **One working tree per agent — `git worktree` (mandatory for parallel work)**:
+- **One working tree per agent — `git worktree` (FORBIDDEN to share a tree)**:
   - `git worktree add ../praxis-<area> feature/<agent>-<area>` — each agent gets a
     physically isolated directory sharing one `.git`; zero cross-branch drift.
   - Never share a single working tree across branches: uncommitted changes follow
-    `git checkout` and silently pollute the other branch (network-refactor drift
-    incident, 2026-08).
-  - Always `git status` before `git checkout`/`git switch`; a dirty tree must be
-    committed, stashed, or committed as WIP first.
+    `git checkout` and silently pollute the other branch. Two incidents on record:
+    the network-refactor drift, and 2026-08-05 (an agent switched the shared main
+    worktree to its feature branch, pulled an in-flight commit onto it, and merged —
+    the commit only survived via reflog).
+  - **MUST run `bash scripts/check-worktree.sh` before any `git checkout`/`git switch`**
+    — rejects a dirty tree (exit 1) and duplicate same-branch checkouts (exit 2).
+    Never switch with a dirty tree; commit, stash, or commit as WIP first.
+  - The `.githooks/post-checkout` hook warns when a switch carried a dirty tree
+    along; treat the warning as a violation report.
   - Dirty changes found on the wrong branch: `git checkout <their-branch>` first
     (changes follow home), then commit/stash there.
   - After merging: `git worktree remove <path>`; `git worktree list` to audit.

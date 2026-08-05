@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# post-checkout hook — remind agents that branch switches on a SHARED working
+# tree are forbidden. Parallel agents MUST use per-agent worktrees; this hook
+# only warns (the check-worktree.sh script is the authoritative gate).
+#
+# Installed via: git config core.hooksPath .githooks
+
+BRANCH="$(git branch --show-current 2>/dev/null)"
+DIRTY="$(git status --porcelain 2>/dev/null | wc -l)"
+
+if [ -n "$BRANCH" ] && [ "$DIRTY" -gt 0 ]; then
+  echo "[worktree-check] WARNING: switched to '$BRANCH' with a DIRTY tree"
+  echo "[worktree-check] ($DIRTY uncommitted file(s) followed the switch)."
+  echo "[worktree-check] Uncommitted changes silently pollute the target branch."
+  echo "[worktree-check] Each parallel agent MUST use its own worktree"
+  echo "[worktree-check] (git worktree add ../praxis-<area> feature/<agent>-<area>)."
+  echo "[worktree-check] If the changes belong to another branch, switch back:"
+  echo "[worktree-check]   git checkout <their-branch>   # changes follow home"
+fi

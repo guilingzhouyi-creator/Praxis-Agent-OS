@@ -159,10 +159,11 @@ Key conventions:
 - **Branch per agent**: `feature/<agent>-<area>`; merge order K → M/T/S → C/B → A.
 - **Shared files register**: `l3.py`, `params/*.py`, `l3/boot/`, `tests/conftest.py`, `test_layer_imports.py`, `config/praxis.yaml` — one writer at a time; cross-domain API additions commit to main first.
 - **Per-agent gates**: layer-import test + params-compliance test + domain tests + full baseline + ruff, all green before push.
-- **One working tree per agent — use `git worktree`**: `git worktree add <path> <branch>` gives each parallel agent a physically isolated directory (shared `.git`, zero cross-branch drift). Never share a single working tree across branches: uncommitted changes follow `git checkout` and silently pollute the other branch (see the network-refactor drift incident). Rules:
+- **One working tree per agent — use `git worktree` (FORBIDDEN to share a tree)**: `git worktree add <path> <branch>` gives each parallel agent a physically isolated directory (shared `.git`, zero cross-branch drift). Sharing one working tree across branches is FORBIDDEN: uncommitted changes follow `git checkout` and silently pollute the other branch. Two incidents on record: the network-refactor drift, and 2026-08-05 (an agent switched the shared main worktree to its feature branch, pulled an in-flight commit onto it, and merged — the commit only survived via reflog). Rules:
   - Each agent works in its own worktree: `git worktree add ../praxis-<area> feature/<agent>-<area>`.
-  - **Always `git status` before `git checkout`/`git switch`**: uncommitted changes must be committed, stashed, or committed as WIP first — never switch branches with a dirty tree.
+  - **MUST run `bash scripts/check-worktree.sh` before any `git checkout`/`git switch`** — it rejects a dirty tree (exit 1) and duplicate checkouts of the same branch (exit 2). Never switch with a dirty tree; commit, stash, or commit as WIP first.
   - If dirty changes are found on the wrong branch, `git checkout <their-branch>` first so they follow back home, then commit/stash.
+  - The `.githooks/post-checkout` hook warns when a switch carried a dirty tree along; treat the warning as a violation report, not an annoyance.
   - Clean up after merging: `git worktree remove <path>`; `git worktree list` shows all checkouts.
 
 ## Contract versioning (after the first branching milestone)
