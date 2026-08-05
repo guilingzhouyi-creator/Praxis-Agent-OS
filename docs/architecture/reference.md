@@ -23,7 +23,7 @@ src/l3/boot/
 ├── install.py              # first-run/upgrade: migrations + seed data
 ├── lifecycle.py            # unified shutdown() (persist→archive→stop→reset)
 
-src/l3/cell/peers/l3a/      # L3A session system (12 modules)
+src/l3/cell/peers/l3a/      # L3A session system (14 modules)
 ├── __init__.py             # L3ADaemon + singleton
 ├── session.py              # Session/SessionHistory/SessionManager
 ├── task_table.py           # SessionTaskTable (card task monitor buffer)
@@ -233,7 +233,10 @@ praxis/
 �?  �?  �?  ├── pager.py             # Context paging (320 lines)
 �?  �?  �?  ├── pager_bridge.py      # Swapper↔Pager bridge (106 lines)
 �?  �?  �?  ├── r4_agent.py          # R4 archivist (443 lines)
-�?  �?  �?  └── result_store.py      # Tool result cache (163 lines)
+�?  �?  �?  ├── memory_graph.py      # R5 swarm-domain graph (SQLite edges)
+�?  �?  �?  ├── memory_mer.py        # Mer symbolization side-channel (Mermaid to R4)
+�?  �?  �?  ├── memory_inject.py     # Task-aware injection (execute/decide/resume)
+�?  �?  �?  ├── result_store.py      # Tool result cache (163 lines)
 �?  �?  �?�?  �?  ├── resource_buffer/         # Ring file buffer (4 files)
 �?  �?  �?  ├── __init__.py
 �?  �?  �?  ├── api.py               # Buffer API handlers (36 lines)

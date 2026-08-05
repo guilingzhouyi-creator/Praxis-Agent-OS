@@ -33,7 +33,7 @@ flowchart TB
     end
 
     subgraph L4["L4 — Bridge Layer (src/l4/)"]
-        GW["api/api_gateway.py\n208 HTTP routes"]
+        GW["api/api_gateway.py\n241 HTTP routes"]
         AH["api_handlers/\n11 Handler Modules"]
         LLM["llm/\nLLM Engine + Providers"]
         SAND["sandbox/\nCOW Isolation + Exec Sandbox"]
@@ -251,7 +251,7 @@ flowchart TB
 | **config/** | `config_loader.py`, `settings_center.py`, `bootstrap.py` (8 files) | Config loading + hot-reload + 3-layer settings + bootstrap wizard |
 | **discussion/** | `issue_orchestrator.py`, `answer_session.py`, `answer_aggregator.py` (7 files) | Multi-Cell discussion orchestration, answer collection, convergence |
 | **error_bus/** | `__init__.py`, `api.py` (2 files) | Error capture bus with dedup + API |
-| **memory/** | `memory.py`, `r4_agent.py`, `cache*.py`, `pager*.py` (17 files) | 4-ring memory, context, pager, cache, R4 archive |
+| **memory/** | `memory.py`, `central_memory.py`, `r4_agent.py`, `memory_graph.py`, `memory_mer.py`, `memory_inject.py`, `cache*.py`, `pager*.py` (17 files) | 4-ring memory, multi-scope center, R4 archive, R5 graph, Mer side-channel, task-aware injection |
 | **resource_buffer/** | `ring.py`, `manager.py`, `api.py` (4 files) | Ring file buffer |
 | **scheduler/** | `scheduler*.py`, `acb.py`, `think_registry.py`, `sequence_monitor.py` (11 files) | 5-D scheduler, think quota, agent control block, anomaly detection |
 | **services/** | `stats_center.py`, `record_center.py`, `model_service.py`, `model_strategy.py`, `approval_policy.py`, `identity.py` (31 files) | StatsCenter, RecordCenter, ModelService, ModelStrategyEngine, ApprovalPolicy, security, scaffolding |
@@ -262,7 +262,7 @@ flowchart TB
 
 | Subdirectory / File | Key Modules | Purpose |
 |--------------------|-------------|---------|
-| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 208 routes, middleware |
+| **api/** | `api_gateway.py`, `api_routes.py`, `api_middleware.py`, `api_handlers_cards.py` | HTTP gateway, 241 routes, middleware |
 | **api_handlers/** | `__init__.py` (770 lines mixin), `api_handlers_agent.py`, `api_handlers_providers.py`, etc. (11 files) | 11 handler modules — agent, providers, config, monitor, records, stats, discussion |
 | **llm/** | `llm.py`, `llm_base.py`, `llm_providers.py` | LLM Engine + ABC + 4 provider implementations |
 | **search/** | `search.py`, `search_engine.py` | Full-text and semantic search |
@@ -294,8 +294,19 @@ L1 → cannot import any upper layer
 
 Enforced by `tests/test_layer_imports.py`. 53 pre-existing cross-layer imports are explicitly allowlisted (adapter patterns, LLM calls, OS fallback lifecycle paths).
 
-## Structured Diff System (Sandbox)
+## Memory Side-Channels (Mer / R5 / Injection)
 
+Independent memory transformations that do not alter the main R1-R4 flow:
+
+| Channel | Module | Function | Toggle |
+|---------|--------|----------|--------|
+| **Mer symbolization** | `memory_mer.py` | Periodically aggregates high-value R1-R3 entries across scopes (Cells + L3A), renders a swarm-domain **Mermaid flowchart** (visualized condensed memory), archives to R4 (`agent-l3a / memory_mer_snapshot`) as audit baseline; driven by the L3A daemon tick | `memory.mer.enabled` (default off) |
+| **R5 memory graph** | `memory_graph.py` | SQLite `memory_edges` with semantic edges, diffusion recall, LLM extraction | `memory.graph.enabled` (default off) |
+| **Task-aware injection** | `memory_inject.py` | Per-task dimension selection (execute→summary, decide→Mer, resume→layered) into agent context | `memory.injection.strategy` (auto) |
+
+All three degrade to the linear fallback on error (zero impact on the main memory path).
+
+## Structured Diff System (Sandbox)
 The sandbox provides copy-on-write isolation for Agent file operations with structured diff tracking.
 
 ### Diff Views

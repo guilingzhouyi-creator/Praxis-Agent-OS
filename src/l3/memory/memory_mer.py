@@ -24,7 +24,8 @@ _DEFAULT_ENABLED = False
 _MER_MIN_IMPORTANCE = 0.4       # transform only entries with importance >= threshold
 _MER_ENTRIES_PER_SCOPE = 10     # max entries per scope
 _MER_MAX_SCOPES = 8             # max scopes aggregated
-_MER_FONDS = "AGENT:l3a"
+# Normalized form (archive _normalize_fonds lowercases and strips non [a-z0-9_-])
+_MER_FONDS = "agent-l3a"
 _MER_SERIES = "memory_mer_snapshot"
 _MER_ID_LEN = 8
 
@@ -96,13 +97,18 @@ class MerTransformer:
         return out
 
     def collect_edges(self, node_ids: list[str]) -> list[dict]:
-        """Pull graph edges for the collected nodes (if graph enabled)."""
+        """Pull graph edges among the collected nodes (if graph enabled)."""
         try:
             from l3.memory.memory_graph import get_graph
             g = get_graph()
             if not g.enabled:
                 return []
-            return g.semantic_edges(limit=50)
+            node_set = set(node_ids or [])
+            edges = g.semantic_edges(limit=100)
+            if not node_set:
+                return edges[:50]
+            return [ed for ed in edges
+                    if ed.get("from_id") in node_set or ed.get("to_id") in node_set][:50]
         except Exception:
             return []
 
