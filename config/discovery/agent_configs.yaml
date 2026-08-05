@@ -7,7 +7,8 @@
 
 # ── Skill discovery directories ──
 skill_dirs:
-  - ".praxis/skills"
+  - "config/skills"       # built-in skills — shipped with the repo (read-only)
+  - ".praxis/skills"      # runtime skill store (evolved/lean/user)
   - "skills"
   - ".skills"
   - "skills/evolved"   # project-scoped evolved skills (回灌到项目, travels with repo)
