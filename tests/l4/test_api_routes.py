@@ -57,9 +57,9 @@ class TestApiRoutesTable:
 
     def test_known_routes_present(self):
         paths = {(m, p) for m, p, _, _ in API_ROUTES}
-        assert ("GET", "/api/health") in paths
-        assert ("GET", "/api/monitor/events") in paths
-        assert ("DELETE", "/api/monitor/gate/") in paths
+        assert ("GET", "/api/v2/health") in paths
+        assert ("GET", "/api/v2/monitor/events") in paths
+        assert ("DELETE", "/api/v2/monitor/gate/{id}") in paths
 
     def test_prefix_routes_end_with_slash(self):
         """All prefix routes in API_ROUTES end with '/'."""
@@ -173,6 +173,54 @@ class TestRegisterRoute:
         assert len(gw._routes) == initial + 1
         handler, _ = gw._match_route("GET", "/api/test_custom")
         assert handler({}) == {"ok": True}
+
+
+class TestParamPatternMatching:
+    """{param} path patterns — unified-prefix parameter style."""
+
+    def _gw(self):
+        gw = ApiGateway()
+        gw._routes.clear()
+        gw.register_route("GET", "/api/v2/skills/{name}",
+                          lambda b: {"_skills_get": True}, "get skill")
+        gw.register_route("GET", "/api/v2/discussion/{session_id}/report",
+                          lambda b: {"_disc_report": True}, "discussion report")
+        gw.register_route("GET", "/api/v2/tools/locales",
+                          lambda b: {"_locales": True}, "tools locales")
+        return gw
+
+    def test_param_single_segment(self):
+        gw = self._gw()
+        handler, params = gw._match_route("GET", "/api/v2/skills/myskill")
+        assert params == {"name": "myskill"}
+        assert handler({}) == {"_skills_get": True}
+
+    def test_param_multi_segment(self):
+        gw = self._gw()
+        handler, params = gw._match_route("GET", "/api/v2/discussion/sess-1/report")
+        assert params == {"session_id": "sess-1"}
+        assert handler({}) == {"_disc_report": True}
+
+    def test_param_mismatch_no_match(self):
+        gw = self._gw()
+        handler, params = gw._match_route("GET", "/api/v2/skills")
+        assert params == {}
+        assert "error" in handler({})
+
+    def test_exact_beats_param(self):
+        """A concrete sub-path must not fall into a {param} route."""
+        gw = self._gw()
+        handler, params = gw._match_route("GET", "/api/v2/tools/locales")
+        assert params == {}
+        assert handler({}) == {"_locales": True}
+
+    def test_param_name_alignment(self):
+        """Placeholder name matches the handler keyword (name=/session_id=)."""
+        gw = self._gw()
+        _, params = gw._match_route("GET", "/api/v2/skills/foo")
+        assert "name" in params and "id" not in params
+        _, params = gw._match_route("GET", "/api/v2/discussion/s/report")
+        assert "session_id" in params and "id" not in params
 
 
 class TestApiGatewayConstruction:

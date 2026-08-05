@@ -140,20 +140,32 @@ class ApiGateway(ApiHandlers):
         ``/api/skills/permissions``):
 
           1. Exact match (``path == r.path``).
-          2. ``{param}`` pattern match (e.g. ``/api/v2/discussion/{id}``).
+          2. ``{param}`` pattern match (e.g. ``/api/v2/discussion/{session_id}``).
           3. Legacy trailing-slash prefix fallback (``/api/card/`` →
              ``/api/card/<id>``) — only when nothing above matched.
+
+        Exact and ``{param}`` patterns are each scanned in registration order,
+        but exact matches are always preferred over ``{param}`` so a concrete
+        sub-path (``/api/v2/skills/permissions``) never falls into a parameter
+        route (``/api/v2/skills/{name}``).
+
+        Placeholder names mirror the handler keyword arguments (e.g.
+        ``{name}`` → ``handle_skills_get(body, name="")``); they are NOT a
+        generic ``id`` — see _match_param_pattern for segment-wise capture.
         """
-        # Pass 1: exact + {param} patterns (highest priority)
+        # Pass 1a: exact matches only
         for r in self._routes:
-            if r.method != method or r.path.endswith("/"):
+            if r.method != method or r.path.endswith("/") or "{" in r.path:
                 continue
-            if "{" in r.path:
-                params = self._match_param_pattern(r.path, path)
-                if params is not None:
-                    return r.handler, params
-            elif path == r.path:
+            if path == r.path:
                 return r.handler, {}
+        # Pass 1b: {param} patterns only
+        for r in self._routes:
+            if r.method != method or r.path.endswith("/") or "{" not in r.path:
+                continue
+            params = self._match_param_pattern(r.path, path)
+            if params is not None:
+                return r.handler, params
         # Pass 2: legacy trailing-slash prefix fallback
         for r in self._routes:
             if r.method != method or not r.path.endswith("/"):
@@ -282,8 +294,10 @@ class ApiGateway(ApiHandlers):
                 parsed = urllib.parse.urlparse(self.path)
                 path = parsed.path.rstrip("/")
 
-                # SSE special handling: long-lived connection
-                if method == "GET" and path == "/api/events":
+                # SSE special handling: long-lived connection.
+                # Must match the v2-prefixed route in api_routes.py
+                # ("GET /api/v2/events") — keep in sync if the prefix changes.
+                if method == "GET" and path == "/api/v2/events":
                     self._do_sse()
                     return
 
@@ -295,13 +309,22 @@ class ApiGateway(ApiHandlers):
 
                 def route_handler(r: Request) -> dict:
                     data = dict(r.body)
+                    # Path params from {param} / trailing-slash routes are passed
+                    # BOTH as keyword args (handlers declare e.g. `name=""`) and
+                    # merged into the body dict (legacy `_id` convention).
                     if params.get("id"):
                         data["_id"] = params["id"]
+                    data.update(params)
                     data["_user_id"] = r.user_id
                     # Merge query params for GET
                     if r.method == "GET":
                         data.update(r.query)
-                    return handler(data)
+                    try:
+                        return handler(data, **params)
+                    except TypeError:
+                        # Handler does not accept the param keywords — fall back
+                        # to body-dict-only invocation (params merged above).
+                        return handler(data)
 
                 t0 = time.time()
                 resp = self.gateway._middleware.handle(req, route_handler)

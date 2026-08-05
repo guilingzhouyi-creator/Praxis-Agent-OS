@@ -39,14 +39,14 @@ class Supervisor:
             "restart": True,
             "depends": [],
             "replicas": SUPERVISOR_DEFAULT_REPLICAS,
-            "health": "/api/health",
+            "health": "/api/v2/health",
         },
         ROLE_API: {
             "entry": "l4.api.api_gateway",
             "restart": True,
             "depends": [ROLE_KERNEL],
             "replicas": SUPERVISOR_DEFAULT_REPLICAS,
-            "health": "/api/health",
+            "health": "/api/v2/health",
         },
         ROLE_SANDBOX: {
             "entry": "l4.sandbox.server",

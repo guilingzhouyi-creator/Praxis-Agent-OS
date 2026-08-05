@@ -254,7 +254,7 @@ persistence:
   dialogue_session: 30          # Dialogue session auto-save (s)
 
 # ── Agent Loop (tool-calling iterations in SettingsCenter) ──
-# Compile-time defaults; runtime overrides via /api/loop/config.
+# Compile-time defaults; runtime overrides via /api/v2/loop/config.
 loop:
   max_steps: 50                 # Max tool-calling turns per card
   max_attempts: 3               # Max steps-exhausted continuation attempts

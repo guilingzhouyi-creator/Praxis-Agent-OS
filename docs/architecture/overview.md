@@ -33,7 +33,7 @@ flowchart TB
     end
 
     subgraph L4["L4 — Bridge Layer (src/l4/)"]
-        GW["api/api_gateway.py\n241 HTTP routes"]
+        GW["api/api_gateway.py\n241 HTTP routes (unified /api/v2/ prefix)"]
         AH["api_handlers/\n11 Handler Modules"]
         LLM["llm/\nLLM Engine + Providers"]
         SAND["sandbox/\nCOW Isolation + Exec Sandbox"]

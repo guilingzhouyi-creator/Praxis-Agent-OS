@@ -43,7 +43,7 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/commands": "shell",
     "/api/tools": "tool", "/api/tokens": "token", "/api/loops": "loop",
     "/api/constitution": "constitution", "/api/discussion": "discussion",
-    "/api/providers": "provider", "/api/model-spec": "provider", "/api/v2/model-spec": "provider",
+    "/api/providers": "provider", "/api/model-spec": "provider",
     "/api/subagent": "subagent", "/api/scout": "scout", "/api/r4": "r4",
     "/api/l3a": "l3a",
     "/api/skills": "skill",
@@ -160,68 +160,68 @@ _CENTRAL: list[ApiEndpoint] = [
 # ── Consolidated scattered routes (formerly the *_ROUTES dead lists in service modules) ──────────────────
 _SCATTERED: list[ApiEndpoint] = [
     # subagent (formerly SUBAGENT_ROUTES @ l3/agent/subagent_framework.py)
-    ApiEndpoint("POST", "/api/subagent/dispatch", "l3.agent.subagent_framework.handle_subagent_dispatch", "Dispatch subagent (@mention or spec+prompt)", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("POST", "/api/subagent/result", "l3.agent.subagent_framework.handle_subagent_result", "Get subagent task result", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("POST", "/api/subagent/cancel", "l3.agent.subagent_framework.handle_subagent_cancel", "Cancel subagent task", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("POST", "/api/subagent/tasks", "l3.agent.subagent_framework.handle_subagent_list", "List subagent tasks", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("GET", "/api/subagent/specs", "l3.agent.subagent_framework.handle_subagent_specs", "List subagent specs", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("POST", "/api/subagent/spec", "l3.agent.subagent_framework.handle_subagent_spec_register", "Register subagent spec", "subagent", "l3.agent.subagent_framework", "http"),
-    ApiEndpoint("POST", "/api/subagent/merge", "l3.agent.subagent_framework.handle_subagent_merge", "Merge multiple subagent results", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/dispatch", "l3.agent.subagent_framework.handle_subagent_dispatch", "Dispatch subagent (@mention or spec+prompt)", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/result", "l3.agent.subagent_framework.handle_subagent_result", "Get subagent task result", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/cancel", "l3.agent.subagent_framework.handle_subagent_cancel", "Cancel subagent task", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/tasks", "l3.agent.subagent_framework.handle_subagent_list", "List subagent tasks", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("GET", "/api/v2/subagent/specs", "l3.agent.subagent_framework.handle_subagent_specs", "List subagent specs", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/spec", "l3.agent.subagent_framework.handle_subagent_spec_register", "Register subagent spec", "subagent", "l3.agent.subagent_framework", "http"),
+    ApiEndpoint("POST", "/api/v2/subagent/merge", "l3.agent.subagent_framework.handle_subagent_merge", "Merge multiple subagent results", "subagent", "l3.agent.subagent_framework", "http"),
 
     # logs (formerly LOG_SERVICE_ROUTES @ l3/bus/log.py)
-    ApiEndpoint("POST", "/api/logs/query", "l3.bus.log.handle_log_query", "Query logs with filters", "log", "l3.bus.log", "http"),
-    ApiEndpoint("GET", "/api/logs/recent", "l3.bus.log.handle_log_recent", "Recent log entries", "log", "l3.bus.log", "http"),
-    ApiEndpoint("GET", "/api/logs/stats", "l3.bus.log.handle_log_stats", "Log statistics", "log", "l3.bus.log", "http"),
-    ApiEndpoint("POST", "/api/logs/export", "l3.bus.log.handle_log_export", "Export logs to JSON", "log", "l3.bus.log", "http"),
+    ApiEndpoint("POST", "/api/v2/logs/query", "l3.bus.log.handle_log_query", "Query logs with filters", "log", "l3.bus.log", "http"),
+    ApiEndpoint("GET", "/api/v2/logs/recent", "l3.bus.log.handle_log_recent", "Recent log entries", "log", "l3.bus.log", "http"),
+    ApiEndpoint("GET", "/api/v2/logs/stats", "l3.bus.log.handle_log_stats", "Log statistics", "log", "l3.bus.log", "http"),
+    ApiEndpoint("POST", "/api/v2/logs/export", "l3.bus.log.handle_log_export", "Export logs to JSON", "log", "l3.bus.log", "http"),
 
     # fs (formerly FS_ROUTES @ l3/services/file_editor.py)
-    ApiEndpoint("POST", "/api/fs/edit", "l3.services.file_editor.handle_fs_edit", "Semantic file edit (search/replace)", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/batch_edit", "l3.services.file_editor.handle_fs_batch_edit", "Atomic batch multi-file edit", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/history", "l3.services.file_editor.handle_fs_history", "File operation history", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/undo", "l3.services.file_editor.handle_fs_undo", "Undo file operation", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/redo", "l3.services.file_editor.handle_fs_redo", "Redo file operation", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/patch", "l3.services.file_editor.handle_fs_patch_create", "Create patch from history", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/patch/apply", "l3.services.file_editor.handle_fs_patch_apply", "Apply patch", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/patch/revert", "l3.services.file_editor.handle_fs_patch_revert", "Revert patch", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/patches", "l3.services.file_editor.handle_fs_patch_list", "List all patches", "fs", "l3.services.file_editor", "http"),
-    ApiEndpoint("POST", "/api/fs/patch/get", "l3.services.file_editor.handle_fs_patch_get", "Get patch detail", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/edit", "l3.services.file_editor.handle_fs_edit", "Semantic file edit (search/replace)", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/batch-edit", "l3.services.file_editor.handle_fs_batch_edit", "Atomic batch multi-file edit", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/history", "l3.services.file_editor.handle_fs_history", "File operation history", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/undo", "l3.services.file_editor.handle_fs_undo", "Undo file operation", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/redo", "l3.services.file_editor.handle_fs_redo", "Redo file operation", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/patch", "l3.services.file_editor.handle_fs_patch_create", "Create patch from history", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/patch/apply", "l3.services.file_editor.handle_fs_patch_apply", "Apply patch", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/patch/revert", "l3.services.file_editor.handle_fs_patch_revert", "Revert patch", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/patches", "l3.services.file_editor.handle_fs_patch_list", "List all patches", "fs", "l3.services.file_editor", "http"),
+    ApiEndpoint("POST", "/api/v2/fs/patch/get", "l3.services.file_editor.handle_fs_patch_get", "Get patch detail", "fs", "l3.services.file_editor", "http"),
 
     # prompt (formerly PROMPT_ROUTES @ l3/services/prompt_engine.py)
-    ApiEndpoint("POST", "/api/prompt/build", "l3.services.prompt_engine.handle_prompt_build", "Build full prompt with context assembly", "prompt", "l3.services.prompt_engine", "http"),
-    ApiEndpoint("POST", "/api/prompt/context", "l3.services.prompt_engine.handle_prompt_context", "Assemble context only (preview)", "prompt", "l3.services.prompt_engine", "http"),
-    ApiEndpoint("GET", "/api/prompt/templates", "l3.services.prompt_engine.handle_prompt_templates", "List prompt templates", "prompt", "l3.services.prompt_engine", "http"),
-    ApiEndpoint("POST", "/api/prompt/template", "l3.services.prompt_engine.handle_prompt_template_register", "Register custom template", "prompt", "l3.services.prompt_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/prompt/build", "l3.services.prompt_engine.handle_prompt_build", "Build full prompt with context assembly", "prompt", "l3.services.prompt_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/prompt/context", "l3.services.prompt_engine.handle_prompt_context", "Assemble context only (preview)", "prompt", "l3.services.prompt_engine", "http"),
+    ApiEndpoint("GET", "/api/v2/prompt/templates", "l3.services.prompt_engine.handle_prompt_templates", "List prompt templates", "prompt", "l3.services.prompt_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/prompt/template", "l3.services.prompt_engine.handle_prompt_template_register", "Register custom template", "prompt", "l3.services.prompt_engine", "http"),
 
     # session (formerly SESSION_ROUTES @ l3/services/session_export.py)
-    ApiEndpoint("POST", "/api/session/export", "l3.services.session_export.handle_session_export", "Export session as JSON", "session", "l3.services.session_export", "http"),
-    ApiEndpoint("POST", "/api/session/import", "l3.services.session_export.handle_session_import", "Import session from JSON", "session", "l3.services.session_export", "http"),
-    ApiEndpoint("GET", "/api/session/snapshots", "l3.services.session_export.handle_session_snapshots", "List snapshots", "session", "l3.services.session_export", "http"),
-    ApiEndpoint("POST", "/api/session/snapshot", "l3.services.session_export.handle_session_snapshot_create", "Create snapshot", "session", "l3.services.session_export", "http"),
-    ApiEndpoint("POST", "/api/session/snapshot/restore", "l3.services.session_export.handle_session_snapshot_restore", "Restore snapshot", "session", "l3.services.session_export", "http"),
-    ApiEndpoint("POST", "/api/session/snapshot/delete", "l3.services.session_export.handle_session_snapshot_delete", "Delete snapshot", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("POST", "/api/v2/session/export", "l3.services.session_export.handle_session_export", "Export session as JSON", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("POST", "/api/v2/session/import", "l3.services.session_export.handle_session_import", "Import session from JSON", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("GET", "/api/v2/session/snapshots", "l3.services.session_export.handle_session_snapshots", "List snapshots", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("POST", "/api/v2/session/snapshot", "l3.services.session_export.handle_session_snapshot_create", "Create snapshot", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("POST", "/api/v2/session/snapshot/restore", "l3.services.session_export.handle_session_snapshot_restore", "Restore snapshot", "session", "l3.services.session_export", "http"),
+    ApiEndpoint("POST", "/api/v2/session/snapshot/delete", "l3.services.session_export.handle_session_snapshot_delete", "Delete snapshot", "session", "l3.services.session_export", "http"),
 
     # config (formerly CONFIG_ROUTES @ l4/api_handlers/api_handlers_config.py)
-    ApiEndpoint("POST", "/api/config", "l4.api_handlers.api_handlers_config.handle_config_list", "List all config (optional filter: {category})", "config", "l4.api_handlers.api_handlers_config", "http"),
-    ApiEndpoint("POST", "/api/config/get", "l4.api_handlers.api_handlers_config.handle_config_get", "Get config value by key", "config", "l4.api_handlers.api_handlers_config", "http"),
-    ApiEndpoint("PUT", "/api/config/set", "l4.api_handlers.api_handlers_config.handle_config_set", "Set config override at runtime", "config", "l4.api_handlers.api_handlers_config", "http"),
+    ApiEndpoint("POST", "/api/v2/config", "l4.api_handlers.api_handlers_config.handle_config_list", "List all config (optional filter: {category})", "config", "l4.api_handlers.api_handlers_config", "http"),
+    ApiEndpoint("POST", "/api/v2/config/get", "l4.api_handlers.api_handlers_config.handle_config_get", "Get config value by key", "config", "l4.api_handlers.api_handlers_config", "http"),
+    ApiEndpoint("PUT", "/api/v2/config/set", "l4.api_handlers.api_handlers_config.handle_config_set", "Set config override at runtime", "config", "l4.api_handlers.api_handlers_config", "http"),
 
     # lsp (formerly LSP_ROUTES @ l4/lsp/lsp_manager.py)
-    ApiEndpoint("POST", "/api/lsp/diagnostics", "l4.lsp.lsp_manager.handle_lsp_diagnostics", "Get file diagnostics", "lsp", "l4.lsp.lsp_manager", "http"),
-    ApiEndpoint("POST", "/api/lsp/hover", "l4.lsp.lsp_manager.handle_lsp_hover", "Get hover info", "lsp", "l4.lsp.lsp_manager", "http"),
-    ApiEndpoint("GET", "/api/lsp/servers", "l4.lsp.lsp_manager.handle_lsp_servers", "List LSP server status", "lsp", "l4.lsp.lsp_manager", "http"),
-    ApiEndpoint("POST", "/api/lsp/start", "l4.lsp.lsp_manager.handle_lsp_start", "Start LSP server", "lsp", "l4.lsp.lsp_manager", "http"),
-    ApiEndpoint("POST", "/api/lsp/stop", "l4.lsp.lsp_manager.handle_lsp_stop", "Stop LSP server", "lsp", "l4.lsp.lsp_manager", "http"),
-    ApiEndpoint("POST", "/api/lsp/feedback", "l4.lsp.lsp_manager.handle_lsp_feedback", "Post-edit feedback loop", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("POST", "/api/v2/lsp/diagnostics", "l4.lsp.lsp_manager.handle_lsp_diagnostics", "Get file diagnostics", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("POST", "/api/v2/lsp/hover", "l4.lsp.lsp_manager.handle_lsp_hover", "Get hover info", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("GET", "/api/v2/lsp/servers", "l4.lsp.lsp_manager.handle_lsp_servers", "List LSP server status", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("POST", "/api/v2/lsp/start", "l4.lsp.lsp_manager.handle_lsp_start", "Start LSP server", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("POST", "/api/v2/lsp/stop", "l4.lsp.lsp_manager.handle_lsp_stop", "Stop LSP server", "lsp", "l4.lsp.lsp_manager", "http"),
+    ApiEndpoint("POST", "/api/v2/lsp/feedback", "l4.lsp.lsp_manager.handle_lsp_feedback", "Post-edit feedback loop", "lsp", "l4.lsp.lsp_manager", "http"),
 
     # search (formerly SEARCH_ROUTES @ l4/search/search_engine.py)
-    ApiEndpoint("POST", "/api/search", "l4.search.search_engine.handle_search", "Unified search (auto-select mode)", "search", "l4.search.search_engine", "http"),
-    ApiEndpoint("POST", "/api/search/semantic", "l4.search.search_engine.handle_search_semantic", "Semantic code search", "search", "l4.search.search_engine", "http"),
-    ApiEndpoint("POST", "/api/search/symbol", "l4.search.search_engine.handle_search_symbol", "Symbol search (AST-based)", "search", "l4.search.search_engine", "http"),
-    ApiEndpoint("POST", "/api/search/docs", "l4.search.search_engine.handle_search_docs", "API documentation search", "search", "l4.search.search_engine", "http"),
-    ApiEndpoint("POST", "/api/search/docs/index", "l4.search.search_engine.handle_search_index_doc", "Index custom API doc", "search", "l4.search.search_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/search", "l4.search.search_engine.handle_search", "Unified search (auto-select mode)", "search", "l4.search.search_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/search/semantic", "l4.search.search_engine.handle_search_semantic", "Semantic code search", "search", "l4.search.search_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/search/symbol", "l4.search.search_engine.handle_search_symbol", "Symbol search (AST-based)", "search", "l4.search.search_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/search/docs", "l4.search.search_engine.handle_search_docs", "API documentation search", "search", "l4.search.search_engine", "http"),
+    ApiEndpoint("POST", "/api/v2/search/docs/index", "l4.search.search_engine.handle_search_index_doc", "Index custom API doc", "search", "l4.search.search_engine", "http"),
 
     # sse (formerly SSE_ROUTES @ l4/sse/sse_bridge.py)
-    ApiEndpoint("GET", "/api/events", "l4.sse.sse_bridge.handle_sse", "SSE event stream (EventBus over HTTP)", "sse", "l4.sse.sse_bridge", "http"),
+    ApiEndpoint("GET", "/api/v2/events", "l4.sse.sse_bridge.handle_sse", "SSE event stream (EventBus over HTTP)", "sse", "l4.sse.sse_bridge", "http"),
 ]
 
 # ── Outbound protocol endpoints (external API points called by clients) ────────────────────────────────
@@ -332,9 +332,12 @@ def validate() -> dict:
     if len(misc_paths) > 1:
         issues.append(f"{len(misc_paths)} unclassified endpoints (domain=misc): {misc_paths[:8]}...")
 
-    # 4) naming style — snake_case path segments (unified prefix uses kebab-case)
+    # 4) naming style — snake_case path segments (unified prefix uses kebab-case);
+    #    {param} placeholders are exempt — their names mirror handler keyword
+    #    args (e.g. session_id) and are not URL path segments.
     snake_paths = sorted({f"{e.method} {e.path}" for e in ENDPOINT_MANIFEST
-                          if any("_" in seg for seg in e.path.strip("/").split("/") if seg)})
+                          if any("_" in seg for seg in e.path.strip("/").split("/")
+                                 if seg and not (seg.startswith("{") and seg.endswith("}")))})
     if snake_paths:
         issues.append(f"snake_case path segments (use kebab-case): {snake_paths[:10]}...")
 
