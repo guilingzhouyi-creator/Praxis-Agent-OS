@@ -79,6 +79,13 @@ from .verify_cadence import VerifyCadence
 
 logger = logging.getLogger(__name__)
 
+
+def _inject_enabled(domain: str) -> bool:
+    """Whether the ``prompt.inject.<domain>`` system-prompt injection is on."""
+    from l1.kernel.settings import inject_enabled as _ie
+
+    return _ie(domain)
+
 # Max accumulated content length across truncation, correction, and nudge appends
 _AGENT_LOOP_MAX_CONTENT: int = AGENT_LOOP_MAX_CONTENT  # chars (~25K tokens)
 
@@ -162,15 +169,16 @@ class AgentLoop:
                 "agent_loop.turn_budget", "\nYou have up to {max_steps} tool-calling turns. Use them wisely."
             ).format(max_steps=max_steps)
         vc = get_prompt("agent_loop.verification_culture", "")
-        if vc:
+        if vc and _inject_enabled("verification"):
             system = (system + "\n\n" + vc) if system else vc
         if todo_reminder:
             system = (system + "\n\n" + todo_reminder) if system else todo_reminder
 
         try:
             from l1.kernel.constitution import get_constitution
-            const_summary = get_constitution().summary(for_agent=self.agent_id)
-            system = (system + "\n\n" + const_summary) if system else const_summary
+            if _inject_enabled("constitution"):
+                const_summary = get_constitution().summary(for_agent=self.agent_id)
+                system = (system + "\n\n" + const_summary) if system else const_summary
         except (ImportError, AttributeError):
             logger.debug("agent_loop: constitution summary failed")
 
@@ -192,15 +200,24 @@ class AgentLoop:
         """Inject R4 lean cases, evolved skills, and cross-cell rules into system prompt.
 
         Token budget is bounded by ``LOOP_CONTEXT_BUDGET_SKILL`` to avoid
-        overflowing the context window with skill content.
+        overflowing the context window with skill content. Gated by the
+        ``prompt.inject.skills`` setting (user-configurable).
         """
+        if not _inject_enabled("skills"):
+            return system
         try:
             from l3.memory.r4_agent import get_r4_agent
             r4 = get_r4_agent()
             budget = LOOP_CONTEXT_BUDGET_SKILL
             lean = r4.get_lean_cases(agent_id=self.agent_id, cell_id=self._cell_id,
                                      limit=LOOP_LEAN_CASES_LIMIT)
+            injected: list[str] = []
             if lean:
+                # All returned lean cases are injected (full or truncated), so
+                # their names ride the same cache — no extra registry scan.
+                injected = list(r4.get_lean_case_names(agent_id=self.agent_id,
+                                                       cell_id=self._cell_id,
+                                                       limit=LOOP_LEAN_CASES_LIMIT))
                 lines = "\n".join(f"  {i}. {lc}" for i, lc in enumerate(lean, 1))
                 block = f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
                 if len(block) <= budget:
@@ -218,6 +235,7 @@ class AgentLoop:
                     if len(block) <= budget:
                         system += block
                         budget -= len(block)
+                        injected.append(es["name"])
                         if getattr(self, "_pmu", None):
                             try:
                                 self._pmu.increment("skills.evolved.injected")
@@ -226,7 +244,21 @@ class AgentLoop:
                     else:
                         # Partial: only include name + description
                         system += f"\n\n### {es['name']}\n{es['description']}"
+                        injected.append(es["name"])
                         break
+            # Injection feedback: refresh last_used for every injected skill so
+            # the R4Agent TTL prune never deletes skills that are actively
+            # exposed to agents.  Usage-only update — no write clearance, no
+            # revision bump (the R4Agent injection cache stays hot).
+            if injected:
+                try:
+                    from l1.kernel.skill import get_skill_manager
+                    _sm = get_skill_manager()
+                    _now = time.time()
+                    for _name in injected:
+                        _sm.update(_name, {"last_used": _now})
+                except Exception as e:
+                    logger.debug("agent_loop: skill last_used refresh failed: %s", e)
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
         try:

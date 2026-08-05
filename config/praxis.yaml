@@ -346,6 +346,18 @@ memory:
 user_profile:
   enabled: false
 
+# ── System-prompt injection switches ──
+# Each domain gates a block appended to agent system prompts. Toggle via
+# SettingsCenter (/api/v2/settings) at runtime: set prompt.inject.<domain>
+# to false to strip that injection globally. All default true.
+prompt:
+  inject:
+    profile: true          # [User Profile Reference] in L3A prompts + card columns
+    constitution: true     # constitution summary in every agent loop
+    skills: true           # evolved skills + lean failure cases
+    verification: true     # verification culture block
+    memory: true           # task-aware memory context injection
+
 # ── Network mesh ──
 network:
   discovery_port: 42069         # UDP broadcast port

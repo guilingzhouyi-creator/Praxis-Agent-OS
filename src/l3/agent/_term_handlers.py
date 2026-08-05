@@ -25,6 +25,13 @@ from l1.kernel.platform import grep_cmd as _grep_cmd
 
 logger = logging.getLogger(__name__)
 
+
+def _inject_enabled(domain: str) -> bool:
+    """Whether the ``prompt.inject.<domain>`` system-prompt injection is on."""
+    from l1.kernel.settings import inject_enabled as _ie
+
+    return _ie(domain)
+
 # ── Action handler registry (dual: method-name + function) ──
 
 _ACTION_HANDLERS: dict[str, str] = {}
@@ -223,25 +230,27 @@ def handle_think(term, card, phases):
         task = card.params.get("prompt", card.target)
 
         # ── Inject OS-managed context from memory rings + context register ──
+        # Gated by the prompt.inject.memory setting (user-configurable).
         memory = get_memory()
         ctx_parts = []
         from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
-        # Task-aware injection: card metadata picks the dimension (execute→summary, decide→Mer, resume→layered)
-        try:
-            from l3.memory.memory_inject import build_context as _inject
-            ring_context = _inject(term.agent_id, card=card,
-                                   max_tokens=CONTEXT_BUILD_MAX_TOKENS,
-                                   memory=memory)
-        except Exception:
-            ring_context = memory.build_context(
-                term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
-        if ring_context:
-            ctx_parts.append(ring_context)
-        recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
-        if recent:
-            ctx_parts.append("=== Recent Context ===\n" + "\n".join(
-                str(r.get("value", ""))[:LOG_TRUNC_200] for r in recent
-            ))
+        if _inject_enabled("memory"):
+            # Task-aware injection: card metadata picks the dimension (execute→summary, decide→Mer, resume→layered)
+            try:
+                from l3.memory.memory_inject import build_context as _inject
+                ring_context = _inject(term.agent_id, card=card,
+                                       max_tokens=CONTEXT_BUILD_MAX_TOKENS,
+                                       memory=memory)
+            except Exception:
+                ring_context = memory.build_context(
+                    term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
+            if ring_context:
+                ctx_parts.append(ring_context)
+            recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
+            if recent:
+                ctx_parts.append("=== Recent Context ===\n" + "\n".join(
+                    str(r.get("value", ""))[:LOG_TRUNC_200] for r in recent
+                ))
         memory_context = "\n\n".join(ctx_parts)
 
         from l1.kernel.prompts import get_prompt
