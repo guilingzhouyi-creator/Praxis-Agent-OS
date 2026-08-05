@@ -22,7 +22,7 @@ pip install -e ".[test]"
 python src/main.py boot           # Boot the kernel
 python src/main.py status         # System status
 python -m l2.l2_shell             # Interactive agent shell
-curl http://localhost:8080/api/health  # API health check
+curl http://localhost:8080/api/v2/health  # API health check
 ```
 
 ## Architecture

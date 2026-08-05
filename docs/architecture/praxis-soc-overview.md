@@ -2,7 +2,7 @@
 
 > **Status map:** ✅ Complete / ◐ Partial / ⬜ Not Started / 🔧 Uncommitted
 
-## L1 Kernel — 37 files, 8,497 lines ✅
+## L1 Kernel — 44 files, 11,604 lines ✅
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -52,7 +52,7 @@
 
 **Status: ✅ Complete.** 39 commands + pipeline + scope resolution + i18n.
 
-## L3 Cell — 154+ files, ~32,800 lines
+## L3 Cell — 205 files, ~45,900 lines
 
 ### PMU — Performance Monitoring Unit ✅
 
@@ -264,29 +264,37 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### L3A — Intent Parser ◐
+### L3A — Session System ✅ (14 modules)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  L3A — Intent Parser                                         │
+│  L3A — Session & Decision Layer (src/l3/cell/peers/l3a/)      │
 │                                                              │
-│  ├── process_intent(text) → Card              ✅ Basically usable    │
-│  ├── User profiling / habit learning           ⬜ Not Started     │
-│  ├── Intent correction loop (L3C feedback)     ⬜ Not Started     │
-│  └── Multi-turn dialog context accumulation   ◐ Basic implementation    │
+│  ├── Session lifecycle (create/resume/close/archive)  ✅      │
+│  ├── PromptInbox (steer/queue admission)              ✅      │
+│  ├── ContextEpoch + task-aware memory injection       ✅      │
+│  ├── l3a_ask clarification (chat/command/API)         ✅      │
+│  ├── SubAgent pool (card-planner / investigator)      ✅      │
+│  ├── Deliberation memory (convention/summaries)       ✅      │
+│  ├── Auto-compression + R4 session archive            ✅      │
+│  ├── Mer symbolization driver (R1-R3 → Mermaid → R4)  ✅      │
+│  ├── User profiling / habit learning                  ⬜ Not Started │
+│  └── Intent correction loop (L3C feedback)            ⬜ Not Started │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### L3C — Behavior Collector ⬜ (Design Phase)
+### L3C — Behavior Collector ✅ (implemented)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  L3C — Behavior Collector (peer to L3A)                      │
+│  L3C — Behavior Collector (peer to L3A)                       │
+│  src/l3/cell/peers/central_collector.py                       │
 │                                                              │
-│  ├── Collect user correction patterns        ⬜ Not Started       │
-│  ├── Collect intent→tool mapping preferences  ⬜ Not Started       │
-│  ├── Collect command vs NLP switching patterns ⬜ Not Started       │
-│  └── Feedback → L3A / L2 Shell                ⬜ Not Started       │
+│  ├── Token aggregation / stats collection        ✅           │
+│  ├── Collect user correction patterns            ⬜ Not Started │
+│  ├── Collect intent→tool mapping preferences      ⬜ Not Started │
+│  ├── Collect command vs NLP switching patterns    ⬜ Not Started │
+│  └── Feedback → L3A / L2 Shell                    ⬜ Not Started │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -508,7 +516,7 @@
 - `AnswerAggregator`: cross-Cell answer merge with divergence detection
 - Boot auto-trigger: blank `.praxis-rules.md` creates IssueCard for territorial discussion
 
-## L4 Bridge — 45 files, 9,141 lines ✅
+## L4 Bridge — 50 files, 11,859 lines ✅
 
 ```
 │  ├── api_gateway.py (HTTP + Middleware)      ✅                │
@@ -530,7 +538,7 @@
 │  └── 10 more files...                        ✅                │
 ```
 
-## L5 User — 2 files, 472 lines ✅
+## L5 User — 2 files, 489 lines ✅
 
 ```
 │  ├── cli.py (Typer CLI, boot/status/exec)   ✅                │
@@ -541,7 +549,6 @@
 
 ```
 │  L3A: User profiling / habit learning             ⬜                │
-│  L3C: Behavior Collector                          ⬜                │
 │  Heavy Desktop (Electron/Tauri)                   ⬜                │
 │  Lightweight Desktop (chat + diff)                ⬜                │
 │  VSCode Extension                                 ⬜                │
@@ -554,20 +561,17 @@
 ```
 Layer       Files    Lines    Status
 ─────────────────────────────────────────
-L1 Kernel    37     8,497    ✅ Complete
-L2 Shell     10     1,977    ✅ Complete
-L3 Cell     154    32,794    ✅ Core + PMU/Watchdog/ICache/MMU/IRQ/SubAgent + ◐ A/B/L3B + 🔧 CellCache
-L4 Bridge    45     9,141    ✅ Complete
-L5 User       2       472    ✅ Complete
-tests        95    15,541    ✅ Core pass (94/94)
-config        3       865    ✅ Complete
+L1 Kernel    44    11,604    ✅ Complete
+L2 Shell     16     2,292    ✅ Complete
+L3 Cell     205    45,922    ✅ Core + PMU/Watchdog/ICache/MMU/IRQ + L3A(14) + L3B chain + L3C + Mer/R5/injection
+L4 Bridge    50    11,859    ✅ Complete
+L5 User       2       489    ✅ Complete
 ─────────────────────────────────────────
-Total       346    69,101
+Total       317    72,166
 
-Completed:        ~90% (L1/L2/L4/L5 + L3 core)
-Partial:          ~5%  (L3A intent, HTN-A/B, L3B composites)
-Uncommitted:      ~3%  (CellCache, HTN-A/B, L3B Bus/Pool, path fixes)
-Not started:      ~2%  (L3C, Desktops, VSCode, License)
+Completed:        ~93% (L1/L2/L3/L4/L5 core + L3A sessions + L3B chain + L3C + Mer/R5)
+Partial:          ~4%  (user profiling, L3C feedback loop, desktop/VSCode clients)
+Not started:      ~3%  (L3A profiling, desktops, VSCode extension, multi-cluster, license)
 ```
 
 ---
@@ -926,7 +930,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │ │  2. CentralScheduler   (l3/scheduler/scheduler*.py, 6 files)  — 5-Dimensional Scheduling│ │
 │ │     Rate / Time Slice / Scope / Routing / Priority Queue                 │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  3. R4Agent            (l3/memory/r4_agent.py, 443L)  — Archive + Skill Evolution  │ │
+│ │  3. R4Agent            (l3/memory/r4_agent.py, 880L)  — Archive + Skill Evolution  │ │
 │ │     archive_ring3 / restore_ring3 / get_lean_cases / evolve_skill        │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │  4. CellMonitor        (l3/cell/components/cell_monitor.py, 209L)  — Per-Cell Health Monitor │ │
@@ -935,7 +939,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │ │  5. CentralSecurity    (l3/services/central_security.py, 166L)  — 6-Gate Unified Check│ │
 │ │     check_all(action, agent, target, tool) → {allowed, gates}            │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  6. CentralMemory      (l3/memory/central_memory.py, 169L)  — R1-R4 Coordinator    │ │
+│ │  6. CentralMemory      (l3/memory/central_memory.py, 280L)  — R1-R4 Coordinator    │ │
 │ │     remember / recall / compact / archive_ring3 / stats                  │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │  7. CentralPlugin      (l3/services/central_plugin.py, 152L)  — Plugin Lifecycle     │ │
@@ -944,7 +948,7 @@ Not started:      ~2%  (L3C, Desktops, VSCode, License)
 │ │  8. CentralCollector   (l3/cell/peers/central_collector.py, 149L)  — Token Aggregation │ │
 │ │     cell_total / global_quota / stats  — TOKEN_CELL_QUOTA=5M             │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
-│ │  9. L3B                (l3/bus/l3b.py, 81L)  — Cross-Cell Routing            │ │
+│ │  9. L3B                (l3/bus/l3b.py, 303L)  — Cross-Cell Routing            │ │
 │ │     route(card_id, target_cell) → Dispatch to another Cell               │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │ 10. InterruptController (cell_interrupt.py, 296L)  — Priority IRQ Ctrl   │ │
