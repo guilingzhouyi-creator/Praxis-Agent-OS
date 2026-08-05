@@ -15,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import threading
@@ -66,6 +67,9 @@ from .llm_base import (
 
 # Provider implementations extracted to llm_providers.py
 from .llm_providers import MockProvider
+
+# Persistent-connection HTTP client for LLM API calls
+from .http_pool import http_post
 
 logger = logging.getLogger(__name__)
 
@@ -477,8 +481,6 @@ class LLMEngine:
           4. Rate limit (429) → wait from Retry-After header or 60s (5 attempts)
         """
         import time as _time
-        import urllib.error
-        import urllib.request as req
 
         provider_name = self.config.provider
         if provider_name == "mock":
@@ -495,18 +497,26 @@ class LLMEngine:
             logger.warning("provider get_headers failed: %s", e)
         url = provider.get_api_url(self.config.api_url)
 
+        # Persistent connection reuse (per-thread) instead of a fresh
+        # TCP/TLS handshake on every call.
         try:
-            r = self._http_opener.open(req.Request(url, data=body, headers=headers, method="POST"), timeout=LLM_HTTP_TIMEOUT)
-            raw = r.read()
-        except urllib.error.HTTPError as e:
-            code = e.code
-            body_text = e.read().decode()[:LOG_TRUNC_200]
+            code, raw, resp_headers = http_post(url, body, headers, LLM_HTTP_TIMEOUT)
+        except (OSError, TimeoutError, http.client.HTTPException) as e:
+            err = str(e)
+            if any(x in err for x in ("timeout", "reset", "refused", "timed out", "BadStatusLine")):
+                if retry_count < LLM_MAX_TRANSIENT_RETRIES:
+                    wait = LLM_TRANSIENT_BACKOFF_BASE * (retry_count + 1)
+                    _time.sleep(wait)
+                    return self._call_api(body, retry_count + 1)
+            return {"content": "", "tool_calls": [], "cache_hit_tokens": 0, "cache_miss_tokens": 0,
+                    "error": err}
+        if code >= 400:
+            body_text = raw.decode(errors="replace")[:LOG_TRUNC_200]
             if code == 429 and retry_count < LLM_MAX_RATE_LIMIT_RETRIES:
                 wait = LLM_RATE_LIMIT_WAIT
-                if hasattr(e, 'headers'):
-                    ra = e.headers.get("Retry-After", "")
-                    if ra and ra.isdigit():
-                        wait = int(ra)
+                ra = resp_headers.get("retry-after", "")
+                if ra and ra.isdigit():
+                    wait = int(ra)
                 _time.sleep(wait)
                 return self._call_api(body, retry_count + 1)
             if code in (413, 400) and "too long" in body_text.lower() and retry_count < LLM_MAX_OVERFLOW_RETRIES:
@@ -519,15 +529,6 @@ class LLMEngine:
                 return self._call_api(body, retry_count + 1)
             return {"content": "", "tool_calls": [], "cache_hit_tokens": 0, "cache_miss_tokens": 0,
                     "error": f"HTTP {code}: {body_text}"}
-        except Exception as e:
-            err = str(e)
-            if any(x in err for x in ("timeout", "reset", "refused", "500", "502", "503")):
-                if retry_count < LLM_MAX_TRANSIENT_RETRIES:
-                    wait = LLM_TRANSIENT_BACKOFF_BASE * (retry_count + 1)
-                    _time.sleep(wait)
-                    return self._call_api(body, retry_count + 1)
-            return {"content": "", "tool_calls": [], "cache_hit_tokens": 0, "cache_miss_tokens": 0,
-                    "error": err}
 
         try:
             data = json.loads(raw)
