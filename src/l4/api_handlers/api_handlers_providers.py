@@ -189,6 +189,100 @@ def handle_model_strategy_apply_many(body: dict | None = None) -> dict:
     return {"success": True, "strategy": strategy, "specs": results}
 
 
+_SPEC_NAMES = ("scout", "l3a", "l3a_subagent", "subagent", "r4_agent")
+
+
+def handle_model_spec_overview(body: dict | None = None) -> dict:
+    """GET /api/v2/model-spec/overview — full panel state for frontend rendering.
+
+    Returns per-executor resolved values + active strategy, global caps,
+    available strategy packs and the reasoning tier set.
+    """
+    from l3.config.settings_center import get_center
+    from l3.services.model_service import get_service
+    sc = get_center()
+    ms = get_service()
+    specs = {}
+    for name in _SPEC_NAMES:
+        cur = ms.current_strategy(name)
+        specs[name] = {
+            "current": ms.resolve_dict(name),
+            "strategy": cur["strategy"],
+            "overrides": cur["overrides"],
+        }
+    strategies = {}
+    for key, value in sc.all().items():
+        if key.startswith("model_spec.strategies."):
+            parts = key.split(".")
+            # model_spec.strategies.{name}.{attr}
+            if len(parts) >= 4:
+                strategies.setdefault(parts[2], {})[parts[3]] = value
+    try:
+        from l1.kernel.params.api import EFFORT_RANK
+        tiers = list(EFFORT_RANK.keys())
+    except Exception:
+        tiers = ["none", "low", "medium", "high", "xhigh", "max"]
+    return {
+        "success": True,
+        "specs": specs,
+        "caps": {
+            "max_reasoning": sc.get("think.max_reasoning", "max"),
+            "max_budget": sc.get("think.max_budget", 32768),
+        },
+        "strategies": strategies,
+        "tiers": tiers,
+    }
+
+
+def handle_think_caps_get(body: dict | None = None) -> dict:
+    """GET /api/v2/model-spec/caps — current reasoning caps."""
+    from l3.config.settings_center import get_center
+    sc = get_center()
+    return {
+        "success": True,
+        "caps": {
+            "max_reasoning": sc.get("think.max_reasoning", "max"),
+            "max_budget": sc.get("think.max_budget", 32768),
+        },
+    }
+
+
+def handle_think_caps_set(body: dict | None = None) -> dict:
+    """PUT /api/v2/model-spec/caps — set reasoning caps.
+
+    Body: {"max_reasoning": "high"} and/or {"max_budget": 8192}.
+    """
+    b = body or {}
+    from l3.config.settings_center import get_center
+    sc = get_center()
+    updated = []
+    if "max_reasoning" in b:
+        tier = str(b["max_reasoning"])
+        try:
+            from l1.kernel.params.api import EFFORT_RANK
+            if tier not in EFFORT_RANK:
+                return {"success": False,
+                        "error": f"invalid tier: {tier} (none|low|medium|high|xhigh|max)"}
+        except Exception:
+            pass
+        sc.set("think.max_reasoning", tier)
+        updated.append("max_reasoning")
+    if "max_budget" in b:
+        try:
+            budget = int(b["max_budget"])
+        except (TypeError, ValueError):
+            return {"success": False, "error": "max_budget must be an int"}
+        if budget < 0:
+            return {"success": False, "error": "max_budget must be >= 0"}
+        sc.set("think.max_budget", budget)
+        updated.append("max_budget")
+    return {"success": True, "updated": updated,
+            "caps": {
+                "max_reasoning": sc.get("think.max_reasoning", "max"),
+                "max_budget": sc.get("think.max_budget", 32768),
+            }}
+
+
 # ── SubAgent platform config ────────────────────────────────
 
 

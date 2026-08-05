@@ -183,6 +183,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("PUT",  "/api/v2/model-spec/{name}/strategy", "l4.api_handlers.api_handlers_providers.handle_model_strategy_apply",     "Apply a named strategy pack to a model spec"),
     ("DELETE","/api/v2/model-spec/{name}/strategy", "l4.api_handlers.api_handlers_providers.handle_model_strategy_clear",   "Clear strategy, restore executor defaults"),
     ("PUT",  "/api/v2/model-spec/strategy/apply", "l4.api_handlers.api_handlers_providers.handle_model_strategy_apply_many", "Apply a strategy to many executors"),
+    ("GET",  "/api/v2/model-spec/overview",       "l4.api_handlers.api_handlers_providers.handle_model_spec_overview",      "Full model panel state (specs, caps, strategies, tiers)"),
+    ("GET",  "/api/v2/model-spec/caps",           "l4.api_handlers.api_handlers_providers.handle_think_caps_get",          "Current reasoning caps"),
+    ("PUT",  "/api/v2/model-spec/caps",           "l4.api_handlers.api_handlers_providers.handle_think_caps_set",          "Set reasoning caps"),
 
     # SubAgent platform config
     ("GET",  "/api/v2/subagent/defaults",       "l4.api_handlers.api_handlers_providers.handle_subagent_defaults",          "SubAgent platform defaults"),

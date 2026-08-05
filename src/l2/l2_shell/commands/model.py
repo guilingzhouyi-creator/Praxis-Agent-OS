@@ -34,18 +34,54 @@ def _cmd_model(args: list[str]) -> dict:
     if sub == "switch" and len(args) >= 3: return _model_switch(args[1], args[2], args[3] if len(args) > 3 else "")
     if sub == "health": return _model_health(args[1] if len(args) > 1 else "")
     if sub == "set" and len(args) >= 4: return _model_set(args[1], args[2], args[3])
-    return {"success": False, "error": "usage: /model [list|status|switch|health|set]"}
+    if sub == "spec": return _cmd_model_spec(args[1:])
+    return {"success": False, "error": "usage: /model [list|status|switch|health|set|spec]"}
+
+
+def _cmd_model_spec(args: list[str]) -> dict:
+    """Model-spec / strategy panel: view, switch packs, set caps."""
+    from l3.services.model_service import get_service as _ms
+    from l4.api_handlers.api_handlers_providers import (
+        handle_model_spec_overview,
+        handle_think_caps_get,
+        handle_think_caps_set,
+    )
+    if not args:
+        return handle_model_spec_overview({})
+    sub = args[0].lower()
+    if sub == "strategy" and len(args) >= 3:
+        return _ms().apply_strategy(args[1], args[2])
+    if sub == "clear" and len(args) >= 2:
+        return _ms().clear_strategy(args[1])
+    if sub == "caps":
+        if len(args) >= 2:
+            caps = {"max_reasoning": args[1]}
+            if len(args) >= 3:
+                try:
+                    caps["max_budget"] = int(args[2])
+                except ValueError:
+                    return {"success": False, "error": "max_budget must be an int"}
+            return handle_think_caps_set(caps)
+        return handle_think_caps_get({})
+    return {"success": False,
+            "error": "usage: /model spec [strategy <name> <pack>|clear <name>|caps [max_reasoning [max_budget]]]"}
 
 def _cmd_settings(args: list[str]) -> dict:
     from .commands_settings import _cmd_settings as _cs; return _cs(args)
 
 def _coerce_str(v: str) -> Any:
-    try: return int(v)
-    except ValueError: pass
-    try: return float(v)
-    except ValueError: pass
-    if v.lower() in ("true","yes"): return True
-    if v.lower() in ("false","no"): return False
+    try:
+        return int(v)
+    except ValueError:
+        logger.debug("model: %r not an int, trying float", v)
+    try:
+        return float(v)
+    except ValueError:
+        logger.debug("model: %r not numeric, returning string", v)
+    if v.lower() in ("true", "yes"):
+        return True
+    if v.lower() in ("false", "no"):
+        return False
     return v
 
 def _model_list() -> dict:

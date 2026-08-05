@@ -363,9 +363,9 @@ agent_restart:
 
 model:
   category: control
-  help: "Manage LLM model providers and model specs"
+  help: "Manage LLM model providers, model specs, and reasoning strategy"
   args:
-    - {name: sub, description: "list|status|switch|health|set"}
+    - {name: sub, description: "list|status|switch|health|set|spec"}
     - {name: role, optional: true, description: "peer_agent|subagent|scout|r4_agent|convention|card_planner|l3a"}
     - {name: value, optional: true, description: "Provider name or key=value"}
   examples:
@@ -373,6 +373,10 @@ model:
     - "/model status              — show all model specs"
     - "/model switch scout <provider> <model> — switch scout model"
     - "/model health <provider>  — test provider connectivity"
+    - "/model spec                — full reasoning panel (specs/caps/strategies/tiers)"
+    - "/model spec strategy l3a deep   — apply strategy pack to an executor"
+    - "/model spec clear l3a      — restore executor defaults"
+    - "/model spec caps high 8192 — set global reasoning caps"
 
 tokens:
   category: audit
