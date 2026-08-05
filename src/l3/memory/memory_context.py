@@ -8,12 +8,9 @@ from __future__ import annotations
 import logging
 import time
 
-from l1.kernel.params.system import LOG_TRUNC_300
+from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, LOG_TRUNC_300
 
 logger = logging.getLogger(__name__)
-
-
-from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
 
 
 def build_context(mem, agent_id: str, max_tokens: int = CONTEXT_BUILD_MAX_TOKENS) -> str:

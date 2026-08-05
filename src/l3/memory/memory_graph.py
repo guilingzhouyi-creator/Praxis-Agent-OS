@@ -25,10 +25,10 @@ import sqlite3
 import threading
 import time
 import uuid
-
-from l1.kernel.params.system import LOG_TRUNC_300, MEMORY_GRAPH_LLM_TIMEOUT
 from pathlib import Path
 from typing import Any
+
+from l1.kernel.params.system import LOG_TRUNC_300, MEMORY_GRAPH_LLM_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -171,9 +171,9 @@ class MemoryGraph:
     def _emit_event(self, event_type: str, data: dict) -> None:
         """Publish graph lifecycle events to the monitoring bus."""
         try:
-            from l3.bus.monitor_bus import MonitorEvent as _ME
+            from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
-            _MB().emit(_ME(type=event_type, source="memory_graph",
+            _MB().emit(_MEv(type=event_type, source="memory_graph",
                            severity="info", data=data))
         except Exception:
             logger.debug("memory_graph: monitor emit failed")
@@ -281,8 +281,8 @@ class MemoryGraph:
         try:
             cur = self._conn.execute(
                 "SELECT from_id, to_id, relation, weight FROM memory_edges "
-                "WHERE from_id IN (%s) OR to_id IN (%s) LIMIT %d"
-                % (",".join("?" * len(nodes)), ",".join("?" * len(nodes)), limit * 2),
+                "WHERE from_id IN ({ph}) OR to_id IN ({ph}) LIMIT {lim}".format(
+                    ph=",".join("?" * len(nodes)), lim=limit * 2),
                 list(nodes) + list(nodes))
             for fid, tid, rel, w in cur.fetchall():
                 edges.append({"from_id": fid, "to_id": tid,

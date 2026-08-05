@@ -199,9 +199,9 @@ class MerTransformer:
 
     def _emit_event(self, event_type: str, data: dict) -> None:
         try:
-            from l3.bus.monitor_bus import MonitorEvent as _ME
+            from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
-            _MB().emit(_ME(type=event_type, source="memory_mer",
+            _MB().emit(_MEv(type=event_type, source="memory_mer",
                            severity="info", data=data))
         except Exception:
             logger.debug("memory_mer: monitor emit failed")

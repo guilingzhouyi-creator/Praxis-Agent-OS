@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import heapq
 import logging
+import threading
 import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
@@ -254,4 +255,3 @@ class RingLayer:
                 self._tag_index.setdefault(tag, []).append(e)
 
 
-import threading

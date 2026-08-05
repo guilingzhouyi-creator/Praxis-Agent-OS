@@ -378,7 +378,6 @@ class R4Agent:
         """
         import json
         import os
-        import tempfile
 
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
@@ -524,10 +523,7 @@ class R4Agent:
             name = s["name"]
             loaded_at = s.get("loaded_at", 0.0)
             last_used = s.get("last_used", 0.0)
-            if last_used > 0:
-                age = now - last_used
-            else:
-                age = now - loaded_at
+            age = now - last_used if last_used > 0 else now - loaded_at
             if age > ttl_seconds:
                 # R4 archive before pruning — TTL removal is auditable/restorable.
                 try:

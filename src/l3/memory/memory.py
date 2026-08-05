@@ -34,8 +34,6 @@ import uuid
 from collections import deque
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 from l1.kernel.params.system import (
     CONTEXT_BUILD_MAX_TOKENS,
     HASH_TRUNC_LONG,
@@ -65,6 +63,8 @@ from .memory_quality import _is_good_memory, _score_importance, _suggest_compact
 from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_search import search_long_term as _search_long_term
 
+logger = logging.getLogger(__name__)
+
 
 class MemoryManager:
     """Agent memory manager — context window + ring tiers."""
@@ -81,7 +81,7 @@ class MemoryManager:
 
     def set_persist_dir(self, path: str) -> None:
         """Set the persistence directory for Ring 2 (JSONL) and Ring 3 (SQLite).
-        
+
         Called by boot.py during startup and shutdown_to_memories().
         """
         self._persist_dir = Path(path)

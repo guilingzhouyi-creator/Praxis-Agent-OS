@@ -196,10 +196,7 @@ class CentralMemory:
         target = scope_id or "l3a"
         try:
             mem = self.get_or_create(target)
-            if ring and ring <= 3:
-                r = mem.compact(agent_id, ring=ring)
-            else:
-                r = mem.compact(agent_id)
+            r = mem.compact(agent_id, ring=ring) if ring and ring <= 3 else mem.compact(agent_id)
             return {"success": True, "scope": target, "result": r}
         except Exception as e:
             return {"success": False, "error": str(e)}

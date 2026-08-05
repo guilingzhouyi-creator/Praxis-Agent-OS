@@ -7,7 +7,7 @@ Cache levels:
 
 Tags for selective invalidation:
   tag:agent:<id>, tag:ring:<n>, tag:territory:<path>, tag:type:<type>
-  
+
 Write by any agent → invalidates all cache entries for that path.
 """
 
@@ -44,13 +44,13 @@ class IsolatedCache:
 
     Usage:
       cache = IsolatedCache(cell_id="cell-1")
-      
+
       # Agent-scoped: only this agent can hit it
       cache.get("file:/project/foo.py", scope="agent:agent_a")
-      
+
       # Cell-scoped: any agent in the cell can hit it
       cache.get("file:/project/bar.py", scope="cell")
-      
+
       # Write invalidates all scopes
       cache.invalidate("file:/project/foo.py")
 
@@ -84,7 +84,7 @@ class IsolatedCache:
             agent_id: str = "", ring: int = 1,
             territory: list[str] | None = None) -> Any | None:
         """Get cache entry. Returns None on miss or expiry.
-        
+
         Tracks per-agent hit/miss for both Scout and SubAgent delegation.
         LRU: moves to end on hit so eviction targets coldest entries.
         """
@@ -132,7 +132,7 @@ class IsolatedCache:
     def invalidate(self, raw_key: str, scope: str = "",
                    agent_id: str = "") -> int:
         """Invalidate cache entries by raw_key.
-        
+
         scope="" means all scopes.
         agent_id="" means all agents.
         """
@@ -149,7 +149,7 @@ class IsolatedCache:
 
     def invalidate_by_tag(self, tag: str) -> int:
         """Invalidate all entries with a specific tag.
-        
+
         Tags: agent:<id>, ring:<n>, territory:<path>, raw:<path>, scope:<level>
         """
         with self._lock:

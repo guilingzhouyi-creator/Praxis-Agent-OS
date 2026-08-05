@@ -138,8 +138,8 @@ class MemoryInjector:
     def _mer_block(self, agent_id: str, max_tokens: int) -> str:
         """Mer skeleton — graph diffusion from recent memory seeds."""
         try:
-            from l3.memory.memory_graph import get_graph
             from l3.memory.central_memory import get_center
+            from l3.memory.memory_graph import get_graph
             g = get_graph()
             if not g.enabled:
                 return ""
