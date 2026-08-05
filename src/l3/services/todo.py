@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 import uuid
@@ -64,12 +65,30 @@ class TodoTable(PersistableMixin):
         self.agent_id = agent_id
         self._items: dict[str, TodoItem] = {}
         self._lock = threading.Lock()
-        base = persist_path or _gp().todo_table
-        path = base.replace(".json", f"_{agent_id}.json") if agent_id else base
+        path = persist_path or self._resolve_persist_path(agent_id)
         self._init_persistence(path, TODO_TABLE_AUTO_SAVE)
         self._restore()
         if TODO_TABLE_AUTO_SAVE > 0:
             self._start_auto_save()
+
+    def _resolve_persist_path(self, agent_id: str) -> str:
+        """Resolve the per-agent todo file under the centralized todos dir.
+
+        One-time migration: legacy flat ``todo_table_<agent>.json`` files at
+        the data-dir root are moved into ``.praxis/todos/`` when present.
+        """
+        todo_dir = _gp().todo_dir
+        os.makedirs(todo_dir, exist_ok=True)
+        if agent_id:
+            new_path = os.path.join(todo_dir, f"todo_{agent_id}.json")
+            legacy = os.path.join(os.path.dirname(todo_dir), f"todo_table_{agent_id}.json")
+            if not os.path.exists(new_path) and os.path.exists(legacy):
+                try:
+                    os.replace(legacy, new_path)
+                except OSError:
+                    logger.warning("todo: legacy migration failed for %s", legacy)
+            return new_path
+        return os.path.join(todo_dir, "todo_table.json")
 
     def _serialize(self) -> dict:
         return {

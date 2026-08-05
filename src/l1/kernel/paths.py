@@ -204,6 +204,7 @@ class PraxisPaths:
     todo_state: str = ""
     sandbox_state: str = ""
     todo_table: str = ""
+    todo_dir: str = ""
     transaction_area: str = ""
     statecharts: str = ""
     execution_results: str = ""
@@ -279,6 +280,7 @@ class PraxisPaths:
         self.todo_state        = os.path.join(dd, "todo_state.json")
         self.sandbox_state     = os.path.join(dd, "sandbox_state.json")
         self.todo_table        = os.path.join(dd, "todo_table.json")
+        self.todo_dir          = os.path.join(dd, "todos")
         self.transaction_area  = os.path.join(dd, "transaction_area.json")
         self.statecharts       = os.path.join(dd, "statecharts.json")
         self.execution_results = os.path.join(dd, "execution_results.json")

@@ -1,3 +1,0 @@
-# Error code definitions — kept as registry placeholder only.
-# No runtime consumer (errors.py maintains its own codes).
-# File retained to avoid discover() "unregistered section" warnings.

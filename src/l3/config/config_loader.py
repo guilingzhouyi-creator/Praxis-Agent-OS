@@ -40,6 +40,7 @@ from .config_handlers import (
     cfg_llm,
     cfg_loop_control,
     cfg_mcp,
+    cfg_memory,
     cfg_model_spec,
     cfg_network,
     cfg_persist,
@@ -213,6 +214,7 @@ _builtin_handlers = [
     ("services", cfg_services),
     ("card_pool", cfg_card_pool),
     ("language", cfg_language),
+    ("memory", cfg_memory),
 ]
 for _name, _fn in _builtin_handlers:
     register_config_handler(_name, _fn, override=True)

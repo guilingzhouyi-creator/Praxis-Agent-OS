@@ -327,6 +327,20 @@ def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
     results["cache"] = True
 
 
+def cfg_memory(cfg: dict, s: Any, results: dict) -> None:
+    """Load memory section from praxis.yaml (memory.graph.enabled etc.).
+
+    Consumers (memory_graph.py) read the value via get_settings(), so mirror
+    it into SettingsCenter L2 (the praxis.yaml layer).
+    """
+    if not isinstance(cfg, dict):
+        results["memory"] = False
+        return
+    if isinstance(cfg.get("graph"), dict) and "enabled" in cfg["graph"]:
+        s.set_l2("memory.graph.enabled", bool(cfg["graph"]["enabled"]))
+    results["memory"] = True
+
+
 def cfg_persist(cfg: dict, s: Any, results: dict) -> None:
     import l1.kernel.params.system as _sys_mod
     if "enabled" in cfg:
