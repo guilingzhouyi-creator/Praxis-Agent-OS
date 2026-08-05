@@ -116,7 +116,10 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
     """Return skill discovery paths, highest priority first."""
     env_val = os.environ.get("PRAXIS_SKILL_DIR")
     if env_val:
-        return [env_val]
+        # Env override points at an isolated runtime dir (e.g. xdist worker
+        # isolation in tests) — keep the repo's built-in read-only skills on
+        # the discovery path so builtins still load, just behind the override.
+        return [env_val, "config/skills"]
 
     project = Path.cwd()
     base: dict[DeployMode, list[str]] = {
