@@ -77,6 +77,34 @@ THINK_MAX_BUDGET: Final[int] = 32768
 # tokens adaptively server-side and are filtered by capability probing.
 THINK_MAX_REASONING: Final[str] = REASONING_EFFORT_MAX
 
+# ── Reasoning effort tiers per provider (normalization table) ──
+# Requested tiers outside a provider's set fall back to the highest supported
+# tier at or below the request (lowest supported when the request is below
+# all); empty = provider has no reasoning_effort support (param dropped).
+# Overridable per deployment via praxis.yaml `llm.effort_tiers`.
+EFFORT_RANK: Final[dict[str, int]] = {
+    REASONING_EFFORT_NONE: 0,
+    REASONING_EFFORT_LOW: 1,
+    REASONING_EFFORT_MEDIUM: 2,
+    REASONING_EFFORT_HIGH: 3,
+    REASONING_EFFORT_XHIGH: 4,
+    REASONING_EFFORT_MAX: 5,
+}
+EFFORT_TIERS_BY_PROVIDER: Final[dict[str, tuple[str, ...]]] = {
+    "openai": (REASONING_EFFORT_NONE, "minimal", REASONING_EFFORT_LOW,
+               REASONING_EFFORT_MEDIUM, REASONING_EFFORT_HIGH,
+               REASONING_EFFORT_XHIGH, REASONING_EFFORT_MAX),
+    # Claude has no none/minimal: lowest supported is low
+    "anthropic": (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM,
+                  REASONING_EFFORT_HIGH, REASONING_EFFORT_XHIGH,
+                  REASONING_EFFORT_MAX),
+    # DeepSeek V4 reasoning_effort values observed: low/medium/high
+    "deepseek": (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM,
+                 REASONING_EFFORT_HIGH),
+    "ollama": (),
+    "mock": (),
+}
+
 # ── LLMConfig defaults (was hardcoded in ports.py) ──
 LLM_DEFAULT_MAX_TOKENS: Final[int] = 2048
 """Default max_tokens in LLMConfig."""

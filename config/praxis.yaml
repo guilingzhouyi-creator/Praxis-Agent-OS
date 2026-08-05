@@ -44,6 +44,8 @@ llm:
   max_tokens: 2048              # keep in sync with params/api.py LLM_DEFAULT_MAX_TOKENS
   temperature: 0.3              # keep in sync with params/api.py LLM_DEFAULT_TEMPERATURE
   rate_limit: 10                # LLM API calls per second
+  # effort_tiers:               # optional per-provider reasoning tier sets
+  #   anthropic: [low, medium, high]   # overrides the static default table
   cache:                        # Per-provider prefix cache strategy
     defaults:
       optimize_prompt: true

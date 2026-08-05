@@ -139,7 +139,13 @@ class LLMEngine:
         return MockProvider()
 
     def _apply_strategy(self, overrides: dict) -> dict:
-        """Apply ModelStrategyEngine filtering: remove params the provider doesn't support."""
+        """Apply ModelStrategyEngine filtering: remove params the provider doesn't support.
+
+        Also normalizes reasoning_effort to the provider's supported tier set
+        (fall back to the highest supported tier at or below the requested
+        one; lowest supported tier when the request is below all; drop the
+        param entirely when the provider has no effort support).
+        """
         try:
             from l3.services.model_strategy import get_engine as _strat
             strat = _strat()
@@ -150,9 +156,53 @@ class LLMEngine:
             for k in filtered:
                 if k in overrides:
                     filtered[k] = overrides[k]
-            return filtered
+            return self._normalize_effort(filtered, provider_name)
         except Exception:
             return overrides
+
+    @staticmethod
+    def _normalize_effort(params: dict, provider_name: str) -> dict:
+        """Clamp reasoning_effort into the provider's supported tier set.
+
+        Tier sets come from the ``llm.effort_tiers`` setting (praxis.yaml,
+        per-provider flat keys) or the static defaults in params/api.py.
+        Providers absent from both tables are left untouched.
+        """
+        effort = params.get("reasoning_effort")
+        if not effort:
+            return params
+        try:
+            from l1.kernel.params.api import EFFORT_RANK, EFFORT_TIERS_BY_PROVIDER
+            from l3.config.settings_center import get_center
+            sc = get_center()
+            tiers = sc.get("llm.effort_tiers." + provider_name)
+            if tiers is None:
+                for key, value in sc.all().items():
+                    if key.startswith("llm.effort_tiers." + provider_name + "."):
+                        tiers = value
+                        break
+            if tiers is None:
+                tiers = EFFORT_TIERS_BY_PROVIDER.get(provider_name)
+                if tiers is None:
+                    return params  # unknown provider: leave untouched
+            tiers = list(tiers or ())
+        except Exception:
+            return params
+        if not tiers:
+            # Provider has no reasoning_effort support: drop the param
+            params.pop("reasoning_effort", None)
+            return params
+        if effort in tiers:
+            return params
+        request_rank = EFFORT_RANK.get(effort, 0)
+        below = [t for t in tiers if EFFORT_RANK.get(t, 0) <= request_rank]
+        if below:
+            params["reasoning_effort"] = max(below, key=lambda t: EFFORT_RANK.get(t, 0))
+        else:
+            params["reasoning_effort"] = min(tiers, key=lambda t: EFFORT_RANK.get(t, 0))
+        logger.debug("llm: reasoning_effort %r normalized to %r for %s",
+                     effort, params["reasoning_effort"], provider_name)
+        return params
 
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int | None = None, user_id: str = "",
