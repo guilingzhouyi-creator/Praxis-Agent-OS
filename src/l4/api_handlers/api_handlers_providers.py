@@ -222,6 +222,11 @@ def handle_model_spec_overview(body: dict | None = None) -> dict:
         tiers = list(EFFORT_RANK.keys())
     except Exception:
         tiers = ["none", "low", "medium", "high", "xhigh", "max"]
+    try:
+        from l3.scheduler.think_registry import get_think_registry
+        peers = get_think_registry().stats()
+    except Exception:
+        peers = {}
     return {
         "success": True,
         "specs": specs,
@@ -231,6 +236,7 @@ def handle_model_spec_overview(body: dict | None = None) -> dict:
         },
         "strategies": strategies,
         "tiers": tiers,
+        "peers": peers,
     }
 
 
@@ -281,6 +287,40 @@ def handle_think_caps_set(body: dict | None = None) -> dict:
                 "max_reasoning": sc.get("think.max_reasoning", "max"),
                 "max_budget": sc.get("think.max_budget", 32768),
             }}
+
+
+def handle_peer_strategy_apply(body: dict | None = None) -> dict:
+    """PUT /api/v2/model-spec/peer — apply a strategy pack to a think scope.
+
+    Body: {"scope": "agent", "name": "cell-1.agent-a", "strategy": "deep"}
+    Scopes: global | cell (name=cell_id) | agent (name=cell.agent).
+    """
+    b = body or {}
+    scope = b.get("scope", "")
+    name = b.get("name", "")
+    strategy = b.get("strategy", "")
+    if not scope or not strategy:
+        return {"success": False, "error": "scope and strategy required"}
+    from l3.scheduler.think_registry import get_think_registry
+    return get_think_registry().apply_strategy(scope, name, strategy)
+
+
+def handle_peer_strategy_clear(body: dict | None = None) -> dict:
+    """DELETE /api/v2/model-spec/peer — clear a strategy from a think scope."""
+    b = body or {}
+    scope = b.get("scope", "")
+    name = b.get("name", "")
+    if not scope:
+        return {"success": False, "error": "scope required"}
+    from l3.scheduler.think_registry import get_think_registry
+    return get_think_registry().clear_strategy(scope, name)
+
+
+def handle_peer_strategy_get(body: dict | None = None) -> dict:
+    """GET /api/v2/model-spec/peer — current think scopes (global/cell/agent)."""
+    from l3.scheduler.think_registry import get_think_registry
+    reg = get_think_registry()
+    return {"success": True, "state": reg.stats()}
 
 
 # ── SubAgent platform config ────────────────────────────────

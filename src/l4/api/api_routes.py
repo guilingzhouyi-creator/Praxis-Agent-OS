@@ -186,6 +186,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET",  "/api/v2/model-spec/overview",       "l4.api_handlers.api_handlers_providers.handle_model_spec_overview",      "Full model panel state (specs, caps, strategies, tiers)"),
     ("GET",  "/api/v2/model-spec/caps",           "l4.api_handlers.api_handlers_providers.handle_think_caps_get",          "Current reasoning caps"),
     ("PUT",  "/api/v2/model-spec/caps",           "l4.api_handlers.api_handlers_providers.handle_think_caps_set",          "Set reasoning caps"),
+    ("GET",  "/api/v2/model-spec/peer",           "l4.api_handlers.api_handlers_providers.handle_peer_strategy_get",       "Peer think scopes state"),
+    ("PUT",  "/api/v2/model-spec/peer",           "l4.api_handlers.api_handlers_providers.handle_peer_strategy_apply",     "Apply strategy pack to a think scope"),
+    ("DELETE","/api/v2/model-spec/peer",          "l4.api_handlers.api_handlers_providers.handle_peer_strategy_clear",     "Clear strategy from a think scope"),
 
     # SubAgent platform config
     ("GET",  "/api/v2/subagent/defaults",       "l4.api_handlers.api_handlers_providers.handle_subagent_defaults",          "SubAgent platform defaults"),

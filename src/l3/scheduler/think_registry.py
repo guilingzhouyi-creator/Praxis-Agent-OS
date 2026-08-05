@@ -126,6 +126,52 @@ class ThinkQuotaRegistry:
                 return True
             return False
 
+    # ── Named strategy packs (shared with model_spec.strategies) ─────────
+
+    def apply_strategy(self, scope: str, name: str, strategy_name: str) -> dict:
+        """Apply a named model_spec strategy pack to a think scope.
+
+        Scopes: "global", "cell" (name=cell_id), "agent" (name=cell.agent).
+        Only reasoning_effort / thinking_budget keys are applied.
+        """
+        try:
+            from l3.services.model_service import get_service as _ms
+            defn = _ms().resolve_strategy_pack(strategy_name)
+        except Exception:
+            defn = None
+        if not defn:
+            return {"success": False,
+                    "error": f"unknown or disabled strategy: {strategy_name}"}
+        keys = {k: v for k, v in defn.items()
+                if k in ("reasoning_effort", "thinking_budget")}
+        if scope == "global":
+            self.set_global(**keys)
+        elif scope == "cell":
+            self.set_cell(name, **keys)
+        elif scope == "agent":
+            cell_id, _, agent_id = name.partition(".")
+            self.set_agent(cell_id, agent_id, **keys)
+        else:
+            return {"success": False, "error": f"unknown scope: {scope}"}
+        return {"success": True, "scope": scope, "name": name,
+                "strategy": strategy_name, "applied": list(keys)}
+
+    def clear_strategy(self, scope: str, name: str = "") -> dict:
+        """Remove a strategy override from a think scope (restore defaults)."""
+        if scope == "global":
+            self.set_global(reasoning_effort=THINK_REASONING_DEFAULT,
+                            thinking_budget=THINK_BUDGET_GLOBAL_DEFAULT)
+        elif scope == "cell":
+            with self._lock:
+                self._cells.pop(name, None)
+        elif scope == "agent":
+            cell_id, _, agent_id = name.partition(".")
+            self.remove_agent(cell_id, agent_id)
+        else:
+            return {"success": False, "error": f"unknown scope: {scope}"}
+        return {"success": True, "scope": scope, "name": name,
+                "restored": "defaults"}
+
     # ── Resolve ───────────────────────────────────────────────────────────
 
     def resolve(self, cell_id: str, agent_id: str,

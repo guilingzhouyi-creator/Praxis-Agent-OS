@@ -34,7 +34,8 @@ def _cmd_model(args: list[str]) -> dict:
     if sub == "switch" and len(args) >= 3: return _model_switch(args[1], args[2], args[3] if len(args) > 3 else "")
     if sub == "health": return _model_health(args[1] if len(args) > 1 else "")
     if sub == "set" and len(args) >= 4: return _model_set(args[1], args[2], args[3])
-    if sub == "spec": return _cmd_model_spec(args[1:])
+    if sub == "spec":
+        return _cmd_model_spec(args[1:])
     return {"success": False, "error": "usage: /model [list|status|switch|health|set|spec]"}
 
 
@@ -63,8 +64,31 @@ def _cmd_model_spec(args: list[str]) -> dict:
                     return {"success": False, "error": "max_budget must be an int"}
             return handle_think_caps_set(caps)
         return handle_think_caps_get({})
+    if sub == "peer":
+        return _cmd_model_spec_peer(args[1:])
     return {"success": False,
-            "error": "usage: /model spec [strategy <name> <pack>|clear <name>|caps [max_reasoning [max_budget]]]"}
+            "error": "usage: /model spec [strategy <name> <pack>|clear <name>|caps [max_reasoning [max_budget]]|peer <scope> <name> <pack>|peer clear <scope> <name>]"}
+
+
+def _cmd_model_spec_peer(args: list[str]) -> dict:
+    """Peer-agent think strategy: apply/clear strategy packs on think scopes."""
+    from l3.scheduler.think_registry import get_think_registry
+    from l4.api_handlers.api_handlers_providers import handle_peer_strategy_get
+    reg = get_think_registry()
+    if not args:
+        return handle_peer_strategy_get({})
+    sub = args[0].lower()
+    if sub == "clear" and len(args) >= 3:
+        return reg.clear_strategy(args[1], args[2])
+    if sub in ("global", "cell", "agent") and len(args) >= 2:
+        if sub == "global":
+            return reg.apply_strategy("global", "", args[1])
+        if len(args) >= 3:
+            return reg.apply_strategy(sub, args[1], args[2])
+        return {"success": False,
+                "error": f"usage: /model spec peer {sub} <name> <pack>"}
+    return {"success": False,
+            "error": "usage: /model spec peer [global <pack>|cell <id> <pack>|agent <cell>.<agent> <pack>|clear <scope> <name>]"}
 
 def _cmd_settings(args: list[str]) -> dict:
     from .commands_settings import _cmd_settings as _cs; return _cs(args)
