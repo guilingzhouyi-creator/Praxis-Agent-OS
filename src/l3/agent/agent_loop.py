@@ -529,72 +529,28 @@ class AgentLoop:
             model_config=model_config,
         )
 
-    def run(self, max_steps: int = 0, timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
-            verifier: Any | None = None,
-            model_config: dict | None = None) -> dict:
-        """Run the tool-calling loop.
-
-        Args:
-            max_steps: If 0 (default), queries SettingsCenter for ``loop.max_steps``.
-                       If > 0, overrides SettingsCenter value.
-                       If < 0 (e.g. -1), runs with no step limit (unlimited mode).
-            model_config: Per-call overrides for LLM config.
-                Keys: provider, model, max_tokens, temperature,
-                      reasoning_effort, thinking_budget
-                None = use global LLM engine config.
-        """
-        # Resolve max_steps: SettingsCenter >= caller override > compile-time default
+    def _resolve_max_steps(self, max_steps: int) -> int:
+        """Resolve the effective step limit: SettingsCenter >= caller override > default."""
         if max_steps == 0:
             try:
                 from l3.config.settings_center import get_center
                 max_steps = get_center().get("loop.max_steps", AGENT_LOOP_DEFAULT_STEPS)
             except (ImportError, KeyError):
                 max_steps = AGENT_LOOP_DEFAULT_STEPS
-        # 0 or negative 鈫?unlimited mode (use a large sentinel for LLM max_turns)
-        _UNLIMITED = AGENT_LOOP_UNLIMITED_STEPS
+        # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
         if max_steps <= 0:
-            max_steps = _UNLIMITED
-        self._max_steps = max_steps
-        t0 = time.time()
-        side_times: dict[str, float] = {
-            "compression": 0.0,      # pre-send context guard (stub_compact/compact)
-            "parallel_read": 0.0,    # read-only tools parallel re-execution
-            "continuation": 0.0,     # nudges / verifier fixes / steps-exhausted
-            "llm_tools": 0.0,        # tool handler wall time inside LLM engine
-        }
-        self._loop_detector.reset()
-        self._repeat_detector.reset()
-        self._cadence.reset()
+            max_steps = AGENT_LOOP_UNLIMITED_STEPS
+        return max_steps
 
-        engine = _get_port("llm")
-        if self._cached_system:
-            # continue_run() path: reuse cached system prompt and tools.
-            # The identical system string enables LLM prompt caching across calls.
-            system = self._cached_system
-            wrapped_tools, read_only_tools = self._cached_tools
-            model_kwargs = self._cached_model_kwargs.copy() if self._cached_model_kwargs else {}
-            if model_config:
-                for key in ("model", "max_tokens", "temperature",
-                            "reasoning_effort", "thinking_budget"):
-                    if key in model_config and model_config[key] is not None:
-                        model_kwargs[key] = model_config[key]
-            for hook in self._chat_params_hooks:
-                try:
-                    override = hook(self.task, self.agent_id, dict(model_kwargs))
-                    if isinstance(override, dict):
-                        model_kwargs.update(override)
-                except Exception as e:
-                    logger.warning("chat params hook failed: %s", e)
-        else:
-            # First run: build fresh, cache for subsequent calls.
-            system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
-            system = self._inject_extra_context(system)
-            self._cached_system = system
-            self._cached_tools = (wrapped_tools, read_only_tools)
-            self._cached_model_kwargs = dict(model_kwargs)
-        deadline = time.time() + timeout if timeout > 0 else float("inf")
+    def _pre_send_compression_guard(self, system: str, engine: Any,
+                                    side_times: dict[str, float],
+                                    t0: float) -> tuple[int, dict | None]:
+        """Three-level pre-send context pressure cascade (stub → compact → CRITICAL).
 
-        # 鈹€鈹€ Pre-send compression guard (three-level cascade with PMU + MonitorBus) 鈹€鈹€
+        Returns ``(ctx_window, early_finish_or_None)`` — a non-None second item
+        means the caller must return it immediately (context window exhausted).
+        """
+        # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──
         _t_guard = time.time()
         ctx_window = 0
         mem = None
@@ -624,7 +580,8 @@ class AgentLoop:
 
         if ctx_window > 0:
             est_tokens = _estimate_tokens(self.task)
-            # Include the persistent conversation trail (context_trail) 鈥?            # persistent loops accumulate history across cards/runs; without
+            # Include the persistent conversation trail (context_trail) —
+            # persistent loops accumulate history across cards/runs; without
             # it the guard underestimates the real request size and history
             # can silently exceed the window.
             trail_tokens = 0
@@ -637,7 +594,7 @@ class AgentLoop:
                          + CONTEXT_BUILD_MAX_TOKENS + trail_tokens)
             ratio = est_total / ctx_window
 
-            # Phase 1: Try compression first (WARN 鈫?then MEDIUM escalation)
+            # Phase 1: Try compression first (WARN → then MEDIUM escalation)
             if ratio >= CONTEXT_PRESSURE_WARN:
                 try:
                     from l3.memory.memory import get_memory
@@ -664,7 +621,7 @@ class AgentLoop:
                     mem.forget_agent(self.agent_id, ring=1)
                     # Truncate the persistent conversation trail: keep the
                     # most recent messages, fold older ones into one summary
-                    # line 鈥?prevents unbounded history growth in persistent
+                    # line — prevents unbounded history growth in persistent
                     # loops (Cell Peer Agents + L3A sessions).
                     trail_removed = self._truncate_trail()
                     logger.info("pre-send L2 compact+forget_R1: ~%d/%d (%.0f%%)",
@@ -690,11 +647,11 @@ class AgentLoop:
 
             # Phase 2: Check CRITICAL after compression attempts
             if ratio >= CONTEXT_PRESSURE_CRITICAL:
-                logger.error("context exhausted: ~%d/%d tokens 鈥?aborting", est_total, ctx_window)
+                logger.error("context exhausted: ~%d/%d tokens — aborting", est_total, ctx_window)
                 if self._pmu:
                     self._pmu.increment("memory.context.critical")
                 _emit_memory_event("memory.pressure.critical", {"ratio": ratio, "est_total": est_total, "ctx_window": ctx_window})
-                return self._finish({
+                return ctx_window, self._finish({
                     "success": False, "answer": "",
                     "error": f"context window exhausted (~{est_total}/{ctx_window} tokens)",
                     "steps": [], "verifier_used": False, "corrections": 0, "loop_stopped": False,
@@ -712,70 +669,29 @@ class AgentLoop:
                 logger.warning("agent_loop stub_compact fallback failed: %s", e)
         side_times["compression"] = round(time.time() - _t_guard, 3)
         self._run_count += 1
+        return ctx_window, None
 
-        # 鈹€鈹€ Main LLM tool_use call 鈹€鈹€
-        from l3.error_bus import error_boundary
-        with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
-            result = engine.tool_use(
-                prompt=self.task, tools=wrapped_tools, system=system,
-                max_turns=max_steps, user_id=self._user_id,
-                context_trail=self._context_trail, **model_kwargs,
-            )
-        side_times["llm_tools"] = float(result.get("tools_elapsed", 0) or 0)
-        if not result:
-            return self._finish({
-                "success": False, "answer": "", "steps": [],
-                "error": "LLM call failed",
-                "verifier_used": False, "corrections": 0, "loop_stopped": False,
-            }, t0=t0)
+    def _process_tool_results(self, tool_results: list, result: dict,
+                              system: str, engine: Any, model_kwargs: dict,
+                              deadline: float, verifier: Any | None,
+                              side_times: dict[str, float]) -> tuple[list, bool, int, bool]:
+        """Per-step tool-result processing: timeout, ASK/loop detection, cadence,
+        PMU/counter, verifier corrections.
 
-        self._context_trail = result.get("context_trail")
-        # Persist context_trail to snapshot so it survives agent restart.
-        # Only save when we have actual messages and an agent_id to key on.
-        if self._context_trail and self._user_id:
-            try:
-                from .agent_persist import save_snapshot
-                save_snapshot(self._user_id, {
-                    "context_trail": self._context_trail,
-                })
-            except Exception as e:
-                logger.warning("agent_loop: snapshot save failed: %s", e)
-        turns = result.get("turns", 1)
-        tool_results = result.get("tool_call_results", []) or []
-
-        # 鈹€鈹€ Truncation continuation 鈹€鈹€
-        if result.get("finish_reason") == "length":
-            try:
-                cont = engine.generate(prompt=TRUNCATION_RESUME_NUDGE, system=system,
-                                       user_id=self._user_id, **model_kwargs)
-                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
-                turns += 1
-            except Exception as e:
-                logger.warning("truncation continuation failed: %s", e)
-
-        # 鈹€鈹€ Post-tool stub compression guard 鈹€鈹€
-        try:
-            tb = sum(len(str(tc)) for tc in tool_results)
-            if tb > AGENT_LOOP_CONTEXT_TB_LIMIT and ctx_window > 0:
-                from l3.memory.memory import get_memory
-                get_memory().stub_compact(self.agent_id)
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
-
-        # 鈹€鈹€ Process each tool result with loop detection + retry + cadence 鈹€鈹€
+        Returns ``(processed_results, all_passed, corrections, verifier_used)``;
+        mutates ``result`` (content/finish_reason) and ``side_times``.
+        """
         processed_results: list[dict] = []
         all_passed = True
         corrections = 0
         verifier_used = False
-        continuation_nudge: str | None = None
-
         for step_result in tool_results:
             if time.time() > deadline:
                 result["finish_reason"] = "timeout"
                 break
             tool_name = step_result.get("name", "unknown") if isinstance(step_result, dict) else "?"
 
-            # 鈹€鈹€ ASK awaiting: break early when a tool requests user clarification 鈹€鈹€
+            # ── ASK awaiting: break early when a tool requests user clarification ──
             res_body = step_result.get("result", {}) if isinstance(step_result, dict) else {}
             if isinstance(res_body, dict) and res_body.get("awaiting_input"):
                 step_result["_awaiting_input"] = True
@@ -858,6 +774,120 @@ class AgentLoop:
                         side_times["continuation"] += time.time() - _t_fix
 
             processed_results.append(step_result)
+        return processed_results, all_passed, corrections, verifier_used
+
+    def run(self, max_steps: int = 0, timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
+            verifier: Any | None = None,
+            model_config: dict | None = None) -> dict:
+        """Run the tool-calling loop.
+
+        Args:
+            max_steps: If 0 (default), queries SettingsCenter for ``loop.max_steps``.
+                       If > 0, overrides SettingsCenter value.
+                       If < 0 (e.g. -1), runs with no step limit (unlimited mode).
+            model_config: Per-call overrides for LLM config.
+                Keys: provider, model, max_tokens, temperature,
+                      reasoning_effort, thinking_budget
+                None = use global LLM engine config.
+        """
+        max_steps = self._resolve_max_steps(max_steps)
+        self._max_steps = max_steps
+        t0 = time.time()
+        side_times: dict[str, float] = {
+            "compression": 0.0,      # pre-send context guard (stub_compact/compact)
+            "parallel_read": 0.0,    # read-only tools parallel re-execution
+            "continuation": 0.0,     # nudges / verifier fixes / steps-exhausted
+            "llm_tools": 0.0,        # tool handler wall time inside LLM engine
+        }
+        self._loop_detector.reset()
+        self._repeat_detector.reset()
+        self._cadence.reset()
+
+        engine = _get_port("llm")
+        if self._cached_system:
+            # continue_run() path: reuse cached system prompt and tools.
+            # The identical system string enables LLM prompt caching across calls.
+            system = self._cached_system
+            wrapped_tools, read_only_tools = self._cached_tools
+            model_kwargs = self._cached_model_kwargs.copy() if self._cached_model_kwargs else {}
+            if model_config:
+                for key in ("model", "max_tokens", "temperature",
+                            "reasoning_effort", "thinking_budget"):
+                    if key in model_config and model_config[key] is not None:
+                        model_kwargs[key] = model_config[key]
+            for hook in self._chat_params_hooks:
+                try:
+                    override = hook(self.task, self.agent_id, dict(model_kwargs))
+                    if isinstance(override, dict):
+                        model_kwargs.update(override)
+                except Exception as e:
+                    logger.warning("chat params hook failed: %s", e)
+        else:
+            # First run: build fresh, cache for subsequent calls.
+            system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(max_steps, model_config, engine)
+            system = self._inject_extra_context(system)
+            self._cached_system = system
+            self._cached_tools = (wrapped_tools, read_only_tools)
+            self._cached_model_kwargs = dict(model_kwargs)
+        deadline = time.time() + timeout if timeout > 0 else float("inf")
+
+        ctx_window, _guard_finish = self._pre_send_compression_guard(system, engine, side_times, t0)
+        if _guard_finish is not None:
+            return _guard_finish
+
+        # 鈹€鈹€ Main LLM tool_use call 鈹€鈹€
+        from l3.error_bus import error_boundary
+        with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
+            result = engine.tool_use(
+                prompt=self.task, tools=wrapped_tools, system=system,
+                max_turns=max_steps, user_id=self._user_id,
+                context_trail=self._context_trail, **model_kwargs,
+            )
+        side_times["llm_tools"] = float(result.get("tools_elapsed", 0) or 0)
+        if not result:
+            return self._finish({
+                "success": False, "answer": "", "steps": [],
+                "error": "LLM call failed",
+                "verifier_used": False, "corrections": 0, "loop_stopped": False,
+            }, t0=t0)
+
+        self._context_trail = result.get("context_trail")
+        # Persist context_trail to snapshot so it survives agent restart.
+        # Only save when we have actual messages and an agent_id to key on.
+        if self._context_trail and self._user_id:
+            try:
+                from .agent_persist import save_snapshot
+                save_snapshot(self._user_id, {
+                    "context_trail": self._context_trail,
+                })
+            except Exception as e:
+                logger.warning("agent_loop: snapshot save failed: %s", e)
+        turns = result.get("turns", 1)
+        tool_results = result.get("tool_call_results", []) or []
+
+        # 鈹€鈹€ Truncation continuation 鈹€鈹€
+        if result.get("finish_reason") == "length":
+            try:
+                cont = engine.generate(prompt=TRUNCATION_RESUME_NUDGE, system=system,
+                                       user_id=self._user_id, **model_kwargs)
+                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[:_AGENT_LOOP_MAX_CONTENT]
+                turns += 1
+            except Exception as e:
+                logger.warning("truncation continuation failed: %s", e)
+
+        # 鈹€鈹€ Post-tool stub compression guard 鈹€鈹€
+        try:
+            tb = sum(len(str(tc)) for tc in tool_results)
+            if tb > AGENT_LOOP_CONTEXT_TB_LIMIT and ctx_window > 0:
+                from l3.memory.memory import get_memory
+                get_memory().stub_compact(self.agent_id)
+        except Exception as e:
+            logger.warning("agent_loop context injection failed: %s", e)
+
+        # 鈹€鈹€ Process each tool result with loop detection + retry + cadence 鈹€鈹€
+        continuation_nudge: str | None = None
+        processed_results, all_passed, corrections, verifier_used = self._process_tool_results(
+            tool_results, result, system, engine, model_kwargs, deadline, verifier, side_times)
 
         # 鈹€鈹€ Continuation nudges 鈹€鈹€
         if self._todo._continuation_nudge and self._todo.has_open_items() and processed_results:
@@ -985,4 +1015,3 @@ class AgentLoop:
                 isinstance(s, dict) and s.get("_awaiting_input")
                 for s in processed_results),
         }, t0=t0, turns=turns, corrections=corrections, processed_count=len(processed_results))
-
