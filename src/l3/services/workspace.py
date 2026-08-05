@@ -26,7 +26,7 @@ def _load() -> dict:
         try:
             return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            pass
+            logger.debug("workspace: config read failed, returning defaults", exc_info=True)
     return {"recent": [], "workspaces": {}}
 
 

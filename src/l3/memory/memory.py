@@ -170,7 +170,7 @@ class MemoryManager:
                 if len(recent) >= limit:
                     break
         except Exception:
-            pass
+            logger.debug("memory: recent memory query failed, returning partial", exc_info=True)
         return recent
 
     def working(self) -> list[MemEntry]:

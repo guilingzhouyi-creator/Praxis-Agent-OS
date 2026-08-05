@@ -46,7 +46,7 @@ def _get_system_key() -> bytes:
     try:
         os.chmod(KEY_DIR, 0o700)
     except OSError:
-        pass
+        logger.debug("identity: chmod KEY_DIR failed (best-effort), continuing")
     if _SYSTEM_KEY_FILE.exists():
         return _SYSTEM_KEY_FILE.read_bytes()
     import secrets

@@ -44,7 +44,7 @@ def _load_aliases() -> dict[str, str]:
         if cfg and isinstance(cfg, dict):
             return cfg
     except Exception:
-        pass
+        logger.debug("shell_completer: shell_aliases config lookup failed, using defaults", exc_info=True)
     return {
         "rf": "read_file", "wf": "write_file", "ls": "list_directory",
         "g": "grep", "glob": "glob", "cat": "read_file",

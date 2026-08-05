@@ -80,7 +80,7 @@ class StatsCenterComponent(Component):
                 if pmu:
                     pmu.snapshot()
         except Exception:
-            pass
+            logger.debug("global_components: pmu snapshot failed for one cell, skipped", exc_info=True)
 
     def bus_health(self) -> dict:
         if not self._center:

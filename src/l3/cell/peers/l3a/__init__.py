@@ -245,7 +245,7 @@ class L3ADaemon:
             from l3.bus.log import get_service as _ls
             _ls().info("L3A daemon started", service="l3a")
         except Exception:
-            pass
+            logger.debug("l3a: log service unavailable at start, skipped", exc_info=True)
         return {"success": True}
 
     def stop(self) -> dict:
@@ -264,7 +264,7 @@ class L3ADaemon:
             from l3.bus.log import get_service as _ls
             _ls().info("L3A daemon stopped", service="l3a")
         except Exception:
-            pass
+            logger.debug("l3a: log service unavailable at stop, skipped", exc_info=True)
         return {"success": True}
 
     def _daemon_loop(self) -> None:

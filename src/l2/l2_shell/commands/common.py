@@ -27,11 +27,11 @@ def _coerce(value: str) -> Any:
     try:
         return int(value)
     except ValueError:
-        pass
+        logger.debug("commands: %r not an int, trying float", value)
     try:
         return float(value)
     except ValueError:
-        pass
+        logger.debug("commands: %r not numeric, returning string", value)
     return value
 
 

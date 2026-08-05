@@ -174,14 +174,14 @@ class RingLayer:
                     try:
                         aid_list.remove(e)
                     except ValueError:
-                        pass
+                        logger.debug("memory_ring: entry not in aid index, skipping")
                 # Clean type index
                 type_list = self._type_index.get(e.entry_type)
                 if type_list:
                     try:
                         type_list.remove(e)
                     except ValueError:
-                        pass
+                        logger.debug("memory_ring: entry not in type index, skipping")
                 # Clean tag index
                 for tag in e.tags:
                     tag_list = self._tag_index.get(tag)
@@ -189,7 +189,7 @@ class RingLayer:
                         try:
                             tag_list.remove(e)
                         except ValueError:
-                            pass
+                            logger.debug("memory_ring: entry not in tag index, skipping")
             # Rebuild eviction heap (smaller than full rebuild since only entries changed)
             for e in removed_entries:
                 self._evict_heap = [(imp, ts, eid) for imp, ts, eid in self._evict_heap
@@ -207,13 +207,17 @@ class RingLayer:
                 for lst in (self._agent_index.get(e.agent_id),
                             self._type_index.get(e.entry_type)):
                     if lst:
-                        try: lst.remove(e)
-                        except ValueError: pass
+                        try:
+                            lst.remove(e)
+                        except ValueError:
+                            logger.debug("memory_ring: entry not in type index during evict, skipping")
                 for tag in e.tags:
                     tl = self._tag_index.get(tag)
                     if tl:
-                        try: tl.remove(e)
-                        except ValueError: pass
+                        try:
+                            tl.remove(e)
+                        except ValueError:
+                            logger.debug("memory_ring: entry not in tag index during evict, skipping")
             self._evict_heap = [(i, t, eid) for i, t, eid in self._evict_heap
                                 if eid not in {id(e) for e in removed}]
             heapq.heapify(self._evict_heap)

@@ -70,7 +70,7 @@ def get_color_scheme() -> dict[str, str]:
         if cfg_colors and isinstance(cfg_colors, dict):
             result.update(cfg_colors)
     except Exception:
-        pass
+        logger.debug("cell_sandbox: diff colors config load failed, using defaults", exc_info=True)
     result.update(_COLOR_SCHEME)  # runtime overrides on top
     return result
 
@@ -823,7 +823,7 @@ class CellSandbox:
                         if not self._path_index[rel_path]:
                             del self._path_index[rel_path]
                     except ValueError:
-                        pass
+                        logger.debug("cell_sandbox: path index entry already removed, skipping")
             except Exception as e:
                 logger.error("flush failed: %s: %s", rel_path, e)
 
@@ -849,7 +849,7 @@ class CellSandbox:
                         if not self._path_index[rel_path]:
                             del self._path_index[rel_path]
                     except ValueError:
-                        pass
+                        logger.debug("cell_sandbox: path index key already removed, skipping")
             self._persist_state()
 
         try:

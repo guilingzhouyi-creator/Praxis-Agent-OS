@@ -416,4 +416,4 @@ class CellCache:
         try:
             lst.remove(key)
         except ValueError:
-            pass
+            logger.debug("cell_cache: key %r not in list, nothing to remove", key)

@@ -220,7 +220,7 @@ class CentralMemory:
                 if hasattr(mem, "pressure"):
                     entry["pressure"] = mem.pressure()
             except Exception:
-                pass
+                logger.debug("central_memory: pressure() failed for one entry, skipped", exc_info=True)
             instances.append(entry)
         return {
             "instances": instances,

@@ -62,7 +62,7 @@ class TerminalSession:
                     try:
                         fd.close()
                     except OSError:
-                        pass
+                        logger.debug("shell_session: pipe close failed (best-effort cleanup)")
 
 
 class TerminalManager:

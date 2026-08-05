@@ -381,7 +381,7 @@ class AgentTerminal:
                 if snap and "context_trail" in snap:
                     self._active_loop._context_trail = snap["context_trail"]
             except Exception:
-                pass
+                logger.debug("agent_terminal: snapshot context restore failed", exc_info=True)
         ar: dict = {}
         try:
             from ..agent.agent_persist import append_transcript

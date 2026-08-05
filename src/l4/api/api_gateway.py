@@ -329,7 +329,7 @@ class ApiGateway(ApiHandlers):
                             self.wfile.write(b": keepalive\n\n")
                             self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError):
-                    pass
+                    logger.debug("api_gateway: sse client disconnected (normal)")
                 except Exception:
                     logger.debug("api_gateway: sse handler failed")
                 finally:

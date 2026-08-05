@@ -1,9 +1,12 @@
 """File operation handlers."""
 
+import logging
 import os
 import shutil
 
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_4000
+
+logger = logging.getLogger(__name__)
 
 
 def read_file(args: dict, agent_id: str) -> dict:
@@ -344,7 +347,7 @@ def file_diff_structured(args: dict, agent_id: str) -> dict:
                 entry = sb._entries[path]
                 break
     except Exception:
-        pass
+        logger.debug("tools._files: sandbox entry lookup failed, treating as unstaged", exc_info=True)
 
     if entry is None:
         return {"success": False, "error": f"no staged changes for {path}"}

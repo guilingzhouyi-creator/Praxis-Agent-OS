@@ -253,7 +253,7 @@ class StatsCenter:
             try:
                 self._sse_listeners.remove(callback)
             except ValueError:
-                pass
+                logger.debug("stats_center: sse listener not registered, nothing to remove")
 
     # ── Stats ────────────────────────────────────────────────────
 

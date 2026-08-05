@@ -65,7 +65,7 @@ def classify_task(card=None, prompt: str = "") -> str:
                 return TASK_RESUME
             return TASK_EXECUTE  # execution cards default to summary
         except Exception:
-            pass
+            logger.debug("memory_inject: task type classification failed, falling back", exc_info=True)
     if _match_keywords(prompt, _DECIDE_KEYWORDS):
         return TASK_DECIDE
     if _match_keywords(prompt, _RESUME_KEYWORDS):

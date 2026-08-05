@@ -41,7 +41,7 @@ def _adapter() -> I18nPort:
         if isinstance(adapter, I18nPort):
             return adapter
     except KeyError:
-        pass
+        logger.debug("i18n: no port registered, using default adapter")
     if _default_adapter is None:
         _default_adapter = YamlI18nAdapter()
         register_port("i18n", _default_adapter)

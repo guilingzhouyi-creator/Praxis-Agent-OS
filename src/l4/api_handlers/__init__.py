@@ -372,7 +372,7 @@ class ApiHandlers:
             from l3.config.settings_center import get_center as _sc
             _sc().set("memory.graph.enabled", flag)
         except Exception:
-            pass  # persistence best-effort; runtime switch still applies
+            logger.debug("api_handlers: graph enabled persistence failed (best-effort)", exc_info=True)
         from l3.memory.memory_graph import get_graph
         g = get_graph()
         g.set_enabled(flag)
@@ -428,7 +428,7 @@ class ApiHandlers:
             from l3.config.settings_center import get_center as _sc
             _sc().set("memory.mer.enabled", flag)
         except Exception:
-            pass
+            logger.debug("api_handlers: mer enabled persistence failed (best-effort)", exc_info=True)
         from l3.memory.memory_mer import get_mer
         m = get_mer()
         m.set_enabled(flag)
@@ -904,7 +904,7 @@ class ApiHandlers:
             result["manifest"] = summary()
             result["manifest_ok"] = validate()["ok"]
         except Exception:
-            pass
+            logger.debug("api_handlers: manifest summary failed, omitted", exc_info=True)
         return result
 
     def _endpoints(self) -> list[str]:

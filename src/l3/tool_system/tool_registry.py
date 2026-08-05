@@ -243,7 +243,7 @@ def register_middleware(hook_type: str, name: str,
         from l3.tool_system import tool_spec as _ts
         _ts._MIDDLEWARE.append({"type": hook_type, "name": name, "fn": fn})
     except (ImportError, AttributeError):
-        pass
+        logger.debug("tool_registry: middleware registration failed", exc_info=True)
 
 def get_tool(tool_name: str) -> ToolSpec | None:
     return get_registry().get(tool_name)

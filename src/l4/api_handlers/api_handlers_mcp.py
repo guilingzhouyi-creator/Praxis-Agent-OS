@@ -345,7 +345,7 @@ def _schema_from_params(spec: Any) -> dict:
                     required.append(p.name)
             return _schema(props, required)
     except Exception:
-        pass
+        logger.debug("api_handlers_mcp: schema build failed, returning empty schema", exc_info=True)
     return {"type": "object", "properties": {}}
 
 

@@ -59,7 +59,8 @@ def _cmd_connect(args: list[str]) -> dict:
     try:
         cell = get_cell(cell_id); r = cell.send_direct_message(agent_id, "")
         if not r.get("success"): return {"success": False, "error": r.get("error", "connect failed")}
-    except Exception: pass
+    except Exception as e:
+        logger.warning("connect: send_direct_message failed: %s", e)
     state.switch_to_direct(cell_id, agent_id)
     return {"success": True, "agent": agent_id}
 
@@ -69,7 +70,8 @@ def _cmd_disconnect(args: list[str]) -> dict:
     if not state.is_direct(): return {"success": False, "error": "no active session — not connected"}
     try:
         from l3.cell import get_cell; cell = get_cell(state.cell_id); cell.close_direct_session(state.agent_id)
-    except Exception: pass
+    except Exception as e:
+        logger.warning("connect: close_direct_session failed: %s", e)
     state.switch_to_l3a(); return {"success": True}
 
 def _cmd_mode(args: list[str]) -> dict:

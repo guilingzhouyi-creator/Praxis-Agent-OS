@@ -214,7 +214,7 @@ class MonitorBus:
             try:
                 self._sse_listeners.remove(callback)
             except ValueError:
-                pass
+                logger.debug("monitor_bus: sse listener not registered, nothing to remove")
 
 
 # ── Helpers ──

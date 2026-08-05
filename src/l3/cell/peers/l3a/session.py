@@ -166,7 +166,7 @@ class Session:
             from l3.bus.log import get_service as _ls
             _ls().info(f"Session created: {title}", service="l3a", agent_id=_p.AGENT_ID, task_id=sid)
         except Exception:
-            pass
+            logger.debug("l3a.session: log service unavailable at session create, skipped", exc_info=True)
         return inst
 
     @classmethod
@@ -196,7 +196,7 @@ class Session:
             try:
                 inst._resume_todos = list(todos_data)
             except Exception:
-                pass
+                logger.debug("l3a.session: resume todos parse failed, ignored", exc_info=True)
         if transcript:
             for m in transcript:
                 try:
@@ -309,7 +309,7 @@ class Session:
                     reasoning = m.get("reasoning_content", "") or ""
                     break
         except Exception:
-            pass
+            logger.debug("l3a.session: reasoning extraction failed, proceeding without it", exc_info=True)
         answer_msg = Message(
             id=f"asst-{uuid.uuid4().hex[:4]}",
             role="assistant", content=answer,
@@ -504,7 +504,7 @@ class Session:
             from l3.bus.log import get_service as _ls
             _ls().info(f"Session closed: {title}", service="l3a", agent_id=_p.AGENT_ID, task_id=sid)
         except Exception:
-            pass
+            logger.debug("l3a.session: log service unavailable at session close, skipped", exc_info=True)
         return {"success": True, "session_id": sid, "title": title}
 
     def messages(self, cursor: str | None = None,
@@ -903,7 +903,7 @@ class Session:
             if rec and rec.summary:
                 title = rec.summary.title or card_id
         except Exception:
-            pass
+            logger.debug("l3a.session: card title lookup failed, using card_id", exc_info=True)
         summary = result.get("summary", "")
         if not summary:
             summary = result.get("answer", "")
@@ -1154,7 +1154,7 @@ class Session:
         try:
             self._report_stats()
         except Exception:
-            pass
+            logger.debug("l3a.session: stats report failed, skipped", exc_info=True)
         ctx_trail = self.history.to_context_trail()
         self._ensure_loop()
         self._loop._context_trail = ctx_trail

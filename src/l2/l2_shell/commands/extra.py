@@ -52,7 +52,7 @@ def _cmd_mcp(args: list[str]) -> dict:
                 data["server_mode"] = get_export_mode()
                 data["exported_tools"] = handle_mcp_tools_list().get("count", 0)
             except Exception:
-                pass
+                logger.debug("extra: mcp status enrichment failed", exc_info=True)
             return {"success": True, "data": data}
         if sub == "mode" and len(args) >= 2:
             from l4.api_handlers.api_handlers_mcp import set_export_mode

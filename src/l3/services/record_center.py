@@ -326,7 +326,7 @@ class RecordCenter:
                     os.remove(fpath)
                     removed += 1
         except FileNotFoundError:
-            pass
+            logger.debug("record_center: export file vanished during retention sweep, skipped")
         if removed:
             logger.info("RecordCenter: retention removed %d old exports", removed)
         return removed

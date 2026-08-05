@@ -58,7 +58,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
         readline.parse_and_bind("tab: complete")
         readline.set_completer_delims(' \t\n')
     except ImportError:
-        pass  # No tab completion (e.g. Windows without pyreadline3)
+        logger.debug("shell: readline unavailable, tab completion disabled")
     history: list[str] = []
     history_pos = 0
 

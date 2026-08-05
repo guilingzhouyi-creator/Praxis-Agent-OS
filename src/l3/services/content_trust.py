@@ -80,7 +80,7 @@ class Provenance:
         try:
             st = SourceType(d.get("source_type", "unknown"))
         except ValueError:
-            pass
+            logger.debug("content_trust: unknown source_type %r, defaulting to UNKNOWN", d.get("source_type"))
         return Provenance(
             source_type=st,
             source_id=d.get("source_id", ""),

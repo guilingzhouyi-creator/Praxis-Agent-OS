@@ -14,7 +14,10 @@ ask_user / confirm are context-aware:
 from __future__ import annotations
 
 import json
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 try:
     from l4.notify import send_notification
@@ -78,7 +81,7 @@ def _log_pending_question(question: str, agent_id: str) -> None:
             ring=2,
         )
     except Exception:
-        pass
+        logger.debug("tools._comm: pending question persist failed, skipped", exc_info=True)
 
 
 def pending_questions(agent_id: str = "") -> list[dict]:

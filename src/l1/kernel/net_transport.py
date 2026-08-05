@@ -386,7 +386,7 @@ class TcpAdapter(TransportPort):
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         except OSError:
-            pass  # Best-effort; may fail on Windows with exclusive port bindings
+            logger.debug("TcpAdapter: SO_REUSEADDR failed (best-effort; Windows port exclusivity)")
         sock.settimeout(5)
         with self._lock:
             self._sockets.append(sock)
