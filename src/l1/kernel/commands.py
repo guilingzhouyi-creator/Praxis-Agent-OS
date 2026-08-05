@@ -69,6 +69,7 @@ class CommandRegistry:
         self._defaults: dict[str, dict] = {}      # from commands.yaml
         self._overrides: dict[str, dict] = {}     # from praxis.yaml
         self._loaded = False
+        self._revision = 0  # bumped on every mutation; consumers derive indexes from it
 
     # ── Metadata loading ────────────────────────────────────────
 
@@ -84,6 +85,7 @@ class CommandRegistry:
             if isinstance(data, dict):
                 self._defaults.update(data)
                 self._loaded = True
+                self._revision += 1
                 logger.info("command_defs: loaded %d from %s", len(data), path)
                 return len(data)
         except Exception as e:
@@ -95,6 +97,7 @@ class CommandRegistry:
         if not cfg:
             return
         self._overrides.update(cfg)
+        self._revision += 1
         logger.info("command overrides: %d keys", len(cfg))
 
     # ── Registration ────────────────────────────────────────────
@@ -124,6 +127,7 @@ class CommandRegistry:
                 handler=handler,
                 source=SRC_SYSTEM,
             )
+            self._revision += 1
 
     def register_user(self, name: str, handler: Callable,
                       metadata: dict) -> dict:
@@ -151,6 +155,7 @@ class CommandRegistry:
                 handler=handler,
                 source="api",
             )
+            self._revision += 1
             return {"success": True, "name": name}
 
     def unregister(self, name: str) -> dict:
@@ -160,6 +165,7 @@ class CommandRegistry:
                 return {"success": False, "error": f"cannot unregister system command: {name}"}
             self._user_handlers.pop(name, None)
             self._user_defs.pop(name, None)
+            self._revision += 1
             return {"success": True, "name": name}
 
     # ── Query ───────────────────────────────────────────────────
@@ -244,6 +250,15 @@ class CommandRegistry:
         if cmd is None:
             return False
         return cmd.handler is not None or self.get_handler(name) is not None
+
+    def revision(self) -> int:
+        """Return the registry revision, bumped on every mutation.
+
+        Consumers (L2 alias index, command-name caches) compare this value to
+        decide whether their derived indexes are stale.
+        """
+        with self._lock:
+            return self._revision
 
     def is_system(self, name: str) -> bool:
         """Check if a command is a protected system command."""

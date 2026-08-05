@@ -195,6 +195,8 @@ class EventBus:
                 "listeners": sum(len(v) for v in self._listeners.values()),
                 "history": len(self._history),
                 "wildcard_listeners": len(self._wildcard_listeners),
+                "queue_depth": self._executor._work_queue.qsize(),
+                "queue_max": self._MAX_EVT_QUEUED,
             }
 
     def shutdown(self) -> None:
