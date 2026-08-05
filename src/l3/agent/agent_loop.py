@@ -230,10 +230,14 @@ class AgentLoop:
                                             limit=LOOP_EVOLVED_SKILLS_LIMIT)
             if evolved and budget > 0:
                 for es in evolved:
-                    # User-invoked skills (disable-model-invocation: true) are
-                    # excluded from automatic context injection — they fire
-                    # only on explicit use (Matt-Pocock-style invocation model).
+                    # Audience routing: user-invoked skills and skills tagged
+                    # for another domain are excluded from automatic context
+                    # injection — they fire only on explicit use within their
+                    # own domain (dynamic supply, not blanket injection).
                     if es.get("disable_model_invocation"):
+                        continue
+                    from l1.kernel.skill import skill_visible
+                    if not skill_visible(es, self.agent_id):
                         continue
                     prompt_preview = es['prompt'][:LOOP_EVOLVED_SKILL_TRUNC]
                     block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"

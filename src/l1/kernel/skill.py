@@ -22,7 +22,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 from l1.kernel.params.agent import AGENT_CLEARANCE
 from l1.kernel.params.system import (
@@ -324,6 +324,8 @@ class SkillManager:
                rules: list[str] | None = None,
                procedures: list[dict] | None = None,
                allowed_tools: list[str] | None = None,
+               dependencies: list[str] | None = None,
+               dependency_kind: str = "soft",
                agent_id: str = "", role: str = "",
                internal: bool = False) -> dict:
         """Create a skill programmatically with structured fields (developer-only).
@@ -343,6 +345,8 @@ class SkillManager:
             "knowledge": {"evolved": True, "prompt": prompt[:LOG_TRUNC_2000]},
             "tags": tags or [],
             "allowed_tools": allowed_tools,
+            "dependencies": dependencies or [],
+            "dependency_kind": dependency_kind if dependency_kind in ("hard", "soft") else "soft",
             "source": "evolved",
             "loaded_at": __import__("time").time(),
             "useful_count": 0,
@@ -382,6 +386,9 @@ class SkillManager:
                 "builtin": bool(s.get("builtin")),
                 "loaded_at": s.get("loaded_at", 0.0),
                 "last_used": s.get("last_used", 0.0),
+                "disable_model_invocation": bool(s.get("disable_model_invocation")),
+                "dependencies": s.get("dependencies", []),
+                "dependency_kind": s.get("dependency_kind", "soft"),
             })
         if sort_by == "loaded_at":
             result.sort(key=lambda x: -x["loaded_at"])
@@ -594,6 +601,11 @@ class SkillManager:
             # (disable-model-invocation: true) are excluded from automatic
             # context injection; they only fire on explicit use.
             "disable_model_invocation": bool(meta.get("disable-model-invocation", False)),
+            # Dependency metadata (ADR-0001 style): prerequisite skills plus
+            # strength. hard = output is wrong without the dependency; soft =
+            # output is just less sharp. Defaults keep legacy skills working.
+            "dependencies": list(meta.get("dependencies") or []),
+            "dependency_kind": str(meta.get("dependency-kind", "soft")),
             # Field defaults so reloaded skills match programmatic create()
             # (round-trip integrity — tags/useful_count/last_used must survive).
             "useful_count": 0,
@@ -638,6 +650,34 @@ class SkillManager:
 
 _manager: SkillManager | None = None
 _manager_lock = threading.Lock()
+
+
+# ── Audience routing (domain-based skill supply) ──
+# Skills carry audience tags ("strategy" / "execution"); the audience of an
+# agent is derived from its identity. Strategy skills serve the L3A central
+# layer (policy flow); execution skills serve Cell peer agents (execution
+# flow). Untagged skills are universal. This powers dynamic supply through
+# use_skill (on-demand) instead of context injection.
+_AUDIENCE_TAGS: Final[tuple[str, ...]] = ("strategy", "execution")
+_AUDIENCE_STRATEGY_AGENTS: Final[frozenset[str]] = frozenset({"l3a"})
+
+
+def audience_of(agent_id: str) -> str:
+    """Audience domain for an agent: strategy (L3A) or execution (others)."""
+    return "strategy" if agent_id in _AUDIENCE_STRATEGY_AGENTS else "execution"
+
+
+def skill_visible(skill: dict, agent_id: str) -> bool:
+    """Whether a skill is visible to an agent under audience routing.
+
+    Untagged skills (system knowledge) are universal; a tagged skill is
+    visible only to its own audience.
+    """
+    tags = set(skill.get("tags") or [])
+    tagged = tags & set(_AUDIENCE_TAGS)
+    if not tagged:
+        return True
+    return audience_of(agent_id) in tagged
 
 
 def get_skill_manager() -> SkillManager:

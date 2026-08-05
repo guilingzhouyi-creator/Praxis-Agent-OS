@@ -10,8 +10,13 @@ logger = logging.getLogger(__name__)
 def list_skills(args: dict, agent_id: str) -> dict:
     """List available skills, optionally filtered by tag or tool name.
 
+    Audience routing: skills tagged "strategy" are visible to the L3A
+    central layer only; "execution" skills to Cell peer agents; untagged
+    (system knowledge) skills are universal. Dynamic supply — the agent
+    pulls what its domain needs instead of receiving everything injected.
+
     Usage:
-      list_skills()                          → all skills
+      list_skills()                          → all skills visible to me
       list_skills(tag="evolved")             → evolved skills only
       list_skills(tool="edit")               → skills that allow edit tool
     """
@@ -31,7 +36,17 @@ def list_skills(args: dict, agent_id: str) -> dict:
         tags = [tag] if tag else None
         results = sm.list(tags=tags, limit=limit)
 
-    return {"success": True, "skills": results, "count": len(results)}
+    from l1.kernel.skill import skill_visible
+    visible = [s for s in results if skill_visible(s, agent_id)]
+
+    return {"success": True, "skills": visible, "count": len(visible),
+            "audience": _audience_label(agent_id)}
+
+
+def _audience_label(agent_id: str) -> str:
+    """Human label of the agent's audience domain."""
+    from l1.kernel.skill import audience_of
+    return audience_of(agent_id)
 
 
 def use_skill(args: dict, agent_id: str) -> dict:
@@ -42,7 +57,8 @@ def use_skill(args: dict, agent_id: str) -> dict:
       → expands $FUNCTION_NAME and $GOAL in the skill's prompt
 
     Returns the expanded prompt text. The caller (AgentLoop) should
-    inject it as a system message for the LLM.
+    inject it as a system message for the LLM. Audience routing: a skill
+    tagged for another domain is refused.
     """
     name = args.get("name", "")
     if not name:
@@ -57,6 +73,11 @@ def use_skill(args: dict, agent_id: str) -> dict:
     skill_data = sm.get(name)
     if not skill_data:
         return {"success": False, "error": f"skill '{name}' not found"}
+
+    from l1.kernel.skill import skill_visible
+    if not skill_visible(skill_data, agent_id):
+        return {"success": False,
+                "error": f"skill '{name}' is not in the {_audience_label(agent_id)} domain"}
 
     prompt = skill_data.get("prompt", "")
     variables = skill_data.get("variables", [])

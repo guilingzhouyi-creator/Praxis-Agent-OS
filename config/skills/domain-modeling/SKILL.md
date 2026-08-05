@@ -1,6 +1,7 @@
 ---
 name: domain-modeling
 description: Actively build and sharpen a project's domain model - challenge terms against the glossary, stress-test with edge-case scenarios, and update CONTEXT.md and ADRs inline
+tags: [execution]
 disable-model-invocation: true
 allowed-tools: [read_file, list_dir, write_file, grep_search]
 ---
