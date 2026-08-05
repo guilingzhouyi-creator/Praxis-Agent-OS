@@ -27,12 +27,10 @@ def _cleanup(path: str) -> None:
 
 
 @pytest.fixture
-def rc_path() -> str:
-    """Yield a temp path and clean up after the test."""
-    tmp = os.path.join(tempfile.gettempdir(), "_praxis_test_rc.jsonl")
-    _cleanup(tmp)
-    yield tmp
-    _cleanup(tmp)
+def rc_path(tmp_path) -> str:
+    """Per-test isolated path (tmp_path) — leftover flusher threads from a
+    test-local ReferenceChannel can never touch another test's file."""
+    return str(tmp_path / "rc.jsonl")
 
 
 @pytest.fixture
@@ -42,8 +40,7 @@ def rc(rc_path: str):
 
     ch = ReferenceChannel(path=rc_path, flush_interval=60.0, ring_size=10)
     yield ch
-    ch.flush()
-    _cleanup(rc_path)
+    ch.stop()
 
 
 @pytest.fixture(autouse=True)
@@ -104,11 +101,16 @@ class TestReferenceChannelEvent:
         from l3.bus.reference_channel import ReferenceChannel
 
         ch = ReferenceChannel(path=rc_path, flush_interval=0.01, ring_size=100)
-        ch.event("x", {})
-        time.sleep(0.02)
-        ch.event("y", {})  # second event should see elapsed > flush_interval and flush
-        with open(rc_path, encoding="utf-8") as f:
-            assert len(f.readlines()) >= 1
+        try:
+            ch.event("x", {})
+            time.sleep(0.02)
+            ch.event("y", {})  # second event should see elapsed > flush_interval and flush
+            with open(rc_path, encoding="utf-8") as f:
+                assert len(f.readlines()) >= 1
+        finally:
+            # Stop the flusher thread — a leaked daemon thread keeps writing
+            # to the file after the test and pollutes whichever test runs next.
+            ch.stop()
 
 
 class TestReferenceChannelCardLifecycle:
