@@ -173,6 +173,15 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/l3a/ask/status",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_status",  "Get pending clarification state of an L3A session"),
     ("POST", "/api/v2/l3a/ask/answer",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_answer",  "Submit answers to pending clarification and resume"),
 
+    # L3A session contract (language-agnostic TUI/desktop client surface)
+    ("POST", "/api/v2/l3a/sessions",                            "l4.api_handlers.api_handlers_l3a.handle_l3a_session_create",   "Create an L3A session"),
+    ("GET",  "/api/v2/l3a/sessions",                            "l4.api_handlers.api_handlers_l3a.handle_l3a_session_list",     "List active L3A sessions"),
+    ("GET",  "/api/v2/l3a/sessions/{session_id}",               "l4.api_handlers.api_handlers_l3a.handle_l3a_session_get",       "L3A session detail (info + todos)"),
+    ("GET",  "/api/v2/l3a/sessions/{session_id}/messages",      "l4.api_handlers.api_handlers_l3a.handle_l3a_session_messages",  "Cursor-paged session message history"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/send",          "l4.api_handlers.api_handlers_l3a.handle_l3a_session_send",      "Send intent / continue a session"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/close",         "l4.api_handlers.api_handlers_l3a.handle_l3a_session_close",     "Close and archive a session"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/compress",      "l4.api_handlers.api_handlers_l3a.handle_l3a_session_compress",  "Compress session history"),
+
     # Agent config
     ("GET", "/api/v2/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v2/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
