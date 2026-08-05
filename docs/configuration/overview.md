@@ -124,6 +124,31 @@ PUT /api/v2/model-spec/{name}   {"temperature": 0.5, "reasoning_effort": "medium
 GET /api/v2/model-spec          # list resolved specs
 ```
 
+### Named strategy packs (runtime switching)
+
+`model_spec.strategies` in praxis.yaml defines named packs that switch an
+executor's model/context/reasoning profile at runtime:
+
+```yaml
+model_spec:
+  strategies:
+    fast:     {max_tokens: 2048, temperature: 0.3, reasoning_effort: none,   thinking_budget: 0}
+    balanced: {max_tokens: 4096, temperature: 0.5, reasoning_effort: low,    thinking_budget: 2048}
+    deep:     {max_tokens: 8192, temperature: 0.7, reasoning_effort: high,   thinking_budget: 8192}
+```
+
+API:
+
+```
+PUT    /api/v2/model-spec/{name}/strategy  {"strategy": "deep"}     # apply pack (immediate)
+GET    /api/v2/model-spec/{name}/strategy                           # current strategy + overrides
+DELETE /api/v2/model-spec/{name}/strategy                           # restore defaults
+PUT    /api/v2/model-spec/strategy/apply  {"strategy": "deep", "specs": ["l3a", "scout"]}  # batch; specs: ["all"]
+```
+
+Applied packs write the exact layer (`model_spec.{name}.{key}`, L3,
+persisted), which outranks the executor defaults in the resolve cascade.
+
 ## Reading Configuration in Code
 
 ```python

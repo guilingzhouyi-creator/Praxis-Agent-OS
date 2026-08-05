@@ -96,6 +96,26 @@ model_spec:
       temperature: 0.3
       reasoning_effort: none
       thinking_budget: 0
+  strategies:
+    # Named strategy packs — applied at runtime per executor:
+    #   PUT /api/v2/model-spec/{name}/strategy  {"strategy": "deep"}
+    #   DELETE /api/v2/model-spec/{name}/strategy   (restore defaults)
+    # Keys override the executor's defaults (exact layer > defaults).
+    fast:
+      max_tokens: 2048
+      temperature: 0.3
+      reasoning_effort: none
+      thinking_budget: 0
+    balanced:
+      max_tokens: 4096
+      temperature: 0.5
+      reasoning_effort: low
+      thinking_budget: 2048
+    deep:
+      max_tokens: 8192
+      temperature: 0.7
+      reasoning_effort: high
+      thinking_budget: 8192
 
 # ── L3A session limits (0 = unlimited) ──
 l3a:

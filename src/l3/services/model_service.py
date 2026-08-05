@@ -162,6 +162,55 @@ class ModelService:
             "thinking_budget": cfg.thinking_budget,
         }
 
+    # ── Named strategy packs (runtime switching) ──────────────────────
+
+    def apply_strategy(self, spec_name: str, strategy_name: str) -> dict:
+        """Apply a named strategy pack to an executor.
+
+        Strategy definitions live under ``model_spec.strategies.{name}``
+        (praxis.yaml). Keys are written into the exact layer
+        ``model_spec.{spec_name}.{key}`` (L3, persisted), which outranks the
+        executor defaults in the resolution cascade — immediate effect.
+        """
+        sc = self._settings_center()
+        defn = self._read_dict(
+            sc, "model_spec.strategies." + strategy_name, leaf_only=True)
+        if not defn:
+            return {"success": False, "error": f"unknown strategy: {strategy_name}"}
+        written = []
+        for key, value in defn.items():
+            sc.set(f"model_spec.{spec_name}.{key}", value)
+            written.append(key)
+        sc.set(f"model_spec.{spec_name}.strategy", strategy_name)
+        return {"success": True, "spec": spec_name, "strategy": strategy_name,
+                "applied": written}
+
+    def clear_strategy(self, spec_name: str) -> dict:
+        """Remove a strategy's exact-layer overrides, restoring defaults."""
+        sc = self._settings_center()
+        removed = []
+        all_ = sc.all()
+        prefix = f"model_spec.{spec_name}."
+        protected = ("defaults", "specs", "strategies")
+        for key in list(all_.keys()):
+            if not key.startswith(prefix):
+                continue
+            if any(key.startswith(prefix + d + ".") for d in protected):
+                continue
+            sc.reset(key)
+            removed.append(key)
+        return {"success": True, "spec": spec_name,
+                "cleared": removed, "restored": "defaults"}
+
+    def current_strategy(self, spec_name: str) -> dict:
+        """Report the active strategy and exact-layer overrides for a spec."""
+        sc = self._settings_center()
+        active = sc.get(f"model_spec.{spec_name}.strategy", "")
+        exact = self._read_dict(sc, "model_spec." + spec_name, leaf_only=True)
+        exact = {k: v for k, v in (exact or {}).items() if k != "strategy"}
+        return {"spec": spec_name, "strategy": active or "defaults",
+                "overrides": exact or {}}
+
     def health_check(self, provider_name: str) -> dict:
         """Quick health check for a provider by name."""
         try:

@@ -179,6 +179,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # Model spec viewer / updater
     ("GET",  "/api/v2/model-spec",              "l4.api_handlers.api_handlers_providers.handle_model_spec_list",           "List all model specs"),
     ("PUT",  "/api/v2/model-spec/{name}",       "l4.api_handlers.api_handlers_providers.handle_model_spec_update",          "Update a model spec"),
+    ("GET",  "/api/v2/model-spec/{name}/strategy", "l4.api_handlers.api_handlers_providers.handle_model_strategy_get",      "Current strategy of a model spec"),
+    ("PUT",  "/api/v2/model-spec/{name}/strategy", "l4.api_handlers.api_handlers_providers.handle_model_strategy_apply",     "Apply a named strategy pack to a model spec"),
+    ("DELETE","/api/v2/model-spec/{name}/strategy", "l4.api_handlers.api_handlers_providers.handle_model_strategy_clear",   "Clear strategy, restore executor defaults"),
+    ("PUT",  "/api/v2/model-spec/strategy/apply", "l4.api_handlers.api_handlers_providers.handle_model_strategy_apply_many", "Apply a strategy to many executors"),
 
     # SubAgent platform config
     ("GET",  "/api/v2/subagent/defaults",       "l4.api_handlers.api_handlers_providers.handle_subagent_defaults",          "SubAgent platform defaults"),
@@ -341,4 +345,13 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET",  "/api/monitor/gate",      "l4.api_handlers.api_handlers_monitor.handle_message_gate_list",  "List message gate rules"),
     ("POST", "/api/monitor/gate",      "l4.api_handlers.api_handlers_monitor.handle_message_gate_set",   "Set message gate rule"),
     ("DELETE","/api/monitor/gate/",    "l4.api_handlers.api_handlers_monitor.handle_message_gate_remove", "Remove message gate rule"),
+
+    # Skills (read public; mutation developer-only via SkillManager gate)
+    ("GET",    "/api/skills",          "l4.api_handlers.api_handlers_skills.handle_skills_list",         "List skills"),
+    ("GET",    "/api/skills/",         "l4.api_handlers.api_handlers_skills.handle_skills_get",          "Get skill detail"),
+    ("POST",   "/api/skills",          "l4.api_handlers.api_handlers_skills.handle_skills_create",       "Create skill (developer)"),
+    ("PUT",    "/api/skills/",         "l4.api_handlers.api_handlers_skills.handle_skills_update",       "Update skill (developer)"),
+    ("DELETE", "/api/skills/",         "l4.api_handlers.api_handlers_skills.handle_skills_delete",       "Delete skill (developer)"),
+    ("POST",   "/api/skills/reload",   "l4.api_handlers.api_handlers_skills.handle_skills_reload",       "Reload built-in skills (developer)"),
+    ("GET",    "/api/skills/permissions", "l4.api_handlers.api_handlers_skills.handle_skills_permissions", "Skill write-gate policy"),
 ]

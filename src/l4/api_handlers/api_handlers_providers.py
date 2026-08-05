@@ -136,6 +136,59 @@ def handle_model_spec_update(name: str = "", body: dict | None = None) -> dict:
     return {"success": True, "model_spec": name, "updated": list(b.keys())}
 
 
+def handle_model_strategy_apply(name: str = "", body: dict | None = None) -> dict:
+    """PUT /api/v2/model-spec/{name}/strategy — apply a named strategy pack."""
+    if not name:
+        return {"success": False, "error": "name required"}
+    strategy = (body or {}).get("strategy", "")
+    if not strategy:
+        return {"success": False, "error": "strategy required"}
+    from l3.services.model_service import get_service
+    return get_service().apply_strategy(name, strategy)
+
+
+def handle_model_strategy_clear(name: str = "", body: dict | None = None) -> dict:
+    """DELETE /api/v2/model-spec/{name}/strategy — restore executor defaults."""
+    if not name:
+        return {"success": False, "error": "name required"}
+    from l3.services.model_service import get_service
+    return get_service().clear_strategy(name)
+
+
+def handle_model_strategy_get(name: str = "", body: dict | None = None) -> dict:
+    """GET /api/v2/model-spec/{name}/strategy — current active strategy."""
+    if not name:
+        return {"success": False, "error": "name required"}
+    from l3.services.model_service import get_service
+    return get_service().current_strategy(name)
+
+
+def handle_model_strategy_apply_many(body: dict | None = None) -> dict:
+    """PUT /api/v2/model-spec/strategy/apply — apply a strategy to many executors.
+
+    Body: {"strategy": "deep", "specs": ["l3a", "scout"]} or specs: ["all"].
+    """
+    b = body or {}
+    strategy = b.get("strategy", "")
+    specs = b.get("specs") or []
+    if not strategy:
+        return {"success": False, "error": "strategy required"}
+    if not specs:
+        return {"success": False, "error": "specs required"}
+    from l3.services.model_service import get_service
+    ms = get_service()
+    if "all" in specs:
+        specs = ["scout", "l3a", "l3a_subagent", "subagent", "r4_agent"]
+    results = []
+    for name in specs:
+        r = ms.apply_strategy(name, strategy)
+        if not r.get("success"):
+            return {"success": False, "error": f"{name}: {r.get('error')}",
+                    "applied": results}
+        results.append({"spec": name, "applied": r["applied"]})
+    return {"success": True, "strategy": strategy, "specs": results}
+
+
 # ── SubAgent platform config ────────────────────────────────
 
 
