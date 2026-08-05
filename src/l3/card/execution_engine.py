@@ -16,12 +16,13 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULTS_AUTO_SAVE
+from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULT_RETENTION, EXECUTION_RESULTS_AUTO_SAVE
 from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
@@ -172,7 +173,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
 
     def __init__(self, persist_path: str = ""):
         super().__init__("execution_engine")
-        self._executions: dict[str, ExecutionResult] = {}
+        self._executions: OrderedDict[str, ExecutionResult] = OrderedDict()
         self._lock = threading.RLock()
         self._init_persistence(persist_path or _gp().execution_results, EXECUTION_RESULTS_AUTO_SAVE)
         self._restore()
@@ -222,9 +223,11 @@ class ExecutionEngine(BaseService, PersistableMixin):
             result.error = "circular dependency detected"
             with self._lock:
                 self._executions[plan.plan_id] = result
+                self._trim_executions_locked()
             return result
 
         # 2. Execute steps in order
+        step_map = {s.id: s for s in plan.steps}
         for step in order:
             if step.status == StepStatus.SKIPPED:
                 result.skipped += 1
@@ -234,7 +237,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
             step.started_at = time.time()
 
             # Check dependencies
-            deps_met = self._check_dependencies(step, plan.steps)
+            deps_met = self._check_dependencies(step, step_map)
             if not deps_met:
                 step.status = StepStatus.SKIPPED
                 step.error = "dependency not met"
@@ -270,9 +273,15 @@ class ExecutionEngine(BaseService, PersistableMixin):
 
         with self._lock:
             self._executions[plan.plan_id] = result
+            self._trim_executions_locked()
         logger.info("execution %s: %d/%d done, %.2fs", plan.plan_id,
                     result.done, result.total, result.elapsed)
         return result
+
+    def _trim_executions_locked(self) -> None:
+        """Drop oldest results beyond the retention cap (bounded memory)."""
+        while len(self._executions) > EXECUTION_RESULT_RETENTION:
+            self._executions.popitem(last=False)
 
     def _execute_with_retry(self, step: Step, agent_id: str,
                             executor: Callable) -> bool:
@@ -293,9 +302,8 @@ class ExecutionEngine(BaseService, PersistableMixin):
 
         return False
 
-    def _check_dependencies(self, step: Step, all_steps: list[Step]) -> bool:
-        """Check if all dependencies are met."""
-        step_map = {s.id: s for s in all_steps}
+    def _check_dependencies(self, step: Step, step_map: dict[str, Step]) -> bool:
+        """Check if all dependencies are met (step_map built once by the caller)."""
         for dep_id in step.depends_on:
             dep = step_map.get(dep_id)
             if not dep or dep.status != StepStatus.DONE:

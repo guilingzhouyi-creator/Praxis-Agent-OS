@@ -167,65 +167,25 @@ class RingLayer:
         """Remove all entries for a given agent. Returns number removed."""
         with self._lock:
             before = len(self._entries)
-            # Collect entries to remove and clean indexes incrementally
-            removed_entries = [e for e in self._entries if e.agent_id == agent_id]
-            for e in removed_entries:
-                self._entries.remove(e)
-                self._token_count = max(0, self._token_count - e.tokens)
-                # Clean agent index
-                aid_list = self._agent_index.get(e.agent_id)
-                if aid_list:
-                    try:
-                        aid_list.remove(e)
-                    except ValueError:
-                        logger.debug("memory_ring: entry not in aid index, skipping")
-                # Clean type index
-                type_list = self._type_index.get(e.entry_type)
-                if type_list:
-                    try:
-                        type_list.remove(e)
-                    except ValueError:
-                        logger.debug("memory_ring: entry not in type index, skipping")
-                # Clean tag index
-                for tag in e.tags:
-                    tag_list = self._tag_index.get(tag)
-                    if tag_list:
-                        try:
-                            tag_list.remove(e)
-                        except ValueError:
-                            logger.debug("memory_ring: entry not in tag index, skipping")
-            # Rebuild eviction heap (smaller than full rebuild since only entries changed)
-            for e in removed_entries:
-                self._evict_heap = [(imp, ts, eid) for imp, ts, eid in self._evict_heap
-                                    if eid != id(e)]
-            heapq.heapify(self._evict_heap)
-            return before - len(self._entries)
+            kept = [e for e in self._entries if e.agent_id != agent_id]
+            removed = before - len(kept)
+            if removed:
+                # Single-pass rebuild: O(n) instead of O(n*m) list.remove() churn.
+                self._entries = deque(kept, maxlen=self.max_entries)
+                self._rebuild_token_count()
+            return removed
 
     def forget_cell(self, cell_id: str) -> int:
         """Remove all entries for a given cell. Returns number removed."""
         with self._lock:
-            removed = [e for e in self._entries if e.cell_id == cell_id]
-            for e in removed:
-                self._entries.remove(e)
-                self._token_count = max(0, self._token_count - e.tokens)
-                for lst in (self._agent_index.get(e.agent_id),
-                            self._type_index.get(e.entry_type)):
-                    if lst:
-                        try:
-                            lst.remove(e)
-                        except ValueError:
-                            logger.debug("memory_ring: entry not in type index during evict, skipping")
-                for tag in e.tags:
-                    tl = self._tag_index.get(tag)
-                    if tl:
-                        try:
-                            tl.remove(e)
-                        except ValueError:
-                            logger.debug("memory_ring: entry not in tag index during evict, skipping")
-            self._evict_heap = [(i, t, eid) for i, t, eid in self._evict_heap
-                                if eid not in {id(e) for e in removed}]
-            heapq.heapify(self._evict_heap)
-            return len(removed)
+            before = len(self._entries)
+            kept = [e for e in self._entries if e.cell_id != cell_id]
+            removed = before - len(kept)
+            if removed:
+                # Single-pass rebuild: O(n) instead of O(n*m) list.remove() churn.
+                self._entries = deque(kept, maxlen=self.max_entries)
+                self._rebuild_token_count()
+            return removed
 
     def to_dict(self) -> list[dict]:
         """Serialize all entries to a list of dicts."""

@@ -14,6 +14,8 @@ import threading
 import time
 from collections.abc import Callable
 
+from l1.kernel.params.system import SCHEDULER_TASK_RETENTION
+
 from .scheduler_rate import get_rate_scheduler
 from .scheduler_router import L3Router, RequestPool
 from .scheduler_scope import get_scope_scheduler
@@ -47,7 +49,7 @@ class CentralScheduler:
 
     def _get_acb(self):
         if self._acb is None:
-            from .scheduler.acb import get_service as ga
+            from .acb import get_service as ga
             self._acb = ga()
         return self._acb
 
@@ -85,6 +87,7 @@ class CentralScheduler:
                     args=args or {}, priority=priority)
         with self._lock:
             self._tasks[tid] = task
+            self._prune_tasks_locked()
 
         pool_result = self.pool.enqueue(task)
         if not pool_result.get("success"):
@@ -125,8 +128,28 @@ class CentralScheduler:
         acb.set_slot(agent_id, "token_consumed", int(elapsed * 100))
         self.router.update_load(agent_id, -0.1)
         self.time_scheduler.reset(agent_id)
+        with self._lock:
+            self._prune_tasks_locked()
         return {"success": not task.error, "task_id": task_id,
                 "result": task.result, "error": task.error, "elapsed": round(elapsed, 3)}
+
+    def _prune_tasks_locked(self) -> None:
+        """Drop oldest completed tasks beyond the retention cap (bounded memory).
+
+        Called with ``self._lock`` held.  Only terminal tasks (``completed_at``
+        set) are evicted, so queued-but-unexecuted tasks stay resolvable by
+        execute()/status().
+        """
+        overflow = sum(1 for t in self._tasks.values() if t.completed_at) - SCHEDULER_TASK_RETENTION
+        if overflow <= 0:
+            return
+        evicted = 0
+        for tid in list(self._tasks):
+            if evicted >= overflow:
+                break
+            if self._tasks[tid].completed_at:
+                self._tasks.pop(tid, None)
+                evicted += 1
 
     def poll(self) -> Task | None:
         return self.pool.dequeue()

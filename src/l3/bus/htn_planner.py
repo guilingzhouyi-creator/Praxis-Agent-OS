@@ -191,21 +191,33 @@ class HTNPlanner(BaseService):
 
         collect(task)
 
-        # Topological sort by dependencies
-        ordered = []
-        remaining = set(t.id for t in primitives)
+        # Kahn topological sort — O(V+E) instead of the O(V^2) re-scan.
+        # Dependencies not present in the primitive set are treated as
+        # satisfied (same semantics as the previous remaining-set scan).
         task_map = {t.id: t for t in primitives}
+        in_degree = {tid: 0 for tid in task_map}
+        dependents: dict[str, list[str]] = {tid: [] for tid in task_map}
+        for tid, t in task_map.items():
+            for dep in t.depends_on:
+                if dep in task_map:
+                    in_degree[tid] += 1
+                    dependents[dep].append(tid)
 
-        while remaining:
-            ready = [tid for tid in remaining
-                     if all(dep not in remaining for dep in task_map[tid].depends_on)]
-            if not ready:
-                logger.warning("circular dependency detected in HTN plan")
-                break
-            for tid in sorted(ready):
+        ordered = []
+        ready = sorted(tid for tid, deg in in_degree.items() if deg == 0)
+        while ready:
+            batch = ready
+            ready = []
+            for tid in batch:  # per-round sorted batches (deterministic order)
                 ordered.append(task_map[tid])
-                remaining.remove(tid)
+                for nxt in dependents[tid]:
+                    in_degree[nxt] -= 1
+                    if in_degree[nxt] == 0:
+                        ready.append(nxt)
+            ready.sort()
 
+        if len(ordered) < len(primitives):
+            logger.warning("circular dependency detected in HTN plan")
         return ordered
 
     def execute(self, root: Task, tool_executor: Callable,
