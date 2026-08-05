@@ -324,6 +324,7 @@ praxis/
  �?  �?  �?  ├── api_handlers_l3a.py  # L3A ask + session contract (new)
  �?  �?  �?  ├── api_handlers_monitor.py # Monitor handlers (188 lines)
  �?  �?  �?  ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
+ �?  �?  �?  ├── api_handlers_profile.py # User profile side-channel API (new)
  �?  �?  �?  ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
  �?  �?  �?  └── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
 �?  �?  �?�?  �?  ├── llm/                     # LLM engine + providers
@@ -541,6 +542,7 @@ praxis/
 | Auth | 3 | `auth/login`, `auth/logout`, `auth/refresh` |
 | WebSocket | 1 | `ws` (bridge discovery) |
 | FS | 4 | `fs/tree`, `fs/read`, `fs/watch`, `fs/unwatch` |
+| Profile | 7 | `profile`, `profile/<id>`, `profile/<id>/ingest`, `profile/<id>/refine`, `profile/<id>/export`, `profile/<id>/import`, `profile/<id>` (DELETE) |
 | Loop | 2 | `loop_config`, `loop_config` |
 | Agent Config | 2 | `agent/config`, `agent/config` |
 | V1 | 2 | `v1/tools`, `v1/locales` |

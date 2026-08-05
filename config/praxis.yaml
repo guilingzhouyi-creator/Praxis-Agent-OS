@@ -339,6 +339,13 @@ memory:
   graph:
     enabled: false              # global toggle (overridable at Cell/session level)
 
+# ── User profile side-channel ──
+# When enabled, L3A/central decisions can reference a per-user model of
+# preferences, domain focus and decision style (intent-parsing reference).
+# Zero impact when disabled (bypass side-channel; original interactions intact).
+user_profile:
+  enabled: false
+
 # ── Network mesh ──
 network:
   discovery_port: 42069         # UDP broadcast port

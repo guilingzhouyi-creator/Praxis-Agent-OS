@@ -264,6 +264,15 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/fs/watch",   "l4.api_handlers.api_handlers_fs.handle_fs_watch",    "Watch a directory for changes"),
     ("POST", "/api/v2/fs/unwatch", "l4.api_handlers.api_handlers_fs.handle_fs_unwatch",  "Stop watching a directory"),
 
+    # User profile (side-channel — intent parsing / decision reference)
+    ("GET",    "/api/v2/profile",                     "l4.api_handlers.api_handlers_profile.handle_profile_list",     "List users with live profiles"),
+    ("GET",    "/api/v2/profile/{user_id}",           "l4.api_handlers.api_handlers_profile.handle_profile_get",       "Profile snapshot (kinds filter)"),
+    ("POST",   "/api/v2/profile/{user_id}/ingest",    "l4.api_handlers.api_handlers_profile.handle_profile_ingest",    "Record a typed profile fact"),
+    ("POST",   "/api/v2/profile/{user_id}/refine",    "l4.api_handlers.api_handlers_profile.handle_profile_refine",    "Synthesize trait entries"),
+    ("GET",    "/api/v2/profile/{user_id}/export",    "l4.api_handlers.api_handlers_profile.handle_profile_export",    "Portable profile payload"),
+    ("POST",   "/api/v2/profile/{user_id}/import",    "l4.api_handlers.api_handlers_profile.handle_profile_import",    "Restore a profile payload"),
+    ("DELETE", "/api/v2/profile/{user_id}",           "l4.api_handlers.api_handlers_profile.handle_profile_clear",     "Clear a user's profile"),
+
     # Bootstrap
     ("GET", "/api/v2/bootstrap/status",   ".bootstrap_status",   "Check if bootstrap needed"),
     ("GET", "/api/v2/bootstrap/defaults", ".bootstrap_defaults", "Get default config"),

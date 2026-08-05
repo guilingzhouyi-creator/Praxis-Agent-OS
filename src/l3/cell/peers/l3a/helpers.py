@@ -11,14 +11,36 @@ from l3.services.assembly import AssemblyMode
 logger = logging.getLogger(__name__)
 
 
-def build_l3a_prompt() -> str:
+def build_l3a_prompt(user_id: str = "") -> str:
+    """Build the L3A agent-loop system prompt.
+
+    When the user profile side-channel is enabled and a user_id is given,
+    a condensed profile reference (preferences + traits) is appended so the
+    central layer knows the user's established style — best-effort, never
+    raises, zero impact when disabled.
+    """
     from l1.kernel.prompts import get_prompt as _gp
     types = list_card_types()
     types_block = "\n".join(
         f"  - {t['name']}: {t['display']} (phases: {', '.join(t.get('phases', []))})"
         for t in types
     )
-    return _gp("l3a.agentloop_system").format(card_types=types_block)
+    prompt = _gp("l3a.agentloop_system").format(card_types=types_block)
+    if user_id:
+        try:
+            from l3.services.user_profile import get_service as _prof
+
+            prof = _prof()
+            if prof.enabled:
+                snap = prof.get_profile(user_id, kinds=("preference", "trait"))
+                entries = snap.get("entries") or []
+                if entries:
+                    block = "\n".join(
+                        f"  - [{e['kind']}] {e['value']}" for e in entries[:10])
+                    prompt += f"\n\n[User Profile Reference]\n{block}"
+        except Exception:
+            pass
+    return prompt
 
 
 def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
@@ -30,6 +52,23 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     priority = args.get("priority", 5)
     phases_data = args.get("phases", [])
     domain = columns.get("domain", "")
+
+    # User profile reference (side-channel): attach a condensed profile to the
+    # card columns when the profile service is enabled — downstream intent
+    # parsing and agent context can consult it without blocking the submit.
+    user_id = str(args.get("user_id") or "").strip()
+    if user_id:
+        try:
+            from l3.services.user_profile import get_service as _prof
+
+            prof = _prof()
+            if prof.enabled:
+                snap = prof.get_profile(
+                    user_id, kinds=("preference", "domain_focus", "trait"))
+                if snap.get("entries"):
+                    columns["_profile_summary"] = snap
+        except Exception:
+            pass
 
     card = CardUnified(nature=nature, priority=priority)
     card.summary = CardSummary(title=title, description=description, columns=columns)

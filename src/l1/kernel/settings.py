@@ -35,6 +35,7 @@ DEFAULTS: dict[str, Any] = {
     "persist.interval": 30.0,
     "memory.graph.enabled": False,
     "memory.mer.enabled": False,
+    "user_profile.enabled": False,
 }
 
 

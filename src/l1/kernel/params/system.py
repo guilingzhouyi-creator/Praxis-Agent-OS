@@ -308,6 +308,45 @@ MEMORY_LOG_QUERY_LIMIT: Final[int] = 10000
 MEMORY_PAGER_RECALL_LIMIT: Final[int] = 50
 
 
+# ── User profile side-channel ──
+PROFILE_KIND_PREFERENCE: Final[str] = "preference"
+PROFILE_KIND_DOMAIN_FOCUS: Final[str] = "domain_focus"
+PROFILE_KIND_DECISION_STYLE: Final[str] = "decision_style"
+PROFILE_KIND_REJECTION: Final[str] = "rejection"
+PROFILE_KIND_HABIT: Final[str] = "habit"
+PROFILE_KIND_CORRECTION: Final[str] = "correction"
+PROFILE_KIND_TRAIT: Final[str] = "trait"
+PROFILE_KIND_CUSTOM: Final[str] = "custom"
+PROFILE_KINDS: Final[tuple[str, ...]] = (
+    PROFILE_KIND_PREFERENCE, PROFILE_KIND_DOMAIN_FOCUS,
+    PROFILE_KIND_DECISION_STYLE, PROFILE_KIND_REJECTION,
+    PROFILE_KIND_HABIT, PROFILE_KIND_CORRECTION,
+    PROFILE_KIND_TRAIT, PROFILE_KIND_CUSTOM,
+)
+PROFILE_MAX_ENTRIES_PER_USER: Final[int] = 500
+"""Hard cap on stored profile entries per user (oldest evicted on overflow)."""
+PROFILE_ENTRY_TTL_DEFAULT: Final[float] = 90 * 24 * 3600
+"""Default profile entry lifetime (90 days); 0 = never expires."""
+PROFILE_SNAPSHOT_ENTRIES: Final[int] = 40
+"""Max entries folded into a profile snapshot for injection."""
+PROFILE_REFINE_MIN_ENTRIES: Final[int] = 5
+"""Minimum raw entries before a refine pass is worthwhile."""
+PROFILE_REFINE_MAX_RAW: Final[int] = 30
+"""Max raw entries fed to the LLM refiner per pass."""
+PROFILE_REFINE_TIMEOUT: Final[float] = 20.0
+"""Refiner LLM call timeout (seconds)."""
+PROFILE_DECAY_CONFIDENCE: Final[float] = 0.05
+"""Confidence decay per decay cycle (0 = disabled)."""
+PROFILE_DECAY_INTERVAL: Final[float] = 3600.0
+"""Decay cycle interval in seconds (0 = disabled)."""
+PROFILE_FONDS: Final[str] = "user_profile"
+"""R4 fonds for profile persistence (series = user_id)."""
+PROFILE_USER_DEFAULT: Final[str] = "default"
+"""Fallback user id when none is provided."""
+PROFILE_EMIT_EVENT: Final[str] = "stats.user_profile.updated"
+"""Monitor-bus event emitted on profile mutations."""
+
+
 # ── CI pipeline ──
 CI_PIPELINE_CACHE_TTL: Final[float] = 300.0
 
