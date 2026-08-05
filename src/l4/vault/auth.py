@@ -1,10 +1,12 @@
-"""Auth service — key management, signing, encryption, hash.
+﻿"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
 
 Security layer for Agent OS:
 - HMAC signing/verification
 - Fernet encryption/decryption
 - Key vault management
 - Hash computation
+- Auth token lifecycle (issue/verify/revoke/refresh) 鈥?backs the AuthPort
+  used by L3 security gates and the /api/v2/auth/* contract.
 """
 
 from __future__ import annotations
@@ -14,8 +16,12 @@ import hmac
 import logging
 import os
 import threading
+import time
+import uuid
 
-from l1.kernel.params.system import AUTH_SIGN_KEY_BYTES
+from l1.kernel.params.api import AUTH_TOKEN_TTL_SECONDS
+from l1.kernel.params.system import AUTH_SIGN_KEY_BYTES, HASH_TRUNC_LONG
+from l1.kernel.ports import AuthPort
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -45,13 +51,16 @@ class KeyVault:
             return list(self._keys.keys())
 
 
-class AuthService(BaseService):
-    """Authentication and cryptography service."""
+class AuthService(AuthPort, BaseService):
+    """Authentication and cryptography service (implements the AuthPort adapter)."""
 
     def __init__(self):
         super().__init__("auth")
         self._vault = KeyVault()
         self._sign_key = os.urandom(AUTH_SIGN_KEY_BYTES)
+        self._tokens: dict[str, float] = {}   # token_id -> expires_at
+        self._revoked: set[str] = set()
+        self._token_lock = threading.Lock()
 
     def _on_start(self) -> dict:
         # Initialize default keys
@@ -128,6 +137,65 @@ class AuthService(BaseService):
         keys = self._vault.list()
         return {"success": True, "keys": keys, "count": len(keys)}
 
+    # 鈹€鈹€ Token lifecycle (AuthPort adapter surface) 鈹€鈹€
+
+    def issue_token(self, identity: str, ttl: float = AUTH_TOKEN_TTL_SECONDS) -> dict:
+        """Issue a signed auth token for an identity.
+
+        Token payload: ``identity|expires_at`` HMAC-SHA256 signed with the
+        service key. Returns ``{success, token, expires_at, identity}``.
+        """
+        if not (identity or "").strip():
+            return {"success": False, "error": "identity required"}
+        lifetime = ttl if ttl > 0 else AUTH_TOKEN_TTL_SECONDS
+        expires_at = time.time() + lifetime
+        token_id = uuid.uuid4().hex[:HASH_TRUNC_LONG]
+        payload = f"{identity}|{int(expires_at)}|{token_id}"
+        sig = hmac.new(self._sign_key, payload.encode(), hashlib.sha256).hexdigest()
+        token = f"{payload}|{sig}"
+        with self._token_lock:
+            self._tokens[token_id] = expires_at
+        return {"success": True, "token": token, "expires_at": expires_at,
+                "identity": identity, "ttl": lifetime}
+
+    def verify_token(self, token: str) -> dict:
+        """Verify a token. Returns ``{valid, identity, error}``."""
+        if not token:
+            return {"valid": False, "identity": "", "error": "missing token"}
+        try:
+            identity, expires_raw, token_id, sig = token.split("|", 3)
+        except ValueError:
+            return {"valid": False, "identity": "", "error": "malformed token"}
+        payload = f"{identity}|{expires_raw}|{token_id}"
+        expected = hmac.new(self._sign_key, payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            return {"valid": False, "identity": "", "error": "signature mismatch"}
+        with self._token_lock:
+            if token_id in self._revoked:
+                return {"valid": False, "identity": "", "error": "token revoked"}
+        if float(expires_raw) < time.time():
+            return {"valid": False, "identity": "", "error": "token expired"}
+        return {"valid": True, "identity": identity, "error": ""}
+
+    def revoke_token(self, token: str) -> dict:
+        """Revoke a token, invalidating it immediately."""
+        if not token:
+            return {"success": False, "error": "missing token"}
+        try:
+            _, _, token_id, _ = token.split("|", 3)
+        except ValueError:
+            return {"success": False, "error": "malformed token"}
+        with self._token_lock:
+            self._revoked.add(token_id)
+        return {"success": True, "revoked": token_id}
+
+    def refresh_token(self, token: str) -> dict:
+        """Exchange a valid token for a new one with a fresh expiry."""
+        v = self.verify_token(token)
+        if not v.get("valid"):
+            return {"success": False, "error": v.get("error", "invalid token")}
+        return self.issue_token(v["identity"])
+
 
 _service: AuthService | None = None
 _service_lock = threading.Lock()
@@ -140,6 +208,14 @@ def get_service() -> AuthService:
             if _service is None:
                 _service = AuthService()
                 _service.start()
+                # Self-register on the auth port so L3 security gates can
+                # resolve the adapter without boot-time wiring (K domain).
+                try:
+                    from l1.kernel.ports import register_port
+
+                    register_port("auth", _service)
+                except Exception:
+                    logger.debug("auth: port self-registration skipped")
     return _service
 
 
@@ -148,3 +224,4 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
+

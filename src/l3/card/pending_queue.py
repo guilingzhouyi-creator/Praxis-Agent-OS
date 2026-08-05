@@ -128,6 +128,9 @@ class PendingQueue(PersistableMixin):
             self._persist()
         emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
+        # Frontend notification chain: card entered the pending queue
+        emit_signal("CARD_PENDING", sender="pending_queue", target=SIGNAL_TARGET_L3,
+                     data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
         logger.info("pending enqueued: %s — %s (%s)", mid, intent[:LOG_TRUNC_60], size)
         return mid
 

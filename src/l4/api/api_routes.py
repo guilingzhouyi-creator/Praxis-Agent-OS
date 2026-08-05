@@ -173,6 +173,15 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/l3a/ask/status",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_status",  "Get pending clarification state of an L3A session"),
     ("POST", "/api/v2/l3a/ask/answer",   "l4.api_handlers.api_handlers_l3a.handle_l3a_ask_answer",  "Submit answers to pending clarification and resume"),
 
+    # L3A session contract (language-agnostic TUI/desktop client surface)
+    ("POST", "/api/v2/l3a/sessions",                            "l4.api_handlers.api_handlers_l3a.handle_l3a_session_create",   "Create an L3A session"),
+    ("GET",  "/api/v2/l3a/sessions",                            "l4.api_handlers.api_handlers_l3a.handle_l3a_session_list",     "List active L3A sessions"),
+    ("GET",  "/api/v2/l3a/sessions/{session_id}",               "l4.api_handlers.api_handlers_l3a.handle_l3a_session_get",       "L3A session detail (info + todos)"),
+    ("GET",  "/api/v2/l3a/sessions/{session_id}/messages",      "l4.api_handlers.api_handlers_l3a.handle_l3a_session_messages",  "Cursor-paged session message history"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/send",          "l4.api_handlers.api_handlers_l3a.handle_l3a_session_send",      "Send intent / continue a session"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/close",         "l4.api_handlers.api_handlers_l3a.handle_l3a_session_close",     "Close and archive a session"),
+    ("POST", "/api/v2/l3a/sessions/{session_id}/compress",      "l4.api_handlers.api_handlers_l3a.handle_l3a_session_compress",  "Compress session history"),
+
     # Agent config
     ("GET", "/api/v2/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_get",  "Get agent config (roles, clearance, priority, role_map)"),
     ("PUT", "/api/v2/agents/config",   "l4.api_handlers.api_handlers_agent.handle_agent_config_set",  "Update agent config at runtime"),
@@ -240,6 +249,20 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/v2/credentials",        ".credential_status",  "Credential vault status"),
     ("POST", "/api/v2/credentials",       ".credential_set",     "Set credential"),
     ("DELETE", "/api/v2/credentials",     ".credential_delete",  "Delete credential"),
+
+    # Auth (token lifecycle — frontend login state contract)
+    ("POST", "/api/v2/auth/login",    "l4.api_handlers.api_handlers_auth.handle_auth_login",    "Issue an auth token for an identity"),
+    ("POST", "/api/v2/auth/logout",   "l4.api_handlers.api_handlers_auth.handle_auth_logout",   "Revoke an auth token"),
+    ("POST", "/api/v2/auth/refresh",  "l4.api_handlers.api_handlers_auth.handle_auth_refresh",  "Exchange a valid token for a new one"),
+
+    # WebSocket bridge discovery
+    ("GET", "/api/v2/ws", "l4.ws.ws_bridge.handle_ws_info", "WebSocket bridge connection info"),
+
+    # FS (FilesystemPort contract — frontend file tree)
+    ("GET",  "/api/v2/fs/tree",    "l4.api_handlers.api_handlers_fs.handle_fs_tree",     "List a directory tree"),
+    ("GET",  "/api/v2/fs/read",    "l4.api_handlers.api_handlers_fs.handle_fs_read",     "Read a file"),
+    ("POST", "/api/v2/fs/watch",   "l4.api_handlers.api_handlers_fs.handle_fs_watch",    "Watch a directory for changes"),
+    ("POST", "/api/v2/fs/unwatch", "l4.api_handlers.api_handlers_fs.handle_fs_unwatch",  "Stop watching a directory"),
 
     # Bootstrap
     ("GET", "/api/v2/bootstrap/status",   ".bootstrap_status",   "Check if bootstrap needed"),

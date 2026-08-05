@@ -99,9 +99,19 @@ class CentralSecurity:
         except Exception as e:
             verdict.add_gate("gatechain", True, f"gatechain unavailable: {e}")
 
-        # 3. Auth (user token) — skip, no verify_token method on AuthService
+        # 3. Auth (user token) — verify via the auth port when a token is present
         if user_token:
-            verdict.add_gate("auth", False, "auth verify_token not implemented", score=0.5)
+            try:
+                from l1.kernel.ports import get_port as _gp2
+
+                auth = _gp2("auth")
+                v = auth.verify_token(user_token)
+                auth_ok = bool(v.get("valid"))
+                detail = v.get("error", "valid") if not auth_ok else "valid"
+            except Exception as e:
+                auth_ok = False
+                detail = f"auth unavailable: {e}"
+            verdict.add_gate("auth", auth_ok, detail, score=0.5 if not auth_ok else 0)
 
         # 4. Identity / clearance
         try:

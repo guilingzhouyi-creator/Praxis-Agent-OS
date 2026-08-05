@@ -1,4 +1,4 @@
-"""LifecycleHooks — composable turn-level hooks for AgentLoop.
+﻿"""LifecycleHooks 鈥?composable turn-level hooks for AgentLoop.
 
 Pattern: HookChain composes multiple hooks into one, fanning out each method.
 Each hook has clear PERMANENT vs. EPHEMERAL mutation semantics.
@@ -48,7 +48,7 @@ class LifecycleHooks:
         return None
 
     def turn_complete(self, result: dict, elapsed: float) -> None:
-        """Unconditional terminal — always called, even on error."""
+        """Unconditional terminal 鈥?always called, even on error."""
         pass
 
     def on_error(self, error: str) -> None:
@@ -56,6 +56,41 @@ class LifecycleHooks:
 
     def session_end(self, result: dict) -> None:
         pass
+
+
+class EventEmitHook(LifecycleHooks):
+    """Observation hook that mirrors turn/error/session events onto the bus.
+
+    Composable via HookChain: add to the chain at boot so frontends can
+    visualize agent loop activity without polling.
+    """
+
+    def turn_complete(self, result: dict, elapsed: float) -> None:
+        """Emit agent.turn_complete with the turn result."""
+        try:
+            from l1.kernel import get_event_bus
+
+            get_event_bus().emit_event("agent.turn_complete", {"result": result, "elapsed": elapsed}, source="hook")
+        except Exception:
+            logger.debug("hook: turn_complete emit failed")
+
+    def on_error(self, error: str) -> None:
+        """Emit agent.loop_error with the error text."""
+        try:
+            from l1.kernel import get_event_bus
+
+            get_event_bus().emit_event("agent.loop_error", {"error": error}, source="hook")
+        except Exception:
+            logger.debug("hook: on_error emit failed")
+
+    def session_end(self, result: dict) -> None:
+        """Emit agent.session_end with the final result."""
+        try:
+            from l1.kernel import get_event_bus
+
+            get_event_bus().emit_event("agent.session_end", {"result": result}, source="hook")
+        except Exception:
+            logger.debug("hook: session_end emit failed")
 
 
 class HookChain(LifecycleHooks):
@@ -125,7 +160,7 @@ class HookChain(LifecycleHooks):
         self._chain("session_end", (result,))
 
 
-# ── Built-in hook implementations ──
+# 鈹€鈹€ Built-in hook implementations 鈹€鈹€
 
 
 class SkillCatalogHook(LifecycleHooks):
@@ -157,7 +192,7 @@ class SkillCatalogHook(LifecycleHooks):
             if auto_builtin:
                 # Built-in (read-only) skills take priority in the catalog.
                 skills.sort(key=lambda s: (not s.get("builtin"), s.get("loaded_at", 0.0)))
-            # E2: constitutional gate at session-injection time — a skill
+            # E2: constitutional gate at session-injection time 鈥?a skill
             # whose use is blocked by the constitution is not injected
             # (defensive layer on top of the load-time check).
             try:
@@ -182,7 +217,7 @@ class SkillCatalogHook(LifecycleHooks):
 
 
 class CadenceHook(LifecycleHooks):
-    """Edit-then-verify nudging — detects edits without follow-up checks."""
+    """Edit-then-verify nudging 鈥?detects edits without follow-up checks."""
 
     def __init__(self):
         self._edited: set[str] = set()
@@ -217,3 +252,4 @@ class StatusReminderHook(LifecycleHooks):
                      "synthetic": True}
         messages.append(reminder)
         return messages
+

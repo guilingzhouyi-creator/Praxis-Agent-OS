@@ -125,6 +125,15 @@ class ApprovalGate(PersistableMixin):
             self._requests[ar.id] = ar
             self._persist()
         logger.info("approval required: %s calls %s by %s", ar.id, tool_name, agent_id)
+        # Frontend notification chain: approval needed
+        try:
+            from l1.kernel import emit_signal
+
+            emit_signal("APPROVAL_REQUIRED", sender="approval_gate",
+                        target="cell", data={"req_id": ar.id, "tool_name": tool_name,
+                                             "agent_id": agent_id, "reason": reason})
+        except Exception:
+            logger.debug("approval_gate: APPROVAL_REQUIRED emit failed")
         return ar
 
     def respond(self, req_id: str, approved: bool, response: str = "") -> dict:
@@ -140,6 +149,16 @@ class ApprovalGate(PersistableMixin):
             else:
                 ar.reject(response)
             self._persist()
+        # Frontend notification chain: approval response committed
+        try:
+            from l1.kernel import emit_signal
+
+            emit_signal("APPROVAL_RESPONDED", sender="approval_gate",
+                        target="cell", data={"req_id": req_id, "approved": approved,
+                                             "response": response,
+                                             "status": ar.status})
+        except Exception:
+            logger.debug("approval_gate: APPROVAL_RESPONDED emit failed")
         return {"success": True, "status": ar.status}
 
     def list_pending(self) -> list[dict]:
