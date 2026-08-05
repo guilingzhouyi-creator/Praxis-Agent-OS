@@ -103,6 +103,34 @@ def _cmd_archive_store(fonds: str, series: str, content: str, tags: str = "") ->
         return {"success": False, "error": str(e)}
 
 
+def _cmd_archive_store_batch(rows: list[tuple[str, str, str, str]]) -> dict:
+    """Bulk-insert archive entries in one transaction (executemany).
+
+    Args:
+        rows: list of (fonds, series, content, tags).
+
+    Prefer this over calling ``_cmd_archive_store`` per entry when archiving
+    many records (e.g. shutdown Ring-3 export) — a single commit instead of
+    N commits avoids SQLite fsync overhead per row.
+    """
+    if not rows:
+        return {"success": True, "inserted": 0}
+    try:
+        conn = _get_db()
+        _purge_expired()
+        now = time.time()
+        data = [(_normalize_fonds(f), s, c, t, now, now) for f, s, c, t in rows]
+        conn.executemany(
+            "INSERT INTO archive (fonds, series, content, tags, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?)",
+            data,
+        )
+        conn.commit()
+        return {"success": True, "inserted": len(data)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def archive_store(args: dict, agent_id: str) -> dict:
     return _cmd_archive_store(
         fonds=args.get("fonds", "default"),

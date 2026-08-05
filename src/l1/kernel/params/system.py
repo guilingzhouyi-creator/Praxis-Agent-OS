@@ -250,7 +250,7 @@ SESSION_TIMEOUT: Final[float] = 3600.0
 
 
 # ── Version ──
-KERNEL_VERSION: Final[str] = "0.4.0"
+KERNEL_VERSION: Final[str] = "0.4.1"
 PRAXIS_CODENAME: Final[str] = "Aether"
 
 

@@ -241,6 +241,22 @@ class MemoryManager:
         return {"success": True, "entry_id": new_id,
                 "from_ring": source_ring, "to_ring": target_ring}
 
+    def get_entry(self, entry_id: str) -> MemEntry | None:
+        """Look up a single entry by id across all rings (early-exit scan).
+
+        Preferred over ``recall(limit=N)`` + ``next(...)`` when only one entry
+        is needed — this avoids building/sorting the full result list.
+        """
+        if not entry_id:
+            return None
+        for ring_num in (1, 2, 3):
+            layer = self._ring(ring_num)
+            with layer._lock:
+                for e in layer._entries:
+                    if e.id == entry_id:
+                        return e
+        return None
+
     def recall(self, agent_id: str | None = None, entry_type: str | None = None,
                tag: str | None = None, rings: list[int] | None = None,
                limit: int = 20, cell_id: str | None = None,

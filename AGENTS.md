@@ -1,4 +1,4 @@
-# Praxis — Agent OS (v0.4.0 "Aether")
+# Praxis — Agent OS (v0.4.1 "Aether")
 
 Python 3.11+ Agent OS for orchestrating LLM-based agents. Five-layer architecture from bare-metal kernel to user CLI.
 
@@ -141,6 +141,7 @@ Key conventions:
 - **Semi-finished work never enters mainline** — commit it or branch it; never leave in-flight refactors in the working tree.
 - **Open `feature/*` branches** for multi-Phase features, shared-module refactors, risky changes, or parallel agent work.
 - **Double-green merge rule**: feature branch tests pass AND main tests pass → merge with `--no-ff`; discard = proposal rejected.
+- **Keep merged branches for traceability**: after a `feature/*` branch is merged, DO NOT delete it. Retaining the branch (and its tip commit) lets a later review agent trace the full proposal — its commit series, decisions, and evolution — back from mainline. Delete only branches whose work was rejected, or after the review trail is no longer needed (e.g. archived in `docs/design/archive/reviews/`). If a branch was already deleted, its tip commit still exists in the object store — recover with `git branch <name> <tip-sha>` (visible via `git reflog`/`git log` of the merge commit) rather than treating it as lost.
 - Check `git stash list` after interrupted commands (killed shells skip `git stash pop`).
 
 ## Parallel collaboration (see `docs/workflow/collaboration.md`)
@@ -154,6 +155,28 @@ Key conventions:
   - **Always `git status` before `git checkout`/`git switch`**: uncommitted changes must be committed, stashed, or committed as WIP first — never switch branches with a dirty tree.
   - If dirty changes are found on the wrong branch, `git checkout <their-branch>` first so they follow back home, then commit/stash.
   - Clean up after merging: `git worktree remove <path>`; `git worktree list` shows all checkouts.
+
+## Contract versioning (after the first branching milestone)
+
+The first multi-agent branch confluence (2026-08: `feature/api-v2-prefix` +
+`feature/skills-builtin-generalize` merged same-day) established the rules
+below — treat them as load-bearing once any external consumer exists:
+
+- **API contracts are versioned, not edited in place**: all HTTP routes live
+  under `/api/v2/` (see `src/l4/api/api_routes.py`); breaking path changes
+  require a new version segment (`/api/v3/`) plus an entry in the endpoint
+  manifest (`src/l4/api/api_endpoints.py`). `_strip_version` already makes
+  classification version-agnostic.
+- **Path naming is enforced**: kebab-case segments, `{param}` placeholders
+  whose names mirror handler keyword args (no generic `id`), no trailing-slash
+  parameter style. `validate()` in `api_endpoints.py` rejects violations —
+  run `python -m l4.api.api_endpoints` before pushing API changes.
+- **The manifest is the single source of truth**: register new endpoints via
+  `register_endpoint()` / `register_domain()` / `register_group()`; never
+  hand-edit `API_ROUTES` for classification purposes.
+- **Version bumps are atomic**: bump `pyproject.toml` version + `AGENTS.md`
+  header + `docs/` SOC references in one commit; use patch for contract-safe
+  additions, minor for API/behavior changes.
 
 ## Testing quirks
 

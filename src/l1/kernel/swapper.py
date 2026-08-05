@@ -89,9 +89,9 @@ class Swapper:
         if not self._mem:
             return {"success": False, "error": "no memory service"}
         try:
-            # Find the entry across rings via ID lookup (use generous limit to avoid truncation)
-            ring3_entries = self._mem.recall(rings=[3], limit=SWAPPER_RECALL_LIMIT)
-            entry = next((e for e in ring3_entries if e.id == entry_id), None)
+            # Directed id lookup (early-exit scan) — avoids building/sorting
+            # the full recall list just to find one entry.
+            entry = self._mem.get_entry(entry_id)
             if not entry:
                 return {"success": False, "error": f"entry not found: {entry_id}"}
 

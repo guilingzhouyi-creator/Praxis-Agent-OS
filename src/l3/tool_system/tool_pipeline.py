@@ -20,6 +20,7 @@ from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1
 from l1.kernel.params.kernel import RING_2_5, RING_NUM_MAP
 from l1.kernel.params.system import LOG_TRUNC_200
+from l1.kernel.params.tool import TOOL_PIPELINE_RECORD_STEPS
 from l1.kernel.tool_chain import get_tool_chain
 from l3.bus.reference_channel import get_rc as _get_rc
 from l3.card.approval_gate import get_gate as _get_approval_gate
@@ -32,6 +33,17 @@ from .tool_spec import ToolSpec as _ToolSpec
 from .tool_spec import execute_tool_spec as _execute_tool_spec
 
 logger = logging.getLogger(__name__)
+
+
+class _DiscardSteps(list):
+    """A list that drops appended items — used when step tracing is off.
+
+    Keeps the ``result["steps"]`` API shape (error paths still reference it)
+    while avoiding per-phase dict accumulation on the hot path.
+    """
+
+    def append(self, item: Any) -> None:  # type: ignore[override]
+        pass
 
 
 class ToolPipeline:
@@ -143,9 +155,12 @@ class ToolPipeline:
         tool_danger = spec.danger if spec else 0
         call_id = chain.start(tool_name, agent_id, ring=tool_ring_num,
                                parent_id=_parent_call_id)
+        # Step tracing toggle — off skips per-phase gate traces on the hot path.
+        record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
         result: dict[str, Any] = {"tool": tool_name, "agent": agent_id,
                                    "ring": tool_ring_str, "danger": tool_danger,
-                                   "steps": [], "call_id": call_id}
+                                   "steps": [] if record_steps else _DiscardSteps(),
+                                   "call_id": call_id}
 
         # 1. Validate tool exists
         if not _registry and not _executor:

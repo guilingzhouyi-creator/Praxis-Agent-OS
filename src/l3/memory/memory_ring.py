@@ -145,7 +145,10 @@ class RingLayer:
     def summarize(self, agent_id: str) -> str:
         """Return a text summary of recent entries for an agent."""
         with self._lock:
-            entries = [e for e in self._entries if e.agent_id == agent_id and not e.expired()]
+            # Use the agent reverse index (O(1) lookup) instead of a full
+            # scan of _entries — cheap for hot summarize calls.
+            candidates = self._agent_index.get(agent_id, [])
+            entries = [e for e in candidates if not e.expired()]
         if not entries:
             return ""
         return "\n".join(f"[{e.entry_type}] {e.content[:LOG_TRUNC_200]}" for e in entries[-10:])

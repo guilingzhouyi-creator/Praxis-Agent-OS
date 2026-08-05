@@ -25,26 +25,31 @@ def archive_ring3(mem: Any) -> int:
     Called by shutdown_to_memories() during system shutdown.
     Each qualifying entry becomes an Archive entry under AGENT:{agent_id}/ entry_type.
 
+    Uses a single batched transaction (executemany) instead of per-entry
+    commits — shutdown export of a large Ring 3 avoids N fsyncs.
+
     Returns:
         Number of entries archived.
     """
-    from l3.tools._archive import _cmd_archive_store
+    from l3.tools._archive import _cmd_archive_store_batch
 
     entries = mem.long.to_dict()
-    count = 0
+    rows: list[tuple[str, str, str, str]] = []
     for e in entries:
         if e.get("importance", 0) >= ARCHIVE_IMPORTANCE_THRESHOLD:
             fonds, series = _classify(e)
-            r = _cmd_archive_store(
-                fonds=fonds,
-                series=series,
-                content=e.get("content", ""),
-                tags=",".join(str(t) for t in (e.get("tags") or [])),
-            )
-            if r.get("success"):
-                count += 1
+            rows.append((
+                fonds,
+                series,
+                e.get("content", ""),
+                ",".join(str(t) for t in (e.get("tags") or [])),
+            ))
+    if not rows:
+        return 0
+    r = _cmd_archive_store_batch(rows)
+    count = r.get("inserted", 0) if r.get("success") else 0
     if count > 0:
-        logger.info("archive_orchestrator: archived %d Ring 3 entries", count)
+        logger.info("archive_orchestrator: archived %d Ring 3 entries (batched)", count)
     return count
 
 

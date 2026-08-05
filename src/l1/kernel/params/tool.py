@@ -78,6 +78,10 @@ TOOL_MEMORY_RECALL_LARGE: Final[int] = 500
 TOOL_FILE_LOCK_TTL: Final[float] = 300.0
 TOOL_AGENT_COORD_TIMEOUT: Final[float] = 60.0
 TOOL_L3_LIST_LIMIT: Final[int] = 50
+# When False, ToolPipeline skips accumulating per-phase gate traces (steps)
+# — a hot-path win for high-throughput tool calls; error paths still include
+# the steps list (empty) for API compatibility.
+TOOL_PIPELINE_RECORD_STEPS: Final[bool] = True
 
 
 # ── HTN Planner ──
