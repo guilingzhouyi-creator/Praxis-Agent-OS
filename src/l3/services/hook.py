@@ -1,4 +1,4 @@
-﻿"""LifecycleHooks 鈥?composable turn-level hooks for AgentLoop.
+"""LifecycleHooks 鈥?composable turn-level hooks for AgentLoop.
 
 Pattern: HookChain composes multiple hooks into one, fanning out each method.
 Each hook has clear PERMANENT vs. EPHEMERAL mutation semantics.

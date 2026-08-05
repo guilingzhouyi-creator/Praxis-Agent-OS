@@ -1,4 +1,4 @@
-﻿"""AgentLoop 鈥?LLM tool calling with loop detection, retry, and parallel tools.
+"""AgentLoop 鈥?LLM tool calling with loop detection, retry, and parallel tools.
 
 Architecture:
   AgentLoop reads a Card, calls LLM in a loop, executes tools returned
@@ -929,7 +929,7 @@ class AgentLoop:
                 logger.info("consistency issue: %s", cc.get("conflicts", []))
 
         # 鈹€鈹€ Steps-exhausted auto-continuation 鈹€鈹€
-        if (not all_passed and max_steps < _UNLIMITED
+        if (not all_passed and max_steps < AGENT_LOOP_UNLIMITED_STEPS
                 and result.get("finish_reason") in ("max_turns", "stop")):
             from l3.error_bus import error_boundary
             with error_boundary("steps-exhausted continuation failed",

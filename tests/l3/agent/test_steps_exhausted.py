@@ -105,3 +105,33 @@ class TestContextPreservation:
         loop.add_tool("t", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15)
         assert isinstance(r, dict)
+
+
+class TestStepsExhaustedFailurePath:
+    """Regression: the failure path must evaluate the step-limit guard.
+
+    Before the AgentLoop.run() split, ``_UNLIMITED`` was a local variable
+    defined in run(); the split moved its definition into
+    ``_resolve_max_steps`` but left the guard referencing ``_UNLIMITED`` —
+    a NameError on every steps-exhausted failure path. All prior
+    "steps-exhausted" tests only ever had all_passed=True (no failing tool
+    results), so the branch was never reached. Force all_passed=False and
+    assert the branch runs cleanly.
+    """
+
+    def test_failure_path_no_nameerror(self, monkeypatch):
+        from l3.agent.agent_loop import AgentLoop
+        loop = AgentLoop(task="failure path", agent_id="g")
+        fn = lambda a, b: {"success": True}
+        loop.add_tool("t", "T", {}, fn)
+        # Force a failed turn so ``not all_passed`` is True and the
+        # steps-exhausted guard (max_steps < AGENT_LOOP_UNLIMITED_STEPS)
+        # is actually evaluated instead of short-circuited.
+        monkeypatch.setattr(
+            loop, "_process_tool_results",
+            lambda *a, **k: ([{"_loop_stopped": True}], False, 0, False),
+        )
+        r = loop.run(max_steps=1, timeout=10)
+        assert isinstance(r, dict)
+        assert r.get("success") is False or "total_steps" in r
+

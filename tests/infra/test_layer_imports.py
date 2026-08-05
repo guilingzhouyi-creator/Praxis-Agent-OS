@@ -86,6 +86,7 @@ ALLOWLIST = {
     ("l3/config/config_handlers.py", "l4.vault.credential_vault"),
     ("l3/config/config_loader.py", "l4.llm.llm"),
     ("l3/memory/r4_agent.py", "l4.llm.llm"),
+    ("l3/memory/r4_skill_evolution.py", "l4.llm.llm"),
     ("l3/services/adapter_bridge.py", "l4.cron_scheduler"),
     ("l3/services/adapter_bridge.py", "l4.llm.llm"),
     ("l3/services/adapter_bridge.py", "l4.mcp_bridge"),
