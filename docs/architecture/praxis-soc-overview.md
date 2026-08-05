@@ -959,6 +959,9 @@ Not started:      ~3%  (L3A profiling, desktops, VSCode extension, multi-cluster
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │ 12. StatsCenter       (stats_center.py, 341L)  — Cross-Cell Metric Agg  │ │
 │ │     ingest / query / top / SSE / PMU snapshot + CentralCollector srcs    │ │
+│ ├──────────────────────────────────────────────────────────────────────────┤ │
+│ │ 13. UserProfile       (user_profile.py)  — User-model side-channel      │ │
+│ │     typed per-user entries, rule refiner, R4 archive, /api/v2/profile*   │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

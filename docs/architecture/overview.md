@@ -294,17 +294,20 @@ L1 → cannot import any upper layer
 
 Enforced by `tests/test_layer_imports.py`. 53 pre-existing cross-layer imports are explicitly allowlisted (adapter patterns, LLM calls, OS fallback lifecycle paths).
 
-## Memory Side-Channels (Mer / R5 / Injection)
+## Memory & User Side-Channels (Mer / R5 / Profile / Injection)
 
-Independent memory transformations that do not alter the main R1-R4 flow:
+Independent transformations that do not alter the main R1-R4 flow — all
+bypass side-channels: on error they degrade to a no-op, originals stay
+intact:
 
 | Channel | Module | Function | Toggle |
 |---------|--------|----------|--------|
 | **Mer symbolization** | `memory_mer.py` | Periodically aggregates high-value R1-R3 entries across scopes (Cells + L3A), renders a swarm-domain **Mermaid flowchart** (visualized condensed memory): node shapes encode entry type (decision=diamond, summary/card=round), labels carry importance, R5 semantic edges are solid arrows and within-scope chronological chains are dashed — archives to R4 (`agent-l3a / memory_mer_snapshot`) as audit baseline; driven by the L3A daemon tick. See `docs/architecture/deep-dive/memory.md` §Mer | `memory.mer.enabled` (default off) |
 | **R5 memory graph** | `memory_graph.py` | SQLite `memory_edges` with semantic edges, diffusion recall, LLM extraction | `memory.graph.enabled` (default off) |
+| **User profile** | `l3/services/user_profile.py` | Grows a typed per-user model (preference/domain_focus/decision_style/rejection/habit/correction/trait) from cards, approvals and API ingest; rule-refiner synthesizes traits; R4-archived per user (`fonds=user_profile, series=user_id`); portable export/import; consumed by L3A intent parsing (system-prompt injection + card `_profile_summary`). See `docs/architecture/deep-dive/memory.md` §User Profile | `user_profile.enabled` (default off) |
 | **Task-aware injection** | `memory_inject.py` | Per-task dimension selection (execute→summary, decide→Mer, resume→layered) into agent context | `memory.injection.strategy` (auto) |
 
-All three degrade to the linear fallback on error (zero impact on the main memory path).
+All degrade to the linear fallback on error (zero impact on the main memory path).
 
 Example Mer symbolization (decision diamond + summary round, semantic edge solid, temporal chains dashed):
 
@@ -318,6 +321,27 @@ flowchart LR
     e0 -.->|t| e1
     end
 ```
+
+## System-Prompt Injection (user-configurable)
+
+Agent system prompts are assembled from a base template plus **injectable
+domains** — each gated by a `prompt.inject.<domain>` setting, toggleable at
+runtime via SettingsCenter (`/api/v2/settings`). All default **on**
+(keeping current behavior); set any to `false` to strip that block
+globally. `l1.kernel.settings.inject_enabled()` falls back to enabled on
+any settings failure so safety context is never stripped silently.
+
+| Domain | Block appended | Gated in |
+|--------|----------------|----------|
+| `profile` | `[User Profile Reference]` (preferences + traits) | `l3a/helpers.py` (L3A prompts + card `_profile_summary`) |
+| `constitution` | constitution summary | `agent/agent_loop.py` |
+| `skills` | evolved skills + lean failure cases | `agent/agent_loop.py` |
+| `verification` | verification culture | `agent/agent_loop.py` |
+| `memory` | task-aware memory context | `agent/_term_handlers.py` |
+
+Note: the L3A `l3a.parse_system` template is a fallback — `AgentLoop` uses
+the injected `system` argument first (`if self._system`), so the profile
+injection targets the live `l3a.agentloop_system` domain.
 
 ## Structured Diff System (Sandbox)
 The sandbox provides copy-on-write isolation for Agent file operations with structured diff tracking.

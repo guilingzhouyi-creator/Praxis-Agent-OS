@@ -377,3 +377,68 @@ memory:
 Runtime: SettingsCenter `memory.mer.enabled`; API: `/api/memory/mer/status`,
 `/api/memory/mer/set`, `/api/memory/mer/transform`. Monitor-bus event:
 `stats.memory.mer.transform` (entries/edges/archive_ref).
+
+## User Profile: the user-model side-channel
+
+`l3/services/user_profile.py` — a **bypass** side-channel that grows a
+typed, per-user model of preferences and decision patterns, feeding L3A
+intent parsing and central (L3A) decisions. Same philosophy as Mer: it
+never mutates the main memory/card flow; on error it degrades to a no-op.
+
+### Data flow
+
+```
+User interaction (cards, approvals, sessions, API ingest)
+    │  collectors (event bus: APPROVAL_RESPONDED → decision_style,
+    │               CARD_PENDING → domain_focus) + explicit ingest
+    ▼
+ProfileStore (per-user typed entries, confidence, TTL, decay loop)
+    │  refiner (rule-based frequency synthesis → trait entries;
+    │           LLM slot reserved, always degrades)
+    ├─ R4 archive (fonds=user_profile, series=user_id) — portable
+    ├─ export/import (JSON, source rewritten to "import")
+    └─ port "profile" (any service may query)
+    ▼
+Consumers: L3A system prompt ([User Profile Reference]) + card columns
+           (_profile_summary) — both gated by prompt.inject.profile
+```
+
+### Entry kinds (extensible registry)
+
+| Kind | Meaning | Typical source |
+|------|---------|----------------|
+| `preference` | established style (concise, language, tools) | session/API |
+| `domain_focus` | frequent working domains | CARD_PENDING |
+| `decision_style` | approve/reject tendency | APPROVAL_RESPONDED |
+| `rejection` | explicitly declined things | ingest |
+| `habit` | recurring patterns | ingest |
+| `correction` | what the user fixed | ingest |
+| `trait` | refined synthesis (LLM/rule) | refiner |
+| `custom` | extension point | ingest |
+
+### Lifecycle
+
+- **Cap**: `PROFILE_MAX_ENTRIES_PER_USER` (500), oldest evicted.
+- **TTL/decay**: entries carry `expires_at` (default 90d); a decay loop
+  purges expired entries and weakens stale confidence each
+  `PROFILE_DECAY_INTERVAL`.
+- **Refinement**: `refine()` needs ≥ `PROFILE_REFINE_MIN_ENTRIES` raw
+  entries, folds the top `PROFILE_REFINE_MAX_RAW`, emits a `trait` entry.
+- **Portability**: export/import round-trip; archived per user to R4.
+
+### Switch & config
+
+```yaml
+# config/praxis.yaml
+user_profile:
+  enabled: false          # default off = zero impact
+
+prompt:
+  inject:
+    profile: true         # gate the L3A system-prompt injection
+```
+
+Runtime: SettingsCenter `user_profile.enabled`; API `/api/v2/profile*`
+(list/get/ingest/refine/export/import/clear); port `"profile"`.
+Monitor-bus events: `stats.user_profile.updated` / `.switch` / `.refined`
+/ `.decay`.

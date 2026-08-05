@@ -486,7 +486,22 @@ praxis/
 | ICache | `ICACHE_MAX_ENTRIES=500`, `ICACHE_TTL=3600.0`, `ICACHE_LFU_DECAY=0.95` |
 | Interrupt | `IRQ_TABLE_SIZE=32`, `IRQ_PRIORITY_LEVELS=4` |
 | Stats | `STATS_BUCKET_SIZE=600`, `STATS_HISTORY_BUCKETS=144` |
+| User Profile | `PROFILE_KINDS` (8 kinds), `PROFILE_MAX_ENTRIES_PER_USER=500`, `PROFILE_ENTRY_TTL_DEFAULT=90d`, `PROFILE_REFINE_MIN_ENTRIES=5`, `PROFILE_FONDS="user_profile"`, `PROFILE_EMIT_EVENT` |
 | Version | `KERNEL_VERSION="0.4.1"`, `PRAXIS_CODENAME="Aether"` |
+
+### Settings keys (system-prompt injection)
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `prompt.inject.profile` | true | `[User Profile Reference]` in L3A prompts + card columns |
+| `prompt.inject.constitution` | true | constitution summary in every agent loop |
+| `prompt.inject.skills` | true | evolved skills + lean failure cases |
+| `prompt.inject.verification` | true | verification culture block |
+| `prompt.inject.memory` | true | task-aware memory context |
+| `user_profile.enabled` | false | user profile side-channel master switch |
+
+All toggled at runtime via SettingsCenter (`/api/v2/settings`);
+`l1.kernel.settings.inject_enabled(domain)` falls back to enabled on error.
 | Sandbox | `SANDBOX_PROFILE_READ_ONLY`, `SANDBOX_EXEC_TIMEOUT=300`, `SANDBOX_MAX_OUTPUT=5000`, `SANDBOX_STATE_AUTO_SAVE`, `SANDBOX_STATE_TEMPLATE`, `HASH_TRUNC_LONG=16` |
 | Vault | `VAULT_AES_KEY`, `VAULT_MAX_PROVIDERS`, `VAULT_DEFAULT_TTL` |
 | Supervisor | `SUPERVISOR_RESTART_DELAY=5.0`, `SUPERVISOR_MAX_RESTARTS=3` |
