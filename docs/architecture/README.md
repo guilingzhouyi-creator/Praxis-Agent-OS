@@ -6,6 +6,66 @@ boundaries, module inventory, core mechanisms, and contract surfaces.
 > **Numbers below are generated** — run `python scripts/gen-doc-stats.py`
 > to refresh; never hand-edit them.
 
+## System overview
+
+```mermaid
+flowchart TB
+    subgraph L5["L5 User"]
+        CLI["cli.py / main.py"]
+        TUI["TUI (contract-ready, not yet built)"]
+    end
+    subgraph L4["L4 Bridge"]
+        GW["API gateway 263 routes /api/v2/"]
+        SSE["SSE /api/events"]
+        WS["WS bridge :8081 subscribe/rpc"]
+        RPC["RPC server :42110"]
+        LLM["LLM engine + providers"]
+        AUTH["Auth (AuthPort)"]
+        FS["FS (FilesystemPort)"]
+        SAND["Sandbox"]
+    end
+    subgraph L3["L3 Cell"]
+        L3A["L3A central: sessions / ask / cardwrite"]
+        CARD["Card lifecycle: produce→execute→approve→archive"]
+        MEM["4-ring memory + Mer / R5"]
+        PROF["User profile side-channel"]
+        AGENTS["AgentLoop / Scout / SubAgent / terminals"]
+        BUS["buses / scheduler / services"]
+    end
+    subgraph L2["L2 Shell"]
+        SH["46 commands / i18n / completer"]
+    end
+    subgraph L1["L1 Kernel"]
+        EVT["EventBus"]
+        PROC["ProcessTable"]
+        GATE["GateChain G1-G5"]
+        CONST["Constitution"]
+        PORTS["Ports (12 ABC abstractions)"]
+        PARAMS["params: 889 constants"]
+    end
+
+    CLI --> GW
+    TUI -.->|future| GW
+    GW --> L3A
+    GW --> CARD
+    GW --> MEM
+    GW --> AUTH
+    SSE -.->|events| GW
+    WS -.->|bidirectional| GW
+    RPC -.->|distributed calls| GW
+    L3A -->|cardwrite| CARD
+    L3A -->|profile reference| PROF
+    CARD -->|approval decisions| PROF
+    PROF -->|prompt injection| L3A
+    CARD -->|events| EVT
+    L3A -->|events| EVT
+    AGENTS -->|tool calls| GATE
+    GATE --> CONST
+    GW -->|verify token| AUTH
+    SH -->|intent| L3A
+    SH -->|dict contract| TUI
+```
+
 ## Layer documents
 
 | Layer | Document | Responsibility |

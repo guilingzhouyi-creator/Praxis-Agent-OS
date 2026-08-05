@@ -38,6 +38,41 @@ WS `rpc` routes full API paths to POST handlers (module-path refs only);
 SSE stays the notification bus. Both deliver card/approval events without
 polling (CARD_PENDING / APPROVAL_REQUIRED / APPROVAL_RESPONDED).
 
+```mermaid
+sequenceDiagram
+    participant F as Frontend (TUI/desktop/TS)
+    participant W as WS bridge :8081
+    participant A as API handlers
+    participant B as EventBus
+
+    F->>W: {"type":"subscribe","events":["card.pending","approval.required"]}
+    F->>W: {"type":"rpc","method":"/api/v2/card/submit","params":{...}}
+    W->>A: route to POST handler (dict in)
+    A-->>W: {"type":"rpc.result","method":...,"data":{...}}
+    W-->>F: rpc.result
+    B-->>W: event (CARD_PENDING)
+    W-->>F: {"type":"event","event":"card.pending","data":{...}}
+```
+
+## Auth flow (login state)
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant A as /api/v2/auth/*
+    participant S as AuthService (AuthPort)
+    participant G as GateChain/security gates
+
+    F->>A: POST /auth/login {identity}
+    A->>S: issue_token (HMAC payload + expiry + revocation set)
+    A-->>F: {token, expires_at}
+    F->>A: API calls with token
+    A->>S: verify_token
+    S-->>A: {valid, identity}
+    A->>G: security checks use port "auth" (no stub)
+    F->>A: POST /auth/refresh | /auth/logout (revoke)
+```
+
 ## Auth contract
 
 - `POST /api/v2/auth/login|logout|refresh` — HMAC-signed token lifecycle

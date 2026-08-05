@@ -33,6 +33,29 @@ degrade to no-ops (originals intact):
 | **R5 graph** | `memory_graph.py` | SQLite `memory_edges`; rule + semantic (LLM) edges; diffusion recall; compact/reduce | `memory.graph.enabled` |
 | **User profile** | `l3/services/user_profile.py` | Typed per-user model (preference/domain_focus/decision_style/rejection/habit/correction/trait/custom); collectors (APPROVAL_RESPONDED → decision_style, CARD_PENDING → domain_focus) + ingest API; rule refiner; TTL/decay; R4 per user; portable export/import; consumed by L3A (see `l3a-central.md`) | `user_profile.enabled` |
 
+### Mer data flow (bypass pipeline)
+
+```mermaid
+flowchart LR
+    TICK["L3A daemon tick"] -->|trigger| COLLECT["collect_entries(scope_ids)
+        CentralMemory R1-R3, importance >= threshold,
+        per-scope bounded, across Cells + L3A"]
+    COLLECT -->|entries with _scope/imp/ts| EDGES["collect_edges(node_ids)
+        R5 MemoryGraph edges (only when graph enabled)"]
+    EDGES -->|semantic relations| SYM["to_mermaid(entries, edges)
+        node shapes by entry type, importance labels,
+        semantic edges solid + temporal chains dashed"]
+    COLLECT --> SYM
+    SYM -->|mermaid string| ARCHIVE["archive_to_r4
+        fonds=agent-l3a, series=memory_mer_snapshot"]
+    SYM -->|meta| EVENT["stats.memory.mer.transform event"]
+    ARCHIVE --> R4["R4 archive (audit baseline, disposable)"]
+```
+
+Guarantees: bypass semantics (never mutates the main flow), lossless
+originals (only a rendered condensation is archived), bounded work
+(per-scope caps, max scopes, edge truncation).
+
 ### Mer symbolization example
 
 ```mermaid

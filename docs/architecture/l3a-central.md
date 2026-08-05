@@ -43,6 +43,44 @@ central layer purely over HTTP:
 | `POST /api/v2/l3a/sessions/{id}/compress` | manual history compression |
 | `POST /api/v2/l3a/ask/status` / `ask/answer` | clarification flow |
 
+## Ask flow (secretary requests the will's decision)
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> AWAITING: l3a_ask raises clarifying questions
+    AWAITING --> ANSWERED: user submits answers (chat/API/ask-answer)
+    AWAITING --> EXPIRED: session closed without answers
+    ANSWERED --> IDLE: loop resumes automatically
+    EXPIRED --> [*]
+```
+
+`ask_status()` / `submit_answers()` / `resume_after_ask()` expose the
+state machine; `POST /api/v2/l3a/ask/status|answer` expose it over HTTP.
+
+## Session lifecycle (one will-decision cycle)
+
+```mermaid
+sequenceDiagram
+    participant U as User (will)
+    participant A as L3A central
+    participant C as Card registry
+    participant X as Cell/agents
+
+    U->>A: intent (chat/API/WS)
+    A->>A: session.prompt -> inbox admit/promote
+    A->>A: build system (base + profile reference)
+    A->>C: cardwrite (card + _profile_summary)
+    C->>X: dispatch card
+    X-->>A: card events (TASK_ASSIGN / results)
+    A->>A: task table + history fold (value-weighted)
+    opt ambiguous
+        A->>U: l3a_ask (clarifying questions)
+        U->>A: answers -> resume
+    end
+    A->>C: close -> R4 archive (resume_from_archive later)
+```
+
 ## System prompt (what the central layer knows)
 
 `build_l3a_prompt(user_id)` assembles: role + card types + cardwrite steps

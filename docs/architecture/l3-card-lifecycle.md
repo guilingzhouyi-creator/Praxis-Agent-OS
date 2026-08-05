@@ -27,6 +27,23 @@ PRODUCE ──> EXECUTE ──> APPROVE ──> COMPLETE ──> ARCHIVE
 
 ## 2. Execute — plan, agents, verification
 
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: cardwrite submit
+    DRAFT --> QUEUED: registry.submit
+    QUEUED --> HOLD: approval gate (approval required)
+    HOLD --> QUEUED: approval respond approve
+    HOLD --> CANCELLED: approval respond reject
+    QUEUED --> DISPATCHED: dispatch to cell/agent
+    DISPATCHED --> RUNNING: terminal picks up
+    RUNNING --> COMPLETED: success
+    RUNNING --> FAILED: step failure / timeout
+    RUNNING --> CANCELLED: interrupt / emergency
+    COMPLETED --> [*]: archive + event
+    FAILED --> [*]: archive + retry allowed
+    CANCELLED --> [*]
+```
+
 - **ExecutionPlan** (`execution_plan.py` / `execution_run.py`): phases
   (sequential/parallel), per-step checkpoints (fault_tolerance service),
   step budget (ScopeScheduler). Parallel mode runs each step once.

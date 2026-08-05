@@ -29,6 +29,23 @@ emit_signal / emit_event → EventBus (async thread pool)
    └─ wildcard → WS bridge → subscribed clients (event-type filter)
 ```
 
+```mermaid
+sequenceDiagram
+    participant S as Source (card registry / approval gate / hook)
+    participant B as EventBus
+    participant SSE as SSE bridge
+    participant W as WS bridge
+    participant F as Frontends
+
+    S->>B: emit_signal(TYPE, data)
+    B->>B: history + async dispatch (thread pool)
+    B-->>SSE: on_any broadcast
+    SSE-->>F: SSE /api/events (type filter)
+    B-->>W: on_any broadcast
+    W-->>F: WS event message (subscription filter)
+    B-->>S: typed listeners (e.g. profile collector)
+```
+
 Cards: `EVENT_TASK_ASSIGN` / `TASK_DONE`; approval: `APPROVAL_*`;
 monitor/stats events on the time bus (`stats.*`); hook events
 (`agent.turn_complete` / `loop_error` / `session_end`) from
