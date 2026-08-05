@@ -40,6 +40,8 @@ from l3.services.model_service import get_service as _get_model_service
 
 from .card_unified import CardExecution as _CardExecution
 from .card_unified import CardLifecycle, CardSummary, CardUnified
+from .card_execution_stats import CardExecutionStatsMixin
+from .card_convention import CardConventionMixin
 
 _MODEL_SPEC = "card_planner"
 
@@ -61,7 +63,7 @@ def _card_to_dict(r: CardUnified) -> dict:
     return d
 
 
-class CardRegistry(PersistableMixin):
+class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixin):
     """Central card queue — submit, dispatch, track, list, auto-persisted.
 
     Uses CardUnified as the single card model.
@@ -356,178 +358,11 @@ class CardRegistry(PersistableMixin):
             logger.warning("card %s dispatch failed: %s", cid, e)
             self.complete(cid, error=str(e))
 
-    def _record_card_executions(self, card_id: str, cell_id: str,
-                                cell_elapsed: float, result: dict) -> None:
-        """Attach per-executor wall-time to the card record.
 
-        Granularity:
-          one cell-level entry (executor == cell_id)
-          one entry per Peer Agent step (from ExecutionPlan step results)
-        """
-        with self._lock:
-            rec = self._cards.get(card_id)
-            if not rec:
-                return
-            now = time.time()
-            rec.executions.append(_CardExecution(
-                executor=cell_id, cell_id=cell_id, phase="cell",
-                started_at=now - cell_elapsed, finished_at=now,
-                elapsed=cell_elapsed,
-                success=bool(result and result.get("success")),
-            ))
-            seen: dict[str, float] = {}
-            steps = (result or {}).get("steps", []) or []
-            if not steps and result:
-                steps = result.get("results", []) or []
-            for st in steps:
-                if not isinstance(st, dict):
-                    continue
-                aid = st.get("agent_id", "")
-                if not aid:
-                    continue
-                el = float(st.get("elapsed", 0) or 0)
-                if aid in seen:
-                    seen[aid] += el
-                    continue
-                seen[aid] = el
-            rec.executions.append(_CardExecution(
-                    executor=aid, cell_id=cell_id,
-                    phase=st.get("phase", "step"),
-                    started_at=now - cell_elapsed, finished_at=now,
-                    elapsed=el, success=bool(st.get("success")),
-                ))
-
-    def _expose_card_execution(self, card_id: str, cell_id: str,
-                               cell_elapsed: float, result: dict) -> None:
-        """Publish card end-to-end timing to monitoring + statistics centers."""
-        try:
-            rec = self._cards.get(card_id)
-            total = 0.0
-            if rec and rec.timestamps.completed_at and rec.timestamps.created_at:
-                total = round(rec.timestamps.completed_at - rec.timestamps.created_at, 3)
-        except Exception:
-            total = 0.0
-        agents = {}
-        for e in getattr(rec, "executions", []) or []:
-            if e.executor and e.executor != cell_id:
-                agents[e.executor] = agents.get(e.executor, 0.0) + e.elapsed
-        try:
-            from l3.bus.monitor_bus import MonitorEvent as _ME5
-            from l3.bus.monitor_bus import get_bus as _MB5
-            _MB5().emit(_ME5(
-                type="stats.card.execution", source="card_registry",
-                severity="info",
-                message=f"{card_id} cell={cell_id} {cell_elapsed}s agents={len(agents)}",
-                card_id=card_id, cell_id=cell_id,
-                data={"card_id": card_id, "cell_id": cell_id,
-                      "cell_elapsed": cell_elapsed,
-                      "total_elapsed": total,
-                      "agents": agents,
-                      "success": bool(result and result.get("success"))}))
-        except Exception:
-            logger.debug("card_registry: monitor emit failed")
-        try:
-            from l3.services.stats_center import MetricPoint as _MP5
-            from l3.services.stats_center import get_center as _SC5
-            _ts = time.time()
-            _tags = {"card": card_id, "cell": cell_id}
-            _SC5().ingest(_MP5(name="card.execution.total", value=total,
-                               tags=_tags, timestamp=_ts, metric_type="gauge"))
-            _SC5().ingest(_MP5(name="card.execution.cell", value=cell_elapsed,
-                               tags=_tags, timestamp=_ts, metric_type="gauge"))
-            for aid, el in agents.items():
-                _SC5().ingest(_MP5(name="card.execution.agent", value=round(el, 3),
-                                   tags={"card": card_id, "cell": cell_id, "agent": aid},
-                                   timestamp=_ts, metric_type="gauge"))
-        except Exception:
-            logger.debug("card_registry: stats emit failed")
 
     # ── Assembly CONFERENCE routing ──
 
-    def _route_to_convention(self, card_id: str, intent: str,
-                             domain: str) -> None:
-        """Route a card to ConventionProtocol instead of direct Cell dispatch.
 
-        Creates an IssueCard linked to the source card, convenes the Cell's
-        peer agents, and holds the source card until convergence completes
-        (close_convention() completes it via source_card_id).
-        """
-        resolver = self._cell_resolver
-        if not resolver:
-            logger.warning("card %s: no cell resolver for convention", card_id)
-            self.complete(card_id, error="no cell resolver for convention")
-            return
-        cell_id = ""
-        try:
-            cell_id = next(iter(self._cell_map.keys())) if self._cell_map else ""
-            cell = resolver(cell_id)
-        except Exception as e:
-            logger.warning("card %s: convention cell resolve failed: %s", card_id, e)
-            self.complete(card_id, error=f"convention cell resolve failed: {e}")
-            return
-
-        try:
-            from l3.card.issue import IssueCard, get_table
-            issue = IssueCard(title=intent, intent=intent, domain=domain)
-            issue.agent_ids = list(cell._agents.keys())
-            issue.cell_id = cell.cell_id
-            issue.source_card_id = card_id
-            get_table().submit(issue)
-
-            from l3.cell.components.cell_convention import convene
-            conv_r = convene(cell, issue)
-            with self._lock:
-                rec = self._cards.get(card_id)
-                if rec:
-                    rec.summary.columns["_issue_card_id"] = issue.id
-            self.hold_card(card_id)
-            logger.info("card %s routed to convention %s (%d agents)",
-                        card_id, issue.id, len(issue.agent_ids))
-        except Exception as e:
-            logger.warning("card %s convention start failed: %s", card_id, e)
-            self.complete(card_id, error=f"convention start failed: {e}")
-
-    def _complete_convention_card(self, issue_card_id: str,
-                                  convergence_doc: str = "") -> None:
-        """Complete the source card after a convention converges.
-
-        Only a bounded summary + file/archive references are injected into
-        the session — the full deliberation .md stays on disk (readable via
-        l3a_convention) to avoid polluting the session context window.
-        """
-        try:
-            from l3.card.issue import get_table
-            issue = get_table().get(issue_card_id)
-        except Exception:
-            issue = None
-        if not issue or not issue.source_card_id:
-            return
-        src = issue.source_card_id
-        with self._lock:
-            rec = self._cards.get(src)
-            if not rec or rec.state == CardLifecycle.COMPLETED:
-                return
-        # Locate persisted doc file for the reference
-        doc_path = ""
-        try:
-            import os as _os
-
-            from l1.kernel.params.agent import CONVENTION_DOC_DIR
-            from l1.kernel.paths import get_paths as _gp
-            doc_path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR,
-                                     f"{issue_card_id}.md")
-            if not _os.path.isfile(doc_path):
-                doc_path = ""
-        except Exception:
-            doc_path = ""
-        self.complete(src, result={
-            "convergence": convergence_doc[:LOG_TRUNC_500],
-            "issue_card_id": issue_card_id,
-            "doc_path": doc_path,
-            "archive_ref": f"CONVENTION:{issue_card_id}",
-        })
-        logger.info("card %s completed after convention %s (doc=%s)",
-                    src, issue_card_id, doc_path or "n/a")
 
     # ── Persistence ──
 
@@ -758,64 +593,7 @@ class CardRegistry(PersistableMixin):
                 "by_state": states,
             }
 
-    def execution_stats(self, limit: int = 20) -> dict:
-        """Card end-to-end timing with per-Cell and per-Peer-Agent breakdown.
 
-        Returns:
-          cards:      per-card total (created→completed) + cell + agent sums
-          by_cell:    aggregated cell wall-time across cards
-          by_agent:   aggregated per-Peer-Agent wall-time across cards
-        """
-        with self._lock:
-            cards = []
-            by_cell: dict[str, dict] = {}
-            by_agent: dict[str, dict] = {}
-            for r in sorted(self._cards.values(),
-                            key=lambda x: x.timestamps.completed_at or 0,
-                            reverse=True):
-                if not r.executions:
-                    continue
-                total = 0.0
-                if r.timestamps.completed_at and r.timestamps.created_at:
-                    total = round(r.timestamps.completed_at - r.timestamps.created_at, 3)
-                cell_t = 0.0
-                agent_t: dict[str, float] = {}
-                for e in r.executions:
-                    if e.executor == e.cell_id:
-                        cell_t += e.elapsed
-                    else:
-                        agent_t[e.executor] = agent_t.get(e.executor, 0.0) + e.elapsed
-                cards.append({
-                    "card_id": r.id,
-                    "state": r.state.value,
-                    "title": r.summary.title[:LOG_TRUNC_80],
-                    "total_elapsed": total,
-                    "cell_elapsed": round(cell_t, 3),
-                    "agents": {k: round(v, 3) for k, v in agent_t.items()},
-                    "executions": [e.to_dict() for e in r.executions],
-                })
-                for e in r.executions:
-                    if e.executor == e.cell_id:
-                        agg = by_cell.setdefault(e.cell_id,
-                                                 {"cards": 0, "elapsed": 0.0})
-                        agg["cards"] += 1
-                        agg["elapsed"] += e.elapsed
-                    else:
-                        agg = by_agent.setdefault(e.executor,
-                                                  {"cards": 0, "elapsed": 0.0})
-                        agg["cards"] += 1
-                        agg["elapsed"] += e.elapsed
-                if len(cards) >= limit:
-                    break
-            return {
-                "cards": cards,
-                "by_cell": {k: {"cards": v["cards"],
-                                "elapsed": round(v["elapsed"], 3)}
-                            for k, v in by_cell.items()},
-                "by_agent": {k: {"cards": v["cards"],
-                                 "elapsed": round(v["elapsed"], 3)}
-                             for k, v in by_agent.items()},
-            }
 
     def _match_cell(self, domain: str) -> str:
         best_cell = ""
