@@ -139,7 +139,7 @@ class AuthService(AuthPort, BaseService):
 
     # 鈹€鈹€ Token lifecycle (AuthPort adapter surface) 鈹€鈹€
 
-    def issue_token(self, identity: str, ttl: float = 0.0) -> dict:
+    def issue_token(self, identity: str, ttl: float = AUTH_TOKEN_TTL_SECONDS) -> dict:
         """Issue a signed auth token for an identity.
 
         Token payload: ``identity|expires_at`` HMAC-SHA256 signed with the
