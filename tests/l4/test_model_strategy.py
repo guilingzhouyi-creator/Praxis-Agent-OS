@@ -132,3 +132,35 @@ class TestRoutes:
         paths = {p for _, p, _, _ in API_ROUTES}
         assert "/api/v2/model-spec/{name}/strategy" in paths
         assert "/api/v2/model-spec/strategy/apply" in paths
+
+
+class TestEffortTiers:
+    def test_xhigh_max_constants(self):
+        from l1.kernel.params.api import (
+            REASONING_EFFORT_HIGH,
+            REASONING_EFFORT_MAX,
+            REASONING_EFFORT_XHIGH,
+            THINK_MAX_REASONING,
+        )
+        assert REASONING_EFFORT_XHIGH == "xhigh"
+        assert REASONING_EFFORT_MAX == "max"
+        assert THINK_MAX_REASONING == REASONING_EFFORT_MAX
+
+    def test_clamp_to_xhigh_ceiling(self):
+        from l3.services.model_service import get_service
+        _setup_strategies()
+        ms = get_service()
+        sc = ms._settings_center()
+        sc.set("model_spec.strategies.xhigh.reasoning_effort", "xhigh")
+        sc.set("think.max_reasoning", "xhigh")
+        ms.apply_strategy("l3a", "xhigh")
+        d = ms.resolve_dict("l3a")
+        assert d["reasoning_effort"] == "xhigh"
+        sc.set("think.max_reasoning", "high")
+        d2 = ms.resolve_dict("l3a")
+        assert d2["reasoning_effort"] == "high"  # clamped down
+        sc.reset("think.max_reasoning")
+        sc.reset("model_spec.l3a.max_tokens")
+        sc.reset("model_spec.l3a.reasoning_effort")
+        sc.reset("model_spec.l3a.thinking_budget")
+        sc.reset("model_spec.l3a.strategy")

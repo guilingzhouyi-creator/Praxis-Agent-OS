@@ -113,8 +113,12 @@ Supported executor spec names and their consumers:
 | `r4_agent` | R4 archive agent (`r4_agent.model_spec`) | 2048 / 0.3 |
 
 Keys per spec: `max_tokens`, `temperature`, `reasoning_effort`
-(`none|low|medium|high`), `thinking_budget` (token budget, 0 = provider
-default). `model` is omitted by default and inherits `llm.model`; set it
+(`none|low|medium|high|xhigh|max` — modern models allocate reasoning tokens
+adaptively server-side; effort is a behavioral signal, not a strict
+budget), `thinking_budget` (legacy token budget, honored only by providers
+that expose it: older Anthropic `budget_tokens`, Gemini `thinkingBudget`;
+filtered out by capability probing on GPT-5.x / Claude Opus 5+ / DeepSeek
+V4). `model` is omitted by default and inherits `llm.model`; set it
 per executor to diverge.
 
 Runtime override (persisted to `.praxis_settings.json`):

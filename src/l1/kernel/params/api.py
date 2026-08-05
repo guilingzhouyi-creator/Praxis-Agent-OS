@@ -65,10 +65,17 @@ REASONING_EFFORT_NONE: Final[str] = "none"
 REASONING_EFFORT_LOW: Final[str] = "low"
 REASONING_EFFORT_MEDIUM: Final[str] = "medium"
 REASONING_EFFORT_HIGH: Final[str] = "high"
+REASONING_EFFORT_XHIGH: Final[str] = "xhigh"   # OpenAI GPT-5.x / Claude Opus 5+ / DeepSeek V4
+REASONING_EFFORT_MAX: Final[str] = "max"       # OpenAI GPT-5.x / Claude Fable 5 / Opus 5
 DEFAULT_REASONING_EFFORT: Final[str] = REASONING_EFFORT_NONE
 DEFAULT_THINKING_BUDGET: Final[int] = 0
 THINK_MAX_BUDGET: Final[int] = 32768
-THINK_MAX_REASONING: Final[str] = "high"
+# Default ceiling: "max" (no restriction); admins lower via think.max_reasoning.
+# NOTE: thinking_budget is honored only by providers exposing a user-defined
+# budget (legacy Anthropic budget_tokens, Gemini thinkingBudget); modern
+# models (GPT-5.x, Claude Opus 5+/Sonnet 5, DeepSeek V4) allocate reasoning
+# tokens adaptively server-side and are filtered by capability probing.
+THINK_MAX_REASONING: Final[str] = REASONING_EFFORT_MAX
 
 # ── LLMConfig defaults (was hardcoded in ports.py) ──
 LLM_DEFAULT_MAX_TOKENS: Final[int] = 2048

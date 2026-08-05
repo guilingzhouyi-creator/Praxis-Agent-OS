@@ -176,9 +176,9 @@ class ModelService:
                     merged["thinking_budget"], max_budget)
                 merged["thinking_budget"] = max_budget
         effort = merged.get("reasoning_effort", "none")
-        rank = {"none": 0, "low": 1, "medium": 2, "high": 3}
+        rank = {"none": 0, "low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
         current = rank.get(str(effort), 0)
-        if current > rank.get(max_reasoning, 3):
+        if current > rank.get(max_reasoning, 5):
             logger.warning(
                 "model_service: reasoning_effort %r clamped to %r (think.max_reasoning)",
                 effort, max_reasoning)

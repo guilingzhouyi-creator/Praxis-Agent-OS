@@ -159,8 +159,9 @@ class ThinkQuotaRegistry:
             max_budget = THINK_MAX_BUDGET
             max_reasoning = "high"
 
-        _EFFORT_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3}
-        max_rank = _EFFORT_RANK.get(max_reasoning, 3)
+        _EFFORT_RANK = {"none": 0, "low": 1, "medium": 2,
+                        "high": 3, "xhigh": 4, "max": 5}
+        max_rank = _EFFORT_RANK.get(max_reasoning, 5)
 
         with self._lock:
             # Start with global

@@ -89,7 +89,7 @@ _L1_DEFAULTS: dict[str, Any] = {
 
     # ── Think quota (ThinkQuotaRegistry cap clamp) ──
     "think.max_budget": 32768,
-    "think.max_reasoning": "high",
+    "think.max_reasoning": "max",   # none|low|medium|high|xhigh|max; lower to cap reasoning
     "think.profiles": {},
 
     # ── GateChain ──
@@ -165,6 +165,11 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── Skills (developer-only write gate) ──
     "skill.write_min_ring": 3,          # min ring clearance to mutate skills
     "skill.write_roles": ["l3", "reviewer", "deployer"],
+    "skill.evolve_scope": "project",    # "project" | "global" — evolution write target
+    "skill.project_dirs": [],           # extra project skill discovery dirs
+
+    # ── Per-Cell skill white-list (回灌到 Cell); empty → global pool ──
+    "cell.skills": {},
 
     # ── R4 Agent ──
     "r4_agent.model_spec": "r4_agent",  # model spec name for skill evolution / archive ops

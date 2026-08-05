@@ -118,6 +118,13 @@ model_spec:
       temperature: 0.7
       reasoning_effort: high
       thinking_budget: 8192
+    xhigh:
+      max_tokens: 12288
+      temperature: 0.7
+      reasoning_effort: xhigh
+      thinking_budget: 16384
+    # max: {reasoning_effort: max, thinking_budget: 32768}  # only on models
+    # that support the max tier (GPT-5.x, Claude Fable 5/Opus 5)
     # disabled: true  # set on any pack to make it non-applicable at runtime
 
 # ── L3A session limits (0 = unlimited) ──
