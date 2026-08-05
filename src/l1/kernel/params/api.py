@@ -154,6 +154,10 @@ API_GATEWAY_HOST: Final[str] = "127.0.0.1"
 API_MAX_BODY_BYTES: Final[int] = 1_048_576
 API_PAGE_MAX_LIMIT: Final[int] = 100
 """Hard cap for API list/page endpoints (guards against unbounded responses)."""
+API_WS_PORT: Final[int] = 8081
+"""WebSocket bridge port (bidirectional realtime channel, see l4/ws)."""
+AUTH_TOKEN_TTL_DEFAULT: Final[float] = 3600.0
+"""Default auth token lifetime in seconds (AuthService.issue_token)."""
 MCP_DEFAULT_URL: Final[str] = "http://localhost:3500/mcp/v1"
 MCP_TIMEOUT: Final[int] = 5
 MCP_OAUTH_REDIRECT_PORT: Final[int] = 19876

@@ -250,6 +250,14 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/credentials",       ".credential_set",     "Set credential"),
     ("DELETE", "/api/v2/credentials",     ".credential_delete",  "Delete credential"),
 
+    # Auth (token lifecycle — frontend login state contract)
+    ("POST", "/api/v2/auth/login",    "l4.api_handlers.api_handlers_auth.handle_auth_login",    "Issue an auth token for an identity"),
+    ("POST", "/api/v2/auth/logout",   "l4.api_handlers.api_handlers_auth.handle_auth_logout",   "Revoke an auth token"),
+    ("POST", "/api/v2/auth/refresh",  "l4.api_handlers.api_handlers_auth.handle_auth_refresh",  "Exchange a valid token for a new one"),
+
+    # WebSocket bridge discovery
+    ("GET", "/api/v2/ws", "l4.ws.ws_bridge.handle_ws_info", "WebSocket bridge connection info"),
+
     # Bootstrap
     ("GET", "/api/v2/bootstrap/status",   ".bootstrap_status",   "Check if bootstrap needed"),
     ("GET", "/api/v2/bootstrap/defaults", ".bootstrap_defaults", "Get default config"),

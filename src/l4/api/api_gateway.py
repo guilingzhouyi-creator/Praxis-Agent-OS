@@ -252,6 +252,13 @@ class ApiGateway(ApiHandlers):
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         logger.info("API gateway started on %s:%d", self.host, self.port)
+        # WebSocket bridge on its own port (bidirectional realtime channel)
+        try:
+            from l4.ws.ws_bridge import start_server as _start_ws
+
+            _start_ws()
+        except Exception as e:
+            logger.warning("API gateway: ws bridge start failed: %s", e)
         return {"success": True, "host": self.host, "port": self.port}
 
     def stop(self) -> None:
