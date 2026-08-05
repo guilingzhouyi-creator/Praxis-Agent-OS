@@ -31,6 +31,7 @@ from l1.kernel.params.agent import (
     R4_CONSISTENCY_SCAN_LIMIT,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_CASES_DEFAULT,
+    R4_LEAN_GENERALIZE_THRESHOLD,
     R4_ROLE,
     R4_STALE_SCAN_LIMIT,
     R4_TERRITORY,
@@ -114,6 +115,11 @@ class R4Agent:
         self._total_alerts = 0
         self._pmu: Any = None
         self._identity_verified = False
+        # Injection cache: (key) → (skill_revision, result) — get_lean_cases /
+        # get_evolved_skills results are cached until SkillManager structurally
+        # mutates (revision bump), so AgentLoop._inject_extra_context skips the
+        # O(N) registry scan + sort on every agent run.
+        self._skill_cache: dict[tuple, tuple[int, list]] = {}
         self._registered = self._register_identity()
 
     def set_pmu(self, pmu: Any) -> None:
@@ -430,6 +436,7 @@ class R4Agent:
                         description=f"Failure case: {tool} — {entry['error'][:LOG_TRUNC_60]}",
                         prompt=lean_text,
                         tags=["lean_case", "failure", agent, tool],
+                        allowed_tools=[tool],
                         internal=True,
                     )
                     # Track the newly created name so duplicate traces in the
@@ -450,7 +457,51 @@ class R4Agent:
                     logger.warning("R4Agent: process trace %s failed: %s", fn, e)
         except Exception as e:
             logger.warning("R4Agent: process failure traces failed: %s", e)
+        if processed > 0:
+            try:
+                self._generalize_lean_cases(sm)
+            except Exception as e:
+                logger.warning("R4Agent: generalize lean cases failed: %s", e)
         return processed
+
+    def _generalize_lean_cases(self, sm: Any) -> int:
+        """Merge per-tool lean cases into one generalized lessons skill.
+
+        Rule-based generalization: once ``R4_LEAN_GENERALIZE_THRESHOLD`` lean
+        cases share the same tool (grouped via ``allowed_tools``, falling back
+        to the trailing tool tag for legacy cases), a single
+        ``lean_{tool}_lessons`` skill consolidates their failure patterns.
+        It carries the ``evolved`` tag so AgentLoop injects it via
+        ``get_evolved_skills`` alongside LLM-evolved skills.
+        """
+        by_tool: dict[str, list[dict]] = {}
+        for s in sm.list(tags=["lean_case"]):
+            tools = s.get("allowed_tools") or []
+            tool = tools[0] if tools else (s.get("tags") or [""])[-1]
+            if not tool:
+                continue
+            by_tool.setdefault(tool, []).append(s)
+
+        generalized = 0
+        for tool, cases in by_tool.items():
+            if len(cases) < R4_LEAN_GENERALIZE_THRESHOLD:
+                continue
+            gen_name = f"lean_{tool}_lessons"
+            lessons = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+            gen_prompt = f"Known failure patterns when using {tool}:\n{lessons}"
+            existing = sm.get(gen_name)
+            if existing and existing.get("prompt") == gen_prompt:
+                continue  # already generalized from the same cases
+            sm.create(
+                name=gen_name,
+                description=f"Consolidated failure lessons for {tool} ({len(cases)} cases)",
+                prompt=gen_prompt,
+                tags=["evolved", tool],
+                allowed_tools=[tool],
+                internal=True,
+            )
+            generalized += 1
+        return generalized
 
     @staticmethod
     def _atomic_write(fp: str, data: dict) -> None:
@@ -625,6 +676,11 @@ class R4Agent:
         """
         from l1.kernel.skill import get_skill_manager
         sm = get_skill_manager()
+        cache_key = ("lean", agent_id, tool_name, cell_id, limit)
+        rev = sm.revision()
+        cached = self._skill_cache.get(cache_key)
+        if cached and cached[0] == rev:
+            return cached[1]
         tags = ["lean_case"]
         if agent_id:
             tags.append(agent_id)
@@ -640,7 +696,9 @@ class R4Agent:
                 result.append(s["prompt"])
             if len(result) >= limit:
                 break
-        return result[:limit]
+        result = result[:limit]
+        self._skill_cache[cache_key] = (rev, result)
+        return result
 
     def get_evolved_skills(self, agent_id: str = "", cell_id: str = "",
                            limit: int = R4_EVOLVED_SKILLS_DEFAULT, graph_diffusion: bool = False) -> list[dict]:
@@ -653,6 +711,11 @@ class R4Agent:
         """
         from l1.kernel.skill import get_skill_manager
         sm = get_skill_manager()
+        cache_key = ("evolved", agent_id, cell_id, limit, graph_diffusion)
+        rev = sm.revision()
+        cached = self._skill_cache.get(cache_key)
+        if cached and cached[0] == rev:
+            return cached[1]
         allow = sm.skills_for_cell(cell_id) if cell_id else set()
         if graph_diffusion:
             try:
@@ -686,7 +749,9 @@ class R4Agent:
                     "description": s.get("description", ""),
                     "prompt": s["prompt"],
                 })
-        return evolved[:limit]
+        evolved = evolved[:limit]
+        self._skill_cache[cache_key] = (rev, evolved)
+        return evolved
 
     def evolve_skill(self, intent: str, cell_id: str = "") -> dict:
         """Use LLM to generate a new skill definition from a natural language intent.
@@ -758,18 +823,27 @@ class R4Agent:
                     internal=True,
                 )
 
-            # Normalize LLM output — tags/description/prompt may be null/empty.
-            skill_tags = (skill_def.get("tags") or []) + ["evolved"]
-            skill_desc = skill_def.get("description") or ""
-            skill_prompt = skill_def.get("prompt") or ""
+            # Normalize LLM output — type-guard every field so a malformed
+            # response (prompt/description as dict, rules as non-str, …) cannot
+            # corrupt the SKILL.md round-trip on reload.
+            skill_tags = [str(t) for t in (skill_def.get("tags") or []) if isinstance(t, str)] + ["evolved"]
+            skill_desc = skill_def.get("description")
+            skill_desc = skill_desc if isinstance(skill_desc, str) else ""
+            skill_prompt = skill_def.get("prompt")
+            skill_prompt = skill_prompt if isinstance(skill_prompt, str) else ""
+            skill_rules = [r for r in (skill_def.get("rules") or []) if isinstance(r, str)]
+            skill_procs = [p for p in (skill_def.get("procedures") or []) if isinstance(p, dict)]
+            skill_tools = skill_def.get("allowed_tools")
+            if not isinstance(skill_tools, list) or not all(isinstance(t, str) for t in skill_tools):
+                skill_tools = None
             sm.create(
                 name=name,
                 description=skill_desc,
                 prompt=skill_prompt,
                 tags=skill_tags,
-                rules=skill_def.get("rules") or [],
-                procedures=skill_def.get("procedures") or [],
-                allowed_tools=skill_def.get("allowed_tools"),
+                rules=skill_rules,
+                procedures=skill_procs,
+                allowed_tools=skill_tools,
                 internal=True,
             )
 
@@ -810,27 +884,27 @@ class R4Agent:
             import yaml as _yaml
             meta = {
                 "name": name,
-                "description": skill_def.get("description", ""),
-                "tags": skill_def.get("tags", ["evolved"]) + ["evolved"],
+                "description": skill_desc,
+                "tags": skill_tags,
             }
-            if skill_def.get("allowed_tools"):
-                meta["allowed_tools"] = skill_def["allowed_tools"]
+            if skill_tools:
+                meta["allowed_tools"] = skill_tools
             if skill_def.get("variables"):
                 meta["variables"] = skill_def["variables"]
             md_lines = ["---"]
             md_lines.append(_yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip())
             md_lines.append("---")
             md_lines.append("")
-            md_lines.append(skill_def.get("prompt", ""))
+            md_lines.append(skill_prompt)
             md_lines.append("")
-            if skill_def.get("rules"):
+            if skill_rules:
                 md_lines.append("## Rules")
-                for rule in skill_def["rules"]:
+                for rule in skill_rules:
                     md_lines.append(f"- {rule}")
                 md_lines.append("")
-            if skill_def.get("procedures"):
+            if skill_procs:
                 md_lines.append("## Procedures")
-                for proc in skill_def["procedures"]:
+                for proc in skill_procs:
                     md_lines.append(f"- **{proc.get('step', '?')}**: {proc.get('description', '')}")
                 md_lines.append("")
             with open(md_path, "w", encoding="utf-8") as f:

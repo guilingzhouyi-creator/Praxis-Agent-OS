@@ -134,6 +134,9 @@ class SkillManager:
         # inject overrides via set_write_policy() (kernel never imports L3).
         self._write_min_ring: int = SKILL_WRITE_MIN_RING
         self._write_roles: tuple[str, ...] = SKILL_WRITE_ROLES
+        # Structural-mutation revision — R4Agent injection caches compare this
+        # to decide whether their derived skill lists are stale.
+        self._revision = 0
 
     # ── Per-Cell skill binding (回灌到 Cell) ──
 
@@ -148,6 +151,7 @@ class SkillManager:
             if name not in self._skills:
                 return {"success": False, "error": f"skill '{name}' not found"}
             self._cell_skill_map.setdefault(cell_id, set()).add(name)
+            self._revision += 1
             return {"success": True, "cell_id": cell_id, "skill": name}
 
     def unbind_skill(self, cell_id: str, name: str) -> dict:
@@ -157,6 +161,7 @@ class SkillManager:
             if not cell_set or name not in cell_set:
                 return {"success": False, "error": f"skill '{name}' not bound to '{cell_id}'"}
             cell_set.discard(name)
+            self._revision += 1
             return {"success": True, "cell_id": cell_id, "skill": name}
 
     def skills_for_cell(self, cell_id: str) -> set[str]:
@@ -229,6 +234,8 @@ class SkillManager:
                             count += 1
                     except Exception as e:
                         logger.warning("kernel/skill: %s", e)
+        if count > 0:
+            self._revision += 1
         return count
 
     def load_builtin(self) -> int:
@@ -308,6 +315,7 @@ class SkillManager:
                     "error": f"permission denied: builtin skill '{name}' is read-only"}
         with self._lock:
             self._skills[name] = data
+            self._revision += 1
             self._emit_mutated("register", name, agent_id, who)
             return {"success": True, "skill": name, "authorized": who}
 
@@ -433,6 +441,7 @@ class SkillManager:
             if not ok:
                 return {"success": False, "error": f"permission denied: {who}"}
             self._skills[name].update(data)
+            self._revision += 1
             self._emit_mutated("update", name, agent_id, who)
             return {"success": True, "skill": name, "authorized": who}
 
@@ -451,6 +460,11 @@ class SkillManager:
             self._skills[name]["last_used"] = time.time()
             return {"success": True, "skill": name, key: current + 1}
 
+    def revision(self) -> int:
+        """Return the structural-mutation revision (R4Agent cache invalidation)."""
+        with self._lock:
+            return self._revision
+
     def delete(self, name: str, agent_id: str = "", role: str = "",
                internal: bool = False) -> dict:
         """Delete a skill from the runtime registry (developer-only).
@@ -468,6 +482,7 @@ class SkillManager:
                 return {"success": False,
                         "error": f"permission denied: builtin skill '{name}' is read-only"}
             del self._skills[name]
+            self._revision += 1
             self._drop_skill_from_cells(name)
             self._emit_mutated("delete", name, agent_id, who)
             return {"success": True, "skill": name, "authorized": who}
