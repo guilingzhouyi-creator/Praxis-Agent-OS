@@ -96,6 +96,7 @@ node_modules/
 # ── Skill system (generated artifacts) ──
 .skill_cache/
 skills/__pycache__/
+skills/evolved/
 
 # ── Mystery / untracked binaries ──
 Code/_
