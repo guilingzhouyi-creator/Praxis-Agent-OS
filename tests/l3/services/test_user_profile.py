@@ -232,6 +232,40 @@ class TestConsumers:
         if card is not None:
             assert card.summary.columns.get("_profile_summary") is not None
 
+    def test_session_base_system_injects_profile(self, svc):
+        """L3A session wiring: user_id flows into the base system prompt."""
+        svc.ingest("alice", PROFILE_KIND_PREFERENCE, "concise", confidence=0.9)
+        from l3.cell.peers.l3a.session import Session
+
+        s = Session.create(title="t", user_id="alice")
+        s._ensure_loop()
+        assert "User Profile Reference" in s._base_system
+        assert "concise" in s._base_system
+        # Session without user_id stays clean
+        s2 = Session.create(title="t2")
+        s2._ensure_loop()
+        assert "User Profile Reference" not in s2._base_system
+
+    def test_session_cardwrite_forwards_user_id(self, svc):
+        """Session-scoped cardwrite auto-attaches user_id from the session."""
+        svc.ingest("bob", PROFILE_KIND_PREFERENCE, "terse", confidence=0.9)
+        from l3.cell.peers.l3a.session import Session
+        from l3.card.card_registry import get_registry, reset_registry
+
+        reset_registry()
+        s = Session.create(title="t", user_id="bob")
+        s._ensure_loop()
+        # The session registers its scoped cardwrite on the loop's tool list
+        specs = [t for t in s._loop._tools if t.name == "cardwrite"]
+        assert specs, "session cardwrite tool not registered"
+        result = specs[0].handler({
+            "nature": "execution", "title": "do thing",
+            "columns": {"domain": "ops"}}, "l3a")
+        assert result["success"]
+        card = get_registry()._cards.get(result["card_id"])
+        if card is not None:
+            assert card.summary.columns.get("_profile_summary") is not None
+
     def test_build_l3a_prompt_injects_profile(self, svc):
         svc.ingest("alice", PROFILE_KIND_PREFERENCE, "concise", confidence=0.9)
         svc.ingest("alice", PROFILE_KIND_TRAIT, {"method": "rule"}, source="refined")

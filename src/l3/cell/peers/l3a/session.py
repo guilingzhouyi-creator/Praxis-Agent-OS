@@ -124,9 +124,11 @@ class Session:
     """Live L3A session — history, inbox, task table, ask state, model config."""
     def __init__(self, session_id: str, title: str,
                  model_config: L3AModelConfig | None = None,
-                 registry: ContextRegistry | None = None):
+                 registry: ContextRegistry | None = None,
+                 user_id: str = ""):
         self.id = session_id
         self.title = title
+        self.user_id = user_id
         self.created_at = time.time()
         self.last_active_at = time.time()
         self.closed_at: float | None = None
@@ -154,11 +156,13 @@ class Session:
     @classmethod
     def create(cls, title: str = "",
                model_config: L3AModelConfig | None = None,
-               registry: ContextRegistry | None = None) -> Session:
+               registry: ContextRegistry | None = None,
+               user_id: str = "") -> Session:
         sid = f"l3a-{uuid.uuid4().hex[:_p.SID_LENGTH]}"
         title = title or f"Session {time.strftime('%Y-%m-%d %H:%M')}"
         inst = cls(session_id=sid, title=title,
-                   model_config=model_config, registry=registry)
+                   model_config=model_config, registry=registry,
+                   user_id=user_id)
         inst.epoch = ContextEpoch.create(registry or ContextRegistry())
         inst.inbox.reload()
         logger.info("l3a session: created %s — %s", sid, title)
@@ -1006,7 +1010,7 @@ class Session:
 
         from .helpers import build_l3a_prompt
 
-        self._base_system = build_l3a_prompt()
+        self._base_system = build_l3a_prompt(user_id=self.user_id)
         try:
             from l1.kernel.paths import get_paths as _gp
             todo_path = os.path.join(_gp().data_dir,
@@ -1034,6 +1038,11 @@ class Session:
 
         def _session_cardwrite(args: dict, agent_id: str = "") -> dict:
             """Session-scoped cardwrite: create card + track + subscribe to completion."""
+            # Attach the session's user so the profile side-channel can
+            # reference the user's established preferences on the card.
+            if self.user_id and "user_id" not in args:
+                args = dict(args)
+                args["user_id"] = self.user_id
             r = cardwrite_handler(args, agent_id)
             if r.get("success"):
                 cid = r.get("card_id", "")
@@ -1314,9 +1323,10 @@ class SessionManager:
 
     def create(self, title: str = "",
                model_config: L3AModelConfig | None = None,
-               registry: ContextRegistry | None = None) -> Session:
+               registry: ContextRegistry | None = None,
+               user_id: str = "") -> Session:
         s = Session.create(title=title, model_config=model_config,
-                           registry=registry)
+                           registry=registry, user_id=user_id)
         with self._lock:
             self._sessions[s.id] = s
         return s
