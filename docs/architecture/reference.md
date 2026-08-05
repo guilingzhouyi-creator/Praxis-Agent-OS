@@ -532,6 +532,9 @@ praxis/
 | Records | 4 | `records/query`, `records/stats`, `records/export`, `records/bridge` |
 | Discussion | 8 | `discussion/submit_issue`, `discussion/session`, `discussion/session/<id>`, `discussion/cell`, `/v2/discussion/abort`, `/v2/discussion/sessions`, `/v2/discussion/aggregate`, `/v2/discussion/report` |
 | L3A | 9 | `l3a/ask/status`, `l3a/ask/answer`, `l3a/sessions`, `l3a/sessions/<id>`, `l3a/sessions/<id>/messages`, `l3a/sessions/<id>/send`, `l3a/sessions/<id>/close`, `l3a/sessions/<id>/compress` |
+| Auth | 3 | `auth/login`, `auth/logout`, `auth/refresh` |
+| WebSocket | 1 | `ws` (bridge discovery) |
+| FS | 4 | `fs/tree`, `fs/read`, `fs/watch`, `fs/unwatch` |
 | Loop | 2 | `loop_config`, `loop_config` |
 | Agent Config | 2 | `agent/config`, `agent/config` |
 | V1 | 2 | `v1/tools`, `v1/locales` |

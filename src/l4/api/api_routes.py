@@ -258,6 +258,12 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # WebSocket bridge discovery
     ("GET", "/api/v2/ws", "l4.ws.ws_bridge.handle_ws_info", "WebSocket bridge connection info"),
 
+    # FS (FilesystemPort contract — frontend file tree)
+    ("GET",  "/api/v2/fs/tree",    "l4.api_handlers.api_handlers_fs.handle_fs_tree",     "List a directory tree"),
+    ("GET",  "/api/v2/fs/read",    "l4.api_handlers.api_handlers_fs.handle_fs_read",     "Read a file"),
+    ("POST", "/api/v2/fs/watch",   "l4.api_handlers.api_handlers_fs.handle_fs_watch",    "Watch a directory for changes"),
+    ("POST", "/api/v2/fs/unwatch", "l4.api_handlers.api_handlers_fs.handle_fs_unwatch",  "Stop watching a directory"),
+
     # Bootstrap
     ("GET", "/api/v2/bootstrap/status",   ".bootstrap_status",   "Check if bootstrap needed"),
     ("GET", "/api/v2/bootstrap/defaults", ".bootstrap_defaults", "Get default config"),
