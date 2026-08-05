@@ -56,6 +56,27 @@ class Route:
     description: str = ""
 
 
+# ── Handler signature cache ─────────────────────────────────────────────────
+# inspect.signature() costs ~10-50us per call; handlers are fixed after
+# startup, so cache the parameters mapping per handler (module-level dict —
+# stable keys, atomic reads/writes under the GIL).
+_SIGNATURE_CACHE: dict[Callable, Any] = {}
+_NO_SIGNATURE = object()
+
+
+def _handler_params(handler: Callable) -> Any:
+    """Cached ``inspect.signature(handler).parameters`` — None if uninspectable."""
+    params = _SIGNATURE_CACHE.get(handler, _NO_SIGNATURE)
+    if params is _NO_SIGNATURE:
+        try:
+            import inspect
+            params = inspect.signature(handler).parameters
+        except (TypeError, ValueError):
+            params = None
+        _SIGNATURE_CACHE[handler] = params
+    return params
+
+
 # ── ApiGateway ───────────────────────────────────────────────────────────────
 
 class ApiGateway(ApiHandlers):
@@ -73,6 +94,11 @@ class ApiGateway(ApiHandlers):
         self._server: Any = None
         self._thread: threading.Thread | None = None
         self._routes: list[Route] = []
+        # O(1) exact-match index: (method, path) → (handler, {}) — rebuilt
+        # lazily whenever the route table changes (register_route or direct
+        # _routes mutation), so it can never go stale.
+        self._exact_index: dict[tuple[str, str], tuple[Callable, dict]] = {}
+        self._index_route_count = -1
 
         # Middleware chain — built once at init
         self._middleware = MiddlewareChain([
@@ -95,6 +121,16 @@ class ApiGateway(ApiHandlers):
             method=method, path=path,
             handler=handler, description=description,
         ))
+        self._index_route_count = -1  # exact index needs a lazy rebuild
+
+    def _rebuild_exact_index(self) -> None:
+        """Rebuild the (method, path) → handler index from ``_routes``."""
+        self._exact_index = {
+            (r.method, r.path): (r.handler, {})
+            for r in self._routes
+            if not r.path.endswith("/") and "{" not in r.path
+        }
+        self._index_route_count = len(self._routes)
 
     def _register_defaults(self) -> None:
         """Load all routes from centralized api_routes.py + external modules."""
@@ -153,12 +189,12 @@ class ApiGateway(ApiHandlers):
         ``{name}`` → ``handle_skills_get(body, name="")``); they are NOT a
         generic ``id`` — see _match_param_pattern for segment-wise capture.
         """
-        # Pass 1a: exact matches only
-        for r in self._routes:
-            if r.method != method or r.path.endswith("/") or "{" in r.path:
-                continue
-            if path == r.path:
-                return r.handler, {}
+        # Pass 0: O(1) exact-match index (rebuilt when the route table changes)
+        if len(self._routes) != self._index_route_count:
+            self._rebuild_exact_index()
+        hit = self._exact_index.get((method, path))
+        if hit is not None:
+            return hit
         # Pass 1b: {param} patterns only
         for r in self._routes:
             if r.method != method or r.path.endswith("/") or "{" not in r.path:
@@ -227,10 +263,8 @@ class ApiGateway(ApiHandlers):
             body["_id"] = params["id"]
         body.update(params)
         body["_user_id"] = user_id
-        try:
-            import inspect
-            sig_params = inspect.signature(handler).parameters
-        except (TypeError, ValueError):
+        sig_params = _handler_params(handler)
+        if sig_params is None:
             return handler(body)
         first = next(iter(sig_params.values()), None)
         kwargs = {k: v for k, v in params.items() if k in sig_params}

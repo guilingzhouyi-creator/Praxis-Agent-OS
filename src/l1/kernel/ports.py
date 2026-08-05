@@ -25,6 +25,7 @@ from typing import Any
 
 from l1.kernel.params.agent import LLM_CACHE_RETENTION_THRESHOLD
 from l1.kernel.params.api import (
+    AUTH_TOKEN_TTL_SECONDS,
     LLM_DEFAULT_CACHE_BREAKPOINTS,
     LLM_DEFAULT_MAX_TOKENS,
     LLM_DEFAULT_TEMPERATURE,
@@ -387,7 +388,7 @@ class AuthPort(ABC):
     """
 
     @abstractmethod
-    def issue_token(self, identity: str, ttl: float = 0.0) -> dict:
+    def issue_token(self, identity: str, ttl: float = AUTH_TOKEN_TTL_SECONDS) -> dict:
         """Issue a signed token for an identity. Returns token + expires_at."""
         ...
 
@@ -415,26 +416,34 @@ class WebSocketPort(ABC):
 
     Complements the one-way SSE bridge: clients subscribe to events and
     issue RPC-style requests over a persistent socket.
+
+    Connection model: ``upgrade(request)`` returns a per-client connection
+    handle that must be passed to ``recv``/``send``/``close`` — a single port
+    instance serves many concurrent clients, and per-connection methods
+    never operate on implicit shared state.
     """
 
     @abstractmethod
     def upgrade(self, request: Any) -> Any:
-        """Perform the WebSocket handshake on an upgraded HTTP request."""
+        """Perform the WebSocket handshake on an upgraded HTTP request.
+
+        Returns a per-client connection handle for use with recv/send/close.
+        """
         ...
 
     @abstractmethod
-    def recv(self) -> dict | None:
-        """Receive the next client message. Returns None when the socket closes."""
+    def recv(self, conn: Any) -> dict | None:
+        """Receive the next message from a connection. None when it closes."""
         ...
 
     @abstractmethod
-    def send(self, msg: dict) -> bool:
-        """Send a message to the current client. Returns False on failure."""
+    def send(self, conn: Any, msg: dict) -> bool:
+        """Send a message on a connection. Returns False on failure."""
         ...
 
     @abstractmethod
-    def close(self) -> None:
-        """Close the current client connection."""
+    def close(self, conn: Any) -> None:
+        """Close a client connection."""
         ...
 
     @abstractmethod

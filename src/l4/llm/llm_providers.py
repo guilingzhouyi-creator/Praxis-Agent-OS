@@ -25,8 +25,10 @@ from l1.kernel.params.api import (
     LLM_LIGHTWEIGHT_TIMEOUT,
     LLM_PROVIDER_URLS,
 )
-from l1.kernel.params.system import LLM_DEFAULT_CONTEXT_WINDOW, LOG_TRUNC_60, MOCK_DELAY
+from l1.kernel.params.system import LLM_DEFAULT_CONTEXT_WINDOW, LOG_TRUNC_60, LOG_TRUNC_200, MOCK_DELAY
 from l1.kernel.prompts import get_prompt as _gp
+
+from .http_pool import http_post
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +132,11 @@ class OpenAIProvider(_ProviderHelperMixin):
         body = json.dumps(body_dict, ensure_ascii=False).encode()
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
         try:
-            r = req.urlopen(req.Request(self.api_url, data=body, headers=headers, method="POST"), timeout=LLM_HTTP_TIMEOUT)
-            data = json.loads(r.read())
+            status, raw, _ = http_post(self.api_url, body, headers, LLM_HTTP_TIMEOUT)
+            if status >= 400:
+                return {"content": "", "tool_calls": [], "tokens": 0, "model": self.model,
+                        "error": f"HTTP {status}: {raw.decode(errors='replace')[:LOG_TRUNC_200]}"}
+            data = json.loads(raw)
             msg = data["choices"][0]["message"]
             usage = data.get("usage", {})
             rtok = ((usage.get("output_tokens_details", {}) or {})
@@ -248,7 +253,6 @@ class AnthropicProvider(_ProviderHelperMixin):
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int = 512, user_id: str = "",
                  tools: list[dict] | None = None) -> dict:
-        import urllib.request as req
         messages = [{"role": "user", "content": prompt}]
         if tools:
             tools[-1]["cache_control"] = {"type": "ephemeral"}
@@ -264,9 +268,11 @@ class AnthropicProvider(_ProviderHelperMixin):
         headers = {"Content-Type": "application/json", "x-api-key": self.api_key,
                    "anthropic-version": "2023-06-01"}
         try:
-            r = req.urlopen(req.Request(self.api_url, data=body, headers=headers, method="POST"),
-                            timeout=LLM_LIGHTWEIGHT_TIMEOUT)
-            data = json.loads(r.read())
+            status, raw, _ = http_post(self.api_url, body, headers, LLM_LIGHTWEIGHT_TIMEOUT)
+            if status >= 400:
+                return {"content": "", "tokens": 0, "model": FALLBACK_MODEL,
+                        "error": f"HTTP {status}: {raw.decode(errors='replace')[:LOG_TRUNC_200]}"}
+            data = json.loads(raw)
             content = data["content"][0]["text"]
             usage = data.get("usage", {})
             return {"content": content,
@@ -325,16 +331,17 @@ class OllamaProvider(_ProviderHelperMixin):
     def generate(self, prompt: str, system: str = "",
                  max_tokens: int = 512, user_id: str = "",
                  **kwargs) -> dict:
-        import urllib.request as req
         messages = [{"role": "system", "content": system or _gp("llm.fallback_system", "You are a helpful assistant.")},
                     {"role": "user", "content": prompt}]
         body = json.dumps({"model": self.model, "messages": messages,
                            "stream": False, "options": {"num_predict": max_tokens}}).encode()
         headers = {"Content-Type": "application/json"}
         try:
-            r = req.urlopen(req.Request(f"{self.api_url}/api/chat", data=body, headers=headers, method="POST"),
-                            timeout=LLM_LIGHTWEIGHT_TIMEOUT)
-            data = json.loads(r.read())
+            status, raw, _ = http_post(f"{self.api_url}/api/chat", body, headers, LLM_LIGHTWEIGHT_TIMEOUT)
+            if status >= 400:
+                return {"content": "", "tokens": 0, "model": self.model,
+                        "error": f"HTTP {status}: {raw.decode(errors='replace')[:LOG_TRUNC_200]}"}
+            data = json.loads(raw)
             msg = data.get("message", {})
             return {"content": msg.get("content", ""),
                     "tokens": data.get("eval_count", 0),

@@ -70,6 +70,7 @@ TODO_TABLE_AUTO_SAVE: Final[float] = 30.0
 TRANSACTION_AREA_AUTO_SAVE: Final[float] = 30.0
 STATECHARTS_AUTO_SAVE: Final[float] = 30.0
 EXECUTION_RESULTS_AUTO_SAVE: Final[float] = 30.0
+EXECUTION_RESULT_RETENTION: Final[int] = 200
 DIALOGUE_SESSION_AUTO_SAVE: Final[float] = 30.0
 APPROVAL_GATE_WAIT_TIMEOUT: Final[float] = 300.0
 DIALOGUE_IDLE_TIMEOUT: Final[float] = 300.0
@@ -221,6 +222,7 @@ HASH_TRUNC_LONG: Final[int] = 16
 
 # ── Scheduler ──
 SCHEDULER_BACKGROUND_PRIORITY: Final[int] = 10
+SCHEDULER_TASK_RETENTION: Final[int] = 100
 
 
 # ── Pager / memory recall ──

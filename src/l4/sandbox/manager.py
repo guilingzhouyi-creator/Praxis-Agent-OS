@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import shutil
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -63,10 +64,11 @@ class SandboxManager:
         HOST: direct execution, no isolation.
     """
 
-    # Reused event loop — asyncio.run() creates a new loop on every call,
-    # which adds ~5ms overhead per invocation. Caching the loop eliminates
-    # this for all calls after the first.
-    _loop: asyncio.AbstractEventLoop | None = None
+    # Per-thread event loops — a single shared loop is not thread-safe for
+    # run_until_complete() (concurrent callers raise "event loop already
+    # running"); threading.local caches one loop per thread to amortize the
+    # ~5ms asyncio.run() setup per invocation.
+    _loops: threading.local = threading.local()
 
     def __init__(self, sandbox_root: str = ""):
         from l1.kernel.paths import get_paths as _gp
@@ -144,11 +146,19 @@ class SandboxManager:
         agent_id: str = "",
         tool_name: str = "",
     ) -> SandboxResult:
-        """Synchronous wrapper for tool_pipeline use — reuses cached event loop."""
-        if self.__class__._loop is None or self.__class__._loop.is_closed():
-            self.__class__._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.__class__._loop)
-        return self.__class__._loop.run_until_complete(
+        """Synchronous wrapper for tool_pipeline use — per-thread event loop.
+
+        A class-level shared loop would break under concurrent threads
+        (run_until_complete raises "event loop already running"); the
+        thread-local loop keeps the asyncio.run() setup cost amortized per
+        thread instead of per call.
+        """
+        loop = getattr(self._loops, "loop", None)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self._loops.loop = loop
+        return loop.run_until_complete(
             self.run(command, profile, timeout, agent_id, tool_name),
         )
 
