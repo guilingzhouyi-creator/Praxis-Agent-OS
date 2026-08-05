@@ -86,6 +86,42 @@ Adapters: `auth` (AuthService), `fs` (FsAdapter), `profile`
 card-registry/monitor-bus/transport. The kernel never imports upper layers —
 swapping the Python kernel for another language only changes adapters.
 
+## Testing & QA
+
+- **2900+ tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
+  `tests/infra/`, `tests/integration/`).
+- **Singleton hygiene**: `tests/conftest.py` `_RESETS` resets ~25 known
+  singletons before every test (autouse) — new services register their
+  reset there; xdist workers get isolated skill dirs.
+- **Runner batches**: `tests/runner.py` — Batch 1 (fast core), Batch 2
+  (slow: r4_agent, archive, convention).
+- **xdist discipline**: CI (Linux, fork) runs `-n 4`; local Windows pins
+  `-n 0` (spawn re-imports the whole src per worker — a net slowdown).
+- **Hard gates**: `test_layer_imports.py` (layer boundary allowlist),
+  `test_params_compliance.py` (no hardcoded truncation/hash/constants),
+  `test_hardcoded_fixes_regression.py`.
+- **CI**: GitHub Actions (dual-remote mirror), matrix 3.11/3.12, concurrency
+  cancel-in-progress; GitCode AtomGit Action pending platform rollout.
+- **Flaky knowns**: Windows file-lock races in file_editor/resource_buffer
+  tests — re-run the single file before blaming a change.
+
+## Skills lifecycle (agent growth)
+
+```
+builtin (config/skills, read-only) ── SkillManager (L1)
+evolved (skills/evolved)       ←── R4Agent.evolve_skill (LLM SkillArchitect)
+lean    (skills/lean)          ←── failure traces (dedup by exact name/key)
+usage: bump_usage (atomic) / bind_skills per Cell / prompt.inject.skills
+archive: pre-evolution + pruned versions → R4 (fonds="skills")
+```
+
+- Round-trip integrity: `SKILL.md` YAML frontmatter (name/description/
+  tags/allowed_tools/variables) must round-trip on reload.
+- Write gate: external callers (L2 shell `/skills`, L4 API) must pass an
+  explicit identity; identity-less writes only with `internal=True`.
+- Per-Cell injection: `Cell.bind_skills` whitelists; unbound cells fall
+  back to the global pool.
+
 ## Collaboration discipline (agents)
 
 - **7 work domains** (K/M/S/T/C/B/A), one branch per agent
