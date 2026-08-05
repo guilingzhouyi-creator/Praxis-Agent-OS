@@ -140,14 +140,18 @@ class ApiGateway(ApiHandlers):
         ``/api/skills/permissions``):
 
           1. Exact match (``path == r.path``).
-          2. ``{param}`` pattern match (e.g. ``/api/v2/discussion/{id}``).
+          2. ``{param}`` pattern match (e.g. ``/api/v2/discussion/{session_id}``).
           3. Legacy trailing-slash prefix fallback (``/api/card/`` →
              ``/api/card/<id>``) — only when nothing above matched.
 
         Exact and ``{param}`` patterns are each scanned in registration order,
         but exact matches are always preferred over ``{param}`` so a concrete
         sub-path (``/api/v2/skills/permissions``) never falls into a parameter
-        route (``/api/v2/skills/{id}``).
+        route (``/api/v2/skills/{name}``).
+
+        Placeholder names mirror the handler keyword arguments (e.g.
+        ``{name}`` → ``handle_skills_get(body, name="")``); they are NOT a
+        generic ``id`` — see _match_param_pattern for segment-wise capture.
         """
         # Pass 1a: exact matches only
         for r in self._routes:
@@ -290,8 +294,10 @@ class ApiGateway(ApiHandlers):
                 parsed = urllib.parse.urlparse(self.path)
                 path = parsed.path.rstrip("/")
 
-                # SSE special handling: long-lived connection
-                if method == "GET" and path == "/api/events":
+                # SSE special handling: long-lived connection.
+                # Must match the v2-prefixed route in api_routes.py
+                # ("GET /api/v2/events") — keep in sync if the prefix changes.
+                if method == "GET" and path == "/api/v2/events":
                     self._do_sse()
                     return
 

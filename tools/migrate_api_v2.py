@@ -2,7 +2,9 @@
 
 Transforms every route path:
   - strips legacy /api/v1/, /api/v2/ version prefixes (unify on /api/v2/)
-  - converts trailing-slash parameter style (/api/card/) to {id} (/api/card/{id})
+  - converts trailing-slash parameter style (/api/card/) to a {param}
+    placeholder whose name mirrors the handler keyword arg (e.g. {name} for
+    handle_skills_get(body, name=""), {session_id} for discussion handlers)
   - converts snake_case path segments to kebab-case
   - prefixes unversioned paths with /api/v2/
   - resolves the /api/tools vs /api/v1/tools collision by moving the
@@ -10,6 +12,14 @@ Transforms every route path:
 
 Only the path string inside each route tuple is changed — comments, handler
 refs, and descriptions are preserved verbatim.
+
+Idempotent: already-migrated paths convert to themselves, so re-running after
+a partial migration is safe (only untouched literals are rewritten).
+
+Executed: 2026-08-05 on the feature/api-v2-prefix branch.  Kept in tools/ as a
+reference for future version bumps (v2 → v3) — update _VERSION_PREFIXES and
+re-run, then fix any collisions reported by
+  python -m l4.api.api_endpoints  (validate() in the manifest).
 
 Usage: python tools/migrate_api_v2.py   (run from repo root)
 """

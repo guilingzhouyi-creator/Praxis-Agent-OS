@@ -3,6 +3,14 @@
 Each route: (method, path, handler_ref, description)
   handler_ref: "module.function" for standalone functions
                ".method_name" for ApiHandlers mixin methods (resolved via getattr)
+
+Unified prefix convention (P2 migration):
+  - Every path is under ``/api/v2/`` (versioned; v1/legacy paths removed).
+  - Path segments use kebab-case; ``{param}`` placeholders for path variables.
+  - Placeholder names mirror the handler keyword args (e.g. ``{name}`` →
+    ``handle_skills_get(body, name="")``), NOT a generic ``id``.
+  - Classification/grouping lives in api_endpoints.py (_DOMAIN_GROUP /
+    _DOMAIN_BY_PREFIX); validate() enforces these naming rules.
 """
 
 # ── ApiHandlers mixin methods (prefixed with .) ──

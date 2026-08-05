@@ -43,7 +43,7 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/commands": "shell",
     "/api/tools": "tool", "/api/tokens": "token", "/api/loops": "loop",
     "/api/constitution": "constitution", "/api/discussion": "discussion",
-    "/api/providers": "provider", "/api/model-spec": "provider", "/api/v2/model-spec": "provider",
+    "/api/providers": "provider", "/api/model-spec": "provider",
     "/api/subagent": "subagent", "/api/scout": "scout", "/api/r4": "r4",
     "/api/l3a": "l3a",
     "/api/skills": "skill",
@@ -332,9 +332,12 @@ def validate() -> dict:
     if len(misc_paths) > 1:
         issues.append(f"{len(misc_paths)} unclassified endpoints (domain=misc): {misc_paths[:8]}...")
 
-    # 4) naming style — snake_case path segments (unified prefix uses kebab-case)
+    # 4) naming style — snake_case path segments (unified prefix uses kebab-case);
+    #    {param} placeholders are exempt — their names mirror handler keyword
+    #    args (e.g. session_id) and are not URL path segments.
     snake_paths = sorted({f"{e.method} {e.path}" for e in ENDPOINT_MANIFEST
-                          if any("_" in seg for seg in e.path.strip("/").split("/") if seg)})
+                          if any("_" in seg for seg in e.path.strip("/").split("/")
+                                 if seg and not (seg.startswith("{") and seg.endswith("}")))})
     if snake_paths:
         issues.append(f"snake_case path segments (use kebab-case): {snake_paths[:10]}...")
 
