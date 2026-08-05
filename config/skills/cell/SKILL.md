@@ -2,6 +2,8 @@
 name: cell
 description: Cell operations — peer agents, scout pool, health monitoring, lifecycle
 disable-model-invocation: true
+dependencies: [kernel]
+dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]
 ---
 

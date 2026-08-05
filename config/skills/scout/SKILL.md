@@ -2,6 +2,8 @@
 name: scout
 description: Scout investigations — read-only exploration, ring-1 tool usage, findings reporting
 disable-model-invocation: true
+dependencies: [kernel]
+dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, symbol_search, list_functions]
 ---
 

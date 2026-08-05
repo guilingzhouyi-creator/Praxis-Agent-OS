@@ -2,6 +2,8 @@
 name: architecture
 description: Architecture review — layer constraints, dependency analysis, module boundaries
 disable-model-invocation: true
+dependencies: [kernel]
+dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, symbol_search, list_functions, review_code]
 ---
 
