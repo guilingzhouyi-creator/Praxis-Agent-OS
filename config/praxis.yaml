@@ -33,6 +33,10 @@ cell:
     # default: [skill-a, skill-b]   # bound to the default Cell; empty/absent → global pool
     auto_activate_builtin: true    # inject built-in skills into every session's system prompt
 
+# ── Filesystem service ──
+fs:
+  watch_interval: 2.0            # fs_adapter watch polling interval (s); keep in sync with params/system.py FS_WATCH_INTERVAL
+
 # ── Internationalization ──
 language: en                      # Display language: en | zh-CN | ja | de (see locales/)
 

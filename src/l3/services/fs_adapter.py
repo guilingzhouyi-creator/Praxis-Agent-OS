@@ -13,6 +13,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from l1.kernel.params.system import FS_WATCH_INTERVAL
 from l1.kernel.ports import FilesystemPort
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 class FsAdapter(FilesystemPort):
     """Filesystem port adapter — direct OS access with path safety checks."""
 
-    def __init__(self, watch_interval: float = 2.0):
+    def __init__(self, watch_interval: float = FS_WATCH_INTERVAL):
         self._watch_interval = watch_interval
         self._watchers: dict[str, dict] = {}  # root -> {"mtime": float, "stop": bool}
         self._lock = threading.Lock()
@@ -137,7 +138,13 @@ def get_adapter() -> FsAdapter:
     if _adapter is None:
         with _adapter_lock:
             if _adapter is None:
-                _adapter = FsAdapter()
+                watch_interval = FS_WATCH_INTERVAL
+                try:
+                    from l3.config.settings_center import get_center as _sc
+                    watch_interval = float(_sc().get("fs.watch_interval", FS_WATCH_INTERVAL))
+                except Exception:
+                    pass
+                _adapter = FsAdapter(watch_interval=watch_interval)
                 try:
                     from l1.kernel.ports import register_port
 

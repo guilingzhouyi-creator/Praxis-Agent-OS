@@ -20,6 +20,16 @@ from __future__ import annotations
 import logging
 import time
 
+from l1.kernel.params.system import (
+    SECURITY_GATE_SCORE_AUTH,
+    SECURITY_GATE_SCORE_CLEARANCE,
+    SECURITY_GATE_SCORE_CONSTITUTION,
+    SECURITY_GATE_SCORE_CONSTITUTION_ERROR,
+    SECURITY_GATE_SCORE_GATECHAIN,
+    SECURITY_GATE_SCORE_RATE_LIMIT,
+    SECURITY_GATE_SCORE_TOOL_MODE,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,9 +94,9 @@ class CentralSecurity:
             from l1.kernel.constitution import get_constitution as _gc
             cc = _gc().is_allowed(action, agent_id, target=target, territory=args.get("territory", "") if args else "")
             passed = cc.get("allowed", True)
-            verdict.add_gate("constitution", passed, str(cc.get("reason", "")), score=0.3 if not passed else 0)
+            verdict.add_gate("constitution", passed, str(cc.get("reason", "")), score=SECURITY_GATE_SCORE_CONSTITUTION if not passed else 0)
         except Exception as e:
-            verdict.add_gate("constitution", False, f"constitution error: {e}", score=0.5)
+            verdict.add_gate("constitution", False, f"constitution error: {e}", score=SECURITY_GATE_SCORE_CONSTITUTION_ERROR)
 
         # 2. GateChain (using correct check() API)
         try:
@@ -95,7 +105,7 @@ class CentralSecurity:
             gc_allowed = gcr.get("allowed", True)
             gc_steps = gcr.get("steps", [])
             gc_decision = gcr.get("decision", "?")
-            verdict.add_gate("gatechain", gc_allowed, detail=f"decision={gc_decision}, steps={len(gc_steps)}", score=0.5 if not gc_allowed else 0)
+            verdict.add_gate("gatechain", gc_allowed, detail=f"decision={gc_decision}, steps={len(gc_steps)}", score=SECURITY_GATE_SCORE_GATECHAIN if not gc_allowed else 0)
         except Exception as e:
             verdict.add_gate("gatechain", True, f"gatechain unavailable: {e}")
 
@@ -111,13 +121,13 @@ class CentralSecurity:
             except Exception as e:
                 auth_ok = False
                 detail = f"auth unavailable: {e}"
-            verdict.add_gate("auth", auth_ok, detail, score=0.5 if not auth_ok else 0)
+            verdict.add_gate("auth", auth_ok, detail, score=SECURITY_GATE_SCORE_AUTH if not auth_ok else 0)
 
         # 4. Identity / clearance
         try:
             from l1.kernel.params.agent import AGENT_CLEARANCE
             ring = AGENT_CLEARANCE.get(agent_id, 1)
-            verdict.add_gate("clearance", ring >= 1, detail=f"agent_ring={ring}", score=0.1 if ring < 1 else 0)
+            verdict.add_gate("clearance", ring >= 1, detail=f"agent_ring={ring}", score=SECURITY_GATE_SCORE_CLEARANCE if ring < 1 else 0)
         except Exception as e:
             verdict.add_gate("clearance", True, f"clearance unavailable: {e}")
 
@@ -128,7 +138,7 @@ class CentralSecurity:
             if mode == "read":
                 write_names = _TC.write_tool_names()
                 if action in write_names:
-                    verdict.add_gate("tool_mode", False, "read mode, write blocked", score=0.8)
+                    verdict.add_gate("tool_mode", False, "read mode, write blocked", score=SECURITY_GATE_SCORE_TOOL_MODE)
         except Exception as e:
             verdict.add_gate("tool_mode", True, f"tool_mode unavailable: {e}")
 
@@ -143,7 +153,7 @@ class CentralSecurity:
             tool_ring = _RNM.get(RING_2_5 if action in _TC.write_tool_names() else RING_1, 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)
             verdict.add_gate("rate_limit", rl.get("allowed", True),
-                             detail=f"remaining={rl.get('remaining', 0)}", score=0.4 if not rl.get("allowed") else 0)
+                             detail=f"remaining={rl.get('remaining', 0)}", score=SECURITY_GATE_SCORE_RATE_LIMIT if not rl.get("allowed") else 0)
         except Exception:
             verdict.add_gate("rate_limit", True, "rate_limit unavailable")
 

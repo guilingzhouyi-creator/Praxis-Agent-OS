@@ -10,6 +10,20 @@ FILE_CACHE_MAX_ENTRIES: Final[int] = 500
 FILE_CACHE_MAX_SIZE: Final[int] = 10 * 1024 * 1024
 FILE_CACHE_TTL: Final[float] = 60.0
 
+# ── Filesystem service (fs_adapter watch polling) ──
+
+FS_WATCH_INTERVAL: Final[float] = 2.0
+
+# ── Central security verdict gate scores (central_security.py) ──
+
+SECURITY_GATE_SCORE_CONSTITUTION: Final[float] = 0.3
+SECURITY_GATE_SCORE_CONSTITUTION_ERROR: Final[float] = 0.5
+SECURITY_GATE_SCORE_GATECHAIN: Final[float] = 0.5
+SECURITY_GATE_SCORE_AUTH: Final[float] = 0.5
+SECURITY_GATE_SCORE_CLEARANCE: Final[float] = 0.1
+SECURITY_GATE_SCORE_TOOL_MODE: Final[float] = 0.8
+SECURITY_GATE_SCORE_RATE_LIMIT: Final[float] = 0.4
+
 
 # ── Context register (Cell-level, shared across agent terminals) ──
 
@@ -514,6 +528,7 @@ SNAPSHOT_CACHE_KEY_LIMIT: Final[int] = 100          # card snapshot cache-keys c
 CROSS_REVIEW_TIMEOUT: Final[float] = 60.0           # blocking cross-review wait
 SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT: Final[float] = 60.0  # scout verify wait in fork-join
 CARD_DEFAULT_PRIORITY: Final[int] = 5               # default card priority
+CARD_DEFAULT_SIZE: Final[str] = "large"             # default card size (large | disputed)
 TOKEN_HISTORY_WINDOW_SECONDS: Final[int] = 300      # CentralCollector 5min buckets
 TOKEN_HISTORY_MAX: Final[int] = 288                 # 288 × 300s = 24h of buckets
 TOKEN_HISTORY_SHOWN: Final[int] = 48                # last 4h shown in global_summary

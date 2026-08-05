@@ -27,6 +27,8 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import HUMAN_SENDER, SIGNAL_TARGET_L3
 from l1.kernel.params.kernel import WitnessStatus
 from l1.kernel.params.system import (
+    CARD_DEFAULT_PRIORITY,
+    CARD_DEFAULT_SIZE,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_60,
     LOG_TRUNC_80,
@@ -58,7 +60,7 @@ class PendingMessage:
     domain: str = ""
     size: str = ""           # large | disputed
     status: PendingStatus = PendingStatus.PENDING
-    priority: int = 5
+    priority: int = CARD_DEFAULT_PRIORITY
     created_at: float = field(default_factory=time.time)
     resolved_at: float = 0.0
     response: str = ""
@@ -116,7 +118,7 @@ class PendingQueue(PersistableMixin):
     # ── Public API ──
 
     def enqueue(self, card_id: str, intent: str = "", domain: str = "",
-                size: str = "large", priority: int = 5) -> str:
+                size: str = CARD_DEFAULT_SIZE, priority: int = CARD_DEFAULT_PRIORITY) -> str:
         """Add a card to the pending queue. Returns message id."""
         mid = f"pend-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         msg = PendingMessage(
