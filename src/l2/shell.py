@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from collections import deque
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
@@ -59,7 +60,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
         readline.set_completer_delims(' \t\n')
     except ImportError:
         logger.debug("shell: readline unavailable, tab completion disabled")
-    history: list[str] = []
+    history: deque[str] = deque(maxlen=TERMINAL_OUTPUT_MAX_LINES)
     history_pos = 0
 
     print("Agent OS Terminal — Type 'help' for commands, 'exit' to quit")
@@ -95,7 +96,8 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
             _list_tools()
             continue
         if line in ("history", "hist"):
-            for i, h in enumerate(history[-TERMINAL_OUTPUT_MAX_LINES:], 1):
+            # deque is already capped at TERMINAL_OUTPUT_MAX_LINES.
+            for i, h in enumerate(history, 1):
                 print(f"  {i:3d}  {h}")
             continue
         if line in ("status", "st"):
