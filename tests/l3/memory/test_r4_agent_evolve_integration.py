@@ -70,8 +70,13 @@ class TestEvolveSkillLLMFullFlow:
         assert any(e["name"] == "db-migration-helper" for e in evolved)
         assert any("timestamp" in e.get("prompt", "") for e in evolved)
 
-        # Verify SKILL.md file creation
-        md_path = os.path.join(get_paths().skill_evolved_dir, "db-migration-helper", "SKILL.md")
+        # Verify SKILL.md file creation — written to the active evolve scope
+        # (project → repo skills/evolved; global → data-dir skills/evolved).
+        from l3.memory.r4_agent import _resolve_skill_scope
+        _scope = _resolve_skill_scope()
+        _base = (get_paths().skill_project_evolved_dir if _scope == "project"
+                 else get_paths().skill_evolved_dir)
+        md_path = os.path.join(_base, "db-migration-helper", "SKILL.md")
         assert os.path.isfile(md_path), f"SKILL.md not found at {md_path}"
         with open(md_path, encoding="utf-8") as f:
             content = f.read()
