@@ -73,10 +73,12 @@ class ScoutSession:
     It receives a natural language task, executes tool calls, and produces a report.
     """
 
-    def __init__(self, scout_id: str, agent_id: str, task: str):
+    def __init__(self, scout_id: str, agent_id: str, task: str,
+                 strategy: str = ""):
         self.scout_id = scout_id
         self.agent_id = agent_id
         self.task = task
+        self.strategy = strategy      # named model_spec strategy pack (fast/balanced/deep/xhigh)
         self.report = ScoutReport(scout_id=scout_id, agent_id=agent_id, task=task)
         self._done = threading.Event()
 
@@ -108,7 +110,8 @@ class ScoutSession:
                       self._tool_list)
 
         result = loop.run(max_steps=SCOUT_LOOP_STEPS, timeout=SCOUT_LOOP_TIMEOUT,
-                          **_get_model_service().resolve_dict(_MODEL_SPEC))
+                          **_get_model_service().resolve_dict_with_strategy(
+                              _MODEL_SPEC, strategy=self.strategy))
         findings = []
 
         # Extract answer
@@ -217,7 +220,7 @@ class ScoutPool(BaseService):
         return {"success": True}
 
     def commission(self, agent_id: str, task: str, scope: dict | None = None,
-                   cell_id: str = "") -> dict:
+                   cell_id: str = "", strategy: str = "") -> dict:
         """Commission a scout with a natural language investigation task.
 
         The scout gets its own LLM session, investigates using Ring 1 tools,
@@ -243,7 +246,7 @@ class ScoutPool(BaseService):
 
             scout_id = f"scout-{agent_id}-{self._next_id}"
             self._next_id += 1
-            scout = ScoutSession(scout_id, agent_id, task)
+            scout = ScoutSession(scout_id, agent_id, task, strategy=strategy)
             self._active[scout_id] = scout
             self._agent_active[agent_id] = agent_active + 1
             self._total_commissioned += 1

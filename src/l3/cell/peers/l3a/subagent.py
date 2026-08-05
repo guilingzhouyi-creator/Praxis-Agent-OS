@@ -36,12 +36,14 @@ _L3A_SPECS: dict[str, dict] = {
         "max_steps": _p.SA_CARD_PLANNER_MAX_STEPS,
         "timeout": _p.SA_CARD_PLANNER_TIMEOUT,
         "expect_keys": ["domain", "card_nature", "phases", "tasks", "findings"],
+        "strategy": "balanced",   # planning benefits from moderate reasoning
     },
     "investigator": {
         "allowed_tools": ["read_file", "grep_search", "list_dir", "glob"],
         "max_steps": _p.SA_INVESTIGATOR_MAX_STEPS,
         "timeout": _p.SA_INVESTIGATOR_TIMEOUT,
         "expect_keys": ["findings", "files_examined", "summary"],
+        "strategy": "fast",       # read-only recon keeps latency low
     },
 }
 
@@ -56,9 +58,11 @@ class L3ASubAgentPool:
         self._lock = threading.RLock()
 
     def commission(self, spec: str, task: str, group: str = "",
-                   expect: dict | None = None) -> dict:
+                   expect: dict | None = None, strategy: str = "") -> dict:
         if spec not in _L3A_SPECS:
             return {"success": False, "error": f"unknown spec: {spec}"}
+        spec_def = _L3A_SPECS[spec]
+        strategy = strategy or spec_def.get("strategy", "")
         tid = f"{_SPAWN_PREFIX}-{uuid.uuid4().hex[:_SID_LEN]}"
         task_obj = L3ATask(
             task_id=tid, spec=spec, task=task,
@@ -70,10 +74,11 @@ class L3ASubAgentPool:
                 if group not in self._groups:
                     self._groups[group] = L3ATaskGroup(group_id=group)
                 self._groups[group].task_ids.append(tid)
-        fut = self._executor.submit(self._run, tid, spec, task)
+        fut = self._executor.submit(self._run, tid, spec, task, strategy)
         task_obj.future = fut
         task_obj.status = "running"
-        logger.debug("l3a subagent: spawned %s (%s) group=%s", tid, spec, group)
+        logger.debug("l3a subagent: spawned %s (%s) group=%s strategy=%s",
+                     tid, spec, group, strategy)
         return {"success": True, "task_id": tid, "spec": spec, "group": group}
 
     def collect(self, group: str, timeout: float = 30.0) -> dict:
@@ -98,9 +103,9 @@ class L3ASubAgentPool:
                 break
             try:
                 fut.result(timeout=deadline - now)
-            except Exception:
+            except Exception as e:
                 # Task failed/timed out — status already recorded on the task object.
-                pass
+                logger.debug("l3a.subagent: task %s failed/timed out: %s", task_id, e)
         with self._lock:
             for tid in tids:
                 t = self._tasks.get(tid)
@@ -140,7 +145,8 @@ class L3ASubAgentPool:
             pass
         return None
 
-    def _run(self, task_id: str, spec_name: str, task_text: str) -> dict:
+    def _run(self, task_id: str, spec_name: str, task_text: str,
+             strategy: str = "") -> dict:
         spec = _L3A_SPECS.get(spec_name, {})
         max_steps = spec.get("max_steps", 6)
         timeout = spec.get("timeout", 45.0)
@@ -189,7 +195,7 @@ class L3ASubAgentPool:
                               parallel_safe=(tn != "cardwrite"))
                 registered.add(tn)
 
-            model_cfg = self._resolve_model_config()
+            model_cfg = self._resolve_model_config(strategy)
             result = loop.run(max_steps=max_steps, timeout=timeout,
                               model_config=model_cfg)
             answer = result.get("answer", "")
@@ -218,10 +224,10 @@ class L3ASubAgentPool:
 
     @staticmethod
     @staticmethod
-    def _resolve_model_config() -> dict:
+    def _resolve_model_config(strategy: str = "") -> dict:
         try:
             from l3.services.model_service import get_service as _gs
-            return _gs().resolve_dict("l3a_subagent")
+            return _gs().resolve_dict_with_strategy("l3a_subagent", strategy=strategy)
         except Exception:
             capture("l3a subagent: model config resolve failed", error_code="E_L3A_SA", component="l3a")
             return {"max_tokens": _p.SA_DEFAULT_MAX_TOKENS, "temperature": _p.SA_DEFAULT_TEMPERATURE}
@@ -239,7 +245,7 @@ class L3ASubAgentPool:
             if isinstance(parsed, dict):
                 result.update(parsed)
         except (json.JSONDecodeError, ValueError):
-            pass
+            logger.debug("l3a.subagent: answer is not JSON, using raw text")
         expect_keys = spec.get("expect_keys", [])
         for k in expect_keys:
             if k not in result:

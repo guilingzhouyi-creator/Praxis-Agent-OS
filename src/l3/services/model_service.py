@@ -196,6 +196,21 @@ class ModelService:
             "thinking_budget": cfg.thinking_budget,
         }
 
+    def resolve_dict_with_strategy(self, spec_name: str = "",
+                                   strategy: str = "",
+                                   overrides: dict | None = None) -> dict:
+        """Resolve a spec dict and layer a named strategy pack on top.
+
+        Shared by scout / L3A-subagent / cell-subagent executors so every
+        delegation path can switch reasoning tiers per task.
+        """
+        kwargs = self.resolve_dict(spec_name, overrides)
+        if strategy:
+            defn = self.resolve_strategy_pack(strategy)
+            if defn:
+                kwargs.update({k: v for k, v in defn.items() if k in kwargs})
+        return kwargs
+
     # ── Named strategy packs (runtime switching) ──────────────────────
 
     def resolve_strategy_pack(self, strategy_name: str) -> dict | None:

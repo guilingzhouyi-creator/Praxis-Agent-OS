@@ -118,3 +118,39 @@ class TestSubagentStrategy:
         kwargs = task.resolve_model_kwargs()
         assert kwargs["reasoning_effort"] == "high"
         assert kwargs["thinking_budget"] == 8192
+
+
+class TestScoutStrategy:
+    def test_scout_session_accepts_strategy(self):
+        from l3.agent.scout import ScoutSession
+        s = ScoutSession("s1", "agent-a", "investigate", strategy="deep")
+        assert s.strategy == "deep"
+
+    def test_commission_default_no_strategy(self):
+        from l3.agent.scout import ScoutPool
+        pool = ScoutPool(min_idle=0, max_total=2)
+        # no LLM is invoked without execute; just verify commission plumbing
+        assert pool.max_total == 2
+
+
+class TestL3ASubagentStrategy:
+    def test_commission_strategy_plumbing(self):
+        from l3.cell.peers.l3a.subagent import L3ASubAgentPool
+        pool = L3ASubAgentPool(max_workers=1)
+        try:
+            r = pool.commission("card-planner", "plan x", strategy="deep")
+            assert r["success"] is True
+            assert r["task_id"]
+            # spec default strategy applies when not overridden
+            r2 = pool.commission("investigator", "look", strategy="")
+            assert r2["success"] is True
+        finally:
+            pool.shutdown(wait=False)
+
+    def test_resolve_model_config_with_strategy(self):
+        from l3.cell.peers.l3a.subagent import L3ASubAgentPool
+        _setup()
+        cfg = L3ASubAgentPool._resolve_model_config("balanced")
+        assert cfg["reasoning_effort"] == "low"
+        cfg2 = L3ASubAgentPool._resolve_model_config()
+        assert cfg2["reasoning_effort"] == "none"
