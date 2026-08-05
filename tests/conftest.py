@@ -1,7 +1,21 @@
 """pytest conftest — singleton reset between tests to avoid state pollution."""
 from __future__ import annotations
 
+import os
+import sys
+import tempfile
+
 import pytest
+
+# ── xdist worker isolation ──
+# Each parallel worker gets its own skill dir so parallel runs never contend
+# on shared skill files. PRAXIS_DATA_DIR/PRAXIS_CONFIG_DIR are deliberately
+# NOT overridden — tests like test_paths.py assert the default data_dir
+# (".praxis") / config_file ("config/praxis.yaml") semantics, and those
+# defaults must stay intact under xdist.
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    _iso_dir = tempfile.mkdtemp(prefix="praxis-test-worker-")
+    os.environ.setdefault("PRAXIS_SKILL_DIR", _iso_dir)
 
 # Modules with singleton _xxx = None pattern that can pollute across tests
 _RESETS = {
@@ -37,11 +51,18 @@ _RESETS = {
 
 @pytest.fixture(autouse=True)
 def _reset_singletons():
-    """Reset all known singletons before each test to prevent state pollution."""
+    """Reset known singletons before each test to prevent state pollution.
+
+    Lazy per-module: only modules already imported (``sys.modules``) are
+    reset — a module the test suite never touched has no singleton to
+    clean, so we skip its import cost instead of force-importing all 27.
+    """
     errors = []
     for module_name, (func_name, _) in _RESETS.items():
+        if module_name not in sys.modules:
+            continue  # never imported → no singleton to reset
         try:
-            mod = __import__(module_name, fromlist=[func_name])
+            mod = sys.modules[module_name]
             fn = getattr(mod, func_name, None)
             if fn:
                 fn()
@@ -49,17 +70,21 @@ def _reset_singletons():
             errors.append(f"{module_name}.{func_name}: {e}")
     # Command registry: after reset, reload default command defs + L2 shell
     # handlers so `/help` etc. stay registered across the full test run.
-    try:
-        from l1.kernel.commands import get_registry, load_command_defs, reset_registry
-        reset_registry()
-        get_registry()
-        load_command_defs()
-        import importlib
+    # Only reload when the commands package was actually imported — an
+    # unconditional importlib.reload() re-imports the whole L2 command tree
+    # (pulling L3 modules) on every test, adding ~5s of setup cost.
+    if "l2.l2_shell.commands" in sys.modules or "l1.kernel.commands" in sys.modules:
+        try:
+            from l1.kernel.commands import get_registry, load_command_defs, reset_registry
+            reset_registry()
+            get_registry()
+            load_command_defs()
+            import importlib
 
-        import l2.l2_shell.commands as _cmds_mod
-        importlib.reload(_cmds_mod)
-    except Exception as e:
-        errors.append(f"commands.reload: {e}")
+            import l2.l2_shell.commands as _cmds_mod
+            importlib.reload(_cmds_mod)
+        except Exception as e:
+            errors.append(f"commands.reload: {e}")
     if errors:
         import logging
         logging.getLogger(__name__).debug("singleton resets: %s", errors)

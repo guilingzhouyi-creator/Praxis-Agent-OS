@@ -96,16 +96,34 @@ def test_semaphore_status() -> None:
 
 
 def test_barrier_wait_reset() -> None:
+    import threading
+
     b = Barrier("br1", count=3)
-    r1 = b.wait("agent-1")
-    assert r1["success"] is True
-    assert r1["arrived"] == 1
-    r2 = b.wait("agent-2")
-    assert r2["arrived"] == 2
+
+    def arrive(results: dict[str, dict], agent_id: str) -> None:
+        results[agent_id] = b.wait(agent_id)
+
+    def run_all(prefix: str) -> dict[str, dict]:
+        results: dict[str, dict] = {}
+        threads = [threading.Thread(target=arrive, args=(results, f"{prefix}-{i}"))
+                   for i in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=2)
+        return results
+
+    first = run_all("agent")
+    # All three agents reached the barrier → released without blocking.
+    assert len(first) == 3
+    assert all(r["success"] is True for r in first.values())
+    assert {r["role"] for r in first.values()} == {"releaser", "waiter"}
     r = b.reset()
     assert r["success"] is True
-    r3 = b.wait("agent-1")
-    assert r3["arrived"] == 1
+    # After reset the barrier must be usable again — all three re-arrive.
+    second = run_all("again")
+    assert len(second) == 3
+    assert all(r["success"] is True for r in second.values())
 
 
 # ── Condition ──

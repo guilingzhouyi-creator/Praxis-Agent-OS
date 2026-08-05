@@ -26,17 +26,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test]"
 
+      # -n auto comes from pyproject addopts (parallel across files, serial
+      # within a file via --dist loadfile). Small/quick steps pin -n 0 to
+      # avoid xdist spawn overhead; directory steps keep the default -n auto.
       - name: Layer import constraints
-        run: python -m pytest tests/infra/test_layer_imports.py --maxfail=5 -q --tb=short
+        run: python -m pytest tests/infra/test_layer_imports.py -n 0 --maxfail=5 -q --tb=short
 
       - name: Params compliance
-        run: python -m pytest tests/infra/test_params_compliance.py --maxfail=5 -q --tb=short
+        run: python -m pytest tests/infra/test_params_compliance.py -n 0 --maxfail=5 -q --tb=short
 
       - name: Hardcoded-fixes regression
-        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py --maxfail=5 -q --tb=short
+        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py -n 0 --maxfail=5 -q --tb=short
 
       - name: L1 Kernel
-        run: python -m pytest tests/l1/test_kernel.py --maxfail=5 -q --tb=short
+        run: python -m pytest tests/l1/test_kernel.py -n 0 --maxfail=5 -q --tb=short
 
       - name: L2 Shell
         run: python -m pytest tests/l2/ --maxfail=5 -q --tb=short
@@ -57,7 +60,7 @@ jobs:
           python -m pytest tests/l3/subagent/ --maxfail=5 -q --tb=short
 
       - name: L4 Bridge
-        run: python -m pytest tests/l4/test_sandbox.py --maxfail=5 -q --tb=short
+        run: python -m pytest tests/l4/test_sandbox.py -n 0 --maxfail=5 -q --tb=short
 
       - name: Integration
         run: python -m pytest tests/integration/ --maxfail=5 -q --tb=short

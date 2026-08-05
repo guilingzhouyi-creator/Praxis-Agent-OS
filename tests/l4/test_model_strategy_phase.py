@@ -18,6 +18,12 @@ def _setup():
     sc.set("model_spec.strategies.deep.max_tokens", 8192)
     sc.set("model_spec.strategies.disabled.reasoning_effort", "high")
     sc.set("model_spec.strategies.disabled.enabled", False)
+    # balanced pack — mirrors config/praxis.yaml so the strategy resolves
+    # even when the yaml is not loaded into SettingsCenter by the test env.
+    sc.set("model_spec.strategies.balanced.reasoning_effort", "low")
+    sc.set("model_spec.strategies.balanced.thinking_budget", 2048)
+    sc.set("model_spec.strategies.balanced.max_tokens", 4096)
+    sc.set("model_spec.strategies.balanced.temperature", 0.5)
     for k in ("model_spec.l3a.max_tokens", "model_spec.l3a.temperature",
               "model_spec.l3a.reasoning_effort", "model_spec.l3a.thinking_budget",
               "model_spec.l3a.strategy", "think.max_reasoning", "think.max_budget"):

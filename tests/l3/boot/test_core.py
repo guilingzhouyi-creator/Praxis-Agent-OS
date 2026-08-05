@@ -91,7 +91,8 @@ class TestBootExecWithTimeout:
 
         def _slow():
             import time
-            time.sleep(10)  # longer than timeout
+            time.sleep(1.0)  # longer than timeout; keep short so the leaked
+                             # background thread does not block process exit
             return {"success": True}
 
         r = exec_ft(_slow, timeout=0.1)

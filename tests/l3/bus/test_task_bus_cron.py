@@ -212,10 +212,11 @@ class TestCronScheduler:
         # Verify cron matches now
         assert _cron_matches(entry["cron"], now)
         # Dispatch
-        before = len(reg.list(state=None))
+        before = len(reg.list(state=None, limit=0))
         s._dispatch(entry)
-        # Card should be in registry
-        cards = reg.list(state=None)
+        # Card should be in registry (limit=0 → all cards, so the new card
+        # is not truncated by list()'s default limit of 50)
+        cards = reg.list(state=None, limit=0)
         assert len(cards) == before + 1, "cron dispatch should submit exactly one card"
 
 
