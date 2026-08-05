@@ -474,6 +474,7 @@ class R4Agent:
         It carries the ``evolved`` tag so AgentLoop injects it via
         ``get_evolved_skills`` alongside LLM-evolved skills.
         """
+        import os
         by_tool: dict[str, list[dict]] = {}
         for s in sm.list(tags=["lean_case"]):
             tools = s.get("allowed_tools") or []
@@ -490,8 +491,8 @@ class R4Agent:
             lessons = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
             gen_prompt = f"Known failure patterns when using {tool}:\n{lessons}"
             existing = sm.get(gen_name)
-            if existing and existing.get("prompt") == gen_prompt:
-                continue  # already generalized from the same cases
+            if existing and existing.get("prompt") == gen_prompt and os.path.exists(self._skill_md_path(gen_name)):
+                continue  # already generalized + persisted from the same cases
             sm.create(
                 name=gen_name,
                 description=f"Consolidated failure lessons for {tool} ({len(cases)} cases)",
@@ -500,8 +501,74 @@ class R4Agent:
                 allowed_tools=[tool],
                 internal=True,
             )
+            try:
+                self._persist_skill_md(
+                    name=gen_name,
+                    description=f"Consolidated failure lessons for {tool} ({len(cases)} cases)",
+                    prompt=gen_prompt,
+                    tags=["evolved", tool],
+                    allowed_tools=[tool],
+                )
+            except Exception as e:
+                logger.warning("R4Agent: persist generalized skill %s failed: %s", gen_name, e)
             generalized += 1
         return generalized
+
+    def _skill_md_path(self, name: str) -> str:
+        """Resolve the SKILL.md path for a skill in the evolved dir.
+
+        Layered persistence: project scope → travels with the repo; global
+        scope → machine-local data dir (must match the boot discovery dirs).
+        """
+        import os
+
+        from l1.kernel.paths import get_paths as _gp
+        scope = _resolve_skill_scope()
+        evolved_base = (_gp().skill_project_evolved_dir if scope == "project"
+                        else _gp().skill_evolved_dir)
+        return os.path.join(evolved_base, name, "SKILL.md")
+
+    def _persist_skill_md(self, name: str, description: str, prompt: str,
+                          tags: list[str], allowed_tools: list[str] | None = None,
+                          rules: list[str] | None = None,
+                          procedures: list[dict] | None = None,
+                          variables: dict | None = None) -> str:
+        """Persist a skill as SKILL.md with round-trip frontmatter.
+
+        Frontmatter carries name/description/tags/allowed_tools/variables so a
+        reload via SkillManager._load_markdown() restores them; the prompt is
+        the body.  Shared by evolve_skill (LLM) and _generalize_lean_cases
+        (rule-based) so both survive restart via the boot discovery dirs.
+        """
+        import os
+
+        import yaml as _yaml
+        md_path = self._skill_md_path(name)
+        os.makedirs(os.path.dirname(md_path), exist_ok=True)
+        meta = {"name": name, "description": description, "tags": tags}
+        if allowed_tools:
+            meta["allowed_tools"] = allowed_tools
+        if variables:
+            meta["variables"] = variables
+        md_lines = ["---"]
+        md_lines.append(_yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip())
+        md_lines.append("---")
+        md_lines.append("")
+        md_lines.append(prompt)
+        md_lines.append("")
+        if rules:
+            md_lines.append("## Rules")
+            for rule in rules:
+                md_lines.append(f"- {rule}")
+            md_lines.append("")
+        if procedures:
+            md_lines.append("## Procedures")
+            for proc in procedures:
+                md_lines.append(f"- **{proc.get('step', '?')}**: {proc.get('description', '')}")
+            md_lines.append("")
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(md_lines))
+        return md_path
 
     @staticmethod
     def _atomic_write(fp: str, data: dict) -> None:
@@ -770,9 +837,7 @@ class R4Agent:
 
         try:
             import json
-            import os
 
-            from l1.kernel.paths import get_paths as _gp
             from l1.kernel.prompts import get_prompt
             from l1.kernel.skill import get_skill_manager
             from l4.llm.llm import get_engine
@@ -870,45 +935,16 @@ class R4Agent:
             except Exception as e:
                 logger.debug("R4Agent: skill graph linkage skipped: %s", e)
 
-            # Persist as SKILL.md — frontmatter must carry full metadata so a
-            # reload via _load_markdown() restores tags/allowed_tools/variables
-            # (round-trip integrity, see skill.py format debt fix).
-            # Layered persistence: project scope → travels with the repo;
-            # global scope → machine-local data dir.
             scope = _resolve_skill_scope()
-            evolved_base = (_gp().skill_project_evolved_dir if scope == "project"
-                            else _gp().skill_evolved_dir)
-            skill_dir = os.path.join(evolved_base, name)
-            os.makedirs(skill_dir, exist_ok=True)
-            md_path = os.path.join(skill_dir, "SKILL.md")
-            import yaml as _yaml
-            meta = {
-                "name": name,
-                "description": skill_desc,
-                "tags": skill_tags,
-            }
-            if skill_tools:
-                meta["allowed_tools"] = skill_tools
-            if skill_def.get("variables"):
-                meta["variables"] = skill_def["variables"]
-            md_lines = ["---"]
-            md_lines.append(_yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip())
-            md_lines.append("---")
-            md_lines.append("")
-            md_lines.append(skill_prompt)
-            md_lines.append("")
-            if skill_rules:
-                md_lines.append("## Rules")
-                for rule in skill_rules:
-                    md_lines.append(f"- {rule}")
-                md_lines.append("")
-            if skill_procs:
-                md_lines.append("## Procedures")
-                for proc in skill_procs:
-                    md_lines.append(f"- **{proc.get('step', '?')}**: {proc.get('description', '')}")
-                md_lines.append("")
-            with open(md_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(md_lines))
+            # Persist as SKILL.md — shared helper keeps round-trip frontmatter
+            # (tags/allowed_tools/variables survive reload) for both the LLM
+            # evolve path and the rule-based generalization path.
+            self._persist_skill_md(
+                name=name, description=skill_desc, prompt=skill_prompt,
+                tags=skill_tags, allowed_tools=skill_tools,
+                rules=skill_rules, procedures=skill_procs,
+                variables=skill_def.get("variables"),
+            )
 
             if self._pmu:
                 try:
