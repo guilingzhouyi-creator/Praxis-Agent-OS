@@ -378,6 +378,12 @@ R4_LEAN_CASES_DEFAULT: Final[int] = 5      # default limit for get_lean_cases
 R4_EVOLVED_SKILLS_DEFAULT: Final[int] = 3  # default limit for get_evolved_skills / graph diffusion
 R4_LEAN_GENERALIZE_THRESHOLD: Final[int] = 3  # per-tool lean cases → auto-generalize into one lessons skill
 
+# ── R4Agent lesson summarization (LLM) ──
+R4_SUMMARIZE_COOLDOWN: Final[float] = 3600.0   # min gap between LLM summaries per tool (s)
+R4_SUMMARIZE_MIN_INTERVAL: Final[float] = 60.0  # min gap between ANY two LLM summaries (s)
+R4_SUMMARIZE_MAX_TOKENS: Final[int] = 512
+R4_SUMMARIZE_MIN_LEN: Final[int] = 20           # quality floor for accepted lessons
+
 # ── CardBuilder default modes ──
 CARD_BUILDER_MODES: Final[dict[str, str]] = {
     "build_audit": "PARALLEL_ALL",
