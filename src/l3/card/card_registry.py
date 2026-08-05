@@ -730,7 +730,7 @@ class CardRegistry(PersistableMixin):
                 if domain and r.summary.columns.get("domain", "") != domain:
                     continue
                 result.append(_card_to_dict(r))
-                if len(result) >= limit:
+                if limit and len(result) >= limit:
                     break
             return result
 
