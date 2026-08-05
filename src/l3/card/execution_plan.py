@@ -146,7 +146,7 @@ class ExecutionPlan:
     def _save_step_checkpoint(self, ps: PlanStep) -> None:
         """Save checkpoint before executing a step."""
         try:
-            from .services.fault_tolerance import get_service
+            from l3.services.fault_tolerance import get_service
             ft = get_service()
             ft.save_checkpoint(
                 agent_id=ps.agent,
@@ -159,7 +159,7 @@ class ExecutionPlan:
     def _mark_phase_checkpoint_done(self, agent_ids: set[str]) -> None:
         """Mark checkpoint done for completed agents."""
         try:
-            from .services.fault_tolerance import get_service
+            from l3.services.fault_tolerance import get_service
             ft = get_service()
             for aid in agent_ids:
                 try:

@@ -218,7 +218,7 @@ def handle_think(term, card, phases):
         import os as _os
 
         from .agent_loop import AgentLoop
-        from .memory.memory import get_memory
+        from l3.memory.memory import get_memory
 
         task = card.params.get("prompt", card.target)
 

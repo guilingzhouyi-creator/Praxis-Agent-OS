@@ -1,4 +1,4 @@
-"""AgentLoop — LLM tool calling with loop detection, retry, and parallel tools.
+﻿"""AgentLoop 鈥?LLM tool calling with loop detection, retry, and parallel tools.
 
 Architecture:
   AgentLoop reads a Card, calls LLM in a loop, executes tools returned
@@ -10,19 +10,19 @@ Flow per turn:
   2. Call LLM (with tool-use / tool_choice)
   3. Parse tool calls from response
   4. Execute each tool (parallel via ThreadPoolExecutor)
-  5. Collect results → append to conversation
+  5. Collect results 鈫?append to conversation
   6. Self-verification check (verifier.py)
-  7. If not done → goto 1
+  7. If not done 鈫?goto 1
 
 Loop detection (loop_detectors.py):
   - Stagnation: same action repeated without progress
-  - Oscillation: A→B→A→B pattern
+  - Oscillation: A鈫払鈫扐鈫払 pattern
   - Diminishing returns: score not improving
 
 Integration:
-  - Card → AgentLoop → tools → results → CardRegistry
-  - AgentLoop → Verifier (self-check) → correction → AgentLoop
-  - AgentLoop → Review (peer-review) → feedback → AgentLoop
+  - Card 鈫?AgentLoop 鈫?tools 鈫?results 鈫?CardRegistry
+  - AgentLoop 鈫?Verifier (self-check) 鈫?correction 鈫?AgentLoop
+  - AgentLoop 鈫?Review (peer-review) 鈫?feedback 鈫?AgentLoop
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ class AgentLoop:
         self._chat_params_hooks: list[Callable] = []
         self._run_count = 0
         self._context_trail: list[dict] | None = None
-        # Cached state for continue_run() — built once on first run(), reused thereafter.
+        # Cached state for continue_run() 鈥?built once on first run(), reused thereafter.
         # Maintaining identical system prompt + tools across calls enables LLM
         # provider prompt caching (Anthropic/DeepSeek) and avoids redundant work.
         self._cached_system: str = ""
@@ -195,7 +195,7 @@ class AgentLoop:
         overflowing the context window with skill content.
         """
         try:
-            from .memory.r4_agent import get_r4_agent
+            from l3.memory.r4_agent import get_r4_agent
             r4 = get_r4_agent()
             budget = LOOP_CONTEXT_BUDGET_SKILL
             lean = r4.get_lean_cases(agent_id=self.agent_id, cell_id=self._cell_id,
@@ -230,7 +230,7 @@ class AgentLoop:
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
         try:
-            from .cell.peers.l3 import get_coordinator
+            from l3.cell.peers.l3 import get_coordinator
             coord = get_coordinator()
             if getattr(coord, '_cross_cell_active', False):
                 system += get_prompt("agent_loop.cross_cell_rules", "")
@@ -263,11 +263,11 @@ class AgentLoop:
     def _register_todowrite(self) -> None:
         """Register the todowrite tool for task-list management."""
         def _todowrite_handler(args: dict, agent_id: str = "") -> dict:
-            """Handle a todowrite tool call — update todo item status."""
+            """Handle a todowrite tool call 鈥?update todo item status."""
             content = args.get("content", "")
             status = args.get("status", "in_progress")
             self._todo.update(content, status)
-            return {"success": True, "message": f"todo '{content[:LOG_TRUNC_40]}' → {status}"}
+            return {"success": True, "message": f"todo '{content[:LOG_TRUNC_40]}' 鈫?{status}"}
         # Only register if not already added
         if not any(t.name == "todowrite" for t in self._tools):
             self._tools.append(ToolSpec(
@@ -361,7 +361,7 @@ class AgentLoop:
 
     def _finish(self, result: dict, *, t0: float, turns: int = 0,
                  corrections: int = 0, processed_count: int = 0) -> dict:
-        """Centralized terminal funnel — OpenCode-style.
+        """Centralized terminal funnel 鈥?OpenCode-style.
 
         Called EXACTLY ONCE by every return path in run().
         Guarantees counter recording, cadence cleanup, and logging.
@@ -406,7 +406,7 @@ class AgentLoop:
         self._todo._persist()
         self._cadence.reset()
 
-        # ── Cell L2 cache injection ──
+        # 鈹€鈹€ Cell L2 cache injection 鈹€鈹€
         if self._cell_id:
             try:
                 from l3.cell import get_cell as _get_cell
@@ -440,7 +440,7 @@ class AgentLoop:
             except Exception as e:
                 logger.debug("cell cache inject: %s", e)
 
-        # ── Snapshot hook ──
+        # 鈹€鈹€ Snapshot hook 鈹€鈹€
         try:
             from l3.agent.agent_persist import append_transcript
             record = {
@@ -499,7 +499,7 @@ class AgentLoop:
                 max_steps = get_center().get("loop.max_steps", AGENT_LOOP_DEFAULT_STEPS)
             except (ImportError, KeyError):
                 max_steps = AGENT_LOOP_DEFAULT_STEPS
-        # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
+        # 0 or negative 鈫?unlimited mode (use a large sentinel for LLM max_turns)
         _UNLIMITED = AGENT_LOOP_UNLIMITED_STEPS
         if max_steps <= 0:
             max_steps = _UNLIMITED
@@ -543,7 +543,7 @@ class AgentLoop:
             self._cached_model_kwargs = dict(model_kwargs)
         deadline = time.time() + timeout if timeout > 0 else float("inf")
 
-        # ── Pre-send compression guard (three-level cascade with PMU + MonitorBus) ──
+        # 鈹€鈹€ Pre-send compression guard (three-level cascade with PMU + MonitorBus) 鈹€鈹€
         _t_guard = time.time()
         ctx_window = 0
         mem = None
@@ -573,8 +573,7 @@ class AgentLoop:
 
         if ctx_window > 0:
             est_tokens = _estimate_tokens(self.task)
-            # Include the persistent conversation trail (context_trail) —
-            # persistent loops accumulate history across cards/runs; without
+            # Include the persistent conversation trail (context_trail) 鈥?            # persistent loops accumulate history across cards/runs; without
             # it the guard underestimates the real request size and history
             # can silently exceed the window.
             trail_tokens = 0
@@ -587,10 +586,10 @@ class AgentLoop:
                          + CONTEXT_BUILD_MAX_TOKENS + trail_tokens)
             ratio = est_total / ctx_window
 
-            # Phase 1: Try compression first (WARN → then MEDIUM escalation)
+            # Phase 1: Try compression first (WARN 鈫?then MEDIUM escalation)
             if ratio >= CONTEXT_PRESSURE_WARN:
                 try:
-                    from .memory.memory import get_memory
+                    from l3.memory.memory import get_memory
                     mem = get_memory()
                     sr = mem.stub_compact(self.agent_id)
                     logger.info("pre-send L1 stub_compact: ~%d/%d (%.0f%%)",
@@ -608,13 +607,13 @@ class AgentLoop:
 
             if ratio >= CONTEXT_PRESSURE_MEDIUM:
                 try:
-                    from .memory.memory import get_memory as _gm
+                    from l3.memory.memory import get_memory as _gm
                     mem = _gm()
                     cr = mem.compact(self.agent_id)
                     mem.forget_agent(self.agent_id, ring=1)
                     # Truncate the persistent conversation trail: keep the
                     # most recent messages, fold older ones into one summary
-                    # line — prevents unbounded history growth in persistent
+                    # line 鈥?prevents unbounded history growth in persistent
                     # loops (Cell Peer Agents + L3A sessions).
                     trail_removed = self._truncate_trail()
                     logger.info("pre-send L2 compact+forget_R1: ~%d/%d (%.0f%%)",
@@ -640,7 +639,7 @@ class AgentLoop:
 
             # Phase 2: Check CRITICAL after compression attempts
             if ratio >= CONTEXT_PRESSURE_CRITICAL:
-                logger.error("context exhausted: ~%d/%d tokens — aborting", est_total, ctx_window)
+                logger.error("context exhausted: ~%d/%d tokens 鈥?aborting", est_total, ctx_window)
                 if self._pmu:
                     self._pmu.increment("memory.context.critical")
                 _emit_memory_event("memory.pressure.critical", {"ratio": ratio, "est_total": est_total, "ctx_window": ctx_window})
@@ -653,7 +652,7 @@ class AgentLoop:
         # Fallback: when ctx_window is unknown (0), compress every 3 runs
         if ctx_window <= 0 and self._run_count > 0 and self._run_count % 3 == 0:
             try:
-                from .memory.memory import get_memory
+                from l3.memory.memory import get_memory
                 sr = get_memory().stub_compact(self.agent_id)
                 if self._pmu:
                     self._pmu.increment("memory.stub_compacts")
@@ -663,7 +662,7 @@ class AgentLoop:
         side_times["compression"] = round(time.time() - _t_guard, 3)
         self._run_count += 1
 
-        # ── Main LLM tool_use call ──
+        # 鈹€鈹€ Main LLM tool_use call 鈹€鈹€
         from l3.error_bus import error_boundary
         with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
             result = engine.tool_use(
@@ -693,7 +692,7 @@ class AgentLoop:
         turns = result.get("turns", 1)
         tool_results = result.get("tool_call_results", []) or []
 
-        # ── Truncation continuation ──
+        # 鈹€鈹€ Truncation continuation 鈹€鈹€
         if result.get("finish_reason") == "length":
             try:
                 cont = engine.generate(prompt=TRUNCATION_RESUME_NUDGE, system=system,
@@ -703,16 +702,16 @@ class AgentLoop:
             except Exception as e:
                 logger.warning("truncation continuation failed: %s", e)
 
-        # ── Post-tool stub compression guard ──
+        # 鈹€鈹€ Post-tool stub compression guard 鈹€鈹€
         try:
             tb = sum(len(str(tc)) for tc in tool_results)
             if tb > AGENT_LOOP_CONTEXT_TB_LIMIT and ctx_window > 0:
-                from .memory.memory import get_memory
+                from l3.memory.memory import get_memory
                 get_memory().stub_compact(self.agent_id)
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
 
-        # ── Process each tool result with loop detection + retry + cadence ──
+        # 鈹€鈹€ Process each tool result with loop detection + retry + cadence 鈹€鈹€
         processed_results: list[dict] = []
         all_passed = True
         corrections = 0
@@ -725,7 +724,7 @@ class AgentLoop:
                 break
             tool_name = step_result.get("name", "unknown") if isinstance(step_result, dict) else "?"
 
-            # ── ASK awaiting: break early when a tool requests user clarification ──
+            # 鈹€鈹€ ASK awaiting: break early when a tool requests user clarification 鈹€鈹€
             res_body = step_result.get("result", {}) if isinstance(step_result, dict) else {}
             if isinstance(res_body, dict) and res_body.get("awaiting_input"):
                 step_result["_awaiting_input"] = True
@@ -809,7 +808,7 @@ class AgentLoop:
 
             processed_results.append(step_result)
 
-        # ── Continuation nudges ──
+        # 鈹€鈹€ Continuation nudges 鈹€鈹€
         if self._todo._continuation_nudge and self._todo.has_open_items() and processed_results:
             continuation_nudge = get_prompt("agent_loop.continuation_nudge", "")
         elif continuation_nudge is None and self._cadence.nudge():
@@ -826,7 +825,7 @@ class AgentLoop:
             finally:
                 side_times["continuation"] += time.time() - _t_nudge
 
-        # ── Parallel read-only tool execution ──
+        # 鈹€鈹€ Parallel read-only tool execution 鈹€鈹€
         if read_only_tools and processed_results:
             _t_pr = time.time()
             try:
@@ -842,13 +841,13 @@ class AgentLoop:
             finally:
                 side_times["parallel_read"] += time.time() - _t_pr
 
-        # ── Consistency check ──
+        # 鈹€鈹€ Consistency check 鈹€鈹€
         if verifier is not None and len(processed_results) >= 2:
             cc = verifier.consistency_check(processed_results, self.task)
             if not cc.get("consistent"):
                 logger.info("consistency issue: %s", cc.get("conflicts", []))
 
-        # ── Steps-exhausted auto-continuation ──
+        # 鈹€鈹€ Steps-exhausted auto-continuation 鈹€鈹€
         if (not all_passed and max_steps < _UNLIMITED
                 and result.get("finish_reason") in ("max_turns", "stop")):
             from l3.error_bus import error_boundary
@@ -873,7 +872,7 @@ class AgentLoop:
                     try:
                         from .session_snapshot import should_compress as _sc2
                         if ctx_window > 0 and _sc2(_AGENT_LOOP_MAX_CONTENT, ctx_window):
-                            from .memory.memory import get_memory
+                            from l3.memory.memory import get_memory
                             get_memory().stub_compact(self.agent_id)
                     except (ImportError, AttributeError):
                         logger.debug("agent_loop: steps-exhausted compress failed")
@@ -935,3 +934,4 @@ class AgentLoop:
                 isinstance(s, dict) and s.get("_awaiting_input")
                 for s in processed_results),
         }, t0=t0, turns=turns, corrections=corrections, processed_count=len(processed_results))
+

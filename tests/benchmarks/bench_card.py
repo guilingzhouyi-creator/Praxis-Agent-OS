@@ -19,6 +19,34 @@ cell = get_cell("bench", ["/project"])
 cell.add_agent("agent_a", role="http",     territory=["/project"], ring=1, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_b", role="business", territory=["/project"], ring=2, max_scouts=4, auto_boot=True)
 cell.add_agent("agent_c", role="security", territory=["/project"], ring=3, max_scouts=4, auto_boot=True)
+
+# Register bench agents in the kernel process table — the G2 identity gate
+# requires every executing agent to exist as a process (boot does this for
+# real agents; a standalone benchmark must do it itself).
+from l1.kernel.process import get_table
+for _name in ("scout_pool", "agent_a", "agent_b", "agent_c"):
+    try:
+        get_table().spawn(_name, role="agent", ring=1)
+    except Exception:
+        pass
+
+# Register a stub LLM on the "llm" port — think steps drive AgentLoop which
+# needs an LLM engine; a benchmark measures execution throughput, not model
+# latency, so a fast stub keeps numbers deterministic without an ollama.
+from l1.kernel.ports import register_port
+
+class _BenchLLM:
+    def context_window(self, cell_id: str = "", agent_id: str = "") -> int:
+        return 8192
+    def generate(self, prompt: str = "", system: str = "", **kwargs) -> dict:
+        return {"content": "bench response", "tool_calls": []}
+    def tool_use(self, prompt: str = "", system: str = "", tools=None,
+                 **kwargs) -> dict:
+        return {"content": "bench done", "tool_call_results": [],
+                "turns": 1, "finish_reason": "stop", "context_trail": [],
+                "tools_elapsed": 0.001}
+
+register_port("llm", _BenchLLM())
 # Poll for all agents to be ready instead of fixed sleep(0.2)
 from l1.kernel.params.agent import AGENT_STATUS_IDLE
 from l3.agent_terminal import get_terminal
@@ -97,7 +125,10 @@ print(f"  Parallel efficiency: {total_steps * min(s.get('elapsed',0) for s in st
 
 for i, s in enumerate(steps):
     status = "OK" if s["success"] else "FAIL"
-    print(f"  [{status}] {s['action']:12s} {s['target'][:16]:16s} agent={s['agent'][:16]:16s} {s.get('elapsed',0):.3f}s")
+    action = s.get("step", s.get("action", "?"))
+    target = s.get("target", "?")
+    agent = s.get("agent_id", s.get("agent", "?"))
+    print(f"  [{status}] {str(action)[:12]:12s} {str(target)[:16]:16s} agent={str(agent)[:16]:16s} {s.get('elapsed',0):.3f}s")
 
 # Phase 2 and 3 should have started while phase 1 was still running (PARALLEL_ALL)
 investigate_elapsed = sum(s.get("elapsed",0) for s in steps if s.get("phase") == "investigate")

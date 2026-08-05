@@ -177,11 +177,8 @@ def _execute_decomposed(cell, slices: list[dict]) -> dict:
         if not agent_id and sub_agent_map:
             agent_id = list(sub_agent_map.values())[0]
         term = get_terminal(agent_id, role=role, territory=territory, cell_id=cell.cell_id)
-        sc = term.dispatch(sub_card)
-        if not sc.get("success"):
-            return {"success": False, "error": sc.get("error", "dispatch failed"),
-                    "results": results}
-        r = term.wait_for_result(sub_card.id, timeout=SUBAGENT_RUN_TIMEOUT)
+        card_id = term.dispatch(sub_card)
+        r = term.wait_for_result(card_id, timeout=SUBAGENT_RUN_TIMEOUT)
         if r:
             from dataclasses import asdict
             results.append(asdict(r) if hasattr(r, "__dataclass_fields__") else dict(r))
