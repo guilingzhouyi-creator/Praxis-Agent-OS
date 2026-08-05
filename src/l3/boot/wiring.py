@@ -94,6 +94,16 @@ def wire_defaults() -> dict[str, str]:
     register_port("monitor_bus", MonitorBusAdapter())
     registry["monitor_bus"] = "monitor_bus"
 
+    # FilesystemPort — OS-direct adapter (services.fs_adapter)
+    from l3.services.fs_adapter import get_adapter as get_fs_adapter
+    get_fs_adapter()
+    registry["fs"] = "fs_adapter"
+
+    # Hook chain — shared LifecycleHooks chain with EventEmitHook pre-registered
+    from l3.services.hook import get_hook_chain
+    get_hook_chain()
+    registry["hook_chain"] = "event_emit"
+
     logger.info("wiring: default adapters registered: %s", registry)
     return registry
 

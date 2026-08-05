@@ -293,6 +293,13 @@ class ApiGateway(ApiHandlers):
             _start_ws()
         except Exception as e:
             logger.warning("API gateway: ws bridge start failed: %s", e)
+        # RPC server on its own port (distributed/remote method invocation)
+        try:
+            from l4.rpc.server import get_server as _get_rpc_server
+
+            _get_rpc_server()
+        except Exception as e:
+            logger.warning("API gateway: rpc server start failed: %s", e)
         return {"success": True, "host": self.host, "port": self.port}
 
     def stop(self) -> None:

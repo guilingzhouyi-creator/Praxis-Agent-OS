@@ -253,3 +253,29 @@ class StatusReminderHook(LifecycleHooks):
         messages.append(reminder)
         return messages
 
+
+# ── Hook chain singleton ──────────────────────────────────────────────────────
+
+
+_hook_chain: HookChain | None = None
+
+
+def get_hook_chain() -> HookChain:
+    """Get the shared HookChain (auto-registers EventEmitHook on first use).
+
+    AgentLoop and the L4 API layer consume this chain so turn-level
+    observation hooks (EventEmitHook -> event bus -> SSE/WS) are active
+    once boot has run ``wire_defaults``.
+    """
+    global _hook_chain
+    if _hook_chain is None:
+        _hook_chain = HookChain()
+        _hook_chain.add(EventEmitHook())
+    return _hook_chain
+
+
+def reset_hook_chain() -> None:
+    """Drop the shared chain singleton (for testing / hot-reload)."""
+    global _hook_chain
+    _hook_chain = None
+
