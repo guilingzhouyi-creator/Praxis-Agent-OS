@@ -41,6 +41,10 @@ class SignalType(Enum):
     TOKEN_USAGE = auto()       # Token usage event (Cell/Agent → CentralCollector)
     # File change events (Sandbox → Cell/Agent)
     FILE_CHANGED = auto()      # A file was written to sandbox
+    # Card / approval flow events (Card layer → EventBus → SSE/WS push)
+    CARD_PENDING = auto()      # Card entered the pending queue
+    APPROVAL_REQUIRED = auto() # Card blocked by the approval gate
+    APPROVAL_RESPONDED = auto()  # Approval response committed
 
 
 # Extensible signal type registry — register custom signals by name

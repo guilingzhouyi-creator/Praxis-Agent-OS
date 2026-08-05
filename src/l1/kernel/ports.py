@@ -375,6 +375,131 @@ class LLMPort(ABC):
         ...
 
 
+# ── Auth Port ──
+
+
+class AuthPort(ABC):
+    """Auth — token issuance, verification, revocation and refresh.
+
+    L3 security gates and L4 API handlers use this port instead of
+    importing from l4.vault.auth directly. The adapter is registered
+    at boot by the L4 layer.
+    """
+
+    @abstractmethod
+    def issue_token(self, identity: str, ttl: float = 0.0) -> dict:
+        """Issue a signed token for an identity. Returns token + expires_at."""
+        ...
+
+    @abstractmethod
+    def verify_token(self, token: str) -> dict:
+        """Verify a token. Returns {valid, identity, error}."""
+        ...
+
+    @abstractmethod
+    def revoke_token(self, token: str) -> dict:
+        """Revoke a token, invalidating it immediately. Returns {success}."""
+        ...
+
+    @abstractmethod
+    def refresh_token(self, token: str) -> dict:
+        """Exchange a valid token for a new one. Returns token + expires_at."""
+        ...
+
+
+# ── WebSocket Port ──
+
+
+class WebSocketPort(ABC):
+    """WebSocket — bidirectional client channels for realtime frontend interaction.
+
+    Complements the one-way SSE bridge: clients subscribe to events and
+    issue RPC-style requests over a persistent socket.
+    """
+
+    @abstractmethod
+    def upgrade(self, request: Any) -> Any:
+        """Perform the WebSocket handshake on an upgraded HTTP request."""
+        ...
+
+    @abstractmethod
+    def recv(self) -> dict | None:
+        """Receive the next client message. Returns None when the socket closes."""
+        ...
+
+    @abstractmethod
+    def send(self, msg: dict) -> bool:
+        """Send a message to the current client. Returns False on failure."""
+        ...
+
+    @abstractmethod
+    def close(self) -> None:
+        """Close the current client connection."""
+        ...
+
+    @abstractmethod
+    def broadcast(self, event: str, data: dict) -> None:
+        """Push an event to all subscribed clients."""
+        ...
+
+
+# ── RPC Server Port ──
+
+
+class RpcServerPort(ABC):
+    """RPC server — remote method invocation for distributed cells/nodes.
+
+    Routes incoming ``RpcMessage.method`` payloads to registered handlers
+    over the existing RpcTransport wire format.
+    """
+
+    @abstractmethod
+    def register_handler(self, method: str, handler: Callable) -> None:
+        """Register a handler for an RPC method name."""
+        ...
+
+    @abstractmethod
+    def call(self, method: str, params: dict | None = None) -> dict:
+        """Invoke a remote method synchronously. Returns the response payload."""
+        ...
+
+    @abstractmethod
+    def notify(self, method: str, params: dict | None = None) -> None:
+        """Send a one-way notification to a remote node (no response)."""
+        ...
+
+
+# ── Filesystem Port ──
+
+
+class FilesystemPort(ABC):
+    """Filesystem — file read/write, tree listing and change watching.
+
+    L3 services (fs, file_editor) use this port instead of direct OS
+    calls, allowing sandbox/virtual mounts via the VFS adapter.
+    """
+
+    @abstractmethod
+    def read(self, path: str) -> dict:
+        """Read a file. Returns {success, content} or {success: False, error}."""
+        ...
+
+    @abstractmethod
+    def write(self, path: str, content: str) -> dict:
+        """Write content to a file. Returns {success, path}."""
+        ...
+
+    @abstractmethod
+    def list_tree(self, root: str) -> dict:
+        """List a directory tree. Returns {success, entries}."""
+        ...
+
+    @abstractmethod
+    def watch(self, root: str, callback: Callable) -> dict:
+        """Watch a directory for changes, invoking callback on each change."""
+        ...
+
+
 # ── Registry (port → adapter mapping, wired at boot) ─────────────────────────
 
 

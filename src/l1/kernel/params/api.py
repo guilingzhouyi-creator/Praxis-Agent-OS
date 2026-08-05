@@ -119,6 +119,7 @@ BROADCAST_INTERVAL: Final[float] = 15.0
 PEER_TIMEOUT: Final[float] = 60.0
 DISCOVERY_PORT_DEFAULT: Final[int] = 42069
 PRAXIS_PORT_DEFAULT: Final[int] = 42070
+PRAXIS_RPC_PORT: Final[int] = 42071
 ENV_DISCOVERY_PORT: Final[str] = "PRAXIS_DISCOVERY_PORT"
 ENV_PRAXIS_PORT: Final[str] = "PRAXIS_PORT"
 ENV_API_TOKEN: Final[str] = "PRAXIS_API_TOKEN"
@@ -152,6 +153,7 @@ TOOL_WEBHOOK_TIMEOUT: Final[int] = 15
 API_GATEWAY_PORT: Final[int] = 8080
 API_GATEWAY_HOST: Final[str] = "127.0.0.1"
 API_MAX_BODY_BYTES: Final[int] = 1_048_576
+AUTH_TOKEN_TTL_SECONDS: Final[int] = 86400
 MCP_DEFAULT_URL: Final[str] = "http://localhost:3500/mcp/v1"
 MCP_TIMEOUT: Final[int] = 5
 MCP_OAUTH_REDIRECT_PORT: Final[int] = 19876
@@ -194,6 +196,9 @@ SUBAGENT_POOL_EXECUTE_WORKERS: Final[int] = 4
 
 # ── SSE bridge ──
 SSE_QUEUE_MAXSIZE: Final[int] = 256
+
+# ── WebSocket bridge ──
+WS_MAX_QUEUED_PER_CLIENT: Final[int] = 256
 
 
 # ── Service timeouts (scattered in code, centralized here) ──
