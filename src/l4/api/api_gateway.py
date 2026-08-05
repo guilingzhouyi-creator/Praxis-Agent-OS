@@ -202,6 +202,46 @@ class ApiGateway(ApiHandlers):
                 return None
         return params
 
+    @staticmethod
+    def _route_dispatch(handler: Callable, data: dict,
+                        query: dict | None, params: dict,
+                        user_id: str) -> dict:
+        """Build the handler body dict and invoke the route handler.
+
+        Merge order guarantees the URL path is the authoritative resource
+        identifier: query params are merged FIRST, then path params (and the
+        legacy ``_id`` key) so a same-named query string can never override
+        the path value (parameter confusion fix).
+
+        Keyword binding is decided via ``inspect.signature`` instead of a
+        runtime ``TypeError`` probe — a probe would mask genuine handler
+        errors and re-run side effects on the second invocation.  Two
+        conventions are supported:
+          - body-first handlers: ``handle_skills_get(body, name="")``
+          - name-first handlers: ``handle_discussion_get(session_id="")``
+        """
+        body = dict(data)
+        if query:
+            body.update(query)
+        if params.get("id"):
+            body["_id"] = params["id"]
+        body.update(params)
+        body["_user_id"] = user_id
+        try:
+            import inspect
+            sig_params = inspect.signature(handler).parameters
+        except (TypeError, ValueError):
+            return handler(body)
+        first = next(iter(sig_params.values()), None)
+        kwargs = {k: v for k, v in params.items() if k in sig_params}
+        if not kwargs:
+            return handler(body)
+        if first and first.name in params:
+            # name-first handler (e.g. handle_discussion_get(session_id=""))
+            return handler(**kwargs)
+        # body-first handler (e.g. handle_skills_get(body, name=""))
+        return handler(body, **kwargs)
+
     def _not_found(self, body: dict) -> dict:
         return {"error": "not found"}
 
@@ -308,23 +348,8 @@ class ApiGateway(ApiHandlers):
                 req.params = params
 
                 def route_handler(r: Request) -> dict:
-                    data = dict(r.body)
-                    # Path params from {param} / trailing-slash routes are passed
-                    # BOTH as keyword args (handlers declare e.g. `name=""`) and
-                    # merged into the body dict (legacy `_id` convention).
-                    if params.get("id"):
-                        data["_id"] = params["id"]
-                    data.update(params)
-                    data["_user_id"] = r.user_id
-                    # Merge query params for GET
-                    if r.method == "GET":
-                        data.update(r.query)
-                    try:
-                        return handler(data, **params)
-                    except TypeError:
-                        # Handler does not accept the param keywords — fall back
-                        # to body-dict-only invocation (params merged above).
-                        return handler(data)
+                    return self.gateway._route_dispatch(
+                        handler, r.body, r.query, params, r.user_id)
 
                 t0 = time.time()
                 resp = self.gateway._middleware.handle(req, route_handler)

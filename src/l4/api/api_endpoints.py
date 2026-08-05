@@ -32,7 +32,11 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/peers": "system", "/api/syscalls": "system", "/api/endpoints": "system",
     "/api/mode": "system", "/api/export": "stats", "/api/metrics": "stats",
     "/api/card": "card", "/api/cards": "card", "/api/dispatch": "card",
-    "/api/card_gate": "approval", "/api/approvals": "approval", "/api/pending": "approval",
+    # kebab-case (v2) and legacy snake-case both map to the approval domain —
+    # the v2 migration renamed /api/card_gate/ → /api/v2/card-gate/, and
+    # without the kebab entry these endpoints fall through to "card".
+    "/api/card-gate": "approval", "/api/card_gate": "approval",
+    "/api/approvals": "approval", "/api/pending": "approval",
     "/api/agent": "agent", "/api/agents": "agent",
     "/api/settings": "config", "/api/config": "config",
     "/api/security": "security", "/api/trust": "security",

@@ -65,3 +65,42 @@ class TestMiddlewareIntegration:
         mw = CORSMiddleware()
         assert mw is not None
         assert API_CORS_ORIGIN == "*"
+
+
+class TestHttpParamLink:
+    """End-to-end HTTP link: request → build_request → match_route → route_handler.
+
+    Regression for the parameter-confusion fix — a same-named query param
+    must never override the path resource id through the REAL HTTP chain
+    (not just the extracted _route_dispatch helper).
+    """
+
+    def test_http_query_cannot_override_path(self):
+        import http.client
+        import json
+        import time
+
+        from l4.api.api_gateway import ApiGateway
+
+        port = 18231
+        gw = ApiGateway(port=port, auth_token="")
+        gw._routes.clear()
+        gw.register_route(
+            "GET", "/api/v2/card/{id}",
+            lambda b: {"ok": True, "_id": b.get("_id")},
+            "get card (param-confusion regression)")
+        gw.start()
+        try:
+            time.sleep(0.2)  # allow the background server thread to bind
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            try:
+                conn.request("GET", "/api/v2/card/abc?_id=evil")
+                resp = conn.getresponse()
+                data = json.loads(resp.read().decode())
+            finally:
+                conn.close()
+            assert data.get("ok") is True
+            assert data.get("_id") == "abc", (
+                f"path id must win over query, got {data.get('_id')!r}")
+        finally:
+            gw.stop()

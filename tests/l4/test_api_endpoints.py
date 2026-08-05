@@ -44,6 +44,16 @@ class TestVersionStripping:
         assert _infer_domain("/api/memory/graph") == "memory"
         assert _infer_domain("/api/unknown/thing") == "misc"
 
+    def test_infer_domain_card_gate_kebab(self):
+        """kebab-case (v2) card-gate routes must classify as approval, not card."""
+        from l4.api.api_endpoints import _infer_domain
+        assert _infer_domain("/api/v2/card-gate/stats") == "approval"
+        assert _infer_domain("/api/card-gate/config") == "approval"
+        # legacy snake-case sibling keeps its mapping too
+        assert _infer_domain("/api/card_gate/history") == "approval"
+        # unrelated /api/card prefix must not swallow card-gate routes
+        assert _infer_domain("/api/card") == "card"
+
 
 class TestWorkDomainGroups:
     def test_infer_group_mapping(self):

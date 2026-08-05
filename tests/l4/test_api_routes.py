@@ -238,3 +238,95 @@ class TestApiGatewayConstruction:
         gw = ApiGateway()
         # _routes should be non-empty (even if some handlers are missing)
         assert isinstance(gw._routes, list)
+
+
+class TestRouteDispatch:
+    """_route_dispatch — query/path merge order and signature-based binding.
+
+    Regression tests for the review fixes:
+      - query params must never override path params (parameter confusion).
+      - handler keyword compatibility is decided via inspect.signature, so a
+        TypeError raised INSIDE the handler body is NOT mistaken for "handler
+        does not accept kwargs" and must NOT trigger a second invocation.
+      - name-first handlers (handle_discussion_get(session_id="")) receive
+        the path value via the correct keyword, not a body-dict positional.
+    """
+
+    @staticmethod
+    def _dispatch(handler, data=None, query=None, params=None, user_id="u1"):
+        return ApiGateway._route_dispatch(handler, data or {}, query, params or {}, user_id)
+
+    def test_query_cannot_override_path_id(self):
+        """A same-named query param must not override the path resource id."""
+        seen = {}
+
+        def get_card(body):
+            seen["body"] = body
+            return {"ok": True, "_id": body.get("_id")}
+
+        result = self._dispatch(get_card, params={"id": "abc"}, query={"_id": "evil"})
+        assert result["_id"] == "abc", "path id must win over query _id"
+
+    def test_query_merged_but_path_wins_for_named_param(self):
+        """Query values merge into the body, but path params take priority."""
+        seen = {}
+
+        def get_card(body):
+            seen["body"] = body
+            return {"ok": True}
+
+        self._dispatch(get_card, params={"id": "abc"},
+                       query={"_id": "evil", "verbose": "1"})
+        assert seen["body"]["_id"] == "abc"
+        assert seen["body"]["verbose"] == "1", "non-conflicting query still merges"
+
+    def test_typeerror_inside_handler_not_double_invoked(self):
+        """A TypeError raised in the handler BODY must not trigger re-invocation."""
+        import pytest
+        calls = []
+
+        def flaky(body, name=""):
+            calls.append(name)
+            raise TypeError("boom inside handler body")
+
+        with pytest.raises(TypeError):
+            self._dispatch(flaky, params={"name": "x"})
+        assert len(calls) == 1, "handler must not be invoked a second time"
+
+    def test_name_first_handler_receives_keyword(self):
+        """name-first handlers get the path value as the correct keyword."""
+        seen = {}
+
+        def handle_discussion_get(session_id=""):
+            seen["session_id"] = session_id
+            return {"ok": True}
+
+        result = self._dispatch(handle_discussion_get, params={"session_id": "sess-1"})
+        assert result["ok"] is True
+        assert seen["session_id"] == "sess-1", "path value must bind to session_id keyword"
+
+    def test_body_first_handler_receives_body_and_kwargs(self):
+        """body-first handlers get body dict + path params as keywords."""
+        seen = {}
+
+        def handle_skills_get(body=None, name=""):
+            seen["body"] = body
+            seen["name"] = name
+            return {"ok": True}
+
+        result = self._dispatch(handle_skills_get, params={"name": "foo"})
+        assert result["ok"] is True
+        assert seen["name"] == "foo"
+        assert seen["body"]["_user_id"] == "u1"
+
+    def test_handler_without_param_kwargs_gets_body_only(self):
+        """Handlers that accept no path-param keywords receive the body dict."""
+        seen = {}
+
+        def handle_body_only(body):
+            seen["body"] = body
+            return {"ok": True}
+
+        result = self._dispatch(handle_body_only, params={"id": "abc"})
+        assert result["ok"] is True
+        assert seen["body"]["_id"] == "abc"
