@@ -46,6 +46,7 @@ _RESETS = {
     "l3.boot.boot_registry": ("reset_registry", None),
     "l1.kernel.settings": ("reset_settings", None),
     "l1.kernel.errors": ("reset_error_capture_handler", None),
+    "l2.l2_shell.state": ("reset_state", None),
 }
 
 
