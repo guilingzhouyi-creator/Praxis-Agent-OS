@@ -20,7 +20,13 @@ from l1.kernel.params.agent import SCOUT_AGENT_NAME, SCOUT_RING_LIMIT
 from l1.kernel.params.kernel import RING_1 as _RING_1
 from l1.kernel.params.kernel import RING_2_5, RING_NUM_MAP
 from l1.kernel.params.system import LOG_TRUNC_200
-from l1.kernel.params.tool import TOOL_EXEC_TOKEN_BUDGET, TOOL_PIPELINE_RECORD_STEPS
+from l1.kernel.params.tool import (
+    HARNESS_MODE_DEFAULT,
+    HARNESS_MODE_STEPS,
+    HARNESS_MODES,
+    TOOL_EXEC_TOKEN_BUDGET,
+    TOOL_PIPELINE_RECORD_STEPS,
+)
 from l1.kernel.tool_chain import get_tool_chain
 from l3.bus.reference_channel import get_rc as _get_rc
 from l3.card.approval_gate import get_gate as _get_approval_gate
@@ -157,12 +163,20 @@ class ToolPipeline:
                                parent_id=_parent_call_id)
         # Step tracing toggle — off skips per-phase gate traces on the hot path.
         record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
+        # Harness mode: governed | semi | minimal. Process steps (approval /
+        # rate / pool) may be skipped; the safety bottom line (constitution,
+        # gatechain, sandbox, reference-channel recording) is never skipped.
+        harness_mode = str(get_tool_config("harness_mode", HARNESS_MODE_DEFAULT)).lower()
+        if harness_mode not in HARNESS_MODES:
+            harness_mode = HARNESS_MODE_DEFAULT
+        _skip = set(HARNESS_MODE_STEPS[harness_mode])
         # Token budget read once per execution (used across alloc/free paths).
         token_budget = get_tool_config("exec_token_budget", TOOL_EXEC_TOKEN_BUDGET)
         result: dict[str, Any] = {"tool": tool_name, "agent": agent_id,
-                                   "ring": tool_ring_str, "danger": tool_danger,
-                                   "steps": [] if record_steps else _DiscardSteps(),
-                                   "call_id": call_id}
+                                  "ring": tool_ring_str, "danger": tool_danger,
+                                  "steps": [] if record_steps else _DiscardSteps(),
+                                  "call_id": call_id,
+                                  "harness_mode": harness_mode}
 
         # 1. Validate tool exists
         if not _registry and not _executor:
@@ -176,26 +190,28 @@ class ToolPipeline:
         if agent_id == SCOUT_AGENT_NAME and tool_ring_str != SCOUT_RING_LIMIT:
             return {"success": False, "error": "scout: Ring 1 only"}
 
-        # 3b. ToolPolicy approval check
-        try:
-            if _ToolPolicy.requires_approval(agent_id, tool_name):
-                ar = _get_approval_gate().request(tool_name, agent_id, args or {}, reason="policy requires approval")
-                result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
-                status = ar.wait(timeout=get_config("persistence", {}).get("approval_wait_timeout", 300))
-                if status != "approved":
-                    return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
-                            "steps": result["steps"]}
-                result["steps"].append({"phase": "approval", "request_id": ar.id, "status": status})
-        except Exception as e:
-            logger.warning("approval check failed: %s", e)
+        # 3b. ToolPolicy approval check (skipped in semi/minimal harness modes)
+        if "approval" not in _skip:
+            try:
+                if _ToolPolicy.requires_approval(agent_id, tool_name):
+                    ar = _get_approval_gate().request(tool_name, agent_id, args or {}, reason="policy requires approval")
+                    result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
+                    status = ar.wait(timeout=get_config("persistence", {}).get("approval_wait_timeout", 300))
+                    if status != "approved":
+                        return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
+                                "steps": result["steps"]}
+                    result["steps"].append({"phase": "approval", "request_id": ar.id, "status": status})
+            except Exception as e:
+                logger.warning("approval check failed: %s", e)
 
-        # 4. Rate limit (Ring 3 slowest, Ring 1 fastest)
-        rr = self._rate_scheduler.check(agent_id, tool_ring_str)
-        result["steps"].append({"phase": "rate", **rr})
-        if not rr["allowed"]:
-            self.allocator.free(agent_id, "tokens", token_budget)
-            return {"success": False, "error": f"rate limited ({tool_ring_str})",
-                    "rate": rr, "steps": result["steps"]}
+        # 4. Rate limit (Ring 3 slowest, Ring 1 fastest) — skipped in minimal
+        if "rate" not in _skip:
+            rr = self._rate_scheduler.check(agent_id, tool_ring_str)
+            result["steps"].append({"phase": "rate", **rr})
+            if not rr["allowed"]:
+                self.allocator.free(agent_id, "tokens", token_budget)
+                return {"success": False, "error": f"rate limited ({tool_ring_str})",
+                        "rate": rr, "steps": result["steps"]}
 
         # 5. Constitution (pass file path as target for territory enforcement)
         fpath = (args or {}).get("path", "")
@@ -279,8 +295,8 @@ class ToolPipeline:
         if not ar["success"]:
             return {"success": False, "error": ar["error"], "steps": result["steps"]}
 
-        # 7. Ring 2.5 pool
-        if tool_ring_str == RING_2_5:
+        # 7. Ring 2.5 pool (skipped in semi/minimal harness modes)
+        if tool_ring_str == RING_2_5 and "pool" not in _skip:
             sr = get_semaphore(f"pool:{tool_name}", 2).acquire(agent_id)
             result["steps"].append({"phase": "pool", **sr})
             if not sr["success"]:

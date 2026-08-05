@@ -358,6 +358,19 @@ prompt:
     verification: true     # verification culture block
     memory: true           # task-aware memory context injection
 
+# ── Harness mode (tool pipeline gate matrix) ──
+# governed (default): full pipeline — approval + rate + pool all active
+# semi:               skip approval + Ring 2.5 pool (drop human-in-the-loop)
+# minimal:            skip approval + rate + pool — closest to a "bare tool
+#                     harness" for strong post-trained models. RISK IS
+#                     USER-ASSUMED: the safety bottom line is still enforced
+#                     (constitution, gatechain identity/territory, sandbox
+#                     reversibility, reference-channel causal recording), but
+#                     no approval gate and no rate limiting means the model
+#                     runs unguarded against dangerous or runaway tool use.
+harness:
+  mode: governed
+
 # ── Network mesh ──
 network:
   discovery_port: 42069         # UDP broadcast port

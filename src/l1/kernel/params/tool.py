@@ -84,6 +84,27 @@ TOOL_L3_LIST_LIMIT: Final[int] = 50
 TOOL_PIPELINE_RECORD_STEPS: Final[bool] = True
 
 
+# ── Harness modes (tool pipeline gate matrix) ──
+# Three deployment modes trade throughput against safety. The bottom line —
+# constitution, gatechain (identity/territory), sandbox (reversibility) and
+# reference-channel recording (causal audit) — is NEVER skipped in any mode;
+# only process steps (approval, rate limit, pool) can be dropped.
+# Risk of `minimal` is user-assumed (explicit config, see harness.mode).
+HARNESS_MODE_GOVERNED: Final[str] = "governed"
+HARNESS_MODE_SEMI: Final[str] = "semi"
+HARNESS_MODE_MINIMAL: Final[str] = "minimal"
+HARNESS_MODE_DEFAULT: Final[str] = HARNESS_MODE_GOVERNED
+HARNESS_MODE_STEPS: Final[dict[str, tuple[str, ...]]] = {
+    # mode → process steps that are SKIPPED (safety bottom line is implicit)
+    HARNESS_MODE_GOVERNED: (),
+    HARNESS_MODE_SEMI: ("approval", "pool"),
+    HARNESS_MODE_MINIMAL: ("approval", "rate", "pool"),
+}
+HARNESS_MODES: Final[tuple[str, ...]] = (
+    HARNESS_MODE_GOVERNED, HARNESS_MODE_SEMI, HARNESS_MODE_MINIMAL,
+)
+
+
 # ── HTN Planner ──
 HTN_DOMAIN_PREFIX: Final[str] = "app"
 HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
