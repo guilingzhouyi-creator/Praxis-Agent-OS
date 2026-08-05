@@ -23,6 +23,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
+from itertools import islice
 
 from .params.kernel import (
     PROCESS_AUDIT_LOG_LIMIT,
@@ -332,8 +333,9 @@ class ProcessTable:
     def audit_log(self, limit: int = PROCESS_AUDIT_LOG_LIMIT) -> list[dict]:
         """Return recent process audit log entries."""
         with self._lock:
-            # deque does not support [-limit:] slicing; convert to list first
-            return list(self._audit_log)[-limit:]
+            # islice copies only the tail (O(limit)) instead of the whole deque.
+            n = min(len(self._audit_log), limit)
+            return list(islice(self._audit_log, len(self._audit_log) - n, len(self._audit_log)))
 
 
 _table: ProcessTable | None = None

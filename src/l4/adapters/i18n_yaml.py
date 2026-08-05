@@ -102,9 +102,13 @@ class YamlI18nAdapter(I18nPort):
 
     def _lookup(self, key: str) -> str | None:
         locale = self._locale
-        with self._lock:
-            self._ensure_loaded(locale)
-            return self._translations.get(locale, {}).get(key)
+        # Lock-free fast path: once a locale is loaded its translation dict is
+        # append-only, so a plain read under the GIL is safe.  Only the first
+        # lookup per locale takes the lock (to load the YAML file).
+        if locale not in self._translations:
+            with self._lock:
+                self._ensure_loaded(locale)
+        return self._translations.get(locale, {}).get(key)
 
     def _find_dir(self) -> str:
         if self._locale_dir and os.path.isdir(self._locale_dir):

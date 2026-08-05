@@ -21,6 +21,7 @@ from .params.kernel import (
     MUTEX_BOOST_THRESHOLD,
     MUTEX_CYCLE_DEBOUNCE,
     MUTEX_CYCLE_DETECT_AFTER,
+    MUTEX_DEADLOCK_TIMEOUT,
     MUTEX_DEFAULT_PRIORITY,
     MUTEX_DEFAULT_TIMEOUT,
     RWLOCK_DEFAULT_TIMEOUT,
@@ -179,7 +180,7 @@ class Mutex:
             if remaining <= 0:
                 break
             with self._lock:
-                self._cond.wait(timeout=min(remaining, 0.5))
+                self._cond.wait(timeout=min(remaining, MUTEX_DEADLOCK_TIMEOUT))
             waited = time.time() - _start
             with self._lock:
                 if self._state == LockState.FREE or self._owner == agent_id:

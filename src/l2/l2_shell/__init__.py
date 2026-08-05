@@ -47,25 +47,51 @@ logger = logging.getLogger(__name__)
 # ── Alias reverse index (built once, refreshed on registry change) ──
 _ALIAS_REVERSE_INDEX: dict[str, str] = {}
 _ALIAS_INDEX_STALE: bool = True
+_ALIAS_INDEX_REVISION: int = -1
 
 
 def _rebuild_alias_index() -> None:
     """Build a reverse index mapping alias → command name."""
-    global _ALIAS_REVERSE_INDEX, _ALIAS_INDEX_STALE
+    global _ALIAS_REVERSE_INDEX, _ALIAS_INDEX_STALE, _ALIAS_INDEX_REVISION
     idx: dict[str, str] = {}
     for c in _get_cmd_reg().list():
         for alias in c.get("aliases", []):
             idx[alias] = c["name"]
     _ALIAS_REVERSE_INDEX = idx
     _ALIAS_INDEX_STALE = False
+    _ALIAS_INDEX_REVISION = _get_cmd_reg().revision()
 
 
 def _lookup_alias(alias: str) -> str | None:
-    """Resolve an alias to its canonical command name."""
+    """Resolve an alias to its canonical command name.
+
+    Rebuilds when the registry revision changed (runtime-registered user
+    commands bump it), so newly added aliases resolve without an explicit
+    invalidation hook.
+    """
     global _ALIAS_INDEX_STALE
-    if _ALIAS_INDEX_STALE:
+    if _ALIAS_INDEX_STALE or _ALIAS_INDEX_REVISION != _get_cmd_reg().revision():
         _rebuild_alias_index()
     return _ALIAS_REVERSE_INDEX.get(alias)
+
+
+# ── Cached command-name list (refreshed on registry revision change) ──
+_COMMAND_NAMES_CACHE: list[str] = []
+_COMMAND_NAMES_REVISION: int = -1
+
+
+def _command_names() -> list[str]:
+    """Return command names for suggestions, rebuilt only when the registry changes.
+
+    Avoids the O(N log N) registry ``list()`` + sort on every unknown-command
+    error path.
+    """
+    global _COMMAND_NAMES_CACHE, _COMMAND_NAMES_REVISION
+    rev = _get_cmd_reg().revision()
+    if _COMMAND_NAMES_REVISION != rev:
+        _COMMAND_NAMES_CACHE = [c["name"] for c in _get_cmd_reg().list()]
+        _COMMAND_NAMES_REVISION = rev
+    return _COMMAND_NAMES_CACHE
 
 
 def dispatch(text: str) -> dict:
@@ -105,8 +131,7 @@ def dispatch(text: str) -> dict:
         except Exception:
             logger.warning("i18n translation failed for shell.error.unknown_command")
             err = f"unknown command: /{cmd}"
-        return {"success": False, "error": err,
-                "suggestions": [c["name"] for c in _get_cmd_reg().list()]}
+        return {"success": False, "error": err, "suggestions": _command_names()}
 
     if state.is_direct():
         return _direct_message(state, text)

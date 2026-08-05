@@ -1,11 +1,11 @@
-"""Auth service — key management, signing, encryption, hash, token lifecycle.
+﻿"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
 
 Security layer for Agent OS:
 - HMAC signing/verification
 - Fernet encryption/decryption
 - Key vault management
 - Hash computation
-- Auth token lifecycle (issue/verify/revoke/refresh) — backs the AuthPort
+- Auth token lifecycle (issue/verify/revoke/refresh) 鈥?backs the AuthPort
   used by L3 security gates and the /api/v2/auth/* contract.
 """
 
@@ -19,7 +19,7 @@ import threading
 import time
 import uuid
 
-from l1.kernel.params.api import AUTH_TOKEN_TTL_DEFAULT
+from l1.kernel.params.api import AUTH_TOKEN_TTL_SECONDS
 from l1.kernel.params.system import AUTH_SIGN_KEY_BYTES, HASH_TRUNC_LONG
 from l3._base import BaseService
 
@@ -136,7 +136,7 @@ class AuthService(BaseService):
         keys = self._vault.list()
         return {"success": True, "keys": keys, "count": len(keys)}
 
-    # ── Token lifecycle (AuthPort adapter surface) ──
+    # 鈹€鈹€ Token lifecycle (AuthPort adapter surface) 鈹€鈹€
 
     def issue_token(self, identity: str, ttl: float = 0.0) -> dict:
         """Issue a signed auth token for an identity.
@@ -146,7 +146,7 @@ class AuthService(BaseService):
         """
         if not (identity or "").strip():
             return {"success": False, "error": "identity required"}
-        lifetime = ttl if ttl > 0 else AUTH_TOKEN_TTL_DEFAULT
+        lifetime = ttl if ttl > 0 else AUTH_TOKEN_TTL_SECONDS
         expires_at = time.time() + lifetime
         token_id = uuid.uuid4().hex[:HASH_TRUNC_LONG]
         payload = f"{identity}|{int(expires_at)}|{token_id}"
@@ -223,3 +223,4 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
+

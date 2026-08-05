@@ -31,14 +31,23 @@ logger = logging.getLogger(__name__)
 # ── Default adapter (lazy init, used when no port registered) ──
 
 _default_adapter: I18nPort | None = None
+_cached_adapter: I18nPort | None = None
 
 
 def _adapter() -> I18nPort:
-    """Return the registered I18nPort adapter, or a default fallback."""
-    global _default_adapter
+    """Return the registered I18nPort adapter, or a default fallback.
+
+    The resolved adapter is cached: the i18n port is registered once at boot
+    (l3/boot/wiring.py) and never swapped, so subsequent t() calls skip the
+    port lookup + isinstance check entirely.
+    """
+    global _default_adapter, _cached_adapter
+    if _cached_adapter is not None:
+        return _cached_adapter
     try:
         adapter = get_port("i18n")
         if isinstance(adapter, I18nPort):
+            _cached_adapter = adapter
             return adapter
     except KeyError:
         logger.debug("i18n: no port registered, using default adapter")
@@ -46,6 +55,7 @@ def _adapter() -> I18nPort:
         _default_adapter = YamlI18nAdapter()
         register_port("i18n", _default_adapter)
         logger.info("i18n: using default YamlI18nAdapter (no port registered)")
+    _cached_adapter = _default_adapter
     return _default_adapter
 
 

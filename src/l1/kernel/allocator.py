@@ -22,6 +22,7 @@ from .params.kernel import (
     ALLOCATOR_DISK_RESOURCE,
     ALLOCATOR_FALLBACK_LIMIT,
     ALLOCATOR_OBSERVE_PURPOSE,
+    ALLOCATOR_PCB_FLUSH_SIZE,
     ALLOCATOR_PCT_PRECISION,
     ALLOCATOR_PRESSURE_THRESHOLD,
     ALLOCATOR_SWAP_COUNT,
@@ -79,11 +80,33 @@ class Allocator:
         return {"success": True}
 
     def _update_pcb(self, agent_id: str, resource: str, amount: int, is_alloc: bool) -> None:
-        """Update PCB ResourceUsage for the calling agent."""
+        """Queue a PCB ResourceUsage update, flushed in batches of ALLOCATOR_PCB_FLUSH_SIZE.
+
+        Deferred batching cuts process-table lock acquisition from once per
+        alloc/free to once per 32 updates — PCB numbers lag by at most one
+        batch on the calling thread, which is acceptable for accounting metrics.
+        """
+        buf = getattr(_pcb_thread_buffer, "entries", None)
+        if buf is None:
+            _pcb_thread_buffer.entries = []
+            buf = _pcb_thread_buffer.entries
+        buf.append((agent_id, resource, amount, is_alloc))
+        if len(buf) >= ALLOCATOR_PCB_FLUSH_SIZE:
+            self._flush_pcb_buffer()
+
+    def _flush_pcb_buffer(self) -> None:
+        """Apply all pending PCB updates in a single process-table lock acquisition."""
+        buf = getattr(_pcb_thread_buffer, "entries", None)
+        if not buf:
+            return
+        _pcb_thread_buffer.entries = []
         try:
             from .process import get_table
-            pcb = get_table().get_by_name(agent_id)
-            if pcb:
+            table = get_table()
+            for agent_id, resource, amount, is_alloc in buf:
+                pcb = table.get_by_name(agent_id)
+                if not pcb:
+                    continue
                 if resource == RESOURCE_TOKENS:
                     if is_alloc:
                         pcb.record_alloc(amount)
@@ -132,10 +155,16 @@ class Allocator:
             allocs = self._allocations.get(agent_id, [])
             counter = self._usage_counter.setdefault(agent_id, {})
             freed = 0
-            for a in list(allocs):
-                if a.resource == resource and freed < amount:
-                    allocs.remove(a)
-                    freed += a.amount
+            if allocs:
+                # Single-pass rebuild: O(n) instead of O(n^2) list.remove() churn.
+                kept: list[Allocation] = []
+                for a in allocs:
+                    if freed < amount and a.resource == resource:
+                        freed += a.amount
+                    else:
+                        kept.append(a)
+                if freed:
+                    allocs[:] = kept
             if freed:
                 prev = counter.get(resource, 0)
                 counter[resource] = max(0, prev - freed)
@@ -180,20 +209,26 @@ class Allocator:
         counter = self._usage_counter.setdefault(agent_id, {})
         now = time.time()
         reclaimed = 0
-        expired = [a for a in allocs if a.resource == resource and a.expires_at > 0 and now > a.expires_at]
-        for a in expired:
-            allocs.remove(a)
-            reclaimed += a.amount
-        if reclaimed >= needed:
-            counter[resource] = max(0, counter.get(resource, 0) - reclaimed)
-            return reclaimed
-        old = [a for a in allocs if a.resource == resource and ALLOCATOR_OBSERVE_PURPOSE in a.purpose.lower()]
-        for a in old:
-            if reclaimed >= needed:
-                break
-            allocs.remove(a)
-            reclaimed += a.amount
+        if not allocs:
+            return 0
+        # Single-pass rebuild: reclaim ALL expired entries first, then observe-
+        # purpose entries until `needed` is met (O(n), no list.remove() churn).
+        kept: list[Allocation] = []
+        for a in allocs:
+            if a.resource == resource and a.expires_at > 0 and now > a.expires_at:
+                reclaimed += a.amount
+            else:
+                kept.append(a)
+        if reclaimed < needed:
+            final: list[Allocation] = []
+            for a in kept:
+                if reclaimed < needed and ALLOCATOR_OBSERVE_PURPOSE in a.purpose.lower():
+                    reclaimed += a.amount
+                else:
+                    final.append(a)
+            kept = final
         if reclaimed:
+            allocs[:] = kept
             counter[resource] = max(0, counter.get(resource, 0) - reclaimed)
         return reclaimed
 
@@ -302,6 +337,7 @@ class Allocator:
 
 _allocator: Allocator | None = None
 _allocator_lock = threading.Lock()
+_pcb_thread_buffer = threading.local()
 
 
 def get_allocator() -> Allocator:
@@ -318,3 +354,4 @@ def reset_allocator() -> None:
     """Reset the singleton Allocator instance (for testing)."""
     global _allocator
     _allocator = None
+    _pcb_thread_buffer.entries = []

@@ -119,6 +119,7 @@ BROADCAST_INTERVAL: Final[float] = 15.0
 PEER_TIMEOUT: Final[float] = 60.0
 DISCOVERY_PORT_DEFAULT: Final[int] = 42069
 PRAXIS_PORT_DEFAULT: Final[int] = 42070
+PRAXIS_RPC_PORT: Final[int] = 42071
 ENV_DISCOVERY_PORT: Final[str] = "PRAXIS_DISCOVERY_PORT"
 ENV_PRAXIS_PORT: Final[str] = "PRAXIS_PORT"
 ENV_API_TOKEN: Final[str] = "PRAXIS_API_TOKEN"
@@ -156,7 +157,7 @@ API_PAGE_MAX_LIMIT: Final[int] = 100
 """Hard cap for API list/page endpoints (guards against unbounded responses)."""
 API_WS_PORT: Final[int] = 8081
 """WebSocket bridge port (bidirectional realtime channel, see l4/ws)."""
-AUTH_TOKEN_TTL_DEFAULT: Final[float] = 3600.0
+AUTH_TOKEN_TTL_SECONDS: Final[int] = 86400
 """Default auth token lifetime in seconds (AuthService.issue_token)."""
 MCP_DEFAULT_URL: Final[str] = "http://localhost:3500/mcp/v1"
 MCP_TIMEOUT: Final[int] = 5
@@ -200,6 +201,9 @@ SUBAGENT_POOL_EXECUTE_WORKERS: Final[int] = 4
 
 # ── SSE bridge ──
 SSE_QUEUE_MAXSIZE: Final[int] = 256
+
+# ── WebSocket bridge ──
+WS_MAX_QUEUED_PER_CLIENT: Final[int] = 256
 
 
 # ── Service timeouts (scattered in code, centralized here) ──

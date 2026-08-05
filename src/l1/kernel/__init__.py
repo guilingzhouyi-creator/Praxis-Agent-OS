@@ -113,21 +113,33 @@ def record_audit(op: str, agent_id: str, success: bool = True,
 def get_audit_log(limit: int = SYSCALL_AUDIT_QUERY_LIMIT, agent_id: str = "") -> list[dict]:
     """Query the syscall audit trail. Filter by agent_id if given.
 
-    Optimization: islice copies only the tail portion (O(k) not O(N));
-    avoids copying the full 5000-entry deque under lock.
+    Unfiltered queries copy only the tail needed (O(k), not O(N)).
+    Agent-filtered queries reverse-scan from the newest entry and stop after
+    ``limit`` matches — O(k) in the common case with no full-log copy and no
+    per-agent index memory.  Results are chronological, newest ``limit`` entries.
+
+    The calling thread's own buffered entries are flushed first so that recent
+    syscalls are immediately visible to the query (batching only delays writes).
     """
+    # Make this thread's own recent syscalls visible to the query.
+    buf = getattr(_thread_audit_buffer, "entries", None)
+    if buf:
+        with _audit_lock:
+            _audit_log.extend(buf)
+            _thread_audit_buffer.entries = []
     with _audit_lock:
         total = len(_audit_log)
         if agent_id:
-            # Agent filter needs full scan — keep lock brief by copying the whole deque once
-            safe_slice = list(_audit_log)
-        else:
-            # Common case: only copy the tail we need (limit*4 entries, max ~400)
-            n = min(total, limit * 4)
-            safe_slice = list(islice(_audit_log, total - n, total))
-    if agent_id:
-        return [e for e in safe_slice if e["agent_id"] == agent_id][-limit:]
-    return safe_slice[-limit:]
+            matched: list[dict] = []
+            for e in reversed(_audit_log):
+                if e["agent_id"] == agent_id:
+                    matched.append(e)
+                    if len(matched) >= limit:
+                        break
+            return matched[::-1]
+        # Common case: only copy the tail we need (limit*4 entries, max ~400)
+        n = min(total, limit * 4)
+        return list(islice(_audit_log, total - n, total))[-limit:]
 
 
 def clear_audit_log() -> None:
@@ -139,6 +151,11 @@ def clear_audit_log() -> None:
 # ── Syscall dispatcher ──
 
 _SYSCALL_REGISTRY: dict[str, Any] = {}
+
+# ── Performance counters (exposed via health()) ──
+_syscall_total = 0
+_syscall_failures = 0
+_syscall_time_total = 0.0
 
 
 def register_syscall(name: str, handler: Any) -> None:
@@ -158,13 +175,17 @@ def syscall(op: str, *args, **kwargs) -> dict:
       syscall("signal.emit", type="task_cancel", target="my-agent")
       syscall("resource.check", agent_id="my-agent", resource="workers")
     """
+    global _syscall_total, _syscall_failures, _syscall_time_total
     agent_id = kwargs.get("agent_id", "unknown")
 
     entry = _SYSCALL_REGISTRY.get(op)
     if entry is None:
+        _syscall_total += 1
+        _syscall_failures += 1
         return {"success": False, "error": f"EINVAL: unknown syscall '{op}'",
                 "error_code": "EINVAL"}
     handler, precomputed_sub = entry
+    t0 = time.perf_counter()
     try:
         if precomputed_sub:
             kwargs["_sub"] = precomputed_sub
@@ -176,16 +197,20 @@ def syscall(op: str, *args, **kwargs) -> dict:
     except Exception as e:
         r = {"success": False, "error": f"EFAULT: {e}", "error_code": "EFAULT"}
     _audit(op, agent_id, r)
+    _syscall_total += 1
+    _syscall_time_total += time.perf_counter() - t0
+    if not r.get("success", False):
+        _syscall_failures += 1
     return r
 
 
 # ── Built-in syscall handlers ──
 
 def _sys_mutex(agent_id: str, kw: dict) -> dict:
-    sub = kw.get("_sub", "acquire")
-    m = get_mutex(kw.get("mutex", SYSCALL_DEFAULT_FALLBACK))
-    return getattr(m, sub)(agent_id, **{k: v for k, v in kw.items()
-                                         if k not in ("mutex", "agent_id", "_sub")})
+    sub = kw.pop("_sub", "acquire")
+    m = get_mutex(kw.pop("mutex", SYSCALL_DEFAULT_FALLBACK))
+    kw.pop("agent_id", None)
+    return getattr(m, sub)(agent_id, **kw)
 
 
 def _sys_semaphore(agent_id: str, kw: dict) -> dict:
@@ -321,8 +346,22 @@ def health() -> dict:
         except Exception as e:
             results[name] = {"status": "FAIL", "error": str(e)}
             all_ok = False
+    # Performance/observability counters — informational, never fail the probe.
+    try:
+        evt = get_event_bus().stats()
+        metrics = {
+            "syscalls_total": _syscall_total,
+            "syscalls_failed": _syscall_failures,
+            "syscall_avg_latency_ms": round(_syscall_time_total / _syscall_total * 1000, 4) if _syscall_total else 0.0,
+            "audit_entries": len(_audit_log),
+            "audit_max": SYSCALL_AUDIT_MAX,
+            "event_queue_depth": evt.get("queue_depth", 0),
+            "event_queue_max": evt.get("queue_max", 0),
+        }
+    except Exception:
+        metrics = {}
     return {"status": GateStatus.PASS if all_ok else "FAIL",
-            "modules": results, "module_count": len(probes)}
+            "modules": results, "module_count": len(probes), "metrics": metrics}
 
 
 def register_process(name: str, role: str = "", ring: int = SYSCALL_DEFAULT_RING,
