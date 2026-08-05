@@ -77,10 +77,6 @@ class TestMemoryManager:
         assert m1 is m2
 
 
-import pytest
-
-
-@pytest.mark.skip(reason="CellSandbox no longer exists in l4.sandbox")
 class TestSandbox:
     def test_cell_sandbox_create(self):
         from l4.sandbox import CellSandbox
