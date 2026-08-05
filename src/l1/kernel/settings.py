@@ -36,7 +36,27 @@ DEFAULTS: dict[str, Any] = {
     "memory.graph.enabled": False,
     "memory.mer.enabled": False,
     "user_profile.enabled": False,
+    # System-prompt injection switches (user-configurable via SettingsCenter API).
+    # Each domain gates a block appended to agent system prompts; default True
+    # keeps current behavior, set False to strip that injection globally.
+    "prompt.inject.profile": True,
+    "prompt.inject.constitution": True,
+    "prompt.inject.skills": True,
+    "prompt.inject.verification": True,
+    "prompt.inject.memory": True,
 }
+
+
+def inject_enabled(domain: str) -> bool:
+    """Whether the ``prompt.inject.<domain>`` system-prompt injection is on.
+
+    Best-effort: any settings failure falls back to enabled (True), so a
+    broken settings path can never strip safety-critical context silently.
+    """
+    try:
+        return bool(get_settings().get(f"prompt.inject.{domain}", True))
+    except Exception:
+        return True
 
 
 def get_settings():

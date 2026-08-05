@@ -34,12 +34,17 @@ from l1.kernel.params.agent import (
     R4_LEAN_GENERALIZE_THRESHOLD,
     R4_ROLE,
     R4_STALE_SCAN_LIMIT,
+    R4_SUMMARIZE_COOLDOWN,
+    R4_SUMMARIZE_MAX_TOKENS,
+    R4_SUMMARIZE_MIN_INTERVAL,
+    R4_SUMMARIZE_MIN_LEN,
     R4_TERRITORY,
     SIGNAL_TARGET_L3,
     SKILL_ARCHITECT_MAX_TOKENS,
 )
 from l1.kernel.params.system import (
     ARCHIVE_CHECK_INTERVAL,
+    HASH_TRUNC_MEDIUM,
     LOG_TRUNC_30,
     LOG_TRUNC_60,
     LOG_TRUNC_200,
@@ -120,6 +125,9 @@ class R4Agent:
         # mutates (revision bump), so AgentLoop._inject_extra_context skips the
         # O(N) registry scan + sort on every agent run.
         self._skill_cache: dict[tuple, tuple[int, list]] = {}
+        # P3 lesson-summarization gates: per-tool cooldown + global throttle.
+        self._last_summarize: dict[str, float] = {}
+        self._last_summarize_any: float = 0.0
         self._registered = self._register_identity()
 
     def set_pmu(self, pmu: Any) -> None:
@@ -442,6 +450,25 @@ class R4Agent:
                     # Track the newly created name so duplicate traces in the
                     # same scan are skipped instead of overwriting it.
                     existing.add(skill_name)
+                    # P2-2: signal when a new failure hits an evolved skill that
+                    # allows the same tool — refine hint for re-evolution.
+                    # Never auto-rewrites the skill (updates are gated).
+                    try:
+                        for h in sm.list_by_allowed_tools(tool):
+                            # list_by_allowed_tools returns name/description
+                            # only — fetch the full record for the tag check.
+                            full = sm.get(h["name"]) or {}
+                            if "evolved" in (full.get("tags") or []):
+                                if self._pmu:
+                                    try:
+                                        self._pmu.increment("skills.refine_hint")
+                                    except Exception:
+                                        logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
+                                logger.info("R4Agent: failure for %s hits evolved skill '%s' — refine hint",
+                                            tool, h["name"])
+                                break
+                    except Exception:
+                        logger.debug("R4Agent: refine hint scan failed", exc_info=True)
                     # R5 graph: lean case `depends_on` the failing tool skill
                     # (if one exists) — non-blocking, graph may be disabled.
                     self._link_lean_graph_edge(tool, skill_name)
@@ -474,6 +501,7 @@ class R4Agent:
         It carries the ``evolved`` tag so AgentLoop injects it via
         ``get_evolved_skills`` alongside LLM-evolved skills.
         """
+        import hashlib
         import os
         by_tool: dict[str, list[dict]] = {}
         for s in sm.list(tags=["lean_case"]):
@@ -489,14 +517,30 @@ class R4Agent:
                 continue
             gen_name = f"lean_{tool}_lessons"
             lessons = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
-            gen_prompt = f"Known failure patterns when using {tool}:\n{lessons}"
+            baseline = f"Known failure patterns when using {tool}:\n{lessons}"
+            # Deterministic case fingerprint — idempotency is independent of
+            # whether the stored prompt is LLM-summarized or rule-based, so a
+            # refresh during the LLM cooldown never downgrades a refined lesson.
+            fp = hashlib.md5(lessons.encode("utf-8")).hexdigest()[:HASH_TRUNC_MEDIUM]
+            desc = f"Consolidated failure lessons for {tool} ({len(cases)} cases) [{fp}]"
             existing = sm.get(gen_name)
-            if existing and existing.get("prompt") == gen_prompt and os.path.exists(self._skill_md_path(gen_name)):
-                continue  # already generalized + persisted from the same cases
+            if existing and self._fp_of(existing) == fp and os.path.exists(self._skill_md_path(gen_name)):
+                continue  # same case set already generalized + persisted
+            # P3: LLM semantic summary (gated: threshold + per-tool cooldown +
+            # per-tick throttle); any failure degrades to the rule-based baseline.
+            llm_lesson = self._summarize_tool_lessons(tool, cases)
+            candidate = llm_lesson if llm_lesson else baseline
+            if existing:
+                # P2-3: archive the pre-update version (audit/rollback baseline)
+                # before overwriting — same guarantee evolve_skill gives.
+                try:
+                    self._archive_before_evolve(gen_name, existing)
+                except Exception as e:
+                    logger.warning("R4Agent: archive generalized skill failed: %s", e)
             sm.create(
                 name=gen_name,
-                description=f"Consolidated failure lessons for {tool} ({len(cases)} cases)",
-                prompt=gen_prompt,
+                description=desc,
+                prompt=candidate,
                 tags=["evolved", tool],
                 allowed_tools=[tool],
                 internal=True,
@@ -504,8 +548,8 @@ class R4Agent:
             try:
                 self._persist_skill_md(
                     name=gen_name,
-                    description=f"Consolidated failure lessons for {tool} ({len(cases)} cases)",
-                    prompt=gen_prompt,
+                    description=desc,
+                    prompt=candidate,
                     tags=["evolved", tool],
                     allowed_tools=[tool],
                 )
@@ -569,6 +613,67 @@ class R4Agent:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write("\n".join(md_lines))
         return md_path
+
+    @staticmethod
+    def _fp_of(skill: dict) -> str:
+        """Extract the case fingerprint from a generalized skill's description."""
+        import re
+        m = re.search(r"\[([0-9a-f]{12})\]$", skill.get("description", "") or "")
+        return m.group(1) if m else ""
+
+    def _summarize_tool_lessons(self, tool: str, cases: list[dict]) -> str | None:
+        """LLM-summarize a tool's lean cases into one concise lesson.
+
+        Three gates: per-tool cooldown (R4_SUMMARIZE_COOLDOWN), global throttle
+        (R4_SUMMARIZE_MIN_INTERVAL), and the caller's threshold check.  Any
+        failure (LLM error, invalid JSON, below the length floor) returns None
+        so the caller falls back to the rule-based baseline.  Never writes —
+        the caller owns the write.
+        """
+        import json as _json
+
+        now = time.time()
+        if now - self._last_summarize.get(tool, 0.0) < R4_SUMMARIZE_COOLDOWN:
+            return None
+        if now - self._last_summarize_any < R4_SUMMARIZE_MIN_INTERVAL:
+            return None
+        digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+        prompt = (
+            "Distill these failure patterns for the tool into ONE concise "
+            f"reusable lesson.\n{digest}\n"
+            'Reply with JSON only: {"lesson": "<one paragraph>"}'
+        )
+        try:
+            from l4.llm.llm import get_engine
+            engine = get_engine()
+            result = engine.generate(prompt=prompt,
+                                     system="You are a skill architect.",
+                                     max_tokens=R4_SUMMARIZE_MAX_TOKENS,
+                                     user_id="r4-agent")
+        except Exception as e:
+            logger.warning("R4Agent: lesson summarization failed: %s", e)
+            self._last_summarize[tool] = now
+            return None
+        self._last_summarize[tool] = now
+        self._last_summarize_any = now
+        content = (result.get("content") or "").strip()
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        try:
+            data = _json.loads(content)
+            lesson = data.get("lesson", "") if isinstance(data, dict) else ""
+        except Exception:
+            lesson = ""
+        lesson = lesson.strip() if isinstance(lesson, str) else ""
+        if len(lesson) < R4_SUMMARIZE_MIN_LEN:
+            logger.info("R4Agent: summarized lesson for %s rejected (too short)", tool)
+            return None
+        return lesson
 
     @staticmethod
     def _atomic_write(fp: str, data: dict) -> None:
@@ -756,16 +861,39 @@ class R4Agent:
         skills = sm.list(tags=tags, limit=limit * 2, sort_by="loaded_at")
         allow = sm.skills_for_cell(cell_id) if cell_id else set()
         result = []
+        names = []
         for s in skills:
             if allow and s["name"] not in allow:
                 continue
             if s.get("prompt"):
+                names.append(s["name"])
                 result.append(s["prompt"])
             if len(result) >= limit:
                 break
         result = result[:limit]
-        self._skill_cache[cache_key] = (rev, result)
+        names = names[:limit]
+        self._skill_cache[cache_key] = (rev, result, names)
         return result
+
+    def get_lean_case_names(self, agent_id: str = "", tool_name: str = "",
+                            cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT) -> list[str]:
+        """Return the skill names behind the lean cases get_lean_cases() yields.
+
+        Shares the injection cache with get_lean_cases() so the AgentLoop can
+        refresh ``last_used`` for exactly the cases it injected — no extra
+        registry scan.
+        """
+        from l1.kernel.skill import get_skill_manager
+        sm = get_skill_manager()
+        cache_key = ("lean", agent_id, tool_name, cell_id, limit)
+        rev = sm.revision()
+        cached = self._skill_cache.get(cache_key)
+        if cached and cached[0] == rev and len(cached) >= 3:
+            return cached[2]
+        # Cache miss or stale — repopulate through get_lean_cases().
+        self.get_lean_cases(agent_id, tool_name, cell_id, limit)
+        cached = self._skill_cache.get(cache_key)
+        return cached[2] if cached and len(cached) >= 3 else []
 
     def get_evolved_skills(self, agent_id: str = "", cell_id: str = "",
                            limit: int = R4_EVOLVED_SKILLS_DEFAULT, graph_diffusion: bool = False) -> list[dict]:
@@ -911,6 +1039,16 @@ class R4Agent:
                 allowed_tools=skill_tools,
                 internal=True,
             )
+            if existing:
+                # Preserve usage counters across the overwrite — a re-evolve
+                # must not reset usefulness tracking (TTL/quality signals).
+                try:
+                    sm.update(name, {
+                        "useful_count": existing.get("useful_count", 0) or 0,
+                        "last_used": existing.get("last_used", 0.0) or 0.0,
+                    })
+                except Exception as e:
+                    logger.debug("R4Agent: restore usage counters failed: %s", e)
 
             # 演化即回灌: bind the evolved skill to the originating Cell so its
             # agents can inject it immediately (unbound → global pool).

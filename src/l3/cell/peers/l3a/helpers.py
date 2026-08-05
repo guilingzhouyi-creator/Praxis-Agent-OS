@@ -11,6 +11,13 @@ from l3.services.assembly import AssemblyMode
 logger = logging.getLogger(__name__)
 
 
+def _inject_enabled(domain: str) -> bool:
+    """Whether the ``prompt.inject.<domain>`` system-prompt injection is on."""
+    from l1.kernel.settings import inject_enabled as _ie
+
+    return _ie(domain)
+
+
 def build_l3a_prompt(user_id: str = "") -> str:
     """Build the L3A agent-loop system prompt.
 
@@ -26,7 +33,7 @@ def build_l3a_prompt(user_id: str = "") -> str:
         for t in types
     )
     prompt = _gp("l3a.agentloop_system").format(card_types=types_block)
-    if user_id:
+    if user_id and _inject_enabled("profile"):
         try:
             from l3.services.user_profile import get_service as _prof
 
@@ -56,8 +63,9 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     # User profile reference (side-channel): attach a condensed profile to the
     # card columns when the profile service is enabled — downstream intent
     # parsing and agent context can consult it without blocking the submit.
+    # Gated by the prompt.inject.profile setting (user-configurable).
     user_id = str(args.get("user_id") or "").strip()
-    if user_id:
+    if user_id and _inject_enabled("profile"):
         try:
             from l3.services.user_profile import get_service as _prof
 
