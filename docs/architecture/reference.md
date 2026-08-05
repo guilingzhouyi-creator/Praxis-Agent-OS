@@ -311,18 +311,21 @@ praxis/
 �?  �?  �?  ├── api_routes.py        # 170 routes (234 lines)
 �?  �?  �?  ├── api_middleware.py    # Middleware chain (312 lines)
 �?  �?  �?  └── api_handlers_cards.py # Card handlers (93 lines)
-�?  �?  �?�?  �?  ├── api_handlers/            # 11 handler modules
-�?  �?  �?  ├── __init__.py          # Handler mixin (770 lines)
-�?  �?  �?  ├── api_handlers_agent.py # Agent handlers (83 lines)
-�?  �?  �?  ├── api_handlers_cluster.py # Cluster handlers
-�?  �?  �?  ├── api_handlers_commands.py # Command handlers
-�?  �?  �?  ├── api_handlers_config.py # Config handlers (168 lines)
-�?  �?  �?  ├── api_handlers_constitution.py # Constitution API (73 lines)
-�?  �?  �?  ├── api_handlers_discussion.py # Discussion API (8 routes)
-�?  �?  �?  ├── api_handlers_monitor.py # Monitor handlers (188 lines)
-�?  �?  �?  ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
-�?  �?  �?  ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
-�?  �?  �?  └── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
+ �?  �?  �?�?  �?  ├── api_handlers/            # 11 handler modules
+ �?  �?  �?  ├── __init__.py          # Handler mixin (770 lines)
+ �?  �?  �?  ├── api_handlers_agent.py # Agent handlers (83 lines)
+ �?  �?  �?  ├── api_handlers_auth.py  # Auth token login/logout/refresh (new)
+ �?  �?  �?  ├── api_handlers_cluster.py # Cluster handlers
+ �?  �?  �?  ├── api_handlers_commands.py # Command handlers
+ �?  �?  �?  ├── api_handlers_config.py # Config handlers (168 lines)
+ �?  �?  �?  ├── api_handlers_constitution.py # Constitution API (73 lines)
+ �?  �?  �?  ├── api_handlers_discussion.py # Discussion API (8 routes)
+ �?  �?  �?  ├── api_handlers_fs.py   # FS tree/read/watch/unwatch (new)
+ �?  �?  �?  ├── api_handlers_l3a.py  # L3A ask + session contract (new)
+ �?  �?  �?  ├── api_handlers_monitor.py # Monitor handlers (188 lines)
+ �?  �?  �?  ├── api_handlers_providers.py # Provider + model-spec API (18 routes)
+ �?  �?  �?  ├── api_handlers_records.py # RecordCenter query/stats/export (91 lines)
+ �?  �?  �?  └── api_handlers_stats.py   # StatsCenter query/top/live (101 lines)
 �?  �?  �?�?  �?  ├── llm/                     # LLM engine + providers
 �?  �?  �?  ├── __init__.py
 �?  �?  �?  ├── llm.py               # LLM Engine (590 lines)
@@ -340,15 +343,18 @@ praxis/
 �?  �?  �?  ├── __init__.py
 �?  �?  �?  ├── credential_vault.py  # AES-256 vault (209 lines)
 �?  �?  �?  └── auth.py              # Authentication (147 lines)
-�?  �?  �?�?  �?  ├── sse/                     # SSE bridge
-�?  �?  �?  ├── __init__.py
-�?  �?  �?  └── sse_bridge.py        # SSE streaming (132 lines)
-�?  �?  �?�?  �?  ├── llm_worker/              # Worker process (104 lines)
-�?  �?  ├── mcp_bridge.py            # MCP adapter (588 lines)
-�?  �?  ├── sandbox.py               # Cell COW sandbox (329 lines)
-�?  �?  ├── sandbox/                 # Execution sandbox: manager + server (256 lines)
-�?  �?  ├── rpc/                     # RPC protocol + transport (78 lines)
-�?  �?  ├── supervisor.py            # Process supervisor (222 lines)
+ �?  �?  �?�?  �?  ├── sse/                     # SSE bridge
+ �?  �?  �?  ├── __init__.py
+ �?  �?  �?  └── sse_bridge.py        # SSE streaming (132 lines)
+ �?  �?  �?�?  �?  ├── ws/                      # WebSocket bridge (new)
+ �?  �?  �?  ├── __init__.py
+ �?  �?  �?  └── ws_bridge.py         # bidirectional channel (subscribe/rpc)
+ �?  �?  �?�?  �?  ├── llm_worker/              # Worker process (104 lines)
+ �?  �?  ├── mcp_bridge.py            # MCP adapter (588 lines)
+ �?  �?  ├── sandbox.py               # Cell COW sandbox (329 lines)
+ �?  �?  ├── sandbox/                 # Execution sandbox: manager + server (256 lines)
+ �?  �?  ├── rpc/                     # RPC protocol + transport + server (new)
+ �?  �?  ├── supervisor.py            # Process supervisor (222 lines)
 �?  �?  ├── cron_scheduler.py        # Cron scheduling (224 lines)
 �?  �?  ├── user_session.py          # User sessions (149 lines)
 �?  �?  ├── notify.py                # Webhooks (99 lines)

@@ -300,11 +300,24 @@ Independent memory transformations that do not alter the main R1-R4 flow:
 
 | Channel | Module | Function | Toggle |
 |---------|--------|----------|--------|
-| **Mer symbolization** | `memory_mer.py` | Periodically aggregates high-value R1-R3 entries across scopes (Cells + L3A), renders a swarm-domain **Mermaid flowchart** (visualized condensed memory), archives to R4 (`agent-l3a / memory_mer_snapshot`) as audit baseline; driven by the L3A daemon tick | `memory.mer.enabled` (default off) |
+| **Mer symbolization** | `memory_mer.py` | Periodically aggregates high-value R1-R3 entries across scopes (Cells + L3A), renders a swarm-domain **Mermaid flowchart** (visualized condensed memory): node shapes encode entry type (decision=diamond, summary/card=round), labels carry importance, R5 semantic edges are solid arrows and within-scope chronological chains are dashed — archives to R4 (`agent-l3a / memory_mer_snapshot`) as audit baseline; driven by the L3A daemon tick. See `docs/architecture/deep-dive/memory.md` §Mer | `memory.mer.enabled` (default off) |
 | **R5 memory graph** | `memory_graph.py` | SQLite `memory_edges` with semantic edges, diffusion recall, LLM extraction | `memory.graph.enabled` (default off) |
 | **Task-aware injection** | `memory_inject.py` | Per-task dimension selection (execute→summary, decide→Mer, resume→layered) into agent context | `memory.injection.strategy` (auto) |
 
 All three degrade to the linear fallback on error (zero impact on the main memory path).
+
+Example Mer symbolization (decision diamond + summary round, semantic edge solid, temporal chains dashed):
+
+```mermaid
+flowchart LR
+    subgraph mer_example
+    e0{"decision: use JWT for auth (imp=0.8)"}
+    e1("summary: token strategy review (imp=0.7)")
+    e2{"decision: drop JWT in favor of mTLS (imp=0.9)"}
+    e0 -->|contradicts| e2
+    e0 -.->|t| e1
+    end
+```
 
 ## Structured Diff System (Sandbox)
 The sandbox provides copy-on-write isolation for Agent file operations with structured diff tracking.

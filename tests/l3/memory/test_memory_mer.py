@@ -51,7 +51,31 @@ def test_mer_to_mermaid(tmp_path):
     md = m.to_mermaid(entries, [], title="test")
     assert md.startswith("flowchart LR")
     assert "subgraph test" in md
-    assert '["decision:' in md or '["summary:' in md
+    # decision -> diamond, summary -> round, content preview present
+    assert "{decision:" in md or "(\"summary:" in md
+    # importance label is rendered
+    assert "imp=0." in md
+
+
+def test_mer_mermaid_time_chain(tmp_path):
+    """Within-scope chronological chains are dashed edges (no graph needed)."""
+    _setup_memory(tmp_path)
+    m = MerTransformer(enabled=True)
+    entries = [
+        {"id": "a", "entry_type": "decision", "content": "first",
+         "importance": 0.8, "timestamp": 1.0, "_scope": "l3a"},
+        {"id": "b", "entry_type": "decision", "content": "second",
+         "importance": 0.8, "timestamp": 2.0, "_scope": "l3a"},
+        {"id": "c", "entry_type": "summary", "content": "other scope",
+         "importance": 0.8, "timestamp": 3.0, "_scope": "cell-a"},
+    ]
+    md = m.to_mermaid(entries, [], title="test")
+    # temporal chain links a -> b in scope l3a; c is alone in its scope
+    assert "e0 -.->|t| e1" in md
+    assert "e1 -.->|t| e2" not in md
+    # distinct shapes for decision vs summary
+    assert "{decision:" in md
+    assert "(\"summary:" in md
 
 
 def test_mer_mermaid_includes_edges(tmp_path):

@@ -299,3 +299,81 @@ memory:
 
 `/stats graph` (L2 shell) shows the same surface. Time-bus events:
 `stats.memory.graph.switch` / `.edge_mode` / `.compact` / `.semantic`.
+
+## Mer: Symbolic Memory Bypass (swarm-domain visualization)
+
+`l3/memory/memory_mer.py` — a **bypass** memory transformation: it does not
+touch the R1-R4 flow, but periodically aggregates high-value entries across
+scopes (Cells + L3A) and renders a **Mermaid flowchart** — a "visualized
+condensed version" of the swarm's memory. The diagram is archived to R4
+(`agent-l3a / memory_mer_snapshot`) as an audit baseline; because the
+original entries stay in R1-R4, the Mer graph can be discarded at any time
+without loss.
+
+### Data flow
+
+```
+L3A daemon tick ──► MerTransformer.transform_and_archive()
+                        │
+                        ├─ collect_entries(scope_ids)   ← CentralMemory: R1-R3,
+                        │     high-value only (importance ≥ MER_MIN_IMPORTANCE),
+                        │     across Cells + L3A scopes, per-scope bounded
+                        ├─ collect_edges(node_ids)       ← R5 MemoryGraph edges
+                        │     (only when memory.graph.enabled; [] otherwise)
+                        ├─ to_mermaid(entries, edges)    ← symbolization
+                        └─ archive_to_r4(mermaid, meta)  ← R4 agent-l3a/
+                              memory_mer_snapshot (rollback baseline, audit)
+```
+
+### Mermaid symbolization (node shapes & edges)
+
+Node **shape** encodes entry type; **label** carries type, content preview
+(40 chars) and importance:
+
+| Entry type | Shape | Mermaid |
+|------------|-------|---------|
+| `decision` | diamond | `e0{"decision: ... (imp=0.8)"}` |
+| `summary` / `card` | rounded | `e1("summary: ... (imp=0.7)")` |
+| `user` / `assistant` / `tool_call` | rectangle | `e2["assistant: ... (imp=0.5)"]` |
+
+Edges come from two independent sources:
+
+| Edge | Rendering | Source |
+|------|-----------|--------|
+| Semantic relations | solid `-->|relation|` | R5 graph (`contradicts`, `depends_on`, `refines`, ...) — only when graph enabled |
+| Chronological chains | dashed `-.->|t|` | within-scope entries ordered by `timestamp` — always rendered, so temporal order is visible even without R5 |
+
+Example output (two scopes, one semantic edge, temporal chains):
+
+```mermaid
+flowchart LR
+    subgraph mer_9f2a1c
+    e0{"decision: use JWT for auth (imp=0.8)"}
+    e1("summary: token strategy review (imp=0.7)")
+    e2{"decision: drop JWT in favor of mTLS (imp=0.9)"}
+    e0 -->|contradicts| e2
+    e0 -.->|t| e1
+    end
+```
+
+### Guarantees
+
+- **Bypass semantics**: Mer never mutates the main memory path; on any error
+  it degrades to a no-op (entries intact, R4 baseline unaffected).
+- **Lossless originals**: only a *rendered* condensation is archived — the
+  source entries remain in their rings, so the diagram is disposable.
+- **Bounded work**: per-scope entry caps (`MER_ENTRIES_PER_SCOPE`), max scope
+  count (`MER_MAX_SCOPES`), edge list truncated; driven by the L3A daemon tick.
+
+### Switch & config
+
+```yaml
+# config/praxis.yaml
+memory:
+  mer:
+    enabled: false          # default off = zero impact
+```
+
+Runtime: SettingsCenter `memory.mer.enabled`; API: `/api/memory/mer/status`,
+`/api/memory/mer/set`, `/api/memory/mer/transform`. Monitor-bus event:
+`stats.memory.mer.transform` (entries/edges/archive_ref).

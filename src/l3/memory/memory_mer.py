@@ -116,22 +116,66 @@ class MerTransformer:
 
     # ── Symbolization: Mermaid generation ──────────────────────────────
 
+    _ENTRY_SHAPES: dict[str, str] = {
+        "decision": "diamond",   # `id{"label"}`
+        "summary": "round",      # `id("label")`
+        "card": "round",
+        "user": "rect",          # `id["label"]`
+        "assistant": "rect",
+        "tool_call": "rect",
+    }
+
+    @staticmethod
+    def _node_line(key: str, shape: str, label: str) -> str:
+        """Emit a Mermaid node line for the given shape."""
+        if shape == "diamond":
+            return f'    {key}{{{{{label}}}}}'
+        if shape == "round":
+            return f'    {key}("{label}")'
+        return f'    {key}["{label}"]'
+
     def to_mermaid(self, entries: list[dict], edges: list[dict] | None = None,
                    title: str = "Memory") -> str:
-        """Render collected entries + edges as a Mermaid flowchart."""
+        """Render collected entries + edges as a Mermaid flowchart.
+
+        Node shapes encode entry type (decision=diamond, summary/card=round,
+        user/assistant/tool_call=rect); labels carry type, content preview
+        and importance. Semantic edges from the R5 graph are solid arrows;
+        within-scope chronological chains are dashed ``-.->|t|`` arrows so
+        the temporal order of a scope's memory is visible even without the
+        graph enabled.
+        """
         lines = ["flowchart LR"]
         nid: dict[str, str] = {}
         for i, e in enumerate(entries):
             key = f"e{i}"
             nid[e.get("id", "")] = key
-            label = (e.get("entry_type", "?") + ": "
+            etype = e.get("entry_type", "?")
+            label = (etype + ": "
                      + str(e.get("content", ""))[:40].replace('"', "'"))
-            lines.append(f'    {key}["{label}"]')
+            imp = e.get("importance")
+            if imp is not None:
+                try:
+                    label += f" (imp={float(imp):.1f})"
+                except (TypeError, ValueError):
+                    label += " (imp=?)"
+            lines.append(self._node_line(key, self._ENTRY_SHAPES.get(etype, "rect"), label))
         for ed in (edges or []):
             f = nid.get(ed.get("from_id", ""))
             t = nid.get(ed.get("to_id", ""))
             if f and t:
                 lines.append(f'    {f} -->|{ed.get("relation", "related")}| {t}')
+        # Within-scope chronological chains (dashed) — temporal order visible
+        # without the R5 graph
+        by_scope: dict[str, list[dict]] = {}
+        for e in entries:
+            by_scope.setdefault(e.get("_scope", "?"), []).append(e)
+        for _scope, items in by_scope.items():
+            items.sort(key=lambda x: x.get("timestamp", 0))
+            for a, b in zip(items, items[1:], strict=False):
+                fa, fb = nid.get(a.get("id", "")), nid.get(b.get("id", ""))
+                if fa and fb and fa != fb:
+                    lines.append(f"    {fa} -.->|t| {fb}")
         lines.insert(1, f'    subgraph {title.replace(" ", "_")}')
         lines.append("    end")
         return "\n".join(lines)
