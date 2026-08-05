@@ -259,7 +259,7 @@
 │  ├── cell_monitor.py (health events)         ✅ Complete         │
 │  ├── cell_types.py (data types)              ✅ Complete         │
 │  ├── cell_token_merger.py (token tracking)    ✅ Complete         │
-│  ├── cell_cache.py (L2 shared cache)         🔧 Uncommitted       │
+│  ├── cell_cache.py (L2 shared cache)         ✅                │
 │  └── cell_orchestrate.py (fork-join)         ✅ Complete         │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -278,7 +278,7 @@
 │  ├── Deliberation memory (convention/summaries)       ✅      │
 │  ├── Auto-compression + R4 session archive            ✅      │
 │  ├── Mer symbolization driver (R1-R3 → Mermaid → R4)  ✅      │
-│  ├── User profiling / habit learning                  ⬜ Not Started │
+│  ├── User profiling / habit learning                  ✅ (user_profile.py) │
 │  └── Intent correction loop (L3C feedback)            ⬜ Not Started │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -330,7 +330,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Memory System — core ✅ + CellCache 🔧
+### Memory System — core ✅ + CellCache ✅
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -342,7 +342,7 @@
 │  ├── FTS5 full-text search (R3)              ✅                │
 │  ├── R4Agent Archive + skill evolution       ✅                │
 │  ├── forget_cell() / forget_agent()          ✅                │
-│  ├── CellCache (3-tier L2)                   🔧 Uncommitted         │
+│  ├── CellCache (3-tier L2)                   ✅                │
 │  └── Memory → AgentLoop bridge               ✅                │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -364,29 +364,29 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### HTN Decomposition — core ✅ + A/B 🔧
+### HTN Decomposition — core ✅ + A/B ✅
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  HTN Decomposition                                             │
 │                                                              │
 │  ├── HTN-C (Intra-cell execution decomposition)  ✅                │
-│  ├── HTN-A (Global intent sharding)             🔧 Uncommitted         │
-│  ├── HTN-B (Inter-cell routing decomposition)   🔧 Uncommitted         │
+│  ├── HTN-A (Global intent sharding)             ✅ (htn_a.py)        │
+│  ├── HTN-B (Inter-cell routing decomposition)   ✅ (htn_b.py, l3b 集成) │
 │  └── Decomposer (General Assembly pipeline)     ✅               │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### L3B — Cross-Cell Routing ◐
+### L3B — Cross-Cell Routing ✅
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  L3B — Cross-Cell Coordination                                 │
 │                                                              │
 │  ├── L3B (legacy route/resolve)              ✅                │
-│  ├── L3BComposite (HTN-B + routing)          🔧 Uncommitted         │
-│  ├── L3B Bus (5 message types)               🔧 Uncommitted         │
-│  └── L3B Message Pool (Hot Ring + SQLite)    🔧 Uncommitted         │
+│  ├── L3BComposite (HTN-B + routing)          ✅ (global_components)  │
+│  ├── L3B Bus (5 message types)               ✅ (l3.py 集成)         │
+│  └── L3B Message Pool (Hot Ring + SQLite)    ✅ (lifecycle reset)    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -406,7 +406,7 @@
 ```
 │  ├── tool_pipeline.py (9-step)               ✅                │
 │  ├── tool_spec.py (spec + ring)              ✅                │
-│  ├── tool_registry.py (ToolRegistry class)   🔧                │
+│  ├── tool_registry.py (ToolRegistry class)   ✅                │
 │  ├── tool_config.py (YAML tool config)       ✅                │
 │  ├── tool_policy.py (5-layer visibility)     ✅                │
 │  ├── tool_mode.py (global read/write)        ✅                │
@@ -483,8 +483,8 @@
 │  ├── cell_interrupt.py (priority IRQ)         ✅                │
 │  ├── cell_orchestrate.py (fork-join via pool) ✅                │
 │  ├── subagent*.py (8 files, framework)       ✅                │
-│  ├── subagent_gate.py (explore/execute gate) 🔧                │
-│  ├── subagent_pool.py (async delegation pool) 🔧                │
+│  ├── subagent_gate.py (explore/execute gate) ✅                │
+│  ├── subagent_pool.py (async delegation pool) ✅                │
 │  ├── identity.py (Ed25519 keys)              ✅                │
 │  ├── wiring.py (port→adapter assembly)       ✅                │
 │  ├── acb.py (Agent Control Block)            ✅                │
@@ -492,16 +492,16 @@
 │  ├── 13 more files...                        ✅                │
 ```
 
-### Discussion & Convergence 🔧
+### Discussion & Convergence ✅
 
 ```
 │  src/l3/discussion/                                              │
-│  ├── issue_orchestrator.py (IssueCard→discussion session)   🔧   │
-│  ├── answer_session.py (5-phase answer protocol)             🔧   │
-│  ├── cell_answer_repo.py (per-Cell answer + checkpoint)      🔧   │
-│  ├── answer_aggregator.py (cross-Cell merge/dedup)           🔧   │
-│  ├── supplement_manager.py (classify supplements)            🔧   │
-│  └── report_service.py (report→MD + L3A + SSE)               🔧   │
+│  ├── issue_orchestrator.py (IssueCard→discussion session)   ✅   │
+│  ├── answer_session.py (5-phase answer protocol)             ✅   │
+│  ├── cell_answer_repo.py (per-Cell answer + checkpoint)      ✅   │
+│  ├── answer_aggregator.py (cross-Cell merge/dedup)           ✅   │
+│  ├── supplement_manager.py (classify supplements)            ✅   │
+│  └── report_service.py (report→MD + L3A + SSE)               ✅   │
 │                                                                   │
 │  Bus events:                                                      │
 │  ├── Cell listens: "discussion.start" → AnswerSession             │
@@ -510,11 +510,12 @@
 │  └── cell_execute.py: checks IssueOrchestrator for sessions       │
 ```
 
-**Status: 🔧 Uncommitted (written + committed, full integration pending).**
+**Status: ✅ Complete (written + committed + fully integrated).**
 - `AnswerSession`: 5 phases (independent answer → cross-examine → supplement → converge → report)
 - `IssueOrchestrator`: session lifecycle, cell registration, cell_complete routing
 - `AnswerAggregator`: cross-Cell answer merge with divergence detection
 - Boot auto-trigger: blank `.praxis-rules.md` creates IssueCard for territorial discussion
+- 集成证据：`/api/v2/discussion/*` 路由 + `boot.py:401` + `cell_execute.py:50` 均已挂接
 
 ## L4 Bridge — 50 files, 11,859 lines ✅
 
@@ -548,13 +549,14 @@
 ## Not Yet Started (⬜)
 
 ```
-│  L3A: User profiling / habit learning             ⬜                │
 │  Heavy Desktop (Electron/Tauri)                   ⬜                │
 │  Lightweight Desktop (chat + diff)                ⬜                │
 │  VSCode Extension                                 ⬜                │
 │  Multi-cluster / Distributed                      ⬜                │
 │  License/Authorization system                     ⬜                │
 ```
+
+> 注: L3A User profiling / habit learning 已由 `a76be3a feat(profile)` 实现,移出未启动清单。
 
 ## Summary
 
@@ -569,9 +571,9 @@ L5 User       2       489    ✅ Complete
 ─────────────────────────────────────────
 Total       317    72,166
 
-Completed:        ~93% (L1/L2/L3/L4/L5 core + L3A sessions + L3B chain + L3C + Mer/R5)
-Partial:          ~4%  (user profiling, L3C feedback loop, desktop/VSCode clients)
-Not started:      ~3%  (L3A profiling, desktops, VSCode extension, multi-cluster, license)
+Completed:        ~95% (L1/L2/L3/L4/L5 core + L3A sessions + L3B chain + L3C + Mer/R5 + user profiling)
+Partial:          ~2%  (L3C feedback loop, desktop/VSCode clients)
+Not started:      ~3%  (desktops, VSCode extension, multi-cluster, license)
 ```
 
 ---
