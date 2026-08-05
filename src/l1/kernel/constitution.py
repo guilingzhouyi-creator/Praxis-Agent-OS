@@ -66,6 +66,7 @@ TAG_L3 = frozenset({"l3"})
 TAG_SCOUT = frozenset({"scout"})
 TAG_SCOUT_AUDIT = frozenset({"scout", "audit"})
 TAG_MEMORY_RING = frozenset({"memory", "ring"})
+TAG_SKILL = frozenset({"skill"})
 
 CONSTITUTION_SOURCE_BLANK = "blank"
 
@@ -312,6 +313,13 @@ _BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
         description="Important decisions must be persisted to Ring 3 (long-term)",
         check_fn=None,
         tags=TAG_MEMORY_RING,
+    ),
+    RuleDescriptor(
+        id="skill.builtin_readonly", section="§9.1",
+        severity=RuleSeverity.MUST,
+        description="Built-in (shipped) skills are read-only — no agent may modify or delete them",
+        check_fn=None,
+        tags=TAG_SKILL,
     ),
 ]
 

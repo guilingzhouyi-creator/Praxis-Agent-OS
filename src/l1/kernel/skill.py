@@ -36,6 +36,14 @@ from l1.kernel.params.system import (
 
 logger = logging.getLogger(__name__)
 
+# Directory marker for built-in (read-only) skills shipped with the repo.
+_BUILTIN_SKILL_DIR = "config/skills"
+
+
+def _is_builtin_path(path: str) -> bool:
+    """Return True when a skill file lives under the built-in skills dir."""
+    return _BUILTIN_SKILL_DIR in path.replace("\\", "/")
+
 
 def _get_skill_dirs() -> list[str]:
     """Get skill discovery dirs from config, fall back to built-in paths."""
@@ -294,6 +302,11 @@ class SkillManager:
         if not ok:
             return {"success": False, "error": f"permission denied: {who}"}
         with self._lock:
+            existing = self._skills.get(name)
+        if existing and existing.get("builtin"):
+            return {"success": False,
+                    "error": f"permission denied: builtin skill '{name}' is read-only"}
+        with self._lock:
             self._skills[name] = data
             self._emit_mutated("register", name, agent_id, who)
             return {"success": True, "skill": name, "authorized": who}
@@ -357,6 +370,8 @@ class SkillManager:
                 "procedures": len(s.get("procedures", [])),
                 "tags": s.get("tags", []),
                 "prompt": s.get("prompt", ""),
+                "source": s.get("source", ""),
+                "builtin": bool(s.get("builtin")),
                 "loaded_at": s.get("loaded_at", 0.0),
                 "last_used": s.get("last_used", 0.0),
             })
@@ -407,10 +422,14 @@ class SkillManager:
         with self._lock:
             if name not in self._skills:
                 return {"success": False, "error": f"skill '{name}' not found"}
+            builtin = bool(self._skills[name].get("builtin"))
             # Usage bookkeeping is harmless for any caller.
             if set(data.keys()) <= {"last_used", "usage_count", "useful_count"}:
                 self._skills[name].update(data)
                 return {"success": True, "skill": name}
+            if builtin:
+                return {"success": False,
+                        "error": f"permission denied: builtin skill '{name}' is read-only"}
             if not ok:
                 return {"success": False, "error": f"permission denied: {who}"}
             self._skills[name].update(data)
@@ -445,6 +464,9 @@ class SkillManager:
         with self._lock:
             if name not in self._skills:
                 return {"success": False, "error": f"skill '{name}' not found"}
+            if self._skills[name].get("builtin"):
+                return {"success": False,
+                        "error": f"permission denied: builtin skill '{name}' is read-only"}
             del self._skills[name]
             self._drop_skill_from_cells(name)
             self._emit_mutated("delete", name, agent_id, who)
@@ -548,6 +570,7 @@ class SkillManager:
             "procedures": [],
             "knowledge": {"body": body[:LOG_TRUNC_2000]},
             "source": path,
+            "builtin": _is_builtin_path(path),
             "allowed_tools": meta.get("allowed_tools"),
             "variables": meta.get("variables"),
             "tags": meta.get("tags") or [],
@@ -558,6 +581,17 @@ class SkillManager:
             "last_used": 0.0,
             "loaded_at": time.time(),
         }
+        # E1: constitutional gate at load time — a skill whose registration
+        # violates the constitution (e.g. instructs bypassing sandbox/gates)
+        # is rejected before it enters the pool (fail-fast).
+        try:
+            from l1.kernel.constitution import get_constitution
+            cc = get_constitution().is_allowed("skill.load", "system", target=name)
+            if not cc.get("allowed"):
+                logger.warning("skill: load blocked by constitution: %s", cc.get("blocks"))
+                return False
+        except Exception as e:
+            logger.debug("skill: constitution check skipped at load: %s", e)
         self._store(data, path)
         return True
 

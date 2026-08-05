@@ -131,22 +131,50 @@ class HookChain(LifecycleHooks):
 class SkillCatalogHook(LifecycleHooks):
     """Inject available skills into the system prompt at session start.
 
-    Injects at most ``SKILL_CATALOG_HOOK_LIMIT`` skills to avoid duplication
-    with ``AgentLoop._inject_extra_context`` which separately injects lean
-    cases and evolved skills.
+    Built-in skills (shipped under ``config/skills``) are injected first
+    with priority, then runtime/evolved skills up to
+    ``SKILL_CATALOG_HOOK_LIMIT``.  Injection of built-ins can be disabled
+    per-deployment via the ``skill.auto_activate_builtin`` setting
+    (default: ``SKILL_AUTO_ACTIVATE_BUILTIN``).
     """
 
     def session_start(self, task: str, agent_id: str) -> str:
         try:
-            from l1.kernel.params.system import LOG_TRUNC_60, SKILL_CATALOG_HOOK_LIMIT
+            from l1.kernel.params.system import (
+                LOG_TRUNC_60,
+                SKILL_AUTO_ACTIVATE_BUILTIN,
+                SKILL_CATALOG_HOOK_LIMIT,
+            )
             from l1.kernel.skill import get_skill_manager
             sm = get_skill_manager()
-            skills = sm.list(limit=SKILL_CATALOG_HOOK_LIMIT, sort_by="loaded_at")[:SKILL_CATALOG_HOOK_LIMIT]
+            auto_builtin = SKILL_AUTO_ACTIVATE_BUILTIN
+            try:
+                from l3.config.settings_center import get_center as _sc
+                auto_builtin = bool(_sc().get("skill.auto_activate_builtin", auto_builtin))
+            except Exception:
+                pass
+            skills = sm.list(sort_by="loaded_at")
+            if auto_builtin:
+                # Built-in (read-only) skills take priority in the catalog.
+                skills.sort(key=lambda s: (not s.get("builtin"), s.get("loaded_at", 0.0)))
+            # E2: constitutional gate at session-injection time — a skill
+            # whose use is blocked by the constitution is not injected
+            # (defensive layer on top of the load-time check).
+            try:
+                from l1.kernel.constitution import get_constitution
+                const = get_constitution()
+                skills = [s for s in skills
+                          if const.is_allowed("skill.use", agent_id or "system",
+                                              target=s["name"]).get("allowed")]
+            except Exception as e:
+                logger.debug("SkillCatalogHook: constitution filter skipped: %s", e)
+            skills = skills[:SKILL_CATALOG_HOOK_LIMIT]
             if skills:
                 lines = ["\nAvailable skills (use_skill to invoke):"]
                 for s in skills:
+                    marker = " [builtin]" if s.get("builtin") else ""
                     desc = (s.get("description", "") or "")[:LOG_TRUNC_60]
-                    lines.append(f"  {s['name']}: {desc}")
+                    lines.append(f"  {s['name']}{marker}: {desc}")
                 task += "\n".join(lines)
         except Exception as e:
             logger.debug("SkillCatalogHook: %s", e)

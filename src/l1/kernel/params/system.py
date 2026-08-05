@@ -155,6 +155,7 @@ SKILL_WRITE_MIN_RING: Final[int] = 3        # minimum ring clearance to create/u
 SKILL_WRITE_ROLES: Final[tuple[str, ...]] = ("l3", "reviewer", "deployer")
 SKILL_TTL_DAYS: Final[int] = 7          # evolved skills unused for this long are marked stale
 SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5 # max skills injected by SkillCatalogHook at session start
+SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
 SECONDS_PER_HOUR: Final[int] = 3600
 SECONDS_PER_DAY: Final[int] = 86400
 CELL_EVENTS_LIMIT: Final[int] = 20
