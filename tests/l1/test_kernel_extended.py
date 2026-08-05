@@ -204,6 +204,134 @@ class TestSkillManager:
         s2 = get_skill_manager()
         assert s1 is s2
 
+    def test_authorize_write_system_internal(self):
+        """Identity-less writes are allowed ONLY with internal=True."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        # Default (external): identity-less is rejected.
+        ok, who = sm.authorize_write()
+        assert not ok
+        assert "identity required" in who
+        # System-internal (boot/R4Agent): allowed.
+        ok, who = sm.authorize_write(internal=True)
+        assert ok
+        assert who == "system"
+
+    def test_authorize_write_role_allowed(self):
+        """Role in write_roles → allowed."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        ok, who = sm.authorize_write(role="l3")
+        assert ok
+        assert who == "l3"
+
+    def test_authorize_write_ring_clearance(self):
+        """Role with ring >= min_ring → allowed even if not in roles list."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        # "default" has ring 3 (>= min_ring 3) and is not in write_roles
+        ok, who = sm.authorize_write(role="default")
+        assert ok
+        assert who == "default"
+
+    def test_authorize_write_denied(self):
+        """Low-ring role not in write_roles → denied."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        ok, who = sm.authorize_write(role="reader")
+        assert not ok
+        assert "lacks skill write clearance" in who
+
+    def test_create_denied_for_reader(self):
+        """create() with a reader role → permission denied."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        r = sm.create(name="x", prompt="p", role="reader")
+        assert not r["success"]
+        assert "permission denied" in r["error"]
+
+    def test_create_accepts_allowed_tools(self):
+        """create() persists allowed_tools and useful_count default."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        r = sm.create(name="with-tools", prompt="p", allowed_tools=["read_file", "grep"], internal=True)
+        assert r["success"]
+        s = sm.get("with-tools")
+        assert s["allowed_tools"] == ["read_file", "grep"]
+        assert s["useful_count"] == 0
+
+    def test_update_usage_bookkeeping_any_caller(self):
+        """Bumping last_used / useful_count is allowed for any caller."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="used", prompt="p", internal=True)
+        r = sm.update("used", {"last_used": 123.0, "useful_count": 5}, role="reader")
+        assert r["success"]
+        assert sm.get("used")["useful_count"] == 5
+
+    def test_update_structural_requires_clearance(self):
+        """Structural update by a reader → permission denied."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="struct", prompt="p", internal=True)
+        r = sm.update("struct", {"prompt": "new"}, role="reader")
+        assert not r["success"]
+        assert "permission denied" in r["error"]
+
+    def test_delete_requires_clearance(self):
+        """delete() by a reader → permission denied."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="delme", prompt="p", internal=True)
+        r = sm.delete("delme", role="reader")
+        assert not r["success"]
+        assert "permission denied" in r["error"]
+
+    def test_list_sort_by_loaded_at(self):
+        """list(sort_by='loaded_at') returns newest first."""
+        import time
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="old", prompt="p", tags=["evolved"], internal=True)
+        sm.create(name="new", prompt="p", tags=["evolved"], internal=True)
+        items = sm.list(tags=["evolved"], sort_by="loaded_at")
+        assert items[0]["name"] == "new"
+
+    def test_list_sort_by_last_used(self):
+        """list(sort_by='last_used') returns most recently used first."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="a", prompt="p", tags=["evolved"], internal=True)
+        sm.create(name="b", prompt="p", tags=["evolved"], internal=True)
+        sm.update("a", {"last_used": 999.0})
+        items = sm.list(tags=["evolved"], sort_by="last_used")
+        assert items[0]["name"] == "a"
+
+    def test_query_keyword_scoring(self):
+        """query() ranks name hits above description hits."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        sm.create(name="python-style", prompt="rules for python", tags=["evolved"], internal=True)
+        sm.create(name="go-style", prompt="python linting guide", tags=["evolved"], internal=True)
+        results = sm.query("python")
+        assert len(results) >= 1
+        assert results[0]["name"] == "python-style"
+
+    def test_query_empty_returns_empty(self):
+        """query('') returns empty list, not an exception."""
+        from l1.kernel.skill import SkillManager
+        sm = SkillManager()
+        assert sm.query("") == []
+
+    def test_to_dict_includes_tags_and_loaded_at(self):
+        """Skill.to_dict now includes tags and loaded_at."""
+        from l1.kernel.skill import Skill
+        s = Skill(name="full", description="d", prompt="p")
+        d = s.to_dict()
+        assert "tags" in d
+        assert "loaded_at" in d
+        assert d["loaded_at"] == 0.0
+
 
 class TestSwapper:
     def test_swapper_construction(self):

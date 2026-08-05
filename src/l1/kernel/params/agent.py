@@ -238,6 +238,7 @@ LOOP_EVOLVED_SKILL_TRUNC: Final[int] = 300
 LOOP_COMPACTION_THRESHOLD: Final[int] = 50000
 LOOP_STEP_RESULT_TRUNC: Final[int] = 200
 LOOP_TOKEN_ESTIMATION_FACTOR: Final[int] = 4
+LOOP_CONTEXT_BUDGET_SKILL: Final[int] = 2000  # max chars of skill context injected per turn
 LOOP_TURN_WARNING_THRESHOLD: Final[int] = 2
 LOOP_TOOL_SEARCH_MAX: Final[int] = 10
 
@@ -300,6 +301,7 @@ EVENT_TOKEN_USAGE: Final[str] = "token_usage"
 EVENT_CROSS_REVIEW: Final[str] = "cross_review"
 EVENT_AGENT_BOOT: Final[str] = "agent_boot"
 EVENT_ARCHIVE_ALERT: Final[str] = "archive_alert"
+EVENT_SKILL_MUTATED: Final[str] = "skill_mutated"
 
 # ── Communication monitor ──
 COMM_HISTORY_MAX: Final[int] = 500
@@ -372,6 +374,8 @@ R4_CONSISTENCY_SCAN_LIMIT: Final[int] = 20
 R4_AGENT_ID: Final[str] = "r4-agent"
 R4_ROLE: Final[str] = "archivist"
 R4_TERRITORY: Final[list[str]] = ["archive", "memory"]
+R4_LEAN_CASES_DEFAULT: Final[int] = 5      # default limit for get_lean_cases
+R4_EVOLVED_SKILLS_DEFAULT: Final[int] = 3  # default limit for get_evolved_skills / graph diffusion
 
 # ── CardBuilder default modes ──
 CARD_BUILDER_MODES: Final[dict[str, str]] = {

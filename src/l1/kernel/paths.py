@@ -22,12 +22,15 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from typing import Self
 
 from .platform import IS_MAC, IS_WINDOWS
@@ -51,7 +54,7 @@ def _detect_deploy_mode() -> DeployMode:
         try:
             return DeployMode(mode_str)
         except ValueError:
-            pass
+            logger.debug("paths: unknown PRAXIS_DEPLOY_MODE=%r, falling back to auto-detect", mode_str)
 
     if os.path.exists("/.dockerenv") or os.environ.get("DOCKER") == "1":
         return DeployMode.DOCKER
@@ -67,8 +70,8 @@ def _detect_deploy_mode() -> DeployMode:
         _pkg = Path(_mod.__file__).resolve().parent.parent.parent.parent
         if 'site-packages' in str(_pkg):
             return DeployMode.PIP_PACKAGE
-    except (ImportError, AttributeError, Exception):
-        pass
+    except Exception:
+        logger.debug("paths: PIP_PACKAGE detection failed", exc_info=True)
 
     return DeployMode.CLI_PROJECT
 
@@ -121,6 +124,7 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
             ".praxis/skills",
             ".praxis/skills",
             "skills",
+            "skills/evolved",   # project-scoped evolved skills (round-trip with skill_project_evolved_dir)
             ".skills",
         ],
         DeployMode.PIP_PACKAGE: [
@@ -173,6 +177,11 @@ class PraxisPaths:
     skill_dirs: list[str] = field(default_factory=list)
     skill_evolved_dir: str = ""
     skill_lean_dir: str = ""
+    # Project-scoped evolution target — evolved skills that should travel with
+    # the project (e.g. into VCS) land here; global ones go to skill_evolved_dir.
+    skill_project_evolved_dir: str = ""
+    # Where evolved skills are written: "project" (default, CLI_PROJECT) | "global".
+    skill_scope: str = "project"
 
     # ── Memories / persistence ──
     memories_dir: str = ""
@@ -241,6 +250,17 @@ class PraxisPaths:
             self.skill_dirs = _get_skill_dirs(self.deploy_mode, self.data_dir)
         if not self.skill_evolved_dir:
             self.skill_evolved_dir = os.path.join(self.data_dir, "skills", "evolved")
+        if not self.skill_project_evolved_dir:
+            if self.deploy_mode == DeployMode.CLI_PROJECT:
+                # Project-scoped evolution travels with the repo — resolve from
+                # the package root (paths.py is in src/l1/kernel) so it matches
+                # the discovery base used by SkillManager.load_builtin()
+                # (kernel_dir/../../..), not the ephemeral os.getcwd().
+                kernel_dir = os.path.dirname(os.path.abspath(__file__))
+                self.skill_project_evolved_dir = os.path.join(
+                    kernel_dir, "..", "..", "..", "skills", "evolved")
+            else:
+                self.skill_project_evolved_dir = self.skill_evolved_dir
         if not self.skill_lean_dir:
             self.skill_lean_dir = os.path.join(self.data_dir, "skills", "lean")
         if not self.memories_dir:
@@ -346,6 +366,9 @@ def config_dir() -> str:
 
 def skill_evolved_dir() -> str:
     return get_paths().skill_evolved_dir
+
+def skill_project_evolved_dir() -> str:
+    return get_paths().skill_project_evolved_dir
 
 def skill_lean_dir() -> str:
     return get_paths().skill_lean_dir

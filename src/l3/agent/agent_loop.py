@@ -41,8 +41,12 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_MAX_CONTENT,
     AGENT_LOOP_MAX_WORKERS,
     AGENT_LOOP_UNLIMITED_STEPS,
+    LOOP_CONTEXT_BUDGET_SKILL,
+    LOOP_EVOLVED_SKILLS_LIMIT,
+    LOOP_EVOLVED_SKILL_TRUNC,
     LOOP_FOLD_LIST_PREVIEW,
     LOOP_FOLD_LIST_TRUNCATION,
+    LOOP_LEAN_CASES_LIMIT,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import (
@@ -185,18 +189,44 @@ class AgentLoop:
         return system, wrapped_tools, read_only_tools, model_kwargs
 
     def _inject_extra_context(self, system: str) -> str:
-        """Inject R4 lean cases, evolved skills, and cross-cell rules into system prompt."""
+        """Inject R4 lean cases, evolved skills, and cross-cell rules into system prompt.
+
+        Token budget is bounded by ``LOOP_CONTEXT_BUDGET_SKILL`` to avoid
+        overflowing the context window with skill content.
+        """
         try:
             from .memory.r4_agent import get_r4_agent
             r4 = get_r4_agent()
-            lean = r4.get_lean_cases(agent_id=self.agent_id, limit=3)
+            budget = LOOP_CONTEXT_BUDGET_SKILL
+            lean = r4.get_lean_cases(agent_id=self.agent_id, cell_id=self._cell_id,
+                                     limit=LOOP_LEAN_CASES_LIMIT)
             if lean:
                 lines = "\n".join(f"  {i}. {lc}" for i, lc in enumerate(lean, 1))
-                system += f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
-            evolved = r4.get_evolved_skills(agent_id=self.agent_id, limit=2)
-            if evolved:
+                block = f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
+                if len(block) <= budget:
+                    system += block
+                    budget -= len(block)
+                else:
+                    truncated = "\n".join(f"  {i}. {lc[:LOG_TRUNC_200]}" for i, lc in enumerate(lean, 1))
+                    system += f"\n\n--- Known Failure Patterns (truncated) ---\n{truncated}\n---"
+            evolved = r4.get_evolved_skills(agent_id=self.agent_id, cell_id=self._cell_id,
+                                            limit=LOOP_EVOLVED_SKILLS_LIMIT)
+            if evolved and budget > 0:
                 for es in evolved:
-                    system += f"\n\n### {es['name']}\n{es['description']}\n{es['prompt'][:LOG_TRUNC_300]}"
+                    prompt_preview = es['prompt'][:LOOP_EVOLVED_SKILL_TRUNC]
+                    block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"
+                    if len(block) <= budget:
+                        system += block
+                        budget -= len(block)
+                        if getattr(self, "_pmu", None):
+                            try:
+                                self._pmu.increment("skills.evolved.injected")
+                            except Exception:
+                                logger.debug("agent_loop: pmu increment failed, skipped", exc_info=True)
+                    else:
+                        # Partial: only include name + description
+                        system += f"\n\n### {es['name']}\n{es['description']}"
+                        break
         except Exception as e:
             logger.warning("agent_loop context injection failed: %s", e)
         try:

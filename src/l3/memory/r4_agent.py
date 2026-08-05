@@ -29,15 +29,55 @@ from l1.kernel import emit_signal
 from l1.kernel.params.agent import (
     R4_AGENT_ID,
     R4_CONSISTENCY_SCAN_LIMIT,
+    R4_EVOLVED_SKILLS_DEFAULT,
+    R4_LEAN_CASES_DEFAULT,
     R4_ROLE,
     R4_STALE_SCAN_LIMIT,
     R4_TERRITORY,
     SIGNAL_TARGET_L3,
+    SKILL_ARCHITECT_MAX_TOKENS,
 )
-from l1.kernel.params.system import ARCHIVE_CHECK_INTERVAL, LOG_TRUNC_200, THREAD_JOIN_TIMEOUT
+from l1.kernel.params.system import (
+    ARCHIVE_CHECK_INTERVAL,
+    LOG_TRUNC_30,
+    LOG_TRUNC_60,
+    LOG_TRUNC_200,
+    LOG_TRUNC_2000,
+    SECONDS_PER_DAY,
+    SECONDS_PER_HOUR,
+    SKILL_TTL_DAYS,
+    THREAD_JOIN_TIMEOUT,
+)
 from l3.services.model_service import get_service as _get_model_service
 
 _MODEL_SPEC = "r4_agent"
+
+def _resolve_model_spec() -> str:
+    """Return model spec name, checking SettingsCenter first, then hardcoded default."""
+    try:
+        from l3.config.settings_center import get_center
+        center = get_center()
+        return str(center.get("r4_agent.model_spec", _MODEL_SPEC))
+    except Exception:
+        return _MODEL_SPEC
+
+def _resolve_skill_scope() -> str:
+    """Return evolution write scope: "project" (default) or "global".
+
+    Reads ``skill.evolve_scope`` from SettingsCenter (set by cfg_skill from
+    praxis.yaml).  Falls back to the paths singleton default.
+    """
+    try:
+        from l1.kernel.paths import get_paths
+        default = getattr(get_paths(), "skill_scope", "project")
+    except Exception:
+        default = "project"
+    try:
+        from l3.config.settings_center import get_center
+        scope = str(get_center().get("skill.evolve_scope", default))
+        return scope if scope in ("project", "global") else default
+    except Exception:
+        return default
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +112,13 @@ class R4Agent:
         self._last_archive: float = 0.0
         self._total_archived = 0
         self._total_alerts = 0
+        self._pmu: Any = None
         self._identity_verified = False
         self._registered = self._register_identity()
+
+    def set_pmu(self, pmu: Any) -> None:
+        """Attach a Performance Monitoring Unit for skill-evolution counters."""
+        self._pmu = pmu
 
     def _register_identity(self) -> bool:
         """Register R4Agent in process table for GateChain G2 identity.
@@ -153,6 +198,16 @@ class R4Agent:
             processed = self._process_failure_traces()
             if processed:
                 results["lean_cases_generated"] = processed
+
+            # 4a. Clean up orphaned failure trace files (older than 24h, unresolved)
+            cleaned = self._clean_orphan_traces()
+            if cleaned:
+                results["orphan_traces_cleaned"] = cleaned
+
+            # 4b. Prune stale evolved skills (TTL check)
+            pruned = self._prune_stale_skills()
+            if pruned:
+                results["skills_pruned"] = pruned
 
             # 5. Alert if issues found
             total_issues = len(stale) + len(contradictions)
@@ -294,6 +349,17 @@ class R4Agent:
                 agent_id=agent_id, tool_name=tool_name, ts=int(time.time())))
             with open(fp, "w", encoding="utf-8") as f:
                 json.dump(entry, f, indent=2)
+            # R4 archive: persist the raw failure trace so a generated lean case
+            # can be traced back to "why it exists" (audit trail).
+            try:
+                from l3.tools._archive import _cmd_archive_store
+                _cmd_archive_store(
+                    fonds="skills", series="lean_trace",
+                    content=json.dumps(entry, ensure_ascii=False)[:LOG_TRUNC_2000],
+                    tags=f"{agent_id},{tool_name},failure",
+                )
+            except Exception as e:
+                logger.debug("R4Agent: archive failure trace skipped: %s", e)
         except Exception as e:
             logger.warning("R4Agent: track failure failed: %s", e)
 
@@ -304,9 +370,15 @@ class R4Agent:
                             args=args, error=error, turn_log=turn_log)
 
     def _process_failure_traces(self) -> int:
-        """Scan pending failure traces and generate lean case Skill entries."""
+        """Scan pending failure traces and generate lean case Skill entries.
+
+        Features:
+          - Deduplication: same tool+agent entries are merged into one lean case.
+          - Atomic write: resolved flag is written via tempfile+rename.
+        """
         import json
         import os
+        import tempfile
 
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
@@ -316,6 +388,12 @@ class R4Agent:
         try:
             if not os.path.isdir(lean_dir):
                 return 0
+            sm = get_skill_manager()
+            # Collect existing lean case names for dedup
+            existing = set()
+            for s in sm.list(tags=["lean_case"]):
+                existing.add(s.get("name", ""))
+
             for fn in os.listdir(lean_dir):
                 if not fn.endswith(".json"):
                     continue
@@ -325,22 +403,49 @@ class R4Agent:
                         entry = json.load(f)
                     if entry.get("resolved"):
                         continue
+                    tool = entry["tool"]
+                    agent = entry.get("agent_id", "unknown")
+                    # Deduplication: skip if a lean case for this tool+agent already
+                    # exists.  Exact or prefix match only — a raw substring test
+                    # would falsely drop patterns for tools with shared prefixes
+                    # (e.g. "rm" vs "rmdir").
+                    dedup_key = f"lean_{agent}_{tool}"
+                    if any(n == dedup_key or n.startswith(dedup_key + "_") for n in existing):
+                        entry["resolved"] = True
+                        self._atomic_write(fp, entry)
+                        continue
+
                     # Generate lean case: "tool X failed with error Y because of Z"
                     lean_text = (
-                        f"When using {entry['tool']} with {entry['args']}, "
+                        f"When using {tool} with {entry['args']}, "
                         f"it failed: {entry['error']}. "
                         f"Avoid this pattern after {entry['turn_count']} turns."
                     )
-                    sm = get_skill_manager()
+                    # Better naming: lean_{agent}_{tool}_{error_stem}
+                    error_stem = entry.get("error", "unknown")[:LOG_TRUNC_30].replace(" ", "_")
+                    skill_name = dedup_key
+                    if error_stem:
+                        skill_name = f"{dedup_key}_{error_stem}"
                     sm.create(
-                        name=f"fail_{entry['tool']}_{int(entry['timestamp'])}",
-                        description=f"Failure case: {entry['tool']} — {entry['error'][:60]}",
+                        name=skill_name,
+                        description=f"Failure case: {tool} — {entry['error'][:LOG_TRUNC_60]}",
                         prompt=lean_text,
-                        tags=["lean_case", "failure", entry["agent_id"], entry["tool"]],
+                        tags=["lean_case", "failure", agent, tool],
+                        internal=True,
                     )
+                    # Track the newly created name so duplicate traces in the
+                    # same scan are skipped instead of overwriting it.
+                    existing.add(skill_name)
+                    # R5 graph: lean case `depends_on` the failing tool skill
+                    # (if one exists) — non-blocking, graph may be disabled.
+                    self._link_lean_graph_edge(tool, skill_name)
+                    if self._pmu:
+                        try:
+                            self._pmu.increment("skills.lean.generated")
+                        except Exception:
+                            logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
                     entry["resolved"] = True
-                    with open(fp, "w", encoding="utf-8") as f:
-                        json.dump(entry, f, indent=2)
+                    self._atomic_write(fp, entry)
                     processed += 1
                 except Exception as e:
                     logger.warning("R4Agent: process trace %s failed: %s", fn, e)
@@ -348,9 +453,180 @@ class R4Agent:
             logger.warning("R4Agent: process failure traces failed: %s", e)
         return processed
 
+    @staticmethod
+    def _atomic_write(fp: str, data: dict) -> None:
+        """Write JSON atomically via tempfile+rename to avoid partial reads."""
+        import json
+        import os
+        import tempfile
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(fp), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp, fp)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                logger.debug("R4Agent: temp file cleanup failed, ignored", exc_info=True)
+            raise
+
+    @staticmethod
+    def _archive_before_evolve(name: str, skill_data: dict) -> None:
+        """R4 archive: persist a skill version before it is overwritten.
+
+        Records the pre-evolution version under ``fonds="skills"``,
+        ``series="evolved"`` as an audit / rollback baseline.  Non-blocking.
+        """
+        try:
+            from l3.tools._archive import _cmd_archive_store
+            _cmd_archive_store(
+                fonds="skills", series="evolved",
+                content=skill_data.get("prompt", "") or "",
+                tags=f"{name},evolved,backup",
+            )
+        except Exception as e:
+            logger.debug("R4Agent: archive pre-evolution version failed: %s", e)
+
+    @staticmethod
+    def _link_lean_graph_edge(tool: str, skill_name: str) -> None:
+        """R5 graph: lean case ``depends_on`` the failing tool skill.
+
+        Non-blocking — the graph defaults to off and failures are ignored.
+        """
+        try:
+            from l3.memory.memory_graph import get_graph as _get_graph
+            g = _get_graph()
+            g.add_semantic_edge(from_id=tool, to_id=skill_name,
+                                relation="depends_on", created_by="r4-agent")
+        except Exception as e:
+            logger.debug("R4Agent: lean graph edge skipped: %s", e)
+
+    def _prune_stale_skills(self) -> int:
+        """Mark evolved skills that exceed TTL as stale, then delete them.
+
+        Only affects skills tagged ``evolved`` (not ``lean_case`` or built-in).
+        A skill is stale if ``last_used`` is 0 and ``loaded_at`` + TTL < now,
+        or if ``last_used`` + TTL < now.
+        """
+        import time as _time
+
+        from l1.kernel.skill import get_skill_manager
+        sm = get_skill_manager()
+        now = _time.time()
+        ttl_seconds = SKILL_TTL_DAYS * SECONDS_PER_DAY
+        pruned = 0
+        for s in sm.list(tags=["evolved"], sort_by="loaded_at"):
+            tags = s.get("tags", [])
+            # Skip lean cases and built-in skills
+            if "lean_case" in tags or "builtin" in tags:
+                continue
+            name = s["name"]
+            loaded_at = s.get("loaded_at", 0.0)
+            last_used = s.get("last_used", 0.0)
+            if last_used > 0:
+                age = now - last_used
+            else:
+                age = now - loaded_at
+            if age > ttl_seconds:
+                # R4 archive before pruning — TTL removal is auditable/restorable.
+                try:
+                    from l3.tools._archive import _cmd_archive_store
+                    _cmd_archive_store(
+                        fonds="skills", series="pruned",
+                        content=s.get("prompt", "") or "",
+                        tags=f"{name},evolved,pruned",
+                    )
+                except Exception as e:
+                    logger.debug("R4Agent: archive pruned skill failed: %s", e)
+                sm.delete(name, internal=True)
+                # Also remove the persisted SKILL.md (project + global scope)
+                # so the prune survives reload — otherwise _load_markdown
+                # resurrects the skill with a fresh loaded_at and the TTL
+                # clock restarts. The R4 archive above keeps the audit trail.
+                try:
+                    import os
+                    import shutil
+
+                    from l1.kernel.paths import get_paths as _gp_paths
+                    _p = _gp_paths()
+                    for base in (_p.skill_project_evolved_dir, _p.skill_evolved_dir):
+                        skill_dir = os.path.join(base, name)
+                        if os.path.isdir(skill_dir):
+                            shutil.rmtree(skill_dir, ignore_errors=True)
+                except Exception as e:
+                    logger.debug("R4Agent: pruned skill dir cleanup failed: %s", e)
+                pruned += 1
+                logger.info("R4Agent: pruned stale skill '%s' (age=%.1f days)", name, age / SECONDS_PER_DAY)
+        return pruned
+
+    def _clean_orphan_traces(self) -> int:
+        """Remove unresolvable failure trace files older than 24 hours.
+
+        If ``_process_failure_traces`` failed to process a trace (e.g. R4
+        was not running), the JSON file stays on disk indefinitely.  This
+        method deletes files older than 24 hours that are still marked
+        ``resolved: false``.
+        """
+        import json
+        import os
+
+        from l1.kernel.paths import get_paths as _gp
+        lean_dir = _gp().skill_lean_dir
+        if not os.path.isdir(lean_dir):
+            return 0
+        now = time.time()
+        max_age = SECONDS_PER_DAY  # 24 hours
+        cleaned = 0
+        for fn in os.listdir(lean_dir):
+            if not fn.endswith(".json"):
+                continue
+            fp = os.path.join(lean_dir, fn)
+            try:
+                mtime = os.path.getmtime(fp)
+                if now - mtime > max_age:
+                    with open(fp, encoding="utf-8") as f:
+                        entry = json.load(f)
+                    if not entry.get("resolved", False):
+                        os.remove(fp)
+                        cleaned += 1
+                        logger.info("R4Agent: cleaned orphan trace %s (age=%.1fh)", fn, (now - mtime) / SECONDS_PER_HOUR)
+            except Exception as e:
+                logger.debug("R4Agent: orphan check %s skipped: %s", fn, e)
+        return cleaned
+
+    def _graph_diffuse_evolved(self, limit: int = R4_EVOLVED_SKILLS_DEFAULT) -> list[str]:
+        """Diffuse-recall evolved skills along R5 graph edges.
+
+        Seeds with the current evolved skill names, BFS one hop via
+        memory_graph.recall() and returns skill names reached.  Empty when the
+        graph is disabled or no edges exist — caller falls back to linear.
+        """
+        from l1.kernel.skill import get_skill_manager
+        sm = get_skill_manager()
+        seeds = [s["name"] for s in sm.list(tags=["evolved"], limit=20)]
+        if not seeds:
+            return []
+        try:
+            from l3.memory.memory_graph import get_graph as _get_graph
+            g = _get_graph()
+            r = g.recall(seeds=seeds, depth=1, limit=limit * 4)
+        except Exception as e:
+            logger.debug("R4Agent: graph diffusion unavailable: %s", e)
+            return []
+        nodes = r.get("nodes", []) if isinstance(r, dict) else []
+        # Nodes include the seeds themselves (BFS start); return neighbors only,
+        # preserving the seed-first order that recall already emits.
+        return [n for n in nodes if n not in seeds][:limit]
+
     def get_lean_cases(self, agent_id: str = "", tool_name: str = "",
-                       limit: int = 5) -> list[str]:
-        """Retrieve lean failure cases for injection into AgentLoop prompts."""
+                       cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT) -> list[str]:
+        """Retrieve lean failure cases for injection into AgentLoop prompts.
+
+        When ``cell_id`` has a bound skill white-list (via SkillManager
+        cell_skill_map), only lean cases whose name is in the white-list are
+        returned; unbound cells fall back to the global pool.
+        """
         from l1.kernel.skill import get_skill_manager
         sm = get_skill_manager()
         tags = ["lean_case"]
@@ -358,16 +634,56 @@ class R4Agent:
             tags.append(agent_id)
         if tool_name:
             tags.append(tool_name)
-        skills = sm.list(tags=tags, limit=limit)
-        return [s["prompt"] for s in skills if s.get("prompt")][:limit]
+        skills = sm.list(tags=tags, limit=limit * 2, sort_by="loaded_at")
+        allow = sm.skills_for_cell(cell_id) if cell_id else set()
+        result = []
+        for s in skills:
+            if allow and s["name"] not in allow:
+                continue
+            if s.get("prompt"):
+                result.append(s["prompt"])
+            if len(result) >= limit:
+                break
+        return result[:limit]
 
-    def get_evolved_skills(self, agent_id: str = "", limit: int = 3) -> list[dict]:
-        """Retrieve evolved skills for injection into AgentLoop prompts."""
+    def get_evolved_skills(self, agent_id: str = "", cell_id: str = "",
+                           limit: int = R4_EVOLVED_SKILLS_DEFAULT, graph_diffusion: bool = False) -> list[dict]:
+        """Retrieve evolved skills for injection into AgentLoop prompts.
+
+        Filters by agent_id if provided (strict tag membership, not OR-match).
+        When ``cell_id`` has a bound white-list, only white-listed skills are
+        returned (unbound cells fall back to the global pool).  Returns most
+        recently loaded skills first.
+        """
         from l1.kernel.skill import get_skill_manager
         sm = get_skill_manager()
-        skills = sm.list(tags=["evolved"], limit=limit * 2)
+        allow = sm.skills_for_cell(cell_id) if cell_id else set()
+        if graph_diffusion:
+            try:
+                diffused = self._graph_diffuse_evolved(limit=limit)
+                if diffused:
+                    evolved = []
+                    for name in diffused:
+                        s = sm.get(name)
+                        if s and s.get("prompt"):
+                            if allow and name not in allow:
+                                continue
+                            evolved.append({
+                                "name": s["name"],
+                                "description": s.get("description", ""),
+                                "prompt": s["prompt"],
+                            })
+                    if evolved:
+                        return evolved[:limit]
+            except Exception as e:
+                logger.debug("R4Agent: graph diffusion fallback to linear: %s", e)
+        skills = sm.list(tags=["evolved"], limit=limit * 2, sort_by="loaded_at")
         evolved = []
         for s in skills:
+            if agent_id and agent_id not in s.get("tags", []):
+                continue
+            if allow and s["name"] not in allow:
+                continue
             if s.get("prompt"):
                 evolved.append({
                     "name": s["name"],
@@ -376,12 +692,15 @@ class R4Agent:
                 })
         return evolved[:limit]
 
-    def evolve_skill(self, intent: str) -> dict:
+    def evolve_skill(self, intent: str, cell_id: str = "") -> dict:
         """Use LLM to generate a new skill definition from a natural language intent.
 
         Uses the LLM engine to produce a structured skill (name, description, rules,
         procedures, system prompt), then registers it with SkillManager and persists
         it as a SKILL.md file in the evolved skills directory.
+
+        When ``cell_id`` is provided, the evolved skill is also bound to that
+        Cell's white-list (演化即回灌) so its agents can inject it immediately.
 
         Invoked via: /skills evolve <intent>
         """
@@ -400,11 +719,11 @@ class R4Agent:
             system = get_prompt("r4_agent.skill_architect", "")
             prompt = f"Create a skill for: {intent.strip()}"
             engine = get_engine()
-            model_kwargs = _get_model_service().resolve_dict(_MODEL_SPEC)
+            model_kwargs = _get_model_service().resolve_dict(_resolve_model_spec())
             # Explicit kwargs take precedence — drop overlapping keys from the config dict.
             for _k in ("prompt", "system", "max_tokens", "user_id"):
                 model_kwargs.pop(_k, None)
-            result = engine.generate(prompt=prompt, system=system, max_tokens=2048,
+            result = engine.generate(prompt=prompt, system=system, max_tokens=SKILL_ARCHITECT_MAX_TOKENS,
                                      user_id="r4-agent", **model_kwargs)
 
             content = result.get("content", "").strip()
@@ -422,23 +741,88 @@ class R4Agent:
 
             # Register with SkillManager
             sm = get_skill_manager()
+
+            # Check for existing skill with same name → versioning
+            # Order matters: backup first, then overwrite-create. The old skill
+            # is NOT deleted before the new one exists, so a failure between
+            # steps never leaves the registry without the original skill.
+            existing = sm.get(name)
+            if existing:
+                backup_name = f"{name}_v{int(time.time())}"
+                # R4 archive: persist the pre-evolution version (audit/rollback baseline).
+                self._archive_before_evolve(name, existing)
+                sm.create(
+                    name=backup_name,
+                    description=(existing.get("description") or ""),
+                    prompt=(existing.get("prompt") or ""),
+                    tags=(existing.get("tags") or ["evolved"]) + ["backup"],
+                    rules=existing.get("rules") or [],
+                    procedures=existing.get("procedures") or [],
+                    allowed_tools=existing.get("allowed_tools"),
+                    internal=True,
+                )
+
+            # Normalize LLM output — tags/description/prompt may be null/empty.
+            skill_tags = (skill_def.get("tags") or []) + ["evolved"]
+            skill_desc = skill_def.get("description") or ""
+            skill_prompt = skill_def.get("prompt") or ""
             sm.create(
                 name=name,
-                description=skill_def.get("description", ""),
-                prompt=skill_def.get("prompt", ""),
-                tags=skill_def.get("tags", ["evolved"]) + ["evolved"],
-                rules=skill_def.get("rules", []),
-                procedures=skill_def.get("procedures", []),
+                description=skill_desc,
+                prompt=skill_prompt,
+                tags=skill_tags,
+                rules=skill_def.get("rules") or [],
+                procedures=skill_def.get("procedures") or [],
+                allowed_tools=skill_def.get("allowed_tools"),
+                internal=True,
             )
 
-            # Persist as SKILL.md
-            skill_dir = os.path.join(_gp().skill_evolved_dir, name)
+            # 演化即回灌: bind the evolved skill to the originating Cell so its
+            # agents can inject it immediately (unbound → global pool).
+            if cell_id:
+                sm.bind_skill(cell_id, name)
+
+            # R5 graph linkage: versioning creates a `refines` edge (old → new)
+            # and a `type_chain` edge (same-agent evolution chain) when the
+            # graph is enabled.  Non-blocking — graph defaults to off.
+            try:
+                from l3.memory.memory_graph import get_graph as _get_graph
+                g = _get_graph()
+                if existing:
+                    g.add_semantic_edge(from_id=backup_name, to_id=name,
+                                        relation="refines", created_by="r4-agent")
+                g.remember_hook(entry_id=name, agent_id=self.agent_id,
+                                entry_type="skill", cell_id=cell_id,
+                                recent=[{"id": backup_name, "entry_type": "skill",
+                                         "agent_id": self.agent_id, "cell_id": cell_id}]
+                                if existing else [],
+                                created_by="r4-agent")
+            except Exception as e:
+                logger.debug("R4Agent: skill graph linkage skipped: %s", e)
+
+            # Persist as SKILL.md — frontmatter must carry full metadata so a
+            # reload via _load_markdown() restores tags/allowed_tools/variables
+            # (round-trip integrity, see skill.py format debt fix).
+            # Layered persistence: project scope → travels with the repo;
+            # global scope → machine-local data dir.
+            scope = _resolve_skill_scope()
+            evolved_base = (_gp().skill_project_evolved_dir if scope == "project"
+                            else _gp().skill_evolved_dir)
+            skill_dir = os.path.join(evolved_base, name)
             os.makedirs(skill_dir, exist_ok=True)
             md_path = os.path.join(skill_dir, "SKILL.md")
+            import yaml as _yaml
+            meta = {
+                "name": name,
+                "description": skill_def.get("description", ""),
+                "tags": skill_def.get("tags", ["evolved"]) + ["evolved"],
+            }
+            if skill_def.get("allowed_tools"):
+                meta["allowed_tools"] = skill_def["allowed_tools"]
+            if skill_def.get("variables"):
+                meta["variables"] = skill_def["variables"]
             md_lines = ["---"]
-            md_lines.append(f"name: {name}")
-            md_lines.append(f"description: {skill_def.get('description', '')}")
-            md_lines.append("disable-model-invocation: true")
+            md_lines.append(_yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip())
             md_lines.append("---")
             md_lines.append("")
             md_lines.append(skill_def.get("prompt", ""))
@@ -456,12 +840,18 @@ class R4Agent:
             with open(md_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_lines))
 
+            if self._pmu:
+                try:
+                    self._pmu.increment("skills.evolved.created")
+                except Exception:
+                    logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
             logger.info("R4Agent: evolved skill '%s' from intent: %.80s", name, intent)
             return {
                 "success": True,
                 "skill": name,
                 "description": skill_def.get("description", ""),
                 "rules": len(skill_def.get("rules", [])),
+                "scope": scope,
             }
 
         except json.JSONDecodeError as e:

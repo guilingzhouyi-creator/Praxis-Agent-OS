@@ -69,8 +69,9 @@ def use_skill(args: dict, agent_id: str) -> dict:
         if val:
             expanded = expanded.replace(f"${v.upper()}", str(val))
 
-    # Record usage
-    sm.update(name, {"last_used": __import__("time").time()})
+    # Record usage atomically — bump_usage does the read-modify-write under a
+    # single lock so concurrent use_skill calls never lose an increment.
+    sm.bump_usage(name)
 
     return {
         "success": True,

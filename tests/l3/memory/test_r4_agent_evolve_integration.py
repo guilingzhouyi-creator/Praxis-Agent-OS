@@ -246,8 +246,8 @@ class TestAgentLoopEvolvedInjection:
         reset_skill_manager()
         sm = get_skill_manager()
 
-        sm.create(name="evolved-one", prompt="prompt one", tags=["evolved", "db"])
-        sm.create(name="evolved-two", prompt="prompt two", tags=["evolved", "api"])
+        sm.create(name="evolved-one", prompt="prompt one", tags=["evolved", "db"], internal=True)
+        sm.create(name="evolved-two", prompt="prompt two", tags=["evolved", "api"], internal=True)
 
         from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
@@ -265,6 +265,7 @@ class TestAgentLoopEvolvedInjection:
             description="测试注入",
             prompt="You are an injection test agent.",
             tags=["evolved", "test"],
+            internal=True,
         )
 
         from l3.memory.r4_agent import R4Agent
@@ -307,6 +308,7 @@ class TestAgentLoopEvolvedInjection:
                 description=f"Concurrent test {i}",
                 prompt=f"Prompt for concurrent test {i}",
                 tags=["evolved", "test"],
+                internal=True,
             )
 
         threads = [threading.Thread(target=register_skill, args=(i,)) for i in range(5)]

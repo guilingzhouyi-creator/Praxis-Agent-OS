@@ -273,6 +273,39 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             logger.warning("cell/__init__: %s", e)
         return {"success": True, "agent_id": agent_id, "action": "removed"}
 
+    # ══ Skill binding (回灌到 Cell) ══
+
+    def bind_skills(self, names: list[str] | None = None) -> dict:
+        """Bind a white-list of skills to this Cell.
+
+        Bound skills are injected into this Cell's agents (see
+        AgentLoop._inject_extra_context).  When the list is empty the Cell
+        falls back to the global skill pool (backward compatible).
+
+        Args:
+            names: Skill names to allow; ``None``/empty clears bindings.
+
+        Returns:
+            {"success": bool, "bound": int, "cell_id": str}
+        """
+        from l1.kernel.skill import get_skill_manager
+        sm = get_skill_manager()
+        bound = 0
+        failed: list[str] = []
+        for name in names or []:
+            r = sm.bind_skill(self.cell_id, name)
+            if r.get("success"):
+                bound += 1
+            else:
+                failed.append(name)
+        return {"success": True, "cell_id": self.cell_id,
+                "bound": bound, "failed": failed}
+
+    def skills(self) -> set[str]:
+        """Return the skill white-list bound to this Cell (empty = global pool)."""
+        from l1.kernel.skill import get_skill_manager
+        return get_skill_manager().skills_for_cell(self.cell_id)
+
     # ══ Cell state persistence ══
 
     def save_state(self, path: str = "") -> dict:

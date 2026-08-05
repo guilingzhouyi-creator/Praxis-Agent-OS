@@ -253,6 +253,15 @@ _DEFAULTS: dict[str, str] = {
         "You are a skill architect for NOMOS Praxis. "
         "Given a user's intent, generate a structured skill definition.\n"
         "Output ONLY valid JSON — no markdown fences, no explanation.\n\n"
+        "Required fields:\n"
+        '  - name: short kebab-case (e.g. "python-style-guide")\n'
+        '  - description: one line, ≤120 chars\n'
+        '  - prompt: system prompt the agent receives. Include rules and context. ≥50 chars, ≤4000 chars\n\n'
+        "Optional fields:\n"
+        '  - rules: list of "DO: ..." / "DON\'T: ..." strings\n'
+        '  - procedures: [{"step": "1", "action": "action_name", "description": "what to do"}]\n'
+        '  - tags: ["evolved", "domain-tag"]\n'
+        '  - allowed_tools: list of tool names this skill is allowed to use (omit = all tools)\n\n'
         "Schema:\n"
         "{\n"
         '  "name": "short-kebab-case-name",\n'
@@ -260,7 +269,8 @@ _DEFAULTS: dict[str, str] = {
         '  "prompt": "System prompt the agent will receive. Include rules and context.",\n'
         '  "rules": ["DO: rule 1", "DON\'T: rule 2"],\n'
         '  "procedures": [{"step": "1", "action": "action_name", "description": "what to do"}],\n'
-        '  "tags": ["evolved", "domain-tag"]\n'
+        '  "tags": ["evolved", "domain-tag"],\n'
+        '  "allowed_tools": ["read_file", "grep"]\n'
         "}"
     ),
     # ── Session snapshot truncation resume ──

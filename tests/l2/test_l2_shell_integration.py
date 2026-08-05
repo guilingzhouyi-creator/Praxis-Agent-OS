@@ -301,6 +301,9 @@ class TestCmdSkills:
     def test_skills_evolve(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_sm.return_value.list.return_value = []
+        mock_sm.return_value.authorize_write.return_value = (True, "l3")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
+        mock_r4.return_value.evolve_skill.return_value = {"success": True, "skill": "x"}
 
         from l2.l2_shell import _cmd_skills
         r = _cmd_skills(["evolve", "optimize", "build"])
@@ -309,10 +312,66 @@ class TestCmdSkills:
     def test_skills_evolve_without_method(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_sm.return_value.list.return_value = []
+        mock_sm.return_value.authorize_write.return_value = (True, "l3")
+        mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
+        mock_r4.return_value.evolve_skill.return_value = {"success": True, "skill": "x"}
 
         from l2.l2_shell import _cmd_skills
         r = _cmd_skills(["evolve", "something"])
         assert r["success"]
+
+    def test_skills_get(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+        mock_sm.return_value.get.return_value = {"name": "s1", "prompt": "p"}
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["get", "s1"])
+        assert r["success"]
+        assert r["skill"]["name"] == "s1"
+
+    def test_skills_permissions(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+        mock_sm.return_value.write_policy.return_value = {"write_min_ring": 3, "write_roles": ["l3"]}
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["permissions"])
+        assert r["success"]
+        assert r["policy"]["write_min_ring"] == 3
+
+    def test_skills_create_with_role(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+        mock_sm.return_value.create.return_value = {"success": True, "skill": "k"}
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["create", "k", "desc", "prompt", "--role", "l3"])
+        assert r["success"]
+        mock_sm.return_value.create.assert_called_once()
+        kwargs = mock_sm.return_value.create.call_args.kwargs
+        assert kwargs["role"] == "l3"
+
+    def test_skills_reload_denied(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+        mock_sm.return_value.authorize_write.return_value = (False, "permission denied: reader")
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["reload", "--role", "reader"])
+        assert not r["success"]
+
+    def test_skills_update_unsupported_field(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["update", "k", "bogus", "v"])
+        assert not r["success"]
+        assert "unsupported field" in r["error"]
+
+    def test_skills_unknown_sub(self, mocker):
+        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+
+        from l2.l2_shell import _cmd_skills
+        r = _cmd_skills(["bogus"])
+        assert not r["success"]
+        assert "unknown skills subcommand" in r["error"]
 
 
 class TestCmdCells:

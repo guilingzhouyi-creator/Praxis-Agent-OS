@@ -21,7 +21,7 @@ def _cmd_status(args: list[str]) -> dict:
         print(f"Lifecycle: {lc.state().value} (boots={rec.boot_count}, "
               f"schema={rec.schema_version or 'unset'})")
     except Exception:
-        pass
+        logger.debug("system: lifecycle load failed, skipping", exc_info=True)
     # Enrich with shell mode/cell context (agent_id only present in Direct mode)
     result = dict(h)
     try:
@@ -32,7 +32,7 @@ def _cmd_status(args: list[str]) -> dict:
         if st.is_direct():
             result["agent_id"] = st.agent_id
     except Exception:
-        pass
+        logger.debug("system: shell state enrichment failed", exc_info=True)
     return result
 
 def _cmd_intents(args: list[str]) -> dict:
@@ -49,10 +49,120 @@ def _cmd_observe(args: list[str]) -> dict:
     return {"success": True, "data": get_obs_bus().summary()}
 
 def _cmd_skills(args: list[str]) -> dict:
-    from l1.kernel.params.system import SKILL_LEAN_CASES_LIMIT
+    """Manage skills — list/get are public; create/update/delete/reload are developer-only.
+
+    Usage:
+      /skills                          → list skills
+      /skills list                     → list skills
+      /skills lean                     → list lean case skills
+      /skills get <name>               → skill detail
+      /skills create <name> <desc> <prompt> [--role <role>]
+      /skills update <name> <field> <value> [--role <role>]
+      /skills delete <name> [--role <role>]
+      /skills reload [--role <role>]
+      /skills evolve <intent>          → generate a new skill via LLM
+      /skills permissions              → current write-gate policy
+
+    The optional ``--role``/``--agent`` flag supplies the caller identity for
+    the SkillManager developer gate; omitting it treats the call as a
+    system-internal (boot/CLI) operation.
+    """
+    from l1.kernel.params.system import SKILL_LIST_DISPLAY_LIMIT
     from l1.kernel.skill import get_skill_manager
-    sm = get_skill_manager(); skills = sm.list()
-    return {"success": True, "skills": skills[:SKILL_LEAN_CASES_LIMIT], "count": len(skills)}
+    sm = get_skill_manager()
+
+    role = ""
+    agent_id = ""
+    rest: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("--role", "--agent") and i + 1 < len(args):
+            if a == "--role":
+                role = args[i + 1]
+            else:
+                agent_id = args[i + 1]
+            i += 2
+        else:
+            rest.append(a)
+            i += 1
+
+    sub = rest[0] if rest else "list"
+
+    if sub in ("list", "ls"):
+        skills = sm.list()
+        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT],
+                "count": len(skills)}
+
+    if sub == "lean":
+        skills = sm.list(tags=["lean_case"])
+        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT],
+                "count": len(skills)}
+
+    if sub == "get":
+        name = rest[1] if len(rest) > 1 else ""
+        if not name:
+            return {"success": False, "error": "usage: /skills get <name>"}
+        skill = sm.get(name)
+        if not skill:
+            return {"success": False, "error": f"skill '{name}' not found"}
+        return {"success": True, "skill": skill}
+
+    if sub == "permissions":
+        # Policy lives on the SkillManager (L1) — L2 must not import L3.
+        policy = sm.write_policy()
+        return {"success": True, "policy": policy}
+
+    if sub == "evolve":
+        intent = " ".join(rest[1:])
+        if not intent:
+            return {"success": False, "error": "usage: /skills evolve <intent>"}
+        # evolve persists a new skill to disk — honor the developer write gate
+        # like create/update/delete/reload (see authorize_write in SkillManager).
+        ok, who = sm.authorize_write(agent_id, role)
+        if not ok:
+            return {"success": False, "error": f"permission denied: {who}"}
+        try:
+            from l3.memory.r4_agent import get_r4_agent
+            return get_r4_agent().evolve_skill(intent)
+        except Exception as e:
+            return {"success": False, "error": f"evolve failed: {e}"}
+
+    # ── Developer-only mutations ──
+    if sub == "create":
+        if len(rest) < 4:
+            return {"success": False, "error": "usage: /skills create <name> <desc> <prompt> [--role <role>]"}
+        name, desc, prompt = rest[1], rest[2], rest[3]
+        return sm.create(name, description=desc, prompt=prompt,
+                         agent_id=agent_id, role=role)
+
+    if sub == "update":
+        if len(rest) < 4:
+            return {"success": False, "error": "usage: /skills update <name> <field> <value> [--role <role>]"}
+        name, field, value = rest[1], rest[2], rest[3]
+        if field not in ("description", "prompt", "rules"):
+            return {"success": False, "error": f"unsupported field: {field}"}
+        if field == "rules":
+            data = {"rules": [r for r in value.split(";") if r]}
+        else:
+            data = {field: value}
+        return sm.update(name, data, agent_id=agent_id, role=role)
+
+    if sub == "delete":
+        name = rest[1] if len(rest) > 1 else ""
+        if not name:
+            return {"success": False, "error": "usage: /skills delete <name> [--role <role>]"}
+        return sm.delete(name, agent_id=agent_id, role=role)
+
+    if sub == "reload":
+        ok, who = sm.authorize_write(agent_id, role)
+        if not ok:
+            return {"success": False, "error": f"permission denied: {who}"}
+        count = sm.load_builtin()
+        return {"success": True, "loaded": count, "authorized": who}
+
+    return {"success": False, "error": f"unknown skills subcommand: {sub}",
+            "suggestions": ["list", "get", "create", "update", "delete", "reload", "permissions"]}
 
 def _cmd_process(args: list[str]) -> dict:
     from l1.kernel.process import get_table

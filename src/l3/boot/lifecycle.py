@@ -113,6 +113,16 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     if wipe:
         try:
             results["wipe"] = wipe_disk_state()
+            # After wiping evolved/lean skills, reload built-in skills
+            # so SkillManager is not left empty.
+            try:
+                from l1.kernel.skill import get_skill_manager
+                n = get_skill_manager().load_builtin()
+                if n:
+                    results["skills_reloaded"] = n
+                    logger.info("lifecycle: reloaded %d built-in skills after wipe", n)
+            except Exception as e:
+                logger.debug("lifecycle: skill reload after wipe skipped: %s", e)
         except Exception as e:
             results["wipe"] = f"error: {e}"
 
@@ -163,7 +173,7 @@ def register_shutdown_handler() -> None:
         signal.signal(signal.SIGTERM, _signal_handler)
         signal.signal(signal.SIGINT, _signal_handler)
     except (ValueError, AttributeError):
-        pass  # Signals not available on all platforms (Windows threads)
+        logger.debug("lifecycle: signal handlers not registered (not available on this platform/thread)")
 
 
 # ── Singleton reset (from old lifecycle.py) ──

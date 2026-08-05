@@ -10,6 +10,7 @@ skill_dirs:
   - ".praxis/skills"
   - "skills"
   - ".skills"
+  - "skills/evolved"   # project-scoped evolved skills (回灌到项目, travels with repo)
 
 # ── Shell aliases (tool name shortcuts) ──
 shell_aliases:

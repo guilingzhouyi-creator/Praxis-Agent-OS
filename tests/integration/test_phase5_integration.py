@@ -42,8 +42,8 @@ class TestSkillExpand:
         from l1.kernel.skill import SkillManager, reset_skill_manager
         reset_skill_manager()
         sm = SkillManager()
-        sm.register("test", {"name": "test", "description": "original"})
-        r = sm.update("test", {"description": "updated"})
+        sm.register("test", {"name": "test", "description": "original"}, internal=True)
+        r = sm.update("test", {"description": "updated"}, internal=True)
         assert r["success"]
         assert sm.get("test")["description"] == "updated"
 
@@ -59,8 +59,8 @@ class TestSkillExpand:
         from l1.kernel.skill import SkillManager, reset_skill_manager
         reset_skill_manager()
         sm = SkillManager()
-        sm.register("reviewer", {"name": "reviewer", "allowed_tools": None})
-        sm.register("deployer", {"name": "deployer", "allowed_tools": ["bash", "write_file"]})
+        sm.register("reviewer", {"name": "reviewer", "allowed_tools": None}, internal=True)
+        sm.register("deployer", {"name": "deployer", "allowed_tools": ["bash", "write_file"]}, internal=True)
         results = sm.list_by_allowed_tools("read_file")
         assert len(results) == 1
         assert results[0]["name"] == "reviewer"
@@ -69,8 +69,8 @@ class TestSkillExpand:
         from l1.kernel.skill import SkillManager, reset_skill_manager
         reset_skill_manager()
         sm = SkillManager()
-        sm.register("reviewer", {"name": "reviewer", "allowed_tools": ["read_file", "grep"]})
-        sm.register("deployer", {"name": "deployer", "allowed_tools": ["bash"]})
+        sm.register("reviewer", {"name": "reviewer", "allowed_tools": ["read_file", "grep"]}, internal=True)
+        sm.register("deployer", {"name": "deployer", "allowed_tools": ["bash"]}, internal=True)
         results = sm.list_by_allowed_tools("read_file")
         assert len(results) == 1
         assert results[0]["name"] == "reviewer"

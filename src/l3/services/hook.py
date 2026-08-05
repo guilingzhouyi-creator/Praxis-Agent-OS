@@ -129,17 +129,24 @@ class HookChain(LifecycleHooks):
 
 
 class SkillCatalogHook(LifecycleHooks):
-    """Inject available skills into the system prompt at session start."""
+    """Inject available skills into the system prompt at session start.
+
+    Injects at most ``SKILL_CATALOG_HOOK_LIMIT`` skills to avoid duplication
+    with ``AgentLoop._inject_extra_context`` which separately injects lean
+    cases and evolved skills.
+    """
 
     def session_start(self, task: str, agent_id: str) -> str:
         try:
+            from l1.kernel.params.system import LOG_TRUNC_60, SKILL_CATALOG_HOOK_LIMIT
             from l1.kernel.skill import get_skill_manager
             sm = get_skill_manager()
-            skills = sm.list(limit=20)
+            skills = sm.list(limit=SKILL_CATALOG_HOOK_LIMIT, sort_by="loaded_at")[:SKILL_CATALOG_HOOK_LIMIT]
             if skills:
                 lines = ["\nAvailable skills (use_skill to invoke):"]
                 for s in skills:
-                    lines.append(f"  {s['name']}: {s['description']}")
+                    desc = (s.get("description", "") or "")[:LOG_TRUNC_60]
+                    lines.append(f"  {s['name']}: {desc}")
                 task += "\n".join(lines)
         except Exception as e:
             logger.debug("SkillCatalogHook: %s", e)

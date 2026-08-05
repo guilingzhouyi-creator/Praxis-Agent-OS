@@ -58,6 +58,56 @@ src/l1/kernel/params/ — 817 constants across 8 sub-modules (kernel/allocator/s
 - **No bare `except:`** — use `except Exception:`
 - **Double quotes** for strings (ruff `quote-style = "double"`), line-length 120
 
+## Skill system (L1 kernel + L3 R4Agent)
+
+Skills live in `src/l1/kernel/skill.py` (SkillManager singleton) and are evolved
+by the L3 R4Agent (`src/l3/memory/r4_agent.py`). Architecture:
+
+```
+SkillManager (L1)                       R4Agent (L3)
+  load_dir / load_builtin  ←──────────  evolve_skill (LLM SkillArchitect)
+  cell_skill_map (per-Cell white-list)  _process_failure_traces (lean cases)
+  create/update/delete (write gate)     _prune_stale_skills (TTL)
+  bump_usage (atomic counter)           _clean_orphan_traces (24h)
+  _emit_mutated → event bus             → R4 archive (fonds="skills")
+                                        → R5 MemoryGraph edges
+```
+
+Key conventions:
+
+- **Round-trip integrity**: `evolve_skill` persists skills as `SKILL.md` with
+  full YAML frontmatter (`name`, `description`, `tags`, `allowed_tools`,
+  `variables`). `_load_markdown` restores ALL of these on reload — never add a
+  persisted field to one side without the other, or skills degrade to a
+  tag-less form after a reboot.
+- **Write gate**: `authorize_write(agent_id, role, internal=False)` — external
+  callers (L2 shell `/skills`, L4 API) MUST pass an explicit identity;
+  identity-less writes are only allowed with `internal=True` from system
+  processes (boot loading, R4Agent evolution/pruning). Never weaken this gate:
+  it also protects Cell bindings and TTL prune deletes.
+- **Per-Cell injection**: `Cell.bind_skills(names)` white-lists skills for a
+  Cell; `AgentLoop._inject_extra_context` filters by `cell_id`. Unbound Cells
+  fall back to the global pool. Config: `cell.skills` in `config/praxis.yaml`.
+- **Layered persistence**: `skill.evolve_scope` (praxis.yaml) — `project`
+  (default, writes to `<package-root>/skills/evolved`, travels with the repo)
+  or `global` (writes to `data_dir/skills/evolved`). The discovery dirs in
+  `paths.py` CLI_PROJECT list MUST stay in sync with the write target, or
+  evolved skills silently disappear after reboot.
+- **R4/R5 linkage**: evolution archives the pre-evolution version
+  (`fonds="skills", series="evolved"`), TTL prune archives before delete
+  (`series="pruned"`), failure traces archive as `series="lean_trace"`.
+  When the R5 graph is enabled, evolution adds `refines`/`type_chain` edges
+  and lean cases add `depends_on` edges; all graph calls are non-blocking.
+- **Dedup**: lean-case dedup matches exact name or `dedup_key + "_"` prefix —
+  never raw substring (would collide `rm` vs `rmdir`).
+- **Atomic counters**: use `SkillManager.bump_usage(name)` for useful_count /
+  last_used increments (single-lock RMW) — never get-then-update in callers.
+- **Audit**: skill mutations emit `skill_mutated` via the event bus
+  (`get_bus().emit_event`), NOT `emit_signal` (the SignalType enum has no
+  member for it — `emit_event` auto-registers the string type).
+- **R5 graph switch** defaults OFF (`memory.graph.enabled`); all graph hooks
+  must degrade gracefully (try/except + linear fallback).
+
 ## L3 + L4 conventions (enforced during code review)
 
 - **Use `l1.kernel.platform` abstractions** for all OS-specific operations: `grep_cmd()`, `run_shell()`, `IS_WINDOWS`, `IS_POSIX`. Never self-implement platform-specific subprocess calls (e.g., `rg` → `grep` fallback with `shell=True`).

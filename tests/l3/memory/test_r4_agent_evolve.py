@@ -59,6 +59,7 @@ class TestEvolveSkillRegistration:
             tags=["evolved", "database"],
             rules=["DO: use timestamp prefixes", "DON'T: modify existing migrations"],
             procedures=[{"step": "1", "action": "analyze", "description": "Analyze schema changes"}],
+            internal=True,
         )
 
         from l3.memory.r4_agent import R4Agent
@@ -79,6 +80,7 @@ class TestEvolveSkillRegistration:
                 description=f"Test skill {i}",
                 prompt=f"Prompt for skill {i}",
                 tags=["evolved"],
+                internal=True,
             )
 
         from l3.memory.r4_agent import R4Agent
@@ -92,8 +94,8 @@ class TestEvolveSkillRegistration:
         reset_skill_manager()
         sm = get_skill_manager()
 
-        sm.create(name="evolved-one", prompt="evolved prompt", tags=["evolved", "test"])
-        sm.create(name="lean-one", prompt="lean prompt", tags=["lean_case", "failure"])
+        sm.create(name="evolved-one", prompt="evolved prompt", tags=["evolved", "test"], internal=True)
+        sm.create(name="lean-one", prompt="lean prompt", tags=["lean_case", "failure"], internal=True)
 
         from l3.memory.r4_agent import R4Agent
         r4 = R4Agent()
@@ -120,6 +122,7 @@ class TestSkillManagerPersistence:
             prompt="Test prompt content",
             tags=["evolved", "test"],
             rules=["DO: test"],
+            internal=True,
         )
 
         skills = sm.list(tags=["evolved"])
@@ -135,8 +138,8 @@ class TestSkillManagerPersistence:
         reset_skill_manager()
         sm = get_skill_manager()
 
-        sm.create(name="skill-a", prompt="a", tags=["evolved"])
-        sm.create(name="skill-b", prompt="b", tags=["lean_case"])
+        sm.create(name="skill-a", prompt="a", tags=["evolved"], internal=True)
+        sm.create(name="skill-b", prompt="b", tags=["lean_case"], internal=True)
 
         all_skills = sm.list()
         assert len(all_skills) >= 2

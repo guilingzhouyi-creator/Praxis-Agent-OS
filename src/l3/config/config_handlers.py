@@ -678,6 +678,53 @@ def cfg_l3a(cfg: dict, s: Any, results: dict) -> None:
     results["l3a"] = True
 
 
+def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
+    """Load skill write-gate policy + evolution scope from praxis.yaml skill: section.
+
+    Mirrors the values into SettingsCenter L2 and injects them into the
+    SkillManager (L1) so runtime writes honor the developer gate.
+
+    Supported keys:
+      - write_min_ring / write_roles : developer write gate (existing)
+      - evolve_scope                 : "project" | "global" — where evolved
+                                       skills are persisted (default project)
+      - project_dirs                 : extra project skill discovery dirs,
+                                       appended to config/discovery skill_dirs
+    """
+    from l1.kernel.skill import get_skill_manager
+    from l3.config.settings_center import get_center
+    center = get_center()
+    if isinstance(cfg, dict):
+        if "write_min_ring" in cfg:
+            try:
+                center.set_l2("skill.write_min_ring", int(cfg["write_min_ring"]))
+            except (TypeError, ValueError):
+                logger.warning("cfg_skill: invalid write_min_ring %r ignored", cfg["write_min_ring"])
+        if "write_roles" in cfg and isinstance(cfg["write_roles"], list):
+            center.set_l2("skill.write_roles", [r for r in cfg["write_roles"] if isinstance(r, str)])
+        if "evolve_scope" in cfg and cfg["evolve_scope"] in ("project", "global"):
+            center.set_l2("skill.evolve_scope", cfg["evolve_scope"])
+        if "project_dirs" in cfg and isinstance(cfg["project_dirs"], list):
+            center.set_l2("skill.project_dirs", cfg["project_dirs"])
+            # Push extra discovery dirs into the paths singleton so
+            # load_builtin() finds project skills at boot.
+            try:
+                from l1.kernel.paths import get_paths
+                p = get_paths()
+                existing = list(getattr(p, "skill_dirs", []) or [])
+                for d in cfg["project_dirs"]:
+                    if d not in existing:
+                        existing.append(d)
+                p.skill_dirs = existing
+            except Exception:
+                logger.debug("cfg_skill: project_dirs path push skipped")
+    get_skill_manager().set_write_policy(
+        min_ring=center.get("skill.write_min_ring", None),
+        roles=center.get("skill.write_roles", None),
+    )
+    results["skill"] = True
+
+
 def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
     from l3.config.settings_center import get_center
     center = get_center()
@@ -691,7 +738,7 @@ def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
             from l4.sandbox.cell_sandbox import set_color_scheme
             set_color_scheme(cfg["colors"])
         except Exception:
-            pass
+            logger.warning("config: diff color scheme apply failed", exc_info=True)
     results["diff"] = True
 
 
@@ -718,5 +765,5 @@ def cfg_language(cfg: Any, s: Any, results: dict) -> None:
         if i18n is not None and hasattr(i18n, "set_locale"):
             i18n.set_locale(lang)
     except Exception:
-        pass
+        logger.warning("config: language apply failed", exc_info=True)
     results["language"] = True
