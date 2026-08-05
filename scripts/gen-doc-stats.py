@@ -82,8 +82,21 @@ def main() -> None:
     except Exception:
         pass
 
+    # Endpoint domains (from the manifest classification)
+    domains: dict[str, int] = {}
+    try:
+        from l4.api.api_endpoints import _infer_domain
+
+        for _m, p, _h, _d in API_ROUTES:
+            d = _infer_domain(p)
+            domains[d] = domains.get(d, 0) + 1
+    except Exception:
+        pass
+    domain_str = ", ".join(f"{d}={n}" for d, n in
+                           sorted(domains.items(), key=lambda x: -x[1]))
+
     print("=" * 62)
-    print("Praxis architecture stats (generated — do not hand-edit)")
+    print("Praxis architecture stats (generated - do not hand-edit)")
     print("=" * 62)
     for rel, name in layers.items():
         n, lines = stats[rel]
@@ -96,6 +109,7 @@ def main() -> None:
     print(f"  API routes:      {routes}")
     print(f"  Params modules:  {len(params)}")
     print(f"  Params constants:{consts}")
+    print(f"  Route domains:   {domain_str}")
     print("=" * 62)
 
 
