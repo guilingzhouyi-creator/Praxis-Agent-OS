@@ -38,7 +38,8 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
         mode = PhaseMode.MULTI if mode_str == "multi" else PhaseMode.SINGLE
         phase = card.add_phase(name=pd.get("name", ""), mode=mode,
                                agents=pd.get("agents", []),
-                               review_prompt=pd.get("review_prompt", ""))
+                               review_prompt=pd.get("review_prompt", ""),
+                               strategy=pd.get("strategy", ""))
         for td in pd.get("tasks", []):
             card.add_task(phase_name=phase.name, action=td.get("action", ""),
                           target=td.get("target", ""), params=td.get("params", {}),

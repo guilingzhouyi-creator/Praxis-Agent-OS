@@ -149,6 +149,19 @@ PUT    /api/v2/model-spec/strategy/apply  {"strategy": "deep", "specs": ["l3a", 
 Applied packs write the exact layer (`model_spec.{name}.{key}`, L3,
 persisted), which outranks the executor defaults in the resolve cascade.
 
+Notes:
+
+- **Clamping**: resolved values are clamped to `think.max_reasoning` /
+  `think.max_budget` (same ceilings as Cell peer agents); a clamped value
+  logs a warning. Set `enabled: false` on a strategy pack to forbid it at
+  runtime (`apply` then fails with "unknown or disabled strategy").
+- **Phase/executor strategy**: `CardPhase.strategy` (via cardwrite phase
+  dicts) and `SubAgentSpec.strategy` attach a named pack to a card phase or
+  a subagent spec — opusplan-style stage-level reasoning switching.
+- **thinking_budget semantics**: only honored by providers that expose a
+  user-defined thinking budget (Anthropic `budget_tokens`, Gemini
+  `thinkingBudget`); OpenAI/DeepSeek ignore it via capability filtering.
+
 ## Reading Configuration in Code
 
 ```python

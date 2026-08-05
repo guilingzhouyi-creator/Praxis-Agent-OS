@@ -159,6 +159,7 @@ class CardPhase:
     agents: list[str] = field(default_factory=list)  # assigned agents; empty=auto
     tasks: list[CardTask] = field(default_factory=list)
     review_prompt: str = ""   # configurable, from YAML or API
+    strategy: str = ""        # named model_spec strategy pack for this phase (opusplan-style)
     state: str = "pending"    # pending | running | done | failed
 
     def to_dict(self) -> dict:
@@ -167,6 +168,7 @@ class CardPhase:
             "mode": self.mode.value,
             "agents": list(self.agents),
             "state": self.state,
+            "strategy": self.strategy,
             "tasks": [t.to_dict() for t in self.tasks],
             "has_review_prompt": bool(self.review_prompt),
         }
@@ -384,11 +386,13 @@ class CardUnified:
 
     def add_phase(self, name: str, mode: PhaseMode = PhaseMode.SINGLE,
                   agents: list[str] | None = None,
-                  review_prompt: str = "") -> CardPhase:
+                  review_prompt: str = "",
+                  strategy: str = "") -> CardPhase:
         phase = CardPhase(
             name=name, mode=mode,
             agents=agents or [],
             review_prompt=review_prompt,
+            strategy=strategy,
         )
         self.phases.append(phase)
         self._track_mod("phases.add", None, name)
@@ -480,6 +484,7 @@ class CardUnified:
                 "name": p.name, "mode": p.mode.value,
                 "agents": list(p.agents), "state": p.state,
                 "review_prompt": p.review_prompt,
+                "strategy": p.strategy,
                 "tasks": [{
                     "action": t.action, "target": t.target,
                     "params": dict(t.params),
@@ -530,6 +535,7 @@ class CardUnified:
                 agents=list(pd.get("agents", [])),
                 state=pd.get("state", "pending"),
                 review_prompt=pd.get("review_prompt", ""),
+                strategy=pd.get("strategy", ""),
             )
             for td in pd.get("tasks", []):
                 phase.tasks.append(CardTask(

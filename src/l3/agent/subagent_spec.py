@@ -26,6 +26,7 @@ class SubAgentSpec:
     tags: list[str] = field(default_factory=list)
     model_spec: str = "subagent"            # model_spec reference name, defined in praxis.yaml
     model_config: dict | None = None        # per-spec model override dict
+    strategy: str = ""                      # named model_spec strategy pack (fast/balanced/deep)
     sandbox_profile: str = ""          # empty=no sandbox, "safe"/"isolated"/"danger"
     post_actions: list[dict] = field(default_factory=list)
     """Post-execution actions chained after SubAgent completes.
@@ -50,6 +51,7 @@ class SubAgentSpec:
             "sandbox_profile": self.sandbox_profile,
             "model_spec": self.model_spec,
             "model_config": self.model_config,
+            "strategy": self.strategy,
             "post_actions": self.post_actions,
         }
 

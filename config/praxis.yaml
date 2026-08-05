@@ -29,6 +29,8 @@ cell:
     session_timeout: 300        # Multi-turn scout session timeout
   card:
     timeout: 30                 # Card wait timeout (s)
+  skills:                       # Per-Cell skill white-list (回灌到 Cell)
+    # default: [skill-a, skill-b]   # bound to the default Cell; empty/absent → global pool
 
 # ── Internationalization ──
 language: en                      # Display language: en | zh-CN | ja | de (see locales/)
@@ -116,6 +118,7 @@ model_spec:
       temperature: 0.7
       reasoning_effort: high
       thinking_budget: 8192
+    # disabled: true  # set on any pack to make it non-applicable at runtime
 
 # ── L3A session limits (0 = unlimited) ──
 l3a:

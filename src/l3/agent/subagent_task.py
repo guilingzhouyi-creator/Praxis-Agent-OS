@@ -129,7 +129,14 @@ class SubAgentTask:
             from l3.services.model_service import get_service as _ms
             spec_name = self.spec.model_spec or "subagent"
             overrides = self.spec.model_config or {}
-            return _ms().resolve_dict(spec_name, overrides=overrides)
+            kwargs = _ms().resolve_dict(spec_name, overrides=overrides)
+            if self.spec.strategy:
+                # Apply the named strategy pack on top (stage-level reasoning switch)
+                strategy_defn = _ms().resolve_strategy_pack(self.spec.strategy)
+                if strategy_defn:
+                    kwargs.update({k: v for k, v in strategy_defn.items()
+                                   if k in kwargs})
+            return kwargs
         except Exception:
             return {}
 

@@ -138,7 +138,11 @@ class ModelService:
         # 4. Credential injection
         self._inject_credentials(merged)
 
-        # 5. Build LLMConfig
+        # 5. Clamp reasoning to admin caps (mirrors ThinkQuotaRegistry so the
+        #    model_spec path honors the same think.max_* ceilings as Cell peers)
+        self._clamp_reasoning(sc, merged)
+
+        # 6. Build LLMConfig
         return LLMConfig(
             provider=merged.get("provider", "mock"),
             model=merged.get("model", ""),
@@ -149,6 +153,36 @@ class ModelService:
             reasoning_effort=merged.get("reasoning_effort", "none"),
             thinking_budget=int(merged.get("thinking_budget", 0)),
         )
+
+    @staticmethod
+    def _clamp_reasoning(sc: Any, merged: dict) -> None:
+        """Clamp thinking_budget and reasoning_effort to think.max_* caps.
+
+        In-place. Mirrors ThinkQuotaRegistry.resolve clamping so executors
+        resolved via model_spec (scout/l3a/subagent/r4) stay under the same
+        admin ceilings as Cell peer agents. Clamps are logged as warnings.
+        """
+        try:
+            from l1.kernel.params.api import THINK_MAX_BUDGET, THINK_MAX_REASONING
+            max_budget = int(sc.get("think.max_budget", THINK_MAX_BUDGET))
+            max_reasoning = str(sc.get("think.max_reasoning", THINK_MAX_REASONING))
+        except Exception:
+            return
+        if "thinking_budget" in merged:
+            merged["thinking_budget"] = max(0, int(merged["thinking_budget"]))
+            if merged["thinking_budget"] > max_budget:
+                logger.warning(
+                    "model_service: thinking_budget %d clamped to %d (think.max_budget)",
+                    merged["thinking_budget"], max_budget)
+                merged["thinking_budget"] = max_budget
+        effort = merged.get("reasoning_effort", "none")
+        rank = {"none": 0, "low": 1, "medium": 2, "high": 3}
+        current = rank.get(str(effort), 0)
+        if current > rank.get(max_reasoning, 3):
+            logger.warning(
+                "model_service: reasoning_effort %r clamped to %r (think.max_reasoning)",
+                effort, max_reasoning)
+            merged["reasoning_effort"] = max_reasoning
 
     def resolve_dict(self, spec_name: str = "",
                      overrides: dict | None = None) -> dict:
@@ -164,6 +198,24 @@ class ModelService:
 
     # ── Named strategy packs (runtime switching) ──────────────────────
 
+    def resolve_strategy_pack(self, strategy_name: str) -> dict | None:
+        """Read a named strategy pack definition (reasoning keys only).
+
+        Returns a dict of {reasoning_effort, thinking_budget, ...} from
+        ``model_spec.strategies.{name}`` (praxis.yaml), or None when the
+        strategy is unknown or disabled.
+        """
+        sc = self._settings_center()
+        defn = self._read_dict(
+            sc, "model_spec.strategies." + strategy_name, leaf_only=True)
+        if not defn:
+            return None
+        if defn.get("enabled") is False:
+            return None
+        return {k: v for k, v in defn.items()
+                if k in ("reasoning_effort", "thinking_budget",
+                         "max_tokens", "temperature")}
+
     def apply_strategy(self, spec_name: str, strategy_name: str) -> dict:
         """Apply a named strategy pack to an executor.
 
@@ -173,10 +225,10 @@ class ModelService:
         executor defaults in the resolution cascade — immediate effect.
         """
         sc = self._settings_center()
-        defn = self._read_dict(
-            sc, "model_spec.strategies." + strategy_name, leaf_only=True)
-        if not defn:
-            return {"success": False, "error": f"unknown strategy: {strategy_name}"}
+        defn = self.resolve_strategy_pack(strategy_name)
+        if defn is None:
+            return {"success": False,
+                    "error": f"unknown or disabled strategy: {strategy_name}"}
         written = []
         for key, value in defn.items():
             sc.set(f"model_spec.{spec_name}.{key}", value)
