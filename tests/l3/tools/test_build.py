@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import l3.tools._build as _build
-import l1.kernel.platform as _platform
 
 
 def _no_toolchain_run(args, **kwargs):
@@ -14,7 +13,7 @@ def _no_toolchain_run(args, **kwargs):
 
 class TestBuildProject:
     def test_no_path(self, monkeypatch):
-        monkeypatch.setattr(_platform, "run_args", _no_toolchain_run)
+        monkeypatch.setattr(_build, "run_args", _no_toolchain_run)
         r = _build.build_project({}, "agent-a")
         assert isinstance(r, dict)
         assert "success" in r
@@ -27,7 +26,7 @@ class TestBuildProject:
 
 class TestTestProject:
     def test_no_path(self, monkeypatch):
-        monkeypatch.setattr(_platform, "run_args", _no_toolchain_run)
+        monkeypatch.setattr(_build, "run_args", _no_toolchain_run)
         r = _build.test_project({}, "agent-a")
         assert isinstance(r, dict)
         assert "success" in r

@@ -543,12 +543,12 @@ class MemoryManager:
         short_written = 0
         long_written = 0
 
-        # Atomically snapshot and clear dirty sets under lock
+        # Snapshot dirty sets under lock — do NOT clear them yet: entries are
+        # only dropped after their writes succeed, so a failed persist leaves
+        # the dirty set intact for retry (crash safety).
         with self._lock:
             dirty_short_ids = set(self._dirty_short)
             dirty_long_ids = set(self._dirty_long)
-            self._dirty_short.clear()
-            self._dirty_long.clear()
 
         # Ring 2 → JSONL (append-only, dirty entries only)
         if dirty_short_ids:
@@ -560,6 +560,8 @@ class MemoryManager:
                     for e in dirty_entries:
                         f.write(json.dumps(e, ensure_ascii=False) + "\n")
                 short_written = len(dirty_entries)
+                with self._lock:
+                    self._dirty_short.difference_update(dirty_short_ids)
 
         # Ring 3 → SQLite FTS5 (dirty entries only)
         if dirty_long_ids:
@@ -588,7 +590,8 @@ class MemoryManager:
             conn.close()
             long_written = len(dirty_entries)
             if dirty_entries:
-                self._dirty_long.clear()
+                with self._lock:
+                    self._dirty_long.difference_update(dirty_long_ids)
 
         return {"success": True, "short_written": short_written, "long_written": long_written}
 
