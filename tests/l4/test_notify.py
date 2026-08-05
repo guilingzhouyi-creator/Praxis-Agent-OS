@@ -15,14 +15,13 @@ class TestNotify:
         assert svc is not None
 
     def test_send_called(self):
+        """log channel always succeeds and records history."""
         from l4.notify import get_service
         svc = get_service()
-        try:
-            r = svc.send("test-agent", "hello", channel="log")
-            assert isinstance(r, dict)
-        except Exception:
-            # send may fail if channels not configured, that's ok
-            assert True
+        r = svc.send(channel="log", to="test-agent", subject="test", body="hello")
+        assert isinstance(r, dict)
+        assert r["success"] is True
+        assert r["channel"] == "log"
 
     def test_history(self):
         from l4.notify import get_service

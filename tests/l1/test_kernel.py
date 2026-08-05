@@ -91,12 +91,16 @@ class TestSyscall:
         log = get_audit_log(limit=10)
         assert isinstance(log, list)
 
-    def test_emit_signal_crash(self):
-        from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-        try:
-            emit_signal(EVENT_TASK_ASSIGN, sender="test", target="l3", data={"x": 1})
-        except Exception:
-            pass
+    def test_emit_signal_records_history(self):
+        """emit_signal must deliver the signal onto the event bus history."""
+        from l1.kernel import EVENT_TASK_ASSIGN, emit_signal, get_event_bus
+        from l1.kernel.event import SignalType
+        bus = get_event_bus()
+        before = len(bus.history(signal_type=SignalType.TASK_ASSIGN))
+        count = emit_signal(EVENT_TASK_ASSIGN, sender="test", target="l3", data={"x": 1})
+        after = len(bus.history(signal_type=SignalType.TASK_ASSIGN))
+        assert isinstance(count, int) and count >= 0
+        assert after == before + 1, "signal should be recorded in event bus history"
 
 
 # ═══════════════════════════════════════════════════════════════

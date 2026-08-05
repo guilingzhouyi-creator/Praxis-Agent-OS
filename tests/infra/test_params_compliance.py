@@ -1,9 +1,8 @@
-"""Compliance: L3 code must use params constants, not hardcoded magic values.
+"""Compliance: L1-L4 code must use params constants, not hardcoded magic values.
 
-Scans src/l3/ for:
+Scans src/l1/..src/l4 for:
   - Truncation [:N] where N has a LOG_TRUNC_* constant
   - Hash truncation hexdigest()[:N] / hex()[:N] / uuid.uuid4().hex[:N] where N has a HASH_TRUNC_* constant
-  - Memory importance/literals where a MEMORY_IMPORTANCE_* constant exists
 
 Violations are reported and cause test failure.
 """
@@ -32,17 +31,38 @@ HASH_TRUNC_VALUES: dict[int, str] = {
 }
 
 # Files/types exempt from scanning (e.g., test files, param definitions)
-EXEMPT_DIRS = {"__pycache__"}
+EXEMPT_DIRS = {"__pycache__", "params"}
 EXEMPT_FILES = {"params.py", "__init__.py"}
 
 SCAN_ROOTS = [
-    os.path.join(os.path.dirname(__file__), "..", "src", "l3"),
-    os.path.join(os.path.dirname(__file__), "..", "src", "l4"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "src", "l1"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "src", "l2"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "src", "l3"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "src", "l4"),
 ]
 
 
+def _excess_bare_slices(content: str, values: dict[int, str],
+                        pattern: re.Pattern[str]) -> list[tuple[re.Match[str], str]]:
+    """Return bare-slice matches whose count exceeds the constant's references.
+
+    Closes the whole-file exemption loophole: a single ``LOG_TRUNC_200``
+    reference used to exempt every other bare ``[:200]`` in the file.
+    Now each bare slice beyond the number of constant references is a
+    violation (a defined-and-reused alias like ``T = LOG_TRUNC_200`` is
+    still fine because the constant name appears on the definition line).
+    """
+    excess: list[tuple[re.Match[str], str]] = []
+    for val, const in values.items():
+        matches = [m for m in pattern.finditer(content) if int(m.group(2)) == val]
+        refs = content.count(const)
+        for m in matches[refs:]:
+            excess.append((m, const))
+    return excess
+
+
 def _find_violations() -> list[str]:
-    """Scan L3+L4 for hardcoded values that should use params constants."""
+    """Scan L1-L4 for hardcoded values that should use params constants."""
     violations: list[str] = []
     hash_re = re.compile(r"(hexdigest\(\)|hex\(\)|uuid\.uuid4\(\)\.hex)\[:(\d+)\]")
     slice_re = re.compile(r"([\w.]+(?:\([^)]*\))?)\[[:](\d+)\]")
@@ -59,27 +79,15 @@ def _find_violations() -> list[str]:
                 with open(fpath, encoding="utf-8") as f:
                     content = f.read()
 
-                # 1. Check hash truncation
-                for m in hash_re.finditer(content):
-                    val = int(m.group(2))
-                    if val in HASH_TRUNC_VALUES:
-                        const = HASH_TRUNC_VALUES[val]
-                        if const not in content:
-                            line_no = content[: m.start()].count("\n") + 1
-                            violations.append(
-                                f"{rel}:{line_no}: {m.group(0)} should use {const}"
-                            )
+                # 1. Check hash truncation (count-based, per-value)
+                for m, const in _excess_bare_slices(content, HASH_TRUNC_VALUES, hash_re):
+                    line_no = content[: m.start()].count("\n") + 1
+                    violations.append(f"{rel}:{line_no}: {m.group(0)} should use {const}")
 
-                # 2. Check slice truncation
-                for m in slice_re.finditer(content):
-                    val = int(m.group(2))
-                    if val in LOG_TRUNC_VALUES:
-                        const = LOG_TRUNC_VALUES[val]
-                        if const not in content:
-                            line_no = content[: m.start()].count("\n") + 1
-                            violations.append(
-                                f"{rel}:{line_no}: {m.group(0)} should use {const}"
-                            )
+                # 2. Check slice truncation (count-based, per-value)
+                for m, const in _excess_bare_slices(content, LOG_TRUNC_VALUES, slice_re):
+                    line_no = content[: m.start()].count("\n") + 1
+                    violations.append(f"{rel}:{line_no}: {m.group(0)} should use {const}")
 
     return violations
 

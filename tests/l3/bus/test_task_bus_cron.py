@@ -212,16 +212,11 @@ class TestCronScheduler:
         # Verify cron matches now
         assert _cron_matches(entry["cron"], now)
         # Dispatch
+        before = len(reg.list(state=None))
         s._dispatch(entry)
         # Card should be in registry
-        intents_list = []
-        try:
-            from l3.cell.peers.l3 import get_coordinator
-            intents_list = get_coordinator().list_intents()
-        except Exception:
-            pass
-        # The card was submitted to registry, just verify no crash
-        assert True
+        cards = reg.list(state=None)
+        assert len(cards) == before + 1, "cron dispatch should submit exactly one card"
 
 
 # ═══════════════════════════════════════════════════════════════
