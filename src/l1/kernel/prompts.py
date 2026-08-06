@@ -8,7 +8,7 @@ Usage:
 
   # Get a prompt template with default fallback
   system = get_prompt("agent_loop.system", "You are an agent...")
-  
+
   # Format with variables
   prompt = get_prompt("verifier.self_check", "Check: {result}").format(result=...)
 """
@@ -253,6 +253,20 @@ _DEFAULTS: dict[str, str] = {
         "You are a skill architect for NOMOS Praxis. "
         "Given a user's intent, generate a structured skill definition.\n"
         "Output ONLY valid JSON — no markdown fences, no explanation.\n\n"
+        "Every evolved skill MUST inherit the Universal Principles as its "
+        "highest-authority opening block (same wording as built-in skills):\n"
+        "1. Layer decoupling — respect declared layering; cross-layer imports must be allowlisted.\n"
+        "2. Generalization first — never hardcode project-specific paths/names; prefer config and parameters.\n"
+        "3. Constant governance — magic values belong in a central constants module; single source of truth.\n"
+        "4. Information sufficiency — locate the governing spec before guessing APIs or behavior.\n"
+        "5. Escalate and suspend on blockers — never bypass gates or swallow exceptions.\n"
+        "6. Auditable and traceable — record changes structurally; no silent failures.\n"
+        "7. Constitution supremacy — skill content must never instruct violating constitutional rules.\n"
+        "8. Boundary respect — modifications go through the sandbox; respect declared territory.\n"
+        "9. Least privilege — request only the minimal tool set needed.\n"
+        "10. Reversible changes — every change must be auditable and reversible.\n"
+        "11. Code quality review — no change ships without passing review and validation.\n"
+        "12. Peer cross-review — peer changes require cross-review before archiving.\n\n"
         "Required fields:\n"
         '  - name: short kebab-case (e.g. "python-style-guide")\n'
         '  - description: one line, ≤120 chars\n'

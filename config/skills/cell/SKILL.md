@@ -1,6 +1,7 @@
 ---
 name: cell
 description: Cell operations — peer agents, scout pool, health monitoring, lifecycle
+tags: [execution]
 disable-model-invocation: true
 dependencies: [kernel]
 dependency-kind: soft

@@ -1,6 +1,7 @@
 ---
 name: scout
 description: Scout investigations — read-only exploration, ring-1 tool usage, findings reporting
+tags: [execution]
 disable-model-invocation: true
 dependencies: [kernel]
 dependency-kind: soft
