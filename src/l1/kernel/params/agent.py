@@ -447,7 +447,9 @@ R4_REFLECTION_MIN_LEN: Final[int] = 20  # quality floor for accepted reflections
 
 # ── R4Agent skill retrieval (task-similarity injection) ──
 R4_RETRIEVAL_ENABLED: Final[bool] = True  # rank evolved skills by task similarity before injection
-R4_RETRIEVAL_BACKEND_DEFAULT: Final[str] = "tfidf"  # initial retriever backend (config skill.retriever_backend overrides)
+R4_RETRIEVAL_BACKEND_DEFAULT: Final[str] = (
+    "tfidf"  # initial retriever backend (config skill.retriever_backend overrides)
+)
 R4_RETRIEVAL_TOP_K: Final[int] = 3  # top-K skills injected by similarity (fallback: loaded_at order)
 R4_RETRIEVAL_MIN_SCORE: Final[float] = 0.05  # similarity floor below which fallback order is used
 

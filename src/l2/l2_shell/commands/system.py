@@ -6,26 +6,31 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def _cmd_status(args: list[str]) -> dict:
     from l1.kernel.healthcheck import safe_system_check as _health
     from l1.kernel.process import get_table
     from l3.agent_terminal import get_terminals
-    h = _health(); print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
-    for name, r in h.get("subsystems", {}).items(): print(f"  [{r['status']}] {name}")
+
+    h = _health()
+    print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
+    for name, r in h.get("subsystems", {}).items():
+        print(f"  [{r['status']}] {name}")
     print(f"\nProcesses: {len(get_table().list())}")
     print(f"Terminals: {len(get_terminals())}")
     try:
         from l1.kernel.lifecycle import get_lifecycle
+
         lc = get_lifecycle()
         rec = lc.load()
-        print(f"Lifecycle: {lc.state().value} (boots={rec.boot_count}, "
-              f"schema={rec.schema_version or 'unset'})")
+        print(f"Lifecycle: {lc.state().value} (boots={rec.boot_count}, schema={rec.schema_version or 'unset'})")
     except Exception:
         logger.debug("system: lifecycle load failed, skipping", exc_info=True)
     # Enrich with shell mode/cell context (agent_id only present in Direct mode)
     result = dict(h)
     try:
         from ..state import get_state
+
         st = get_state()
         result["mode"] = st.mode
         result["cell_id"] = st.cell_id
@@ -35,18 +40,26 @@ def _cmd_status(args: list[str]) -> dict:
         logger.debug("system: shell state enrichment failed", exc_info=True)
     return result
 
+
 def _cmd_intents(args: list[str]) -> dict:
     from l3.scheduler.think_registry import get_think_registry
-    reg = get_think_registry(); return {"success": True, "intents": reg.stats()}
+
+    reg = get_think_registry()
+    return {"success": True, "intents": reg.stats()}
+
 
 def _cmd_scheduler(args: list[str]) -> dict:
     from l3.scheduler.scheduler import get_scheduler
+
     s = get_scheduler()
     return {"success": True, "data": s.stats() if hasattr(s, "stats") else {}}
 
+
 def _cmd_observe(args: list[str]) -> dict:
     from l3.bus.observability_bus import get_obs_bus
+
     return {"success": True, "data": get_obs_bus().summary()}
+
 
 def _cmd_skills(args: list[str]) -> dict:
     """Manage skills — list/get are public; create/update/delete/reload are developer-only.
@@ -71,6 +84,7 @@ def _cmd_skills(args: list[str]) -> dict:
     """
     from l1.kernel.params.system import SKILL_LIST_DISPLAY_LIMIT
     from l1.kernel.skill import get_skill_manager
+
     sm = get_skill_manager()
 
     role = ""
@@ -93,13 +107,11 @@ def _cmd_skills(args: list[str]) -> dict:
 
     if sub in ("list", "ls"):
         skills = sm.list()
-        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT],
-                "count": len(skills)}
+        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT], "count": len(skills)}
 
     if sub == "lean":
         skills = sm.list(tags=["lean_case"])
-        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT],
-                "count": len(skills)}
+        return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT], "count": len(skills)}
 
     if sub == "get":
         name = rest[1] if len(rest) > 1 else ""
@@ -121,16 +133,19 @@ def _cmd_skills(args: list[str]) -> dict:
         # /api/v2/skills/retriever (same state, two surfaces).
         action = rest[1] if len(rest) > 1 else "status"
         from l3.memory.skill_retriever import retriever_status, set_backend
+
         if action == "status":
             return retriever_status()
         if action == "set":
             backend = rest[2] if len(rest) > 2 else ""
             if not backend:
-                return {"success": False,
-                        "error": "usage: /skills retriever set <tfidf|embedding>"}
+                return {"success": False, "error": "usage: /skills retriever set <tfidf|embedding>"}
             return set_backend(backend)
-        return {"success": False, "error": f"unknown retriever action: {action}",
-                "suggestions": ["status", "set <tfidf|embedding>"]}
+        return {
+            "success": False,
+            "error": f"unknown retriever action: {action}",
+            "suggestions": ["status", "set <tfidf|embedding>"],
+        }
 
     if sub == "evolve":
         intent = " ".join(rest[1:])
@@ -143,6 +158,7 @@ def _cmd_skills(args: list[str]) -> dict:
             return {"success": False, "error": f"permission denied: {who}"}
         try:
             from l3.memory.r4_agent import get_r4_agent
+
             return get_r4_agent().evolve_skill(intent)
         except Exception as e:
             return {"success": False, "error": f"evolve failed: {e}"}
@@ -152,8 +168,7 @@ def _cmd_skills(args: list[str]) -> dict:
         if len(rest) < 4:
             return {"success": False, "error": "usage: /skills create <name> <desc> <prompt> [--role <role>]"}
         name, desc, prompt = rest[1], rest[2], rest[3]
-        return sm.create(name, description=desc, prompt=prompt,
-                         agent_id=agent_id, role=role)
+        return sm.create(name, description=desc, prompt=prompt, agent_id=agent_id, role=role)
 
     if sub == "update":
         if len(rest) < 4:
@@ -161,10 +176,7 @@ def _cmd_skills(args: list[str]) -> dict:
         name, field, value = rest[1], rest[2], rest[3]
         if field not in ("description", "prompt", "rules"):
             return {"success": False, "error": f"unsupported field: {field}"}
-        if field == "rules":
-            data = {"rules": [r for r in value.split(";") if r]}
-        else:
-            data = {field: value}
+        data = {"rules": [r for r in value.split(";") if r]} if field == "rules" else {field: value}
         return sm.update(name, data, agent_id=agent_id, role=role)
 
     if sub == "delete":
@@ -180,53 +192,82 @@ def _cmd_skills(args: list[str]) -> dict:
         count = sm.load_builtin()
         return {"success": True, "loaded": count, "authorized": who}
 
-    return {"success": False, "error": f"unknown skills subcommand: {sub}",
-            "suggestions": ["list", "get", "create", "update", "delete", "reload", "permissions"]}
+    return {
+        "success": False,
+        "error": f"unknown skills subcommand: {sub}",
+        "suggestions": ["list", "get", "create", "update", "delete", "reload", "permissions"],
+    }
+
 
 def _cmd_process(args: list[str]) -> dict:
     from l1.kernel.process import get_table
-    if args and args[0] == "audit": return {"success": True, "audit": get_table().audit_log()}
+
+    if args and args[0] == "audit":
+        return {"success": True, "audit": get_table().audit_log()}
     return {"success": True, "processes": get_table().list()}
+
 
 def _cmd_vfs(args: list[str]) -> dict:
     from l1.kernel.vfs import get_vfs
-    path = args[0] if args else "/"; r = get_vfs().read(path)
-    if r.get("success"): print(r["content"])
+
+    path = args[0] if args else "/"
+    r = get_vfs().read(path)
+    if r.get("success"):
+        print(r["content"])
     return r
+
 
 def _cmd_cache(args: list[str]) -> dict:
     from l1.kernel.params.agent import DEFAULT_CELL_ID
     from l3.cell import get_cell
+
     cell = get_cell(DEFAULT_CELL_ID)
-    return {"success": True, "cache": cell.cache.stats() if hasattr(cell, 'cache') else {}}
+    return {"success": True, "cache": cell.cache.stats() if hasattr(cell, "cache") else {}}
+
 
 def _cmd_sysinfo(args: list[str]) -> dict:
-    import sys; return {"success": True, "python": sys.version, "platform": sys.platform}
+    import sys
+
+    return {"success": True, "python": sys.version, "platform": sys.platform}
+
 
 def _cmd_clear(args: list[str]) -> dict:
-    print("\033[2J\033[H", end=""); return {"success": True, "clear": True}
+    print("\033[2J\033[H", end="")
+    return {"success": True, "clear": True}
+
 
 def _cmd_history(args: list[str]) -> dict:
     from l1.kernel.params.system import SHELL_HISTORY_DEFAULT_LIMIT
+
     limit = int(args[0]) if args and args[0].isdigit() else SHELL_HISTORY_DEFAULT_LIMIT
     return {"success": True, "history": [], "limit": limit}
 
+
 def _cmd_lang(args: list[str]) -> dict:
     from l2.i18n import get_available_locales, get_locale, set_locale
-    if args: set_locale(args[0])
+
+    if args:
+        set_locale(args[0])
     return {"success": True, "locale": get_locale(), "available": get_available_locales()}
+
 
 def _cmd_devices(args: list[str]) -> dict:
     from l1.kernel.device import get_device_manager
-    dm = get_device_manager(); devices = dm.list()
+
+    dm = get_device_manager()
+    devices = dm.list()
     return {"success": True, "devices": devices, "count": len(devices)}
+
 
 def _cmd_tools(args: list[str]) -> dict:
     from l3.agent_terminal import get_terminals
-    agent_id = args[0] if args else ""; terms = get_terminals()
+
+    agent_id = args[0] if args else ""
+    terms = get_terminals()
     if agent_id:
         term = terms.get(agent_id)
-        if not term: return {"success": False, "error": f"unknown agent: {agent_id}"}
+        if not term:
+            return {"success": False, "error": f"unknown agent: {agent_id}"}
         tools = term.list_tools()
         return {"success": True, "tools": tools, "agent": agent_id}
     return {"terminals": list(terms.keys())}
@@ -236,6 +277,7 @@ def _cmd_help(args: list[str]) -> dict:
     """Show help for commands (/help <cmd>) or list all commands."""
     from l1.kernel.commands import get_command
     from l2.l2_shell.commands import list_commands
+
     if args:
         cmd_name = args[0].lower().lstrip("/")
         cmd = get_command(cmd_name)
@@ -261,8 +303,12 @@ def _cmd_help(args: list[str]) -> dict:
         cat = c.get("category", "other")
         groups.setdefault(cat, []).append(c)
     cat_labels = {
-        "session": "Session", "control": "Central Control", "memory": "Memory",
-        "system": "System", "agent": "Agent / Cell", "audit": "Audit / Config",
+        "session": "Session",
+        "control": "Central Control",
+        "memory": "Memory",
+        "system": "System",
+        "agent": "Agent / Cell",
+        "audit": "Audit / Config",
         "ext": "Extensions",
     }
     lines = ["Available commands:", ""]

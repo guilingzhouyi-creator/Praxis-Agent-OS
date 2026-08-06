@@ -27,8 +27,9 @@ class SkillRetriever(ABC):
     """Abstract skill retriever — rank candidate skills by query relevance."""
 
     @abstractmethod
-    def rank(self, query: str, candidates: list[dict],
-             limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE) -> list[dict]:
+    def rank(
+        self, query: str, candidates: list[dict], limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE
+    ) -> list[dict]:
         """Return up to ``limit`` candidates ranked by relevance.
 
         Candidates are dicts with at least ``name``/``description``/``prompt``.
@@ -44,8 +45,9 @@ class TfIdfSkillRetriever(SkillRetriever):
     cosine similarity of token-frequency vectors, and returns the top-K.
     """
 
-    def rank(self, query: str, candidates: list[dict],
-             limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE) -> list[dict]:
+    def rank(
+        self, query: str, candidates: list[dict], limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE
+    ) -> list[dict]:
         q_tok = self._tokens(query)
         if not q_tok or not candidates:
             return []
@@ -84,12 +86,12 @@ class EmbeddingSkillRetriever(SkillRetriever):
     degradation, never failure.
     """
 
-    def rank(self, query: str, candidates: list[dict],
-             limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE) -> list[dict]:
+    def rank(
+        self, query: str, candidates: list[dict], limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE
+    ) -> list[dict]:
         if not query or not candidates:
             return []
-        texts = [query] + [f"{c.get('description', '')} {c.get('prompt', '')}"
-                           for c in candidates]
+        texts = [query] + [f"{c.get('description', '')} {c.get('prompt', '')}" for c in candidates]
         try:
             from l4.llm.llm import get_engine
 
@@ -181,8 +183,7 @@ def set_backend(name: str) -> dict:
     """
     global _retriever, _backend_name
     if name not in _RETRIEVERS:
-        return {"success": False, "error": f"unknown retriever backend '{name}'",
-                "available": available_backends()}
+        return {"success": False, "error": f"unknown retriever backend '{name}'", "available": available_backends()}
     cls = _RETRIEVERS[name]
     _retriever = cls()
     _backend_name = name
