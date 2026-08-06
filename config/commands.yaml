@@ -43,6 +43,17 @@ mode:
     - "/mode               — show current mode"
     - "/mode tool toggle   — toggle tool mode"
 
+harness:
+  category: system
+  help: "Show/switch harness mode (governed|semi|minimal gate matrix)"
+  args:
+    - {name: mode, optional: true, description: "governed|semi|minimal|reset"}
+    - {name: confirm, optional: true, description: "--confirm (required for minimal)"}
+  examples:
+    - "/harness                    — show current mode + bottom line"
+    - "/harness minimal --confirm  — minimal mode, risk user-assumed"
+    - "/harness reset              — back to config value"
+
 status:
   category: session
   help: "Show Cell, agent, and session status"

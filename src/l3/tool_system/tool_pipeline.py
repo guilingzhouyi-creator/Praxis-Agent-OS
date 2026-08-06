@@ -163,10 +163,13 @@ class ToolPipeline:
                                parent_id=_parent_call_id)
         # Step tracing toggle — off skips per-phase gate traces on the hot path.
         record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
-        # Harness mode: governed | semi | minimal. Process steps (approval /
-        # rate / pool) may be skipped; the safety bottom line (constitution,
-        # gatechain, sandbox, reference-channel recording) is never skipped.
-        harness_mode = str(get_tool_config("harness_mode", HARNESS_MODE_DEFAULT)).lower()
+        # Harness mode: governed | semi | minimal (runtime override → config).
+        # Process steps (approval / rate / pool) may be skipped; the safety
+        # bottom line (constitution, gatechain, sandbox, reference-channel
+        # recording) is never skipped.
+        from l3.tool_system.harness import get_harness_mode
+
+        harness_mode = get_harness_mode()
         if harness_mode not in HARNESS_MODES:
             harness_mode = HARNESS_MODE_DEFAULT
         _skip = set(HARNESS_MODE_STEPS[harness_mode])

@@ -21,6 +21,7 @@ _registry = get_registry()
 from . import (
     connect,  # noqa: F401
     extra,  # noqa: F401
+    harness,  # noqa: F401
     l3a,  # noqa: F401
     memory,  # noqa: F401
     model,  # noqa: F401
@@ -109,7 +110,7 @@ import sys as _sys
 
 _SYSTEM_COMMANDS: list[tuple[str, callable, dict]] = []
 
-for _module_name in ("common", "connect", "system", "memory", "model", "extra", "l3a"):
+for _module_name in ("common", "connect", "system", "memory", "model", "extra", "harness", "l3a"):
     _mod = _sys.modules.get(f"l2.l2_shell.commands.{_module_name}")
     if _mod is None:
         continue

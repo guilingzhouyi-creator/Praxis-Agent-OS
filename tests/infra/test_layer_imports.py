@@ -38,6 +38,7 @@ ALLOWLIST = {
     ("l2/l2_shell/commands/extra.py", "l3.memory.memory_graph"),
     ("l2/l2_shell/commands/extra.py", "l4.api_handlers.api_handlers_mcp"),
     ("l2/l2_shell/commands/extra.py", "l4.mcp_bridge"),
+    ("l2/l2_shell/commands/harness.py", "l3.tool_system.harness"),
     ("l2/l2_shell/commands/l3a.py", "l3.cell.peers.l3a"),
     ("l2/l2_shell/commands/memory.py", "l3.agent_terminal"),
     ("l2/l2_shell/commands/memory.py", "l3.card.card_registry"),

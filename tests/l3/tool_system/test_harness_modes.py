@@ -27,13 +27,12 @@ def _spec() -> ToolSpec:
 
 def _run(pipeline: ToolPipeline, mode: str, monkeypatch) -> dict:
     """Run execute() with a forced harness mode."""
+    import l3.tool_system.harness as harness
     import l3.tool_system.tool_pipeline as tp
 
     calls: dict[str, int] = {}
 
     def _cfg(key: str, default=None):
-        if key == "harness_mode":
-            return mode
         if key == "record_steps":
             return True
         if key == "exec_token_budget":
@@ -41,6 +40,7 @@ def _run(pipeline: ToolPipeline, mode: str, monkeypatch) -> dict:
         return default
 
     monkeypatch.setattr(tp, "get_tool_config", _cfg)
+    monkeypatch.setattr(harness, "get_harness_mode", lambda: mode)
     monkeypatch.setattr(tp, "agent_can_access", lambda *a, **k: True)
 
     class _Gate:
@@ -110,6 +110,7 @@ class TestModeMatrix:
 class TestBottomLine:
     def test_constitution_never_skipped_in_minimal(self, monkeypatch):
         """Even minimal mode blocks constitution violations."""
+        import l3.tool_system.harness as harness
         import l3.tool_system.tool_pipeline as tp
 
         p = ToolPipeline()
@@ -120,6 +121,7 @@ class TestBottomLine:
                 return {"allowed": True, "decision": "PASS", "steps": []}
 
         monkeypatch.setattr(tp, "_get_gatechain", lambda: _Gate())
+        monkeypatch.setattr(harness, "get_harness_mode", lambda: HARNESS_MODE_MINIMAL)
         # force minimal mode, constitution denies everything — bind the
         # instance attribute directly (bound at construction)
         class _Deny:
@@ -128,7 +130,7 @@ class TestBottomLine:
 
         p.constitution = _Deny()
         monkeypatch.setattr(tp, "get_tool_config",
-                            lambda k, d=None: "minimal" if k == "harness_mode" else d)
+                            lambda k, d=None: True if k == "record_steps" else d)
         _spec_obj = _spec()
         r = p.execute("read_file", "agent-http", _registry={},
                       _executor=lambda *a, **k: {"success": True})
@@ -137,6 +139,7 @@ class TestBottomLine:
 
     def test_gatechain_recording_never_skipped(self, monkeypatch):
         """Reference-channel causal recording stays on in minimal mode."""
+        import l3.tool_system.harness as harness
         import l3.tool_system.tool_pipeline as tp
 
         p = ToolPipeline()
@@ -147,8 +150,9 @@ class TestBottomLine:
                 return {"allowed": True, "decision": "PASS", "steps": []}
 
         monkeypatch.setattr(tp, "_get_gatechain", lambda: _Gate())
+        monkeypatch.setattr(harness, "get_harness_mode", lambda: HARNESS_MODE_MINIMAL)
         monkeypatch.setattr(tp, "get_tool_config",
-                            lambda k, d=None: "minimal" if k == "harness_mode" else d)
+                            lambda k, d=None: True if k == "record_steps" else d)
         recorded = []
 
         class _RC:

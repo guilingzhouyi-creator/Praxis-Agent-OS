@@ -736,6 +736,18 @@ class ApiHandlers:
         from l3.tool_system.tool_mode import set_mode
         return set_mode(body.get("mode", "toggle"))
 
+    # ── Harness mode ──
+
+    def _harness_mode_get(self, body: dict | None = None) -> dict:
+        from l3.tool_system.harness import harness_status
+        return harness_status()
+
+    def _harness_mode_set(self, body: dict) -> dict:
+        from l3.tool_system.harness import set_harness_mode
+        return set_harness_mode(body.get("mode", ""),
+                                confirmed=bool(body.get("confirm_risk")),
+                                source="api")
+
     # ── Approvals / Pending Queue ──
 
     def _list_approvals(self, body: dict | None = None) -> dict:

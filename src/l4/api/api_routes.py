@@ -27,6 +27,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/v2/mode",               ".tool_mode_get",      "Get tool mode"),
     ("PUT", "/api/v2/mode",               ".tool_mode_set",      "Set tool mode"),
 
+    # Harness mode (governed / semi / minimal gate matrix)
+    ("GET", "/api/v2/harness/mode",       ".harness_mode_get",   "Get harness mode"),
+    ("POST", "/api/v2/harness/mode",      ".harness_mode_set",   "Switch harness mode (minimal needs confirm_risk=true)"),
+
     # Cards
     ("POST", "/api/v2/card",              ".submit_card",        "Submit a card"),
     ("POST", "/api/v2/card/batch",        ".submit_batch",       "Submit batch cards"),
