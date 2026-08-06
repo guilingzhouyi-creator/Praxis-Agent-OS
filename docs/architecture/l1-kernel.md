@@ -1,7 +1,7 @@
 # L1 — Kernel Layer
 
 The bare-metal kernel: what every upper layer builds on. 46 files /
-12,390 lines; 889 constants across 9 `params/` modules.
+12,739 lines; 961 constants across 9 `params/` modules.
 
 ## Responsibility boundary
 
@@ -27,7 +27,7 @@ The bare-metal kernel: what every upper layer builds on. 46 files /
 | `process.py` audit, `reputation.py` trust, `swapper.py` ring swapping, `interrupt.py` IRQ table |
 | `skill.py` | SkillManager (load/create/evolve/usage, write-gated) |
 | `prompts.py` | Prompt registry (L3A system/parse templates, verification culture) |
-| `params/*` | 889 compile-time constants (kernel/allocator/sync/gatechain/agent/tool/api/system/…) |
+| `params/*` | 961 compile-time constants (kernel/allocator/sync/gatechain/agent/tool/api/system/…) |
 
 ## Core mechanisms
 

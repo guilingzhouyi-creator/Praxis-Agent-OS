@@ -1,7 +1,7 @@
 # L3 — Memory System (4 rings + side-channels)
 
 How agents remember: operational rings, lossless archive, and the bypass
-side-channels (Mer / R5 / User Profile). 20 files / 5,299 lines.
+side-channels (Mer / R5 / User Profile). 24 files / 5,956 lines.
 
 ## Four-ring architecture
 
@@ -37,19 +37,29 @@ degrade to no-ops (originals intact):
 
 ```mermaid
 flowchart LR
-    TICK["L3A daemon tick"] -->|trigger| COLLECT["collect_entries(scope_ids)
-        CentralMemory R1-R3, importance >= threshold,
-        per-scope bounded, across Cells + L3A"]
-    COLLECT -->|entries with _scope/imp/ts| EDGES["collect_edges(node_ids)
-        R5 MemoryGraph edges (only when graph enabled)"]
+    TICK["L3A daemon tick"] -->|gate: memory.mer.enabled| GATE{"enabled?"}
+    GATE -->|no| SKIP["skip pass — no mutation"]
+    GATE -->|yes| COLLECT["collect_entries(scope_ids)
+        CentralMemory R1-R3 across Cells + L3A
+        importance >= _MER_MIN_IMPORTANCE (0.4)
+        per-scope cap _MER_ENTRIES_PER_SCOPE (10)
+        max scopes _MER_MAX_SCOPES (8)"]
+    COLLECT -->|"entries with _scope/imp/ts"| EDGES["collect_edges(node_ids)
+        R5 MemoryGraph semantic edges
+        (only when memory.graph.enabled)"]
     EDGES -->|semantic relations| SYM["to_mermaid(entries, edges)
-        node shapes by entry type, importance labels,
-        semantic edges solid + temporal chains dashed"]
+        _ENTRY_SHAPES: decision=diamond, summary/card=round,
+        user/assistant/tool_call=rect
+        labels: type + 40-char preview + importance
+        semantic edges solid, temporal chains dashed -.->|t|"]
     COLLECT --> SYM
     SYM -->|mermaid string| ARCHIVE["archive_to_r4
-        fonds=agent-l3a, series=memory_mer_snapshot"]
-    SYM -->|meta| EVENT["stats.memory.mer.transform event"]
+        fonds=agent-l3a, series=memory_mer_snapshot
+        archive_ref=agent-l3a:memory_mer_snapshot:<ts>"]
+    SYM -->|meta: entries/edges/scopes| EVENT["stats.memory.mer.transform event"]
     ARCHIVE --> R4["R4 archive (audit baseline, disposable)"]
+    SKIP --> DONE["pass ends (0 archived)"]
+    ARCHIVE --> DONE
 ```
 
 Guarantees: bypass semantics (never mutates the main flow), lossless
@@ -58,14 +68,27 @@ originals (only a rendered condensation is archived), bounded work
 
 ### Mer symbolization example
 
+All node shapes and edge styles in one view — diamond (decision), round
+(summary/card), rect (user/assistant/tool_call); solid arrows are R5
+semantic edges, dashed `-.->|t|` arrows are within-scope chronology:
+
 ```mermaid
 flowchart LR
     subgraph mer_example
     e0{"decision: use JWT for auth (imp=0.8)"}
     e1("summary: token strategy review (imp=0.7)")
     e2{"decision: drop JWT in favor of mTLS (imp=0.9)"}
+    e3("card: auth refactor slice (imp=0.6)")
+    e4["user: 'why keep JWT?' (imp=0.5)"]
+    e5["assistant: JWT vs mTLS tradeoff (imp=0.5)"]
+    e6["tool_call: vault.read (imp=0.4)"]
     e0 -->|contradicts| e2
     e0 -.->|t| e1
+    e1 -.->|t| e2
+    e2 -->|refines| e3
+    e4 -->|asks| e0
+    e5 -->|answers| e4
+    e6 -.->|t| e5
     end
 ```
 

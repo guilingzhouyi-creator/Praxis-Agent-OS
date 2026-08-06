@@ -15,7 +15,7 @@ flowchart TB
         TUI["TUI (contract-ready, not yet built)"]
     end
     subgraph L4["L4 Bridge"]
-        GW["API gateway 263 routes /api/v2/"]
+        GW["API gateway 274 routes /api/v2/"]
         SSE["SSE /api/events"]
         WS["WS bridge :8081 subscribe/rpc"]
         RPC["RPC server :42110"]
@@ -41,7 +41,7 @@ flowchart TB
         GATE["GateChain G1-G5"]
         CONST["Constitution"]
         PORTS["Ports (12 ABC abstractions)"]
-        PARAMS["params: 889 constants"]
+        PARAMS["params: 961 constants"]
     end
 
     CLI --> GW
@@ -71,7 +71,7 @@ flowchart TB
 | Layer | Document | Responsibility |
 |-------|----------|----------------|
 | L5 | [l5-user.md](l5-user.md) | CLI entry, user-facing contract, TUI surface |
-| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (263 routes), WS/SSE/RPC channels, sandbox, auth, fs |
+| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (274 routes), WS/SSE/RPC channels, sandbox, auth, fs |
 | L4 | [l4-llm.md](l4-llm.md) | LLM providers, effort tiers, strategy packs, model_spec cascade |
 | L3 | [l3-card-lifecycle.md](l3-card-lifecycle.md) | Card end-to-end: produce → execute → approve → archive |
 | L3 | [l3-memory.md](l3-memory.md) | 4-ring memory + side-channels (Mer / R5 / User Profile) + injection |
@@ -90,21 +90,21 @@ flowchart TB
 
 | Metric | Value |
 |--------|-------|
-| L1 Kernel | 46 files / 12,458 lines |
-| L2 Shell | 20 files / 2,741 lines |
-| L3 Cell | 236 files / 50,777 lines |
-| L4 Bridge | 70 files / 14,028 lines |
+| L1 Kernel | 46 files / 12,739 lines |
+| L2 Shell | 20 files / 2,993 lines |
+| L3 Cell | 236 files / 52,962 lines |
+| L4 Bridge | 70 files / 15,645 lines |
 | L5 User | 2 files / 489 lines |
-| L3A (peers) | 18 files / 4,109 lines |
-| L3 Memory | 23 files / 5,429 lines |
-| L3 Card | 23 files / 5,550 lines |
-| L3 Services | 34 files / 8,924 lines |
-| L3 Bus | 15 files / 3,583 lines |
-| L3 Agent | 24 files / 4,656 lines |
-| L4 Handlers | 17 files / 3,556 lines |
-| API routes | 265 (`/api/v2/*` versioned) |
+| L3A (peers) | 19 files / 4,496 lines |
+| L3 Memory | 24 files / 5,956 lines |
+| L3 Card | 23 files / 5,664 lines |
+| L3 Services | 35 files / 9,159 lines |
+| L3 Bus | 15 files / 3,584 lines |
+| L3 Agent | 24 files / 4,865 lines |
+| L4 Handlers | 18 files / 3,763 lines |
+| API routes | 274 (`/api/v2/*` versioned) |
 | Route domains | 44 (largest: provider=17, approval=14, fs=14, card=11, memory=11, subagent=11, agent=10) |
-| Params modules / constants | 9 / 895 |
+| Params modules / constants | 9 / 961 |
 
 ## Reading path
 

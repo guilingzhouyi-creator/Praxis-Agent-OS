@@ -23,7 +23,7 @@ flowchart TB
         TUI["TUI (contract-ready, not yet built)"]
     end
     subgraph L4["L4 Bridge"]
-        GW["API gateway 263 routes /api/v2/"]
+        GW["API gateway 274 routes /api/v2/"]
         SSE["SSE /api/events"]
         WS["WS bridge :8081 subscribe/rpc"]
         RPC["RPC server :42110"]
@@ -49,7 +49,7 @@ flowchart TB
         GATE["GateChain G1-G5"]
         CONST["Constitution"]
         PORTS["Ports (12 ABC abstractions)"]
-        PARAMS["params: 889 constants"]
+        PARAMS["params: 961 constants"]
     end
 
     CLI --> GW
@@ -79,7 +79,7 @@ flowchart TB
 | Layer | Document | Responsibility |
 |-------|----------|----------------|
 | L5 | [l5-user.md](l5-user.md) | CLI entry, user-facing contract, TUI surface |
-| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (263 routes), WS/SSE/RPC channels, sandbox, auth, fs |
+| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (274 routes), WS/SSE/RPC channels, sandbox, auth, fs |
 | L4 | [l4-llm.md](l4-llm.md) | LLM providers, effort tiers, strategy packs, model_spec cascade |
 | L3 | [l3-card-lifecycle.md](l3-card-lifecycle.md) | Card end-to-end: produce → execute → approve → archive |
 | L3 | [l3-memory.md](l3-memory.md) | 4-ring memory + side-channels (Mer / R5 / User Profile) + injection |
@@ -98,21 +98,21 @@ flowchart TB
 
 | Metric | Value |
 |--------|-------|
-| L1 Kernel | 46 files / 12,458 lines |
-| L2 Shell | 20 files / 2,741 lines |
-| L3 Cell | 236 files / 50,777 lines |
-| L4 Bridge | 70 files / 14,028 lines |
+| L1 Kernel | 46 files / 12,739 lines |
+| L2 Shell | 20 files / 2,993 lines |
+| L3 Cell | 236 files / 52,962 lines |
+| L4 Bridge | 70 files / 15,645 lines |
 | L5 User | 2 files / 489 lines |
-| L3A (peers) | 18 files / 4,109 lines |
-| L3 Memory | 23 files / 5,429 lines |
-| L3 Card | 23 files / 5,550 lines |
-| L3 Services | 34 files / 8,924 lines |
-| L3 Bus | 15 files / 3,583 lines |
-| L3 Agent | 24 files / 4,656 lines |
-| L4 Handlers | 17 files / 3,556 lines |
-| API routes | 265 (`/api/v2/*` versioned) |
+| L3A (peers) | 19 files / 4,496 lines |
+| L3 Memory | 24 files / 5,956 lines |
+| L3 Card | 23 files / 5,664 lines |
+| L3 Services | 35 files / 9,159 lines |
+| L3 Bus | 15 files / 3,584 lines |
+| L3 Agent | 24 files / 4,865 lines |
+| L4 Handlers | 18 files / 3,763 lines |
+| API routes | 274 (`/api/v2/*` versioned) |
 | Route domains | 44 (largest: provider=17, approval=14, fs=14, card=11, memory=11, subagent=11, agent=10) |
-| Params modules / constants | 9 / 895 |
+| Params modules / constants | 9 / 961 |
 
 ## Reading path
 
@@ -159,7 +159,7 @@ deep-dive, 15 files) are archived at `memories/archives/architecture-v1/`
 # L1 — Kernel Layer
 
 The bare-metal kernel: what every upper layer builds on. 46 files /
-12,390 lines; 889 constants across 9 `params/` modules.
+12,739 lines; 961 constants across 9 `params/` modules.
 
 ## Responsibility boundary
 
@@ -185,7 +185,7 @@ The bare-metal kernel: what every upper layer builds on. 46 files /
 | `process.py` audit, `reputation.py` trust, `swapper.py` ring swapping, `interrupt.py` IRQ table |
 | `skill.py` | SkillManager (load/create/evolve/usage, write-gated) |
 | `prompts.py` | Prompt registry (L3A system/parse templates, verification culture) |
-| `params/*` | 889 compile-time constants (kernel/allocator/sync/gatechain/agent/tool/api/system/…) |
+| `params/*` | 961 compile-time constants (kernel/allocator/sync/gatechain/agent/tool/api/system/…) |
 
 ## Core mechanisms
 
@@ -368,6 +368,24 @@ stateDiagram-v2
 - History message chain: user intent → card result fold into session
   history (value-weighted compression at `SESSION_HISTORY_MAX_TOKENS`).
 
+### 4a. CI review (card-triggered, optional)
+
+A completed card may trigger a background CI review
+(`l4/ci.py` + `l4/ci_review.py`) instead of archiving unverified edits:
+
+```
+card complete → ci.review.auto_trigger (praxis.yaml)
+   ├─ gates: ruff / mypy / pytest (subset)
+   ├─ consume AutoTest L2 cache as context
+   ├─ on failure → lean_trace / todo_linkage / escalate_reject
+   └─ report → /api/v2/ci/reviews (+ rerun)
+```
+
+Switches under `config/praxis.yaml` `ci.review.*` (`enabled`,
+`auto_trigger`, `gates`, `escalate_reject`, …); control-plane gating
+(`ci.control.api/shell.writable`) decides which surfaces may mutate it.
+See `l4-bridge.md` for the API surface.
+
 ## 5. Archive — R4
 
 - `tools/_archive.py`: fonds/series/ref-code store; session close archives
@@ -401,7 +419,7 @@ stateDiagram-v2
 # L3 — Memory System (4 rings + side-channels)
 
 How agents remember: operational rings, lossless archive, and the bypass
-side-channels (Mer / R5 / User Profile). 20 files / 5,299 lines.
+side-channels (Mer / R5 / User Profile). 24 files / 5,956 lines.
 
 ## Four-ring architecture
 
@@ -437,19 +455,29 @@ degrade to no-ops (originals intact):
 
 ```mermaid
 flowchart LR
-    TICK["L3A daemon tick"] -->|trigger| COLLECT["collect_entries(scope_ids)
-        CentralMemory R1-R3, importance >= threshold,
-        per-scope bounded, across Cells + L3A"]
-    COLLECT -->|entries with _scope/imp/ts| EDGES["collect_edges(node_ids)
-        R5 MemoryGraph edges (only when graph enabled)"]
+    TICK["L3A daemon tick"] -->|gate: memory.mer.enabled| GATE{"enabled?"}
+    GATE -->|no| SKIP["skip pass — no mutation"]
+    GATE -->|yes| COLLECT["collect_entries(scope_ids)
+        CentralMemory R1-R3 across Cells + L3A
+        importance >= _MER_MIN_IMPORTANCE (0.4)
+        per-scope cap _MER_ENTRIES_PER_SCOPE (10)
+        max scopes _MER_MAX_SCOPES (8)"]
+    COLLECT -->|"entries with _scope/imp/ts"| EDGES["collect_edges(node_ids)
+        R5 MemoryGraph semantic edges
+        (only when memory.graph.enabled)"]
     EDGES -->|semantic relations| SYM["to_mermaid(entries, edges)
-        node shapes by entry type, importance labels,
-        semantic edges solid + temporal chains dashed"]
+        _ENTRY_SHAPES: decision=diamond, summary/card=round,
+        user/assistant/tool_call=rect
+        labels: type + 40-char preview + importance
+        semantic edges solid, temporal chains dashed -.->|t|"]
     COLLECT --> SYM
     SYM -->|mermaid string| ARCHIVE["archive_to_r4
-        fonds=agent-l3a, series=memory_mer_snapshot"]
-    SYM -->|meta| EVENT["stats.memory.mer.transform event"]
+        fonds=agent-l3a, series=memory_mer_snapshot
+        archive_ref=agent-l3a:memory_mer_snapshot:<ts>"]
+    SYM -->|meta: entries/edges/scopes| EVENT["stats.memory.mer.transform event"]
     ARCHIVE --> R4["R4 archive (audit baseline, disposable)"]
+    SKIP --> DONE["pass ends (0 archived)"]
+    ARCHIVE --> DONE
 ```
 
 Guarantees: bypass semantics (never mutates the main flow), lossless
@@ -458,14 +486,27 @@ originals (only a rendered condensation is archived), bounded work
 
 ### Mer symbolization example
 
+All node shapes and edge styles in one view — diamond (decision), round
+(summary/card), rect (user/assistant/tool_call); solid arrows are R5
+semantic edges, dashed `-.->|t|` arrows are within-scope chronology:
+
 ```mermaid
 flowchart LR
     subgraph mer_example
     e0{"decision: use JWT for auth (imp=0.8)"}
     e1("summary: token strategy review (imp=0.7)")
     e2{"decision: drop JWT in favor of mTLS (imp=0.9)"}
+    e3("card: auth refactor slice (imp=0.6)")
+    e4["user: 'why keep JWT?' (imp=0.5)"]
+    e5["assistant: JWT vs mTLS tradeoff (imp=0.5)"]
+    e6["tool_call: vault.read (imp=0.4)"]
     e0 -->|contradicts| e2
     e0 -.->|t| e1
+    e1 -.->|t| e2
+    e2 -->|refines| e3
+    e4 -->|asks| e0
+    e5 -->|answers| e4
+    e6 -.->|t| e5
     end
 ```
 
@@ -817,7 +858,7 @@ supplement, push-to-l3a.
 
 # L4 — Bridge Layer
 
-The boundary: HTTP API (263 routes), LLM engine, realtime channels,
+The boundary: HTTP API (274 routes), LLM engine, realtime channels,
 sandbox, auth, filesystem, RPC. 69 files / 13,989 lines; 17 handler
 modules.
 
@@ -832,7 +873,7 @@ modules.
 
 | Subsystem | Files | Role |
 |-----------|-------|------|
-| `api/` | gateway (route index + signature cache), routes (263), middleware, endpoints manifest (validate) | HTTP surface |
+| `api/` | gateway (route index + signature cache), routes (274), middleware, endpoints manifest (validate) | HTTP surface |
 | `api_handlers/` | 17 modules | dict-in/dict-out handlers per domain |
 | `llm/` | engine + providers (OpenAI/Anthropic/DeepSeek/Ollama/mock), `http_pool` keep-alive | model calls, effort-tier normalization, capability probes |
 | `sse/` | `sse_bridge.py` | one-way event stream (`/api/events`, event-type filter) |
@@ -913,6 +954,23 @@ sequenceDiagram
   names mirroring handler kwargs, no trailing-slash params — run
   `python -m l4.api.api_endpoints` before pushing API changes.
 - Version bumps are atomic (pyproject + AGENTS.md + docs).
+
+## CI review API (card-triggered automation)
+
+The CI review module (`ci.py` + `ci_review.py`) exposes a control plane for
+the card-triggered pipeline (`l3-card-lifecycle.md` §4a):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v2/ci/reviews` | query CI review reports |
+| `GET` | `/api/v2/ci/reviews/{card_id}` | single card CI review report |
+| `POST` | `/api/v2/ci/reviews/{card_id}/rerun` | re-run CI review for a card |
+| `GET` | `/api/v2/ci/config` | switch state + permissions |
+| `PUT` | `/api/v2/ci/config` | toggle runtime switch (control-plane gated) |
+
+Writability is governed by `config/praxis.yaml` `ci.control.api.writable`
+(API surface) and `ci.control.shell.writable` (L2 `/ci` command surface).
+L2 surface: `/ci set|toggle` via `l2_shell/commands/ci.py`.
 
 
 ---
@@ -1057,9 +1115,9 @@ swapping the Python kernel for another language only changes adapters.
 
 ## Testing & QA
 
-- **2900+ tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
+- **3383 tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
   `tests/infra/`, `tests/integration/`).
-- **Singleton hygiene**: `tests/conftest.py` `_RESETS` resets ~25 known
+- **Singleton hygiene**: `tests/conftest.py` `_RESETS` resets ~33 known
   singletons before every test (autouse) — new services register their
   reset there; xdist workers get isolated skill dirs.
 - **Runner batches**: `tests/runner.py` — Batch 1 (fast core), Batch 2

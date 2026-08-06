@@ -16,4 +16,9 @@ if [ -n "$BRANCH" ] && [ "$DIRTY" -gt 0 ]; then
   echo "[worktree-check] (git worktree add ../praxis-<area> feature/<agent>-<area>)."
   echo "[worktree-check] If the changes belong to another branch, switch back:"
   echo "[worktree-check]   git checkout <their-branch>   # changes follow home"
+  if [ "$BRANCH" = "main" ]; then
+    echo "[worktree-check] NOTE: on main, the pre-commit hook blocks any staged"
+    echo "[worktree-check] file outside docs/ config/ locales/ .githooks/ scripts/"
+    echo "[worktree-check] — code changes must land via a feature branch."
+  fi
 fi

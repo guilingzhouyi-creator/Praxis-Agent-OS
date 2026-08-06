@@ -88,9 +88,9 @@ swapping the Python kernel for another language only changes adapters.
 
 ## Testing & QA
 
-- **2900+ tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
+- **3383 tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
   `tests/infra/`, `tests/integration/`).
-- **Singleton hygiene**: `tests/conftest.py` `_RESETS` resets ~25 known
+- **Singleton hygiene**: `tests/conftest.py` `_RESETS` resets ~33 known
   singletons before every test (autouse) — new services register their
   reset there; xdist workers get isolated skill dirs.
 - **Runner batches**: `tests/runner.py` — Batch 1 (fast core), Batch 2

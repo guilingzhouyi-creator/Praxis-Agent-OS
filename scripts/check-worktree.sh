@@ -8,8 +8,11 @@
 # was only recovered via reflog).
 #
 # Usage:
-#   bash scripts/check-worktree.sh [branch]   # verify current checkout
-#   bash scripts/check-worktree.sh            # report current state
+#   bash scripts/check-worktree.sh [branch]        # verify current checkout
+#   bash scripts/check-worktree.sh                 # report current state
+#   bash scripts/check-worktree.sh --allow-dirty   # report but tolerate a dirty
+#                                                  # tree (escape hatch for
+#                                                  # deliberate shared-tree ops)
 #
 # Exit codes:
 #   0 — clean / correct
@@ -18,6 +21,16 @@
 #   3 — other violation (branch expected but not current)
 
 set -u
+
+ALLOW_DIRTY=0
+EXPECTED_BRANCH=""
+for arg in "$@"; do
+  case "$arg" in
+    --allow-dirty) ALLOW_DIRTY=1 ;;
+    -*) echo "[worktree-check] unknown option: $arg" >&2; exit 3 ;;
+    *) EXPECTED_BRANCH="$arg" ;;
+  esac
+done
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
   echo "[worktree-check] not inside a git repository" >&2
@@ -33,11 +46,17 @@ echo "[worktree-check] top-level:      $ROOT"
 
 # 1. Dirty tree — the classic drift vector.
 if [ -n "$DIRTY" ]; then
-  echo "[worktree-check] ERROR: working tree is dirty — uncommitted changes"
-  echo "[worktree-check] would follow a branch switch and pollute the target."
-  echo "$DIRTY" | sed 's/^/    /'
-  echo "[worktree-check] FIX: commit, stash, or checkout the owning branch first."
-  EXIT=1
+  if [ "$ALLOW_DIRTY" -eq 1 ]; then
+    echo "[worktree-check] WARN: working tree is dirty (--allow-dirty given)"
+    echo "$DIRTY" | sed 's/^/    /'
+  else
+    echo "[worktree-check] ERROR: working tree is dirty — uncommitted changes"
+    echo "[worktree-check] would follow a branch switch and pollute the target."
+    echo "$DIRTY" | sed 's/^/    /'
+    echo "[worktree-check] FIX: commit, stash, or checkout the owning branch first."
+    echo "[worktree-check] (deliberate shared-tree op? re-run with --allow-dirty)"
+    EXIT=1
+  fi
 fi
 
 # 2. Duplicate checkout — the same branch in two worktrees.
@@ -56,8 +75,8 @@ if [ "${DUPS:-0}" -gt 1 ]; then
 fi
 
 # 3. Expected branch mismatch.
-if [ $# -ge 1 ] && [ "${CURRENT:-}" != "$1" ]; then
-  echo "[worktree-check] ERROR: expected branch '$1' but current is '${CURRENT:-}'."
+if [ -n "$EXPECTED_BRANCH" ] && [ "${CURRENT:-}" != "$EXPECTED_BRANCH" ]; then
+  echo "[worktree-check] ERROR: expected branch '$EXPECTED_BRANCH' but current is '${CURRENT:-}'."
   EXIT=3
 fi
 

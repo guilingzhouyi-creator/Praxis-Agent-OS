@@ -115,3 +115,43 @@ branching.md section 3, but still must pass the domain + layer tests.
 | `.praxis_sandbox_state.json`, `.praxis-rules.md` | a-agent, constitution changes announced |
 | `locales/` | a-agent (i18n) |
 | `tests/runner.py`, `tests/conftest.py` | shared; announce changes |
+
+## 8. Governance gates (hard walls, enforced by hooks)
+
+Rules below are **enforced by git hooks**, not just documentation. They exist
+because the 2026-08-05 shared-tree incident and the 5-worktree confluence
+showed that documentation-only discipline does not survive parallel agents.
+
+### 8.1 Mainline whitelist (direct commits to `main`)
+
+Only low-risk files may be committed directly on `main`. Everything else
+(`src/` code, `tests/`, shared files) MUST land via a feature branch and the
+double-green merge flow (branching.md).
+
+```
+Allowed on main (whitelist):
+  docs/**  README.md  config/**  locales/**  .githooks/**
+  scripts/**  .pre-commit-config.yaml  .praxis-rules.md  coverage.xml
+
+Blocked on main (must go through a feature branch):
+  src/** (all code), tests/**, pyproject.toml
+```
+
+Enforced by `.githooks/pre-commit`: when `git branch --show-current` is
+`main`, any staged file outside the whitelist aborts the commit.
+
+### 8.2 Hook matrix
+
+| Hook | What it enforces | Escalation |
+|------|------------------|------------|
+| `.githooks/pre-commit` | ruff lint/format, size check, **main whitelist gate** | abort commit on violation |
+| `.githooks/post-checkout` | warns when a switch carries a dirty tree; notes main whitelist on `main` | warning (check-worktree.sh is authoritative) |
+| `.githooks/commit-msg` | English message + `Co-Authored-By` trailer | abort commit |
+| `scripts/check-worktree.sh` | run BEFORE any branch switch; rejects dirty tree (exit 1), duplicate branch checkout (exit 2) | exit-code gate; `--allow-dirty` escape hatch for deliberate shared-tree ops |
+
+### 8.3 Escape hatches (deliberate, auditable)
+
+- `scripts/check-worktree.sh --allow-dirty` — tolerate a dirty tree for a
+  deliberate shared-tree operation (still warns).
+- Whitelist additions — review + announce in the shared-files register
+  before extending what can land directly on `main`.

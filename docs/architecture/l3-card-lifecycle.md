@@ -75,6 +75,24 @@ stateDiagram-v2
 - History message chain: user intent → card result fold into session
   history (value-weighted compression at `SESSION_HISTORY_MAX_TOKENS`).
 
+### 4a. CI review (card-triggered, optional)
+
+A completed card may trigger a background CI review
+(`l4/ci.py` + `l4/ci_review.py`) instead of archiving unverified edits:
+
+```
+card complete → ci.review.auto_trigger (praxis.yaml)
+   ├─ gates: ruff / mypy / pytest (subset)
+   ├─ consume AutoTest L2 cache as context
+   ├─ on failure → lean_trace / todo_linkage / escalate_reject
+   └─ report → /api/v2/ci/reviews (+ rerun)
+```
+
+Switches under `config/praxis.yaml` `ci.review.*` (`enabled`,
+`auto_trigger`, `gates`, `escalate_reject`, …); control-plane gating
+(`ci.control.api/shell.writable`) decides which surfaces may mutate it.
+See `l4-bridge.md` for the API surface.
+
 ## 5. Archive — R4
 
 - `tools/_archive.py`: fonds/series/ref-code store; session close archives

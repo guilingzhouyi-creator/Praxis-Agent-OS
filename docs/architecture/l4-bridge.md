@@ -1,6 +1,6 @@
 # L4 — Bridge Layer
 
-The boundary: HTTP API (263 routes), LLM engine, realtime channels,
+The boundary: HTTP API (274 routes), LLM engine, realtime channels,
 sandbox, auth, filesystem, RPC. 69 files / 13,989 lines; 17 handler
 modules.
 
@@ -15,7 +15,7 @@ modules.
 
 | Subsystem | Files | Role |
 |-----------|-------|------|
-| `api/` | gateway (route index + signature cache), routes (263), middleware, endpoints manifest (validate) | HTTP surface |
+| `api/` | gateway (route index + signature cache), routes (274), middleware, endpoints manifest (validate) | HTTP surface |
 | `api_handlers/` | 17 modules | dict-in/dict-out handlers per domain |
 | `llm/` | engine + providers (OpenAI/Anthropic/DeepSeek/Ollama/mock), `http_pool` keep-alive | model calls, effort-tier normalization, capability probes |
 | `sse/` | `sse_bridge.py` | one-way event stream (`/api/events`, event-type filter) |
@@ -96,3 +96,20 @@ sequenceDiagram
   names mirroring handler kwargs, no trailing-slash params — run
   `python -m l4.api.api_endpoints` before pushing API changes.
 - Version bumps are atomic (pyproject + AGENTS.md + docs).
+
+## CI review API (card-triggered automation)
+
+The CI review module (`ci.py` + `ci_review.py`) exposes a control plane for
+the card-triggered pipeline (`l3-card-lifecycle.md` §4a):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v2/ci/reviews` | query CI review reports |
+| `GET` | `/api/v2/ci/reviews/{card_id}` | single card CI review report |
+| `POST` | `/api/v2/ci/reviews/{card_id}/rerun` | re-run CI review for a card |
+| `GET` | `/api/v2/ci/config` | switch state + permissions |
+| `PUT` | `/api/v2/ci/config` | toggle runtime switch (control-plane gated) |
+
+Writability is governed by `config/praxis.yaml` `ci.control.api.writable`
+(API surface) and `ci.control.shell.writable` (L2 `/ci` command surface).
+L2 surface: `/ci set|toggle` via `l2_shell/commands/ci.py`.
