@@ -374,3 +374,135 @@ class TestLinkages:
     def test_concurrency_cap_exists(self, tmp_path, monkeypatch):
         svc, _ = _make_service(tmp_path, monkeypatch)
         assert svc._semaphore._value == 2  # CI_REVIEW_MAX_CONCURRENT
+
+
+class _FakeCenter:
+    """Fake SettingsCenter with default ci.* values."""
+
+    DEFAULTS = {
+        "ci.review.enabled": True,
+        "ci.review.auto_trigger": True,
+        "ci.review.llm_review": False,
+        "ci.review.gates": ["ruff"],
+        "ci.control.api.writable": True,
+        "ci.control.shell.writable": True,
+    }
+
+    def __init__(self):
+        self.d = dict(self.DEFAULTS)
+
+    def get(self, key, default=None):
+        return self.d.get(key, default)
+
+    def set(self, key, value):
+        self.d[key] = value
+
+
+class _FakeControlSvc:
+    """Fake CiReviewService exposing only the control-plane surface."""
+
+    def __init__(self, center):
+        self._center = center
+
+    def _surface_writable(self, surface):
+        return bool(self._center.get(f"ci.control.{surface}.writable", True))
+
+
+class TestControlPlane:
+    """Fine-grained switch control: sub-keys + per-surface write permission."""
+
+    def _install(self, monkeypatch):
+        from l3.config import settings_center as sc_mod
+        from l4 import ci_review as cr_mod
+
+        center = _FakeCenter()
+        svc = _FakeControlSvc(center)
+        monkeypatch.setattr(sc_mod, "get_center", lambda: center)
+        monkeypatch.setattr(cr_mod, "get_service", lambda: svc)
+        return center, svc
+
+    def test_api_get_config(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_get
+
+        self._install(monkeypatch)
+        r = handle_ci_config_get({})
+        assert r["success"] is True
+        assert r["settings"]["ci.review.enabled"] is True
+        assert r["control"] == {"api": {"writable": True}, "shell": {"writable": True}}
+
+    def test_api_put_subkey(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "ci.review.llm_review", "value": True})
+        assert r["success"] is True
+        assert center.d["ci.review.llm_review"] is True
+
+    def test_api_put_batch(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"enabled": False, "auto_trigger": False})
+        assert r["success"] is True
+        assert center.d["ci.review.enabled"] is False
+        assert center.d["ci.review.auto_trigger"] is False
+
+    def test_api_put_reject_outside_whitelist(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "ci.control.api.writable", "value": False})
+        assert r["success"] is False
+        assert "not writable" in r["error"]
+        assert center.d["ci.control.api.writable"] is True  # unchanged
+
+    def test_api_write_disabled_read_still_ok(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import (
+            handle_ci_config_get,
+            handle_ci_config_set,
+        )
+
+        center, _ = self._install(monkeypatch)
+        center.d["ci.control.api.writable"] = False
+        r_set = handle_ci_config_set({"enabled": False})
+        assert r_set["success"] is False
+        assert "writes disabled" in r_set["error"]
+        r_get = handle_ci_config_get({})
+        assert r_get["success"] is True  # reads never gated
+
+    def test_shell_set_subkey(self, monkeypatch):
+        from l2.l2_shell.commands.ci import _cmd_ci
+
+        center, _ = self._install(monkeypatch)
+        r = _cmd_ci(["set", "llm_review", "true"])
+        assert r["success"] is True
+        assert center.d["ci.review.llm_review"] is True
+
+    def test_shell_write_disabled_read_still_ok(self, monkeypatch):
+        from l2.l2_shell.commands.ci import _cmd_ci
+
+        center, _ = self._install(monkeypatch)
+        center.d["ci.control.shell.writable"] = False
+        r_set = _cmd_ci(["set", "enabled", "false"])
+        assert r_set["success"] is False
+        assert "writes disabled" in r_set["error"]
+        r_toggle = _cmd_ci(["toggle"])
+        assert r_toggle["success"] is False
+        r_config = _cmd_ci(["config"])
+        assert r_config["success"] is True  # reads never gated
+
+    def test_shell_set_reject_outside_whitelist(self, monkeypatch):
+        from l2.l2_shell.commands.ci import _cmd_ci
+
+        center, _ = self._install(monkeypatch)
+        r = _cmd_ci(["set", "ci.control.shell.writable", "false"])
+        assert r["success"] is False
+        assert center.d["ci.control.shell.writable"] is True  # unchanged
+
+    def test_shell_toggle_switches_master(self, monkeypatch):
+        from l2.l2_shell.commands.ci import _cmd_ci
+
+        center, _ = self._install(monkeypatch)
+        r = _cmd_ci(["toggle"])
+        assert r["success"] is True and r["enabled"] is False
+        assert center.d["ci.review.enabled"] is False

@@ -7,6 +7,7 @@ plus a single toggle — manual re-runs / gate editing are out of scope.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from l1.kernel.params.system import CI_DEFAULT_LIST_LIMIT
 
@@ -40,14 +41,65 @@ def handle_ci_review_get(body: dict | None = None, card_id: str = "") -> dict:
         return {"success": False, "error": str(e)}
 
 
+def _resolve_key(key: str) -> str:
+    """Map a short alias (e.g. ``enabled``) to its full ``ci.review.*`` key."""
+    return key if key.startswith("ci.") else f"ci.review.{key}"
+
+
+def handle_ci_config_get(body: dict | None = None) -> dict:
+    """GET /api/v2/ci/config — full review switch state + surface permissions."""
+    try:
+        from l3.config.settings_center import get_center
+        from l4.ci_review import CI_SETTING_KEYS, get_service
+
+        center = get_center()
+        svc = get_service()
+        return {
+            "success": True,
+            "settings": {key: center.get(key) for key in sorted(CI_SETTING_KEYS)},
+            "control": {
+                "api": {"writable": svc._surface_writable("api")},
+                "shell": {"writable": svc._surface_writable("shell")},
+            },
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def handle_ci_config_set(body: dict | None = None) -> dict:
-    """PUT /api/v2/ci/config — toggle the CI review runtime switch."""
+    """PUT /api/v2/ci/config — update review switches (whitelisted keys only).
+
+    Accepts either direct key/value pairs (``{"enabled": false}``) or an
+    explicit ``{"key": "...", "value": ...}`` form.  Writes are gated by
+    ``ci.control.api.writable``; keys outside ``CI_SETTING_KEYS`` are
+    rejected (control-plane keys cannot be self-elevated).
+    """
     b = body or {}
     try:
         from l3.config.settings_center import get_center
-        key = "ci.review.enabled"
-        enabled = bool(b.get("enabled", True))
-        get_center().set(key, enabled)
-        return {"success": True, "key": key, "enabled": enabled}
+        from l4.ci_review import CI_SETTING_KEYS, get_service
+
+        center = get_center()
+        svc = get_service()
+        if not svc._surface_writable("api"):
+            return {"success": False,
+                    "error": "writes disabled (ci.control.api.writable=false)"}
+        updates: dict[str, Any] = {}
+        if "key" in b:
+            updates[_resolve_key(str(b["key"]))] = b.get("value")
+        else:
+            for key, value in b.items():
+                if key in ("key", "value"):
+                    continue
+                updates[_resolve_key(key)] = value
+        rejected = [k for k in updates if k not in CI_SETTING_KEYS]
+        if rejected:
+            return {"success": False, "error": f"keys not writable: {rejected}",
+                    "allowed": sorted(CI_SETTING_KEYS)}
+        if not updates:
+            return {"success": False, "error": "no writable keys provided"}
+        for key, value in updates.items():
+            center.set(key, value)
+        return {"success": True, "updated": updates}
     except Exception as e:
         return {"success": False, "error": str(e)}

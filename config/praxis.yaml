@@ -55,6 +55,11 @@ ci:
     notify:
       enabled: false
       channel: log               # log|webhook|email|slack|sms
+  control:
+    api:
+      writable: true             # API surface may mutate ci.review.* (PUT /api/v2/ci/config)
+    shell:
+      writable: true             # L2 Shell surface may mutate ci.review.* (/ci set|toggle)
 
 # ── Internationalization ──
 language: en                      # Display language: en | zh-CN | ja | de (see locales/)

@@ -55,6 +55,10 @@ DEFAULTS: dict[str, Any] = {
     "ci.review.todo_linkage": False,
     "ci.review.consume_auto_test_cache": True,
     "ci.review.notify.enabled": False,
+    # CI review control-plane permissions (per-surface write gates; not
+    # modifiable via the business surfaces themselves — config/admin only).
+    "ci.control.api.writable": True,
+    "ci.control.shell.writable": True,
 }
 
 

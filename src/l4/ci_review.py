@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.system import (
+    CI_CONTROL_API_WRITABLE,
+    CI_CONTROL_SHELL_WRITABLE,
     CI_DEFAULT_LIST_LIMIT,
     CI_REVIEW_ARCHIVE_FONDS,
     CI_REVIEW_ARCHIVE_SERIES,
@@ -40,6 +42,22 @@ from l1.kernel.params.system import (
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
+
+# Whitelist of ci.review.* keys that business surfaces (API / L2 Shell) may
+# mutate.  Control-plane keys (ci.control.*) are deliberately excluded so
+# permissions cannot be self-elevated through the business surfaces.
+CI_SETTING_KEYS: frozenset[str] = frozenset({
+    "ci.review.enabled",
+    "ci.review.auto_trigger",
+    "ci.review.llm_review",
+    "ci.review.gates",
+    "ci.review.escalate_reject",
+    "ci.review.route_convention",
+    "ci.review.reputation",
+    "ci.review.lean_trace",
+    "ci.review.todo_linkage",
+    "ci.review.notify.enabled",
+})
 
 
 @dataclass
@@ -316,6 +334,21 @@ class CiReviewService(BaseService):
             return get_center().get(key, default)
         except Exception:
             return default
+
+    def _surface_writable(self, surface: str) -> bool:
+        """Check whether a control surface may mutate ci.review.* settings.
+
+        Args:
+            surface: "api" or "shell" — the calling control surface.
+
+        Returns:
+            True when writes are allowed (default True; settings failure
+            degrades to allowed so a broken settings path never silently
+            locks the feature).
+        """
+        default = (CI_CONTROL_API_WRITABLE if surface == "api"
+                   else CI_CONTROL_SHELL_WRITABLE)
+        return bool(self._setting(f"ci.control.{surface}.writable", default))
 
     # ── LLM review (optional) ──
 

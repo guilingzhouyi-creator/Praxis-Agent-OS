@@ -66,14 +66,17 @@ test_auto:
 
 ci:
   category: system
-  help: "Show CI review stats/reports or toggle the card-triggered review switch"
+  help: "Show CI review stats/reports, inspect or set review switches"
   args:
-    - {name: sub, optional: true, description: "list [status]|show <card_id>|toggle"}
+    - {name: sub, optional: true, description: "config|set <key> <value>|list [status]|show <card_id>|toggle"}
   examples:
     - "/ci                         — show review stats"
+    - "/ci config                  — show all review switches + surface permissions"
+    - "/ci set enabled false       — disable card-triggered reviews"
+    - "/ci set llm_review true     — enable LLM reviewer"
+    - "/ci toggle                  — toggle master switch (enabled/disabled)"
     - "/ci list                    — list recent review reports"
     - "/ci show <card_id>          — show one card's review"
-    - "/ci toggle                  — toggle review switch (enabled/disabled)"
 
 status:
   category: session

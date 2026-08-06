@@ -413,3 +413,90 @@ M5 验证：全量基线 + ruff + 双绿合入（feature/ci-review，--no-ff，�
 **规划结束（v2）。** 核心复用（CIService 执行器 + card_registry 完成事件 + sandbox 归因 + review 协议 +
 R4 归档 + AutoTestGate 差异化）已全部经代码确认，本模块为纯增量接线；12 个下游联动点均为可选策略、
 默认只读旁路，无既有设施改造性风险。
+
+---
+
+## 11. 控制面细分（v2.1 补充：功能子开关 + 按面权限）
+
+> 原设计仅暴露 `enabled` 单一总开关（API `PUT /api/v2/ci/config` + L2 `/ci toggle` 共用同一配置键，
+> 任一方切换立即影响另一方）。本补充将其细化为**两层颗粒度**：功能子开关独立控制 + 控制面写权限隔离。
+
+### 11.1 功能键白名单（`CI_SETTING_KEYS`）
+
+| 键 | 类型 | 含义 |
+|---|---|---|
+| `ci.review.enabled` | bool | 总开关（false = 完全不触发审查） |
+| `ci.review.auto_trigger` | bool | 每张完成卡自动触发 |
+| `ci.review.llm_review` | bool | 可选 LLM 审查 |
+| `ci.review.gates` | list[str] | 门禁子集（ruff/mypy/pytest） |
+| `ci.review.escalate_reject` | bool | REJECT → ApprovalGate 升级 |
+| `ci.review.route_convention` | bool | NEEDS_CHANGES → Convention 审议 |
+| `ci.review.reputation` | bool | LLM 审查调 record_review |
+| `ci.review.lean_trace` | bool | 门禁失败 → R4 skills/lean_trace |
+| `ci.review.todo_linkage` | bool | 门禁失败 → TodoTracker |
+| `ci.review.notify.enabled` | bool | 失败通知开关 |
+
+- 白名单常量 `CI_SETTING_KEYS: frozenset[str]` 定义于 `src/l4/ci_review.py`，API/L2 共用。
+- **越界键拒绝**：`ci.control.*` 权限键**不在**白名单内——权限本身不可经 API/L2 修改（防自举提权），
+  只能通过配置文件（praxis.yaml / SettingsCenter 管理面）调整。
+
+### 11.2 控制面权限模型
+
+| 键（params 常量） | 默认 | 含义 |
+|---|---|---|
+| `ci.control.api.writable`（`CI_CONTROL_API_WRITABLE`） | `True` | API 面是否有写权限 |
+| `ci.control.shell.writable`（`CI_CONTROL_SHELL_WRITABLE`） | `True` | L2 Shell 面是否有写权限 |
+
+- **读永远开放**：`GET /api/v2/ci/config`、`/ci config` 不校验权限。
+- **写按面隔离**：API 写前查 `ci.control.api.writable`；L2 写前查 `ci.control.shell.writable`；
+  任一面被禁写时仅拒绝写操作（返回 `success: false, error: "writes disabled"`），读不受影响。
+- 校验 helper：`CiReviewService._surface_writable(surface: str) -> bool`（默认 true，settings 失败降级放行）。
+
+### 11.3 API 契约（v2.1）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/v2/ci/config` | **新增**：返回全部 `ci.review.*` 当前值 + 两面权限状态 |
+| `PUT` | `/api/v2/ci/config` | body 直接键值（`{"enabled": false}`）或 `{"key": "...", "value": ...}`；仅白名单键；先查 api.writable |
+| `GET` | `/api/v2/ci/reviews` | 不变 |
+| `GET` | `/api/v2/ci/reviews/{card_id}` | 不变 |
+
+### 11.4 L2 Shell 契约（v2.1）
+
+| 子命令 | 说明 |
+|---|---|
+| `/ci config` | 查看全部开关 + 权限状态（读，无权限校验） |
+| `/ci set <key> <value>` | 设置单键（白名单 + shell.writable 校验）；value 解析 bool/int/list |
+| `/ci toggle` | 保留，等价 `set ci.review.enabled`（仍受 shell.writable 约束） |
+| `/ci list` / `/ci show <card_id>` / `/ci` | 不变（读） |
+
+### 11.5 文件改动（增量）
+
+| 文件 | 操作 |
+|---|---|
+| `src/l1/kernel/params/system.py` | 新增 `CI_CONTROL_API_WRITABLE` / `CI_CONTROL_SHELL_WRITABLE` |
+| `src/l1/kernel/settings.py` | DEFAULTS 追加 `ci.control.api.writable` / `ci.control.shell.writable` |
+| `config/praxis.yaml` | `ci:` 段追加 `control:` 子段 |
+| `src/l4/ci_review.py` | 新增 `CI_SETTING_KEYS` + `_surface_writable()` |
+| `src/l4/api_handlers/api_handlers_ci.py` | `handle_ci_config_get` + PUT 支持子键/批量/权限校验 |
+| `src/l4/api/api_routes.py` + `api_endpoints.py` | 注册 `GET /api/v2/ci/config` |
+| `src/l2/l2_shell/commands/ci.py` | 新增 `config` / `set` 子命令 + 权限校验 |
+| `tests/l4/test_ci_review.py` | 新增权限隔离 / 子开关 / GET config 用例 |
+
+### 11.6 测试要点（v2.1）
+
+| 用例 | 断言 |
+|---|---|
+| `test_api_get_config` | GET 返回全部键 + 两面权限状态 |
+| `test_api_put_subkey` | `{"key": "ci.review.llm_review", "value": true}` 生效 |
+| `test_api_put_batch` | `{"enabled": false, "auto_trigger": false}` 批量生效 |
+| `test_api_put_reject_outside_whitelist` | `{"key": "ci.control.api.writable"}` → 拒绝 |
+| `test_api_write_disabled` | `ci.control.api.writable=false` → PUT 拒绝，读仍可用 |
+| `test_shell_set` | `/ci set ci.review.llm_review true` 生效 |
+| `test_shell_write_disabled` | `ci.control.shell.writable=false` → `/ci set` 拒绝，`/ci config` 仍可用 |
+| `test_shell_toggle_respects_permission` | 禁写时 `/ci toggle` 拒绝 |
+
+---
+
+**规划结束（v2.1）。** 控制面细分保持向后兼容（`enabled` 直键形式不变），新增读端点与子键写、
+按面权限隔离，权限键本身不可经业务面自举修改。

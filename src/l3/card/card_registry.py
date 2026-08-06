@@ -32,16 +32,14 @@ from l1.kernel.params.system import (
     LOG_TRUNC_40,
     LOG_TRUNC_60,
     LOG_TRUNC_80,
-    LOG_TRUNC_500,
 )
 from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
 from l3.services.model_service import get_service as _get_model_service
 
-from .card_unified import CardExecution as _CardExecution
-from .card_unified import CardLifecycle, CardSummary, CardUnified
-from .card_execution_stats import CardExecutionStatsMixin
 from .card_convention import CardConventionMixin
+from .card_execution_stats import CardExecutionStatsMixin
+from .card_unified import CardLifecycle, CardSummary, CardUnified
 
 _MODEL_SPEC = "card_planner"
 
@@ -157,11 +155,10 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 return {"success": False, "error": f"card {card_id} not in HOLD state"}
             restored = self.restore_card(card_id)
             record.state = CardLifecycle.QUEUED
-            if not restored:
-                if card_id not in self._queue:
-                    self._queue.append(card_id)
-                    self._queue.sort(key=lambda x: self._cards[x].priority
-                                     if x in self._cards else 5)
+            if not restored and card_id not in self._queue:
+                self._queue.append(card_id)
+                self._queue.sort(key=lambda x: self._cards[x].priority
+                                 if x in self._cards else 5)
         logger.info("card approved: %s", card_id)
         emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "event": "approved"})

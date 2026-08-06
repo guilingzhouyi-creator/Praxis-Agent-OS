@@ -525,6 +525,10 @@ CI_REVIEW_RUFF_CMD: Final[str] = "python -m ruff check {files}"
 CI_REVIEW_MYPY_CMD: Final[str] = "python -m mypy {files}"
 CI_REVIEW_PYTEST_CMD: Final[str] = "python -m pytest {files} -x -q"
 
+# ── CI review control-plane permissions (per-surface write gates) ──
+CI_CONTROL_API_WRITABLE: Final[bool] = True    # API surface may mutate ci.review.*
+CI_CONTROL_SHELL_WRITABLE: Final[bool] = True  # L2 Shell surface may mutate ci.review.*
+
 
 # ── LLM defaults (shared between L3 and L4) ──
 LLM_DEFAULT_CONTEXT_WINDOW: Final[int] = 128000
