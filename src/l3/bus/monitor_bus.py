@@ -19,13 +19,13 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from l1.kernel.params.agent import MONITOR_RING_SIZE
+from l3._daemon_pool import DaemonPool
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_RING_SIZE = MONITOR_RING_SIZE
 _DEFAULT_PERSIST_PATH = ""  # set at boot from kernel.params
@@ -66,7 +66,7 @@ class MonitorBus:
         self._sse_listeners: list[_SseCallback] = []
         self._count: int = 0
         self._persist_path = persist_path or _DEFAULT_PERSIST_PATH
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mon")
+        self._executor = DaemonPool(max_workers=2, thread_name_prefix="mon")
         self._rehydrate()
 
     # ── Persistence ──
@@ -134,7 +134,7 @@ class MonitorBus:
         """Wait for all pending background tasks (persist, SSE) to complete.
         Useful in tests where synchronous completion is required."""
         self._executor.shutdown(wait=True)
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mon")
+        self._executor = DaemonPool(max_workers=2, thread_name_prefix="mon")
 
     def _bounded_submit(self, fn: Callable, *args: Any) -> None:
         """Submit a task to the executor, dropping if the work queue is too deep."""

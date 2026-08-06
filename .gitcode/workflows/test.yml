@@ -55,6 +55,20 @@ jobs:
       - name: L3 Memory
         run: python -m pytest tests/l3/memory/ -n 4 --maxfail=5 -q --tb=short -k "not r4"
 
+      - name: L3 Remaining (agent/card/l3a/services/scheduler/boot/...)
+        run: |
+          python -m pytest tests/l3/agent/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/agent_terminal/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/boot/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/card/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/error_bus/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/identity/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/l3a/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/resource_buffer/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/scheduler/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/services/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/session/ -n 4 --maxfail=5 -q --tb=short
+
       - name: L3 Discussion + SubAgent
         run: |
           python -m pytest tests/l3/discussion/ -n 4 --maxfail=5 -q --tb=short

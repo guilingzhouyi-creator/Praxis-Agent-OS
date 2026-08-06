@@ -8,7 +8,6 @@ lazily from the parent module to avoid a circular import.
 from __future__ import annotations
 
 import logging
-import time
 
 from l1.kernel.params.system import (
     HASH_TRUNC_SHORT,
@@ -43,8 +42,9 @@ class CardExecutionMixin:
 
     def _execute_with_existing_loop(self, card) -> dict:
         """Execute a card using the persistent AgentLoop, adding to existing conversation."""
-        from l3.agent_terminal import CardResult
         import time as _time
+
+        from l3.agent_terminal import CardResult
         t0 = _time.time()
         task = card.params.get("prompt", card.target)
         # Restore context_trail from snapshot if loop has none (e.g. after restart)
@@ -102,22 +102,22 @@ class CardExecutionMixin:
 
     def _execute_card(self, card) -> dict:
         """Execute a terminal card through the tool pipeline (single or batch)."""
+        from l1.kernel import emit_signal
         from l1.kernel.params.agent import (
             EVENT_REVIEW_REQUESTED,
             TERMINAL_CONTEXT_RECENT,
             TERMINAL_SCOUT_FINDINGS_LIMIT,
         )
-        from l1.kernel import emit_signal
+        from l3.agent._term_handlers import get_action_handler
         from l3.agent_terminal import CardResult
-        from l3.memory.context_manager import get_context_manager
+        from l3.memory.context import get_context as _get_context_manager
         from l3.tool_system.tool_pipeline import get_pipeline
-        from l3.tool_system.tool_spec import get_action_handler
         phases = ["start"]
         result_output = ""
         result_findings: list[dict] = []
 
         # Begin context cycle: load working memory into register
-        ctx = get_context_manager()
+        ctx = _get_context_manager()
         ctx.begin(self.agent_id, task=getattr(card, 'intent', '') or card.action)
         phases.append("context_begin")
 

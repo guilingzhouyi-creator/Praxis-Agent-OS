@@ -12,7 +12,7 @@ import threading
 import time
 
 from l1.kernel import emit_signal
-from l1.kernel.params.agent import AGENT_TERMINAL_RESULTS_MAX, EVENT_TASK_ASSIGN
+from l1.kernel.params.agent import AGENT_TERMINAL_RESULTS_MAX, EVENT_TASK_ASSIGN, SUBAGENT_MAX_TOKENS
 from l1.kernel.params.system import (
     LOG_TRUNC_40,
     LOG_TRUNC_120,
@@ -29,8 +29,7 @@ class WorkerPoolMixin:
 
     def boot(self) -> dict:
         """Boot the agent terminal: constitution check → warm memory → start workers."""
-        from l3.agent_terminal import TerminalStatus
-        from l3.agent_terminal import run_cache_keepalive
+        from l3.agent_terminal import TerminalStatus, run_cache_keepalive
         phases = []
         cc = self.constitution.is_allowed("boot", self.agent_id, target=self.role, territory=self.territory)
         phases.append({"phase": "constitution_check", **cc})
@@ -47,7 +46,7 @@ class WorkerPoolMixin:
             phases.append({"phase": "memory_warm", "success": False, "error": str(e)})
         try:
             from ..memory.context_pool import register as _register_cp
-            _register_cp(agent_id=self.agent_id, cell_id=self.cell_id, max_tokens=4096)
+            _register_cp(agent_id=self.agent_id, cell_id=self.cell_id, max_tokens=SUBAGENT_MAX_TOKENS)
             phases.append({"phase": "context_pool_register", "success": True})
         except Exception as e:
             phases.append({"phase": "context_pool_register", "success": False, "error": str(e)})
@@ -139,7 +138,8 @@ class WorkerPoolMixin:
                 self.status = TerminalStatus.PROCESSING if self._active_cards > 0 else TerminalStatus.IDLE
                 self._current_card = card.card_id
                 self._loop_state = f"processing {card.action} on {card.target[:LOG_TRUNC_40]}"
-            from l3.error_bus import capture, error_boundary
+            from l3.error_bus import error_boundary
+            result = None  # error_boundary consumes exceptions; keep it defined
             with error_boundary("worker card failed", component="services", agent_id=self.agent_id):
                 result = self._process_card(card)
             if result is None:

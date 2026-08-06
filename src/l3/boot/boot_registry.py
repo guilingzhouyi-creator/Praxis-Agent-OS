@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import TimeoutError
 from dataclasses import dataclass, field
 
 from l1.kernel.params.kernel import BOOT_STEP_TIMEOUT
+from l3._daemon_pool import DaemonPool
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,13 @@ def resolve_boot_order() -> list[str]:
     return ordered
 
 
-_EXECUTOR: ThreadPoolExecutor | None = None
+_EXECUTOR: DaemonPool | None = None
 
 
-def _get_executor() -> ThreadPoolExecutor:
+def _get_executor() -> DaemonPool:
     global _EXECUTOR
     if _EXECUTOR is None:
-        _EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="boot")
+        _EXECUTOR = DaemonPool(max_workers=4, thread_name_prefix="boot")
     return _EXECUTOR
 
 

@@ -29,12 +29,26 @@ class TestBoot:
         assert r.get("success")
 
     def test_init_services(self):
-        from l3.boot.boot import _init_services
-        r = _init_services()
-        assert r.get("success")
-        svc = r.get("services", [])
-        assert isinstance(svc, list), f"expected list of services, got {type(svc)}"
-        assert len(svc) >= 1, f"expected at least 1 service, got: {svc}"
+        # _init_services() starts real background services (L3A daemon,
+        # persist thread, monitor pool, network listeners). Those threads
+        # survive into the test process and later hang other tests via
+        # import-lock races — run in a subprocess so they die with it.
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parents[3]
+        code = (
+            "import sys; sys.path.insert(0, 'src'); "
+            "from l3.boot.boot import _init_services; "
+            "r = _init_services(); "
+            "svc = r.get('services', []); "
+            "sys.exit(0 if r.get('success') and isinstance(svc, list) "
+            "and len(svc) >= 1 else 1)"
+        )
+        rc = subprocess.run([sys.executable, "-c", code], cwd=str(repo),
+                            capture_output=True, timeout=120)
+        assert rc.returncode == 0, f"init_services subprocess failed: {rc.stderr.decode(errors='replace')[:500]}"
 
     def test_boot_steps_list(self):
         from l3.boot.boot import _BOOT_STEPS
