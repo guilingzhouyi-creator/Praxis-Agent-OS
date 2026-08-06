@@ -27,6 +27,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.api import API_WS_PORT, API_GATEWAY_HOST
+from l1.kernel.ports import WebSocketPort
 from websockets.sync.server import serve as ws_serve
 from websockets.exceptions import ConnectionClosed
 
@@ -37,6 +38,52 @@ _ws_clients: list[dict] = []  # [{"conn", "types": set, "id": str}]
 _ws_lock = threading.RLock()
 _ws_counter = 0
 _HAS_LISTENER = False
+
+
+class WsBridgePort(WebSocketPort):
+    """WebSocketPort adapter — connection-handle model over the shared registry.
+
+    ``upgrade(conn)`` registers an accepted socket and returns a per-client
+    handle (explicit connection model); recv/send/close operate only on that
+    handle.  broadcast() pushes to all subscribed clients.  The standalone
+    server (start_server) and the port share the same registry.
+    """
+
+    def upgrade(self, request: Any) -> Any:
+        global _ws_counter
+        _register_event_listener()
+        with _ws_lock:
+            _ws_counter += 1
+            handle = {"conn": request, "types": set(), "id": f"ws-{_ws_counter}"}
+            _ws_clients.append(handle)
+        return handle
+
+    def recv(self, conn: Any) -> dict | None:
+        raw = conn["conn"].recv()
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def send(self, conn: Any, msg: dict) -> bool:
+        try:
+            conn["conn"].send(json.dumps(msg, default=str))
+            return True
+        except Exception:
+            return False
+
+    def close(self, conn: Any) -> None:
+        with _ws_lock:
+            _ws_clients[:] = [c for c in _ws_clients if c["id"] != conn["id"]]
+        try:
+            conn["conn"].close()
+        except Exception:
+            pass
+
+    def broadcast(self, event: str, data: dict) -> None:
+        _broadcast(event, data)
 
 
 def _register_event_listener() -> None:
@@ -154,9 +201,18 @@ def handle_client(conn: Any) -> None:
 
 
 def start_server(host: str = "", port: int = 0) -> threading.Thread:
-    """Start the WS bridge server on a background daemon thread."""
+    """Start the WS bridge server on a background daemon thread.
+
+    Self-registers the ``ws`` port (WebSocketPort adapter) on first start so
+    callers can reach the bridge through ``get_port("ws")``.
+    """
     host = host or API_GATEWAY_HOST
     port = port or API_WS_PORT
+    try:
+        from l1.kernel.ports import register_port
+        register_port("ws", WsBridgePort())
+    except Exception:
+        logger.debug("ws_bridge: port self-registration skipped")
 
     def _run() -> None:
         try:

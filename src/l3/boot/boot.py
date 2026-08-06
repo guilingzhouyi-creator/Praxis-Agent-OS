@@ -716,7 +716,8 @@ def _init_memory_and_archive() -> dict:
                                    ("tool_mode", "l3.tool_system.tool_mode", "init_tool_mode"),
                                    ("central_security", "l3.services.central_security", "get_center"),
                                    ("central_memory", "l3.memory.central_memory", "get_center"),
-                                   ("central_plugin", "l3.services.central_plugin", "get_center")]:
+                                   ("central_plugin", "l3.services.central_plugin", "get_center"),
+                                   ("auth_service", "l4.vault.auth", "get_service")]:
         try:
             import importlib
             m = importlib.import_module(module_path)

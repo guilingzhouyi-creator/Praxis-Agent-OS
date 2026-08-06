@@ -40,6 +40,40 @@ from l4.api_handlers import ApiHandlers
 logger = logging.getLogger(__name__)
 
 
+def _auth_ok(headers, auth_token: str) -> bool:
+    """Return whether a request is authenticated against the gateway.
+
+    Dual-channel: AuthPort-issued login tokens (``Authorization: Bearer``)
+    take precedence; the static shared token stays supported on both Bearer
+    and the legacy ``X-API-Token`` header.  With no static token configured
+    and no AuthPort reachable, requests pass (backward-compatible open
+    default — the central security gate decides).
+    """
+    import hmac
+
+    header = headers.get("Authorization", "")
+    if header.startswith("Bearer "):
+        token = header[len("Bearer "):]
+        # Channel 1: login-issued tokens via the auth port
+        try:
+            from l1.kernel.ports import get_port
+            auth = get_port("auth")
+            v = auth.verify_token(token)
+            if v.get("valid"):
+                return True
+        except Exception:
+            pass
+        # Channel 2: static shared token
+        if auth_token:
+            return len(token) == len(auth_token) and hmac.compare_digest(token, auth_token)
+        return True
+    # Legacy header: static token only
+    if auth_token:
+        received = headers.get("X-API-Token", "")
+        return len(received) == len(auth_token) and hmac.compare_digest(received, auth_token)
+    return True
+
+
 # ── Route definition ─────────────────────────────────────────────────────────
 
 @dataclass
@@ -320,13 +354,8 @@ class ApiGateway(ApiHandlers):
                 pass  # Suppress default http.server logging
 
             def _auth_ok(self) -> bool:
-                import hmac
-                if not self.gateway.auth_token:
-                    return True
-                received = self.headers.get("Authorization", "").replace("Bearer ", "")
-                if len(received) != len(self.gateway.auth_token):
-                    return False
-                return hmac.compare_digest(received, self.gateway.auth_token)
+                """Delegate to the module-level auth check (see ``_auth_ok``)."""
+                return _auth_ok(self.headers, self.gateway.auth_token)
 
             def _check_auth(self) -> bool:
                 if not self._auth_ok():

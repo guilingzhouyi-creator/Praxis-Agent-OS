@@ -118,6 +118,66 @@ class TestAuthHandlers:
         assert port.verify_token(r["token"])["valid"]
 
 
+class TestGatewayAuth:
+    """Gateway dual-channel auth: AuthPort login tokens + static shared token."""
+
+    def _headers(self, bearer="", x_token=None):
+        h = {}
+        if bearer:
+            h["Authorization"] = f"Bearer {bearer}"
+        if x_token is not None:
+            h["X-API-Token"] = x_token
+        return h
+
+    def test_login_token_passes_without_static_token(self):
+        _reset()
+        svc = get_service()
+        r = svc.issue_token("ui-user", ttl=60)
+        from l4.api.api_gateway import _auth_ok
+
+        assert _auth_ok(self._headers(bearer=r["token"]), "")
+
+    def test_login_token_passes_even_with_wrong_static_token(self):
+        _reset()
+        svc = get_service()
+        r = svc.issue_token("ui-user", ttl=60)
+        from l4.api.api_gateway import _auth_ok
+
+        assert _auth_ok(self._headers(bearer=r["token"]), "static-secret")
+
+    def test_static_bearer_token_passes(self):
+        _reset()
+        from l4.api.api_gateway import _auth_ok
+
+        assert _auth_ok(self._headers(bearer="shared-token"), "shared-token")
+
+    def test_static_bearer_mismatch_rejected(self):
+        _reset()
+        from l4.api.api_gateway import _auth_ok
+
+        assert not _auth_ok(self._headers(bearer="wrong"), "shared-token")
+
+    def test_legacy_x_api_token_header_passes(self):
+        _reset()
+        from l4.api.api_gateway import _auth_ok
+
+        assert _auth_ok(self._headers(x_token="shared-token"), "shared-token")
+
+    def test_expired_login_token_falls_back_to_static(self):
+        _reset()
+        svc = get_service()
+        r = svc.issue_token("expiry", ttl=0.1)
+        time.sleep(0.15)
+        from l4.api.api_gateway import _auth_ok
+
+        # expired login token != static token → rejected
+        assert not _auth_ok(self._headers(bearer=r["token"]), "static-secret")
+        # expired login token + no static token passes (open default)
+        assert _auth_ok(self._headers(bearer=r["token"]), "")
+        # valid static token still passes independently
+        assert _auth_ok(self._headers(bearer="static-secret"), "static-secret")
+
+
 class TestExpiry:
     def test_short_ttl_expires(self):
         svc = _reset()

@@ -31,3 +31,12 @@ class TestBoot:
         from l3.boot.boot_registry import resolve_boot_order
         steps = resolve_boot_order()
         assert isinstance(steps, list)
+
+    def test_boot_wires_auth_port_before_security_checks(self):
+        """Boot must pre-warm AuthService so the first security check
+        can resolve the auth port (no lazy-registration timing gap)."""
+        import inspect
+        from l3.boot.boot import _init_memory_and_archive
+        src = inspect.getsource(_init_memory_and_archive)
+        assert "auth_service" in src
+        assert "l4.vault.auth" in src

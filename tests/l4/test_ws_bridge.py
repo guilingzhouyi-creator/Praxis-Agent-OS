@@ -104,3 +104,31 @@ class TestWsDiscovery:
         assert r["success"]
         assert r["url"].startswith("ws://")
         assert "subscribe" in r["protocol"]
+
+
+class TestWsPortContract:
+    def test_ws_port_registered_after_start(self, ws_server):
+        from l1.kernel.ports import WebSocketPort, get_port
+
+        port = get_port("ws")
+        assert isinstance(port, WebSocketPort)
+
+    def test_port_broadcast_reaches_subscribed_client(self, ws_server):
+        import json as _json
+        import time as _time
+
+        from l4.ws.ws_bridge import WsBridgePort
+        from websockets.sync.client import connect
+
+        port = WsBridgePort()
+        conn = connect(f"ws://127.0.0.1:{ws_server}")
+        conn.send(_json.dumps({"type": "subscribe", "events": ["card.pending"]}))
+        _time.sleep(0.3)  # let the server register the subscription
+        port.broadcast("card.pending", {"card_id": "x"})
+        msg = _json.loads(conn.recv())
+        assert msg["type"] == "event" and msg["event"] == "card.pending"
+        assert msg["data"]["card_id"] == "x"
+        try:
+            conn.close()
+        except Exception:
+            pass
