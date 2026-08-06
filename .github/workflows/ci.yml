@@ -10,20 +10,33 @@ on:
 
 jobs:
   lint:
-    # Non-gating style check: the full test gate runs in the Test workflow
-    # (.github/workflows/test.yml). 713 pre-existing ruff findings are tracked
-    # as debt in docs/design/archive/reviews/README.md and cleared in batches;
-    # this job reports them without blocking merges.
+    # Gating style check on changed files: new or modified Python files must
+    # pass ruff check + format before merge. Pre-existing findings in untouched
+    # files (tracked as debt in docs/design/archive/reviews/README.md, cleared
+    # in batches) do not block — full-tree ruff runs in the nightly job.
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install
         run: pip install -e ".[test]"
-      - name: Lint
-        run: ruff check src/ tests/ || true
-      - name: Format check
-        run: ruff format --check src/ tests/ || true
+      - name: Lint changed files (gating)
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}"...HEAD || true)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+          fi
+          FILES=$(printf '%s\n' "$CHANGED" | grep -E '\.py$' || true)
+          if [ -n "$FILES" ]; then
+            echo "Linting changed files:"
+            printf '%s\n' "$FILES"
+            ruff check $FILES --output-format=full
+            ruff format --check $FILES
+          else
+            echo "no changed Python files — lint OK"
+          fi

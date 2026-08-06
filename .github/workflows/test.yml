@@ -25,29 +25,47 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
+          pip install mypy==1.15.0 types-PyYAML  # mypy pinned to pre-commit version
+        timeout-minutes: 5
 
       # -n auto comes from pyproject addopts (parallel across files, serial
       # within a file via --dist loadfile). Small/quick steps pin -n 0 to
       # avoid xdist spawn overhead; directory steps keep the default -n auto.
-      - name: Layer import constraints
-        run: python -m pytest tests/infra/test_layer_imports.py -n 0 --maxfail=5 -q --tb=short
+      - name: Infra (layer imports / params / registration contracts)
+        run: python -m pytest tests/infra/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 3
 
-      - name: Params compliance
-        run: python -m pytest tests/infra/test_params_compliance.py -n 0 --maxfail=5 -q --tb=short
+      - name: API endpoint manifest
+        run: python -m l4.api.api_endpoints
+        timeout-minutes: 1
 
-      - name: Hardcoded-fixes regression
-        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py -n 0 --maxfail=5 -q --tb=short
+      # Pre-commit framework: run the structural hooks (whitespace / EOF /
+      # YAML / JSON / large-file / merge-conflict / private-key) as a gate.
+      # The ruff and mypy hooks are excluded on purpose — they are covered by
+      # dedicated steps (ci.yml lint + Type check below) and carry pre-existing
+      # debt that would make --all-files fail on a clean checkout. pre-commit
+      # run accepts a single hook id per invocation, hence the loop.
+      - name: Pre-commit structural hooks
+        run: |
+          for hook in trailing-whitespace end-of-file-fixer check-yaml check-json check-added-large-files check-merge-conflict detect-private-key; do
+            pre-commit run "$hook" --all-files || exit 1
+          done
+        timeout-minutes: 5
 
       - name: L1 Kernel
-        run: python -m pytest tests/l1/test_kernel.py -n 0 --maxfail=5 -q --tb=short
+        run: python -m pytest tests/l1/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 5
 
       - name: L2 Shell
         run: python -m pytest tests/l2/ --maxfail=5 -q --tb=short
+        timeout-minutes: 10
 
       - name: L3 Cell + Tools
         run: |
@@ -56,9 +74,15 @@ jobs:
           python -m pytest tests/l3/tool_system/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/bus/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/config/ --maxfail=5 -q --tb=short
+        timeout-minutes: 20
 
       - name: L3 Memory
         run: python -m pytest tests/l3/memory/ --maxfail=5 -q --tb=short -k "not r4"
+        timeout-minutes: 10
+
+      - name: L3 Memory R4 (slow)
+        run: python -m pytest tests/l3/memory/ --maxfail=5 -q --tb=short -k "r4"
+        timeout-minutes: 15
 
       - name: L3 Remaining (agent/card/l3a/services/scheduler/boot/...)
         run: |
@@ -73,18 +97,124 @@ jobs:
           python -m pytest tests/l3/scheduler/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/services/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/session/ --maxfail=5 -q --tb=short
+        timeout-minutes: 20
 
       - name: L3 Discussion + SubAgent
         run: |
           python -m pytest tests/l3/discussion/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/subagent/ --maxfail=5 -q --tb=short
+        timeout-minutes: 10
+
+      - name: L3 Root (approval / tool-ring / prompt-engine / ...)
+        run: python -m pytest tests/l3/test_*.py -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 5
 
       - name: L4 Bridge
-        run: python -m pytest tests/l4/test_sandbox.py -n 0 --maxfail=5 -q --tb=short
+        run: python -m pytest tests/l4/ --maxfail=5 -q --tb=short
+        timeout-minutes: 20
+
+      - name: L5 User Layer
+        run: python -m pytest tests/l5/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 3
 
       - name: Integration
         run: python -m pytest tests/integration/ --maxfail=5 -q --tb=short
         timeout-minutes: 5
 
+      # Non-gating type check: 671 pre-existing mypy findings are tracked as
+      # debt (same policy as ruff in ci.yml) and cleared incrementally; this
+      # step reports them without blocking merges. --no-namespace-packages is
+      # required for the src/ layout (mixed namespace + regular packages).
+      - name: Type check (mypy, non-gating)
+        continue-on-error: true
+        run: mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
+        timeout-minutes: 10
+
       - name: Summary
         run: echo "CI completed for Python ${{ matrix.python-version }}"
+        timeout-minutes: 1
+
+  test-windows:
+    # Windows smoke gate — core suites only. xdist spawns a fresh interpreter
+    # per worker on Windows (net slowdown, see AGENTS.md), so every step pins
+    # -n 0. Known Windows-flaky tests (test_file_editor*, test_resource_buffer)
+    # are excluded per AGENTS.md; full coverage runs on the ubuntu matrix.
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+        timeout-minutes: 10
+
+      - name: Infra
+        run: python -m pytest tests/infra/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 10
+
+      - name: L1 Kernel
+        run: python -m pytest tests/l1/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 15
+
+      - name: L2 Shell
+        run: python -m pytest tests/l2/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 20
+
+      - name: L3 Core (cell/tools/bus/config, no resource_buffer)
+        run: |
+          python -m pytest tests/l3/cell/ -n 0 --maxfail=5 -q --tb=short --ignore=tests/l3/cell/test_resource_buffer.py
+          python -m pytest tests/l3/tools/ -n 0 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/tool_system/ -n 0 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/bus/ -n 0 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/config/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 30
+
+      - name: L4 Bridge (sandbox + misc)
+        run: python -m pytest tests/l4/test_sandbox.py tests/l4/test_misc.py -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 20
+
+      - name: L5 User Layer
+        run: python -m pytest tests/l5/ -n 0 --maxfail=5 -q --tb=short
+        timeout-minutes: 10
+
+      - name: Summary
+        run: echo "Windows CI completed for Python ${{ matrix.python-version }}"
+        timeout-minutes: 1
+
+  coverage:
+    # PR coverage gate: full suite + fail-under (mirrors pyproject
+    # [tool.coverage.report] fail_under = 60) and uploads the XML report to
+    # Codecov for trend tracking. Runs on a single Python version — the matrix
+    # test job already covers cross-version behavior.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+        timeout-minutes: 5
+      - name: Full suite with coverage
+        run: python -m pytest tests/ -q --tb=short --cov=src --cov-report=xml --cov-report=term --cov-fail-under=60 --ignore=tests/benchmarks/bench_card.py
+        timeout-minutes: 30
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false

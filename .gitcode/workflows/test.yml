@@ -23,20 +23,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
+          pip install mypy==1.15.0 types-PyYAML  # mypy pinned to pre-commit version
 
-      - name: Layer import constraints
-        run: python -m pytest tests/infra/test_layer_imports.py -n 0 --maxfail=5 -q --tb=short
+      - name: Infra (layer imports / params / registration contracts)
+        run: python -m pytest tests/infra/ -n 0 --maxfail=5 -q --tb=short
 
-      - name: Params compliance
-        run: python -m pytest tests/infra/test_params_compliance.py -n 0 --maxfail=5 -q --tb=short
+      - name: API endpoint manifest
+        run: python -m l4.api.api_endpoints
 
-      - name: Hardcoded-fixes regression
-        run: python -m pytest tests/infra/test_hardcoded_fixes_regression.py -n 0 --maxfail=5 -q --tb=short
+      # Pre-commit framework: structural hooks only (whitespace / EOF / YAML /
+      # JSON / large-file / merge-conflict / private-key) as a gate; ruff and
+      # mypy hooks are covered by dedicated steps (ci.yml lint + Type check).
+      # pre-commit run accepts a single hook id per invocation, hence the loop.
+      - name: Pre-commit structural hooks
+        run: |
+          for hook in trailing-whitespace end-of-file-fixer check-yaml check-json check-added-large-files check-merge-conflict detect-private-key; do
+            pre-commit run "$hook" --all-files || exit 1
+          done
 
       - name: L1 Kernel
         run: python -m pytest tests/l1/ -n 4 --maxfail=5 -q --tb=short
@@ -54,6 +63,9 @@ jobs:
 
       - name: L3 Memory
         run: python -m pytest tests/l3/memory/ -n 4 --maxfail=5 -q --tb=short -k "not r4"
+
+      - name: L3 Memory R4 (slow)
+        run: python -m pytest tests/l3/memory/ -n 4 --maxfail=5 -q --tb=short -k "r4"
 
       - name: L3 Remaining (agent/card/l3a/services/scheduler/boot/...)
         run: |
@@ -74,12 +86,26 @@ jobs:
           python -m pytest tests/l3/discussion/ -n 4 --maxfail=5 -q --tb=short
           python -m pytest tests/l3/subagent/ -n 4 --maxfail=5 -q --tb=short
 
+      - name: L3 Root (approval / tool-ring / prompt-engine / ...)
+        run: python -m pytest tests/l3/test_*.py -n 0 --maxfail=5 -q --tb=short
+
       - name: L4 Bridge
         run: python -m pytest tests/l4/ -n 4 --maxfail=5 -q --tb=short
+
+      - name: L5 User Layer
+        run: python -m pytest tests/l5/ -n 0 --maxfail=5 -q --tb=short
 
       - name: Integration
         run: python -m pytest tests/integration/ -n 4 --maxfail=5 -q --tb=short
         timeout-minutes: 5
+
+      # Non-gating type check: 671 pre-existing mypy findings are tracked as
+      # debt (same policy as ruff in ci.yml) and cleared incrementally; this
+      # step reports them without blocking merges. --no-namespace-packages is
+      # required for the src/ layout (mixed namespace + regular packages).
+      - name: Type check (mypy, non-gating)
+        continue-on-error: true
+        run: mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
 
       - name: Summary
         run: echo "CI completed for Python ${{ matrix.python-version }}"
