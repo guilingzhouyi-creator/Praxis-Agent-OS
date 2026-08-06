@@ -406,4 +406,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("DELETE", "/api/v2/skills/{name}",    "l4.api_handlers.api_handlers_skills.handle_skills_delete",       "Delete skill (developer)"),
     ("POST",   "/api/v2/skills/reload",   "l4.api_handlers.api_handlers_skills.handle_skills_reload",       "Reload built-in skills (developer)"),
     ("GET",    "/api/v2/skills/permissions", "l4.api_handlers.api_handlers_skills.handle_skills_permissions", "Skill write-gate policy"),
+
+    # CI review (card-triggered; read-only queries + runtime switch)
+    ("GET",  "/api/v2/ci/reviews",        "l4.api_handlers.api_handlers_ci.handle_ci_reviews",     "Query CI review reports"),
+    ("GET",  "/api/v2/ci/reviews/{card_id}", "l4.api_handlers.api_handlers_ci.handle_ci_review_get", "Single card CI review report"),
+    ("PUT",  "/api/v2/ci/config",         "l4.api_handlers.api_handlers_ci.handle_ci_config_set",  "Toggle CI review runtime switch"),
 ]

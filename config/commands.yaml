@@ -64,6 +64,17 @@ test_auto:
     - "/test_auto async            — enable background test runs after cards"
     - "/test_auto reset            — back to config value"
 
+ci:
+  category: system
+  help: "Show CI review stats/reports or toggle the card-triggered review switch"
+  args:
+    - {name: sub, optional: true, description: "list [status]|show <card_id>|toggle"}
+  examples:
+    - "/ci                         — show review stats"
+    - "/ci list                    — list recent review reports"
+    - "/ci show <card_id>          — show one card's review"
+    - "/ci toggle                  — toggle review switch (enabled/disabled)"
+
 status:
   category: session
   help: "Show Cell, agent, and session status"

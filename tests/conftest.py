@@ -20,6 +20,7 @@ if os.environ.get("PYTEST_XDIST_WORKER"):
 # Modules with singleton _xxx = None pattern that can pollute across tests
 _RESETS = {
     "l4.api.api_gateway": ("stop_api", None),
+    "l4.ci_review": ("reset_service", None),
     "l3.card.approval_gate": ("reset_gate", None),
     "l3.card.card_registry": ("reset_registry", None),
     "l3.card.issue": ("reset_table", None),

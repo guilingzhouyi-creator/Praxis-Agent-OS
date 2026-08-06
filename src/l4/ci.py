@@ -52,6 +52,7 @@ class PipelineRun:
     completed_at: float = 0.0
     elapsed: float = 0.0
     agent_id: str = ""
+    card_id: str = ""          # source card that triggered this run (CI review linkage)
 
 
 class CIService(BaseService):
