@@ -168,6 +168,14 @@ layer_1:
       handler: l3.tools._package.pip_list
 
   lsp:
+    go_to_definition:
+      description: "Navigate to the definition of the symbol at a position"
+      handler: l3.tools._lsp.go_to_definition
+      params: [{name: path, type: string, required: true}, {name: line, type: int, optional: true}, {name: column, type: int, optional: true}]
+    find_references:
+      description: "Find all references to the symbol at a position"
+      handler: l3.tools._lsp.find_references
+      params: [{name: path, type: string, required: true}, {name: line, type: int, optional: true}, {name: column, type: int, optional: true}]
     hover_info:
       description: "Get hover documentation for a symbol"
       handler: l3.tools._lsp.hover_info
