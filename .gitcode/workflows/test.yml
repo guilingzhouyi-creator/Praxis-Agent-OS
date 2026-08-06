@@ -48,6 +48,7 @@ jobs:
         run: |
           python -m pytest tests/l3/cell/ -n 4 --maxfail=5 -q --tb=short
           python -m pytest tests/l3/tools/ -n 4 --maxfail=5 -q --tb=short
+          python -m pytest tests/l3/tool_system/ -n 4 --maxfail=5 -q --tb=short
           python -m pytest tests/l3/bus/ -n 4 --maxfail=5 -q --tb=short
           python -m pytest tests/l3/config/ -n 4 --maxfail=5 -q --tb=short
 
