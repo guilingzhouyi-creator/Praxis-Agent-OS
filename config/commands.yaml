@@ -54,6 +54,16 @@ harness:
     - "/harness minimal --confirm  — minimal mode, risk user-assumed"
     - "/harness reset              — back to config value"
 
+test_auto:
+  category: system
+  help: "Show/switch AutoTestGate (off|async post-card background test regression)"
+  args:
+    - {name: mode, optional: true, description: "off|async|reset"}
+  examples:
+    - "/test_auto                  — show mode + pending feedback"
+    - "/test_auto async            — enable background test runs after cards"
+    - "/test_auto reset            — back to config value"
+
 status:
   category: session
   help: "Show Cell, agent, and session status"

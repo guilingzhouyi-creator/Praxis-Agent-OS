@@ -78,6 +78,18 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
         except Exception:
             pass
 
+    # AutoTestGate: attach pending test feedback to the next card and promote
+    # it to the highest priority so the failure fix lands first.  Exact agent
+    # match wins; otherwise the oldest pending feedback is attached.
+    try:
+        from l3.tool_system.auto_test import pop_feedback
+        fb = pop_feedback(agent_id) or pop_feedback("")
+        if fb:
+            columns["_test_feedback"] = fb
+            priority = 1
+    except Exception:
+        pass
+
     card = CardUnified(nature=nature, priority=priority)
     card.summary = CardSummary(title=title, description=description, columns=columns)
     for pd in phases_data:

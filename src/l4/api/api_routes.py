@@ -387,6 +387,8 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # Loop control (standalone handlers from api_handlers_loop.py)
     ("GET",  "/api/v2/loop/config",   ".loop_config_get", "Get loop control config"),
     ("POST", "/api/v2/loop/config",   ".loop_config_set", "Set loop control config"),
+    ("GET",  "/api/v2/loop/auto-test", ".loop_auto_test_get", "AutoTestGate state + pending feedback"),
+    ("PUT",  "/api/v2/loop/auto-test", ".loop_auto_test_set", "Switch AutoTestGate mode (off|async)"),
 
     # Monitor (standalone functions from api_handlers_monitor.py)
     ("GET",  "/api/v2/monitor/events",    "l4.api_handlers.api_handlers_monitor.handle_monitor_events",     "Query monitor events"),
