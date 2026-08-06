@@ -795,6 +795,16 @@ def _init_services() -> dict:
     except Exception as e:
         logger.warning("resource_buffer init: %s", e)
 
+    # Register the code auto-format post-execute hook (config-gated in praxis.yaml)
+    try:
+        from l3.services.code_format import auto_format_hook
+        from l3.tool_system.tool_pipeline import get_pipeline
+
+        get_pipeline().register_post_execute_hook(auto_format_hook)
+        results["code_format"] = "ok"
+    except Exception as e:
+        logger.warning("code_format hook register: %s", e)
+
     # Install LogService logging bridge (catches all logger.* calls)
     try:
         from l3.bus.log import get_service as _ls

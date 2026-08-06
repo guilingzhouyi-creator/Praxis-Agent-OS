@@ -134,3 +134,20 @@ HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
 # ── Scout ──
 # (Constants imported from .system)
 
+
+# ── Code auto-format (l3/services/code_format.py) ──
+TOOL_FORMAT_TIMEOUT: Final[int] = 30          # per-file formatter subprocess timeout (s)
+FORMAT_MAX_FILES: Final[int] = 200            # batch cap for format_project
+FORMAT_DETECTORS: Final[list[tuple[str, ...]]] = [
+    ("ruff", "format"),
+    ("black",),
+    ("autopep8",),
+]
+FORMAT_EXTENSION_TOOL: Final[dict[str, str]] = {
+    ".py": "ruff",
+    ".pyi": "ruff",
+}
+FORMAT_IGNORE_DIRS: Final[frozenset[str]] = frozenset({
+    "__pycache__", ".venv", "node_modules", ".git",
+})
+
