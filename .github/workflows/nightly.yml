@@ -19,4 +19,9 @@ jobs:
           cache: "pip"
       - run: pip install -e ".[test]"
       - name: Full test suite
-        run: python -m pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term -q --ignore=tests/benchmarks/bench_card.py
+        run: python -m pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term --cov-fail-under=60 -q --ignore=tests/benchmarks/bench_card.py
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
