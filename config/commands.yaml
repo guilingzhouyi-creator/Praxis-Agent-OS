@@ -66,17 +66,18 @@ test_auto:
 
 ci:
   category: system
-  help: "Show CI review stats/reports, inspect or set review switches"
+  help: "Show CI review stats/reports, inspect or set review switches (global or per cell/agent)"
   args:
-    - {name: sub, optional: true, description: "config|set <key> <value>|list [status]|show <card_id>|toggle"}
+    - {name: sub, optional: true, description: "config [--cell X] [--agent Y]|set <key> <value> [--cell X] [--agent Y] [--admin]|toggle|list [status]|show <card_id>"}
   examples:
     - "/ci                         — show review stats"
-    - "/ci config                  — show all review switches + surface permissions"
-    - "/ci set enabled false       — disable card-triggered reviews"
+    - "/ci config                  — show all switches + permissions"
+    - "/ci config --cell cell-sp1  — show effective values for a cell"
+    - "/ci set enabled false       — disable reviews globally"
+    - "/ci set enabled false --cell cell-sp1   — disable reviews for one cell"
     - "/ci set llm_review true     — enable LLM reviewer"
-    - "/ci toggle                  — toggle master switch (enabled/disabled)"
-    - "/ci list                    — list recent review reports"
-    - "/ci show <card_id>          — show one card's review"
+    - "/ci set ci.control.shell.writable false --admin  — make L2 read-only (admin)"
+    - "/ci toggle                  — toggle master switch"
 
 status:
   category: session

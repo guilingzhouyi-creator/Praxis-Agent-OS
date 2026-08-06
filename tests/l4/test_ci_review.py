@@ -399,13 +399,20 @@ class _FakeCenter:
 
 
 class _FakeControlSvc:
-    """Fake CiReviewService exposing only the control-plane surface."""
+    """Fake CiReviewService exposing the control-plane + scope surfaces."""
 
     def __init__(self, center):
         self._center = center
 
     def _surface_writable(self, surface):
         return bool(self._center.get(f"ci.control.{surface}.writable", True))
+
+    def _effective(self, suffix, agent_id="", cell_id="", default=None):
+        for scope_key in (f"ci.review.agent.{agent_id}.{suffix}" if agent_id else "",
+                          f"ci.review.cell.{cell_id}.{suffix}" if cell_id else ""):
+            if scope_key and scope_key in self._center.d:
+                return self._center.d[scope_key]
+        return self._center.get(f"ci.review.{suffix}", default)
 
 
 class TestControlPlane:
@@ -453,7 +460,8 @@ class TestControlPlane:
         center, _ = self._install(monkeypatch)
         r = handle_ci_config_set({"key": "ci.control.api.writable", "value": False})
         assert r["success"] is False
-        assert "not writable" in r["error"]
+        # v3: control-plane keys are whitelisted but need admin confirmation.
+        assert "admin" in r["error"]
         assert center.d["ci.control.api.writable"] is True  # unchanged
 
     def test_api_write_disabled_read_still_ok(self, monkeypatch):
@@ -506,3 +514,131 @@ class TestControlPlane:
         r = _cmd_ci(["toggle"])
         assert r["success"] is True and r["enabled"] is False
         assert center.d["ci.review.enabled"] is False
+
+
+class TestScopeApi:
+    """v3 scoped writes via API: cell/agent scope + admin-gated control keys."""
+
+    def _install(self, monkeypatch):
+        from l3.config import settings_center as sc_mod
+        from l4 import ci_review as cr_mod
+
+        center = _FakeCenter()
+        svc = _FakeControlSvc(center)
+        monkeypatch.setattr(sc_mod, "get_center", lambda: center)
+        monkeypatch.setattr(cr_mod, "get_service", lambda: svc)
+        return center, svc
+
+    def test_scope_put_cell(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "enabled", "value": False,
+                                  "scope": {"cell": "cell-sp1"}})
+        assert r["success"] is True
+        assert center.d["ci.review.cell.cell-sp1.enabled"] is False
+
+    def test_scope_put_agent(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "llm_review", "value": True,
+                                  "scope": {"agent": "agent-writer"}})
+        assert r["success"] is True
+        assert center.d["ci.review.agent.agent-writer.llm_review"] is True
+
+    def test_scope_get_effective(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_get
+
+        center, _ = self._install(monkeypatch)
+        center.d["ci.review.cell.cell-sp1.enabled"] = False
+        r = handle_ci_config_get({"cell_id": "cell-sp1"})
+        assert r["success"] is True
+        assert r["effective"]["enabled"] is False
+        assert r["settings"]["ci.review.enabled"] is True  # global unchanged
+
+    def test_scope_key_injection_rejected(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "enabled", "value": False,
+                                  "scope": {"cell": "a.b"}})
+        assert r["success"] is False
+        assert "not writable" in r["error"]
+        assert "ci.review.cell.a.b.enabled" not in center.d
+
+    def test_control_key_requires_admin(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "ci.control.shell.writable", "value": False})
+        assert r["success"] is False
+        assert "admin" in r["error"]
+        assert center.d["ci.control.shell.writable"] is True  # unchanged
+
+    def test_control_key_admin_ok(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        r = handle_ci_config_set({"key": "ci.control.shell.writable",
+                                  "value": False, "admin": True})
+        assert r["success"] is True
+        assert center.d["ci.control.shell.writable"] is False
+
+    def test_control_key_skips_surface_gate(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_config_set
+
+        center, _ = self._install(monkeypatch)
+        center.d["ci.control.api.writable"] = False
+        r = handle_ci_config_set({"key": "ci.control.api.writable",
+                                  "value": True, "admin": True})
+        assert r["success"] is True  # recoverable despite the api gate being off
+        assert center.d["ci.control.api.writable"] is True
+
+
+class TestScopeResolution:
+    """v3 scoped resolution (agent > cell > global) + trigger gating."""
+
+    def test_effective_agent_overrides_cell(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.enabled"] = True
+        fake["ci.review.cell.cell-sp1.enabled"] = False
+        fake["ci.review.agent.agent-writer.enabled"] = True
+        assert svc._effective("enabled", "agent-writer", "cell-sp1") is True
+
+    def test_effective_cell_overrides_global(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.enabled"] = True
+        fake["ci.review.cell.cell-sp1.enabled"] = False
+        assert svc._effective("enabled", "", "cell-sp1") is False
+
+    def test_effective_falls_back_global(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.enabled"] = False
+        assert svc._effective("enabled", "agent-x", "cell-x", True) is False
+
+    def test_trigger_respects_agent_scope(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.enabled"] = True
+        fake["ci.review.agent.agent-writer.enabled"] = False
+        triggered = []
+        monkeypatch.setattr(svc, "_do_review",
+                            lambda cid, state, result: triggered.append(cid))
+        svc._on_card_completed("card-1", "completed",
+                               {"agent_id": "agent-writer", "cell_id": "cell-sp1"})
+        svc._on_card_completed("card-2", "completed",
+                               {"agent_id": "agent-reader", "cell_id": "cell-sp1"})
+        time.sleep(0.3)
+        assert triggered == ["card-2"]
+
+    def test_trigger_respects_cell_scope(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.enabled"] = True
+        fake["ci.review.cell.cell-sp1.enabled"] = False
+        triggered = []
+        monkeypatch.setattr(svc, "_do_review",
+                            lambda cid, state, result: triggered.append(cid))
+        svc._on_card_completed("card-1", "completed", {"cell_id": "cell-sp1"})
+        svc._on_card_completed("card-2", "completed", {"cell_id": "cell-sp2"})
+        time.sleep(0.3)
+        assert triggered == ["card-2"]

@@ -17,6 +17,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shlex
 import threading
 import time
@@ -43,21 +44,62 @@ from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
 
-# Whitelist of ci.review.* keys that business surfaces (API / L2 Shell) may
-# mutate.  Control-plane keys (ci.control.*) are deliberately excluded so
-# permissions cannot be self-elevated through the business surfaces.
-CI_SETTING_KEYS: frozenset[str] = frozenset({
-    "ci.review.enabled",
-    "ci.review.auto_trigger",
-    "ci.review.llm_review",
-    "ci.review.gates",
-    "ci.review.escalate_reject",
-    "ci.review.route_convention",
-    "ci.review.reputation",
-    "ci.review.lean_trace",
-    "ci.review.todo_linkage",
-    "ci.review.notify.enabled",
+# Functional setting suffixes (without the ci.review. prefix).  Business
+# surfaces (API / L2 Shell) may mutate these globally or per scope
+# (cell / agent).  Control-plane keys (ci.control.*) are writable too but
+# require an explicit admin confirmation (see _is_control_key).
+CI_SETTING_SUFFIXES: frozenset[str] = frozenset({
+    "enabled",
+    "auto_trigger",
+    "llm_review",
+    "gates",
+    "escalate_reject",
+    "route_convention",
+    "reputation",
+    "lean_trace",
+    "todo_linkage",
+    "notify.enabled",
 })
+
+# Back-compat alias: the full ci.review.* key set derived from suffixes.
+CI_SETTING_KEYS: frozenset[str] = frozenset(
+    f"ci.review.{s}" for s in CI_SETTING_SUFFIXES
+)
+
+_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _is_control_key(key: str) -> bool:
+    """True for control-plane keys (ci.control.*) — API-writable with admin."""
+    return key in ("ci.control.api.writable", "ci.control.shell.writable")
+
+
+def _is_allowed_key(key: str) -> bool:
+    """Check a settings key against the dynamic whitelist.
+
+    Accepts ``ci.review.<suffix>``, ``ci.review.cell.<id>.<suffix>`` and
+    ``ci.review.agent.<id>.<suffix>`` (ids must match ``[A-Za-z0-9_-]+``),
+    plus control-plane keys (handled separately with admin confirmation).
+    """
+    if _is_control_key(key):
+        return True
+    if not key.startswith("ci.review."):
+        return False
+    rest = key[len("ci.review."):]
+    parts = rest.split(".")
+    if len(parts) == 1:
+        return parts[0] in CI_SETTING_SUFFIXES
+    if (len(parts) == 3 and parts[0] in ("cell", "agent")
+            and parts[2] in CI_SETTING_SUFFIXES):
+        return bool(_ID_PATTERN.match(parts[1]))
+    return False
+
+
+def _normalize_key(key: str) -> str:
+    """Map a short alias (e.g. ``enabled``) to its full ``ci.review.*`` key."""
+    if key.startswith("ci."):
+        return key
+    return f"ci.review.{key}" if key in CI_SETTING_SUFFIXES else key
 
 
 @dataclass
@@ -151,9 +193,11 @@ class CiReviewService(BaseService):
 
     def _on_card_completed(self, card_id: str, state: str, result: dict) -> None:
         """Completion listener — schedule a review for the card (non-blocking)."""
-        if not self._setting("ci.review.enabled", True):
+        agent_id = str(result.get("agent_id") or result.get("agent") or "")
+        cell_id = str(result.get("cell_id") or "")
+        if not bool(self._effective("enabled", agent_id, cell_id, True)):
             return
-        if not self._setting("ci.review.auto_trigger", True):
+        if not bool(self._effective("auto_trigger", agent_id, cell_id, True)):
             return
         if state not in ("completed", "failed", "cancelled"):
             return
@@ -334,6 +378,30 @@ class CiReviewService(BaseService):
             return get_center().get(key, default)
         except Exception:
             return default
+
+    def _effective(self, suffix: str, agent_id: str = "", cell_id: str = "",
+                   default: Any = None) -> Any:
+        """Resolve a setting across scopes: agent > cell > global.
+
+        Args:
+            suffix: functional suffix without the ``ci.review.`` prefix
+                (e.g. ``"enabled"``).
+            agent_id / cell_id: optional scope selectors for the card.
+            default: fallback when no scope override and no global value.
+
+        Returns:
+            The resolved value.  A scope override only applies when its key
+            is present in the settings (``None`` means "not set").
+        """
+        if agent_id:
+            v = self._setting(f"ci.review.agent.{agent_id}.{suffix}", None)
+            if v is not None:
+                return v
+        if cell_id:
+            v = self._setting(f"ci.review.cell.{cell_id}.{suffix}", None)
+            if v is not None:
+                return v
+        return self._setting(f"ci.review.{suffix}", default)
 
     def _surface_writable(self, surface: str) -> bool:
         """Check whether a control surface may mutate ci.review.* settings.

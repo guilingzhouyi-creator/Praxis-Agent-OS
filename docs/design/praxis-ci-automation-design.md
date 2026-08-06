@@ -500,3 +500,95 @@ R4 归档 + AutoTestGate 差异化）已全部经代码确认，本模块为纯�
 
 **规划结束（v2.1）。** 控制面细分保持向后兼容（`enabled` 直键形式不变），新增读端点与子键写、
 按面权限隔离，权限键本身不可经业务面自举修改。
+
+---
+
+## 12. 作用域细分 + 全量 API 可配置（v3 补充）
+
+> v2.1 提供功能子开关 + 按面写权限，但 `ci.control.*` 权限键被排除在业务面白名单外（防自举提权），
+> 且配置粒度仅到全局。v3 目标：**配置按 cell/agent 作用域覆盖**，且**所有项（含权限键）均允许用户
+> 通过 API 控制**——权限键需 `admin` 显式确认，兼顾安全与可恢复性。
+
+### 12.1 作用域解析模型（agent > cell > 全局）
+
+| 层级 | 键格式 | 示例 |
+|---|---|---|
+| 全局默认 | `ci.review.<suffix>` | `ci.review.enabled` |
+| Cell 覆盖 | `ci.review.cell.<cell_id>.<suffix>` | `ci.review.cell.cell-sp1.enabled` |
+| Agent 覆盖 | `ci.review.agent.<agent_id>.<suffix>` | `ci.review.agent.agent-writer.enabled` |
+
+- `<suffix>` ∈ 10 个功能后缀（`enabled` / `auto_trigger` / `llm_review` / `gates` /
+  `escalate_reject` / `route_convention` / `reputation` / `lean_trace` / `todo_linkage` /
+  `notify.enabled`）。
+- `<cell_id>` / `<agent_id>` 仅允许 `[A-Za-z0-9_-]+`（防设置键注入）。
+- **解析优先级**：agent 覆盖存在 → 用之；否则 cell 覆盖存在 → 用之；否则全局默认。
+- 判定函数：`CiReviewService._effective(suffix, agent_id="", cell_id="")` —— 内部依次
+  `_setting("ci.review.agent.<id>.<suffix>")` → `_setting("ci.review.cell.<id>.<suffix>")`
+  → `_setting("ci.review.<suffix>", default)`；中途命中即返回。
+- `_on_card_completed` 改为按 `result` 中的 `agent_id` / `cell_id` 解析
+  `_effective("enabled", ...)` 与 `_effective("auto_trigger", ...)` 判定是否触发。
+
+### 12.2 白名单与校验（动态 scope 键）
+
+| 函数 | 规则 |
+|---|---|
+| `CI_SETTING_SUFFIXES: frozenset[str]` | 10 个功能后缀（替代 v2 的完整键集合） |
+| `_is_allowed_key(key)` | `ci.review.<suffix>` 或 `ci.review.cell.<id>.<suffix>` 或 `ci.review.agent.<id>.<suffix>`（id 格式校验） |
+| `_is_control_key(key)` | `ci.control.*`（权限键，v3 起 API 可写但需 `admin`） |
+| `_normalize_key(key)` | 短名（`enabled`）→ `ci.review.enabled`；作用域后缀同样处理 |
+
+- v2 的 `CI_SETTING_KEYS`（完整键 frozenset）升级为 `CI_SETTING_SUFFIXES`（后缀集），
+  校验逻辑改为 `_is_allowed_key()` 动态判定——保持向后兼容（旧完整键仍被接受）。
+
+### 12.3 权限键开放（v3 关键变更）
+
+| 项 | v2.1 | v3 |
+|---|---|---|
+| `ci.control.api.writable` / `ci.control.shell.writable` | 不可经 API/L2 修改 | **API/L2 可写，需 `admin: true` / `--admin` 显式确认** |
+| 写入前置检查 | — | `_is_control_key(key)` 时：①必须带 admin 确认；②**跳过** surface writable 门控（防自锁——若 api 被禁写，用户需能恢复） |
+| 防误操作 | 完全锁死 | admin 确认字段防无意修改；恢复路径始终可用（admin 可改回） |
+
+- 安全边界说明：admin 确认是**防误操作护栏**而非认证（Praxis 为本地单机 Agent OS，
+  操作者即管理员）；若未来需多租户认证，在 `api_gateway` 层加身份校验即可，本模块不重复实现。
+
+### 12.4 API 契约（v3）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/v2/ci/config?cell_id=&agent_id=` | 返回全局 `settings`（10 后缀）+ 按作用域解析的 `effective` + `control` 权限状态 |
+| `PUT` | `/api/v2/ci/config` | body：`{"key","value"}` / 批量直键 / `{"key","value","scope":{"cell"/"agent"}}` / 权限键 `{"key","value","admin":true}` |
+
+PUT 键展开规则：
+- `{"key": "llm_review", "value": true}` → 全局 `ci.review.llm_review`
+- `{"key": "enabled", "value": false, "scope": {"cell": "cell-sp1"}}` → `ci.review.cell.cell-sp1.enabled`
+- `{"key": "enabled", "value": false, "scope": {"agent": "agent-writer"}}` → `ci.review.agent.agent-writer.enabled`
+- `{"key": "ci.control.shell.writable", "value": false, "admin": true}` → 权限键（需 admin，绕过 surface 门控）
+- 完整键形式（`ci.review.cell.x.enabled`）仍直接接受；scope 与完整键冲突时以 scope 为准报错。
+
+### 12.5 L2 Shell 契约（v3）
+
+| 子命令 | 说明 |
+|---|---|
+| `/ci config [--cell <id>] [--agent <id>]` | 查看全局 + 作用域生效值 + 权限状态 |
+| `/ci set <key> <value> [--cell <id>] [--agent <id>] [--admin]` | 按作用域设置；`--admin` 用于权限键 |
+| `/ci toggle [--cell <id>] [--agent <id>] [--admin]` | 作用域内切换 enabled |
+
+### 12.6 测试要点（v3）
+
+| 用例 | 断言 |
+|---|---|
+| `test_effective_agent_overrides_cell` | agent 覆盖存在 → 优先于 cell 与全局 |
+| `test_effective_cell_overrides_global` | 无 agent 覆盖时 cell 覆盖生效 |
+| `test_effective_falls_back_global` | 均无覆盖 → 全局默认 |
+| `test_scope_put_cell` | `scope.cell` → `ci.review.cell.<id>.enabled` 写入 |
+| `test_scope_put_agent` | `scope.agent` → `ci.review.agent.<id>.enabled` 写入 |
+| `test_scope_key_injection_rejected` | cell_id 含 `.` / `;` → 拒绝 |
+| `test_control_key_requires_admin` | 权限键无 `admin: true` → 拒绝 |
+| `test_control_key_admin_ok` | 带 admin → 写入成功 |
+| `test_control_key_skips_surface_gate` | api.writable=false 时 admin 仍可改回（可恢复） |
+| `test_trigger_respects_agent_scope` | agent 级 enabled=false → 该 agent 的卡不触发，其他 agent 仍触发 |
+
+---
+
+**规划结束（v3）。** 作用域覆盖（agent > cell > 全局）使 CI 审查可按执行单元精细开关；
+权限键经 admin 确认开放给 API/L2（用户全量可控 + 可恢复），无自锁风险。
