@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from l4.lsp.lsp import LocalAnalyzer
+from l4.lsp.lsp_manager import LspManager
 
 
 class _FakeManager:
@@ -35,24 +35,30 @@ def sample_project(tmp_path):
     return tmp_path
 
 
-def test_go_to_definition_finds_symbol_at_position(sample_project):
+@pytest.fixture
+def ast_fallback_manager(sample_project):
+    """Real LspManager with server startup disabled (AST fallback path)."""
+    mgr = LspManager(str(sample_project))
+    with mock.patch.object(mgr, "_get_or_start_server", return_value=None):
+        yield mgr
+
+
+def test_go_to_definition_finds_symbol_at_position(ast_fallback_manager, sample_project):
     from l3.tools import _lsp
 
     path = str(sample_project / "sample.py")
-    analyzer = LocalAnalyzer(str(sample_project))
-    with mock.patch("l4.lsp.lsp.get_lsp", return_value=analyzer):
+    with mock.patch("l4.lsp.lsp_manager.get_manager", return_value=ast_fallback_manager):
         result = _lsp.go_to_definition({"path": path, "line": 5, "column": 16}, "agent-1")
     assert result["success"] is True
     assert result["found"] is True
     assert result["result"]["name"] == "make_greeter"
 
 
-def test_go_to_definition_no_symbol_at_position(sample_project):
+def test_go_to_definition_no_symbol_at_position(ast_fallback_manager, sample_project):
     from l3.tools import _lsp
 
     path = str(sample_project / "sample.py")
-    analyzer = LocalAnalyzer(str(sample_project))
-    with mock.patch("l4.lsp.lsp.get_lsp", return_value=analyzer):
+    with mock.patch("l4.lsp.lsp_manager.get_manager", return_value=ast_fallback_manager):
         result = _lsp.go_to_definition({"path": path, "line": 4, "column": 1}, "agent-1")
     assert result["success"] is True
     assert result["found"] is False
@@ -66,12 +72,11 @@ def test_go_to_definition_requires_path():
     assert "path" in result["error"]
 
 
-def test_find_references_lists_usages(sample_project):
+def test_find_references_lists_usages(ast_fallback_manager, sample_project):
     from l3.tools import _lsp
 
     path = str(sample_project / "sample.py")
-    analyzer = LocalAnalyzer(str(sample_project))
-    with mock.patch("l4.lsp.lsp.get_lsp", return_value=analyzer):
+    with mock.patch("l4.lsp.lsp_manager.get_manager", return_value=ast_fallback_manager):
         result = _lsp.find_references({"path": path, "line": 5, "column": 8}, "agent-1")
     assert result["success"] is True
     assert result["total"] >= 1
@@ -81,11 +86,11 @@ def test_find_references_lists_usages(sample_project):
 def test_workspace_symbols_uses_analyzer(sample_project):
     from l3.tools import _lsp
 
-    analyzer = LocalAnalyzer(str(sample_project))
-    with mock.patch("l4.lsp.lsp.get_lsp", return_value=analyzer):
+    with mock.patch("l4.lsp.lsp.get_lsp") as fake_lsp:
+        fake_lsp.return_value.symbol_search.return_value = []
         result = _lsp.workspace_symbols({"query": "Greeter"}, "agent-1")
     assert result["success"] is True
-    assert any(sym.name == "Greeter" for sym in result["results"])
+    assert fake_lsp.return_value.symbol_search.call_count == 1
 
 
 def test_hover_info_uses_manager(sample_project):

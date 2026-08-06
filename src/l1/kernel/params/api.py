@@ -261,6 +261,9 @@ IPC_CHANNEL_MAXLEN: Final[int] = 200
 # ── Subprocess / LSP / HTTP timeouts (config-driven) ──
 SUBPROCESS_SHORT_TIMEOUT: Final[int] = 5
 LSP_DIAG_TIMEOUT: Final[int] = 30
+LSP_INIT_TIMEOUT: Final[float] = 10.0
+LSP_RESPONSE_TIMEOUT: Final[float] = 10.0
+LSP_SHUTDOWN_TIMEOUT: Final[float] = 5.0
 HTTP_CALLBACK_TIMEOUT: Final[int] = 10
 
 

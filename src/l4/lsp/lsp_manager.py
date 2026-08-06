@@ -28,13 +28,21 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
+import re
 import subprocess
 import threading
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from l1.kernel.params.api import LSP_MANAGER_TIMEOUT
+from l1.kernel.params.api import (
+    LSP_INIT_TIMEOUT,
+    LSP_MANAGER_TIMEOUT,
+    LSP_RESPONSE_TIMEOUT,
+    LSP_SHUTDOWN_TIMEOUT,
+)
 from l1.kernel.params.system import LOG_TRUNC_200
 
 logger = logging.getLogger(__name__)
@@ -44,22 +52,59 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════════
 
 LSP_SERVER_COMMANDS: dict[str, list[str]] = {
-    "python":    ["pyright", "--stdio"],
+    "python": ["pyright", "--stdio"],
     "typescript": ["typescript-language-server", "--stdio"],
     "javascript": ["typescript-language-server", "--stdio"],
-    "go":        ["gopls"],
-    "rust":      ["rust-analyzer"],
-    "ruby":      ["ruby-lsp"],
+    "go": ["gopls"],
+    "rust": ["rust-analyzer"],
+    "ruby": ["ruby-lsp"],
 }
 
 LSP_FILE_EXTENSIONS: dict[str, list[str]] = {
-    "python":      [".py"],
-    "typescript":  [".ts", ".tsx"],
-    "javascript":  [".js", ".jsx", ".mjs"],
-    "go":          [".go"],
-    "rust":        [".rs"],
-    "ruby":        [".rb"],
+    "python": [".py"],
+    "typescript": [".ts", ".tsx"],
+    "javascript": [".js", ".jsx", ".mjs"],
+    "go": [".go"],
+    "rust": [".rs"],
+    "ruby": [".rb"],
 }
+
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _to_lsp_position(line: int, column: int) -> dict:
+    """Convert 1-based editor coordinates to LSP 0-based position."""
+    return {"line": max(line - 1, 0), "character": max(column - 1, 0)}
+
+
+def _symbol_at_position(path: str, line: int, column: int) -> str:
+    """Extract the identifier token at a 1-based (line, column) position.
+
+    Returns an empty string when the position is out of range or does not
+    land on an identifier — callers treat that as "no symbol".
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return ""
+    if line < 1 or line > len(lines):
+        return ""
+    if column < 1:
+        column = 1
+    for m in _IDENTIFIER_RE.finditer(lines[line - 1]):
+        start, end = m.start() + 1, m.end()
+        if start <= column <= end:
+            return m.group()
+    return ""
+
+
+def _rel_to_lsp_root(path: str, analyzer) -> str:
+    """Convert a tool path to a path relative to the analyzer root."""
+    try:
+        return os.path.relpath(os.path.abspath(path), analyzer.root)
+    except ValueError:
+        return os.path.abspath(path)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -68,18 +113,25 @@ LSP_FILE_EXTENSIONS: dict[str, list[str]] = {
 
 
 class LanguageServer:
-    """Single LSP server process management."""
+    """Single LSP server process management (JSON-RPC over stdio).
+
+    A background reader thread drains the server stdout into a queue so
+    server-pushed notifications never block the pipe; requests are matched
+    by ``id`` with a response timeout.
+    """
 
     def __init__(self, language: str, project_root: str = ""):
         self.language = language
         self.project_root = project_root or os.getcwd()
         self._process: subprocess.Popen | None = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._running = False
         self._seq = 0
+        self._msg_queue: queue.Queue = queue.Queue()
+        self._reader: threading.Thread | None = None
 
     def start(self) -> dict:
-        """Start the LSP server process."""
+        """Start the LSP server process and perform the initialize handshake."""
         cmd = LSP_SERVER_COMMANDS.get(self.language)
         if not cmd:
             return {"success": False, "error": f"unsupported language: {self.language}"}
@@ -93,44 +145,87 @@ class LanguageServer:
                 return {"success": True, "status": "already_running"}
 
             try:
+                # stderr -> DEVNULL: servers log noisily and an unread pipe
+                # would fill up and deadlock the JSON-RPC channel.
                 self._process = subprocess.Popen(
                     cmd,
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
                     cwd=self.project_root,
                     text=True,
                 )
                 self._running = True
+                self._reader = threading.Thread(target=self._read_loop, name=f"lsp-reader-{self.language}", daemon=True)
+                self._reader.start()
                 logger.info("LSP %s started (pid=%d)", self.language, self._process.pid)
-                return {"success": True, "pid": self._process.pid}
             except Exception as e:
+                self._running = False
                 return {"success": False, "error": str(e)}
 
+            init = self._initialize()
+            if not init.get("success"):
+                logger.warning("LSP %s initialize failed: %s", self.language, init.get("error"))
+                self._teardown()
+                return {"success": False, "error": f"initialize failed: {init.get('error', 'unknown')}"}
+            return {"success": True, "pid": self._process.pid}
+
     def stop(self) -> dict:
-        """Shut down the LSP server process."""
+        """Gracefully shut down the LSP server (shutdown + exit, then kill)."""
         with self._lock:
             if not self._running or not self._process:
                 return {"success": True, "status": "not_running"}
-            try:
-                self._process.terminate()
-                self._process.wait(timeout=LSP_MANAGER_TIMEOUT)
-            except Exception:
-                self._process.kill()
-            self._running = False
+            self.send_request("shutdown", {})
+            self._notify("exit")
+            self._teardown()
             logger.info("LSP %s stopped", self.language)
             return {"success": True}
 
-    def send_request(self, method: str, params: dict | None = None) -> dict:
-        """Send JSON-RPC request to LSP server."""
+    def _teardown(self) -> None:
+        """Terminate the process and reset reader state."""
+        if self._process:
+            try:
+                self._process.terminate()
+                self._process.wait(timeout=LSP_SHUTDOWN_TIMEOUT)
+            except Exception:
+                with suppress(Exception):
+                    self._process.kill()
+        self._process = None
+        self._running = False
+        self._reader = None
+
+    def _initialize(self) -> dict:
+        """Send ``initialize`` and ``initialized`` — the LSP handshake."""
+        result = self.send_request(
+            "initialize",
+            {
+                "processId": None,
+                "rootUri": Path(self.project_root).resolve().as_uri(),
+                "capabilities": {},
+            },
+            timeout=LSP_INIT_TIMEOUT,
+        )
+        if not result.get("success"):
+            return result
+        self._notify("initialized")
+        return result
+
+    def send_request(self, method: str, params: dict | None = None, timeout: float = LSP_RESPONSE_TIMEOUT) -> dict:
+        """Send a JSON-RPC request and wait for the matching id response.
+
+        Server-pushed notifications (window/logMessage etc.) are consumed
+        and skipped until a response with the request id arrives; a missing
+        response fails after ``timeout`` seconds.
+        """
         with self._lock:
             if not self._running or not self._process or not self._process.stdin:
                 return {"success": False, "error": "LSP server not running"}
 
             self._seq += 1
+            req_id = self._seq
             request = {
                 "jsonrpc": "2.0",
-                "id": self._seq,
+                "id": req_id,
                 "method": method,
                 "params": params or {},
             }
@@ -142,18 +237,60 @@ class LanguageServer:
             except Exception as e:
                 return {"success": False, "error": f"write failed: {e}"}
 
-            # Read response
-            try:
-                resp_header = self._process.stdout.readline()  # Content-Length: xxx
-                if not resp_header:
-                    return {"success": False, "error": "no response header"}
-                length = int(resp_header.strip().split(":")[1])
-                self._process.stdout.readline()  # Blank line
-                resp_body = self._process.stdout.read(length)
-                result = json.loads(resp_body)
-                return {"success": True, "result": result.get("result", {})}
-            except Exception as e:
-                return {"success": False, "error": f"read failed: {e}"}
+            deadline = time.monotonic() + timeout
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return {"success": False, "error": f"response timeout for {method}"}
+                try:
+                    msg = self._msg_queue.get(timeout=remaining)
+                except queue.Empty:
+                    return {"success": False, "error": f"response timeout for {method}"}
+                if msg.get("id") == req_id:
+                    if "error" in msg:
+                        return {"success": False, "error": str(msg.get("error"))}
+                    return {"success": True, "result": msg.get("result", {})}
+                # Notification or a stray response — skip and keep waiting.
+
+    def _notify(self, method: str, params: dict | None = None) -> None:
+        """Send a JSON-RPC notification (no response expected)."""
+        if not self._process or not self._process.stdin:
+            return
+        request = {"jsonrpc": "2.0", "method": method, "params": params or {}}
+        content = json.dumps(request)
+        header = f"Content-Length: {len(content)}\r\n\r\n"
+        try:
+            self._process.stdin.write(header + content)
+            self._process.stdin.flush()
+        except Exception:
+            logger.debug("lsp_manager: lsp stdin write failed")
+
+    def _read_loop(self) -> None:
+        """Background reader: drain stdout messages into the queue."""
+        while self._running and self._process is not None:
+            msg = self._read_message()
+            if msg is None:
+                break
+            self._msg_queue.put(msg)
+
+    def _read_message(self) -> dict | None:
+        """Read one JSON-RPC message (Content-Length framed) from stdout."""
+        try:
+            length = 0
+            header = self._process.stdout.readline()
+            if not header:
+                return None
+            while header and header.strip():
+                line = header.strip()
+                if line.lower().startswith("content-length:"):
+                    length = int(line.split(":", 1)[1].strip())
+                header = self._process.stdout.readline()
+            if length <= 0:
+                return None
+            body = self._process.stdout.read(length)
+            return json.loads(body) if body else None
+        except Exception:
+            return None
 
     def _find_executable(self, name: str) -> bool:
         """Check if executable is in PATH."""
@@ -187,13 +324,14 @@ class LanguageServer:
 @dataclass
 class DiagnosticEntry:
     """Single diagnostic entry."""
+
     file: str
     line: int
     column: int
     message: str
-    severity: str          # "error" | "warning" | "info"
+    severity: str  # "error" | "warning" | "info"
     code: str = ""
-    source: str = ""       # "pyright" | "gopls" | etc.
+    source: str = ""  # "pyright" | "gopls" | etc.
 
     def to_dict(self) -> dict:
         return {
@@ -210,10 +348,11 @@ class DiagnosticEntry:
 @dataclass
 class FileDiagnostics:
     """Diagnostic snapshot for one file."""
+
     file: str
     diagnostics: list[DiagnosticEntry] = field(default_factory=list)
     checked_at: float = field(default_factory=time.time)
-    version: int = 0          # File content version (for incremental updates)
+    version: int = 0  # File content version (for incremental updates)
 
     def has_errors(self) -> bool:
         return any(d.severity == "error" for d in self.diagnostics)
@@ -343,12 +482,19 @@ class LspManager:
 
         # Open file + request diagnostics
         uri = f"file://{Path(file_path).resolve()}"
-        self._send_notification(ls, "textDocument/didOpen", {
-            "textDocument": {"uri": uri, "languageId": language, "text": ""},
-        })
-        result = ls.send_request("textDocument/semanticTokens/full", {
-            "textDocument": {"uri": uri},
-        })
+        self._send_notification(
+            ls,
+            "textDocument/didOpen",
+            {
+                "textDocument": {"uri": uri, "languageId": language, "text": ""},
+            },
+        )
+        ls.send_request(
+            "textDocument/semanticTokens/full",
+            {
+                "textDocument": {"uri": uri},
+            },
+        )
 
         # Fall back to pyright CLI (more reliable)
         diag_result = self._fallback_diagnostics(file_path)
@@ -388,7 +534,9 @@ class LspManager:
                 # Try pyright
                 r = subprocess.run(
                     ["pyright", str(path)],
-                    capture_output=True, text=True, timeout=LSP_MANAGER_TIMEOUT,
+                    capture_output=True,
+                    text=True,
+                    timeout=LSP_MANAGER_TIMEOUT,
                 )
                 stdout = r.stdout or r.stderr
                 diags = self._parse_pyright_output(stdout, str(path))
@@ -407,12 +555,14 @@ class LspManager:
             parts = line.split(":", 4)
             if len(parts) >= 5 and file_path in parts[0]:
                 try:
-                    diags.append({
-                        "line": int(parts[1]) - 1,
-                        "column": int(parts[2]) - 1,
-                        "severity": parts[3].strip().lower(),
-                        "message": parts[4].strip(),
-                    })
+                    diags.append(
+                        {
+                            "line": int(parts[1]) - 1,
+                            "column": int(parts[2]) - 1,
+                            "severity": parts[3].strip().lower(),
+                            "message": parts[4].strip(),
+                        }
+                    )
                 except ValueError:
                     continue
         return diags
@@ -420,24 +570,27 @@ class LspManager:
     def _ast_diagnostics(self, file_path: str) -> list[dict]:
         """Basic diagnostics using Python ast."""
         import ast
+
         diags = []
         try:
             with open(file_path, encoding="utf-8") as f:
                 ast.parse(f.read())
         except SyntaxError as e:
-            diags.append({
-                "line": e.lineno or 0,
-                "column": e.offset or 0,
-                "severity": "error",
-                "message": f"SyntaxError: {e.msg}",
-                "code": "E999",
-            })
+            diags.append(
+                {
+                    "line": e.lineno or 0,
+                    "column": e.offset or 0,
+                    "severity": "error",
+                    "message": f"SyntaxError: {e.msg}",
+                    "code": "E999",
+                }
+            )
         return diags
 
     # ── Hover ──
 
     def hover(self, file_path: str, line: int, column: int) -> dict:
-        """Get hover information."""
+        """Get hover information at a 1-based (line, column) position."""
         ext = Path(file_path).suffix
         language = self._detect_language(ext)
         if not language:
@@ -448,11 +601,95 @@ class LspManager:
             return {"success": False, "error": f"cannot start LSP for {language}"}
 
         uri = f"file://{Path(file_path).resolve()}"
-        result = ls.send_request("textDocument/hover", {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        })
-        return result
+        return ls.send_request(
+            "textDocument/hover",
+            {
+                "textDocument": {"uri": uri},
+                "position": _to_lsp_position(line, column),
+            },
+        )
+
+    # ── Definition / References ──
+
+    def definition(self, file_path: str, line: int, column: int) -> dict:
+        """Resolve the symbol definition at a 1-based position.
+
+        Prefers the running LSP server (``textDocument/definition``); falls
+        back to the AST analyzer when no server is available.
+        """
+        language = self._detect_language(Path(file_path).suffix)
+        if language:
+            ls = self._get_or_start_server(language)
+            if ls is not None:
+                result = ls.send_request(
+                    "textDocument/definition",
+                    {
+                        "textDocument": {"uri": f"file://{Path(file_path).resolve()}"},
+                        "position": _to_lsp_position(line, column),
+                    },
+                )
+                if result.get("success"):
+                    return {"success": True, "source": "lsp", "result": result.get("result", {})}
+        return self._ast_definition(file_path, line, column)
+
+    def references(self, file_path: str, line: int, column: int) -> dict:
+        """Find references to the symbol at a 1-based position.
+
+        Prefers the running LSP server (``textDocument/references``); falls
+        back to the AST analyzer when no server is available.
+        """
+        language = self._detect_language(Path(file_path).suffix)
+        if language:
+            ls = self._get_or_start_server(language)
+            if ls is not None:
+                result = ls.send_request(
+                    "textDocument/references",
+                    {
+                        "textDocument": {"uri": f"file://{Path(file_path).resolve()}"},
+                        "position": _to_lsp_position(line, column),
+                        "context": {"includeDeclaration": True},
+                    },
+                )
+                if result.get("success"):
+                    return {"success": True, "source": "lsp", "result": result.get("result", [])}
+        return self._ast_references(file_path, line, column)
+
+    def _ast_definition(self, file_path: str, line: int, column: int) -> dict:
+        """AST fallback — token at position resolved via LocalAnalyzer."""
+        from l4.lsp.lsp import LocalAnalyzer
+
+        name = _symbol_at_position(file_path, line, column)
+        if not name:
+            return {"success": True, "source": "ast", "found": False, "result": None}
+        analyzer = LocalAnalyzer(self._project_root)
+        sym = analyzer.go_to_definition(name, _rel_to_lsp_root(file_path, analyzer))
+        if sym is None:
+            return {"success": True, "source": "ast", "found": False, "result": None}
+        return {
+            "success": True,
+            "source": "ast",
+            "found": True,
+            "result": {
+                "name": sym.name,
+                "kind": sym.kind,
+                "file": sym.file,
+                "line": sym.line,
+                "column": sym.column,
+                "parent": sym.parent,
+                "docstring": sym.docstring,
+            },
+        }
+
+    def _ast_references(self, file_path: str, line: int, column: int) -> dict:
+        """AST fallback — references to the token at position."""
+        from l4.lsp.lsp import LocalAnalyzer
+
+        name = _symbol_at_position(file_path, line, column)
+        if not name:
+            return {"success": True, "source": "ast", "results": [], "total": 0}
+        analyzer = LocalAnalyzer(self._project_root)
+        refs = analyzer.find_references(name, _rel_to_lsp_root(file_path, analyzer))
+        return {"success": True, "source": "ast", "results": refs, "total": len(refs)}
 
     # ── Feedback Loop ──
 
@@ -504,8 +741,7 @@ class LspManager:
                 return ls
             return None
 
-    def _send_notification(self, ls: LanguageServer, method: str,
-                           params: dict) -> None:
+    def _send_notification(self, ls: LanguageServer, method: str, params: dict) -> None:
         """Send JSON-RPC notification (no response expected)."""
         if not ls._process or not ls._process.stdin:
             return

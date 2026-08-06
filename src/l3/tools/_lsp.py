@@ -1,18 +1,12 @@
 """LSP code intelligence tool — go-to-definition, find references, hover info.
 
-Wraps l4.lsp.lsp.LocalAnalyzer (AST position queries) and
-l4.lsp.lsp_manager.LspManager (hover, diagnostics). All operations are
-read-only (Ring 1).
+Wraps l4.lsp.lsp_manager.LspManager (server-backed with AST fallback) for
+agent-accessible code analysis. All operations are read-only (Ring 1).
 """
 
 from __future__ import annotations
 
-import os
-import re
-
 from l1.kernel.params.system import TOOL_LSP_SYMBOL_LIMIT
-
-_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def _get_mgr():
@@ -21,64 +15,16 @@ def _get_mgr():
     return get_manager()
 
 
-def _symbol_at_position(path: str, line: int, column: int) -> str:
-    """Extract the identifier token at a 1-based (line, column) position.
-
-    Returns an empty string when the position is out of range or does not
-    land on an identifier — callers treat that as "no symbol".
-    """
-    try:
-        with open(path, encoding="utf-8") as f:
-            lines = f.readlines()
-    except OSError:
-        return ""
-    if line < 1 or line > len(lines):
-        return ""
-    if column < 1:
-        column = 1
-    for m in _IDENTIFIER_RE.finditer(lines[line - 1]):
-        start, end = m.start() + 1, m.end()
-        if start <= column <= end:
-            return m.group()
-    return ""
-
-
-def _rel_to_lsp_root(path: str, lsp) -> str:
-    """Convert a tool path to a path relative to the analyzer root."""
-    try:
-        return os.path.relpath(os.path.abspath(path), lsp.root)
-    except ValueError:
-        return os.path.abspath(path)
-
-
 def go_to_definition(args: dict, agent_id: str) -> dict:
     """Navigate to the definition of the symbol at a position."""
     path = args.get("path", "")
     if not path:
         return {"success": False, "error": "path is required"}
     try:
-        name = _symbol_at_position(path, int(args.get("line", 1)), int(args.get("column", 1)))
-        if not name:
-            return {"success": True, "found": False, "result": None}
-        from l4.lsp.lsp import get_lsp
-
-        lsp = get_lsp()
-        sym = lsp.go_to_definition(name, _rel_to_lsp_root(path, lsp))
-        if sym is None:
-            return {"success": True, "found": False, "result": None}
-        return {
-            "success": True,
-            "found": True,
-            "result": {
-                "name": sym.name,
-                "kind": sym.kind,
-                "file": sym.file,
-                "line": sym.line,
-                "column": sym.column,
-                "parent": sym.parent,
-                "docstring": sym.docstring,
-            },
-        }
+        mgr = _get_mgr()
+        result = mgr.definition(path, int(args.get("line", 1)), int(args.get("column", 1)))
+        inner = result.get("result")
+        return {"success": True, "found": bool(inner), "result": inner}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -89,14 +35,10 @@ def find_references(args: dict, agent_id: str) -> dict:
     if not path:
         return {"success": False, "error": "path is required"}
     try:
-        name = _symbol_at_position(path, int(args.get("line", 1)), int(args.get("column", 1)))
-        if not name:
-            return {"success": True, "results": [], "total": 0}
-        from l4.lsp.lsp import get_lsp
-
-        lsp = get_lsp()
-        result = lsp.find_references(name, _rel_to_lsp_root(path, lsp))
-        return {"success": True, "results": result, "total": len(result)}
+        mgr = _get_mgr()
+        result = mgr.references(path, int(args.get("line", 1)), int(args.get("column", 1)))
+        refs = result.get("results", [])
+        return {"success": True, "results": refs, "total": len(refs)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
