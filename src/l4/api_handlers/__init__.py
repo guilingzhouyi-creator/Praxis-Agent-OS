@@ -617,6 +617,16 @@ class ApiHandlers:
     def _loops_recent(self, body: dict | None = None) -> dict:
         return loops_recent(body)
 
+    def _loop_auto_test_get(self, body: dict | None = None) -> dict:
+        """GET /api/v2/loop/auto-test — AutoTestGate state + pending feedback."""
+        from l3.tool_system.auto_test import auto_test_status
+        return {"success": True, **auto_test_status()}
+
+    def _loop_auto_test_set(self, body: dict) -> dict:
+        """PUT /api/v2/loop/auto-test — switch AutoTestGate mode (off|async)."""
+        from l3.tool_system.auto_test import set_auto_test
+        return set_auto_test(body.get("mode", ""), source="api")
+
     # ── Bootstrap / Export ──
 
     def _bootstrap_status(self, body: dict | None = None) -> dict:

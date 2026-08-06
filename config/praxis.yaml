@@ -273,6 +273,7 @@ loop:
   coarse_repeat_stop: 6         # Same action N times → stop
   verify_cadence: true          # Enable verify-cadence tracking
   continuation_nudge: true      # Enable continuation nudges
+  auto_test: off                # AutoTestGate: off | async (post-card background test regression)
 
 # ── Service timeouts (LSP, MCP, Shell, Vault) ──
 services:

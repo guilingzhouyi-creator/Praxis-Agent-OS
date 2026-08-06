@@ -44,6 +44,15 @@ def test_project(args: dict, agent_id: str) -> dict:
             r = run_args(list(cmd), cwd=path, timeout=_BUILD_TIMEOUT)
             if r.returncode == 0:
                 return {"success": True, "command": " ".join(cmd), "stdout": r.stdout[:LOG_TRUNC_2000]}
+            # Framework ran but tests failed: parse failure detail so the
+            # caller (agent or AutoTestGate) can act on exact failing tests.
+            from l3.tool_system.auto_test import parse_pytest_failures
+            output = f"{r.stdout}\n{r.stderr}"
+            failures = parse_pytest_failures(output)
+            return {"success": False, "command": " ".join(cmd),
+                    "failures": failures,
+                    "stdout": r.stdout[:LOG_TRUNC_2000],
+                    "stderr": r.stderr[:LOG_TRUNC_2000]}
         except Exception:
             continue
     return {"success": False, "error": "no supported test framework found"}

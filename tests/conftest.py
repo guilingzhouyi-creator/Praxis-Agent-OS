@@ -29,6 +29,7 @@ _RESETS = {
     "l3.services.user_profile": ("reset_service", None),
     "l3.config.settings_center": ("reset_center", None),
     "l3.tool_system.tool_registry": ("clear_mutes", None),
+    "l3.tool_system.auto_test": ("reset_auto_test", None),
     "l3.memory.r4_agent": ("stop_r4_agent", None),
     "l3.agent.scout": ("reset_pool", None),
     "l3.scheduler.scheduler": ("reset_scheduler", None),

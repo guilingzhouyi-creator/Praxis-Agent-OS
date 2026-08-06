@@ -105,6 +105,22 @@ HARNESS_MODES: Final[tuple[str, ...]] = (
 )
 
 
+# ── AutoTestGate (post-card background test regression) ──
+# When async, a finished card that left unverified edits spawns a background
+# test run; the result is cached per Cell, emitted as an event, and queued as
+# feedback onto the next card produced for the same agent.
+AUTO_TEST_MODE_OFF: Final[str] = "off"
+AUTO_TEST_MODE_ASYNC: Final[str] = "async"
+AUTO_TEST_DEFAULT_MODE: Final[str] = AUTO_TEST_MODE_OFF
+AUTO_TEST_MODES: Final[tuple[str, ...]] = (
+    AUTO_TEST_MODE_OFF, AUTO_TEST_MODE_ASYNC,
+)
+AUTO_TEST_TIMEOUT: Final[int] = 300          # background test run timeout (s)
+AUTO_TEST_MAX_FAILURES: Final[int] = 20      # failure detail entries parsed per run
+AUTO_TEST_FEEDBACK_MAX: Final[int] = 20      # pending feedback entries kept per agent
+AUTO_TEST_CACHE_KEY: Final[str] = "auto_test"  # Cell L2 cache key prefix
+
+
 # ── HTN Planner ──
 HTN_DOMAIN_PREFIX: Final[str] = "app"
 HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {

@@ -26,6 +26,7 @@ from . import (
     memory,  # noqa: F401
     model,  # noqa: F401
     system,  # noqa: F401
+    test_auto,  # noqa: F401
 )
 
 # ── Backward-compatible re-exports ──
@@ -110,7 +111,7 @@ import sys as _sys
 
 _SYSTEM_COMMANDS: list[tuple[str, callable, dict]] = []
 
-for _module_name in ("common", "connect", "system", "memory", "model", "extra", "harness", "l3a"):
+for _module_name in ("common", "connect", "system", "memory", "model", "extra", "harness", "l3a", "test_auto"):
     _mod = _sys.modules.get(f"l2.l2_shell.commands.{_module_name}")
     if _mod is None:
         continue

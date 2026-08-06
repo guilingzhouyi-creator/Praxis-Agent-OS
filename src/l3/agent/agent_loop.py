@@ -445,6 +445,17 @@ class AgentLoop:
             except Exception:
                 logger.debug("agent_loop: side timing monitor emit failed")
         self._todo._persist()
+        # ── AutoTestGate: background test regression on card completion ──
+        # Spawned when the loop left unverified edits and async mode is on.
+        # Runs after cadence state is captured but before it is reset.
+        try:
+            from l3.tool_system.auto_test import maybe_trigger
+            _unverified = self._cadence.unverified_edits()
+            _card_id = getattr(self, "_last_card_id", "") or ""
+            maybe_trigger(self.agent_id, self._cell_id, self.task,
+                          _unverified, card_id=_card_id)
+        except Exception as e:
+            logger.debug("agent_loop: auto_test trigger failed: %s", e)
         self._cadence.reset()
 
         # 鈹€鈹€ Cell L2 cache injection 鈹€鈹€

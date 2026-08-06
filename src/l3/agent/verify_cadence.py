@@ -105,6 +105,10 @@ class VerifyCadence:
         unverified = [p for p in self._edited if p not in self._nudged]
         return len(unverified) == 0, list(unverified)
 
+    def unverified_edits(self) -> list[str]:
+        """Return paths edited since the last verification command."""
+        return list(self._edited)
+
     def evidence_log(self) -> list[dict]:
         return list(self._evidence)
 
