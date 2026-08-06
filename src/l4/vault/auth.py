@@ -1,4 +1,4 @@
-﻿"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
+"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
 
 Security layer for Agent OS:
 - HMAC signing/verification

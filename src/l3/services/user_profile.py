@@ -1,4 +1,4 @@
-﻿"""User profile side-channel 鈥?grows a model of each user's preferences and
+"""User profile side-channel 鈥?grows a model of each user's preferences and
 decision patterns, feeding intent parsing and central (L3A) decisions.
 
 Architecture (side-channel, mirrors Mer/R5 philosophy):
