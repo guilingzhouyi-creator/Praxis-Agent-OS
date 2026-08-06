@@ -1,4 +1,4 @@
-﻿"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
+"""Auth service 鈥?key management, signing, encryption, hash, token lifecycle.
 
 Security layer for Agent OS:
 - HMAC signing/verification
@@ -58,8 +58,7 @@ class AuthService(AuthPort, BaseService):
         super().__init__("auth")
         self._vault = KeyVault()
         self._sign_key = os.urandom(AUTH_SIGN_KEY_BYTES)
-        self._tokens: dict[str, float] = {}   # token_id -> expires_at
-        self._revoked: set[str] = set()
+        self._revoked: dict[str, float] = {}  # token_id -> token expiry (lazy-pruned)
         self._token_lock = threading.Lock()
 
     def _on_start(self) -> dict:
@@ -153,8 +152,6 @@ class AuthService(AuthPort, BaseService):
         payload = f"{identity}|{int(expires_at)}|{token_id}"
         sig = hmac.new(self._sign_key, payload.encode(), hashlib.sha256).hexdigest()
         token = f"{payload}|{sig}"
-        with self._token_lock:
-            self._tokens[token_id] = expires_at
         return {"success": True, "token": token, "expires_at": expires_at,
                 "identity": identity, "ttl": lifetime}
 
@@ -170,6 +167,7 @@ class AuthService(AuthPort, BaseService):
         expected = hmac.new(self._sign_key, payload.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
             return {"valid": False, "identity": "", "error": "signature mismatch"}
+        self._prune_revoked()
         with self._token_lock:
             if token_id in self._revoked:
                 return {"valid": False, "identity": "", "error": "token revoked"}
@@ -182,12 +180,24 @@ class AuthService(AuthPort, BaseService):
         if not token:
             return {"success": False, "error": "missing token"}
         try:
-            _, _, token_id, _ = token.split("|", 3)
-        except ValueError:
+            _, expires_raw, token_id, _ = token.split("|", 3)
+            expires_at = float(expires_raw)
+        except (ValueError, TypeError):
             return {"success": False, "error": "malformed token"}
         with self._token_lock:
-            self._revoked.add(token_id)
+            self._revoked[token_id] = expires_at
         return {"success": True, "revoked": token_id}
+
+    def _prune_revoked(self, now: float | None = None) -> int:
+        """Drop revoked-token records whose token has naturally expired (bounded growth)."""
+        now = now or time.time()
+        pruned = 0
+        with self._token_lock:
+            expired = [tid for tid, exp in self._revoked.items() if exp <= now]
+            for tid in expired:
+                del self._revoked[tid]
+                pruned += 1
+        return pruned
 
     def refresh_token(self, token: str) -> dict:
         """Exchange a valid token for a new one with a fresh expiry."""
