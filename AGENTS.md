@@ -35,12 +35,12 @@ python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # re
 ```
 src/l5/ — User layer: cli.py (310 lines), agent_runtime.py
 src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP, vault
-src/l3/ — Cell layer (~19K lines): agents, memory, cards, scheduler, tool pipeline, discussion
+src/l3/ — Cell layer (~51K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
 src/l2/ — Shell: 46 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — 847 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
+src/l1/kernel/params/ — 883 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
 src/l1/kernel/ports.py — 12 `*Port(ABC)` abstractions; adapters wired at boot via `register_port()`/`get_port()` in `src/l3/boot/wiring.py`
 ```
 
@@ -223,9 +223,12 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
-- `src/l3/cell/peers/l3a/` — **L3A session system (15 modules):**
+- `src/l3/cell/peers/l3a/` — **L3A session system (18 modules):**
   - `__init__.py` — L3ADaemon lifecycle + singleton
   - `session.py` — Session, SessionHistory, SessionManager
+  - `session_ask.py` — session-scoped ask-state helpers (shared with `ask.py`)
+  - `session_compress.py` — session transcript compression for summary/archive
+  - `session_prompt.py` — session prompt assembly (cardwrite context, role blocks)
   - `subagent.py` — L3ASubAgentPool + spawn/collect/peek tool handlers
   - `summaries.py` — session summary generation (L3A/R4 archive glue)
   - `context.py` — ContextEpoch, ContextSource, ContextRegistry

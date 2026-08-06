@@ -35,7 +35,7 @@ L2 — Shell Layer         (40-command shell, i18n)
 L1 — Kernel Layer        (sync, process, VFS, gatechain)
 ```
 
-**Docs:** [Architecture Overview](docs/architecture/overview.md) | [Reference](docs/architecture/reference.md) | [Agent instructions](AGENTS.md)
+**Docs:** [Architecture Overview](docs/architecture/README.md) | [Per-layer Reference](docs/architecture/llms.txt) | [Agent instructions](AGENTS.md)
 
 ## What is a "Card"?
 
@@ -63,14 +63,14 @@ Cell tracks performance via PMU (hardware counters)
 
 ```
 src/
-├── l1/kernel/          # 44 files — OS primitives, params (817 constants, 8 sub-modules)
-├── l2/                 # 16 files — Shell layer (40 commands)
-├── l3/                 # 205 files — Cell layer (~19K lines)
+├── l1/kernel/          # 46 files — OS primitives, params (883 constants, 8 sub-modules)
+├── l2/                 # 20 files — Shell layer (46 commands)
+├── l3/                 # 236 files — Cell layer (~51K lines)
 │   ├── card/           # Unit-of-work lifecycle (NOT playing cards)
 │   ├── agent/          # AgentLoop execution engine
 │   ├── cell/           # Agent orchestration unit
 │   └── memory/         # 4-ring hierarchical memory
-├── l4/                 # 49 files — Bridge layer (API gateway, LLM, sandbox)
+├── l4/                 # 70 files — Bridge layer (API gateway, LLM, sandbox)
 ├── l5/                 # 2 files — User CLI
 ├── main.py             # Entry point
 ├── tool_ring.py        # Per-agent tool ring
@@ -80,7 +80,7 @@ src/
 ## Test
 
 ```bash
-python -m pytest tests/test_kernel.py -x -q
+python -m pytest tests/l1/test_kernel.py -x -q
 python tests/runner.py                    # Batch 1 (fast) + 2 (slow)
-python -m pytest tests/test_layer_imports.py -x -q
+python -m pytest tests/infra/test_layer_imports.py -x -q
 ```

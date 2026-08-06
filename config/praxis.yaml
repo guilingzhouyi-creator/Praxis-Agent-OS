@@ -43,8 +43,12 @@ language: en                      # Display language: en | zh-CN | ja | de (see 
 # ── LLM ──
 llm:
   provider: ollama              # mock | ollama | openai | anthropic
-  model: qwen2.5-coder:7b
-  api_url: http://localhost:11434
+  # model: <MODEL_NAME>          # Example: qwen2.5-coder:7b (ollama local default), gpt-4o (openai),
+  #                              # deepseek-v4 (deepseek), claude-sonnet-4-20250514 (anthropic).
+  #                              # Omitted → falls back to params/api.py DEFAULT_MODEL_*.
+  # api_url: <LLM_API_URL>       # Example: http://localhost:11434 (ollama); official provider endpoints
+  #                              # live in config/discovery/providers.yaml (overridable per provider).
+  #                              # Omitted → falls back to provider_urls / params/api.py LLM_PROVIDER_URLS.
   api_key: ""                   # ollama needs no key; use the matching env vars for cloud providers (OPENAI_API_KEY / DEEPSEEK_API_KEY, etc.)
   max_tokens: 2048              # keep in sync with params/api.py LLM_DEFAULT_MAX_TOKENS
   temperature: 0.3              # keep in sync with params/api.py LLM_DEFAULT_TEMPERATURE

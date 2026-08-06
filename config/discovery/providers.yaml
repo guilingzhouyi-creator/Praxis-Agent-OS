@@ -3,10 +3,16 @@
 # Only `provider_urls` is consumed at runtime (llm_providers.py, model_registry.py).
 # Other provider metadata (env vars, model names, IPC, etc.) lives in
 # src/l1/kernel/params/api.py — do not duplicate it here.
+#
+# The official public endpoints below are the params/api.py defaults and are
+# kept commented out so this file carries no hardcoded URLs. Uncomment + edit a
+# line to override a provider endpoint (e.g. self-hosted gateway / proxy), or
+# use the matching env var (OPENAI_API_URL / ANTHROPIC_URL / DEEPSEEK_API_URL /
+# OLLAMA_URL). Omitted entries fall back to LLM_PROVIDER_URLS in params/api.py.
 
-# ── Provider base URLs ──
+# ── Provider base URLs (official defaults, commented as examples) ──
 provider_urls:
-  openai:    "https://api.openai.com/v1/chat/completions"
-  anthropic: "https://api.anthropic.com/v1/messages"
-  deepseek:  "https://api.deepseek.com/v1"
-  ollama:    "http://localhost:11434"
+  # openai:    "https://api.openai.com/v1/chat/completions"
+  # anthropic: "https://api.anthropic.com/v1/messages"
+  # deepseek:  "https://api.deepseek.com/v1"
+  # ollama:    "http://localhost:11434"
