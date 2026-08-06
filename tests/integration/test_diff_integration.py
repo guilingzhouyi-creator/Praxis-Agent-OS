@@ -56,7 +56,7 @@ class TestComputeHunksIntegration:
 
 
 class TestFileDiffStructuredTool:
-    """file_diff_structured 工具处理函数"""
+    """file_diff_structured tool handler"""
 
     def test_handler_importable(self):
         from l3.tools._files import file_diff_structured
@@ -83,7 +83,7 @@ class TestFileDiffStructuredTool:
 
 
 class TestCrossReviewDiffPayload:
-    """cross-review 消息携带结构化 diff 数据"""
+    """cross-review payload carries structured diff data"""
 
     def test_get_sandbox_entries_function_exists(self):
         from l3.cell.components.cell_cross_review import _get_sandbox_entries
@@ -91,7 +91,7 @@ class TestCrossReviewDiffPayload:
 
 
 class TestSandboxEntryHumanReadable:
-    """SandboxEntry.to_human_readable — 从结构化 hunks 重建 diff 文本"""
+    """SandboxEntry.to_human_readable — rebuild diff text from structured hunks"""
 
     def test_human_readable_empty_hunks(self):
         from l4.sandbox.cell_sandbox import SandboxEntry
@@ -124,7 +124,7 @@ class TestSandboxEntryHumanReadable:
 
 
 class TestFileChangedSignal:
-    """FILE_CHANGED 信号类型定义"""
+    """FILE_CHANGED signal type definition"""
 
     def test_file_changed_signal_type_exists(self):
         from l1.kernel.event import SignalType
@@ -133,7 +133,7 @@ class TestFileChangedSignal:
 
 
 class TestApiDiffHandlers:
-    """API diff handler 函数的可导入性"""
+    """API diff handler importability"""
 
     def test_diff_structured_handler_importable(self):
         from l4.api.api_handlers_diff import diff_colors, diff_history, diff_structured
