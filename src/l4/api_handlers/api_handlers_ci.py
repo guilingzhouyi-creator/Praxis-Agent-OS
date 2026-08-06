@@ -42,6 +42,20 @@ def handle_ci_review_get(body: dict | None = None, card_id: str = "") -> dict:
         return {"success": False, "error": str(e)}
 
 
+def handle_ci_review_rerun(body: dict | None = None, card_id: str = "") -> dict:
+    """POST /api/v2/ci/reviews/{card_id}/rerun — re-run the review for a card."""
+    try:
+        from l4.ci_review import get_service
+
+        svc = get_service()
+        if not svc._surface_writable("api"):
+            return {"success": False,
+                    "error": "writes disabled (ci.control.api.writable=false)"}
+        return svc.rerun(card_id)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def _scope_from_body(body: dict) -> tuple[str, str]:
     """Extract (cell_id, agent_id) scope selectors from a request body."""
     scope = body.get("scope")

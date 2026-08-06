@@ -14,6 +14,7 @@ failing consumer never blocks the report or the card lifecycle.
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import json
 import logging
 import os
@@ -39,6 +40,7 @@ from l1.kernel.params.system import (
     CI_REVIEW_QUEUE_CAP,
     CI_REVIEW_RUFF_CMD,
     CI_REVIEW_TIMEOUT,
+    LOG_TRUNC_200,
 )
 from l3._base import BaseService
 
@@ -102,6 +104,12 @@ def _normalize_key(key: str) -> str:
     return f"ci.review.{key}" if key in CI_SETTING_SUFFIXES else key
 
 
+def _match_any(path: str, patterns: list[str]) -> bool:
+    """True when *path* matches any glob pattern (case-insensitive fnmatch)."""
+    lowered = path.lower()
+    return any(fnmatch.fnmatch(lowered, p.lower()) for p in patterns)
+
+
 @dataclass
 class CardCiReport:
     """One CI review result bound to a completed card."""
@@ -116,6 +124,7 @@ class CardCiReport:
     review: dict = field(default_factory=dict)
     archive_ref: str = ""
     error: str = ""
+    context: dict = field(default_factory=dict)
     started_at: float = field(default_factory=time.time)
     completed_at: float = 0.0
 
@@ -127,6 +136,7 @@ class CardCiReport:
             "agent_id": self.agent_id, "gates": self.gates,
             "changed_files": self.changed_files, "review": self.review,
             "archive_ref": self.archive_ref, "error": self.error,
+            "context": self.context,
             "started_at": self.started_at, "completed_at": self.completed_at,
         }
 
@@ -231,6 +241,11 @@ class CiReviewService(BaseService):
             agent_id=str(result.get("agent_id") or result.get("agent") or ""),
         )
         report.changed_files = self._collect_changes(card_id, result)
+        cell_id = str(result.get("cell_id") or "")
+        if cell_id:
+            ctx = self._collect_autotest_context(cell_id)
+            if ctx:
+                report.context["auto_test"] = ctx
         steps = self._build_steps(report.changed_files)
         if not steps:
             report.error = "no gates applicable to changed files"
@@ -282,6 +297,65 @@ class CiReviewService(BaseService):
                 break
         return ordered
 
+    def _collect_autotest_context(self, cell_id: str) -> dict:
+        """Read the most recent AutoTestGate result from the Cell L2 cache.
+
+        Informational only (``report.context.auto_test``) — never affects
+        the verdict; full-suite regression stays owned by AutoTestGate.
+        Non-blocking: cache miss, empty cell, or any error returns {}.
+        """
+        if not self._setting("ci.review.consume_auto_test_cache", True):
+            return {}
+        try:
+            from l3.cell import get_cell as _get_cell
+            cell = _get_cell(cell_id)
+            if cell is None:
+                return {}
+            cache = cell.cache
+            best = None
+            best_ts = 0.0
+            for key in cache.keys():  # noqa: SIM118 — CellCache is not iterable
+                if not key.startswith("auto_test:"):
+                    continue
+                entry = cache.lookup(key)
+                if entry is None:
+                    continue
+                if entry.timestamp >= best_ts:
+                    best_ts = entry.timestamp
+                    best = entry
+            if best is None:
+                return {}
+            value = best.value or {}
+            return {
+                "passed": value.get("passed"),
+                "failures": len(value.get("failures") or []),
+                "at": value.get("at", 0),
+                "summary": (best.summary or "")[:LOG_TRUNC_200],
+            }
+        except Exception as e:
+            logger.debug("ci_review: autotest context failed: %s", e)
+            return {}
+
+    def _apply_matcher(self, gate: str, files: list[str]) -> list[str]:
+        """Filter changed files for a gate using ``ci.review.matchers``.
+
+        Matcher spec per gate: ``{"include": [...], "exclude": [...]}`` —
+        include empty means unrestricted; exclude wins over include.
+        No matcher config (or an invalid spec) returns the files unchanged
+        so behaviour stays identical to the pre-matcher versions.
+        """
+        matchers = self._setting("ci.review.matchers", {})
+        spec = matchers.get(gate) if isinstance(matchers, dict) else None
+        if not isinstance(spec, dict):
+            return files
+        include = spec.get("include") or []
+        exclude = spec.get("exclude") or []
+        if not include and not exclude:
+            return files
+        return [f for f in files
+                if not (exclude and _match_any(f, exclude))
+                and not (include and not _match_any(f, include))]
+
     def _build_steps(self, files: list[str]) -> list[dict]:
         """Build pipeline steps for the configured gates over changed files."""
         gates = self._setting("ci.review.gates", ["ruff", "mypy", "pytest"])
@@ -289,20 +363,22 @@ class CiReviewService(BaseService):
             gates = [g.strip() for g in gates.split(",") if g.strip()]
         py_files = [f for f in files if f.endswith(".py")]
         steps: list[dict] = []
-        if "ruff" in gates and py_files:
+        ruff_files = self._apply_matcher("ruff", py_files)
+        if "ruff" in gates and ruff_files:
             steps.append({
                 "action": "ruff",
                 "cmd": CI_REVIEW_RUFF_CMD.format(
-                    files=" ".join(shlex.quote(f) for f in py_files)),
+                    files=" ".join(shlex.quote(f) for f in ruff_files)),
             })
-        if "mypy" in gates and py_files:
+        mypy_files = self._apply_matcher("mypy", py_files)
+        if "mypy" in gates and mypy_files:
             steps.append({
                 "action": "mypy",
                 "cmd": CI_REVIEW_MYPY_CMD.format(
-                    files=" ".join(shlex.quote(f) for f in py_files)),
+                    files=" ".join(shlex.quote(f) for f in mypy_files)),
             })
         if "pytest" in gates:
-            tests = self._related_tests(py_files)
+            tests = self._related_tests(self._apply_matcher("pytest", py_files))
             if tests:
                 steps.append({
                     "action": "pytest",
@@ -567,15 +643,43 @@ class CiReviewService(BaseService):
             logger.debug("ci_review: lean trace failed: %s", e)
 
     def _link_notify(self, report: CardCiReport) -> None:
-        """Push a notification for a failing verdict (optional)."""
+        """Push a notification for a failing verdict (optional).
+
+        Webhook mode: when ``ci.review.notify.webhook_url`` is configured
+        and the verdict's event is in ``ci.review.notify.webhook_events``
+        (default failed/rejected), POSTs a structured payload through the
+        notify webhook channel.  Otherwise falls back to the configured
+        notify channel (log|email|slack|sms).
+        """
         try:
-            from l4.notify import send_notification
+            from l4.notify import get_service as _get_notify
             channel = str(self._setting("ci.review.notify.channel", "log"))
-            send_notification(report.agent_id or "system",
-                              f"CI review {report.verdict} for card {report.card_id}",
-                              channel=channel)
+            message = f"CI review {report.verdict} for card {report.card_id}"
+            webhook_url = str(self._setting("ci.review.notify.webhook_url", "") or "")
+            events = self._setting("ci.review.notify.webhook_events",
+                                   ["failed", "rejected"]) or []
+            if webhook_url and self._verdict_event(report.verdict) in events:
+                payload = json.dumps({
+                    "card_id": report.card_id, "verdict": report.verdict,
+                    "gates": report.gates, "error": report.error,
+                    "agent_id": report.agent_id,
+                    "timestamp": report.completed_at or report.started_at,
+                }, ensure_ascii=False)
+                _get_notify().send(channel="webhook", to=webhook_url,
+                                   subject=message, body=payload)
+                return
+            _get_notify().send(channel=channel, to=report.agent_id or "system",
+                               subject="Praxis notification", body=message)
         except Exception as e:
             logger.debug("ci_review: notify linkage failed: %s", e)
+
+    @staticmethod
+    def _verdict_event(verdict: str) -> str:
+        """Map a verdict to a webhook event name."""
+        return {
+            "PASS": "passed", "NEEDS_CHANGES": "failed",
+            "REJECT": "rejected", "SKIPPED": "skipped",
+        }.get(verdict, "failed")
 
     def _link_todo(self, report: CardCiReport) -> None:
         """Record a fix-up task for a failing verdict (optional)."""
@@ -589,6 +693,27 @@ class CiReviewService(BaseService):
             logger.debug("ci_review: todo linkage failed: %s", e)
 
     # ── Query & stats ──
+
+    def rerun(self, card_id: str) -> dict:
+        """Manually re-run the review for a card using its latest report.
+
+        Explicit user action — bypasses the dedup window.  The run executes
+        in a background daemon thread under the concurrency cap and reuses
+        the previous report's changed files / agent, so a review can be
+        re-executed after a fix or a config change without a new card.
+        """
+        with self._lock:
+            prev = self._reports.get(card_id)
+        if prev is None:
+            return {"success": False,
+                    "error": f"no CI review history for card: {card_id}"}
+        result = {"agent_id": prev.agent_id or "", "changes": list(prev.changed_files)}
+        threading.Thread(
+            target=self._process,
+            args=(card_id, prev.state or "completed", result),
+            daemon=True, name=f"ci-rerun-{card_id[:8]}",
+        ).start()
+        return {"success": True, "card_id": card_id, "queued": True}
 
     def query(self, card_id: str = "", status: str = "",
               limit: int = CI_DEFAULT_LIST_LIMIT) -> dict:

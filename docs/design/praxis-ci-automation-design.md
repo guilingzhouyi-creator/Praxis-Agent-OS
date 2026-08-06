@@ -592,3 +592,85 @@ PUT 键展开规则：
 
 **规划结束（v3）。** 作用域覆盖（agent > cell > 全局）使 CI 审查可按执行单元精细开关；
 权限键经 admin 确认开放给 API/L2（用户全量可控 + 可恢复），无自锁风险。
+
+---
+
+## 13. 流水线增强 + 门禁 matcher（v4 补充：方向 4+5）
+
+> 方向 4（流水线工程化）：手动重跑、审查完成 webhook 推送；方向 5（门禁精细化）：
+> per-gate include/exclude 路径 glob 过滤 + AutoTest L2 缓存真实消费（此前为设计预留位）。
+
+### 13.1 门禁 matcher（per-gate 路径过滤，向后兼容）
+
+| 项 | 设计 |
+|---|---|
+| 配置 | `ci.review.gates` 保持 `list[str]`（简单模式，不变）；新增可选 `ci.review.matchers: {<gate>: {"include": [...], "exclude": [...]}}` |
+| 语义 | include 为空 = 不限；exclude 优先（先 exclude 后 include） |
+| glob | 仅路径匹配（`src/**`、`*.py`），使用 `fnmatch`（大小写不敏感，Windows 兼容） |
+| 生效点 | `_build_steps`：每个 gate 先用 matcher 过滤变更文件，无剩余文件则跳过该 gate（与"无匹配跳过 pytest"一致） |
+| 默认 | 无 matchers 配置时行为与 v1-v3 完全一致（零破坏） |
+| 示例 | `matchers: {mypy: {include: ["src/**"], exclude: ["src/l1/kernel/params/**"]}}` |
+
+### 13.2 AutoTest 缓存真实消费
+
+| 项 | 设计 |
+|---|---|
+| 缓存键 | `auto_test:<sha256(task)[:8]>`（`l3.tool_system.auto_test._cache_key` 语义） |
+| 读取 | `l3.cell.get_cell(cell_id).cache.lookup(key)` → `CellCacheEntry`（`value` 含 passed/failures/at） |
+| 附注 | 报告生成前（`_do_review` 内）读最近 AutoTest 结果，写入 `report.context.auto_test`（非阻塞，失败忽略） |
+| 开关 | `ci.review.consume_auto_test_cache`（已有，默认 true） |
+| 语义 | 仅**附注参考**（"该 cell 最近全量回归状态"），不改 verdict——全量回归归 AutoTestGate 管，定向门禁管本模块 |
+| 测试 | mock `cell.cache.lookup` 返回/返回 None 两种路径 |
+
+### 13.3 手动重跑（API + L2）
+
+| 面 | 设计 |
+|---|---|
+| API | `POST /api/v2/ci/reviews/{card_id}/rerun` → `CiReviewService.rerun(card_id)` |
+| 语义 | 取该卡最新报告（changed_files / agent_id / gates 配置），重新 `_do_review`；无历史报告 → 404 语义错误 |
+| 权限 | 需 `ci.control.api.writable`（写操作，走 surface 门控） |
+| L2 | `/ci rerun <card_id>`（shell 面同权限） |
+| 事件 | 复用现有 `ci.review.completed/failed`；报告覆盖该 card_id 的最新条目 |
+| 测试 | 有历史报告重跑成功；无历史报告返回错误；api 禁写拒绝 |
+
+### 13.4 审查完成 webhook 推送
+
+| 项 | 设计 |
+|---|---|
+| 配置 | `ci.review.notify.webhook_url`（可选）+ `ci.review.notify.webhook_events: ["failed", "rejected"]`（默认仅失败类） |
+| 实现 | `_link_notify` 扩展：verdict ∈ 配置事件 → POST JSON 到 webhook_url（复用 `l4.notify.send_notification` 的 webhook 通道，零新增 HTTP 逻辑） |
+| payload | `{card_id, verdict, gates, error, agent_id, timestamp}` |
+| 降级 | 与现有 notify 一样 try/except 非阻塞；无 URL 配置 = 不推送（默认 off） |
+| 测试 | mock `send_notification` 断言 channel="webhook" + payload 字段 |
+
+### 13.5 文件改动（增量）
+
+| 文件 | 操作 |
+|---|---|
+| `src/l4/ci_review.py` | `_build_steps` 加 matcher 过滤；`_collect_autotest_context`；`rerun()`；`_link_notify` 扩展 webhook |
+| `src/l4/api_handlers/api_handlers_ci.py` | `handle_ci_review_rerun`（POST） |
+| `src/l4/api/api_routes.py` + `api_endpoints.py` | 注册 `POST /api/v2/ci/reviews/{card_id}/rerun` |
+| `src/l2/l2_shell/commands/ci.py` | `/ci rerun <card_id>` 子命令 |
+| `config/praxis.yaml` | `ci.review.matchers` + `notify.webhook_url/webhook_events` |
+| `src/l1/kernel/params/system.py` | `CI_REVIEW_RERUN_CONCURRENCY`（可选） |
+| `tests/l4/test_ci_review.py` | matcher / 缓存附注 / 重跑 / webhook 用例 |
+
+### 13.6 测试要点（v4）
+
+| 用例 | 断言 |
+|---|---|
+| `test_matcher_include_only` | include 过滤后只跑命中文件的门禁 |
+| `test_matcher_exclude_wins` | exclude 优先于 include |
+| `test_matcher_no_config_backward_compat` | 无 matchers → 行为与 v3 一致 |
+| `test_autotest_context_attached` | cache.lookup 命中 → report.context.auto_test 有值 |
+| `test_autotest_context_miss_ignored` | lookup 返回 None / 抛错 → 无附注且不失败 |
+| `test_rerun_with_history` | 有报告 → 重新审查成功且覆盖 |
+| `test_rerun_without_history` | 无报告 → 错误 |
+| `test_rerun_api_write_gate` | api 禁写 → 拒绝 |
+| `test_webhook_on_failed` | verdict=failed + 事件匹配 → send_notification(webhook) |
+| `test_webhook_not_configured` | 无 URL → 不推送 |
+
+---
+
+**规划结束（v4）。** 门禁 matcher 保持 v1-v3 行为零破坏；AutoTest 缓存消费闭合 §3.1 预留位；
+手动重跑与 webhook 使 CI 审查具备基本流水线闭环（人工介入 + 外部通知）。

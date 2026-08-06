@@ -352,10 +352,15 @@ class TestLinkages:
         svc, fake = _make_service(tmp_path, monkeypatch)
         fake["ci.review.notify.channel"] = "log"
         sent = []
-        monkeypatch.setattr(notify_mod, "send_notification",
-                            lambda agent, message, channel="log": sent.append(agent))
+
+        class _FakeNotify:
+            def send(self, channel, to, subject, body):
+                sent.append({"channel": channel, "to": to})
+
+        monkeypatch.setattr(notify_mod, "get_service", lambda: _FakeNotify())
         svc._link_notify(_make_report("c1", "REJECT", agent_id="agent-writer"))
-        assert sent == ["agent-writer"]
+        assert sent and sent[0]["channel"] == "log"
+        assert sent[0]["to"] == "agent-writer"
 
     def test_linkage_failure_nonblocking(self, tmp_path, monkeypatch):
         svc, fake = _make_service(tmp_path, monkeypatch)
@@ -642,3 +647,188 @@ class TestScopeResolution:
         svc._on_card_completed("card-2", "completed", {"cell_id": "cell-sp2"})
         time.sleep(0.3)
         assert triggered == ["card-2"]
+
+
+class TestV4Matcher:
+    """v4 per-gate path matchers (include/exclude globs, backward compatible)."""
+
+    def test_matcher_no_config_backward_compat(self, tmp_path, monkeypatch):
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        steps = svc._build_steps(["src/a.py", "src/l1/kernel/params/b.py"])
+        actions = [s["action"] for s in steps]
+        assert actions == ["ruff", "mypy"]
+        assert "params/b.py" in steps[0]["cmd"]  # no matcher = all py files
+
+    def test_matcher_include_only(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.matchers"] = {"ruff": {"include": ["src/**"], "exclude": []}}
+        steps = svc._build_steps(["src/a.py", "src/l1/kernel/params/b.py", "tools/c.py"])
+        ruff = [s for s in steps if s["action"] == "ruff"][0]["cmd"]
+        assert "src/a.py" in ruff and "params/b.py" in ruff  # src/** recursive
+        assert "tools/c.py" not in ruff
+
+    def test_matcher_exclude_wins(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.matchers"] = {
+            "mypy": {"include": ["src/**"], "exclude": ["src/l1/**"]}}
+        steps = svc._build_steps(["src/a.py", "src/l1/kernel/params/b.py"])
+        mypy = [s for s in steps if s["action"] == "mypy"]
+        assert mypy, "mypy step should exist (src/a.py matches include)"
+        assert "src/a.py" in mypy[0]["cmd"]
+        assert "params/b.py" not in mypy[0]["cmd"]  # excluded
+
+    def test_matcher_no_match_skips_gate(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.matchers"] = {"ruff": {"include": ["docs/**"], "exclude": []}}
+        steps = svc._build_steps(["src/a.py"])
+        assert all(s["action"] != "ruff" for s in steps)
+
+
+class TestV4AutotestContext:
+    """v4 AutoTest L2 cache consumption as report context."""
+
+    def _install_cache(self, monkeypatch, entries):
+        import l3.cell as cell_mod
+
+        class _FakeCache:
+            def keys(self):
+                return list(entries.keys())
+
+            def lookup(self, key):
+                return entries.get(key)
+
+        class _FakeCell:
+            def __init__(self, cache):
+                self.cache = cache
+
+        monkeypatch.setattr(cell_mod, "get_cell",
+                            lambda cid: _FakeCell(_FakeCache()) if cid else None)
+        return entries
+
+    def test_autotest_context_attached(self, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.consume_auto_test_cache"] = True
+        entries = {
+            "auto_test:abc": SimpleNamespace(
+                timestamp=200.0,
+                value={"passed": True, "failures": [], "at": 200.0},
+                summary="PASS [agent]"),
+        }
+        self._install_cache(monkeypatch, entries)
+        ctx = svc._collect_autotest_context("cell-sp1")
+        assert ctx["passed"] is True and ctx["failures"] == 0
+
+    def test_autotest_context_miss_ignored(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.consume_auto_test_cache"] = True
+        self._install_cache(monkeypatch, {})  # no auto_test entries
+        assert svc._collect_autotest_context("cell-sp1") == {}
+
+    def test_autotest_context_disabled(self, tmp_path, monkeypatch):
+        svc, fake = _make_service(tmp_path, monkeypatch)
+        fake["ci.review.consume_auto_test_cache"] = False
+        self._install_cache(monkeypatch, {"auto_test:abc": object()})
+        assert svc._collect_autotest_context("cell-sp1") == {}
+
+
+class TestV4Rerun:
+    """v4 manual re-run endpoint + service method."""
+
+    def test_rerun_with_history(self, tmp_path, monkeypatch):
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        report = _make_report("card-1", "NEEDS_CHANGES", agent_id="agent-writer")
+        report.changed_files = ["src/a.py"]
+        monkeypatch.setattr(svc, "_emit_events", lambda r: None)
+        svc._persist_report(report)
+        processed = []
+        monkeypatch.setattr(svc, "_process",
+                            lambda cid, state, result: processed.append((cid, result)))
+        r = svc.rerun("card-1")
+        assert r["success"] is True and r["queued"] is True
+        time.sleep(0.3)
+        assert processed and processed[0][0] == "card-1"
+        assert processed[0][1]["changes"] == ["src/a.py"]  # reuses changed files
+
+    def test_rerun_without_history(self, tmp_path, monkeypatch):
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        r = svc.rerun("card-ghost")
+        assert r["success"] is False
+        assert "no CI review history" in r["error"]
+
+    def test_rerun_api_write_gate(self, monkeypatch):
+        from l4.api_handlers.api_handlers_ci import handle_ci_review_rerun
+
+        class _FakeRerunSvc:
+            def __init__(self, center):
+                self._center = center
+
+            def _surface_writable(self, surface):
+                return bool(self._center.get(f"ci.control.{surface}.writable", True))
+
+            def rerun(self, card_id):
+                return {"success": True, "card_id": card_id, "queued": True}
+
+        import l3.config.settings_center as sc_mod
+        import l4.ci_review as cr_mod
+
+        center = _FakeCenter()
+        svc = _FakeRerunSvc(center)
+        monkeypatch.setattr(sc_mod, "get_center", lambda: center)
+        monkeypatch.setattr(cr_mod, "get_service", lambda: svc)
+        center.d["ci.control.api.writable"] = False
+        r = handle_ci_review_rerun({"card_id": "card-1"}, card_id="card-1")
+        assert r["success"] is False
+        assert "writes disabled" in r["error"]
+
+
+class TestV4Webhook:
+    """v4 webhook notification on review completion."""
+
+    def _install(self, tmp_path, monkeypatch, settings=None):
+        import l4.notify as notify_mod
+
+        class _FakeNotify:
+            def __init__(self):
+                self.calls = []
+
+            def send(self, channel, to, subject, body):
+                self.calls.append({"channel": channel, "to": to,
+                                   "subject": subject, "body": body})
+                return {"success": True}
+
+        fake_notify = _FakeNotify()
+        monkeypatch.setattr(notify_mod, "get_service", lambda: fake_notify)
+        svc, fake = _make_service(tmp_path, monkeypatch, settings)
+        return svc, fake, fake_notify
+
+    def test_webhook_on_failed(self, tmp_path, monkeypatch):
+        svc, fake, notify = self._install(tmp_path, monkeypatch, {
+            "ci.review.notify.webhook_url": "http://ci.example/hook",
+            "ci.review.notify.webhook_events": ["failed", "rejected"],
+        })
+        report = _make_report("card-1", "NEEDS_CHANGES", agent_id="agent-writer")
+        report.completed_at = time.time()
+        svc._link_notify(report)
+        assert notify.calls[-1]["channel"] == "webhook"
+        assert notify.calls[-1]["to"] == "http://ci.example/hook"
+        body = json.loads(notify.calls[-1]["body"])
+        assert body["card_id"] == "card-1"
+        assert body["verdict"] == "NEEDS_CHANGES"
+        assert body["agent_id"] == "agent-writer"
+
+    def test_webhook_not_configured(self, tmp_path, monkeypatch):
+        svc, fake, notify = self._install(tmp_path, monkeypatch, {})  # no webhook_url
+        report = _make_report("card-1", "REJECT", agent_id="agent-writer")
+        svc._link_notify(report)
+        assert notify.calls[-1]["channel"] == "log"  # fallback channel
+
+    def test_webhook_event_filter(self, tmp_path, monkeypatch):
+        svc, fake, notify = self._install(tmp_path, monkeypatch, {
+            "ci.review.notify.webhook_url": "http://ci.example/hook",
+            "ci.review.notify.webhook_events": ["failed", "rejected"],
+        })
+        report = _make_report("card-1", "PASS", agent_id="agent-writer")
+        svc._link_notify(report)
+        assert notify.calls[-1]["channel"] == "log"  # passed not in default events

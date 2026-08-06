@@ -95,6 +95,13 @@ def _cmd_ci(args: list[str]) -> dict:
             if len(rest) < 2:
                 return {"success": False, "error": "usage: /ci show <card_id>"}
             return svc.query(card_id=rest[1], limit=1)
+        if sub == "rerun":
+            if len(rest) < 2:
+                return {"success": False, "error": "usage: /ci rerun <card_id>"}
+            if not svc._surface_writable("shell"):
+                return {"success": False,
+                        "error": "writes disabled (ci.control.shell.writable=false)"}
+            return svc.rerun(rest[1])
         if sub == "config":
             settings: dict = {}
             effective: dict = {}

@@ -410,6 +410,7 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # CI review (card-triggered; read-only queries + runtime switch)
     ("GET",  "/api/v2/ci/reviews",        "l4.api_handlers.api_handlers_ci.handle_ci_reviews",     "Query CI review reports"),
     ("GET",  "/api/v2/ci/reviews/{card_id}", "l4.api_handlers.api_handlers_ci.handle_ci_review_get", "Single card CI review report"),
+    ("POST", "/api/v2/ci/reviews/{card_id}/rerun", "l4.api_handlers.api_handlers_ci.handle_ci_review_rerun", "Re-run CI review for a card"),
     ("GET",  "/api/v2/ci/config",         "l4.api_handlers.api_handlers_ci.handle_ci_config_get",  "CI review switch state + permissions"),
     ("PUT",  "/api/v2/ci/config",         "l4.api_handlers.api_handlers_ci.handle_ci_config_set",  "Toggle CI review runtime switch"),
 ]
