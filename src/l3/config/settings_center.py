@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -55,62 +56,49 @@ logger = logging.getLogger(__name__)
 _L1_DEFAULTS: dict[str, Any] = {
     # ── Approval gate ──
     "approval.danger_threshold": 3,
-
     # ── Memory budgets ──
     "memory.working_budget": MEMORY_RING_WORKING_BUDGET,
     "memory.short_budget": MEMORY_RING_SHORT_BUDGET,
     "memory.long_budget": MEMORY_RING_LONG_BUDGET,
     "memory.working_ttl": MEMORY_RING_WORKING_TTL,
     "memory.short_ttl": MEMORY_RING_SHORT_TTL,
-
     # ── Scout pool ──
     "scout.max_total": SCOUT_POOL_MAX_TOTAL,
     "scout.max_per_agent": SCOUT_POOL_MAX_PER_AGENT,
-
     # ── Agent terminal ──
     "terminal.max_workers": TERMINAL_MAX_WORKERS,
-
     # ── Scheduler ──
     "scheduler.default_quantum": 15.0,
     "scheduler.max_preempt": PMU_SNAPSHOT_INTERVAL,
-
     # ── Scout cache ──
     "scout.cache_ttl": SCOUT_CACHE_TTL,
-
     # ── Cache ──
     "cache.max_entries": LOG_TRUNC_500,
     "cache.ttl": CACHE_DEFAULT_TTL,
-
     # ── LLM ──
     "llm.max_tokens": 2048,
     "llm.temperature": 0.3,
     "llm.reasoning_effort": "none",
     "llm.thinking_budget": 0,
-
     # ── Think quota (ThinkQuotaRegistry cap clamp) ──
     "think.max_budget": 32768,
-    "think.max_reasoning": "max",   # none|low|medium|high|xhigh|max; lower to cap reasoning
+    "think.max_reasoning": "max",  # none|low|medium|high|xhigh|max; lower to cap reasoning
     "think.profiles": {},
-
     # ── GateChain ──
     "gatechain.risk_warn_threshold": 6.0,
     "gatechain.escalation_danger": 4,
     "gatechain.repeat_threshold": GATECHAIN_REPEAT_THRESHOLD,
     "gatechain.high_freq_threshold": GATECHAIN_HIGH_FREQ_THRESHOLD,
-
     # ── TaskBus (webhook dispatch) ──
     "task_bus.webhook_retries": LOOP_MAX_ATTEMPTS,
     "task_bus.webhook_timeout": NOTIFY_WEBHOOK_TIMEOUT,
     "task_bus.webhook_backoff": "1.0,4.0,10.0",
-
     # ── CronScheduler ──
     "cron.check_interval": PMU_SNAPSHOT_INTERVAL,
     "cron.max_entries": 50,
-
     # ── Lifecycle (persistent state tracking) ──
     "lifecycle.install_version": 0,
     "lifecycle.schema_version": "",
-
     # ── L3A session limits (0 = unlimited) ──
     "l3a.max_steps": 0,
     "l3a.max_turns": 0,
@@ -120,9 +108,8 @@ _L1_DEFAULTS: dict[str, Any] = {
     "session.max_turns": 0,  # deprecated — use l3a.max_turns
     # ── L3A auto-compression (system-monitored context thresholds) ──
     "l3a.auto_compress": True,
-    "l3a.auto_compress_threshold": 0.6,   # pressure_ratio to trigger
-    "l3a.auto_compress_keep": 10,         # messages kept after auto-compress
-
+    "l3a.auto_compress_threshold": 0.6,  # pressure_ratio to trigger
+    "l3a.auto_compress_keep": 10,  # messages kept after auto-compress
     # ── Loop control (AgentLoop self-correction) ──
     "loop.max_steps": 0,  # 0 = unlimited by default; > 0 = step-limited mode
     "loop.timeout": AGENT_LOOP_DEFAULT_TIMEOUT,
@@ -134,16 +121,13 @@ _L1_DEFAULTS: dict[str, Any] = {
     "loop.coarse_repeat_nudge": LOOP_COARSE_REPEAT_NUDGE,
     "loop.coarse_repeat_stop": 6,
     "loop.verify_cadence": True,
-
     # ── LLM global (model_service reads via SettingsCenter) ──
     "llm.provider": "ollama",
     "llm.model": DEFAULT_MODEL_OLLAMA_CODER,
     "llm.api_key": "",
     "llm.api_url": "",
-
     # ── Device ──
     "device.rate_limit_default": 10,
-
     # ── Diff API (mirrors config/praxis.yaml diff: section) ──
     "diff.heavy_api_enabled": False,
     "diff.colors": {
@@ -158,22 +142,17 @@ _L1_DEFAULTS: dict[str, Any] = {
         "added": "\033[32m",
         "removed": "\033[31m",
     },
-
     # ── Constitution runtime rules (L3-persisted custom rules) ──
     "constitution.custom_rules": [],
-
     # ── Skills (developer-only write gate) ──
-    "skill.write_min_ring": 3,          # min ring clearance to mutate skills
+    "skill.write_min_ring": 3,  # min ring clearance to mutate skills
     "skill.write_roles": ["l3", "reviewer", "deployer"],
-    "skill.evolve_scope": "project",    # "project" | "global" — evolution write target
-    "skill.project_dirs": [],           # extra project skill discovery dirs
-
+    "skill.evolve_scope": "project",  # "project" | "global" — evolution write target
+    "skill.project_dirs": [],  # extra project skill discovery dirs
     # ── Per-Cell skill white-list (回灌到 Cell); empty → global pool ──
     "cell.skills": {},
-
     # ── R4 Agent ──
     "r4_agent.model_spec": "r4_agent",  # model spec name for skill evolution / archive ops
-
     # ── Per-executor model specs (model_service reads model_spec.{name}.defaults) ──
     # Mirrors the model_spec section of config/praxis.yaml; `model` inherits
     # from llm.model unless set per executor.
@@ -209,11 +188,9 @@ class SettingsCenter:
     def __init__(self, persist_path: str = ""):
         self._lock = threading.RLock()
         self._l1: dict[str, Any] = dict(_L1_DEFAULTS)
-        self._l2: dict[str, Any] = {}   # loaded from praxis.yaml at boot
-        self._l3: dict[str, Any] = {}    # loaded/saved to .praxis_settings.json
-        self._persist_path = persist_path or (
-            _gp().settings_file
-        )
+        self._l2: dict[str, Any] = {}  # loaded from praxis.yaml at boot
+        self._l3: dict[str, Any] = {}  # loaded/saved to .praxis_settings.json
+        self._persist_path = persist_path or (_gp().settings_file)
 
     # ── Three-layer load ──
 
@@ -371,5 +348,26 @@ def get_center() -> SettingsCenter:
 
 
 def reset_center() -> None:
+    """Reset the SettingsCenter singleton (test/factory-reset path).
+
+    Also removes the persisted L3 override file so a freshly created center
+    does not reload stale runtime overrides from a previous test session.
+    """
     global _center
     _center = None
+    try:
+        persist = _center_persist_path()
+        if persist and os.path.exists(persist):
+            os.remove(persist)
+    except Exception as e:
+        logger.debug("settings_center: persist cleanup failed: %s", e)
+
+
+def _center_persist_path() -> str:
+    """Resolve the settings persist path without constructing a center."""
+    try:
+        from l1.kernel.paths import get_paths as _gp
+
+        return _gp().settings_file
+    except Exception:
+        return ""

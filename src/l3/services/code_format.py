@@ -77,6 +77,12 @@ def format_file(path: str, tool: str = "") -> dict:
     if not os.path.isfile(full):
         return {"success": False, "error": "file not found", "path": full}
     preferred = tool or detect_formatter(full)
+    if not preferred:
+        return {
+            "success": False,
+            "error": "formatter unavailable for extension",
+            "path": full,
+        }
     det = _resolve_detector(preferred)
     if det is None:
         return {

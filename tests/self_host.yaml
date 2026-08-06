@@ -2,7 +2,7 @@
 # L3A parse: "Check if __all__ in kernel/__init__.py is complete, add missing exports"
 card:
   id: "self-host-001"
-  intent: "Bootstrap: Read Praxis kernel __init__.py, check __all__ completeness 
+  intent: "Bootstrap: Read Praxis kernel __init__.py, check __all__ completeness
            against actual kernel modules, add any missing exports, verify compilation."
   domain: "."
   mode: EXECUTE
@@ -70,10 +70,10 @@ phases:
     steps:
       - action: scout
         agent: scout
-        target: "Verify the proposed __all__ changes against the praxis-self skill rules. 
+        target: "Verify the proposed __all__ changes against the praxis-self skill rules.
                  Check: are all 17 kernel modules exported? Is the format correct?"
         params:
-          prompt: "Read src/kernel/__init__.py and check if __all__ is complete. 
+          prompt: "Read src/kernel/__init__.py and check if __all__ is complete.
                    List all kernel .py files and cross-reference with __all__ exports.
                    Report any missing modules."
 

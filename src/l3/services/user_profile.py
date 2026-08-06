@@ -119,12 +119,10 @@ class ProfileStore:
                 bucket.sort(key=lambda e: e.ts)
                 del bucket[: len(bucket) - self._max_entries]
 
-    def entries(self, user_id: str, kind: str | None = None,
-                now: float | None = None) -> list[ProfileEntry]:
+    def entries(self, user_id: str, kind: str | None = None, now: float | None = None) -> list[ProfileEntry]:
         """Live (non-expired) entries for a user, optionally filtered by kind."""
         with self._lock:
-            out = [e for e in self._entries.get(user_id, [])
-                   if not e.expired(now)]
+            out = [e for e in self._entries.get(user_id, []) if not e.expired(now)]
             if kind:
                 out = [e for e in out if e.kind == kind]
             return sorted(out, key=lambda e: e.ts, reverse=True)
@@ -160,8 +158,9 @@ class ProfileStore:
                     weakened += 1
         return weakened
 
-    def snapshot(self, user_id: str, limit: int = PROFILE_SNAPSHOT_ENTRIES,
-                 kinds: tuple[str, ...] | None = None) -> dict:
+    def snapshot(
+        self, user_id: str, limit: int = PROFILE_SNAPSHOT_ENTRIES, kinds: tuple[str, ...] | None = None
+    ) -> dict:
         """Fold the top entries into a structured, injection-ready summary.
 
         Returns {user_id, kinds, entries, updated_at} 鈥?kinds restrict the
@@ -188,8 +187,7 @@ class ProfileStore:
                 "entries": [e.to_dict() for e in self._entries.get(user_id, [])],
             }
 
-    def import_entries(self, user_id: str, entries: list[dict],
-                       replace: bool = False) -> int:
+    def import_entries(self, user_id: str, entries: list[dict], replace: bool = False) -> int:
         """Import entries (marking source=import); optionally replace the user's set."""
         with self._lock:
             if replace:
@@ -218,10 +216,8 @@ class ProfileStore:
         now = time.time()
         with self._lock:
             if user_id:
-                return sum(1 for e in self._entries.get(user_id, [])
-                           if not e.expired(now))
-            return sum(1 for b in self._entries.values()
-                       for e in b if not e.expired(now))
+                return sum(1 for e in self._entries.get(user_id, []) if not e.expired(now))
+            return sum(1 for b in self._entries.values() for e in b if not e.expired(now))
 
 
 class UserProfileService(BaseService):
@@ -232,7 +228,10 @@ class UserProfileService(BaseService):
         self._enabled = enabled
         self._store = ProfileStore()
         self._stats: dict[str, Any] = {
-            "ingested": 0, "refined": 0, "decay_cycles": 0, "archived": 0,
+            "ingested": 0,
+            "refined": 0,
+            "decay_cycles": 0,
+            "archived": 0,
         }
         self._decay_thread: threading.Thread | None = None
         self._decay_stop = threading.Event()
@@ -241,8 +240,7 @@ class UserProfileService(BaseService):
     def _on_start(self) -> dict:
         """Start the decay loop and wire event collectors."""
         if PROFILE_DECAY_INTERVAL > 0:
-            self._decay_thread = threading.Thread(
-                target=self._decay_loop, name="profile-decay", daemon=True)
+            self._decay_thread = threading.Thread(target=self._decay_loop, name="profile-decay", daemon=True)
             self._decay_thread.start()
         self._wire_event_collectors()
         return {"success": True}
@@ -261,6 +259,7 @@ class UserProfileService(BaseService):
             return self._enabled
         try:
             from l1.kernel.settings import get_settings
+
             return bool(get_settings().get("user_profile.enabled", False))
         except Exception:
             return False
@@ -270,6 +269,7 @@ class UserProfileService(BaseService):
         self._enabled = bool(flag)
         try:
             from l3.config.settings_center import get_center
+
             get_center().set("user_profile.enabled", bool(flag))
         except Exception:
             pass
@@ -277,10 +277,17 @@ class UserProfileService(BaseService):
 
     # 鈹€鈹€ Ingestion 鈹€鈹€
 
-    def ingest(self, user_id: str, kind: str, value: Any,
-               source: str = SRC_API, confidence: float = 0.6,
-               context: dict | None = None, ttl: float = PROFILE_ENTRY_TTL_DEFAULT,
-               force: bool = False) -> dict:
+    def ingest(
+        self,
+        user_id: str,
+        kind: str,
+        value: Any,
+        source: str = SRC_API,
+        confidence: float = 0.6,
+        context: dict | None = None,
+        ttl: float = PROFILE_ENTRY_TTL_DEFAULT,
+        force: bool = False,
+    ) -> dict:
         """Record a typed profile fact for a user.
 
         Args:
@@ -293,18 +300,26 @@ class UserProfileService(BaseService):
         if kind not in PROFILE_KINDS:
             return {"success": False, "error": f"unknown kind: {kind}"}
         entry = ProfileEntry(
-            kind=kind, value=value, user_id=user_id,
+            kind=kind,
+            value=value,
+            user_id=user_id,
             confidence=max(0.1, min(1.0, float(confidence))),
-            source=source, context=context or {},
+            source=source,
+            context=context or {},
             expires_at=(time.time() + ttl) if ttl > 0 else 0.0,
         )
         with self._lock:
             self._store.add(entry)
             self._stats["ingested"] += 1
-        self._emit(PROFILE_EMIT_EVENT, {
-            "user_id": user_id, "kind": kind, "source": source,
-            "count": self._store.count(user_id),
-        })
+        self._emit(
+            PROFILE_EMIT_EVENT,
+            {
+                "user_id": user_id,
+                "kind": kind,
+                "source": source,
+                "count": self._store.count(user_id),
+            },
+        )
         return {"success": True, "ingested": 1, "entry_id": entry.entry_id}
 
     def register_collector(self, fn: Callable[[], None]) -> None:
@@ -334,22 +349,33 @@ class UserProfileService(BaseService):
         try:
             if name == "APPROVAL_RESPONDED":
                 approved = bool(data.get("approved"))
-                self._store.add(ProfileEntry(
-                    kind=PROFILE_KIND_DECISION_STYLE,
-                    value="approve" if approved else "reject",
-                    user_id=user_id, confidence=0.7, source=SRC_APPROVAL,
-                    context={"req_id": data.get("req_id", ""),
-                             "response": str(data.get("response", ""))[:200],
-                             "status": data.get("status", "")},
-                ))
+                self._store.add(
+                    ProfileEntry(
+                        kind=PROFILE_KIND_DECISION_STYLE,
+                        value="approve" if approved else "reject",
+                        user_id=user_id,
+                        confidence=0.7,
+                        source=SRC_APPROVAL,
+                        context={
+                            "req_id": data.get("req_id", ""),
+                            "response": str(data.get("response", ""))[:200],
+                            "status": data.get("status", ""),
+                        },
+                    )
+                )
                 self._stats["ingested"] += 1
             elif name == "CARD_PENDING":
                 domain = str(data.get("domain") or data.get("size") or "general")
-                self._store.add(ProfileEntry(
-                    kind=PROFILE_KIND_DOMAIN_FOCUS, value=domain,
-                    user_id=user_id, confidence=0.5, source=SRC_CARD,
-                    context={"card_id": data.get("card_id", "")},
-                ))
+                self._store.add(
+                    ProfileEntry(
+                        kind=PROFILE_KIND_DOMAIN_FOCUS,
+                        value=domain,
+                        user_id=user_id,
+                        confidence=0.5,
+                        source=SRC_CARD,
+                        context={"card_id": data.get("card_id", "")},
+                    )
+                )
                 self._stats["ingested"] += 1
         except Exception as e:
             logger.debug("user_profile: collector error: %s", e)
@@ -367,20 +393,21 @@ class UserProfileService(BaseService):
             return {"success": False, "error": "disabled"}
         raw = self._store.entries(user_id)[:PROFILE_REFINE_MAX_RAW]
         if len(raw) < PROFILE_REFINE_MIN_ENTRIES:
-            return {"success": True, "refined": 0,
-                    "reason": "not enough raw entries"}
+            return {"success": True, "refined": 0, "reason": "not enough raw entries"}
         summary = self._rule_refine(raw)
         trait = ProfileEntry(
-            kind=PROFILE_KIND_TRAIT, value=summary, user_id=user_id,
-            confidence=0.8, source=SRC_REFINED,
+            kind=PROFILE_KIND_TRAIT,
+            value=summary,
+            user_id=user_id,
+            confidence=0.8,
+            source=SRC_REFINED,
             context={"raw_entries": len(raw), "method": "rule"},
             expires_at=time.time() + 30 * 24 * 3600,
         )
         with self._lock:
             self._store.add(trait)
             self._stats["refined"] += 1
-        self._emit("stats.user_profile.refined",
-                   {"user_id": user_id, "raw": len(raw)})
+        self._emit("stats.user_profile.refined", {"user_id": user_id, "raw": len(raw)})
         return {"success": True, "refined": 1, "trait": trait.to_dict()}
 
     def _rule_refine(self, entries: list[ProfileEntry]) -> dict:
@@ -393,8 +420,7 @@ class UserProfileService(BaseService):
             value_count[key] = value_count.get(key, 0) + 1
         top_kinds = sorted(kind_count, key=kind_count.get, reverse=True)[:3]
         top_values = sorted(value_count, key=value_count.get, reverse=True)[:5]
-        return {"method": "rule", "top_kinds": top_kinds,
-                "top_values": top_values, "sample_size": len(entries)}
+        return {"method": "rule", "top_kinds": top_kinds, "top_values": top_values, "sample_size": len(entries)}
 
     def refine_all(self) -> dict:
         """Refine every user with enough raw entries (periodic driver)."""
@@ -406,8 +432,7 @@ class UserProfileService(BaseService):
 
     # 鈹€鈹€ Query / injection surface 鈹€鈹€
 
-    def get_profile(self, user_id: str,
-                    kinds: tuple[str, ...] | None = None) -> dict:
+    def get_profile(self, user_id: str, kinds: tuple[str, ...] | None = None) -> dict:
         """Snapshot for consumers (intent parsing, L3A prompt, UI)."""
         return self._store.snapshot(user_id, kinds=kinds)
 
@@ -423,10 +448,13 @@ class UserProfileService(BaseService):
             import json as _json
 
             from l3.tools._archive import _cmd_archive_store
+
             r = _cmd_archive_store(
-                fonds=PROFILE_FONDS, series=user_id,
+                fonds=PROFILE_FONDS,
+                series=user_id,
                 content=_json.dumps(payload, ensure_ascii=False),
-                tags=f"user_profile,{user_id}")
+                tags=f"user_profile,{user_id}",
+            )
             if r.get("success"):
                 with self._lock:
                     self._stats["archived"] += 1
@@ -443,8 +471,7 @@ class UserProfileService(BaseService):
         """Portable JSON payload for a user (for export/import endpoints)."""
         return self._store.export(user_id)
 
-    def import_profile(self, user_id: str, payload: dict,
-                       replace: bool = False) -> dict:
+    def import_profile(self, user_id: str, payload: dict, replace: bool = False) -> dict:
         """Import a previously exported profile."""
         entries = (payload or {}).get("entries") or []
         if not isinstance(entries, list):
@@ -467,8 +494,7 @@ class UserProfileService(BaseService):
                 **dict(self._stats),
                 "users": len(self._store.all_users()),
                 "entries": self._store.count(),
-                "per_user": {uid: self._store.count(uid)
-                             for uid in self._store.all_users()},
+                "per_user": {uid: self._store.count(uid) for uid in self._store.all_users()},
             }
 
     def _decay_loop(self) -> None:
@@ -480,8 +506,7 @@ class UserProfileService(BaseService):
                 with self._lock:
                     self._stats["decay_cycles"] += 1
                 if purged or weakened:
-                    self._emit("stats.user_profile.decay",
-                               {"purged": purged, "weakened": weakened})
+                    self._emit("stats.user_profile.decay", {"purged": purged, "weakened": weakened})
             except Exception as e:
                 logger.debug("user_profile: decay cycle failed: %s", e)
 
@@ -490,8 +515,8 @@ class UserProfileService(BaseService):
         try:
             from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
-            _MB().emit(_MEv(type=event_type, source="user_profile",
-                            severity="info", data=data))
+
+            _MB().emit(_MEv(type=event_type, source="user_profile", severity="info", data=data))
         except Exception:
             logger.debug("user_profile: monitor emit failed")
 
@@ -525,4 +550,3 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
-

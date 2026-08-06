@@ -113,7 +113,7 @@ phases:
     mode: PARALLEL
     steps:
       - action: scout
-        target: "Read snake_game.py and check: PEP 8 compliance, type hints presence, 
+        target: "Read snake_game.py and check: PEP 8 compliance, type hints presence,
                  docstring coverage, error handling. Report violations by line number."
         agent: scout
         verify:
@@ -123,8 +123,8 @@ phases:
             path: "."
 
       - action: scout
-        target: "Run a static analysis on the Snake game code. 
-                 Check for: potential bugs, missing edge cases, 
+        target: "Run a static analysis on the Snake game code.
+                 Check for: potential bugs, missing edge cases,
                  thread safety, input validation."
         agent: scout
 

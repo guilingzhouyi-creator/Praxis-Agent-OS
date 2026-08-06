@@ -11,8 +11,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 def _setup_strategies():
     """Seed strategy definitions + a clean spec state."""
     from l3.services.model_service import get_service as _gs
+
     _gs()._settings = None  # rebind to the fresh center (conftest resets singletons)
     from l3.config.settings_center import get_center
+
     sc = get_center()
     sc.set("model_spec.strategies.fast.max_tokens", 2048)
     sc.set("model_spec.strategies.fast.reasoning_effort", "none")
@@ -24,11 +26,14 @@ def _setup_strategies():
     sc.reset("model_spec.l3a.reasoning_effort")
     sc.reset("model_spec.l3a.thinking_budget")
     sc.reset("model_spec.l3a.strategy")
+    sc.reset("think.max_reasoning")
+    sc.reset("think.max_budget")
 
 
 class TestStrategyApply:
     def test_apply_changes_resolution(self):
         from l3.services.model_service import get_service
+
         _setup_strategies()
         ms = get_service()
         r = ms.apply_strategy("l3a", "deep")
@@ -41,12 +46,14 @@ class TestStrategyApply:
 
     def test_unknown_strategy_fails(self):
         from l3.services.model_service import get_service
+
         _setup_strategies()
         r = get_service().apply_strategy("l3a", "nope")
         assert r["success"] is False
 
     def test_current_strategy_reports(self):
         from l3.services.model_service import get_service
+
         _setup_strategies()
         ms = get_service()
         assert ms.current_strategy("l3a")["strategy"] == "defaults"
@@ -57,6 +64,7 @@ class TestStrategyApply:
 
     def test_clear_restores_defaults(self):
         from l3.services.model_service import get_service
+
         _setup_strategies()
         ms = get_service()
         ms.apply_strategy("l3a", "deep")
@@ -75,6 +83,7 @@ class TestStrategyApi:
             handle_model_strategy_clear,
             handle_model_strategy_get,
         )
+
         assert callable(handle_model_strategy_apply)
         assert callable(handle_model_strategy_apply_many)
         assert callable(handle_model_strategy_clear)
@@ -86,6 +95,7 @@ class TestStrategyApi:
             handle_model_strategy_apply,
             handle_model_strategy_get,
         )
+
         _setup_strategies()
         r = handle_model_strategy_apply("l3a", {"strategy": "deep"})
         assert r["success"] is True
@@ -99,6 +109,7 @@ class TestStrategyApi:
             handle_model_strategy_apply,
             handle_model_strategy_clear,
         )
+
         _setup_strategies()
         handle_model_strategy_apply("l3a", {"strategy": "deep"})
         r = handle_model_strategy_clear("l3a", {})
@@ -108,6 +119,7 @@ class TestStrategyApi:
     def test_batch_apply_all(self):
         from l3.services.model_service import get_service
         from l4.api_handlers.api_handlers_providers import handle_model_strategy_apply_many
+
         _setup_strategies()
         r = handle_model_strategy_apply_many({"strategy": "fast", "specs": ["all"]})
         assert r["success"] is True
@@ -117,11 +129,13 @@ class TestStrategyApi:
 
     def test_batch_requires_args(self):
         from l4.api_handlers.api_handlers_providers import handle_model_strategy_apply_many
+
         assert handle_model_strategy_apply_many({})["success"] is False
         assert handle_model_strategy_apply_many({"strategy": "fast"})["success"] is False
 
     def test_apply_requires_name(self):
         from l4.api_handlers.api_handlers_providers import handle_model_strategy_apply
+
         r = handle_model_strategy_apply("", {"strategy": "deep"})
         assert r["success"] is False
 
@@ -129,6 +143,7 @@ class TestStrategyApi:
 class TestRoutes:
     def test_routes_registered(self):
         from l4.api.api_routes import API_ROUTES
+
         paths = {p for _, p, _, _ in API_ROUTES}
         assert "/api/v2/model-spec/{name}/strategy" in paths
         assert "/api/v2/model-spec/strategy/apply" in paths
@@ -137,17 +152,18 @@ class TestRoutes:
 class TestEffortTiers:
     def test_xhigh_max_constants(self):
         from l1.kernel.params.api import (
-            REASONING_EFFORT_HIGH,
             REASONING_EFFORT_MAX,
             REASONING_EFFORT_XHIGH,
             THINK_MAX_REASONING,
         )
+
         assert REASONING_EFFORT_XHIGH == "xhigh"
         assert REASONING_EFFORT_MAX == "max"
         assert THINK_MAX_REASONING == REASONING_EFFORT_MAX
 
     def test_clamp_to_xhigh_ceiling(self):
         from l3.services.model_service import get_service
+
         _setup_strategies()
         ms = get_service()
         sc = ms._settings_center()

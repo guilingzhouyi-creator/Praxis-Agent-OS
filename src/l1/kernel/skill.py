@@ -49,6 +49,7 @@ def _get_skill_dirs() -> list[str]:
     """Get skill discovery dirs from config, fall back to built-in paths."""
     try:
         from l1.kernel.discovery import get_config
+
         cfg = get_config("skill_dirs")
         if cfg and isinstance(cfg, list):
             return cfg
@@ -64,6 +65,7 @@ def resolve_skill_dirs() -> list[str]:
     """Return skill discovery paths via PraxisPaths (deploy-mode aware)."""
     try:
         from .paths import get_paths
+
         return get_paths().skill_dirs
     except Exception:
         return list(SKILL_DIRS)
@@ -75,13 +77,14 @@ def _derive_role(agent_id: str) -> str:
         return agent_id
     for prefix in ("agent-", "agent_"):
         if agent_id.startswith(prefix):
-            return agent_id[len(prefix):]
+            return agent_id[len(prefix) :]
     return agent_id
 
 
 @dataclass
 class Skill:
     """Skill — skill record (name, description, rules, procedures, knowledge)."""
+
     name: str
     description: str = ""
     rules: list[str] = field(default_factory=list)
@@ -180,8 +183,7 @@ class SkillManager:
             for cell_set in self._cell_skill_map.values():
                 cell_set.discard(name)
 
-    def set_write_policy(self, min_ring: int | None = None,
-                         roles: list[str] | tuple[str, ...] | None = None) -> dict:
+    def set_write_policy(self, min_ring: int | None = None, roles: list[str] | tuple[str, ...] | None = None) -> dict:
         """Override the write-gate policy (called by L3 config center / API).
 
         Args:
@@ -209,17 +211,18 @@ class SkillManager:
 
     def load_dir(self, directory: str) -> int:
         """Load all skill files from a directory tree.
-        
+
         Supports:
           - SKILL.md files (Markdown with frontmatter)
           - .yaml/.yml skill definitions
         """
         import yaml
+
         count = 0
         base = os.path.abspath(directory)
         if not os.path.isdir(base):
             return 0
-        for root, dirs, files in os.walk(base):
+        for root, _dirs, files in os.walk(base):
             for fn in files:
                 fp = os.path.join(root, fn)
                 if fn == "SKILL.md":
@@ -243,6 +246,7 @@ class SkillManager:
         count = 0
         dirs = resolve_skill_dirs()
         import l1.kernel as _kernel
+
         kernel_dir = os.path.dirname(_kernel.__file__)
         for sd in dirs:
             if os.path.isabs(sd):
@@ -253,7 +257,7 @@ class SkillManager:
                 # kernel_dir = <root>/src/l1/kernel → project root is 3 levels up.
                 for base in [
                     os.path.join(kernel_dir, "..", "..", ".."),  # project root
-                    os.path.join(kernel_dir, "..", ".."),        # src/
+                    os.path.join(kernel_dir, "..", ".."),  # src/
                 ]:
                     path = os.path.join(base, sd)
                     if os.path.isdir(path):
@@ -262,14 +266,14 @@ class SkillManager:
         # Also load evolved skills from data directory
         try:
             from ..paths import get_paths as _gp
+
             if os.path.isdir(_gp().skill_evolved_dir):
                 count += self.load_dir(_gp().skill_evolved_dir)
         except Exception:
             logger.debug("skill: evolved skills load failed")
         return count
 
-    def authorize_write(self, agent_id: str = "", role: str = "",
-                        internal: bool = False) -> tuple[bool, str]:
+    def authorize_write(self, agent_id: str = "", role: str = "", internal: bool = False) -> tuple[bool, str]:
         """Check whether a caller may create/update/delete skills.
 
         Developer-only policy: only roles with ring clearance >=
@@ -283,8 +287,7 @@ class SkillManager:
         and may not claim ``system`` by omission.
         """
         if not agent_id and not role:
-            return (True, "system") if internal else (
-                False, "identity required: provide agent_id or role")
+            return (True, "system") if internal else (False, "identity required: provide agent_id or role")
         with self._lock:
             min_ring = self._write_min_ring
             write_roles = self._write_roles
@@ -297,9 +300,7 @@ class SkillManager:
             f"(need ring>={min_ring} or role in {list(write_roles)})"
         )
 
-    def register(self, name: str, data: dict,
-                 agent_id: str = "", role: str = "",
-                 internal: bool = False) -> dict:
+    def register(self, name: str, data: dict, agent_id: str = "", role: str = "", internal: bool = False) -> dict:
         """Register a skill programmatically (developer-only).
 
         ``internal=True`` allows identity-less writes from system processes
@@ -311,23 +312,28 @@ class SkillManager:
         with self._lock:
             existing = self._skills.get(name)
         if existing and existing.get("builtin"):
-            return {"success": False,
-                    "error": f"permission denied: builtin skill '{name}' is read-only"}
+            return {"success": False, "error": f"permission denied: builtin skill '{name}' is read-only"}
         with self._lock:
             self._skills[name] = data
             self._revision += 1
             self._emit_mutated("register", name, agent_id, who)
             return {"success": True, "skill": name, "authorized": who}
 
-    def create(self, name: str, description: str = "",
-               prompt: str = "", tags: list[str] | None = None,
-               rules: list[str] | None = None,
-               procedures: list[dict] | None = None,
-               allowed_tools: list[str] | None = None,
-               dependencies: list[str] | None = None,
-               dependency_kind: str = "soft",
-               agent_id: str = "", role: str = "",
-               internal: bool = False) -> dict:
+    def create(
+        self,
+        name: str,
+        description: str = "",
+        prompt: str = "",
+        tags: list[str] | None = None,
+        rules: list[str] | None = None,
+        procedures: list[dict] | None = None,
+        allowed_tools: list[str] | None = None,
+        dependencies: list[str] | None = None,
+        dependency_kind: str = "soft",
+        agent_id: str = "",
+        role: str = "",
+        internal: bool = False,
+    ) -> dict:
         """Create a skill programmatically with structured fields (developer-only).
 
         ``internal=True`` allows identity-less writes from system processes
@@ -357,9 +363,7 @@ class SkillManager:
         with self._lock:
             return self._skills.get(name)
 
-    def list(self, tags: list[str] | None = None,
-             limit: int = 0,
-             sort_by: str = "name") -> list[dict]:
+    def list(self, tags: list[str] | None = None, limit: int = 0, sort_by: str = "name") -> list[dict]:
         """List skills, optionally filtered by tags and sorted.
 
         Args:
@@ -375,21 +379,23 @@ class SkillManager:
                 skill_tags = s.get("tags", [])
                 if not any(t in skill_tags for t in tags):
                     continue
-            result.append({
-                "name": n,
-                "description": s.get("description", "")[:LOG_TRUNC_60],
-                "rules": len(s.get("rules", [])),
-                "procedures": len(s.get("procedures", [])),
-                "tags": s.get("tags", []),
-                "prompt": s.get("prompt", ""),
-                "source": s.get("source", ""),
-                "builtin": bool(s.get("builtin")),
-                "loaded_at": s.get("loaded_at", 0.0),
-                "last_used": s.get("last_used", 0.0),
-                "disable_model_invocation": bool(s.get("disable_model_invocation")),
-                "dependencies": s.get("dependencies", []),
-                "dependency_kind": s.get("dependency_kind", "soft"),
-            })
+            result.append(
+                {
+                    "name": n,
+                    "description": s.get("description", "")[:LOG_TRUNC_60],
+                    "rules": len(s.get("rules", [])),
+                    "procedures": len(s.get("procedures", [])),
+                    "tags": s.get("tags", []),
+                    "prompt": s.get("prompt", ""),
+                    "source": s.get("source", ""),
+                    "builtin": bool(s.get("builtin")),
+                    "loaded_at": s.get("loaded_at", 0.0),
+                    "last_used": s.get("last_used", 0.0),
+                    "disable_model_invocation": bool(s.get("disable_model_invocation")),
+                    "dependencies": s.get("dependencies", []),
+                    "dependency_kind": s.get("dependency_kind", "soft"),
+                }
+            )
         if sort_by == "loaded_at":
             result.sort(key=lambda x: -x["loaded_at"])
         elif sort_by == "last_used":
@@ -418,15 +424,15 @@ class SkillManager:
             for name, skill in self._skills.items():
                 at = skill.get("allowed_tools")
                 if at is None or tool_name in at:
-                    results.append({
-                        "name": name,
-                        "description": skill.get("description", "")[:LOG_TRUNC_60],
-                    })
+                    results.append(
+                        {
+                            "name": name,
+                            "description": skill.get("description", "")[:LOG_TRUNC_60],
+                        }
+                    )
         return results
 
-    def update(self, name: str, data: dict,
-               agent_id: str = "", role: str = "",
-               internal: bool = False) -> dict:
+    def update(self, name: str, data: dict, agent_id: str = "", role: str = "", internal: bool = False) -> dict:
         """Update a skill's data at runtime (developer-only).
 
         Ordinary callers may only bump usage metadata (``last_used``);
@@ -443,8 +449,7 @@ class SkillManager:
                 self._skills[name].update(data)
                 return {"success": True, "skill": name}
             if builtin:
-                return {"success": False,
-                        "error": f"permission denied: builtin skill '{name}' is read-only"}
+                return {"success": False, "error": f"permission denied: builtin skill '{name}' is read-only"}
             if not ok:
                 return {"success": False, "error": f"permission denied: {who}"}
             self._skills[name].update(data)
@@ -472,8 +477,7 @@ class SkillManager:
         with self._lock:
             return self._revision
 
-    def delete(self, name: str, agent_id: str = "", role: str = "",
-               internal: bool = False) -> dict:
+    def delete(self, name: str, agent_id: str = "", role: str = "", internal: bool = False) -> dict:
         """Delete a skill from the runtime registry (developer-only).
 
         ``internal=True`` allows identity-less deletes from system processes
@@ -486,8 +490,7 @@ class SkillManager:
             if name not in self._skills:
                 return {"success": False, "error": f"skill '{name}' not found"}
             if self._skills[name].get("builtin"):
-                return {"success": False,
-                        "error": f"permission denied: builtin skill '{name}' is read-only"}
+                return {"success": False, "error": f"permission denied: builtin skill '{name}' is read-only"}
             del self._skills[name]
             self._revision += 1
             self._drop_skill_from_cells(name)
@@ -500,11 +503,10 @@ class SkillManager:
         try:
             from l1.kernel.event import get_bus
             from l1.kernel.params.agent import EVENT_SKILL_MUTATED
+
             # String-typed emit registers the custom signal type on first use
             # (emit_signal would KeyError on the unregistered type lookup).
-            get_bus().emit_event(EVENT_SKILL_MUTATED,
-                                 data={"action": action, "skill": name},
-                                 source=agent_id or who)
+            get_bus().emit_event(EVENT_SKILL_MUTATED, data={"action": action, "skill": name}, source=agent_id or who)
         except Exception:
             # Audit is best-effort — never break the mutation on signal failure.
             logger.debug("skill: mutation audit signal failed (best-effort)", exc_info=True)
@@ -516,6 +518,7 @@ class SkillManager:
         description (weight 2), rules (weight 1), and prompt (weight 0.5).
         """
         import re as _re
+
         q = question.lower().strip()
         if not q:
             return []
@@ -566,6 +569,7 @@ class SkillManager:
     def _load_markdown(self, path: str) -> bool:
         """Parse SKILL.md file with YAML frontmatter."""
         import yaml
+
         try:
             with open(path, encoding="utf-8") as f:
                 content = f.read()
@@ -573,6 +577,7 @@ class SkillManager:
             return False
         # YAML frontmatter between --- ... ---
         import re
+
         m = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
         if not m:
             return False
@@ -582,7 +587,7 @@ class SkillManager:
             return False
         if not isinstance(meta, dict):
             return False
-        body = content[m.end():]
+        body = content[m.end() :]
         name = meta.get("name", os.path.basename(os.path.dirname(path)))
         desc = meta.get("description")
         data = {
@@ -617,6 +622,7 @@ class SkillManager:
         # is rejected before it enters the pool (fail-fast).
         try:
             from l1.kernel.constitution import get_constitution
+
             cc = get_constitution().is_allowed("skill.load", "system", target=name)
             if not cc.get("allowed"):
                 logger.warning("skill: load blocked by constitution: %s", cc.get("blocks"))
@@ -634,6 +640,7 @@ class SkillManager:
         """
         rules = []
         import re
+
         for m in re.finditer(r"^[-*]\s+\*\*(DO|DON'T)\*\*:\s*(.+)$", body, re.MULTILINE):
             rules.append(f"{m.group(1)}: {m.group(2).strip()}")
         for m in re.finditer(r"^[-*]\s+(DO|DON'T)[\s:]+(.+)$", body, re.MULTILINE):

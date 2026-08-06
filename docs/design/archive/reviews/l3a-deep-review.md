@@ -70,7 +70,7 @@ def _ensure_loop(self):
 
 CentralController 的 `process_intent()` 同时做了三件事：
 1. 调用 `self.a.parse()` (意图解析) ✅
-2. 处理 `isinstance(parsed, dict)` 的 LLM 结果 (parsing + submission) 
+2. 处理 `isinstance(parsed, dict)` 的 LLM 结果 (parsing + submission)
 3. 处理 `TaskCard` 的规则引擎结果 (parsing + routing + submission)
 
 `process_intent()` 方法 104 行，其中两个分支（dict vs TaskCard）的逻辑差异很大，应该拆分为 `_process_llm_result()` 和 `_process_taskcard_result()`。

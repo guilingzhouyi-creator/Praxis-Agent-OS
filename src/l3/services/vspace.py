@@ -72,9 +72,13 @@ class TLB:
 
     def stats(self) -> dict:
         total = self._hits + self._misses
-        return {"hits": self._hits, "misses": self._misses,
-                "hit_rate": round(self._hits / total * 100, 1) if total else 0,
-                "entries": len(self._cache), "capacity": self._capacity}
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": round(self._hits / total * 100, 1) if total else 0,
+            "entries": len(self._cache),
+            "capacity": self._capacity,
+        }
 
 
 class ProjectSpace:
@@ -167,11 +171,14 @@ class ProjectSpace:
             for child in sorted(project_dir.iterdir()):
                 rel = str(Path(rel_path) / child.name)
                 if self._in_territory(rel) or rel in SHARED_PATHS:
-                    entries.append({
-                        "name": child.name, "path": rel,
-                        "type": "dir" if child.is_dir() else "file",
-                        "source": "project",
-                    })
+                    entries.append(
+                        {
+                            "name": child.name,
+                            "path": rel,
+                            "type": "dir" if child.is_dir() else "file",
+                            "source": "project",
+                        }
+                    )
 
         # Sandbox entries (overlay)
         sandbox_dir = self.sandbox / rel_path
@@ -182,17 +189,20 @@ class ProjectSpace:
                 if existing:
                     existing[0]["source"] = "sandbox"
                 else:
-                    entries.append({
-                        "name": child.name, "path": rel,
-                        "type": "dir" if child.is_dir() else "file",
-                        "source": "sandbox",
-                    })
+                    entries.append(
+                        {
+                            "name": child.name,
+                            "path": rel,
+                            "type": "dir" if child.is_dir() else "file",
+                            "source": "sandbox",
+                        }
+                    )
 
         return {"success": True, "entries": entries, "count": len(entries)}
 
     def flush(self, rel_path: str | None = None) -> dict:
         """Flush sandbox changes to the real project.
-        
+
         Like writing dirty pages back to disk.
         Requires L3 approval (simulated here via constitution check).
         """
@@ -242,6 +252,7 @@ class ProjectSpace:
 
 
 # ── Space Manager (like the MMU) ──
+
 
 class SpaceManager:
     """Manages all Agent virtual project spaces.
@@ -293,7 +304,7 @@ class SpaceManager:
             return {aid: space.snapshot() for aid, space in self._spaces.items()}
 
 
-import threading
+import threading  # noqa: E402  (mid-file import avoids circularity)
 
 _manager: SpaceManager | None = None
 
@@ -309,5 +320,6 @@ def reset_manager() -> None:
     global _manager
     if _manager:
         import shutil
+
         shutil.rmtree(str(_manager.sandbox_root), ignore_errors=True)
     _manager = None

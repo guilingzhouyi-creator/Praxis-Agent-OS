@@ -43,7 +43,6 @@ from .config_handlers import (
     cfg_memory,
     cfg_model_spec,
     cfg_network,
-    cfg_persist,
     cfg_persistence,
     cfg_prompts,
     cfg_services,
@@ -61,8 +60,7 @@ logger = logging.getLogger(__name__)
 _CONFIG_HANDLERS: dict[str, Callable[[dict, Any, dict], None]] = {}
 
 
-def register_config_handler(section: str, handler: Callable,
-                            override: bool = False) -> None:
+def register_config_handler(section: str, handler: Callable, override: bool = False) -> None:
     """Register a config section handler.
 
     The handler receives (section_data, settings, results) and mutates
@@ -75,6 +73,7 @@ def register_config_handler(section: str, handler: Callable,
 
 def list_config_handlers() -> list[str]:
     return sorted(_CONFIG_HANDLERS.keys())
+
 
 def _discover_config_files() -> list[str]:
     """Get config file search paths. Override via env var PRAXIS_CONFIG_PATH."""
@@ -106,14 +105,16 @@ def load_dotenv(path: str = ".env") -> None:
                 if key and not os.environ.get(key):
                     os.environ[key] = val
     except Exception as e:
-            logger.warning("services/config_loader: %s", e)
+        logger.warning("services/config_loader: %s", e)
 
 
 def _interpolate_env(value: Any) -> Any:
     """Replace ${VAR} references with environment variable values."""
     if isinstance(value, str):
+
         def _replace(m):
             return os.environ.get(m.group(1), "")
+
         return re.sub(r"\$\{(\w+)\}", _replace, value)
     if isinstance(value, dict):
         return {k: _interpolate_env(v) for k, v in value.items()}
@@ -131,7 +132,7 @@ def find_config(path: str = "") -> str | None:
     # Also search parent directories
     cwd = os.getcwd()
     for part in cwd.split(os.sep):
-        parent = os.path.join(*cwd.split(os.sep)[:cwd.split(os.sep).index(part) + 1]) if part else ""
+        parent = os.path.join(*cwd.split(os.sep)[: cwd.split(os.sep).index(part) + 1]) if part else ""
         for fname in _CONFIG_FILES:
             fp = os.path.join(parent, fname) if parent else ""
             if fp and os.path.exists(fp):
@@ -172,7 +173,7 @@ def apply(data: dict) -> dict:
     (which only holds per-section handler result flags).
     """
     from l1.kernel.settings import get_settings
-    from l3.config.settings_center import SettingsCenter as _SC
+    from l3.config.settings_center import SettingsCenter as _SC  # noqa: N814
 
     if not data:
         return {"success": False, "error": "empty config"}
@@ -192,16 +193,30 @@ def apply(data: dict) -> dict:
 
 # ── Register built-in handlers (imported from config_handlers.py) ──
 _builtin_handlers = [
-    ("kernel", cfg_kernel), ("cell", cfg_cell), ("llm", cfg_llm),
-    ("constitution", cfg_constitution), ("gatechain", cfg_gatechain),
-    ("tool_rates", cfg_tool_rates), ("tool", cfg_tool),
+    ("kernel", cfg_kernel),
+    ("cell", cfg_cell),
+    ("llm", cfg_llm),
+    ("constitution", cfg_constitution),
+    ("gatechain", cfg_gatechain),
+    ("tool_rates", cfg_tool_rates),
+    ("tool", cfg_tool),
     ("htn", cfg_htn),
-    ("cache", cfg_cache), ("persist", cfg_persist), ("persistence", cfg_persistence),
-    ("network", cfg_network), ("api", cfg_api),
-    ("api_routes", cfg_api_routes), ("prompts", cfg_prompts),
-    ("credentials", cfg_credentials), ("card_gate", cfg_card_gate), ("card_types", cfg_card_types), ("content_trust", cfg_content_trust), ("commands", cfg_commands), ("mcp", cfg_mcp),
-    ("devices", cfg_devices), ("territories", cfg_territories),
-    ("clearance", cfg_clearance), ("agents", cfg_agents),
+    ("cache", cfg_cache),
+    ("persistence", cfg_persistence),
+    ("network", cfg_network),
+    ("api", cfg_api),
+    ("api_routes", cfg_api_routes),
+    ("prompts", cfg_prompts),
+    ("credentials", cfg_credentials),
+    ("card_gate", cfg_card_gate),
+    ("card_types", cfg_card_types),
+    ("content_trust", cfg_content_trust),
+    ("commands", cfg_commands),
+    ("mcp", cfg_mcp),
+    ("devices", cfg_devices),
+    ("territories", cfg_territories),
+    ("clearance", cfg_clearance),
+    ("agents", cfg_agents),
     ("agent_role_map", cfg_agent_role_map),
     ("agent_priority", cfg_agent_priority),
     ("model_spec", cfg_model_spec),
@@ -223,12 +238,43 @@ for _name, _fn in _builtin_handlers:
 def validate(data: dict) -> dict:
     """Validate parsed YAML config structure. Returns errors list."""
     errors = []
-    sections = ("kernel", "cell", "l3a", "llm", "constitution", "gatechain", "tool_rates",
-                "tool", "htn", "cache", "persist", "persistence", "services", "network",
-                "api", "api_routes", "prompts", "card_gate", "card_types", "credentials",
-                "content_trust", "commands", "mcp", "devices", "territories", "clearance",
-                "agents", "agent_role_map", "agent_priority", "model_spec", "think",
-                "loop", "loop_control", "diff", "card_pool")
+    sections = (
+        "kernel",
+        "cell",
+        "l3a",
+        "llm",
+        "constitution",
+        "gatechain",
+        "tool_rates",
+        "tool",
+        "htn",
+        "cache",
+        "persist",
+        "persistence",
+        "services",
+        "network",
+        "api",
+        "api_routes",
+        "prompts",
+        "card_gate",
+        "card_types",
+        "credentials",
+        "content_trust",
+        "commands",
+        "mcp",
+        "devices",
+        "territories",
+        "clearance",
+        "agents",
+        "agent_role_map",
+        "agent_priority",
+        "model_spec",
+        "think",
+        "loop",
+        "loop_control",
+        "diff",
+        "card_pool",
+    )
     for sec in sections:
         if sec in data and not isinstance(data[sec], (dict, list)):
             errors.append(f"{sec}: expected dict/list")
@@ -236,6 +282,7 @@ def validate(data: dict) -> dict:
     llm = data.get("llm", {})
     try:
         from l4.llm.llm import list_providers
+
         valid_providers = list_providers() or ["mock"]
     except Exception:
         valid_providers = ("mock", "ollama", "openai", "anthropic")
@@ -243,7 +290,7 @@ def validate(data: dict) -> dict:
         errors.append(f"llm.provider: '{llm['provider']}' not in {valid_providers}")
 
     # Validate ring range
-    for cf in (data.get("clearance", {}).values()):
+    for cf in data.get("clearance", {}).values():
         if isinstance(cf, int) and (cf < 1 or cf > 3):
             errors.append(f"clearance: ring {cf} out of range [1,3]")
 
@@ -278,6 +325,7 @@ def dump_config() -> dict:
     """Dump current effective configuration (from kernel.settings)."""
     try:
         from l1.kernel.settings import get_settings
+
         s = get_settings()
         return {"success": True, "config": s.all(), "count": len(s.all())}
     except Exception as e:
@@ -288,9 +336,9 @@ def config_category(prefix: str) -> dict:
     """Get config values for a specific category prefix."""
     try:
         from l1.kernel.settings import get_settings
+
         s = get_settings()
-        return {"success": True, "category": prefix, "values": s.category(prefix),
-                "count": len(s.category(prefix))}
+        return {"success": True, "category": prefix, "values": s.category(prefix), "count": len(s.category(prefix))}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -299,6 +347,7 @@ def watch_config(interval: float = 30.0, callback: callable | None = None) -> di
     """Start watching config file for changes. Calls callback on change."""
     import threading
     import time
+
     path = find_config()
     if not path:
         return {"success": False, "error": "no config file found"}

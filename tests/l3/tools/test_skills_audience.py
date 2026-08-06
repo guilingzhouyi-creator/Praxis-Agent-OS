@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 
 from l1.kernel.skill import (
-    SkillManager,
     audience_of,
     get_skill_manager,
     reset_skill_manager,
@@ -35,9 +34,9 @@ class TestAudience:
         assert audience_of("agent-reader") == "execution"
 
     def test_untagged_is_universal(self, _skills):
-        card = _skills.get("card")
-        assert skill_visible(card, "l3a") is True
-        assert skill_visible(card, "agent-http") is True
+        kernel = _skills.get("kernel")
+        assert skill_visible(kernel, "l3a") is True
+        assert skill_visible(kernel, "agent-http") is True
 
     def test_tagged_split(self, _skills):
         grill = _skills.get("grill-me")
@@ -60,16 +59,15 @@ class TestListSkills:
     def test_cell_sees_execution_not_strategy(self):
         r = list_skills({}, "agent-http")
         names = {s["name"] for s in r["skills"]}
-        assert {"tdd", "code-review", "diagnosing-bugs",
-                "domain-modeling", "resolving-merge-conflicts"} <= names
+        assert {"tdd", "code-review", "diagnosing-bugs", "domain-modeling", "resolving-merge-conflicts"} <= names
         assert "grill-me" not in names
         assert "handoff" not in names
 
     def test_universal_visible_to_both(self):
         r1 = {s["name"] for s in list_skills({}, "l3a")["skills"]}
         r2 = {s["name"] for s in list_skills({}, "agent-http")["skills"]}
-        assert "card" in r1 and "card" in r2
         assert "kernel" in r1 and "kernel" in r2
+        assert "self" in r1 and "self" in r2
 
 
 class TestUseSkill:
@@ -82,7 +80,7 @@ class TestUseSkill:
         assert "execution domain" in r2["error"]
 
     def test_within_domain_allowed(self):
-        r = use_skill({"name": "grill-me"}, "l3a")
+        r = use_skill({"name": "grilling"}, "l3a")
         assert r["success"]
         assert "interviewer" in r["prompt"]
         r2 = use_skill({"name": "tdd"}, "agent-http")
@@ -90,8 +88,8 @@ class TestUseSkill:
         assert "red" in r2["prompt"]
 
     def test_universal_allowed_everywhere(self):
-        assert use_skill({"name": "card"}, "l3a")["success"]
-        assert use_skill({"name": "card"}, "agent-http")["success"]
+        assert use_skill({"name": "kernel"}, "l3a")["success"]
+        assert use_skill({"name": "kernel"}, "agent-http")["success"]
 
     def test_unknown_skill(self):
         r = use_skill({"name": "nope"}, "l3a")

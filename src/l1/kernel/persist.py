@@ -38,9 +38,9 @@ from .paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
 
-_DB: sqlite3.Connection | None = None         # write connection
-_READ_DBS: list[sqlite3.Connection] = []       # read connection pool (2)
-_READ_IDX: int = 0                            # round-robin index
+_DB: sqlite3.Connection | None = None  # write connection
+_READ_DBS: list[sqlite3.Connection] = []  # read connection pool (2)
+_READ_IDX: int = 0  # round-robin index
 _DB_LOCK = threading.Lock()
 _DB_PATH: str = ""
 
@@ -93,6 +93,7 @@ def _get_read_db() -> sqlite3.Connection:
 
 # ── Append ──
 
+
 def append(event: str, payload: dict | None = None) -> int:
     """Append an immutable event to the store. Returns sequence number."""
     db = _get_write_db()
@@ -122,8 +123,8 @@ def append_many(events: list[tuple[str, dict]]) -> list[int]:
 
 # ── Query ──
 
-def query(event_type: str = "", after_seq: int = 0,
-          limit: int = PERSIST_QUERY_LIMIT) -> list[dict]:
+
+def query(event_type: str = "", after_seq: int = 0, limit: int = PERSIST_QUERY_LIMIT) -> list[dict]:
     """Query events. Returns list of {seq, event, payload, ts}."""
     db = _get_read_db()
     with _DB_LOCK:
@@ -137,10 +138,7 @@ def query(event_type: str = "", after_seq: int = 0,
                 "SELECT seq, event, payload, ts FROM events WHERE seq > ? ORDER BY seq LIMIT ?",
                 (after_seq, limit),
             ).fetchall()
-    return [
-        {"seq": r[0], "event": r[1], "payload": json.loads(r[2]), "ts": r[3]}
-        for r in rows
-    ]
+    return [{"seq": r[0], "event": r[1], "payload": json.loads(r[2]), "ts": r[3]} for r in rows]
 
 
 def count(event_type: str = "") -> int:
@@ -160,6 +158,7 @@ def last_seq() -> int:
 
 # ── Replay ──
 
+
 def replay() -> dict:
     """Replay ALL events to reconstruct kernel state.
 
@@ -177,9 +176,7 @@ def replay() -> dict:
 
     db = _get_read_db()
     with _DB_LOCK:
-        rows = db.execute(
-            "SELECT seq, event, payload, ts FROM events ORDER BY seq"
-        ).fetchall()
+        rows = db.execute("SELECT seq, event, payload, ts FROM events ORDER BY seq").fetchall()
 
     for row in rows:
         event, raw_payload = row[1], row[2]
@@ -191,8 +188,10 @@ def replay() -> dict:
 
         if event == "process.spawn":
             proc.get_table().spawn(
-                payload.get("name", "?"), payload.get("role", ""),
-                payload.get("parent_pid", 0), payload.get("ring", 1),
+                payload.get("name", "?"),
+                payload.get("role", ""),
+                payload.get("parent_pid", 0),
+                payload.get("ring", 1),
             )
             stats["processes"] += 1
         elif event == "process.exit":
@@ -202,17 +201,21 @@ def replay() -> dict:
                 pt.exit(payload["pid"], exit_code=-1, reason="restored: process.exit")
         elif event == "audit.record":
             kinit.record_audit(
-                payload.get("op", ""), payload.get("agent_id", ""),
+                payload.get("op", ""),
+                payload.get("agent_id", ""),
                 payload.get("success", True),
                 detail=payload.get("detail", ""),
             )
             stats["audit"] += 1
         elif event == "device.register":
             from .device import DeviceType
+
             try:
                 dtype = DeviceType[payload["type"]]
                 dev.get_device_manager().register(
-                    payload["name"], dtype, payload.get("rate_limit", 10),
+                    payload["name"],
+                    dtype,
+                    payload.get("rate_limit", 10),
                     description=payload.get("description", ""),
                 )
                 stats["devices"] += 1
@@ -222,8 +225,7 @@ def replay() -> dict:
             try:
                 it = int_table()
                 itype = InterruptType[payload["type"]]
-                it.fire(itype, agent_id=payload.get("agent_id", ""),
-                        reason=payload.get("reason", ""))
+                it.fire(itype, agent_id=payload.get("agent_id", ""), reason=payload.get("reason", ""))
                 stats["interrupts"] += 1
             except Exception as e:
                 logger.warning("persist restore: %s", e)
@@ -233,17 +235,25 @@ def replay() -> dict:
 
 # ── Snapshot (backward compat — saves to JSON too) ──
 
+
 def save() -> dict:
     """Snapshot current kernel state via event sourcing (append-only)."""
     import l1.kernel.__init__ as kinit
+
     count = 0
     for e in kinit.get_audit_log(limit=PERSIST_EXPORT_LIMIT):
-        append("audit.record", {
-            "op": e.get("op", ""), "agent_id": e.get("agent_id", ""),
-            "success": e.get("success", True), "detail": e.get("detail", ""),
-        })
+        append(
+            "audit.record",
+            {
+                "op": e.get("op", ""),
+                "agent_id": e.get("agent_id", ""),
+                "success": e.get("success", True),
+                "detail": e.get("detail", ""),
+            },
+        )
         count += 1
     return {"success": True, "events_appended": count}
+
 
 def restore() -> dict:
     """Restore kernel state from event replay."""
@@ -255,4 +265,3 @@ def restore() -> dict:
 
 
 # ── Backward-compatible accessor ──
-

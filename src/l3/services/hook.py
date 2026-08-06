@@ -125,8 +125,7 @@ class HookChain(LifecycleHooks):
                     if r is not None:
                         result = r
                 except Exception as e:
-                    logger.warning("HookChain.%s failed in %s: %s",
-                                   method, type(hook).__name__, e)
+                    logger.warning("HookChain.%s failed in %s: %s", method, type(hook).__name__, e)
         return result
 
     def session_start(self, task: str, agent_id: str) -> str:
@@ -181,10 +180,12 @@ class SkillCatalogHook(LifecycleHooks):
                 SKILL_CATALOG_HOOK_LIMIT,
             )
             from l1.kernel.skill import get_skill_manager
+
             sm = get_skill_manager()
             auto_builtin = SKILL_AUTO_ACTIVATE_BUILTIN
             try:
                 from l3.config.settings_center import get_center as _sc
+
                 auto_builtin = bool(_sc().get("skill.auto_activate_builtin", auto_builtin))
             except Exception:
                 pass
@@ -197,10 +198,13 @@ class SkillCatalogHook(LifecycleHooks):
             # (defensive layer on top of the load-time check).
             try:
                 from l1.kernel.constitution import get_constitution
+
                 const = get_constitution()
-                skills = [s for s in skills
-                          if const.is_allowed("skill.use", agent_id or "system",
-                                              target=s["name"]).get("allowed")]
+                skills = [
+                    s
+                    for s in skills
+                    if const.is_allowed("skill.use", agent_id or "system", target=s["name"]).get("allowed")
+                ]
             except Exception as e:
                 logger.debug("SkillCatalogHook: constitution filter skipped: %s", e)
             skills = skills[:SKILL_CATALOG_HOOK_LIMIT]
@@ -237,9 +241,11 @@ class CadenceHook(LifecycleHooks):
         if not unverified:
             return None
         self._nudged.update(unverified)
-        return ("Unverified edits detected. "
-                "Run verification commands (build/test/lint) and "
-                "use 'todowrite' with status='verified' when checks pass.")
+        return (
+            "Unverified edits detected. "
+            "Run verification commands (build/test/lint) and "
+            "use 'todowrite' with status='verified' when checks pass."
+        )
 
 
 class StatusReminderHook(LifecycleHooks):
@@ -247,9 +253,9 @@ class StatusReminderHook(LifecycleHooks):
 
     def pre_request(self, messages: list[dict], ctx: dict) -> list[dict]:
         import time
+
         ts = time.strftime("%Y-%m-%d %H:%M:%S %Z")
-        reminder = {"role": "user", "content": f"[System time: {ts}]",
-                     "synthetic": True}
+        reminder = {"role": "user", "content": f"[System time: {ts}]", "synthetic": True}
         messages.append(reminder)
         return messages
 
@@ -278,4 +284,3 @@ def reset_hook_chain() -> None:
     """Drop the shared chain singleton (for testing / hot-reload)."""
     global _hook_chain
     _hook_chain = None
-

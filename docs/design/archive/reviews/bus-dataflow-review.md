@@ -1,7 +1,7 @@
 # 总线数据流审查报告
 
-> **审查日期**: 2026-07-30  
-> **审查范围**: 全项目 20 个总线相关文件（L1:3 + L3:17）  
+> **审查日期**: 2026-07-30
+> **审查范围**: 全项目 20 个总线相关文件（L1:3 + L3:17）
 > **审查方法**: 逐文件数据流追踪 + 拓扑关系分析
 
 ---
@@ -52,7 +52,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 2.1 EventBus — 发布/订阅事件总线
 
-**文件**: `src/l1/kernel/event.py` (202 行)  
+**文件**: `src/l1/kernel/event.py` (202 行)
 **数据流**: `emit(signal)` → 同步写 history → 异步 ThreadPool dispatch
 
 ```
@@ -89,7 +89,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 2.2 SystemBus — 组件生命周期总线
 
-**文件**: `src/l1/kernel/bus.py` (426 行)  
+**文件**: `src/l1/kernel/bus.py` (426 行)
 **数据流**: `register()` → `install()` → `start_all()` → `emit()` → `stop_all()`
 
 ```
@@ -124,7 +124,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 2.3 IPC Bus — 进程间同步消息通道
 
-**文件**: `src/l1/kernel/ipc.py` (148 行)  
+**文件**: `src/l1/kernel/ipc.py` (148 行)
 **数据流**: `send(msg)` → handler 回调 / `request(msg, timeout)` → Event.wait
 
 ```
@@ -161,7 +161,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.1 MonitorBus — 统一监控事件总线
 
-**文件**: `src/l3/bus/monitor_bus.py` (220 行)  
+**文件**: `src/l3/bus/monitor_bus.py` (220 行)
 **数据流**: `emit(MonitorEvent)` → JSONL 持久化 → ring buffer → SSE
 
 ```
@@ -204,7 +204,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.2 L3 IpcBus — 跨进程消息总线
 
-**文件**: `src/l3/bus/ipc.py` (325 行)  
+**文件**: `src/l3/bus/ipc.py` (325 行)
 **数据流**: `send(msg)` → channel deque → poll/subscribe
 
 ```
@@ -237,7 +237,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.3 L3B + L3BBus — 跨 Cell 协调总线
 
-**文件**: `src/l3/bus/l3b.py` (298 行) + `src/l3/bus/l3b_bus.py` (241 行)  
+**文件**: `src/l3/bus/l3b.py` (298 行) + `src/l3/bus/l3b_bus.py` (241 行)
 **拓扑**: 链式拓扑（N-1 个 composites 连接 N 个 Cell）
 
 ```
@@ -295,7 +295,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.4 HTN-A / HTN-B — 任务分解总线
 
-**文件**: `src/l3/bus/htn_a.py` (230 行) + `src/l3/bus/htn_b.py` (154 行) + `src/l3/bus/htn_planner.py` (453 行)  
+**文件**: `src/l3/bus/htn_a.py` (230 行) + `src/l3/bus/htn_b.py` (154 行) + `src/l3/bus/htn_planner.py` (453 行)
 
 ```
   HTN-A (全局)                 HTN-B (每 composite)
@@ -322,7 +322,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.5 ReferenceChannel — 可观测数据记录
 
-**文件**: `src/l3/bus/reference_channel.py` (290 行)  
+**文件**: `src/l3/bus/reference_channel.py` (290 行)
 **数据流**: `event(type, data)` → ring buffer → 后台线程 flush → JSONL
 
 ```
@@ -332,7 +332,7 @@ L1 Kernel 层                          L3 Cell 层
   ring buffer (deque) ──periodic(5s)──▶ JSONL append
        │
        └── SHA-256 hash appended to each record
-       
+
   便利方法:
     tool_call(), card_lifecycle(), human_correction(),
     anomaly(), convention()
@@ -349,7 +349,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.6 ErrorBus — 统一错误总线
 
-**文件**: `src/l3/error_bus/__init__.py` (726 行)  
+**文件**: `src/l3/error_bus/__init__.py` (726 行)
 **数据流**: `capture(msg, exc, context)` → 指纹去重 → LogService + EventBus + SSE
 
 ```
@@ -368,7 +368,7 @@ L1 Kernel 层                          L3 Cell 层
 
 ### 3.7 ObservabilityBus — 可观测聚合门面
 
-**文件**: `src/l3/bus/observability_bus.py` (150 行)  
+**文件**: `src/l3/bus/observability_bus.py` (150 行)
 **数据流**: `observe(kind, source, data)` → 四路分发
 
 ```
