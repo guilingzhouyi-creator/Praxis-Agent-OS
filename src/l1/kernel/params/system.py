@@ -511,6 +511,24 @@ CI_MAX_RUNS: Final[int] = 50
 CI_DEFAULT_LOG_LINES: Final[int] = 100
 CI_DEFAULT_LIST_LIMIT: Final[int] = 20
 
+# ── CI review (card-triggered) ──
+CI_REVIEW_MAX_CONCURRENT: Final[int] = 2        # Concurrent review cap; excess queues
+CI_REVIEW_QUEUE_CAP: Final[int] = 64            # Bounded review queue (anti-blowup)
+CI_REVIEW_MAX_FILES: Final[int] = 50            # Per-card changed-file cap for targeted gates
+CI_REVIEW_TIMEOUT: Final[float] = 300.0         # Per-card gate pipeline total timeout (s)
+CI_REVIEW_DEDUP_TTL: Final[float] = 3600.0      # card_id+state dedup window (s)
+CI_REVIEW_PERSIST_FILE: Final[str] = "ci_reviews.jsonl"  # Report file (relative to data_dir)
+CI_REVIEW_ARCHIVE_FONDS: Final[str] = "ci"      # R4 archive fonds
+CI_REVIEW_ARCHIVE_SERIES: Final[str] = "reviews"
+CI_REVIEW_AUTOTEST_CACHE_TTL: Final[float] = 300.0  # AutoTest L2 cache consume window (s)
+CI_REVIEW_RUFF_CMD: Final[str] = "python -m ruff check {files}"
+CI_REVIEW_MYPY_CMD: Final[str] = "python -m mypy {files}"
+CI_REVIEW_PYTEST_CMD: Final[str] = "python -m pytest {files} -x -q"
+
+# ── CI review control-plane permissions (per-surface write gates) ──
+CI_CONTROL_API_WRITABLE: Final[bool] = True    # API surface may mutate ci.review.*
+CI_CONTROL_SHELL_WRITABLE: Final[bool] = True  # L2 Shell surface may mutate ci.review.*
+
 
 # ── LLM defaults (shared between L3 and L4) ──
 LLM_DEFAULT_CONTEXT_WINDOW: Final[int] = 128000

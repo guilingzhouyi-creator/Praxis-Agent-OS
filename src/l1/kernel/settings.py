@@ -44,6 +44,21 @@ DEFAULTS: dict[str, Any] = {
     "prompt.inject.skills": True,
     "prompt.inject.verification": True,
     "prompt.inject.memory": True,
+    # CI review (card-triggered automation) — mirrors praxis.yaml `ci:` section.
+    "ci.review.enabled": True,
+    "ci.review.auto_trigger": True,
+    "ci.review.llm_review": False,
+    "ci.review.escalate_reject": False,
+    "ci.review.route_convention": False,
+    "ci.review.reputation": False,
+    "ci.review.lean_trace": False,
+    "ci.review.todo_linkage": False,
+    "ci.review.consume_auto_test_cache": True,
+    "ci.review.notify.enabled": False,
+    # CI review control-plane permissions (per-surface write gates; not
+    # modifiable via the business surfaces themselves — config/admin only).
+    "ci.control.api.writable": True,
+    "ci.control.shell.writable": True,
 }
 
 

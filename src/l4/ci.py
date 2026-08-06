@@ -52,6 +52,7 @@ class PipelineRun:
     completed_at: float = 0.0
     elapsed: float = 0.0
     agent_id: str = ""
+    card_id: str = ""          # source card that triggered this run (CI review linkage)
 
 
 class CIService(BaseService):
@@ -73,7 +74,8 @@ class CIService(BaseService):
         return {"success": True}
 
     def run_pipeline(self, name: str, steps: list[dict],
-                     agent_id: str = "", timeout: float = CI_DEFAULT_TIMEOUT) -> dict:
+                     agent_id: str = "", timeout: float = CI_DEFAULT_TIMEOUT,
+                     card_id: str = "") -> dict:
         """Run a CI pipeline with given steps.
 
         Steps format:
@@ -85,7 +87,8 @@ class CIService(BaseService):
         blocked.  Poll ``get_status(run_id)`` for completion.
         """
         run_id = f"ci-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
-        run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id)
+        run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id,
+                          card_id=card_id)
         with self._lock:
             self._runs[run_id] = run
             self._total_runs += 1

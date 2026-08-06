@@ -32,16 +32,14 @@ from l1.kernel.params.system import (
     LOG_TRUNC_40,
     LOG_TRUNC_60,
     LOG_TRUNC_80,
-    LOG_TRUNC_500,
 )
 from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
 from l3.services.model_service import get_service as _get_model_service
 
-from .card_unified import CardExecution as _CardExecution
-from .card_unified import CardLifecycle, CardSummary, CardUnified
-from .card_execution_stats import CardExecutionStatsMixin
 from .card_convention import CardConventionMixin
+from .card_execution_stats import CardExecutionStatsMixin
+from .card_unified import CardLifecycle, CardSummary, CardUnified
 
 _MODEL_SPEC = "card_planner"
 
@@ -81,12 +79,32 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         self._dispatcher_running = False
         self._dispatcher_thread: threading.Thread | None = None
         self._subscribers: dict[str, list[Callable[[str, str, dict], None]]] = {}
+        self._completion_listeners: list[Callable[[str, str, dict], None]] = []
         self._init_persistence(persist_path or _gp().card_registry, CARD_REGISTRY_AUTO_SAVE)
         self._restore()
         if CARD_REGISTRY_AUTO_SAVE > 0:
             self._start_auto_save()
 
     # ── Completion subscription (external closed-loop callbacks) ──
+
+    def register_completion_listener(self,
+                                     callback: Callable[[str, str, dict], None]) -> None:
+        """Register a global completion callback fired for every card completion.
+
+        Unlike ``subscribe`` (per-card, consumed once), global listeners are
+        invoked for every COMPLETED/FAILED/CANCELLED card.  Used by system
+        services such as the L4 CI review daemon.
+        """
+        with self._lock:
+            self._completion_listeners.append(callback)
+
+    def unregister_completion_listener(self, callback: Callable) -> None:
+        """Remove a global completion callback."""
+        with self._lock:
+            try:
+                self._completion_listeners.remove(callback)
+            except ValueError:
+                logger.debug("card_registry: completion listener not registered")
 
     def subscribe(self, card_id: str,
                   callback: Callable[[str, str, dict], None]) -> None:
@@ -137,11 +155,10 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 return {"success": False, "error": f"card {card_id} not in HOLD state"}
             restored = self.restore_card(card_id)
             record.state = CardLifecycle.QUEUED
-            if not restored:
-                if card_id not in self._queue:
-                    self._queue.append(card_id)
-                    self._queue.sort(key=lambda x: self._cards[x].priority
-                                     if x in self._cards else 5)
+            if not restored and card_id not in self._queue:
+                self._queue.append(card_id)
+                self._queue.sort(key=lambda x: self._cards[x].priority
+                                 if x in self._cards else 5)
         logger.info("card approved: %s", card_id)
         emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
                      data={"card_id": card_id, "event": "approved"})
@@ -511,6 +528,12 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                      data={"card_id": card_id, "state": record.state.value, "event": "completed"})
         # ── Completion subscribers (L3A session closed loop) ──
         self._notify_subscribers(card_id, record.state.value, result or {"error": error})
+        # ── Global completion listeners (system services: CI review, ...) ──
+        for cb in list(self._completion_listeners):
+            try:
+                cb(card_id, record.state.value, result or {"error": error})
+            except Exception as e:
+                logger.warning("card %s completion listener failed: %s", card_id, e)
         # ── Task completion bus: fire webhooks ──
         try:
             from l3.bus.task_bus import get_task_bus
