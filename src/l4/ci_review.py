@@ -43,6 +43,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
 )
 from l3._base import BaseService
+from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,8 @@ class CiReviewService(BaseService):
             self._registered = True
             return {"success": True}
         except Exception as e:
+            capture("ci_review: trigger registration failed",
+                    error_code="E_CI_REVIEW_TRIGGER", component="ci_review", exc=e)
             self.logger.warning("ci_review: trigger registration failed: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -232,6 +235,8 @@ class CiReviewService(BaseService):
             try:
                 self._do_review(card_id, state, result)
             except Exception as e:
+                capture("ci_review: review run failed", error_code="E_CI_REVIEW_RUN",
+                        component="ci_review", exc=e, task_id=card_id)
                 logger.warning("ci_review: review failed for card %s: %s", card_id, e)
 
     def _do_review(self, card_id: str, state: str, result: dict) -> None:
@@ -285,7 +290,10 @@ class CiReviewService(BaseService):
                     sb = _get_sb().get_cell(cell_id)
                     if sb is not None:
                         files = [e.path for e in sb.get_entries(agent_id=agent_id)]
-                except Exception:
+                except Exception as e:
+                    capture("ci_review: sandbox lookup failed",
+                            error_code="E_CI_REVIEW_SANDBOX", component="ci_review",
+                            exc=e, task_id=card_id)
                     logger.debug("ci_review: sandbox lookup failed for card %s", card_id)
         seen: set[str] = set()
         ordered: list[str] = []
@@ -333,6 +341,8 @@ class CiReviewService(BaseService):
                 "summary": (best.summary or "")[:LOG_TRUNC_200],
             }
         except Exception as e:
+            capture("ci_review: autotest context failed",
+                    error_code="E_CI_REVIEW_AUTOTEST", component="ci_review", exc=e)
             logger.debug("ci_review: autotest context failed: %s", e)
             return {}
 
@@ -452,7 +462,9 @@ class CiReviewService(BaseService):
         try:
             from l3.config.settings_center import get_center
             return get_center().get(key, default)
-        except Exception:
+        except Exception as e:
+            capture("ci_review: settings read failed", error_code="E_CI_REVIEW_SETTING",
+                    component="ci_review", exc=e, context={"key": key})
             return default
 
     def _effective(self, suffix: str, agent_id: str = "", cell_id: str = "",
@@ -505,6 +517,8 @@ class CiReviewService(BaseService):
             return perform_review(agent_id=agent_id, reviewer_id="ci",
                                   task=task, result=result, llm_call=None)
         except Exception as e:
+            capture("ci_review: LLM review failed", error_code="E_CI_REVIEW_LLM",
+                    component="ci_review", exc=e)
             logger.debug("ci_review: LLM review failed: %s", e)
             return {"verdict": "SKIPPED", "reason": str(e)}
 
@@ -524,6 +538,8 @@ class CiReviewService(BaseService):
             )
             report.archive_ref = str(ar.get("archive_ref", "")) if isinstance(ar, dict) else ""
         except Exception as e:
+            capture("ci_review: R4 archive failed", error_code="E_CI_REVIEW_ARCHIVE",
+                    component="ci_review", exc=e, task_id=report.card_id)
             logger.debug("ci_review: R4 archive failed: %s", e)
         self._emit_events(report)
 
@@ -537,6 +553,8 @@ class CiReviewService(BaseService):
                 with open(self._persist_path, "a", encoding="utf-8") as f:
                     f.write(payload + "\n")
         except Exception as e:
+            capture("ci_review: JSONL persist failed", error_code="E_CI_REVIEW_PERSIST",
+                    component="ci_review", exc=e)
             logger.warning("ci_review: JSONL persist failed: %s", e)
 
     def _emit_events(self, report: CardCiReport) -> None:
@@ -549,7 +567,9 @@ class CiReviewService(BaseService):
                 "verdict": report.verdict, "gates": report.gates,
                 "elapsed": round(report.completed_at - report.started_at, 2),
             }, source="ci_review")
-        except Exception:
+        except Exception as e:
+            capture("ci_review: event emit failed", error_code="E_CI_REVIEW_EVENT",
+                    component="ci_review", exc=e)
             logger.debug("ci_review: event emit failed")
         try:
             from l3.bus.monitor_bus import MonitorEvent
@@ -562,7 +582,9 @@ class CiReviewService(BaseService):
                 data={"verdict": report.verdict,
                       "gates": [g.get("action") for g in report.gates]},
             ))
-        except Exception:
+        except Exception as e:
+            capture("ci_review: monitor emit failed", error_code="E_CI_REVIEW_EVENT",
+                    component="ci_review", exc=e)
             logger.debug("ci_review: monitor emit failed")
 
     # ── Downstream linkages (config-gated, non-blocking) ──
@@ -602,6 +624,9 @@ class CiReviewService(BaseService):
                 reason=f"CI review {report.verdict}: {report.error}",
             )
         except Exception as e:
+            capture("ci_review: approval linkage failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "approval"})
             logger.debug("ci_review: approval linkage failed: %s", e)
 
     def _link_convention(self, report: CardCiReport) -> None:
@@ -617,6 +642,9 @@ class CiReviewService(BaseService):
                 domain = cols.get("domain", "")
             reg._route_to_convention(report.card_id, intent=intent, domain=domain)
         except Exception as e:
+            capture("ci_review: convention linkage failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "convention"})
             logger.debug("ci_review: convention linkage failed: %s", e)
 
     def _link_reputation(self, report: CardCiReport) -> None:
@@ -626,6 +654,9 @@ class CiReviewService(BaseService):
             get_reputation().record_review(
                 report.agent_id or "system", approved=report.verdict == "PASS")
         except Exception as e:
+            capture("ci_review: reputation linkage failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "reputation"})
             logger.debug("ci_review: reputation linkage failed: %s", e)
 
     def _link_lean_trace(self, report: CardCiReport) -> None:
@@ -640,6 +671,9 @@ class CiReviewService(BaseService):
                 tags=f"ci_review,{report.agent_id or 'system'},failure",
             )
         except Exception as e:
+            capture("ci_review: lean trace failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "lean_trace"})
             logger.debug("ci_review: lean trace failed: %s", e)
 
     def _link_notify(self, report: CardCiReport) -> None:
@@ -671,6 +705,9 @@ class CiReviewService(BaseService):
             _get_notify().send(channel=channel, to=report.agent_id or "system",
                                subject="Praxis notification", body=message)
         except Exception as e:
+            capture("ci_review: notify linkage failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "notify"})
             logger.debug("ci_review: notify linkage failed: %s", e)
 
     @staticmethod
@@ -690,6 +727,9 @@ class CiReviewService(BaseService):
             tracker.update(content, "add")
             tracker.update(content, "escalated")
         except Exception as e:
+            capture("ci_review: todo linkage failed", error_code="E_CI_REVIEW_LINKAGE",
+                    component="ci_review", exc=e, task_id=report.card_id,
+                    context={"linkage": "todo"})
             logger.debug("ci_review: todo linkage failed: %s", e)
 
     # ── Query & stats ──

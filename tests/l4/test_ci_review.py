@@ -832,3 +832,80 @@ class TestV4Webhook:
         report = _make_report("card-1", "PASS", agent_id="agent-writer")
         svc._link_notify(report)
         assert notify.calls[-1]["channel"] == "log"  # passed not in default events
+
+
+def _boom(*args, **kwargs):
+    """Helper that always raises — used with monkeypatch.setattr."""
+    raise RuntimeError("boom")
+
+
+class TestV5ErrorBus:
+    """v5 ErrorBus capture wiring + structured error codes."""
+
+    def _capture_fake(self, monkeypatch):
+        """Monkeypatch the module-bound ``capture`` name in l4.ci_review."""
+        import l4.ci_review as cr_mod
+
+        captured = []
+        monkeypatch.setattr(cr_mod, "capture", lambda *a, **k: captured.append((a, k)))
+        return captured
+
+    def test_trigger_register_failure_captured(self, tmp_path, monkeypatch):
+        import l3.card.card_registry as reg_mod
+
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        captured = self._capture_fake(monkeypatch)
+        monkeypatch.setattr(reg_mod, "get_registry", _boom)
+        r = svc.register_card_trigger()
+        assert r["success"] is False
+        assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_TRIGGER"
+
+    def test_run_exception_captured(self, tmp_path, monkeypatch):
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        captured = self._capture_fake(monkeypatch)
+        monkeypatch.setattr(svc, "_do_review", _boom)
+        svc._process("card-1", "completed", {})  # synchronous call for determinism
+        assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_RUN"
+        assert captured[0][1]["task_id"] == "card-1"
+
+    def test_archive_failure_captured_report_still_generated(self, tmp_path, monkeypatch):
+        import l3.tools._archive as archive_mod
+
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        captured = self._capture_fake(monkeypatch)
+        monkeypatch.setattr(archive_mod, "_cmd_archive_store",
+                            _boom)
+        monkeypatch.setattr(svc, "_emit_events", lambda r: None)
+        svc._persist_report(_make_report("card-9", "PASS"))
+        assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_ARCHIVE"
+        assert svc._reports["card-9"].verdict == "PASS"  # report still persisted
+
+    def test_setting_failure_captured_fallback_default(self, tmp_path, monkeypatch):
+        import l3.config.settings_center as sc_mod
+        from l4.ci_review import CiReviewService
+
+        svc = CiReviewService(persist_path=str(tmp_path / "x.jsonl"))
+        captured = self._capture_fake(monkeypatch)
+        monkeypatch.setattr(sc_mod, "get_center", _boom)
+        val = svc._setting("ci.review.enabled", True)
+        assert val is True  # falls back to default
+        assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_SETTING"
+
+    def test_linkage_failure_captured(self, tmp_path, monkeypatch):
+        import l4.notify as notify_mod
+
+        svc, _ = _make_service(tmp_path, monkeypatch)
+        captured = self._capture_fake(monkeypatch)
+        monkeypatch.setattr(notify_mod, "get_service", _boom)
+        svc._link_notify(_make_report("c1", "REJECT", agent_id="a1"))
+        assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_LINKAGE"
+        assert captured[0][1]["context"] == {"linkage": "notify"}
+
+    def test_api_handler_structured_error(self, monkeypatch):
+        import l4.ci_review as cr_mod
+        from l4.api_handlers.api_handlers_ci import handle_ci_review_get
+
+        monkeypatch.setattr(cr_mod, "get_service", _boom)
+        out = handle_ci_review_get({"card_id": "x"}, card_id="x")
+        assert out["success"] is False
+        assert out["error_code"] == "E_CI_REVIEW_API"

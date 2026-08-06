@@ -151,6 +151,6 @@ def _cmd_ci(args: list[str]) -> dict:
             return {"success": True, "key": full_key, "enabled": enabled}
         return {"success": False,
                 "error": f"unknown ci subcommand: {sub} "
-                         f"(expected config|set|toggle|list|show)"}
+                         f"(expected config|set|toggle|rerun|list|show)"}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"[E_CI_REVIEW_CMD] {e}"}

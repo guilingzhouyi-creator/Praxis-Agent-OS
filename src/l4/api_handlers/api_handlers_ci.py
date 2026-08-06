@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l1.kernel.errors import error
 from l1.kernel.params.system import CI_DEFAULT_LIST_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def handle_ci_reviews(body: dict | None = None) -> dict:
             limit=int(b.get("limit", CI_DEFAULT_LIST_LIMIT)),
         )
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return error("E_CI_REVIEW_API", str(e), cause=e)
 
 
 def handle_ci_review_get(body: dict | None = None, card_id: str = "") -> dict:
@@ -39,7 +40,7 @@ def handle_ci_review_get(body: dict | None = None, card_id: str = "") -> dict:
             return {"success": False, "error": f"no CI review found for card: {card_id}"}
         return {"success": True, "report": reports[0]}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return error("E_CI_REVIEW_API", str(e), cause=e)
 
 
 def handle_ci_review_rerun(body: dict | None = None, card_id: str = "") -> dict:
@@ -53,7 +54,7 @@ def handle_ci_review_rerun(body: dict | None = None, card_id: str = "") -> dict:
                     "error": "writes disabled (ci.control.api.writable=false)"}
         return svc.rerun(card_id)
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return error("E_CI_REVIEW_API", str(e), cause=e)
 
 
 def _scope_from_body(body: dict) -> tuple[str, str]:
@@ -92,7 +93,7 @@ def handle_ci_config_get(body: dict | None = None) -> dict:
             },
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return error("E_CI_REVIEW_API", str(e), cause=e)
 
 
 def _collect_updates(body: dict) -> dict[str, Any]:
@@ -165,4 +166,4 @@ def handle_ci_config_set(body: dict | None = None) -> dict:
             center.set(key, value)
         return {"success": True, "updated": resolved}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return error("E_CI_REVIEW_API", str(e), cause=e)

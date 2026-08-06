@@ -674,3 +674,70 @@ PUT 键展开规则：
 
 **规划结束（v4）。** 门禁 matcher 保持 v1-v3 行为零破坏；AutoTest 缓存消费闭合 §3.1 预留位；
 手动重跑与 webhook 使 CI 审查具备基本流水线闭环（人工介入 + 外部通知）。
+
+---
+
+## 14. 错误总线接入（v5 补充：异常处理与错误捕获）
+
+> v1-v4 的异常处理全部为 `try/except + logger.debug/warning` 级别，未接入项目统一的
+> `ErrorBus`（`l3.error_bus.capture`）。本补充为 CI 审查模块补齐结构化错误捕获——
+> 与 l3a 等既有模块的惯例一致（`capture(...)` + 保留 logger 双写）。
+
+### 14.1 错误码清单（`component="ci_review"`，沿用 `E_<MODULE>_<SUB>` 命名）
+
+| 错误码 | 触发点 | 说明 |
+|---|---|---|
+| `E_CI_REVIEW_TRIGGER` | `register_card_trigger` | 完成监听器注册失败（boot 接线失败） |
+| `E_CI_REVIEW_RUN` | `_process` 顶层 | 单卡审查流程意外异常（未被内部捕获的兜底） |
+| `E_CI_REVIEW_SANDBOX` | `_collect_changes` | sandbox 变更归因查询失败 |
+| `E_CI_REVIEW_AUTOTEST` | `_collect_autotest_context` | Cell L2 AutoTest 缓存消费失败 |
+| `E_CI_REVIEW_ARCHIVE` | `_persist_report` | R4 归档写入失败 |
+| `E_CI_REVIEW_PERSIST` | `_append_jsonl` | 报告 JSONL 落盘失败 |
+| `E_CI_REVIEW_EVENT` | `_emit_events` | EventBus / MonitorBus 事件发射失败 |
+| `E_CI_REVIEW_LLM` | `_llm_review` | LLM 审查调用失败（降级 SKIPPED 但仍记录） |
+| `E_CI_REVIEW_SETTING` | `_setting` | SettingsCenter 读取失败（降级默认值但记录） |
+| `E_CI_REVIEW_LINKAGE` | 各 `_link_*` | 下游联动消费失败（context 带 `linkage` 名） |
+| `E_CI_REVIEW_API` | API handler 顶层 | 端点处理意外异常 |
+
+### 14.2 接入惯例（与 l3a 一致）
+
+```python
+try:
+    ...
+except Exception as e:
+    capture("ci_review: <context> failed", error_code="E_CI_REVIEW_*",
+            component="ci_review", exc=e,
+            agent_id=..., task_id=card_id, context={...})
+    logger.warning("ci_review: <context> failed: %s", e)   # 保留原日志
+```
+
+- `capture` 自动提取调用点 source / stack_trace；ErrorBus 自带去重 + SSE + 查询，不会刷屏。
+- **降级路径也记录**：即使语义上是"静默降级"（`_setting` 回退默认值、`_emit_events` 失败、
+  `_llm_review` 降级 SKIPPED），失败本身意味着真实问题（配置损坏 / 总线异常 / LLM 不可用），
+  应可观测——与 l3a 对 settings 解析失败 `capture(E_L3A_SESSION)` 的惯例一致。
+- `task_id=card_id`（有卡上下文时）；`agent_id` 来自执行 agent。
+- **不改变控制流**：capture 仅记录，不影响既有的降级/旁路语义（§3.3 联动纪律不变）。
+
+### 14.3 API / L2 结构化错误
+
+- `api_handlers_ci.py`：handler 顶层 `except` 从裸 `{"success": False, "error": str(e)}`
+  升级为 `error("E_CI_REVIEW_API", str(e), cause=e)`（`l1.kernel.errors.error`）→ 响应含
+  `error_code` 字段，前端可程序化处理。
+- `l2_shell/commands/ci.py`：命令错误保持返回 dict（Shell 契约），但错误串统一为
+  `[E_CI_REVIEW_*] message` 前缀（复用既有返回格式，不改 Shell 协议）。
+
+### 14.4 测试要点（v5）
+
+| 用例 | 断言 |
+|---|---|
+| `test_trigger_register_failure_captured` | mock `get_registry` 抛错 → `capture` 收到 `E_CI_REVIEW_TRIGGER` |
+| `test_run_exception_captured` | `_do_review` 抛意外异常 → `_process` 兜底 capture `E_CI_REVIEW_RUN` |
+| `test_archive_failure_captured` | `_cmd_archive_store` 抛错 → capture `E_CI_REVIEW_ARCHIVE`，报告仍生成 |
+| `test_setting_failure_captured` | `get_center` 抛错 → capture `E_CI_REVIEW_SETTING`，仍回退默认值 |
+| `test_linkage_failure_captured` | `_link_notify` 抛错 → capture `E_CI_REVIEW_LINKAGE` + context.linkage |
+| `test_api_handler_structured_error` | handler 异常 → 响应含 `error_code: "E_CI_REVIEW_API"` |
+
+---
+
+**规划结束（v5）。** 全部异常点接入 ErrorBus（结构化 error_code + source + stack_trace + 去重），
+API 层升级结构化错误响应；控制流与降级语义零变化。
