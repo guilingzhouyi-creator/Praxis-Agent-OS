@@ -1,0 +1,40 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "src/**"
+      - "config/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "src/**"
+      - "config/**"
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Verify every Dockerfile target builds — a broken Dockerfile should never
+    # reach main unnoticed. Builds only; images are not pushed or published.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [kernel, api, sandbox, llm, supervisor]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build target ${{ matrix.target }}
+        run: docker build --target ${{ matrix.target }} --tag praxis:${{ matrix.target }} .

@@ -28,7 +28,7 @@ format-check:
 	ruff format --check src/ tests/
 
 typecheck:
-	mypy src/ --python-version 3.11 --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
+	mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
 
 hooks:
 	git config core.hooksPath .githooks
