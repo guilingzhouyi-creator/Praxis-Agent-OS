@@ -64,6 +64,7 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/card_types": "card", "/api/card_unified": "card", "/api/cards/plan": "card",
     "/api/auth": "security", "/api/ws": "system",
     "/api/profile": "profile",
+    "/api/harness": "system", "/api/locales": "shell",
 }
 
 # ── 7 work-domain groups (AGENTS.md parallel-collaboration domains) ───────────

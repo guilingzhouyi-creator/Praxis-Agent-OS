@@ -23,13 +23,24 @@ def graph_api(tmp_path):
     center = get_center()
     mgr = MemoryManager()
     center.register("l3a", mgr)
-    return api, mgr, g
+    yield api, mgr, g
+    # Teardown: drop persisted graph overrides so SettingsCenter.set()
+    # writes to .praxis_settings.json cannot leak into later tests
+    # (reset_center() re-loads the file on the next get_center()).
+    try:
+        from l3.config.settings_center import get_center as _gc
+        c = _gc()
+        c.reset("memory.graph.enabled")
+        c.reset("memory.graph.edge_mode")
+    except Exception:
+        pass
 
 
 def test_graph_status_disabled(graph_api):
     api, _, _ = graph_api
     r = api._memory_graph_status()
     assert r["success"] and r["enabled"] is False
+    assert r["edge_mode"] == "off"
     assert "stats" in r and "compact" in r
 
 
@@ -47,6 +58,40 @@ def test_graph_set_requires_enabled_key(graph_api):
     api, _, _ = graph_api
     r = api._memory_graph_set({})
     assert not r["success"] and "enabled" in r["error"]
+
+
+def test_graph_set_edge_mode_transitions(graph_api):
+    api, _, g = graph_api
+    r = api._memory_graph_set({"edge_mode": "rules"})
+    assert r["success"] and r["edge_mode"] == "rules"
+    assert g.edge_mode == "rules"
+    r = api._memory_graph_set({"edge_mode": "hybrid"})
+    assert r["success"] and r["edge_mode"] == "hybrid"
+    st = api._memory_graph_status()
+    assert st["edge_mode"] == "hybrid"
+
+
+def test_graph_set_edge_mode_rejects_invalid_transition(graph_api):
+    api, _, g = graph_api
+    api._memory_graph_set({"edge_mode": "rules"})
+    # rules → paused is not an allowed transition (must pass hybrid first)
+    r = api._memory_graph_set({"edge_mode": "paused"})
+    assert not r["success"] and "invalid transition" in r["error"]
+    assert g.edge_mode == "rules"
+
+
+def test_graph_set_edge_mode_rejects_unknown_value(graph_api):
+    api, _, g = graph_api
+    r = api._memory_graph_set({"edge_mode": "fancy"})
+    assert not r["success"] and "edge_mode" in r["error"]
+    assert g.edge_mode == "off"
+
+
+def test_graph_set_enabled_and_edge_mode_together(graph_api):
+    api, _, g = graph_api
+    r = api._memory_graph_set({"enabled": True, "edge_mode": "rules"})
+    assert r["success"] and r["enabled"] is True and r["edge_mode"] == "rules"
+    assert g.enabled is True and g.edge_mode == "rules"
 
 
 def test_graph_compact_small_graph_guard(graph_api):

@@ -354,30 +354,48 @@ class ApiHandlers:
         return {
             "success": True,
             "enabled": g.enabled,
+            "edge_mode": g.edge_mode,
             "stats": g.stats(),
             "compact": g.compact_report(min_degree=2),
         }
 
     def _memory_graph_set(self, body: dict | None = None) -> dict:
-        """PUT /api/memory/graph — toggle the graph switch (persisted).
+        """PUT /api/memory/graph — toggle graph switch and/or semantic-extraction mode.
 
-        Body: {"enabled": true|false}
-        Persisted via SettingsCenter (memory.graph.enabled → .praxis_settings.json).
+        Body: {"enabled": true|false} and/or {"edge_mode": "off"|"rules"|"hybrid"}
+        Persisted via SettingsCenter (memory.graph.enabled / memory.graph.edge_mode
+        → .praxis_settings.json).  Edge-mode transitions follow the state machine
+        in MemoryGraph (invalid transitions rejected).
         """
         b = body or {}
-        if "enabled" not in b:
-            return {"success": False, "error": "enabled (bool) is required"}
-        flag = bool(b["enabled"])
-        try:
-            from l3.config.settings_center import get_center as _sc
-            _sc().set("memory.graph.enabled", flag)
-        except Exception:
-            logger.debug("api_handlers: graph enabled persistence failed (best-effort)", exc_info=True)
+        if "enabled" not in b and "edge_mode" not in b:
+            return {"success": False,
+                    "error": "enabled (bool) or edge_mode (off|rules|hybrid) is required"}
         from l3.memory.memory_graph import get_graph
         g = get_graph()
-        g.set_enabled(flag)
+        changed: list[str] = []
+        if "enabled" in b:
+            flag = bool(b["enabled"])
+            try:
+                from l3.config.settings_center import get_center as _sc
+                _sc().set("memory.graph.enabled", flag)
+            except Exception:
+                logger.debug("api_handlers: graph enabled persistence failed (best-effort)", exc_info=True)
+            g.set_enabled(flag)
+            changed.append("memory.graph.enabled")
+        if "edge_mode" in b:
+            mode = str(b["edge_mode"]).strip().lower()
+            r = g.set_edge_mode(mode)
+            if not r.get("success"):
+                return {"success": False, "error": r.get("error")}
+            try:
+                from l3.config.settings_center import get_center as _sc
+                _sc().set("memory.graph.edge_mode", mode)
+            except Exception:
+                logger.debug("api_handlers: graph edge_mode persistence failed (best-effort)", exc_info=True)
+            changed.append("memory.graph.edge_mode")
         return {"success": True, "enabled": g.enabled,
-                "persisted": "memory.graph.enabled"}
+                "edge_mode": g.edge_mode, "persisted": changed}
 
     def _memory_graph_compact(self, body: dict | None = None) -> dict:
         """POST /api/memory/graph/compact — run graph reduction.
