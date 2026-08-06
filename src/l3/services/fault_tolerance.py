@@ -89,6 +89,7 @@ class FaultToleranceService(BaseService):
     def __init__(self):
         super().__init__("fault_tolerance")
         self._checkpoints: dict[str, Checkpoint] = {}
+        self._dirty: dict[str, Checkpoint] = {}  # checkpoints awaiting debounced disk flush
         self._heartbeats: dict[str, AgentHeartbeat] = {}
         self._lock = threading.RLock()
         self._monitor_thread: threading.Thread | None = None
@@ -107,6 +108,7 @@ class FaultToleranceService(BaseService):
 
     def _on_stop(self) -> dict:
         self._running = False
+        self._flush_dirty()  # best-effort flush of any pending checkpoints
         return {"success": True}
 
     def on_recovery(self, hook: Callable) -> None:
@@ -169,8 +171,12 @@ class FaultToleranceService(BaseService):
         )
         with self._lock:
             self._checkpoints[agent_id] = cp
-        # Persist to disk
-        self._persist_checkpoint(cp)
+            self._dirty[agent_id] = cp
+        # Debounced disk write: the monitor loop flushes dirty checkpoints
+        # once per cycle (last state per agent). Fall back to an immediate
+        # write when the service is not running (e.g. standalone usage).
+        if not self._running:
+            self._persist_checkpoint(cp)
         return {"success": True, "agent_id": agent_id, "checkpoint_id": cp.created_at}
 
     def restore_checkpoint(self, agent_id: str) -> dict:
@@ -189,8 +195,18 @@ class FaultToleranceService(BaseService):
         """Mark task as done (checkpoint no longer needed)."""
         with self._lock:
             self._checkpoints.pop(agent_id, None)
+            self._dirty.pop(agent_id, None)
         self._delete_checkpoint(agent_id)
         return {"success": True}
+
+    def _flush_dirty(self) -> int:
+        """Persist all dirty checkpoints to disk (debounced, last state per agent)."""
+        with self._lock:
+            pending = list(self._dirty.values())
+            self._dirty.clear()
+        for cp in pending:
+            self._persist_checkpoint(cp)
+        return len(pending)
 
     def _persist_checkpoint(self, cp: Checkpoint) -> None:
         try:
@@ -282,6 +298,7 @@ class FaultToleranceService(BaseService):
             time.sleep(FAULT_CHECK_INTERVAL)  # Check every 5s
             try:
                 self._check_heartbeats()
+                self._flush_dirty()
             except Exception as e:
                 logger.warning("services/fault_tolerance: %s", e)
 

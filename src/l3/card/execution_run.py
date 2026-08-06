@@ -1,4 +1,4 @@
-﻿"""Execution run 鈥?extracted from execution_plan.py for modularity.
+"""Execution run 鈥?extracted from execution_plan.py for modularity.
 
 Contains the main execution flow: execute, _run_phase, _execute_step, _execute_agent.
 """
