@@ -32,23 +32,23 @@ TOOL_PIP_INSTALL_TIMEOUT: Final[int] = 120
 TOOL_NPM_TIMEOUT: Final[int] = 120
 TOOL_PYRIGHT_TIMEOUT: Final[int] = 60
 TOOL_COMPILE_CHECK_TIMEOUT: Final[int] = 10
-TOOL_WEB_TIMEOUT: Final[int] = 15              # web_fetch / web_search timeout
-TOOL_SEARCH_TIMEOUT: Final[int] = 30           # grep/rg search timeout
+TOOL_WEB_TIMEOUT: Final[int] = 15  # web_fetch / web_search timeout
+TOOL_SEARCH_TIMEOUT: Final[int] = 30  # grep/rg search timeout
 
 # ── Build system detectors (configurable list) ──
 BUILD_DETECTORS: Final[list[tuple[str, ...]]] = [
     ("python", "-m", "build"),
     ("cargo", "build"),
     ("npm", "run", "build"),
-    ("msbuild",),                 # Windows: MSBuild
-    ("dotnet", "build"),          # Windows/Linux: .NET
+    ("msbuild",),  # Windows: MSBuild
+    ("dotnet", "build"),  # Windows/Linux: .NET
 ]
 TEST_DETECTORS: Final[list[tuple[str, ...]]] = [
     ("python", "-m", "pytest"),
     ("cargo", "test"),
     ("npm", "test"),
-    ("dotnet", "test"),           # Windows/Linux: .NET
-    ("vstest.console",),          # Windows: VS Test Runner
+    ("dotnet", "test"),  # Windows/Linux: .NET
+    ("vstest.console",),  # Windows: VS Test Runner
 ]
 
 # ── Tool timeouts (seconds) ──
@@ -101,7 +101,9 @@ HARNESS_MODE_STEPS: Final[dict[str, tuple[str, ...]]] = {
     HARNESS_MODE_MINIMAL: ("approval", "rate", "pool"),
 }
 HARNESS_MODES: Final[tuple[str, ...]] = (
-    HARNESS_MODE_GOVERNED, HARNESS_MODE_SEMI, HARNESS_MODE_MINIMAL,
+    HARNESS_MODE_GOVERNED,
+    HARNESS_MODE_SEMI,
+    HARNESS_MODE_MINIMAL,
 )
 
 
@@ -113,24 +115,55 @@ AUTO_TEST_MODE_OFF: Final[str] = "off"
 AUTO_TEST_MODE_ASYNC: Final[str] = "async"
 AUTO_TEST_DEFAULT_MODE: Final[str] = AUTO_TEST_MODE_OFF
 AUTO_TEST_MODES: Final[tuple[str, ...]] = (
-    AUTO_TEST_MODE_OFF, AUTO_TEST_MODE_ASYNC,
+    AUTO_TEST_MODE_OFF,
+    AUTO_TEST_MODE_ASYNC,
 )
-AUTO_TEST_TIMEOUT: Final[int] = 300          # background test run timeout (s)
-AUTO_TEST_MAX_FAILURES: Final[int] = 20      # failure detail entries parsed per run
-AUTO_TEST_FEEDBACK_MAX: Final[int] = 20      # pending feedback entries kept per agent
+AUTO_TEST_TIMEOUT: Final[int] = 300  # background test run timeout (s)
+AUTO_TEST_MAX_FAILURES: Final[int] = 20  # failure detail entries parsed per run
+AUTO_TEST_FEEDBACK_MAX: Final[int] = 20  # pending feedback entries kept per agent
 AUTO_TEST_CACHE_KEY: Final[str] = "auto_test"  # Cell L2 cache key prefix
 
 
 # ── HTN Planner ──
 HTN_DOMAIN_PREFIX: Final[str] = "app"
 HTN_DEFAULT_TOOLS: Final[dict[str, str]] = {
-    "analyze": "analyze_code", "scout": "scout_delegate", "read": "read_file",
-    "write": "write_file", "create": "create_file", "replace": "replace_string_in_file",
-    "extract": "extract_method", "build": "build_project", "test": "test_project",
-    "lint": "lint", "review": "review_code", "doc": "generate_doc",
-    "fix": "create_file", "plan": "create_file",
+    "analyze": "analyze_code",
+    "scout": "scout_delegate",
+    "read": "read_file",
+    "write": "write_file",
+    "create": "create_file",
+    "replace": "replace_string_in_file",
+    "extract": "extract_method",
+    "build": "build_project",
+    "test": "test_project",
+    "lint": "lint",
+    "review": "review_code",
+    "doc": "generate_doc",
+    "fix": "create_file",
+    "plan": "create_file",
 }
 
 # ── Scout ──
 # (Constants imported from .system)
 
+
+# ── Code auto-format (l3/services/code_format.py) ──
+TOOL_FORMAT_TIMEOUT: Final[int] = 30  # per-file formatter subprocess timeout (s)
+FORMAT_MAX_FILES: Final[int] = 200  # batch cap for format_project
+FORMAT_DETECTORS: Final[list[tuple[str, ...]]] = [
+    ("ruff", "format"),
+    ("black",),
+    ("autopep8",),
+]
+FORMAT_EXTENSION_TOOL: Final[dict[str, str]] = {
+    ".py": "ruff",
+    ".pyi": "ruff",
+}
+FORMAT_IGNORE_DIRS: Final[frozenset[str]] = frozenset(
+    {
+        "__pycache__",
+        ".venv",
+        "node_modules",
+        ".git",
+    }
+)

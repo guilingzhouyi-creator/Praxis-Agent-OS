@@ -81,6 +81,7 @@ ALLOWLIST = {
     ("l3/card/card_registry.py", "l4.llm.llm"),
     ("l3/cell/__init__.py", "l4.sandbox.cell_sandbox"),
     ("l3/cell/components/cell_cross_review.py", "l4.sandbox"),
+    ("l3/cell/peers/l3a/agents_md.py", "l4.sandbox"),
     ("l3/config/config_handlers.py", "l4.api.api_gateway"),
     ("l3/config/config_handlers.py", "l4.api_handlers.api_handlers_mcp"),
     ("l3/config/config_handlers.py", "l4.mcp_bridge"),
@@ -115,11 +116,11 @@ def extract_imports(filepath):
     imports = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
-            if node.module and re.match(r'^l[1-5]\.', node.module):
+            if node.module and re.match(r"^l[1-5]\.", node.module):
                 imports.append(node.module)
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                if re.match(r'^l[1-5](\.|$)', alias.name):
+                if re.match(r"^l[1-5](\.|$)", alias.name):
                     imports.append(alias.name)
     return imports
 
@@ -157,9 +158,8 @@ def _parse_imports(fpath: str) -> list[tuple[str, str]]:
             for alias in node.names:
                 if re.match(r"^l[1-5](\.|$)", alias.name):
                     imports.append(("import", alias.name))
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and re.match(r"^l[1-5]\.", node.module):
-                imports.append(("from", node.module))
+        elif isinstance(node, ast.ImportFrom) and node.module and re.match(r"^l[1-5]\.", node.module):
+            imports.append(("from", node.module))
     return imports
 
 
@@ -215,14 +215,10 @@ def _ensure_layer_allowlist() -> None:
 def _is_allowlisted(src_layer: int, dst_layer: int, module: str) -> bool:
     """Check if a (src_layer, dst_layer, module) import is allowlisted."""
     _ensure_layer_allowlist()
-    for s, d, prefix in _LAYER_ALLOWLIST:
-        if s == src_layer and d == dst_layer and module.startswith(prefix):
-            return True
-    return False
+    return any(s == src_layer and d == dst_layer and module.startswith(prefix) for s, d, prefix in _LAYER_ALLOWLIST)
 
 
 class TestLayerImports:
-
     def test_no_upward_imports(self):
         """Verify no file imports from an upper layer."""
         violations = []
@@ -282,19 +278,16 @@ class TestLayerConstraints:
             if src_layer == 0:
                 continue
             imports = _parse_imports(str(fpath))
-            for imp_type, module in imports:
+            for _imp_type, module in imports:
                 dst_layer = _import_layer(module)
                 if dst_layer == 0:
                     continue
                 if dst_layer > src_layer and not _is_allowlisted(src_layer, dst_layer, module):
                     violations.append(
-                        f"{fpath.relative_to('src')}: imports {module} "
-                        f"(L{src_layer} → L{dst_layer}) not allowlisted"
+                        f"{fpath.relative_to('src')}: imports {module} (L{src_layer} → L{dst_layer}) not allowlisted"
                     )
 
-        assert not violations, (
-            "Layer import violations:\n" + "\n".join(violations[:30])
-        )
+        assert not violations, "Layer import violations:\n" + "\n".join(violations[:30])
 
     def test_l1_imports_upper_allowlisted(self):
         """L1 imports to L2+ must all be in the allowlist (adapter/callback pattern)"""
@@ -303,7 +296,7 @@ class TestLayerConstraints:
             if "__pycache__" in fpath.parts:
                 continue
             imports = _parse_imports(str(fpath))
-            for imp_type, module in imports:
+            for _imp_type, module in imports:
                 dst = _import_layer(module)
                 if dst >= 2 and not _is_allowlisted(1, dst, module):
                     violations.append(f"{fpath.name}: imports {module} (L1→L{dst})")
@@ -336,9 +329,8 @@ class TestLayerConstraints:
                 unmatched.append(f"{fpath_filter}: {module_pattern}")
         if unmatched:
             import logging
-            logging.getLogger(__name__).warning(
-                "Allowlist patterns with no actual imports: %s", unmatched
-            )
+
+            logging.getLogger(__name__).warning("Allowlist patterns with no actual imports: %s", unmatched)
 
 
 class TestFullScanL3toL4:
@@ -351,13 +343,10 @@ class TestFullScanL3toL4:
             if "__pycache__" in fpath.parts:
                 continue
             imports = _parse_imports(str(fpath))
-            for imp_type, module in imports:
-                if _import_layer(module) == 4:
-                    if not _is_allowlisted(3, 4, module):
-                        violations.append(f"{fpath.relative_to('src')}: {module}")
-        assert not violations, (
-            "L3→L4 imports not in allowlist:\n" + "\n".join(violations)
-        )
+            for _imp_type, module in imports:
+                if _import_layer(module) == 4 and not _is_allowlisted(3, 4, module):
+                    violations.append(f"{fpath.relative_to('src')}: {module}")
+        assert not violations, "L3→L4 imports not in allowlist:\n" + "\n".join(violations)
 
     def test_all_l3_l4_imports_documented(self):
         """Verify all L3→L4 imports match documentation"""
@@ -374,10 +363,7 @@ class TestFullScanL2toL3:
             if "__pycache__" in fpath.parts:
                 continue
             imports = _parse_imports(str(fpath))
-            for imp_type, module in imports:
-                if _import_layer(module) == 3:
-                    if not _is_allowlisted(2, 3, module):
-                        violations.append(f"{fpath.relative_to('src')}: {module}")
-        assert not violations, (
-            "L2→L3 imports not in allowlist:\n" + "\n".join(violations[:20])
-        )
+            for _imp_type, module in imports:
+                if _import_layer(module) == 3 and not _is_allowlisted(2, 3, module):
+                    violations.append(f"{fpath.relative_to('src')}: {module}")
+        assert not violations, "L2→L3 imports not in allowlist:\n" + "\n".join(violations[:20])

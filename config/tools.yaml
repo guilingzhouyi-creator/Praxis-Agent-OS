@@ -218,6 +218,18 @@ layer_2:
       handler: l3.tools._files.file_mkdir
       params: [{name: path, type: string, required: true}, {name: parents, type: boolean, default: false}]
 
+  format:
+    format_file:
+      description: "Format a source file with the configured formatter (ruff/black/autopep8)"
+      danger: 1
+      handler: l3.tools._format.format_file
+      params: [{name: path, type: string, required: true}, {name: tool, type: string, optional: true}]
+    format_project:
+      description: "Format all formattable source files under a directory"
+      danger: 1
+      handler: l3.tools._format.format_project
+      params: [{name: path, type: string, optional: true, default: "."}, {name: tool, type: string, optional: true}]
+
   terminal:
     run_in_terminal:
       description: "Run a command in terminal"

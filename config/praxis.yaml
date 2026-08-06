@@ -212,6 +212,7 @@ tool:
     - ["python", "-m", "pytest"]
     - ["cargo", "test"]
     - ["npm", "test"]
+  format_auto: true             # auto-format source after write tools (create_file/file_patch/file_append)
 
 # ── HTN planner ──
 htn:

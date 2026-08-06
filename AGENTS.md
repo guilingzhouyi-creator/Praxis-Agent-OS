@@ -40,7 +40,7 @@ src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent po
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
 src/l2/ — Shell: 46 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — 883 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
+src/l1/kernel/params/ — 910 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
 src/l1/kernel/ports.py — 12 `*Port(ABC)` abstractions; adapters wired at boot via `register_port()`/`get_port()` in `src/l3/boot/wiring.py`
 ```
 

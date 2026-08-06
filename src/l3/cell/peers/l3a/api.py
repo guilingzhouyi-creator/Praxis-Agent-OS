@@ -9,16 +9,25 @@ from .model import L3AModelConfig
 from .session import SessionManager
 
 
-def dispatch(args: list[str], mgr: SessionManager,
-             registry: ContextRegistry,
-             model_cfg: L3AModelConfig) -> dict:
+def dispatch(args: list[str], mgr: SessionManager, registry: ContextRegistry, model_cfg: L3AModelConfig) -> dict:
     if not args:
-        return {"success": True, "data": {
-            "active_sessions": [s.info() for s in mgr.list_active()],
-            "model": model_cfg.show(),
-        }}
+        return {
+            "success": True,
+            "data": {
+                "active_sessions": [s.info() for s in mgr.list_active()],
+                "model": model_cfg.show(),
+            },
+        }
 
     sub = args[0].lower()
+
+    if sub == "agents-md":
+        # Generic project-handbook pipeline: collect → assemble → sandbox
+        # write → (optional) generalize into a reusable skill.
+        from .agents_md import generate_agents_md
+
+        evolve = not (len(args) > 1 and args[1].lower() in ("--no-evolve", "-n"))
+        return generate_agents_md(agent_id="l3a", evolve=evolve)
 
     if sub == "create":
         title = " ".join(args[1:]) if len(args) > 1 else ""
@@ -29,23 +38,25 @@ def dispatch(args: list[str], mgr: SessionManager,
         if len(args) < 2:
             return {"success": False, "error": "archived session_id required"}
         from .session import Session
-        s = Session.resume_from_archive(
-            args[1], model_config=model_cfg, registry=registry)
+
+        s = Session.resume_from_archive(args[1], model_config=model_cfg, registry=registry)
         if not s:
-            return {"success": False,
-                    "error": f"archived session not found: {args[1]}"}
+            return {"success": False, "error": f"archived session not found: {args[1]}"}
         with mgr._lock:
             mgr._sessions[s.id] = s
-        return {"success": True, "data": s.info(),
-                "resumed_from": args[1]}
+        return {"success": True, "data": s.info(), "resumed_from": args[1]}
 
     if sub == "list":
         active = mgr.list_active()
         arch = _archive.search_sessions(limit=_p.DEFAULT_SEARCH_LIMIT)
-        return {"success": True, "data": {
-            "active": active,
-            "archived": arch.get("data", []),
-        }, "count": len(active) + len(arch.get("data", []))}
+        return {
+            "success": True,
+            "data": {
+                "active": active,
+                "archived": arch.get("data", []),
+            },
+            "count": len(active) + len(arch.get("data", [])),
+        }
 
     if sub == "info":
         sid = args[1] if len(args) > 1 else ""
@@ -74,8 +85,13 @@ def dispatch(args: list[str], mgr: SessionManager,
             return {"success": False, "error": f"session not active: {sid}"}
         limit = int(args[2]) if len(args) > 2 and args[2].isdigit() else 20
         page = s.messages(limit=limit)
-        return {"success": True, "data": page.items,
-                "cursor": page.cursor, "total": page.total, "count": len(page.items)}
+        return {
+            "success": True,
+            "data": page.items,
+            "cursor": page.cursor,
+            "total": page.total,
+            "count": len(page.items),
+        }
 
     if sub == "model":
         return _model_dispatch(args[1:], model_cfg)
@@ -91,10 +107,13 @@ def dispatch(args: list[str], mgr: SessionManager,
         if not s:
             return {"success": False, "error": f"session not active: {sid}"}
         status = args[2] if len(args) > 2 else ""
-        return {"success": True, "session_id": sid,
-                "data": s.tasks.list(status=status),
-                "pending": s.tasks.pending_count(),
-                "count": len(s.tasks.all())}
+        return {
+            "success": True,
+            "session_id": sid,
+            "data": s.tasks.list(status=status),
+            "pending": s.tasks.pending_count(),
+            "count": len(s.tasks.all()),
+        }
 
     if sub == "todos":
         if len(args) < 2:
@@ -104,41 +123,41 @@ def dispatch(args: list[str], mgr: SessionManager,
         if not s:
             return {"success": False, "error": f"session not active: {sid}"}
         if len(args) >= 4 and args[2].lower() == "update":
-            r = s.todos_update(args[3], args[4] if len(args) > 4 else "in_progress")
-            return r
+            return s.todos_update(args[3], args[4] if len(args) > 4 else "in_progress")
         return {"success": True, "session_id": sid, "data": s.todos()}
 
     if sub == "convergence":
         if len(args) >= 2:
             from .helpers import get_convergence_queue
+
             items = get_convergence_queue(args[1])
-            return {"success": True, "cell_id": args[1], "data": items,
-                    "count": len(items)}
+            return {"success": True, "cell_id": args[1], "data": items, "count": len(items)}
         from . import _convergence_loader
+
         items = _convergence_loader()
-        return {"success": True, "scope": "all", "data": items,
-                "count": len(items)}
+        return {"success": True, "scope": "all", "data": items, "count": len(items)}
 
     if sub == "convention":
         if len(args) < 2:
             return {"success": False, "error": "issue_id required"}
         from .helpers import l3a_convention_handler
-        return l3a_convention_handler({
-            "issue_id": args[1],
-            "max_chars": int(args[2]) if len(args) > 2 and args[2].isdigit() else 0,
-        })
+
+        return l3a_convention_handler(
+            {
+                "issue_id": args[1],
+                "max_chars": int(args[2]) if len(args) > 2 and args[2].isdigit() else 0,
+            }
+        )
 
     if sub == "summaries":
         from .helpers import l3a_summary_handler
+
         if len(args) >= 3 and args[1].lower() == "get":
-            return l3a_summary_handler({"action": "get",
-                                        "issue_id": args[2]})
+            return l3a_summary_handler({"action": "get", "issue_id": args[2]})
         if len(args) >= 3 and args[1].lower() == "search":
-            return l3a_summary_handler({"action": "search",
-                                        "query": " ".join(args[2:])})
+            return l3a_summary_handler({"action": "search", "query": " ".join(args[2:])})
         domain = args[1] if len(args) >= 2 else ""
-        return l3a_summary_handler({"action": "latest", "domain": domain,
-                                    "limit": 10})
+        return l3a_summary_handler({"action": "latest", "domain": domain, "limit": 10})
 
     if sub == "compress":
         if len(args) < 2:
@@ -159,11 +178,13 @@ def dispatch(args: list[str], mgr: SessionManager,
             window = float(args[2]) if len(args) > 2 else 3600.0
             return s.memory_usage(window=window)
         from l3.memory.central_memory import get_center
+
         m = get_center().monitor()
         return {"success": True, "data": m}
 
     if sub == "compress-status":
         from l3.config.settings_center import get_center
+
         sc = get_center()
         policy = {
             "enabled": bool(sc.get("l3a.auto_compress", True)),
@@ -177,10 +198,14 @@ def dispatch(args: list[str], mgr: SessionManager,
             if sess:
                 try:
                     cs = sess.context_stats()
-                    live.append({"session_id": s["session_id"],
-                                 "pressure": cs.get("pressure_ratio", 0),
-                                 "level": cs.get("pressure_level", "ok"),
-                                 "history": sess.history.count()})
+                    live.append(
+                        {
+                            "session_id": s["session_id"],
+                            "pressure": cs.get("pressure_ratio", 0),
+                            "level": cs.get("pressure_level", "ok"),
+                            "history": sess.history.count(),
+                        }
+                    )
                 except Exception:
                     continue
         return {"success": True, "policy": policy, "live": live}
@@ -205,6 +230,7 @@ def dispatch(args: list[str], mgr: SessionManager,
 
     if sub == "ask-pending":
         from l3.tools._comm import pending_questions
+
         agent = args[1] if len(args) > 1 else ""
         items = pending_questions(agent)
         return {"success": True, "data": items, "count": len(items)}
@@ -246,9 +272,12 @@ def _model_dispatch(args: list[str], cfg: L3AModelConfig) -> dict:
 
 def _context_dispatch(args: list[str], registry: ContextRegistry) -> dict:
     if not args:
-        return {"success": True, "data": {
-            "sources": registry.list_sources(),
-        }}
+        return {
+            "success": True,
+            "data": {
+                "sources": registry.list_sources(),
+            },
+        }
     op = args[0].lower()
     if op == "sources":
         return {"success": True, "data": registry.list_sources()}
