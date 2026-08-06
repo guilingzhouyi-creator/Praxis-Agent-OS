@@ -37,6 +37,30 @@ cell:
 fs:
   watch_interval: 2.0            # fs_adapter watch polling interval (s); keep in sync with params/system.py FS_WATCH_INTERVAL
 
+# ── CI review (card-triggered automation) ──
+ci:
+  review:
+    enabled: true                # master switch (false = never trigger)
+    auto_trigger: true           # review every completed execution card
+    llm_review: false            # optional LLM reviewer (cost/latency)
+    gates: [ruff, mypy, pytest]  # gate subset to run
+    max_concurrent: 2            # concurrent review cap
+    timeout: 300                 # per-card gate pipeline total timeout (s)
+    consume_auto_test_cache: true   # read AutoTest L2 cache as report context
+    lean_trace: false            # gate failure -> R4 skills/lean_trace
+    todo_linkage: false          # gate failure -> TodoTracker
+    escalate_reject: false       # REJECT -> ApprovalGate escalation
+    route_convention: false      # NEEDS_CHANGES -> Convention cross-review
+    reputation: false            # LLM review only -> reputation.record_review
+    notify:
+      enabled: false
+      channel: log               # log|webhook|email|slack|sms
+  control:
+    api:
+      writable: true             # API surface may mutate ci.review.* (PUT /api/v2/ci/config)
+    shell:
+      writable: true             # L2 Shell surface may mutate ci.review.* (/ci set|toggle)
+
 # ── Internationalization ──
 language: en                      # Display language: en | zh-CN | ja | de (see locales/)
 

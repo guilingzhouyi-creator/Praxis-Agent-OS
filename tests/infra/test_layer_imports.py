@@ -27,6 +27,8 @@ ALLOWLIST = {
     ("l2/l2_shell/commands/common.py", "l3.services.adapter_bridge"),
     ("l2/l2_shell/commands/connect.py", "l3.agent_terminal"),
     ("l2/l2_shell/commands/connect.py", "l3.cell"),
+    ("l2/l2_shell/commands/ci.py", "l3.config.settings_center"),
+    ("l2/l2_shell/commands/ci.py", "l4.ci_review"),
     ("l2/l2_shell/commands/extra.py", "l3.bus.htn_a"),
     ("l2/l2_shell/commands/extra.py", "l3.card.card_registry"),
     ("l2/l2_shell/commands/extra.py", "l3.cell.peers.l3"),
@@ -72,6 +74,7 @@ ALLOWLIST = {
     ("l3/agent/_term_lifecycle.py", "l4.llm.llm"),
     ("l3/agent/_term_lifecycle.py", "l4.llm.llm_base"),
     ("l3/agent/subagent_task.py", "l4.llm.llm"),
+    ("l3/boot/boot.py", "l4.ci_review"),
     ("l3/boot/wiring.py", "l4.adapters.bus_memory"),
     ("l3/boot/wiring.py", "l4.adapters.card_registry"),
     ("l3/boot/wiring.py", "l4.adapters.channel_ring"),
@@ -208,6 +211,7 @@ def _ensure_layer_allowlist() -> None:
         (2, 4, "l4.adapters"),
         (3, 4, "l4.mcp_bridge"),
         (3, 4, "l4.cron_scheduler"),
+        (3, 4, "l4.ci_review"),
     ]:
         _LAYER_ALLOWLIST.add((src, dst, prefix))
 

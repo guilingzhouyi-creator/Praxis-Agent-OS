@@ -64,6 +64,22 @@ test_auto:
     - "/test_auto async            — enable background test runs after cards"
     - "/test_auto reset            — back to config value"
 
+ci:
+  category: system
+  help: "Show CI review stats/reports, inspect or set review switches, re-run reviews"
+  args:
+    - {name: sub, optional: true, description: "config [--cell X] [--agent Y]|set <key> <value> [--cell X] [--agent Y] [--admin]|toggle|rerun <card_id>|list [status]|show <card_id>"}
+  examples:
+    - "/ci                         — show review stats"
+    - "/ci config                  — show all switches + permissions"
+    - "/ci config --cell cell-sp1  — show effective values for a cell"
+    - "/ci set enabled false       — disable reviews globally"
+    - "/ci set enabled false --cell cell-sp1   — disable reviews for one cell"
+    - "/ci set llm_review true     — enable LLM reviewer"
+    - "/ci set ci.control.shell.writable false --admin  — make L2 read-only (admin)"
+    - "/ci toggle                  — toggle master switch"
+    - "/ci rerun <card_id>         — re-run the review for a card"
+
 status:
   category: session
   help: "Show Cell, agent, and session status"
