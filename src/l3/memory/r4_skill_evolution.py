@@ -29,10 +29,7 @@ from l1.kernel.params.agent import (
 )
 from l1.kernel.params.system import (
     HASH_TRUNC_MEDIUM,
-    LOG_TRUNC_30,
-    LOG_TRUNC_60,
     LOG_TRUNC_200,
-    LOG_TRUNC_2000,
     SECONDS_PER_DAY,
     SECONDS_PER_HOUR,
     SKILL_TTL_DAYS,
@@ -56,20 +53,26 @@ class SkillEvolutionMixin:
 
         from l1.kernel.paths import get_paths as _gp
         from l3.memory.r4_agent import _resolve_skill_scope
+
         scope = scope or _resolve_skill_scope()
-        evolved_base = (_gp().skill_project_evolved_dir if scope == "project"
-                        else _gp().skill_evolved_dir)
+        evolved_base = _gp().skill_project_evolved_dir if scope == "project" else _gp().skill_evolved_dir
         return os.path.join(evolved_base, name, "SKILL.md")
 
-    def _persist_skill_md(self, name: str, description: str, prompt: str,
-                          tags: list[str], allowed_tools: list[str] | None = None,
-                          rules: list[str] | None = None,
-                          procedures: list[dict] | None = None,
-                          variables: dict | None = None,
-                          disable_model_invocation: bool = False,
-                          dependencies: list[str] | None = None,
-                          dependency_kind: str = "soft",
-                          scope: str = "") -> str:
+    def _persist_skill_md(
+        self,
+        name: str,
+        description: str,
+        prompt: str,
+        tags: list[str],
+        allowed_tools: list[str] | None = None,
+        rules: list[str] | None = None,
+        procedures: list[dict] | None = None,
+        variables: dict | None = None,
+        disable_model_invocation: bool = False,
+        dependencies: list[str] | None = None,
+        dependency_kind: str = "soft",
+        scope: str = "",
+    ) -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
 
         Frontmatter carries name/description/tags/allowed_tools/variables/
@@ -82,6 +85,7 @@ class SkillEvolutionMixin:
         import os
 
         import yaml as _yaml
+
         md_path = self._skill_md_path(name, scope)
         os.makedirs(os.path.dirname(md_path), exist_ok=True)
         meta = {"name": name, "description": description, "tags": tags}
@@ -119,6 +123,7 @@ class SkillEvolutionMixin:
     def _fp_of(skill: dict) -> str:
         """Extract the case fingerprint from a generalized skill's description."""
         import re
+
         m = re.search(r"\[([0-9a-f]{12})\]$", skill.get("description", "") or "")
         return m.group(1) if m else ""
 
@@ -146,11 +151,14 @@ class SkillEvolutionMixin:
         )
         try:
             from l4.llm.llm import get_engine
+
             engine = get_engine()
-            result = engine.generate(prompt=prompt,
-                                     system="You are a skill architect.",
-                                     max_tokens=R4_SUMMARIZE_MAX_TOKENS,
-                                     user_id="r4-agent")
+            result = engine.generate(
+                prompt=prompt,
+                system="You are a skill architect.",
+                max_tokens=R4_SUMMARIZE_MAX_TOKENS,
+                user_id="r4-agent",
+            )
         except Exception as e:
             logger.warning("R4Agent: lesson summarization failed: %s", e)
             self._last_summarize[tool] = now
@@ -185,8 +193,10 @@ class SkillEvolutionMixin:
         """
         try:
             from l3.tools._archive import _cmd_archive_store
+
             _cmd_archive_store(
-                fonds="skills", series="evolved",
+                fonds="skills",
+                series="evolved",
                 content=skill_data.get("prompt", "") or "",
                 tags=f"{name},evolved,backup",
             )
@@ -201,9 +211,9 @@ class SkillEvolutionMixin:
         """
         try:
             from l3.memory.memory_graph import get_graph as _get_graph
+
             g = _get_graph()
-            g.add_semantic_edge(from_id=tool, to_id=skill_name,
-                                relation="depends_on", created_by="r4-agent")
+            g.add_semantic_edge(from_id=tool, to_id=skill_name, relation="depends_on", created_by="r4-agent")
         except Exception as e:
             logger.debug("R4Agent: lean graph edge skipped: %s", e)
 
@@ -217,6 +227,7 @@ class SkillEvolutionMixin:
         import time as _time
 
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
         now = _time.time()
         ttl_seconds = SKILL_TTL_DAYS * SECONDS_PER_DAY
@@ -234,8 +245,10 @@ class SkillEvolutionMixin:
                 # R4 archive before pruning — TTL removal is auditable/restorable.
                 try:
                     from l3.tools._archive import _cmd_archive_store
+
                     _cmd_archive_store(
-                        fonds="skills", series="pruned",
+                        fonds="skills",
+                        series="pruned",
                         content=s.get("prompt", "") or "",
                         tags=f"{name},evolved,pruned",
                     )
@@ -251,6 +264,7 @@ class SkillEvolutionMixin:
                     import shutil
 
                     from l1.kernel.paths import get_paths as _gp_paths
+
                     _p = _gp_paths()
                     for base in (_p.skill_project_evolved_dir, _p.skill_evolved_dir):
                         skill_dir = os.path.join(base, name)
@@ -274,6 +288,7 @@ class SkillEvolutionMixin:
         import os
 
         from l1.kernel.paths import get_paths as _gp
+
         lean_dir = _gp().skill_lean_dir
         if not os.path.isdir(lean_dir):
             return 0
@@ -292,7 +307,9 @@ class SkillEvolutionMixin:
                     if not entry.get("resolved", False):
                         os.remove(fp)
                         cleaned += 1
-                        logger.info("R4Agent: cleaned orphan trace %s (age=%.1fh)", fn, (now - mtime) / SECONDS_PER_HOUR)
+                        logger.info(
+                            "R4Agent: cleaned orphan trace %s (age=%.1fh)", fn, (now - mtime) / SECONDS_PER_HOUR
+                        )
             except Exception as e:
                 logger.debug("R4Agent: orphan check %s skipped: %s", fn, e)
         return cleaned
@@ -305,12 +322,14 @@ class SkillEvolutionMixin:
         graph is disabled or no edges exist — caller falls back to linear.
         """
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
         seeds = [s["name"] for s in sm.list(tags=["evolved"], limit=20)]
         if not seeds:
             return []
         try:
             from l3.memory.memory_graph import get_graph as _get_graph
+
             g = _get_graph()
             r = g.recall(seeds=seeds, depth=1, limit=limit * 4)
         except Exception as e:
@@ -333,6 +352,7 @@ class SkillEvolutionMixin:
         """
         import hashlib
         import os
+
         by_tool: dict[str, list[dict]] = {}
         for s in sm.list(tags=["lean_case"]):
             tools = s.get("allowed_tools") or []
@@ -417,12 +437,14 @@ class SkillEvolutionMixin:
             engine = get_engine()
             from l3.memory.r4_agent import _resolve_model_spec
             from l3.services.model_service import get_service as _get_model_service
+
             model_kwargs = _get_model_service().resolve_dict(_resolve_model_spec())
             # Explicit kwargs take precedence — drop overlapping keys from the config dict.
             for _k in ("prompt", "system", "max_tokens", "user_id"):
                 model_kwargs.pop(_k, None)
-            result = engine.generate(prompt=prompt, system=system, max_tokens=SKILL_ARCHITECT_MAX_TOKENS,
-                                     user_id="r4-agent", **model_kwargs)
+            result = engine.generate(
+                prompt=prompt, system=system, max_tokens=SKILL_ARCHITECT_MAX_TOKENS, user_id="r4-agent", **model_kwargs
+            )
 
             content = result.get("content", "").strip()
             # Strip any markdown fences if present
@@ -487,10 +509,13 @@ class SkillEvolutionMixin:
                 # Preserve usage counters across the overwrite — a re-evolve
                 # must not reset usefulness tracking (TTL/quality signals).
                 try:
-                    sm.update(name, {
-                        "useful_count": existing.get("useful_count", 0) or 0,
-                        "last_used": existing.get("last_used", 0.0) or 0.0,
-                    })
+                    sm.update(
+                        name,
+                        {
+                            "useful_count": existing.get("useful_count", 0) or 0,
+                            "last_used": existing.get("last_used", 0.0) or 0.0,
+                        },
+                    )
                 except Exception as e:
                     logger.debug("R4Agent: restore usage counters failed: %s", e)
 
@@ -504,16 +529,20 @@ class SkillEvolutionMixin:
             # graph is enabled.  Non-blocking — graph defaults to off.
             try:
                 from l3.memory.memory_graph import get_graph as _get_graph
+
                 g = _get_graph()
                 if existing:
-                    g.add_semantic_edge(from_id=backup_name, to_id=name,
-                                        relation="refines", created_by="r4-agent")
-                g.remember_hook(entry_id=name, agent_id=self.agent_id,
-                                entry_type="skill", cell_id=cell_id,
-                                recent=[{"id": backup_name, "entry_type": "skill",
-                                         "agent_id": self.agent_id, "cell_id": cell_id}]
-                                if existing else [],
-                                created_by="r4-agent")
+                    g.add_semantic_edge(from_id=backup_name, to_id=name, relation="refines", created_by="r4-agent")
+                g.remember_hook(
+                    entry_id=name,
+                    agent_id=self.agent_id,
+                    entry_type="skill",
+                    cell_id=cell_id,
+                    recent=[{"id": backup_name, "entry_type": "skill", "agent_id": self.agent_id, "cell_id": cell_id}]
+                    if existing
+                    else [],
+                    created_by="r4-agent",
+                )
             except Exception as e:
                 logger.debug("R4Agent: skill graph linkage skipped: %s", e)
 
@@ -521,11 +550,16 @@ class SkillEvolutionMixin:
             # (tags/allowed_tools/variables survive reload) for both the LLM
             # evolve path and the rule-based generalization path.
             from l3.memory.r4_agent import _resolve_skill_scope
+
             scope = scope or _resolve_skill_scope()
             self._persist_skill_md(
-                name=name, description=skill_desc, prompt=skill_prompt,
-                tags=skill_tags, allowed_tools=skill_tools,
-                rules=skill_rules, procedures=skill_procs,
+                name=name,
+                description=skill_desc,
+                prompt=skill_prompt,
+                tags=skill_tags,
+                allowed_tools=skill_tools,
+                rules=skill_rules,
+                procedures=skill_procs,
                 variables=skill_def.get("variables"),
                 scope=scope,
             )

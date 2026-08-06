@@ -71,6 +71,7 @@ def wire_kernel_os() -> None:
         from l3.cell import reset_cells
 
         from .lifecycle import shutdown as _lifecycle_shutdown
+
         osys = get_os()
         osys.register_boot_handler(boot)
         osys.register_shutdown_handler(_lifecycle_shutdown)
@@ -81,8 +82,7 @@ def wire_kernel_os() -> None:
         logger.warning("kernel OS wiring skipped: %s", e)
 
 
-def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
-         interactive: bool = True) -> dict:
+def boot(agent_config: list[tuple[str, str, list[str]]] | None = None, interactive: bool = True) -> dict:
     """Full kernel boot sequence.
 
     Args:
@@ -103,6 +103,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         logger.warning("previous boot failed — resetting singletons for retry")
         try:
             from .lifecycle import reset_all_singletons
+
             reset_all_singletons()
         except Exception:
             logger.warning("singleton reset unavailable, proceeding anyway")
@@ -114,13 +115,12 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     try:
         from l1.kernel.errors import set_error_capture_handler
 
-        def _kernel_error_handler(message: str, error_code: str,
-                                  cause: Exception | None, context: dict | None) -> None:
+        def _kernel_error_handler(message: str, error_code: str, cause: Exception | None, context: dict | None) -> None:
             """Forward a kernel PraxisError into the L3 ErrorBus."""
             try:
                 from l3.error_bus import capture
-                capture(message=message, error_code=error_code, component="kernel",
-                        exc=cause, context=context or {})
+
+                capture(message=message, error_code=error_code, component="kernel", exc=cause, context=context or {})
             except Exception as e:
                 logger.debug("boot: error capture bridge failed: %s", e)
 
@@ -134,6 +134,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     # and other services can resolve ports instead of relying on lazy fallbacks.
     try:
         from .wiring import wire_defaults
+
         wire_defaults()
         _BOOT_STEPS.append("wire_defaults")
     except Exception as e:
@@ -145,6 +146,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     # First-boot bootstrap wizard
     try:
         from l3.config.bootstrap import needs_bootstrap, run_bootstrap
+
         if needs_bootstrap():
             logger.info("first boot detected — running bootstrap wizard")
             br = run_bootstrap(interactive=interactive)
@@ -153,6 +155,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                 logger.warning("bootstrap incomplete: %s", br.get("error", ""))
     except Exception as e:
         from l3.error_bus import capture
+
         capture("bootstrap check failed", exc=e, component="kernel")
         logger.warning("bootstrap check: %s", e)
 
@@ -162,44 +165,51 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         lc.load()
         if lc.should_install():
             from .install import install
+
             install()
             _BOOT_STEPS.append("install")
     except Exception as e:
         from l3.error_bus import capture
+
         capture("install check failed", exc=e, component="kernel")
         logger.warning("boot install check: %s", e)
 
     # Register shutdown handler (atexit + signal) so state is always saved
     try:
         from .lifecycle import register_shutdown_handler
+
         register_shutdown_handler()
         _BOOT_STEPS.append("shutdown_handler")
     except Exception as e:
         from l3.error_bus import capture
+
         capture("shutdown handler failed", exc=e, component="kernel")
         logger.warning("boot shutdown handler: %s", e)
 
     # Restore previous state if available
     try:
         from l1.kernel.persist import restore
+
         r = restore()
         if r.get("success"):
             _BOOT_STEPS.append("restored")
-            logger.info("restored kernel state: %s processes, %s devices",
-                        r.get("processes", 0), r.get("devices", 0))
+            logger.info("restored kernel state: %s processes, %s devices", r.get("processes", 0), r.get("devices", 0))
     except Exception as e:
         logger.warning("boot restore: %s", e)
 
     # Start auto-save background thread
     if PERSIST_AUTO:
+
         def _save_loop():
             while True:
                 time.sleep(PERSIST_INTERVAL)
                 try:
                     from l1.kernel.persist import save
+
                     save()
                 except Exception as e:
                     logger.warning("auto-save failed: %s", e)
+
         t = threading.Thread(target=_save_loop, daemon=True, name="persist")
         t.start()
         logger.info("auto-save started (every %.0fs)", PERSIST_INTERVAL)
@@ -208,21 +218,18 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     if agent_config is None:
         try:
             from l3.memory.memory_init import init_from_memories
+
             m = init_from_memories()
             if m.get("loaded"):
                 agent_config = m["agent_config"]
                 _BOOT_STEPS.append("snapshot_restore")
-                logger.info("boot from memories: %d agents from %s",
-                            len(agent_config), m.get("source", "?"))
+                logger.info("boot from memories: %d agents from %s", len(agent_config), m.get("source", "?"))
         except Exception as e:
             logger.warning("memory init skipped: %s", e)
 
     if agent_config is None:
         # Generate agent config from territory paths (roles from constitution)
-        agent_config = [
-            (role, role, list(paths))
-            for role, paths in TERRITORY_PATHS.items()
-        ][:3]
+        agent_config = [(role, role, list(paths)) for role, paths in TERRITORY_PATHS.items()][:3]
 
     # Early L2 load: push praxis.yaml overrides into SettingsCenter BEFORE the
     # DAG runs, so early steps (load_constitution) can read L2 settings.
@@ -230,16 +237,18 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     # (start_api, device registration, etc.) happens once in load_config.
     try:
         from l3.config.config_loader import load as _early_load
-        from l3.config.settings_center import SettingsCenter as _SC
+        from l3.config.settings_center import SettingsCenter
         from l3.config.settings_center import get_center as _sc
+
         _ec = _early_load()
         if _ec.get("success") and _ec.get("data"):
-            _sc().load_l2(_SC._flatten(_ec["data"]))
+            _sc().load_l2(SettingsCenter._flatten(_ec["data"]))
     except Exception as e:
         logger.warning("boot early L2 load failed: %s", e)
 
     # Reset+register: boot_registry maintains its own lock/state
     from .boot_registry import reset_registry as _reset_boot_registry
+
     _reset_boot_registry()
     _register_default_boot_steps(agent_config)
     lock_registry()
@@ -249,6 +258,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     success = True
 
     from .boot_registry import _boot_registry
+
     for name in order:
         step = _boot_registry.get(name)
         if not step:
@@ -256,10 +266,14 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
         try:
             # Emit boot step started event
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME
+                from l3.bus.monitor_bus import MonitorEvent
                 from l3.bus.monitor_bus import get_bus as _mb
-                _mb().emit(_ME(type="boot.step", source="boot", severity="info",
-                               message=f"step:{name} status:running"))
+
+                _mb().emit(
+                    MonitorEvent(
+                        type="boot.step", source="boot", severity="info", message=f"step:{name} status:running"
+                    )
+                )
             except Exception:
                 logger.debug("boot: boot step event emit failed")
             r = exec_step_with_timeout(step.fn)
@@ -271,6 +285,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
                 break
         except Exception as e:
             from l3.error_bus import capture
+
             capture(f"boot step {name} failed", exc=e, component="kernel")
             results[name] = {"success": False, "error": str(e)}
             success = False
@@ -291,6 +306,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
     if success and agent_config:
         try:
             from l3.memory.memory_init import save_boot_snapshot
+
             path = save_boot_snapshot(agent_config)
             if path:
                 _BOOT_RESULT["snapshot"] = path
@@ -306,10 +322,17 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None,
 
     # Emit boot complete event
     try:
-        from l3.bus.monitor_bus import MonitorEvent as _ME2
+        from l3.bus.monitor_bus import MonitorEvent
         from l3.bus.monitor_bus import get_bus as _mb2
-        _mb2().emit(_ME2(type="boot.complete", source="boot", severity="info",
-                         message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s"))
+
+        _mb2().emit(
+            MonitorEvent(
+                type="boot.complete",
+                source="boot",
+                severity="info",
+                message=f"boot {'OK' if success else 'FAILED'} in {elapsed:.2f}s",
+            )
+        )
     except Exception:
         logger.debug("boot: boot complete event emit failed")
 
@@ -337,10 +360,8 @@ def _register_default_boot_steps(agent_config: list | None) -> None:
     register_boot_step("load_tools", _load_tools, depends_on=["load_config"])
     register_boot_step("init_system_bus", _init_system_bus, depends_on=["load_tools"])
     register_boot_step("init_services", _init_services, depends_on=["init_system_bus"])
-    register_boot_step("init_record_center", _init_record_center,
-                       depends_on=["init_services"])
-    register_boot_step("create_cell", lambda: _create_cell(agent_config),
-                       depends_on=["init_record_center"])
+    register_boot_step("init_record_center", _init_record_center, depends_on=["init_services"])
+    register_boot_step("create_cell", lambda: _create_cell(agent_config), depends_on=["init_record_center"])
 
 
 def _load_constitution() -> dict:
@@ -354,6 +375,7 @@ def _load_constitution() -> dict:
     from l1.kernel.constitution import TerritoryConstitution, get_constitution, load_territory
     from l1.kernel.params.agent import CONSTITUTION_ENV_VAR
     from l1.kernel.paths import get_paths
+
     constitution_path = get_paths().constitution_file
     path = Path(os.environ.get(CONSTITUTION_ENV_VAR, constitution_path))
     result = {"source": str(path) if path.exists() else "none"}
@@ -375,6 +397,7 @@ def _load_constitution() -> dict:
         # Restore custom rules from SettingsCenter L3 (runtime persistence)
         try:
             from l3.config.settings_center import get_center
+
             sc = get_center()
             custom_rules = sc.get("constitution.custom_rules")
             if custom_rules and isinstance(custom_rules, list) and len(custom_rules) > 0:
@@ -389,16 +412,18 @@ def _load_constitution() -> dict:
             try:
                 logger.info("constitution: blank — triggering territory discussion")
                 from l3.card.issue import IssueCard, get_table
+
                 card = IssueCard(
                     id=f"issue-boot-{int(time.time())}",
                     title="Determine Cell territory division",
                     intent="The constitution has no territory definitions. "
-                           "Each Cell must propose its territory assignment.",
+                    "Each Cell must propose its territory assignment.",
                     domain="cluster",
                     cell_id="cell-1",
                 )
                 get_table().submit(card)
                 from l3.discussion.issue_orchestrator import get_orchestrator
+
                 orch = get_orchestrator()
                 r = orch.start_discussion(card)
                 if r.get("success"):
@@ -433,108 +458,144 @@ def _init_discovery() -> dict:
     from l1.kernel.params import tool as _pt
 
     # Register params-derived defaults for each config section
-    register("build_detectors", {
-        "pip": {"cmd": ["python", "-m", "build"]},
-        "cargo": {"cmd": ["cargo", "build"]},
-        "npm": {"cmd": ["npm", "run", "build"]},
-        "msbuild": {"cmd": ["msbuild"]},
-        "dotnet": {"cmd": ["dotnet", "build"]},
-    })
-    register("test_detectors", {
-        "pytest": {"cmd": ["python", "-m", "pytest"]},
-        "cargo": {"cmd": ["cargo", "test"]},
-        "npm": {"cmd": ["npm", "test"]},
-        "dotnet": {"cmd": ["dotnet", "test"]},
-        "vstest": {"cmd": ["vstest.console"]},
-    })
+    register(
+        "build_detectors",
+        {
+            "pip": {"cmd": ["python", "-m", "build"]},
+            "cargo": {"cmd": ["cargo", "build"]},
+            "npm": {"cmd": ["npm", "run", "build"]},
+            "msbuild": {"cmd": ["msbuild"]},
+            "dotnet": {"cmd": ["dotnet", "build"]},
+        },
+    )
+    register(
+        "test_detectors",
+        {
+            "pytest": {"cmd": ["python", "-m", "pytest"]},
+            "cargo": {"cmd": ["cargo", "test"]},
+            "npm": {"cmd": ["npm", "test"]},
+            "dotnet": {"cmd": ["dotnet", "test"]},
+            "vstest": {"cmd": ["vstest.console"]},
+        },
+    )
     register("provider_urls", dict(_pa.LLM_PROVIDER_URLS))
     # Ring → gate requirements (tool_spec.py reads get_config("ring_gates"))
-    register("ring_gates", {
-        _pk.RING_1: ["G1", "G2"],
-        _pk.RING_2_5: ["G1", "G2", "G3", "G4"],
-        _pk.RING_3: ["G1", "G2", "G3", "G4", "G5"],
-    })
+    register(
+        "ring_gates",
+        {
+            _pk.RING_1: ["G1", "G2"],
+            _pk.RING_2_5: ["G1", "G2", "G3", "G4"],
+            _pk.RING_3: ["G1", "G2", "G3", "G4", "G5"],
+        },
+    )
     # GateChain action-level danger ratings (gatechain.py reads this)
     register("gatechain_danger_levels", dict(_pgc.GATECHAIN_DANGER_LEVELS))
     # Constitution action sets (constitution.py reads get_config("constitution"))
-    register("constitution", {
-        "file_actions": sorted(_pag.CONSTITUTION_FILE_ACTIONS),
-        "modify_actions": sorted(_pag.CONSTITUTION_MODIFY_ACTIONS),
-        "gate_actions": sorted(_pag.CONSTITUTION_GATE_ACTIONS),
-        "scout_blocked": sorted(_pag.CONSTITUTION_SCOUT_BLOCKED),
-    })
+    register(
+        "constitution",
+        {
+            "file_actions": sorted(_pag.CONSTITUTION_FILE_ACTIONS),
+            "modify_actions": sorted(_pag.CONSTITUTION_MODIFY_ACTIONS),
+            "gate_actions": sorted(_pag.CONSTITUTION_GATE_ACTIONS),
+            "scout_blocked": sorted(_pag.CONSTITUTION_SCOUT_BLOCKED),
+        },
+    )
     # Tool rate limiting (scheduler_rate.py reads get_config("tool_rates"))
-    register("tool_rates", {
-        "ring_1": _pt.TOOL_RATE_RING_1,
-        "ring_2_5": _pt.TOOL_RATE_RING_2_5,
-        "ring_3": _pt.TOOL_RATE_RING_3,
-    })
+    register(
+        "tool_rates",
+        {
+            "ring_1": _pt.TOOL_RATE_RING_1,
+            "ring_2_5": _pt.TOOL_RATE_RING_2_5,
+            "ring_3": _pt.TOOL_RATE_RING_3,
+        },
+    )
     # Service timeouts (convention.py reads get_config("services"))
-    register("services", {
-        "lsp_manager_timeout": _pa.LSP_MANAGER_TIMEOUT,
-        "lsp_long_timeout": _pa.LSP_MANAGER_LONG_TIMEOUT,
-        "lsp_diag_timeout": _pa.LSP_DIAG_TIMEOUT,
-        "mcp_bridge_timeout": _pa.MCP_BRIDGE_TIMEOUT,
-        "mcp_bridge_long_timeout": _pa.MCP_BRIDGE_LONG_TIMEOUT,
-        "shell_session_timeout": _pa.SHELL_SESSION_TIMEOUT,
-        "pool_queue_timeout": _pa.POOL_QUEUE_TIMEOUT,
-        "term_handler_timeout": _pa.TERM_HANDLER_TIMEOUT,
-        "term_handler_long_timeout": _pa.TERM_HANDLER_LONG_TIMEOUT,
-        "gateway_queue_timeout": _pa.API_GATEWAY_QUEUE_TIMEOUT,
-        "r4_agent_join_timeout": _pa.R4_AGENT_JOIN_TIMEOUT,
-        "subagent_run_timeout": _pa.SUBAGENT_RUN_TIMEOUT,
-        "subagent_join_timeout": _pa.SUBAGENT_JOIN_TIMEOUT,
-        "convention_max_rounds": _pag.CONVENTION_MAX_ROUNDS,
-        "convention_timeout": _pag.CONVENTION_TIMEOUT,
-    })
+    register(
+        "services",
+        {
+            "lsp_manager_timeout": _pa.LSP_MANAGER_TIMEOUT,
+            "lsp_long_timeout": _pa.LSP_MANAGER_LONG_TIMEOUT,
+            "lsp_diag_timeout": _pa.LSP_DIAG_TIMEOUT,
+            "mcp_bridge_timeout": _pa.MCP_BRIDGE_TIMEOUT,
+            "mcp_bridge_long_timeout": _pa.MCP_BRIDGE_LONG_TIMEOUT,
+            "shell_session_timeout": _pa.SHELL_SESSION_TIMEOUT,
+            "pool_queue_timeout": _pa.POOL_QUEUE_TIMEOUT,
+            "term_handler_timeout": _pa.TERM_HANDLER_TIMEOUT,
+            "term_handler_long_timeout": _pa.TERM_HANDLER_LONG_TIMEOUT,
+            "gateway_queue_timeout": _pa.API_GATEWAY_QUEUE_TIMEOUT,
+            "r4_agent_join_timeout": _pa.R4_AGENT_JOIN_TIMEOUT,
+            "subagent_run_timeout": _pa.SUBAGENT_RUN_TIMEOUT,
+            "subagent_join_timeout": _pa.SUBAGENT_JOIN_TIMEOUT,
+            "convention_max_rounds": _pag.CONVENTION_MAX_ROUNDS,
+            "convention_timeout": _pag.CONVENTION_TIMEOUT,
+        },
+    )
 
     # ── agent_configs.yaml sections (consumed only) ──
     register("skill_dirs", [".praxis/skills", "skills", ".skills"])
-    register("shell_aliases", {
-        "rf": "read_file", "wf": "write_file", "ls": "list_directory",
-        "g": "grep", "glob": "glob", "cat": "read_file",
-        "h": "help", "q": "exit", "st": "status", "tl": "tools",
-        "clr": "clear", "hist": "history",
-    })
+    register(
+        "shell_aliases",
+        {
+            "rf": "read_file",
+            "wf": "write_file",
+            "ls": "list_directory",
+            "g": "grep",
+            "glob": "glob",
+            "cat": "read_file",
+            "h": "help",
+            "q": "exit",
+            "st": "status",
+            "tl": "tools",
+            "clr": "clear",
+            "hist": "history",
+        },
+    )
 
     # Register tool timeout defaults (params → get_config fallback)
     # Covers every key consumed via get_tool_config() so praxis.yaml/discovery
     # overrides actually take effect instead of silently falling back.
-    register("tool", {
-        "pip_install_timeout": _pt.TOOL_PIP_INSTALL_TIMEOUT,
-        "npm_timeout": _pt.TOOL_NPM_TIMEOUT,
-        "pyright_timeout": _pt.TOOL_PYRIGHT_TIMEOUT,
-        "compile_check_timeout": _pt.TOOL_COMPILE_CHECK_TIMEOUT,
-        "package_manager_timeout": _pt.TOOL_PACKAGE_MANAGER_TIMEOUT,
-        "handler_timeout": _pt.TOOL_HANDLER_TIMEOUT,
-        "web_timeout": _pt.TOOL_WEB_TIMEOUT,
-        "search_timeout": _pt.TOOL_SEARCH_TIMEOUT,
-        "terminal_timeout": _pt.TOOL_TERMINAL_TIMEOUT,
-        "git_timeout": _pt.TOOL_GIT_TIMEOUT,
-        "build_timeout": _pt.TOOL_BUILD_TIMEOUT,
-        "grep_timeout": _pt.TOOL_GREP_TIMEOUT,
-        "exec_timeout": _ps.SANDBOX_EXEC_TIMEOUT,
-        "exec_token_budget": _pt.TOOL_EXEC_TOKEN_BUDGET,
-    })
+    register(
+        "tool",
+        {
+            "pip_install_timeout": _pt.TOOL_PIP_INSTALL_TIMEOUT,
+            "npm_timeout": _pt.TOOL_NPM_TIMEOUT,
+            "pyright_timeout": _pt.TOOL_PYRIGHT_TIMEOUT,
+            "compile_check_timeout": _pt.TOOL_COMPILE_CHECK_TIMEOUT,
+            "package_manager_timeout": _pt.TOOL_PACKAGE_MANAGER_TIMEOUT,
+            "handler_timeout": _pt.TOOL_HANDLER_TIMEOUT,
+            "web_timeout": _pt.TOOL_WEB_TIMEOUT,
+            "search_timeout": _pt.TOOL_SEARCH_TIMEOUT,
+            "terminal_timeout": _pt.TOOL_TERMINAL_TIMEOUT,
+            "git_timeout": _pt.TOOL_GIT_TIMEOUT,
+            "build_timeout": _pt.TOOL_BUILD_TIMEOUT,
+            "grep_timeout": _pt.TOOL_GREP_TIMEOUT,
+            "exec_timeout": _ps.SANDBOX_EXEC_TIMEOUT,
+            "exec_token_budget": _pt.TOOL_EXEC_TOKEN_BUDGET,
+        },
+    )
 
     # Register persistence defaults (params → get_config fallback)
-    register("persistence", {
-        "interval": _ps.PERSIST_INTERVAL,
-        "card_registry": _ps.CARD_REGISTRY_AUTO_SAVE,
-        "card_gate": _ps.CARD_GATE_AUTO_SAVE,
-        "pending_queue": _ps.PENDING_QUEUE_AUTO_SAVE,
-        "issue_table": _ps.ISSUE_TABLE_AUTO_SAVE,
-        "approval_gate": _ps.APPROVAL_GATE_AUTO_SAVE,
-        "sandbox_state": _ps.SANDBOX_STATE_AUTO_SAVE,
-        "todo_table": _ps.TODO_TABLE_AUTO_SAVE,
-        "transaction_area": _ps.TRANSACTION_AREA_AUTO_SAVE,
-        "statecharts": _ps.STATECHARTS_AUTO_SAVE,
-        "execution_results": _ps.EXECUTION_RESULTS_AUTO_SAVE,
-        "dialogue_session": _ps.DIALOGUE_SESSION_AUTO_SAVE,
-    })
+    register(
+        "persistence",
+        {
+            "interval": _ps.PERSIST_INTERVAL,
+            "card_registry": _ps.CARD_REGISTRY_AUTO_SAVE,
+            "card_gate": _ps.CARD_GATE_AUTO_SAVE,
+            "pending_queue": _ps.PENDING_QUEUE_AUTO_SAVE,
+            "issue_table": _ps.ISSUE_TABLE_AUTO_SAVE,
+            "approval_gate": _ps.APPROVAL_GATE_AUTO_SAVE,
+            "sandbox_state": _ps.SANDBOX_STATE_AUTO_SAVE,
+            "todo_table": _ps.TODO_TABLE_AUTO_SAVE,
+            "transaction_area": _ps.TRANSACTION_AREA_AUTO_SAVE,
+            "statecharts": _ps.STATECHARTS_AUTO_SAVE,
+            "execution_results": _ps.EXECUTION_RESULTS_AUTO_SAVE,
+            "dialogue_session": _ps.DIALOGUE_SESSION_AUTO_SAVE,
+        },
+    )
 
     # Register discovery directory
     from pathlib import Path as _Path
+
     dd = _Path(__file__).resolve().parent.parent.parent.parent / "config" / "discovery"
     register_discovery_dir(str(dd))
 
@@ -551,6 +612,7 @@ def _load_config() -> dict:
     but adds ``_non_fatal`` flag so boot reporting can distinguish."""
     try:
         from l3.config.config_loader import load_and_apply
+
         r = load_and_apply()
         if r.get("success"):
             return {"success": True, "applied": r.get("applied", {})}
@@ -573,29 +635,37 @@ def _init_kernel_and_vfs() -> dict:
     # Wire the stagnation break_loop callback into GateChain G5 (L3 -> L1)
     try:
         from l3.agent.stagnation import get_detector as _get_detector
+
         register_stagnation_callback(_get_detector().break_loop)
     except Exception as e:
         logger.warning("boot: stagnation callback wiring failed: %s", e)
 
     results = {}
     for name, fn in [
-        ("constitution", get_constitution), ("event_bus", get_event_bus),
-        ("allocator", get_allocator), ("gatechain", get_gatechain),
+        ("constitution", get_constitution),
+        ("event_bus", get_event_bus),
+        ("allocator", get_allocator),
+        ("gatechain", get_gatechain),
         ("swapper", lambda: get_swapper(interval=SWAPPER_BOOT_INTERVAL)),
     ]:
         try:
-            fn(); results[name] = "ok"
+            fn()
+            results[name] = "ok"
         except Exception as e:
             results[name] = f"error: {e}"
 
     vfs = get_vfs()
-    for path, mtype, ro in [("/project", MountType.PROJECT, False),
-                             ("/proc", MountType.SYSTEM, True),
-                             ("/tmp", MountType.TEMP, False)]:
+    for path, mtype, ro in [
+        ("/project", MountType.PROJECT, False),
+        ("/proc", MountType.SYSTEM, True),
+        ("/tmp", MountType.TEMP, False),
+    ]:
         vfs.mount(path, mtype, min_ring=1, read_only=ro, description=path.strip("/"))
-    for path, mtype, ro in [("/sys", MountType.VIRTUAL, True),
-                             ("/dev", MountType.VIRTUAL, True),
-                             ("/skills", MountType.VIRTUAL, True)]:
+    for path, mtype, ro in [
+        ("/sys", MountType.VIRTUAL, True),
+        ("/dev", MountType.VIRTUAL, True),
+        ("/skills", MountType.VIRTUAL, True),
+    ]:
         vfs.mount(path, mtype, min_ring=1, read_only=ro, description=path.strip("/"))
 
     # Config was already applied by the load_config boot step (handlers with
@@ -603,12 +673,12 @@ def _init_kernel_and_vfs() -> dict:
     # re-load + flatten into SettingsCenter L2 so this step stays pure and
     # the apply side effects run exactly once per boot.
     from l3.config.config_loader import load as _cfg_load
-    from l3.config.settings_center import SettingsCenter as _SC
-    from l3.config.settings_center import get_center
+    from l3.config.settings_center import SettingsCenter, get_center
+
     try:
         _cfg_r = _cfg_load()
         if _cfg_r.get("success") and _cfg_r.get("data"):
-            get_center().load_l2(_SC._flatten(_cfg_r["data"]))
+            get_center().load_l2(SettingsCenter._flatten(_cfg_r["data"]))
     except Exception as e:
         logger.warning("boot config: %s", e)
 
@@ -624,6 +694,7 @@ def _load_tools() -> dict:
     """Load tool definitions from tools.yaml into TOOL_REGISTRY."""
     try:
         from l3.tool_system.tool_config import ToolConfig
+
         n = ToolConfig.load()
         return {"success": True, "tools": n}
     except Exception as e:
@@ -635,6 +706,7 @@ def _init_record_center() -> dict:
     """Init RecordCenter and bridge to StatsCenter."""
     try:
         from l3.services.record_center import get_record_center
+
         rc = get_record_center()
         rc.bridge_stats()
         logger.info("record_center: initialized, export_dir=%s", rc._export_dir)
@@ -648,18 +720,29 @@ def _init_skills_and_network() -> dict:
     """Init skills, network kernel, HTN planner, capability detector."""
     results = {}
     from l1.kernel.skill import get_skill_manager
+
     n = get_skill_manager().load_builtin()
-    if n > 0: logger.info("loaded %d skills", n)
+    if n > 0:
+        logger.info("loaded %d skills", n)
     try:
-        from l1.kernel.net import get_net; get_net().start(); results["network"] = "ok"
-    except Exception as e: results["network"] = f"skip: {e}"
+        from l1.kernel.net import get_net
+
+        get_net().start()
+        results["network"] = "ok"
+    except Exception as e:
+        results["network"] = f"skip: {e}"
     try:
-        from l3.bus.htn_planner import get_service as get_htn; get_htn(); results["htn_planner"] = "ok"
-    except Exception as e: results["htn_planner"] = f"error: {e}"
+        from l3.bus.htn_planner import get_service as get_htn
+
+        get_htn()
+        results["htn_planner"] = "ok"
+    except Exception as e:
+        results["htn_planner"] = f"error: {e}"
     # Warm capability detector — async probe all registered providers
     try:
         from l1.kernel.model_registry import get_registry
         from l3.services.model_strategy import get_detector
+
         det = get_detector()
         n_probed = det.probe_all_registered(get_registry())
         results["capability_detector"] = f"{n_probed} providers submitted"
@@ -672,54 +755,74 @@ def _init_memory_and_archive() -> dict:
     """Init MemoryManager, Archive, R4Agent, IssueTable, CredentialVault."""
     results = {}
     try:
-        from l3.memory.memory import get_memory; mem = get_memory()
+        from l3.memory.memory import get_memory
+
+        mem = get_memory()
         mem.set_persist_dir("memories")
-        mr = mem.restore(); results["memory_restore"] = f"{mr.get('restored',0)} entries"
+        mr = mem.restore()
+        results["memory_restore"] = f"{mr.get('restored', 0)} entries"
         # Wire swapper to memory service
         try:
             from l1.kernel.swapper import get_swapper
+
             swp = get_swapper()
             swp.set_memory(mem)
             results["swapper_wired"] = "ok"
         except Exception as e:
             results["swapper_wired"] = f"skip: {e}"
-    except Exception as e: results["memory_restore"] = f"skip: {e}"
+    except Exception as e:
+        results["memory_restore"] = f"skip: {e}"
     try:
         from l3.tools._archive import init_archive
-        init_archive(); results["archive_init"] = "ok"
+
+        init_archive()
+        results["archive_init"] = "ok"
     except Exception as e:
         logger.warning("archive init failed: %s", e)
         results["archive_init"] = f"skip: {e}"
     try:
         from l3.memory.archive_orchestrator import ring3_from_archive
+
         n = ring3_from_archive(get_memory())
         results["archive_restore"] = f"{n} entries"
-    except Exception as e: results["archive_restore"] = f"skip: {e}"
+    except Exception as e:
+        results["archive_restore"] = f"skip: {e}"
     try:
-        from l3.memory.r4_agent import start_r4_agent, get_r4_agent
+        from l3.memory.r4_agent import get_r4_agent, start_r4_agent
+
         r4 = get_r4_agent()
         try:
             from l3.cell import get_cell
+
             cell = get_cell("default")
             if cell and getattr(cell, "_pmu", None):
                 r4.set_pmu(cell._pmu)
         except Exception as e:
             logger.debug("r4 pmu wire skipped: %s", e)
-        start_r4_agent(); results["r4_agent"] = "started"
-    except Exception as e: results["r4_agent"] = f"error: {e}"
+        start_r4_agent()
+        results["r4_agent"] = "started"
+    except Exception as e:
+        results["r4_agent"] = f"error: {e}"
     try:
-        from l3.cell.peers.l3a import start_l3a_daemon; start_l3a_daemon(); results["l3a_daemon"] = "started"
-    except Exception as e: results["l3a_daemon"] = f"error: {e}"
-    for mod, module_path, name in [("issue", "l3.card.issue", "get_table"),
-                                   ("cache_doc", "l3.memory.cache_doc", "get_store"),
-                                   ("credential_vault", "l4.vault.credential_vault", "init_vault"),
-                                   ("tool_mode", "l3.tool_system.tool_mode", "init_tool_mode"),
-                                   ("central_security", "l3.services.central_security", "get_center"),
-                                   ("central_memory", "l3.memory.central_memory", "get_center"),
-                                   ("central_plugin", "l3.services.central_plugin", "get_center"),
-                                   ("auth_service", "l4.vault.auth", "get_service")]:
+        from l3.cell.peers.l3a import start_l3a_daemon
+
+        start_l3a_daemon()
+        results["l3a_daemon"] = "started"
+    except Exception as e:
+        results["l3a_daemon"] = f"error: {e}"
+    for mod, module_path, name in [
+        ("issue", "l3.card.issue", "get_table"),
+        ("cache_doc", "l3.memory.cache_doc", "get_store"),
+        ("credential_vault", "l4.vault.credential_vault", "init_vault"),
+        ("tool_mode", "l3.tool_system.tool_mode", "init_tool_mode"),
+        ("central_security", "l3.services.central_security", "get_center"),
+        ("central_memory", "l3.memory.central_memory", "get_center"),
+        ("central_plugin", "l3.services.central_plugin", "get_center"),
+        ("auth_service", "l4.vault.auth", "get_service"),
+    ]:
         try:
             import importlib
+
             m = importlib.import_module(module_path)
             getattr(m, name)()
             results[mod] = "ok"
@@ -737,6 +840,7 @@ def _init_system_bus() -> dict:
     results = {}
     try:
         from l1.kernel.bus import get_root_bus
+
         root = get_root_bus()
 
         # Mount sub-buses
@@ -749,6 +853,7 @@ def _init_system_bus() -> dict:
             RecordCenterComponent,
             StatsCenterComponent,
         )
+
         gs.register(StatsCenterComponent())
         gs.register(RecordCenterComponent())
         gs.register(EventBusComponent())
@@ -777,6 +882,7 @@ def _init_services() -> dict:
     # Initialize MonitorBus + MessageGate
     try:
         from l3.bus.monitor_bus import get_bus
+
         get_bus()  # warm singleton
         results["monitor_bus"] = "ok"
     except Exception as e:
@@ -784,12 +890,14 @@ def _init_services() -> dict:
     try:
         from l3.bus.monitor_bus import MonitorEvent
         from l3.bus.monitor_bus import get_bus as _mb
+
         _mb().emit(MonitorEvent(type="system.boot", source="boot", severity="info", message="System booted"))
     except Exception:
         logger.debug("boot: boot event emit failed")
     # Initialize ResourceBuffer (crash recovery + background flush)
     try:
         from l3.resource_buffer.manager import get_manager
+
         get_manager()  # warm singleton, triggers recover()
         results["resource_buffer"] = "ok"
     except Exception as e:
@@ -808,18 +916,17 @@ def _init_services() -> dict:
     # Install LogService logging bridge (catches all logger.* calls)
     try:
         from l3.bus.log import get_service as _ls
+
         _ls().install_handler()
         results["log_handler"] = "ok"
     except Exception as e:
         logger.warning("log handler install: %s", e)
 
     # Surface real failures (values starting with "error:") instead of hiding them
-    failed = [k for k, v in results.items()
-              if isinstance(v, str) and v.startswith("error")]
+    failed = [k for k, v in results.items() if isinstance(v, str) and v.startswith("error")]
     if failed:
         logger.error("boot services with errors: %s", ", ".join(failed))
-    return {"success": True, "services": list(results.keys()),
-            "results": results, "failed": failed}
+    return {"success": True, "services": list(results.keys()), "results": results, "failed": failed}
 
 
 def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -> dict:
@@ -838,6 +945,7 @@ def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -
     # ── Skill binding from config (回灌到 Cell) — optional; missing → global pool ──
     try:
         from l3.config.settings_center import get_center as _gc
+
         cell_skills = _gc().get("cell.skills", {})
         if isinstance(cell_skills, dict):
             names = cell_skills.get(DEFAULT_CELL_ID) or cell_skills.get("*")
@@ -855,28 +963,32 @@ def _create_cell(agent_config: list[tuple[str, str, list[str]]] | None = None) -
         get_ft().heartbeat(agent_id)
         registered.append({"agent": agent_id, "pid": pid})
         for t in territory:
-            get_vfs().mount(f"/{agent_id}/{t.lstrip('/')}", MountType.PROJECT,
-                           min_ring=1, read_only=False)
+            get_vfs().mount(f"/{agent_id}/{t.lstrip('/')}", MountType.PROJECT, min_ring=1, read_only=False)
 
     get_scout_pool()
 
     # Register Cell with CardRegistry dispatcher + PendingQueue callback
     try:
         from l3.card.card_registry import get_registry
+
         reg = get_registry()
         reg.register_cell(DEFAULT_CELL_ID, cell.territory)
         reg.set_cell_resolver(lambda cid: get_cell(cid))
         reg.start_dispatcher()
         # Wire PendingQueue approve → CardRegistry.restore_card
         from l3.card.pending_queue import get_queue
+
         pq = get_queue()
         pq.set_on_approve(lambda cid: reg.restore_card(cid))
     except Exception as e:
         logger.warning("card registry setup: %s", e)
 
-    return {"success": True, "cell_id": DEFAULT_CELL_ID,
-            "agents": [a[0] for a in agent_config] if agent_config else [],
-            "registered": registered}
+    return {
+        "success": True,
+        "cell_id": DEFAULT_CELL_ID,
+        "agents": [a[0] for a in agent_config] if agent_config else [],
+        "registered": registered,
+    }
 
 
 def _default_constitution() -> str:
@@ -894,24 +1006,28 @@ def _post_boot_health_check() -> dict:
     checks = {}
     try:
         from l3.memory.memory import get_memory
+
         m = get_memory()
         checks["memory"] = "ok" if m is not None else "unavailable"
     except Exception as e:
         checks["memory"] = f"error: {e}"
     try:
         from l3.card.card_registry import get_registry
+
         r = get_registry()
         checks["card_registry"] = "ok" if r is not None else "unavailable"
     except Exception as e:
         checks["card_registry"] = f"error: {e}"
     try:
         from l3.scheduler.scheduler import get_time_scheduler
+
         s = get_time_scheduler()
         checks["scheduler"] = "ok" if s is not None else "unavailable"
     except Exception as e:
         checks["scheduler"] = f"error: {e}"
     try:
         from l1.kernel.device import get_device_manager
+
         d = get_device_manager()
         devs = d.list()
         checks["devices"] = f"{len(devs)} registered"
@@ -919,14 +1035,12 @@ def _post_boot_health_check() -> dict:
         checks["devices"] = f"error: {e}"
     try:
         from l3.agent_terminal import get_terminals
+
         terms = get_terminals()
         checks["terminals"] = f"{len(terms)} active"
     except Exception as e:
         checks["terminals"] = f"error: {e}"
-    all_ok = all(
-        v.startswith("ok") or v.endswith("registered") or "active" in v
-        for v in checks.values()
-    )
+    all_ok = all(v.startswith("ok") or v.endswith("registered") or "active" in v for v in checks.values())
     checks["_all_ok"] = all_ok
     return checks
 

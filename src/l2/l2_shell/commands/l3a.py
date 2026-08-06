@@ -14,6 +14,7 @@ def _ensure() -> None:
     global _l3a_initialized
     if not _l3a_initialized:
         from l3.cell.peers.l3a import start
+
         start()
         _l3a_initialized = True
 

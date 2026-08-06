@@ -26,11 +26,13 @@ from l1.kernel.params.tool import (
 logger = logging.getLogger(__name__)
 
 # Content-write tools whose successful results trigger the auto-format hook.
-_FORMAT_TRIGGER_TOOLS: frozenset[str] = frozenset({
-    "create_file",
-    "file_patch",
-    "file_append",
-})
+_FORMAT_TRIGGER_TOOLS: frozenset[str] = frozenset(
+    {
+        "create_file",
+        "file_patch",
+        "file_append",
+    }
+)
 
 
 def detect_formatter(path: str) -> str:
