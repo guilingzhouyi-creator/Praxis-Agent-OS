@@ -18,6 +18,7 @@ test = [
     "pytest-mock>=3.12",
     "pytest-xdist>=3.6",
     "ruff>=0.9",
+    "pre-commit>=3.0",
 ]
 
 [project.scripts]
