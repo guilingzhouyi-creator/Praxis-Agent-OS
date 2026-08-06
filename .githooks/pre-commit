@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Pre-commit hook — lint + format + size check.
 set -euo pipefail
 
