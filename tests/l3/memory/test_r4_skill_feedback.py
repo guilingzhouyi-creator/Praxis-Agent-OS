@@ -55,7 +55,7 @@ class TestInjectionFeedback:
         assert len(cases) == len(names) == 2
         assert set(names) == {"lean_agent-1_toola", "lean_agent-1_toolb"}
         # Prompts map 1:1 to names from the same cached scan.
-        by_name = dict(zip(names, cases, strict=True))
+        by_name = dict(zip(names, cases, strict=False))
         assert by_name["lean_agent-1_toola"] == "lesson-a"
 
     def test_usage_only_update_keeps_revision(self):
@@ -300,12 +300,11 @@ class TestSkillRefinement:
 class TestLessonSummarization:
     """P3 — LLM lesson summarization (gates, quality floor, degradation, anti-downgrade)."""
 
-    def _mk_cases(self, tool: str, n: int = 3) -> None:
-        from l1.kernel.params.agent import R4_LEAN_GENERALIZE_THRESHOLD
+    def _mk_cases(self, tool: str, n: int = 5) -> None:
         from l1.kernel.skill import get_skill_manager
 
         sm = get_skill_manager()
-        for i in range(max(n, R4_LEAN_GENERALIZE_THRESHOLD)):
+        for i in range(max(n, 5)):
             sm.create(
                 name=f"lean_a1_{tool}_e{i}",
                 description="f",

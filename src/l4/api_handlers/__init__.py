@@ -776,6 +776,16 @@ class ApiHandlers:
                                 confirmed=bool(body.get("confirm_risk")),
                                 source="api")
 
+    # ── Skill retriever backend ──
+
+    def _retriever_backend_get(self, body: dict | None = None) -> dict:
+        from l3.memory.skill_retriever import retriever_status
+        return retriever_status()
+
+    def _retriever_backend_set(self, body: dict) -> dict:
+        from l3.memory.skill_retriever import set_backend
+        return set_backend(body.get("backend", ""))
+
     # ── Approvals / Pending Queue ──
 
     def _list_approvals(self, body: dict | None = None) -> dict:

@@ -29,46 +29,32 @@ from l1.kernel import emit_signal
 from l1.kernel.params.agent import (
     R4_AGENT_ID,
     R4_CONSISTENCY_SCAN_LIMIT,
-    R4_EVOLVED_SKILLS_DEFAULT,
-    R4_LEAN_CASES_DEFAULT,
-    R4_LEAN_GENERALIZE_THRESHOLD,
     R4_ROLE,
     R4_STALE_SCAN_LIMIT,
-    R4_SUMMARIZE_COOLDOWN,
-    R4_SUMMARIZE_MAX_TOKENS,
-    R4_SUMMARIZE_MIN_INTERVAL,
-    R4_SUMMARIZE_MIN_LEN,
     R4_TERRITORY,
     SIGNAL_TARGET_L3,
-    SKILL_ARCHITECT_MAX_TOKENS,
 )
 from l1.kernel.params.system import (
     ARCHIVE_CHECK_INTERVAL,
-    HASH_TRUNC_MEDIUM,
-    LOG_TRUNC_30,
-    LOG_TRUNC_60,
-    LOG_TRUNC_200,
-    LOG_TRUNC_2000,
-    SECONDS_PER_DAY,
-    SECONDS_PER_HOUR,
-    SKILL_TTL_DAYS,
     THREAD_JOIN_TIMEOUT,
 )
-from l3.services.model_service import get_service as _get_model_service
 
 from .r4_skill_evolution import SkillEvolutionMixin
 from .r4_skill_feedback import SkillFeedbackMixin
 
 _MODEL_SPEC = "r4_agent"
 
+
 def _resolve_model_spec() -> str:
     """Return model spec name, checking SettingsCenter first, then hardcoded default."""
     try:
         from l3.config.settings_center import get_center
+
         center = get_center()
         return str(center.get("r4_agent.model_spec", _MODEL_SPEC))
     except Exception:
         return _MODEL_SPEC
+
 
 def _resolve_skill_scope() -> str:
     """Return evolution write scope: "project" (default) or "global".
@@ -78,15 +64,18 @@ def _resolve_skill_scope() -> str:
     """
     try:
         from l1.kernel.paths import get_paths
+
         default = getattr(get_paths(), "skill_scope", "project")
     except Exception:
         default = "project"
     try:
         from l3.config.settings_center import get_center
+
         scope = str(get_center().get("skill.evolve_scope", default))
         return scope if scope in ("project", "global") else default
     except Exception:
         return default
+
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +97,13 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
     ROLE = R4_ROLE
     TERRITORY = list(R4_TERRITORY)
 
-    def __init__(self, interval: float = ARCHIVE_CHECK_INTERVAL,
-                 agent_id: str = "", role: str = "", territory: list[str] | None = None):
+    def __init__(
+        self,
+        interval: float = ARCHIVE_CHECK_INTERVAL,
+        agent_id: str = "",
+        role: str = "",
+        territory: list[str] | None = None,
+    ):
         self.interval = interval
         self.agent_id = agent_id or R4_AGENT_ID
         self.role = role or R4_ROLE
@@ -131,6 +125,8 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         # P3 lesson-summarization gates: per-tool cooldown + global throttle.
         self._last_summarize: dict[str, float] = {}
         self._last_summarize_any: float = 0.0
+        # Reflexion-style failure-reflection gates (per-tool cooldown).
+        self._last_reflect: dict[str, float] = {}
         self._registered = self._register_identity()
 
     def set_pmu(self, pmu: Any) -> None:
@@ -143,6 +139,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         """
         try:
             from l1.kernel.process import get_table
+
             pt = get_table()
             pt.spawn(name=self.AGENT_ID, role=self.ROLE, parent_pid=0, ring=1)
             logger.info("R4Agent registered in process table: %s/%s", self.AGENT_ID, self.ROLE)
@@ -187,9 +184,9 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         # ── Constitution gate ──
         try:
             from l1.kernel.constitution import get_constitution
+
             gc = get_constitution()
-            allowed = gc.is_allowed("archive_ring3", agent_id=self.AGENT_ID,
-                                     target="archive", territory=["archive"])
+            allowed = gc.is_allowed("archive_ring3", agent_id=self.AGENT_ID, target="archive", territory=["archive"])
             if not allowed.get("allowed", True):
                 results["error"] = "constitution blocked"
                 logger.warning("R4Agent tick blocked by constitution: %s", allowed.get("reason", ""))
@@ -226,14 +223,23 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
             if pruned:
                 results["skills_pruned"] = pruned
 
+            # 4c. Curate evolved skills (contribution score + cap + retirement)
+            curated = self._curate_skills()
+            if curated:
+                results["skills_curated"] = curated
+
             # 5. Alert if issues found
             total_issues = len(stale) + len(contradictions)
             if total_issues > 0:
                 self._total_alerts += total_issues
                 from l1.kernel.params.agent import EVENT_ARCHIVE_ALERT
-                emit_signal(EVENT_ARCHIVE_ALERT, sender="r4-agent", target=SIGNAL_TARGET_L3,
-                            data={"issues": total_issues, "stale": len(stale),
-                                  "contradictions": len(contradictions)})
+
+                emit_signal(
+                    EVENT_ARCHIVE_ALERT,
+                    sender="r4-agent",
+                    target=SIGNAL_TARGET_L3,
+                    data={"issues": total_issues, "stale": len(stale), "contradictions": len(contradictions)},
+                )
                 results["alerts"] = total_issues
                 logger.info("R4Agent: %d archive issue(s) found, signal sent to L3A", total_issues)
 
@@ -271,6 +277,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
     def _detect_stale(self) -> list[dict]:
         """Find archive entries with expired TTL or no recent references."""
         from l3.tools._archive import _get_db
+
         stale = []
         try:
             conn = _get_db()
@@ -282,8 +289,15 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
                 (now,),
             ).fetchall()
             for row in rows:
-                stale.append({"id": row[0], "fonds": row[1], "series": row[2],
-                              "title": row[3], "expired_since": now - (row[4] + row[5])})
+                stale.append(
+                    {
+                        "id": row[0],
+                        "fonds": row[1],
+                        "series": row[2],
+                        "title": row[3],
+                        "expired_since": now - (row[4] + row[5]),
+                    }
+                )
         except Exception as e:
             logger.warning("R4Agent: stale detection failed: %s", e)
         return stale
@@ -293,6 +307,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         try:
             from .archive_orchestrator import archive_ring3
             from .memory import get_memory
+
             mem = get_memory()
             return archive_ring3(mem)
         except Exception as e:
@@ -314,6 +329,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         try:
             from .archive_orchestrator import ring3_from_archive
             from .memory import get_memory
+
             mem = get_memory()
             count = ring3_from_archive(mem)
             return {"success": True, "restored": count}
@@ -324,6 +340,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
     def _check_consistency(self) -> list[dict]:
         """Detect cross-fonds contradictions in Archive."""
         from l3.tools._archive import _get_db
+
         contradictions = []
         try:
             conn = _get_db()
@@ -335,21 +352,17 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
                 f"LIMIT {R4_CONSISTENCY_SCAN_LIMIT}",
             ).fetchall()
             for row in rows:
-                contradictions.append({
-                    "a": {"id": row[0], "fonds": row[1], "series": row[2], "title": row[3]},
-                    "b": {"id": row[5], "fonds": row[6], "series": row[7]},
-                })
+                contradictions.append(
+                    {
+                        "a": {"id": row[0], "fonds": row[1], "series": row[2], "title": row[3]},
+                        "b": {"id": row[5], "fonds": row[6], "series": row[7]},
+                    }
+                )
         except Exception as e:
             logger.warning("R4Agent: consistency check failed: %s", e)
         return contradictions
 
     # ── Failure pattern tracking → lean case generation ──
-
-
-
-
-
-
 
     @staticmethod
     def _atomic_write(fp: str, data: dict) -> None:
@@ -357,6 +370,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         import json
         import os
         import tempfile
+
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(fp), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -368,14 +382,6 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
             except Exception:
                 logger.debug("R4Agent: temp file cleanup failed, ignored", exc_info=True)
             raise
-
-
-
-
-
-
-
-
 
 
 _r4_agent: R4Agent | None = None

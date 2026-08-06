@@ -19,7 +19,10 @@ class TestContinuationGate:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="test", agent_id="a")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("simple", "T", {}, fn)
         # continuation_nudge defaults to True in settings_center,
         # but we can verify the code path exists by running with
@@ -37,7 +40,10 @@ class TestContinuationAttempts:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="test task", agent_id="b")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("tool_a", "T", {}, fn)
         loop.add_tool("tool_b", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15)
@@ -49,7 +55,10 @@ class TestContinuationAttempts:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="x", agent_id="c")
-        fn = lambda a, b: {"success": True, "data": "ok"}
+
+        def fn(a, b):
+            return {"success": True, "data": "ok"}
+
         loop.add_tool("simple", "T", {}, fn)
         import time
 
@@ -80,7 +89,9 @@ class TestContinuationWithVerifier:
             def correction_prompt(self, task, errors):
                 return "fix it"
 
-        fn = lambda a, b: {"success": True}
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t1", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15, verifier=FakeVerifier())
         assert isinstance(r, dict)
@@ -95,7 +106,10 @@ class TestContinuationErrorBoundary:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="continuation error test", agent_id="e")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         # Even if the LLM backend has no engine, the continuation
         # path should catch the error and return normally.
@@ -111,7 +125,10 @@ class TestContextPreservation:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="ctx test", agent_id="f")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15)
         assert isinstance(r, dict)
@@ -133,7 +150,10 @@ class TestStepsExhaustedFailurePath:
         from l3.agent.agent_loop import AgentLoop
 
         loop = AgentLoop(task="failure path", agent_id="g")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         # Force a failed turn so ``not all_passed`` is True and the
         # steps-exhausted guard (max_steps < AGENT_LOOP_UNLIMITED_STEPS)

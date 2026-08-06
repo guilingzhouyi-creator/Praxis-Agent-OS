@@ -19,6 +19,9 @@ import time
 from typing import Any
 
 from l1.kernel.params.agent import (
+    R4_CONTRIB_MIN_RATIO,
+    R4_CONTRIB_MIN_TRIALS,
+    R4_CURATION_ENABLED,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_GENERALIZE_THRESHOLD,
     R4_SUMMARIZE_COOLDOWN,
@@ -32,7 +35,9 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
     SECONDS_PER_DAY,
     SECONDS_PER_HOUR,
+    SKILL_LIBRARY_MAX,
     SKILL_TTL_DAYS,
+    SKILL_TTL_EXTEND_PER_USE,
 )
 
 logger = logging.getLogger(__name__)
@@ -140,8 +145,10 @@ class SkillEvolutionMixin:
 
         now = time.time()
         if now - self._last_summarize.get(tool, 0.0) < R4_SUMMARIZE_COOLDOWN:
+            logger.debug("R4Agent: lesson summarization for %s skipped (cooldown)", tool)
             return None
         if now - self._last_summarize_any < R4_SUMMARIZE_MIN_INTERVAL:
+            logger.debug("R4Agent: lesson summarization skipped (global throttle)")
             return None
         digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
         prompt = (
@@ -176,7 +183,8 @@ class SkillEvolutionMixin:
         try:
             data = _json.loads(content)
             lesson = data.get("lesson", "") if isinstance(data, dict) else ""
-        except Exception:
+        except Exception as e:
+            logger.warning("R4Agent: lesson summarization returned invalid JSON for %s: %s", tool, e)
             lesson = ""
         lesson = lesson.strip() if isinstance(lesson, str) else ""
         if len(lesson) < R4_SUMMARIZE_MIN_LEN:
@@ -222,7 +230,9 @@ class SkillEvolutionMixin:
 
         Only affects skills tagged ``evolved`` (not ``lean_case`` or built-in).
         A skill is stale if ``last_used`` is 0 and ``loaded_at`` + TTL < now,
-        or if ``last_used`` + TTL < now.
+        or if ``last_used`` + TTL < now.  Each recorded use (``useful_count``)
+        extends the effective TTL by ``SKILL_TTL_EXTEND_PER_USE`` seconds —
+        reused skills live longer, unused ones expire sooner.
         """
         import time as _time
 
@@ -240,8 +250,10 @@ class SkillEvolutionMixin:
             name = s["name"]
             loaded_at = s.get("loaded_at", 0.0)
             last_used = s.get("last_used", 0.0)
+            useful = s.get("useful_count", 0) or 0
             age = now - last_used if last_used > 0 else now - loaded_at
-            if age > ttl_seconds:
+            effective_ttl = ttl_seconds + useful * SKILL_TTL_EXTEND_PER_USE
+            if age > effective_ttl:
                 # R4 archive before pruning — TTL removal is auditable/restorable.
                 try:
                     from l3.tools._archive import _cmd_archive_store
@@ -275,6 +287,118 @@ class SkillEvolutionMixin:
                 pruned += 1
                 logger.info("R4Agent: pruned stale skill '%s' (age=%.1f days)", name, age / SECONDS_PER_DAY)
         return pruned
+
+    def _curate_skills(self) -> int:
+        """Evaluate evolved skills by contribution and enforce the library cap.
+
+        Contribution ``c(s) = useful_count / max(injected_count, 1)`` measures
+        how often an injected skill actually proved useful.  Skills with at
+        least ``R4_CONTRIB_MIN_TRIALS`` injections and ``c(s) <
+        R4_CONTRIB_MIN_RATIO`` are retired (archived, then deleted).  When
+        the evolved library exceeds ``SKILL_LIBRARY_MAX``, the lowest-
+        contribution skills are evicted until under the cap.  Gated by
+        ``R4_CURATION_ENABLED``; never touches built-in or lean-case skills.
+        """
+
+        from l1.kernel.skill import get_skill_manager
+
+        if not R4_CURATION_ENABLED:
+            return 0
+        sm = get_skill_manager()
+        evolved: list[dict] = []
+        for s in sm.list(tags=["evolved"], sort_by="loaded_at"):
+            tags = s.get("tags", [])
+            if "lean_case" in tags or "builtin" in tags:
+                continue
+            useful = s.get("useful_count", 0) or 0
+            injected = s.get("inject_count", 0) or 0
+            contrib = useful / max(injected, 1)
+            evolved.append(
+                {
+                    "name": s["name"],
+                    "useful": useful,
+                    "injected": injected,
+                    "contrib": contrib,
+                    "record": s,
+                }
+            )
+
+        retired = 0
+        # 1. Retire under-performers with enough trials.
+        for e in evolved:
+            if e["injected"] >= R4_CONTRIB_MIN_TRIALS and e["contrib"] < R4_CONTRIB_MIN_RATIO:
+                try:
+                    from l3.tools._archive import _cmd_archive_store
+
+                    _cmd_archive_store(
+                        fonds="skills",
+                        series="retired",
+                        content=e["record"].get("prompt", "") or "",
+                        tags=f"{e['name']},evolved,retired,contrib={e['contrib']:.2f}",
+                    )
+                except Exception as ex:
+                    logger.debug("R4Agent: archive retired skill failed: %s", ex)
+                sm.delete(e["name"], internal=True)
+                self._remove_skill_dir(e["name"])
+                logger.info(
+                    "R4Agent: retired under-performing skill '%s' (contrib=%.2f, trials=%d)",
+                    e["name"],
+                    e["contrib"],
+                    e["injected"],
+                )
+                retired += 1
+        if retired:
+            evolved = [e for e in evolved if e["name"] not in {r["name"] for r in []}]  # noqa — filtered below via re-list
+            evolved = [e for e in evolved if sm.get(e["name"]) is not None]
+
+        # 2. Enforce the library cap: evict lowest contribution.
+        evicted = 0
+        while len(evolved) > SKILL_LIBRARY_MAX:
+            worst = min(evolved, key=lambda e: e["contrib"])
+            try:
+                from l3.tools._archive import _cmd_archive_store
+
+                _cmd_archive_store(
+                    fonds="skills",
+                    series="evicted",
+                    content=worst["record"].get("prompt", "") or "",
+                    tags=f"{worst['name']},evolved,evicted,contrib={worst['contrib']:.2f}",
+                )
+            except Exception as ex:
+                logger.debug("R4Agent: archive evicted skill failed: %s", ex)
+            sm.delete(worst["name"], internal=True)
+            self._remove_skill_dir(worst["name"])
+            logger.info(
+                "R4Agent: evicted lowest-contribution skill '%s' (contrib=%.2f) — cap %d",
+                worst["name"],
+                worst["contrib"],
+                SKILL_LIBRARY_MAX,
+            )
+            evolved.remove(worst)
+            evicted += 1
+        if self._pmu:
+            try:
+                self._pmu.increment("skills.curated.retired", retired)
+                self._pmu.increment("skills.curated.evicted", evicted)
+            except Exception:
+                logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
+        return retired + evicted
+
+    def _remove_skill_dir(self, name: str) -> None:
+        """Delete the persisted SKILL.md directory (project + global scopes)."""
+        try:
+            import os as _os
+            import shutil
+
+            from l1.kernel.paths import get_paths as _gp_paths
+
+            _p = _gp_paths()
+            for base in (_p.skill_project_evolved_dir, _p.skill_evolved_dir):
+                skill_dir = _os.path.join(base, name)
+                if _os.path.isdir(skill_dir):
+                    shutil.rmtree(skill_dir, ignore_errors=True)
+        except Exception as e:
+            logger.debug("R4Agent: curated skill dir cleanup failed: %s", e)
 
     def _clean_orphan_traces(self) -> int:
         """Remove unresolvable failure trace files older than 24 hours.
@@ -363,6 +487,13 @@ class SkillEvolutionMixin:
 
         generalized = 0
         for tool, cases in by_tool.items():
+            # Reflexion-style attribution (non-blocking): distill the tool's
+            # failures into why/fix/pattern and record to the reference
+            # channel, independent of the lesson-synthesis threshold below.
+            try:
+                self.reflect_failure(tool, cases)
+            except Exception as e:
+                logger.debug("R4Agent: reflect_failure for %s skipped: %s", tool, e)
             if len(cases) < R4_LEAN_GENERALIZE_THRESHOLD:
                 continue
             gen_name = f"lean_{tool}_lessons"
@@ -379,7 +510,11 @@ class SkillEvolutionMixin:
             # P3: LLM semantic summary (gated: threshold + per-tool cooldown +
             # per-tick throttle); any failure degrades to the rule-based baseline.
             llm_lesson = self._summarize_tool_lessons(tool, cases)
-            candidate = llm_lesson if llm_lesson else baseline
+            if llm_lesson:
+                candidate = llm_lesson
+            else:
+                logger.info("R4Agent: LLM lesson for %s unavailable — using rule-based baseline", tool)
+                candidate = baseline
             if existing:
                 # P2-3: archive the pre-update version (audit/rollback baseline)
                 # before overwriting — same guarantee evolve_skill gives.

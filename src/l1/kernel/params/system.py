@@ -34,9 +34,9 @@ CONTEXT_REGISTER_MAX_ENTRIES: Final[int] = 200
 
 SCOUT_POOL_MIN_IDLE: Final[int] = 2
 SCOUT_POOL_MAX_TOTAL: Final[int] = 16
-SCOUT_POOL_MAX: Final[int] = 16                 # alias for SCOUT_POOL_MAX_TOTAL
+SCOUT_POOL_MAX: Final[int] = 16  # alias for SCOUT_POOL_MAX_TOTAL
 SCOUT_POOL_MAX_PER_AGENT: Final[int] = 4
-MAX_SCOUTS_PER_AGENT: Final[int] = 4            # alias for SCOUT_POOL_MAX_PER_AGENT
+MAX_SCOUTS_PER_AGENT: Final[int] = 4  # alias for SCOUT_POOL_MAX_PER_AGENT
 SCOUT_POOL_IDLE_TIMEOUT: Final[float] = 60.0
 SCOUT_CACHE_TTL: Final[float] = 30.0
 SCOUT_CACHE_MAX_ENTRIES: Final[int] = 200
@@ -101,15 +101,15 @@ CI_DEFAULT_TIMEOUT: Final[float] = 300.0
 CACHE_DEFAULT_TTL: Final[float] = 60.0
 
 # ── CellCache (L2) — per-Cell shared cache sizes ──
-CELL_CACHE_HOT_SIZE: Final[int] = 50        # Hot Ring: latest summaries
-CELL_CACHE_INDEX_SIZE: Final[int] = 200     # Index Chain: key → summary
-CELL_CACHE_KV_SIZE: Final[int] = 100        # KV Cache: full values
-CELL_CACHE_HOT_TTL: Final[float] = 300.0    # 5 min
+CELL_CACHE_HOT_SIZE: Final[int] = 50  # Hot Ring: latest summaries
+CELL_CACHE_INDEX_SIZE: Final[int] = 200  # Index Chain: key → summary
+CELL_CACHE_KV_SIZE: Final[int] = 100  # KV Cache: full values
+CELL_CACHE_HOT_TTL: Final[float] = 300.0  # 5 min
 CELL_CACHE_INDEX_TTL: Final[float] = 900.0  # 15 min
-CELL_CACHE_KV_TTL: Final[float] = 1800.0    # 30 min
+CELL_CACHE_KV_TTL: Final[float] = 1800.0  # 30 min
 CONTEXT_MAX_REGISTER_TOKENS: Final[int] = 4096
 MEMORY_MIN_CONTENT_LEN: Final[int] = 30
-MEMORY_RESTORE_RING2_LIMIT: Final[int] = 50    # reset_agent_context ring2 restore cap
+MEMORY_RESTORE_RING2_LIMIT: Final[int] = 50  # reset_agent_context ring2 restore cap
 
 
 # ── Identity ──
@@ -166,10 +166,12 @@ TOOL_RESULT_DISPLAY_LIMIT: Final[int] = 5
 SCOUT_FINDINGS_DISPLAY_LIMIT: Final[int] = 5
 SKILL_LEAN_CASES_LIMIT: Final[int] = 20
 SKILL_LIST_DISPLAY_LIMIT: Final[int] = 30  # max skills shown in /skills list
-SKILL_WRITE_MIN_RING: Final[int] = 3        # minimum ring clearance to create/update/delete skills
+SKILL_WRITE_MIN_RING: Final[int] = 3  # minimum ring clearance to create/update/delete skills
 SKILL_WRITE_ROLES: Final[tuple[str, ...]] = ("l3", "reviewer", "deployer")
-SKILL_TTL_DAYS: Final[int] = 7          # evolved skills unused for this long are marked stale
-SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5 # max skills injected by SkillCatalogHook at session start
+SKILL_TTL_DAYS: Final[int] = 7  # evolved skills unused for this long are marked stale
+SKILL_TTL_EXTEND_PER_USE: Final[int] = 3600  # each bump_usage extends the effective TTL by this many seconds
+SKILL_LIBRARY_MAX: Final[int] = 50  # hard cap on evolved skills; curation evicts lowest contribution
+SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5  # max skills injected by SkillCatalogHook at session start
 SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
 SECONDS_PER_HOUR: Final[int] = 3600
 SECONDS_PER_DAY: Final[int] = 86400
@@ -265,8 +267,29 @@ SEARCH_SYMBOL_EXACT_MATCH: Final[float] = 1.0
 SEARCH_SYMBOL_PARTIAL_MATCH: Final[float] = 0.5
 SEARCH_SYMBOL_ASSIGN_MATCH: Final[float] = 0.3
 SEARCH_MAX_RESULTS: Final[int] = 200
-SEARCH_EXCLUDE_DIRS: Final[set[str]] = {"__pycache__", ".git", "node_modules", ".venv", "target", "build", "dist", ".tox"}
-SEARCH_EXCLUDE_EXTS: Final[set[str]] = {".pyc", ".pyo", ".so", ".dll", ".dylib", ".exe", ".bin", ".class", ".o", ".a", ".lib"}
+SEARCH_EXCLUDE_DIRS: Final[set[str]] = {
+    "__pycache__",
+    ".git",
+    "node_modules",
+    ".venv",
+    "target",
+    "build",
+    "dist",
+    ".tox",
+}
+SEARCH_EXCLUDE_EXTS: Final[set[str]] = {
+    ".pyc",
+    ".pyo",
+    ".so",
+    ".dll",
+    ".dylib",
+    ".exe",
+    ".bin",
+    ".class",
+    ".o",
+    ".a",
+    ".lib",
+}
 
 
 # ── User session ──
@@ -304,7 +327,7 @@ MEMORY_RECALL_DEFAULT_LIMIT: Final[int] = 10
 MEMORY_ID_HASH_MOD: Final[int] = 10000
 MEMORY_PERSIST_FILE_RING2: Final[str] = "memory_ring2.jsonl"
 MEMORY_PERSIST_FILE_RING3: Final[str] = "memory_ring3.db"
-MEMORY_GRAPH_LLM_TIMEOUT: Final[float] = 10.0     # LLM semantic-extraction timeout (seconds)
+MEMORY_GRAPH_LLM_TIMEOUT: Final[float] = 10.0  # LLM semantic-extraction timeout (seconds)
 
 
 # ── Memory query limits ──
@@ -326,10 +349,14 @@ PROFILE_KIND_CORRECTION: Final[str] = "correction"
 PROFILE_KIND_TRAIT: Final[str] = "trait"
 PROFILE_KIND_CUSTOM: Final[str] = "custom"
 PROFILE_KINDS: Final[tuple[str, ...]] = (
-    PROFILE_KIND_PREFERENCE, PROFILE_KIND_DOMAIN_FOCUS,
-    PROFILE_KIND_DECISION_STYLE, PROFILE_KIND_REJECTION,
-    PROFILE_KIND_HABIT, PROFILE_KIND_CORRECTION,
-    PROFILE_KIND_TRAIT, PROFILE_KIND_CUSTOM,
+    PROFILE_KIND_PREFERENCE,
+    PROFILE_KIND_DOMAIN_FOCUS,
+    PROFILE_KIND_DECISION_STYLE,
+    PROFILE_KIND_REJECTION,
+    PROFILE_KIND_HABIT,
+    PROFILE_KIND_CORRECTION,
+    PROFILE_KIND_TRAIT,
+    PROFILE_KIND_CUSTOM,
 )
 PROFILE_MAX_ENTRIES_PER_USER: Final[int] = 500
 """Hard cap on stored profile entries per user (oldest evicted on overflow)."""
@@ -385,8 +412,8 @@ LIFECYCLE_STATE_FILE: Final[str] = ".praxis/lifecycle.json"
 
 
 # ── Thread shutdown timeouts ──
-THREAD_JOIN_TIMEOUT: Final[float] = 5.0          # daemon/service thread join on shutdown
-THREAD_JOIN_TIMEOUT_QUICK: Final[float] = 2.0    # light thread join (poll/reference channels)
+THREAD_JOIN_TIMEOUT: Final[float] = 5.0  # daemon/service thread join on shutdown
+THREAD_JOIN_TIMEOUT_QUICK: Final[float] = 2.0  # light thread join (poll/reference channels)
 
 
 # ── L3B Message Pool ──
@@ -453,7 +480,7 @@ SANDBOX_PROFILE_HOST: Final[str] = "DANGER_4"
 # SANDBOX_TMP_ROOT moved to l1.kernel.paths.get_paths().sandbox_root
 
 # ── Sandbox diff / cross-review tuning ──
-DIFF_CONTEXT_LINES: Final[int] = 3          # context lines before/after a hunk
+DIFF_CONTEXT_LINES: Final[int] = 3  # context lines before/after a hunk
 DIFF_CHAR_LEVEL_MAX_LINES: Final[int] = 10  # replace hunks <= N lines get char-level diff
 DIFF_PINGPONG_WINDOW_SECONDS: Final[float] = 30.0  # same-agent rapid edit warn window
 SANDBOX_EXEC_TIMEOUT: Final[float] = 300.0
@@ -465,11 +492,28 @@ FAULT_AUTONOMOUS_RECONNECT_INTERVAL: Final[float] = 5.0
 WORKSPACE_MAX_RECENT: Final[int] = 20
 
 # ── Verify cadence ──
-VERIFY_CMDS: Final[frozenset[str]] = frozenset({
-    "cargo", "tsc", "make", "npm", "pytest", "mvn", "gradle",
-    "gcc", "clang", "dotnet", "ruff", "black", "mypy", "pyright",
-    "go build", "go test", "cargo check", "cargo test",
-})
+VERIFY_CMDS: Final[frozenset[str]] = frozenset(
+    {
+        "cargo",
+        "tsc",
+        "make",
+        "npm",
+        "pytest",
+        "mvn",
+        "gradle",
+        "gcc",
+        "clang",
+        "dotnet",
+        "ruff",
+        "black",
+        "mypy",
+        "pyright",
+        "go build",
+        "go test",
+        "cargo check",
+        "cargo test",
+    }
+)
 SANDBOX_MAX_OUTPUT: Final[int] = 5000
 
 # ── Permission defaults ──
@@ -570,12 +614,22 @@ THINK_REASONING_DEFAULT: Final[str] = "none"
 PMU_HISTORY_SIZE: Final[int] = 3600
 PMU_SNAPSHOT_INTERVAL: Final[float] = 60.0
 PMU_COUNTER_GROUPS: Final[list[str]] = [
-    "cards", "tools", "cache", "scouts", "bus", "token", "memory",
-    "agent", "watchdog", "icache", "tlb", "interrupt",
+    "cards",
+    "tools",
+    "cache",
+    "scouts",
+    "bus",
+    "token",
+    "memory",
+    "agent",
+    "watchdog",
+    "icache",
+    "tlb",
+    "interrupt",
 ]
-PMU_QUERY_LIMIT: Final[int] = 100            # query_history() default limit
-PMU_RATE_WINDOW: Final[float] = 60.0         # delta()/rate() default window (seconds)
-PMU_RATE_MIN_SECONDS: Final[float] = 0.1     # rate() denominator floor
+PMU_QUERY_LIMIT: Final[int] = 100  # query_history() default limit
+PMU_RATE_WINDOW: Final[float] = 60.0  # delta()/rate() default window (seconds)
+PMU_RATE_MIN_SECONDS: Final[float] = 0.1  # rate() denominator floor
 
 
 # ── Cell Watchdog defaults ──
@@ -586,30 +640,30 @@ CELL_WATCHDOG_STOP_JOIN_TIMEOUT: Final[float] = 5.0
 
 
 # ── Cell component tuning ──
-CELL_BUFFER_DEFAULT_MAXLEN: Final[int] = 50          # CircularBuffer() default capacity
-CELL_CACHE_SEARCH_LIMIT: Final[int] = 10             # CellCache.search() default limit
-CELL_CACHE_CONTEXT_MAX_TOKENS: Final[int] = 2048     # CellCache.get_cell_context() cap
-CELL_MONITOR_EVENT_LIMIT: Final[int] = 50            # CellMonitor.get_events() default limit
-TOKEN_CHARS_PER_TOKEN: Final[int] = 4                # len(text) // 4 char→token estimate
-SESSION_MSG_OVERHEAD: Final[int] = 10                # per-message token overhead in projections
-TOKEN_MERGER_INTERVAL: Final[float] = 60.0          # CellTokenMerger poll interval (seconds)
-CELL_RING_NORMALIZE: Final[float] = 3.0             # ring / 3.0 scheduler weight normalization
-SNAPSHOT_CACHE_KEY_LIMIT: Final[int] = 100          # card snapshot cache-keys cap
-CROSS_REVIEW_TIMEOUT: Final[float] = 60.0           # blocking cross-review wait
+CELL_BUFFER_DEFAULT_MAXLEN: Final[int] = 50  # CircularBuffer() default capacity
+CELL_CACHE_SEARCH_LIMIT: Final[int] = 10  # CellCache.search() default limit
+CELL_CACHE_CONTEXT_MAX_TOKENS: Final[int] = 2048  # CellCache.get_cell_context() cap
+CELL_MONITOR_EVENT_LIMIT: Final[int] = 50  # CellMonitor.get_events() default limit
+TOKEN_CHARS_PER_TOKEN: Final[int] = 4  # len(text) // 4 char→token estimate
+SESSION_MSG_OVERHEAD: Final[int] = 10  # per-message token overhead in projections
+TOKEN_MERGER_INTERVAL: Final[float] = 60.0  # CellTokenMerger poll interval (seconds)
+CELL_RING_NORMALIZE: Final[float] = 3.0  # ring / 3.0 scheduler weight normalization
+SNAPSHOT_CACHE_KEY_LIMIT: Final[int] = 100  # card snapshot cache-keys cap
+CROSS_REVIEW_TIMEOUT: Final[float] = 60.0  # blocking cross-review wait
 SUBAGENT_ORCHESTRATE_VERIFY_TIMEOUT: Final[float] = 60.0  # scout verify wait in fork-join
-CARD_DEFAULT_PRIORITY: Final[int] = 5               # default card priority
-CARD_DEFAULT_SIZE: Final[str] = "large"             # default card size (large | disputed)
-TOKEN_HISTORY_WINDOW_SECONDS: Final[int] = 300      # CentralCollector 5min buckets
-TOKEN_HISTORY_MAX: Final[int] = 288                 # 288 × 300s = 24h of buckets
-TOKEN_HISTORY_SHOWN: Final[int] = 48                # last 4h shown in global_summary
+CARD_DEFAULT_PRIORITY: Final[int] = 5  # default card priority
+CARD_DEFAULT_SIZE: Final[str] = "large"  # default card size (large | disputed)
+TOKEN_HISTORY_WINDOW_SECONDS: Final[int] = 300  # CentralCollector 5min buckets
+TOKEN_HISTORY_MAX: Final[int] = 288  # 288 × 300s = 24h of buckets
+TOKEN_HISTORY_SHOWN: Final[int] = 48  # last 4h shown in global_summary
 
 
 # ── I-Cache (Instruction Cache) defaults ──
 ICACHE_MAX_ENTRIES: Final[int] = 500
-ICACHE_TTL: Final[float] = 3600.0          # 1 hour — instruction data changes slowly
-ICACHE_LFU_DECAY: Final[float] = 0.95     # frequency counter decay per tick
-ICACHE_DECAY_INTERVAL: Final[int] = 100    # decay frequencies every N cache accesses
-ICACHE_SEARCH_LIMIT: Final[int] = 20       # ICache.search() default limit
+ICACHE_TTL: Final[float] = 3600.0  # 1 hour — instruction data changes slowly
+ICACHE_LFU_DECAY: Final[float] = 0.95  # frequency counter decay per tick
+ICACHE_DECAY_INTERVAL: Final[int] = 100  # decay frequencies every N cache accesses
+ICACHE_SEARCH_LIMIT: Final[int] = 20  # ICache.search() default limit
 
 
 # ── Discussion / convergence buffer ──
@@ -632,12 +686,12 @@ TLB_CLEARANCE_FALLBACK: Final[int] = 1
 
 # ── InterruptController (Priority Interrupt) defaults ──
 IRQ_TABLE_SIZE: Final[int] = 32
-IRQ_PRIORITY_LEVELS: Final[int] = 4        # NMI=0, HIGH=1, NORMAL=2, LOW=3
-IRQ_DISPATCH_BATCH: Final[int] = 5         # max queued IRQ events dispatched per call
+IRQ_PRIORITY_LEVELS: Final[int] = 4  # NMI=0, HIGH=1, NORMAL=2, LOW=3
+IRQ_DISPATCH_BATCH: Final[int] = 5  # max queued IRQ events dispatched per call
 
 
 # ── StatsCenter (Unified Statistics Center) defaults ──
-STATS_BUCKET_SIZE: Final[int] = 600               # seconds per bucket (10 min)
-STATS_HISTORY_BUCKETS: Final[int] = 144            # 24h of buckets
-STATS_SSE_BUFFER: Final[int] = 100                 # max SSE events buffered per subscriber
-STATS_DEFAULT_WINDOW: Final[str] = "5m"            # default query window
+STATS_BUCKET_SIZE: Final[int] = 600  # seconds per bucket (10 min)
+STATS_HISTORY_BUCKETS: Final[int] = 144  # 24h of buckets
+STATS_SSE_BUFFER: Final[int] = 100  # max SSE events buffered per subscriber
+STATS_DEFAULT_WINDOW: Final[str] = "5m"  # default query window

@@ -751,6 +751,8 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
             center.set_l2("skill.write_roles", [r for r in cfg["write_roles"] if isinstance(r, str)])
         if "evolve_scope" in cfg and cfg["evolve_scope"] in ("project", "global"):
             center.set_l2("skill.evolve_scope", cfg["evolve_scope"])
+        if "retriever_backend" in cfg and cfg["retriever_backend"] in ("tfidf", "embedding"):
+            center.set_l2("skill.retriever_backend", cfg["retriever_backend"])
         if "project_dirs" in cfg and isinstance(cfg["project_dirs"], list):
             center.set_l2("skill.project_dirs", cfg["project_dirs"])
             # Push extra discovery dirs into the paths singleton so

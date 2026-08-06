@@ -1,4 +1,5 @@
 """pytest conftest — singleton reset between tests to avoid state pollution."""
+
 from __future__ import annotations
 
 import os
@@ -51,6 +52,7 @@ _RESETS = {
     "l1.kernel.errors": ("reset_error_capture_handler", None),
     "l2.l2_shell.state": ("reset_state", None),
     "l3.cell.peers.l3a": ("reset_daemon", None),
+    "l3.memory.skill_retriever": ("reset_retriever", None),
 }
 
 
@@ -81,17 +83,20 @@ def _reset_singletons():
     if "l2.l2_shell.commands" in sys.modules or "l1.kernel.commands" in sys.modules:
         try:
             from l1.kernel.commands import get_registry, load_command_defs, reset_registry
+
             reset_registry()
             get_registry()
             load_command_defs()
             import importlib
 
             import l2.l2_shell.commands as _cmds_mod
+
             importlib.reload(_cmds_mod)
         except Exception as e:
             errors.append(f"commands.reload: {e}")
     if errors:
         import logging
+
         logging.getLogger(__name__).debug("singleton resets: %s", errors)
 
 
@@ -100,6 +105,7 @@ def _reset_singletons():
 
 class _FakePmu:
     """Mock PMU for tests — tracks increment calls."""
+
     def __init__(self):
         self.counts = {}
 
@@ -117,16 +123,16 @@ def fake_pmu():
 def irq_controller(fake_pmu):
     """Fresh InterruptController wired to fake_pmu."""
     from l3.cell.components.cell_interrupt import InterruptController
-    ctrl = InterruptController(cell_id="test-cell", pmu=fake_pmu)
-    return ctrl
+
+    return InterruptController(cell_id="test-cell", pmu=fake_pmu)
 
 
 @pytest.fixture
 def empty_cell():
     """Minimal Cell instance for component integration tests."""
     from l3.cell import Cell
-    cell = Cell(cell_id="test-cell", territory=["."])
-    return cell
+
+    return Cell(cell_id="test-cell", territory=["."])
 
 
 @pytest.fixture
@@ -141,10 +147,12 @@ def cell_with_agents(empty_cell):
 def memory_manager():
     """MemoryManager instance for cross-Cell memory tests."""
     from l3.memory.memory import get_memory
+
     mm = get_memory()
     yield mm
     try:
         from l3.memory.memory import reset_memory
+
         reset_memory()
     except Exception:
         pass
@@ -154,5 +162,5 @@ def memory_manager():
 def terminal():
     """AgentTerminal instance for agent dispatch tests."""
     from l3.agent_terminal import get_terminal
-    term = get_terminal("test-agent", role="reader", territory=["."])
-    return term
+
+    return get_terminal("test-agent", role="reader", territory=["."])

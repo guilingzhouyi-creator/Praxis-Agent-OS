@@ -31,6 +31,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/v2/harness/mode",       ".harness_mode_get",   "Get harness mode"),
     ("POST", "/api/v2/harness/mode",      ".harness_mode_set",   "Switch harness mode (minimal needs confirm_risk=true)"),
 
+    # Skill retriever backend (tfidf / embedding)
+    ("GET", "/api/v2/skills/retriever",   ".retriever_backend_get", "Get active skill retriever backend"),
+    ("POST", "/api/v2/skills/retriever",  ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
+
     # Cards
     ("POST", "/api/v2/card",              ".submit_card",        "Submit a card"),
     ("POST", "/api/v2/card/batch",        ".submit_batch",       "Submit batch cards"),

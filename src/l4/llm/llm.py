@@ -280,6 +280,18 @@ class LLMEngine:
         """Return the current provider's name (e.g. 'openai', 'anthropic')."""
         return self.config.provider
 
+    def embed(self, texts: list[str]) -> dict:
+        """Embed texts via the active provider (graceful if unsupported).
+
+        Delegates to ``LLMProvider.embed``; providers without embedding
+        support return ``{"success": False, "error": ...}`` so callers
+        (e.g. the skill retriever) degrade to lexical retrieval.
+        """
+        try:
+            return self._provider.embed(texts)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     @staticmethod
     def _execute_one_tool(tool_def, fn_args, call_id, fn_name, t_start: float = 0.0):
         if tool_def and tool_def.handler:
