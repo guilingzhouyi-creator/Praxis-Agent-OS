@@ -1,6 +1,7 @@
 ---
 name: tool-pipeline
 description: Tool execution pipeline — registration, gating, sandbox staging, result folding
+tags: [execution]
 disable-model-invocation: true
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]
 ---

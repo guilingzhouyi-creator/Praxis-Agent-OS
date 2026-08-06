@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Two-axis review of a diff - Standards (coding standards plus a Fowler smell baseline) and Spec (faithful implementation of the originating issue) - run as parallel passes so neither pollutes the other
+description: Two-axis review of a diff — Standards (coding standards plus a Fowler smell baseline) and Spec (faithful implementation of the originating issue) — run as parallel passes so neither pollutes the other
 tags: [execution]
 disable-model-invocation: true
 allowed-tools: [read_file, list_dir, grep_search, run_tests]

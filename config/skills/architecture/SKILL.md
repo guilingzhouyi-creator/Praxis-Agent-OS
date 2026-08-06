@@ -1,6 +1,7 @@
 ---
 name: architecture
 description: Architecture review — layer constraints, dependency analysis, module boundaries
+tags: [review]
 disable-model-invocation: true
 dependencies: [kernel]
 dependency-kind: soft

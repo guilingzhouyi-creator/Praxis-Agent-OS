@@ -376,7 +376,7 @@ R4_ROLE: Final[str] = "archivist"
 R4_TERRITORY: Final[list[str]] = ["archive", "memory"]
 R4_LEAN_CASES_DEFAULT: Final[int] = 5      # default limit for get_lean_cases
 R4_EVOLVED_SKILLS_DEFAULT: Final[int] = 3  # default limit for get_evolved_skills / graph diffusion
-R4_LEAN_GENERALIZE_THRESHOLD: Final[int] = 3  # per-tool lean cases → auto-generalize into one lessons skill
+R4_LEAN_GENERALIZE_THRESHOLD: Final[int] = 5  # per-tool lean cases → auto-generalize into one lessons skill
 
 # ── R4Agent lesson summarization (LLM) ──
 R4_SUMMARIZE_COOLDOWN: Final[float] = 3600.0   # min gap between LLM summaries per tool (s)
