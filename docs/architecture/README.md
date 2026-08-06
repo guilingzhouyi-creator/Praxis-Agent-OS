@@ -77,6 +77,7 @@ flowchart TB
 | L3 | [l3-memory.md](l3-memory.md) | 4-ring memory + side-channels (Mer / R5 / User Profile) + injection |
 | L3 | [l3a-central.md](l3a-central.md) | L3A decision layer: the central office (sessions, ask, cardwrite, profile) |
 | L3 | [l3-tools.md](l3-tools.md) | 19 tool implementations + tool system (spec/registry/policy/pipeline) |
+| L3 | [l3-bus.md](l3-bus.md) | IPC protocol (20+ message types) + buses + ReferenceChannel causal recorder |
 | L3 | [l3-cell-os.md](l3-cell-os.md) | Cell SoC components (ICache/MMU/PMU/Watchdog/…), boot, lifecycle |
 | L3 | [l3-scheduler.md](l3-scheduler.md) | 5D scheduler (route/pool/time/rate/scope) + safety layers |
 | L3 | [l3-routing.md](l3-routing.md) | HTN intent decomposition + L3B cross-cell routing |
@@ -89,28 +90,29 @@ flowchart TB
 
 | Metric | Value |
 |--------|-------|
-| L1 Kernel | 46 files / 12,390 lines |
-| L2 Shell | 18 files / 2,636 lines |
-| L3 Cell | 225 files / 50,272 lines |
-| L4 Bridge | 69 files / 13,989 lines |
+| L1 Kernel | 46 files / 12,458 lines |
+| L2 Shell | 20 files / 2,741 lines |
+| L3 Cell | 236 files / 50,777 lines |
+| L4 Bridge | 70 files / 14,028 lines |
 | L5 User | 2 files / 489 lines |
-| L3A (peers) | 15 files / 4,015 lines |
-| L3 Memory | 20 files / 5,299 lines |
-| L3 Card | 21 files / 5,505 lines |
+| L3A (peers) | 18 files / 4,109 lines |
+| L3 Memory | 23 files / 5,429 lines |
+| L3 Card | 23 files / 5,550 lines |
 | L3 Services | 34 files / 8,924 lines |
 | L3 Bus | 15 files / 3,583 lines |
-| L3 Agent | 24 files / 4,618 lines |
-| L4 Handlers | 17 files / 3,544 lines |
-| API routes | 263 (`/api/v2/*` versioned) |
+| L3 Agent | 24 files / 4,656 lines |
+| L4 Handlers | 17 files / 3,556 lines |
+| API routes | 265 (`/api/v2/*` versioned) |
 | Route domains | 44 (largest: provider=17, approval=14, fs=14, card=11, memory=11, subagent=11, agent=10) |
-| Params modules / constants | 9 / 889 |
+| Params modules / constants | 9 / 895 |
 
 ## Reading path
 
 1. **New to Praxis**: [l1-kernel.md](l1-kernel.md) → [l3-card-lifecycle.md](l3-card-lifecycle.md) → [l3a-central.md](l3a-central.md)
 2. **Frontend / contract work**: [l4-bridge.md](l4-bridge.md) → [l5-user.md](l5-user.md) → [cross-cutting.md](cross-cutting.md)
 3. **Memory / agents**: [l3-memory.md](l3-memory.md) → [l3-scheduler.md](l3-scheduler.md) → [l3-tools.md](l3-tools.md)
-4. **Governance / QA / skills**: [cross-cutting.md](cross-cutting.md)
+4. **Data / training / buses**: [l3-bus.md](l3-bus.md) → [cross-cutting.md](cross-cutting.md)
+5. **Governance / QA / skills**: [cross-cutting.md](cross-cutting.md)
 
 ## Main data flows
 
@@ -118,6 +120,7 @@ flowchart TB
 INTENT: user will → L3A session (profile reference) → cardwrite → card
 CARD:   produce → execute (plan/agents/tools via GateChain) → approve → complete → R4 archive
 EVENT:  source → EventBus (async) → SSE /api/events + WS :8081 → frontends
+DATA:   gate decisions → ReferenceChannel (JSONL + SHA-256) → training pipelines
 SESSION:send → inbox → loop → history (cursor-paged) → close → archive → resume_from_archive
 ```
 
