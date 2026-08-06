@@ -55,6 +55,12 @@ class YamlI18nAdapter(I18nPort):
 
     def set_locale(self, locale: str) -> None:
         with self._lock:
+            # Contract (I18nPort): unknown locale falls back to "en" so a
+            # bogus /lang argument can never wedge the global adapter.
+            available = self.get_available()
+            if available and locale not in available:
+                logger.warning("i18n_yaml: unknown locale %r, falling back to 'en'", locale)
+                locale = _api_params.I18N_DEFAULT_LOCALE
             self._locale = locale
             self._ensure_loaded(locale)
 
