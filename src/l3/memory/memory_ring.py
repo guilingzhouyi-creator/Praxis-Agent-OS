@@ -3,6 +3,7 @@
 Contains MemEntry, RingLayer, and _estimate_tokens that were split out
 by OpenCode during memory.py refactoring.
 """
+
 from __future__ import annotations
 
 import heapq
@@ -28,13 +29,16 @@ def _estimate_tokens(text: str, provider: str = "") -> int:
     """Token count estimation with optional provider-specific accuracy."""
     try:
         import tiktoken as _tk
+
         enc = _tk.get_encoding("cl100k_base")
         return len(enc.encode(text))
     except Exception as e:
         logger.warning("services/memory: %s", e)
 
     if provider == "anthropic":
-        cjk = sum(1 for c in text if '\u4e00' <= c <= '\u9fff' or '\u3040' <= c <= '\u30ff' or '\uac00' <= c <= '\ud7af')
+        cjk = sum(
+            1 for c in text if "\u4e00" <= c <= "\u9fff" or "\u3040" <= c <= "\u30ff" or "\uac00" <= c <= "\ud7af"
+        )
         eng = len(text) - cjk
         return max(1, eng // 4 + cjk)
 
@@ -44,6 +48,7 @@ def _estimate_tokens(text: str, provider: str = "") -> int:
 @dataclass
 class MemEntry:
     """MemEntry — mem entry record (id, agent_id, entry_type, content, cell_id)."""
+
     id: str
     agent_id: str
     entry_type: str
@@ -120,8 +125,9 @@ class RingLayer:
                 self._tag_index.setdefault(tag, []).append(entry)
             self._evict_if_needed()
 
-    def query(self, agent_id: str | None = None, entry_type: str | None = None,
-              tag: str | None = None, limit: int = 20) -> list[MemEntry]:
+    def query(
+        self, agent_id: str | None = None, entry_type: str | None = None, tag: str | None = None, limit: int = 20
+    ) -> list[MemEntry]:
         """Query entries from the ring layer with optional filters."""
         with self._lock:
             # Use reverse indexes for O(1) lookup by agent/type/tag
@@ -216,5 +222,3 @@ class RingLayer:
             self._type_index.setdefault(e.entry_type, []).append(e)
             for tag in e.tags:
                 self._tag_index.setdefault(tag, []).append(e)
-
-

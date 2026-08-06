@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 def _get_center():
     """Get SettingsCenter singleton."""
     from l3.config.settings_center import get_center
+
     return get_center()
 
 
@@ -69,7 +70,7 @@ def _settings_global(args: list[str]) -> dict:
         center.set(key, value)
         return {"success": True, "scope": "global", "key": key, "value": value}
     # List all L3 (runtime) overrides
-    raw = center._dump_l3() if hasattr(center, '_dump_l3') else {}
+    raw = center._dump_l3() if hasattr(center, "_dump_l3") else {}
     return {"success": True, "scope": "global", "settings": raw}
 
 
@@ -118,8 +119,9 @@ def _settings_scout_pool(cell_id: str = "") -> dict:
     """Query ScoutPool configuration."""
     try:
         from ..agent.scout import get_pool
+
         pool = get_pool()
-        stats = pool.stats() if hasattr(pool, 'stats') else {}
+        stats = pool.stats() if hasattr(pool, "stats") else {}
         return {"success": True, "scope": "pool", "pool_type": "scout", "cell_id": cell_id or "default", "stats": stats}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -129,11 +131,15 @@ def _settings_subagent_pool(cell_id: str = "") -> dict:
     """Query SubAgentPool configuration."""
     try:
         from ..agent.subagent_pool import get_pool
+
         pool = get_pool()
-        stats = pool.stats() if hasattr(pool, 'stats') else {}
-        return {"success": True, "scope": "pool", "pool_type": "subagent", "cell_id": cell_id or "default", "stats": stats}
+        stats = pool.stats() if hasattr(pool, "stats") else {}
+        return {
+            "success": True,
+            "scope": "pool",
+            "pool_type": "subagent",
+            "cell_id": cell_id or "default",
+            "stats": stats,
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-
-

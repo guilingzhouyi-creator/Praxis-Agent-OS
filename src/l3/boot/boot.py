@@ -922,6 +922,15 @@ def _init_services() -> dict:
     except Exception as e:
         logger.warning("log handler install: %s", e)
 
+    # Register the card-triggered CI review daemon (config-gated in praxis.yaml)
+    try:
+        from l4.ci_review import get_service as _get_ci_review
+
+        _get_ci_review().register_card_trigger()
+        results["ci_review"] = "ok"
+    except Exception as e:
+        logger.warning("ci_review trigger register: %s", e)
+
     # Surface real failures (values starting with "error:") instead of hiding them
     failed = [k for k, v in results.items() if isinstance(v, str) and v.startswith("error")]
     if failed:

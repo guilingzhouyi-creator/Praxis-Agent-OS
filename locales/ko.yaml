@@ -329,4 +329,3 @@ think:
   distribution: "배분 모드: {mode}"
   budget: "사고 예산: {budget}"
   effort: "추론 노력: {effort}"
-

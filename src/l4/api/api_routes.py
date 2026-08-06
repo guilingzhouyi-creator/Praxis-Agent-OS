@@ -31,6 +31,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("GET", "/api/v2/harness/mode",       ".harness_mode_get",   "Get harness mode"),
     ("POST", "/api/v2/harness/mode",      ".harness_mode_set",   "Switch harness mode (minimal needs confirm_risk=true)"),
 
+    # Skill retriever backend (tfidf / embedding)
+    ("GET", "/api/v2/skills/retriever",   ".retriever_backend_get", "Get active skill retriever backend"),
+    ("POST", "/api/v2/skills/retriever",  ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
+
     # Cards
     ("POST", "/api/v2/card",              ".submit_card",        "Submit a card"),
     ("POST", "/api/v2/card/batch",        ".submit_batch",       "Submit batch cards"),
@@ -406,4 +410,11 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("DELETE", "/api/v2/skills/{name}",    "l4.api_handlers.api_handlers_skills.handle_skills_delete",       "Delete skill (developer)"),
     ("POST",   "/api/v2/skills/reload",   "l4.api_handlers.api_handlers_skills.handle_skills_reload",       "Reload built-in skills (developer)"),
     ("GET",    "/api/v2/skills/permissions", "l4.api_handlers.api_handlers_skills.handle_skills_permissions", "Skill write-gate policy"),
+
+    # CI review (card-triggered; read-only queries + runtime switch)
+    ("GET",  "/api/v2/ci/reviews",        "l4.api_handlers.api_handlers_ci.handle_ci_reviews",     "Query CI review reports"),
+    ("GET",  "/api/v2/ci/reviews/{card_id}", "l4.api_handlers.api_handlers_ci.handle_ci_review_get", "Single card CI review report"),
+    ("POST", "/api/v2/ci/reviews/{card_id}/rerun", "l4.api_handlers.api_handlers_ci.handle_ci_review_rerun", "Re-run CI review for a card"),
+    ("GET",  "/api/v2/ci/config",         "l4.api_handlers.api_handlers_ci.handle_ci_config_get",  "CI review switch state + permissions"),
+    ("PUT",  "/api/v2/ci/config",         "l4.api_handlers.api_handlers_ci.handle_ci_config_set",  "Toggle CI review runtime switch"),
 ]

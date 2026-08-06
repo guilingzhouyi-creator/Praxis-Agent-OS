@@ -11,8 +11,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.device import DeviceType, get_device_manager
-from l1.kernel.params.agent import (
+from l1.kernel.device import DeviceType, get_device_manager  # noqa: E402  (mid-file import avoids circularity)
+from l1.kernel.params.agent import (  # noqa: E402
     AGENT_CLEARANCE,
     DEFAULT_AGENT_CONFIGS,
     TERRITORY_MAP,
@@ -27,6 +27,7 @@ def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
     import l1.kernel.params.allocator as _alloc_mod
     import l1.kernel.params.kernel as _kernel_mod
     from l1.kernel.params.allocator import ALLOCATOR_DEFAULTS
+
     alloc = cfg.get("allocator", {})
     if "tokens" in alloc:
         ALLOCATOR_DEFAULTS.tokens = int(alloc["tokens"])
@@ -60,6 +61,7 @@ def cfg_cell(cfg: dict, s: Any, results: dict) -> None:
     # directly, so setattr them in addition to mirroring into SettingsCenter L2.
     import l1.kernel.params.agent as _agent_mod
     import l1.kernel.params.system as _sys_mod
+
     term = cfg.get("terminal", {})
     if "workers" in term:
         _agent_mod.TERMINAL_MAX_WORKERS = int(term["workers"])
@@ -95,6 +97,7 @@ def cfg_llm(cfg: dict, s: Any, results: dict) -> None:
     cache_cfg = cfg.get("cache", {})
     if cache_cfg:
         from .cache_strategy import load_cache_config
+
         load_cache_config(cache_cfg)
         results["llm_cache"] = len(cache_cfg)
     results["llm"] = True
@@ -108,6 +111,7 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
     """
     import l1.kernel.params.agent as _agent_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     if "file_actions" in cfg:
         val = frozenset(cfg["file_actions"])
         _agent_mod.CONSTITUTION_FILE_ACTIONS = val
@@ -134,6 +138,7 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
     if rules:
         try:
             from l1.kernel.constitution import get_constitution
+
             c = get_constitution()
             s.set_l2("constitution.custom_rules", rules)
             c.update_rules(rules)
@@ -147,6 +152,7 @@ def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
     import l1.kernel.params.gatechain as _gatechain_mod
     import l1.kernel.params.kernel as _kernel_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     if "danger_levels" in cfg:
         _gatechain_mod.GATECHAIN_DANGER_LEVELS.clear()
         _gatechain_mod.GATECHAIN_DANGER_LEVELS.update(cfg["danger_levels"])
@@ -178,6 +184,7 @@ def cfg_tool_rates(cfg: dict, s: Any, results: dict) -> None:
     """
     import l1.kernel.params.tool as _tool_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     _rate_map = {
         "ring_1": "TOOL_RATE_RING_1",
         "ring_2_5": "TOOL_RATE_RING_2_5",
@@ -199,6 +206,7 @@ def cfg_tool(cfg: dict, s: Any, results: dict) -> None:
     """
     import l1.kernel.params.tool as _tool_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     _timeout_map = {
         "web_timeout": "TOOL_WEB_TIMEOUT",
         "search_timeout": "TOOL_SEARCH_TIMEOUT",
@@ -219,8 +227,7 @@ def cfg_tool(cfg: dict, s: Any, results: dict) -> None:
             s.set_l2(f"tool.{yaml_key}", cfg[yaml_key])
     # Build/test detectors: praxis.yaml uses list-of-lists; discovery uses
     # {name: {cmd: [...]}}. Convert for get_config("build_detectors").
-    for yaml_key, params_attr in (("build_detectors", "BUILD_DETECTORS"),
-                                  ("test_detectors", "TEST_DETECTORS")):
+    for yaml_key, params_attr in (("build_detectors", "BUILD_DETECTORS"), ("test_detectors", "TEST_DETECTORS")):
         if yaml_key in cfg and isinstance(cfg[yaml_key], list):
             cmds = [tuple(c) if isinstance(c, (list, tuple)) else (c,) for c in cfg[yaml_key]]
             setattr(_tool_mod, params_attr, cmds)
@@ -238,6 +245,7 @@ def cfg_persistence(cfg: dict, s: Any, results: dict) -> None:
     """
     import l1.kernel.params.system as _sys_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     _persist_map = {
         "auto_save": "PERSIST_AUTO",
         "interval": "PERSIST_INTERVAL",
@@ -269,6 +277,7 @@ def cfg_services(cfg: dict, s: Any, results: dict) -> None:
     """
     import l1.kernel.params.api as _api_mod
     from l1.kernel.discovery import set_config as _set_cfg
+
     _svc_map = {
         "lsp_manager_timeout": "LSP_MANAGER_TIMEOUT",
         "lsp_long_timeout": "LSP_MANAGER_LONG_TIMEOUT",
@@ -298,6 +307,7 @@ def cfg_card_pool(cfg: dict, s: Any, results: dict) -> None:
     No runtime consumer yet — expose to SettingsCenter L2 for API querying.
     """
     from l3.config.settings_center import get_center
+
     center = get_center()
     if isinstance(cfg, dict):
         for k, v in cfg.items():
@@ -307,15 +317,18 @@ def cfg_card_pool(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_htn(cfg: dict, s: Any, results: dict) -> None:
     import l1.kernel.params.tool as _tool_mod
+
     if "domain_prefix" in cfg:
         _tool_mod.HTN_DOMAIN_PREFIX = cfg["domain_prefix"]
     if "tools" in cfg:
-        _tool_mod.HTN_DEFAULT_TOOLS.clear(); _tool_mod.HTN_DEFAULT_TOOLS.update(cfg["tools"])
+        _tool_mod.HTN_DEFAULT_TOOLS.clear()
+        _tool_mod.HTN_DEFAULT_TOOLS.update(cfg["tools"])
     results["htn"] = True
 
 
 def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
     import l1.kernel.params.system as _sys_mod
+
     if "max_entries" in cfg:
         _sys_mod.FILE_CACHE_MAX_ENTRIES = int(cfg["max_entries"])
     if "max_size_mb" in cfg:
@@ -341,20 +354,12 @@ def cfg_memory(cfg: dict, s: Any, results: dict) -> None:
     results["memory"] = True
 
 
-def cfg_persist(cfg: dict, s: Any, results: dict) -> None:
-    import l1.kernel.params.system as _sys_mod
-    if "enabled" in cfg:
-        _sys_mod.PERSIST_AUTO = bool(cfg["enabled"])
-    if "interval" in cfg:
-        _sys_mod.PERSIST_INTERVAL = float(cfg["interval"])
-    results["persist"] = True
-
-
 def cfg_network(cfg: dict, s: Any, results: dict) -> None:
     import os as _os
 
     import l1.kernel.params.api as _api_mod
     import l1.kernel.params.system as _sys_mod
+
     if "discovery_port" in cfg:
         _os.environ["PRAXIS_DISCOVERY_PORT"] = str(cfg["discovery_port"])
         _api_mod.DISCOVERY_PORT_DEFAULT = int(cfg["discovery_port"])
@@ -375,6 +380,7 @@ def cfg_network(cfg: dict, s: Any, results: dict) -> None:
 def cfg_api(cfg: dict, s: Any, results: dict) -> None:
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     from l4.api.api_gateway import start_api
+
     host = cfg.get("host", API_GATEWAY_HOST)
     port = int(cfg.get("port", API_GATEWAY_PORT))
     token = cfg.get("auth_token", "")
@@ -382,12 +388,14 @@ def cfg_api(cfg: dict, s: Any, results: dict) -> None:
     mcp_mode = cfg.get("mcp_mode", "")
     if mcp_mode:
         from l4.api_handlers.api_handlers_mcp import set_export_mode
+
         set_export_mode(mcp_mode)
     # api.routes — external route registrations (see api_gateway.load_routes_from_yaml)
     routes = cfg.get("routes") or []
     if isinstance(routes, list):
         try:
             from l4.api.api_gateway import load_routes_from_yaml
+
             r = load_routes_from_yaml(routes)
             results["api_routes"] = r.get("loaded", 0)
         except Exception as e:
@@ -399,6 +407,7 @@ def cfg_card_gate(cfg: dict, s: Any, results: dict) -> None:
     """Load card gate config from praxis.yaml → card_gate: section."""
     try:
         from l3.card.card_gate import load_config
+
         load_config(cfg if isinstance(cfg, dict) else {})
         results["card_gate"] = True
     except Exception as e:
@@ -409,6 +418,7 @@ def cfg_prompts(cfg: dict, s: Any, results: dict) -> None:
     """Load prompt template overrides from praxis.yaml prompts: section."""
     try:
         from l1.kernel.prompts import load_prompt_overrides
+
         load_prompt_overrides(cfg if isinstance(cfg, dict) else {})
         results["prompts"] = len(cfg) if isinstance(cfg, dict) else 0
     except Exception as e:
@@ -418,6 +428,7 @@ def cfg_prompts(cfg: dict, s: Any, results: dict) -> None:
 def cfg_content_trust(cfg: dict, s: Any, results: dict) -> None:
     """Load content trust policies from praxis.yaml -> content_trust: section."""
     from l3.services.content_trust import load_policies
+
     load_policies(cfg if isinstance(cfg, dict) else {})
     results["content_trust"] = len(cfg) if isinstance(cfg, dict) else 0
 
@@ -425,6 +436,7 @@ def cfg_content_trust(cfg: dict, s: Any, results: dict) -> None:
 def cfg_card_types(cfg: dict, s: Any, results: dict) -> None:
     """Load card type definitions from praxis.yaml → card_types: section."""
     from l3.card.card_unified import load_card_types
+
     load_card_types(cfg if isinstance(cfg, dict) else {})
     results["card_types"] = len(cfg) if isinstance(cfg, dict) else 0
 
@@ -432,6 +444,7 @@ def cfg_card_types(cfg: dict, s: Any, results: dict) -> None:
 def cfg_mcp(cfg: dict, s: Any, results: dict) -> None:
     """Import MCP servers from praxis.yaml mcp.servers section."""
     from l4.mcp_bridge import McpClient, get_bridge
+
     if not cfg:
         results["mcp_servers"] = 0
         return
@@ -495,6 +508,7 @@ def cfg_commands(cfg: dict, s: Any, results: dict) -> None:
             response: "hello world"
     """
     from l1.kernel.commands import get_registry
+
     reg = get_registry()
 
     # Separate overrides from new command registrations
@@ -507,13 +521,18 @@ def cfg_commands(cfg: dict, s: Any, results: dict) -> None:
             htype = handler_spec.get("type", "echo")
             response = handler_spec.get("response", f"{name}: ok")
             if htype == "echo":
+
                 def _make_echo(resp):
                     return lambda args: {"success": True, "output": resp}
+
                 reg.register_user(name, _make_echo(response), meta)
             elif htype == "l3_intent":
+
                 def _make_l3():
                     from l2.l2_shell import dispatch as _d
+
                     return lambda args: _d("/" + " ".join(args))
+
                 reg.register_user(name, _make_l3(), meta)
             custom_count += 1
         else:
@@ -540,6 +559,7 @@ def cfg_credentials(cfg: dict, s: Any, results: dict) -> None:
     """
     try:
         from l4.vault.credential_vault import set_credential
+
         count = 0
         for provider, keys in (cfg or {}).items():
             for key_name, value in keys.items():
@@ -555,6 +575,7 @@ def cfg_api_routes(cfg: dict, s: Any, results: dict) -> None:
     """Load external API routes from praxis.yaml api.routes section."""
     try:
         from l4.api.api_gateway import load_routes_from_yaml
+
         r = load_routes_from_yaml(cfg if isinstance(cfg, list) else [])
         results["api_routes"] = r.get("loaded", 0)
     except Exception as e:
@@ -563,25 +584,30 @@ def cfg_api_routes(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_devices(cfg: dict, s: Any, results: dict) -> None:
     dm = get_device_manager()
-    for d in (cfg if isinstance(cfg, list) else []):
+    for d in cfg if isinstance(cfg, list) else []:
         name = d.get("name", "")
         dtype_name = d.get("type", "CUSTOM").upper()
-        try: dtype = DeviceType[dtype_name]
-        except Exception: dtype = DeviceType.CUSTOM
+        try:
+            dtype = DeviceType[dtype_name]
+        except Exception:
+            dtype = DeviceType.CUSTOM
         dm.register(name, dtype, rate_limit=d.get("rate_limit", 10), description=d.get("description", ""))
     results["devices"] = len(cfg) if isinstance(cfg, list) else 0
 
 
 def cfg_territories(cfg: dict, s: Any, results: dict) -> None:
-    TERRITORY_MAP.clear(); TERRITORY_PATHS.clear()
+    TERRITORY_MAP.clear()
+    TERRITORY_PATHS.clear()
     for role, paths in cfg.items():
         TERRITORY_PATHS[role] = paths
-        for p in paths: TERRITORY_MAP[p] = role
+        for p in paths:
+            TERRITORY_MAP[p] = role
     results["territories"] = len(cfg)
 
 
 def cfg_clearance(cfg: dict, s: Any, results: dict) -> None:
-    AGENT_CLEARANCE.clear(); AGENT_CLEARANCE.update(cfg)
+    AGENT_CLEARANCE.clear()
+    AGENT_CLEARANCE.update(cfg)
     results["clearance"] = len(cfg)
 
 
@@ -597,6 +623,7 @@ def cfg_agent_role_map(cfg: dict, s: Any, results: dict) -> None:
     Maps tool ring level → agent role name for HTN-C inference.
     """
     from l1.kernel.params.agent import AGENT_ROLE_MAP
+
     role_map = dict(AGENT_ROLE_MAP)
     for ring_str, role in cfg.items():
         try:
@@ -616,6 +643,7 @@ def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
         reviewer: 5
     """
     from l1.kernel.params.agent import AGENT_PRIORITY
+
     priority = dict(AGENT_PRIORITY)
     priority.update(cfg)
     results["agent_priority"] = len(cfg)
@@ -623,6 +651,7 @@ def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_agents(cfg: dict, s: Any, results: dict) -> None:
     from l1.kernel.params.agent import AgentDefaults
+
     for role, cdict in cfg.items():
         mc = cdict.get("model_config", None)
         spk = cdict.get("system_prompt_key", "")
@@ -638,6 +667,7 @@ def cfg_agents(cfg: dict, s: Any, results: dict) -> None:
 def cfg_think(cfg: dict, s: Any, results: dict) -> None:
     """Load think quota max budget / max reasoning from praxis.yaml think: section."""
     from l3.config.settings_center import get_center
+
     center = get_center()
     if "max_budget" in cfg:
         center.set_l2("think.max_budget", int(cfg["max_budget"]))
@@ -651,6 +681,7 @@ def cfg_think(cfg: dict, s: Any, results: dict) -> None:
 def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
     """Load loop control parameters from praxis.yaml loop_control: section."""
     from l3.config.settings_center import get_center
+
     center = get_center()
     mapping = {
         "max_steps": "loop.max_steps",
@@ -678,6 +709,7 @@ def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
 def cfg_l3a(cfg: dict, s: Any, results: dict) -> None:
     """Load L3A session limits from praxis.yaml l3a: section."""
     from l3.config.settings_center import get_center
+
     center = get_center()
     mapping = {
         "max_steps": "l3a.max_steps",
@@ -707,6 +739,7 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
     """
     from l1.kernel.skill import get_skill_manager
     from l3.config.settings_center import get_center
+
     center = get_center()
     if isinstance(cfg, dict):
         if "write_min_ring" in cfg:
@@ -718,12 +751,15 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
             center.set_l2("skill.write_roles", [r for r in cfg["write_roles"] if isinstance(r, str)])
         if "evolve_scope" in cfg and cfg["evolve_scope"] in ("project", "global"):
             center.set_l2("skill.evolve_scope", cfg["evolve_scope"])
+        if "retriever_backend" in cfg and cfg["retriever_backend"] in ("tfidf", "embedding"):
+            center.set_l2("skill.retriever_backend", cfg["retriever_backend"])
         if "project_dirs" in cfg and isinstance(cfg["project_dirs"], list):
             center.set_l2("skill.project_dirs", cfg["project_dirs"])
             # Push extra discovery dirs into the paths singleton so
             # load_builtin() finds project skills at boot.
             try:
                 from l1.kernel.paths import get_paths
+
                 p = get_paths()
                 existing = list(getattr(p, "skill_dirs", []) or [])
                 for d in cfg["project_dirs"]:
@@ -741,6 +777,7 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
 
 def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
     from l3.config.settings_center import get_center
+
     center = get_center()
     if "mode" in cfg:
         center.set_l2("diff.mode", str(cfg["mode"]))
@@ -750,6 +787,7 @@ def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
         center.set_l2("diff.colors", cfg["colors"])
         try:
             from l4.sandbox.cell_sandbox import set_color_scheme
+
             set_color_scheme(cfg["colors"])
         except Exception:
             logger.warning("config: diff color scheme apply failed", exc_info=True)
@@ -771,10 +809,12 @@ def cfg_language(cfg: Any, s: Any, results: dict) -> None:
         results["language"] = False
         return
     import l1.kernel.params.api as _api_mod
+
     _api_mod.I18N_DEFAULT_LOCALE = lang
     s.set_l2("language", lang)
     try:
         from l1.kernel.ports import get_port
+
         i18n = get_port("i18n")
         if i18n is not None and hasattr(i18n, "set_locale"):
             i18n.set_locale(lang)

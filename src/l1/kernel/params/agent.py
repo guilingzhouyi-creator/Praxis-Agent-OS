@@ -5,72 +5,111 @@ from typing import Any, Final
 
 # ── Constitution rules ──
 
+
 @dataclass
 class ConstitutionRuleDef:
     """ConstitutionRuleDef — constitution rule def record (section, severity, description)."""
+
     section: str
     severity: str  # MUST | SHOULD | MAY
     description: str
 
 
 BUILTIN_RULE_DEFS: Final[list[ConstitutionRuleDef]] = [
-    ConstitutionRuleDef(section="§2.3", severity="MUST",
-                        description="Agent must not write outside its territory"),
-    ConstitutionRuleDef(section="§3.1", severity="MUST",
-                        description="Agent must not read files outside its territory without L3 approval"),
-    ConstitutionRuleDef(section="§3.3", severity="MUST",
-                        description="All tool calls must pass GateChain G1-G5"),
-    ConstitutionRuleDef(section="§3.4", severity="MUST",
-                        description="Cross-unit tool calls require G5 approval"),
-    ConstitutionRuleDef(section="§4.5", severity="MUST",
-                        description="All modifications must go through sandbox (no direct writes)"),
-    ConstitutionRuleDef(section="§4.6", severity="MUST",
-                        description="All modifications must be reviewable by L3 before flush"),
-    ConstitutionRuleDef(section="§4.7", severity="MUST",
-                        description="No Agent may modify the constitution itself"),
-    ConstitutionRuleDef(section="§5.1", severity="MUST",
-                        description="All tool calls must be logged with audit trail"),
-    ConstitutionRuleDef(section="§5.2", severity="SHOULD",
-                        description="All decisions must be recorded in memory Ring 2"),
-    ConstitutionRuleDef(section="§6.1", severity="MUST",
-                        description="Cross-territory changes require peer review"),
-    ConstitutionRuleDef(section="§6.2", severity="MUST",
-                        description="L3 is the final arbiter of all disputes"),
-    ConstitutionRuleDef(section="§7.1", severity="MUST",
-                        description="Scouts are read-only and depth=1"),
-    ConstitutionRuleDef(section="§7.2", severity="SHOULD",
-                        description="Scout findings must be logged before disposal"),
-    ConstitutionRuleDef(section="§8.1", severity="MUST",
-                        description="Agent context must be built from Ring memory, not raw output"),
-    ConstitutionRuleDef(section="§8.2", severity="SHOULD",
-                        description="Important decisions must be persisted to Ring 3 (long-term)"),
+    ConstitutionRuleDef(section="§2.3", severity="MUST", description="Agent must not write outside its territory"),
+    ConstitutionRuleDef(
+        section="§3.1",
+        severity="MUST",
+        description="Agent must not read files outside its territory without L3 approval",
+    ),
+    ConstitutionRuleDef(section="§3.3", severity="MUST", description="All tool calls must pass GateChain G1-G5"),
+    ConstitutionRuleDef(section="§3.4", severity="MUST", description="Cross-unit tool calls require G5 approval"),
+    ConstitutionRuleDef(
+        section="§4.5", severity="MUST", description="All modifications must go through sandbox (no direct writes)"
+    ),
+    ConstitutionRuleDef(
+        section="§4.6", severity="MUST", description="All modifications must be reviewable by L3 before flush"
+    ),
+    ConstitutionRuleDef(section="§4.7", severity="MUST", description="No Agent may modify the constitution itself"),
+    ConstitutionRuleDef(section="§5.1", severity="MUST", description="All tool calls must be logged with audit trail"),
+    ConstitutionRuleDef(
+        section="§5.2", severity="SHOULD", description="All decisions must be recorded in memory Ring 2"
+    ),
+    ConstitutionRuleDef(section="§6.1", severity="MUST", description="Cross-territory changes require peer review"),
+    ConstitutionRuleDef(section="§6.2", severity="MUST", description="L3 is the final arbiter of all disputes"),
+    ConstitutionRuleDef(section="§7.1", severity="MUST", description="Scouts are read-only and depth=1"),
+    ConstitutionRuleDef(section="§7.2", severity="SHOULD", description="Scout findings must be logged before disposal"),
+    ConstitutionRuleDef(
+        section="§8.1", severity="MUST", description="Agent context must be built from Ring memory, not raw output"
+    ),
+    ConstitutionRuleDef(
+        section="§8.2", severity="SHOULD", description="Important decisions must be persisted to Ring 3 (long-term)"
+    ),
 ]
 
 # ── Constitution action sets (overridable via praxis.yaml constitution:) ──
-CONSTITUTION_FILE_ACTIONS: frozenset[str] = frozenset({
-    "read", "read_file", "grep", "grep_search", "list", "list_dir",
-    "search", "find", "stat",
-})
-CONSTITUTION_MODIFY_ACTIONS: frozenset[str] = frozenset({
-    "write", "write_file", "edit", "replace", "replace_string",
-    "delete", "rename", "create", "create_file", "format",
-    "run", "run_in_terminal",
-})
-CONSTITUTION_GATE_ACTIONS: frozenset[str] = frozenset({
-    "run_in_terminal", "deploy", "db_migrate",
-    "user_delete", "delete_user", "destroy",
-})
-CONSTITUTION_SCOUT_BLOCKED: frozenset[str] = frozenset({
-    "write", "write_file", "edit", "replace", "replace_string",
-    "delete", "rename", "create", "create_file", "format",
-})
+CONSTITUTION_FILE_ACTIONS: frozenset[str] = frozenset(
+    {
+        "read",
+        "read_file",
+        "grep",
+        "grep_search",
+        "list",
+        "list_dir",
+        "search",
+        "find",
+        "stat",
+    }
+)
+CONSTITUTION_MODIFY_ACTIONS: frozenset[str] = frozenset(
+    {
+        "write",
+        "write_file",
+        "edit",
+        "replace",
+        "replace_string",
+        "delete",
+        "rename",
+        "create",
+        "create_file",
+        "format",
+        "run",
+        "run_in_terminal",
+    }
+)
+CONSTITUTION_GATE_ACTIONS: frozenset[str] = frozenset(
+    {
+        "run_in_terminal",
+        "deploy",
+        "db_migrate",
+        "user_delete",
+        "delete_user",
+        "destroy",
+    }
+)
+CONSTITUTION_SCOUT_BLOCKED: frozenset[str] = frozenset(
+    {
+        "write",
+        "write_file",
+        "edit",
+        "replace",
+        "replace_string",
+        "delete",
+        "rename",
+        "create",
+        "create_file",
+        "format",
+    }
+)
 
 
 # ── Agent identity (fully configurable, not a fixed enum) ──
 
+
 @dataclass
 class AgentDefaults:
     """AgentDefaults — agent defaults record (max_scouts, max_tokens, max_workers, priority, ring)."""
+
     max_scouts: int = 3
     max_tokens: int = 4096
     max_workers: int = 4
@@ -82,9 +121,9 @@ class AgentDefaults:
 
 DEFAULT_AGENT_CONFIGS: Final[dict[str, AgentDefaults]] = {
     "default": AgentDefaults(max_scouts=3, max_tokens=4096, max_workers=4, priority=5, ring=1),
-    "scout":   AgentDefaults(max_scouts=0, max_tokens=2048, max_workers=1, priority=5, ring=1),
-    "l3":      AgentDefaults(max_scouts=0, max_tokens=2048, max_workers=2, priority=1, ring=3),
-    "human":   AgentDefaults(max_scouts=0, max_tokens=0,    max_workers=0, priority=0, ring=0),
+    "scout": AgentDefaults(max_scouts=0, max_tokens=2048, max_workers=1, priority=5, ring=1),
+    "l3": AgentDefaults(max_scouts=0, max_tokens=2048, max_workers=2, priority=1, ring=3),
+    "human": AgentDefaults(max_scouts=0, max_tokens=0, max_workers=0, priority=0, ring=0),
 }
 
 # ── Agent fallback defaults (used when no role config matches) ──
@@ -97,8 +136,13 @@ CENTRAL_DEFAULT_ROLES: list[str] = ["reader", "writer", "reviewer"]
 
 # ── Agent role types for model configuration (used by L2 /model commands) ──
 AGENT_ROLE_TYPES: list[str] = [
-    "peer_agent", "subagent.default", "scout", "r4_agent",
-    "convention", "card_planner", "l3a",
+    "peer_agent",
+    "subagent.default",
+    "scout",
+    "r4_agent",
+    "convention",
+    "card_planner",
+    "l3a",
 ]
 
 
@@ -106,20 +150,20 @@ AGENT_ROLE_TYPES: list[str] = [
 
 AGENT_CLEARANCE: dict[str, int] = {
     "default": 3,
-    "scout":   1,
-    "l3":      3,
+    "scout": 1,
+    "l3": 3,
 }
 
 
 # ── Agent scheduling priority (role → scheduler priority, 1-10) ──
 # Config-driven via praxis.yaml agents: section or API.
 AGENT_PRIORITY: dict[str, int] = {
-    "default":  5,
-    "reader":   5,
-    "writer":   5,
+    "default": 5,
+    "reader": 5,
+    "writer": 5,
     "reviewer": 5,
-    "scout":    5,
-    "l3":       5,
+    "scout": 5,
+    "l3": 5,
     "deployer": 5,
 }
 
@@ -142,10 +186,10 @@ SHARED_PATHS: Final[list[str]] = []
 # ── Agent reputation defaults ──
 
 AGENT_REPUTATION_DEFAULTS: Final[dict[str, float]] = {
-    "default":  0.85,
+    "default": 0.85,
     "security": 0.95,
-    "scout":    0.80,
-    "reader":   0.70,
+    "scout": 0.80,
+    "reader": 0.70,
 }
 
 # ── Reputation delta constants (moved from reputation.py) ──
@@ -197,8 +241,8 @@ SCOUT_RING_LIMIT: Final[str] = "RING_1"
 CONSTITUTION_SHARED_KEYWORD: Final[str] = "shared"
 CONSTITUTION_CUSTOM_SECTION: Final[str] = "§custom"
 
-import os as _os
-import tempfile as _tf
+import os as _os  # noqa: E402  (mid-file import avoids params circularity)
+import tempfile as _tf  # noqa: E402
 
 _SANDBOX_DEFAULT = _os.path.join(_tf.gettempdir(), "praxis-sandbox")
 SANDBOX_ROOT_PATH: Final[str] = _os.environ.get("PRAXIS_SANDBOX_ROOT", _SANDBOX_DEFAULT)
@@ -233,7 +277,7 @@ LOOP_FOLD_LIST_PREVIEW: Final[int] = 15
 LOOP_LEAN_CASES_LIMIT: Final[int] = 3
 LOOP_EVOLVED_SKILLS_LIMIT: Final[int] = 2
 AGENT_LOOP_UNLIMITED_STEPS: Final[int] = 999999  # sentinel for unlimited loop steps
-AGENT_LOOP_CONTEXT_TB_LIMIT: Final[int] = 50000   # tool-result chars that trigger stub compaction
+AGENT_LOOP_CONTEXT_TB_LIMIT: Final[int] = 50000  # tool-result chars that trigger stub compaction
 LOOP_EVOLVED_SKILL_TRUNC: Final[int] = 300
 LOOP_COMPACTION_THRESHOLD: Final[int] = 50000
 LOOP_STEP_RESULT_TRUNC: Final[int] = 200
@@ -265,9 +309,20 @@ CARD_GATE_SMALL_MAX_LINES: Final[int] = 50
 CARD_GATE_MEDIUM_MAX_FILES: Final[int] = 5
 CARD_GATE_MEDIUM_MAX_LINES: Final[int] = 200
 CARD_GATE_ARCH_KEYWORDS: Final[list[str]] = [
-    "architecture", "redesign", "refactor", "migration", "restructure",
-    "reorganize", "extract", "split", "merge module",
-    "架构", "重构", "重设计", "迁移", "拆分",
+    "architecture",
+    "redesign",
+    "refactor",
+    "migration",
+    "restructure",
+    "reorganize",
+    "extract",
+    "split",
+    "merge module",
+    "架构",
+    "重构",
+    "重设计",
+    "迁移",
+    "拆分",
 ]
 CARD_GATE_APPROVAL_TIMEOUT: Final[float] = 3600.0
 CARD_GATE_CONVENTION_TIMEOUT: Final[float] = 7200.0
@@ -374,15 +429,32 @@ R4_CONSISTENCY_SCAN_LIMIT: Final[int] = 20
 R4_AGENT_ID: Final[str] = "r4-agent"
 R4_ROLE: Final[str] = "archivist"
 R4_TERRITORY: Final[list[str]] = ["archive", "memory"]
-R4_LEAN_CASES_DEFAULT: Final[int] = 5      # default limit for get_lean_cases
+R4_LEAN_CASES_DEFAULT: Final[int] = 5  # default limit for get_lean_cases
 R4_EVOLVED_SKILLS_DEFAULT: Final[int] = 3  # default limit for get_evolved_skills / graph diffusion
 R4_LEAN_GENERALIZE_THRESHOLD: Final[int] = 5  # per-tool lean cases → auto-generalize into one lessons skill
 
 # ── R4Agent lesson summarization (LLM) ──
-R4_SUMMARIZE_COOLDOWN: Final[float] = 3600.0   # min gap between LLM summaries per tool (s)
+R4_SUMMARIZE_COOLDOWN: Final[float] = 3600.0  # min gap between LLM summaries per tool (s)
 R4_SUMMARIZE_MIN_INTERVAL: Final[float] = 60.0  # min gap between ANY two LLM summaries (s)
 R4_SUMMARIZE_MAX_TOKENS: Final[int] = 512
-R4_SUMMARIZE_MIN_LEN: Final[int] = 20           # quality floor for accepted lessons
+R4_SUMMARIZE_MIN_LEN: Final[int] = 20  # quality floor for accepted lessons
+
+# ── R4Agent failure reflection (Reflexion-style) ──
+R4_REFLECTION_ENABLED: Final[bool] = True  # LLM failure attribution/reflection on lean cases
+R4_REFLECTION_COOLDOWN: Final[float] = 3600.0  # min gap between LLM reflections per tool (s)
+R4_REFLECTION_MAX_TOKENS: Final[int] = 512
+R4_REFLECTION_MIN_LEN: Final[int] = 20  # quality floor for accepted reflections
+
+# ── R4Agent skill retrieval (task-similarity injection) ──
+R4_RETRIEVAL_ENABLED: Final[bool] = True  # rank evolved skills by task similarity before injection
+R4_RETRIEVAL_BACKEND_DEFAULT: Final[str] = "tfidf"  # initial retriever backend (config skill.retriever_backend overrides)
+R4_RETRIEVAL_TOP_K: Final[int] = 3  # top-K skills injected by similarity (fallback: loaded_at order)
+R4_RETRIEVAL_MIN_SCORE: Final[float] = 0.05  # similarity floor below which fallback order is used
+
+# ── R4Agent curation (Critic + contribution + retirement) ──
+R4_CURATION_ENABLED: Final[bool] = True  # evaluate evolved skills by contribution, retire under-performers
+R4_CONTRIB_MIN_TRIALS: Final[int] = 5  # minimum injections before a contribution verdict counts
+R4_CONTRIB_MIN_RATIO: Final[float] = 0.1  # useful/injected below this → retire (with enough trials)
 
 # ── CardBuilder default modes ──
 CARD_BUILDER_MODES: Final[dict[str, str]] = {
@@ -417,9 +489,6 @@ INJECTION_LENGTH_BOOST: Final[float] = 0.2
 """Extra score added when message exceeds length threshold."""
 
 
-
-
-
 # ── Convention protocol ──
 CONVENTION_MAX_ROUNDS: Final[int] = 2
 CONVENTION_MAX_AGENTS: Final[int] = 16
@@ -438,6 +507,7 @@ Activated by convene(), restored to isolated by close_convention()."""
 
 # ── Territory → role resolution ──
 
+
 def role_for_domain(domain: str, fallback: str = "default") -> str:
     for prefix, role in TERRITORY_MAP.items():
         if domain.startswith(prefix):
@@ -447,12 +517,13 @@ def role_for_domain(domain: str, fallback: str = "default") -> str:
 
 # ── Priority gradient (config-driven ──
 PRIORITY_GRADIENT: Final[dict[str, int]] = {
-    "critical":   10,
-    "high":       8,
-    "normal":     5,
-    "low":        3,
-    "trivial":    1,
+    "critical": 10,
+    "high": 8,
+    "normal": 5,
+    "low": 3,
+    "trivial": 1,
 }
+
 
 def resolve_priority(value: Any, default: int = 5) -> int:
     if isinstance(value, int):

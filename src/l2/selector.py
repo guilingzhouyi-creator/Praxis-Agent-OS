@@ -72,9 +72,11 @@ _INJECTION_PATTERNS: list[tuple[re.Pattern, float]] = [
 
 # ── Agent identity ──
 
+
 @dataclass
 class AgentIdentity:
     """Identifies a Peer Agent across Cells."""
+
     cell_id: str = ""
     agent_id: str = ""
     role: str = ""
@@ -87,6 +89,7 @@ class AgentIdentity:
 
 # ── PreSelector: scan all Cells ──
 
+
 def preselect() -> dict:
     """Scan all registered Cells, collect agent rosters with status.
 
@@ -98,6 +101,7 @@ def preselect() -> dict:
 
     try:
         from l3.cell import get_cells
+
         cells = get_cells()
     except Exception as e:
         logger.warning("preselect: get_cells failed: %s", e)
@@ -108,14 +112,16 @@ def preselect() -> dict:
         try:
             liveness = cell.liveness()
             for aid, ainfo in liveness.get("agents", {}).items():
-                agents.append({
-                    "cell_id": cell_id,
-                    "agent_id": aid,
-                    "role": ainfo.get("role", ainfo.get("status", "?")),
-                    "status": ainfo.get("status", "unknown"),
-                    "alive": ainfo.get("alive", False),
-                    "territory": liveness.get("territory", []),
-                })
+                agents.append(
+                    {
+                        "cell_id": cell_id,
+                        "agent_id": aid,
+                        "role": ainfo.get("role", ainfo.get("status", "?")),
+                        "status": ainfo.get("status", "unknown"),
+                        "alive": ainfo.get("alive", False),
+                        "territory": liveness.get("territory", []),
+                    }
+                )
         except Exception as e:
             logger.warning("preselect cell %s: %s", cell_id, e)
             capture("preselect cell failed", error_code="E_PRESELECT", component="l2", context={"cell_id": cell_id})
@@ -139,7 +145,12 @@ def _rebuild_role_index(cells: dict) -> None:
                 idx.setdefault(role, []).append((cell_id, aid))
         except Exception as e:
             logger.warning("preselect cell %s: %s", cell_id, e)
-            capture("preselect cell role_index failed", error_code="E_PRESELECT", component="l2", context={"cell_id": cell_id})
+            capture(
+                "preselect cell role_index failed",
+                error_code="E_PRESELECT",
+                component="l2",
+                context={"cell_id": cell_id},
+            )
             continue
     with _role_index_lock:
         _role_index = idx
@@ -148,8 +159,8 @@ def _rebuild_role_index(cells: dict) -> None:
 
 # ── Selector: route to specific agent ──
 
-def select(cell_id: str = "", agent_id: str = "",
-           role: str = "", domain: str = "") -> dict:
+
+def select(cell_id: str = "", agent_id: str = "", role: str = "", domain: str = "") -> dict:
     """Select a specific agent by cell_id + agent_id, or by role/domain.
 
     Returns:
@@ -172,6 +183,7 @@ def select(cell_id: str = "", agent_id: str = "",
 
 # ── PreConnect verification ──
 
+
 def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
     """Verify connection is healthy and message is safe before routing.
 
@@ -189,6 +201,7 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
     # 1. Cell liveness
     try:
         from l3.cell import get_cell
+
         cell = get_cell(cell_id)
         liveness = cell.liveness()
         if liveness.get("overall") == "unreachable":
@@ -234,25 +247,35 @@ def preconnect(cell_id: str, agent_id: str, message: str = "") -> dict:
 
 # ── Internal ──
 
+
 def _select_by_id(agent_id: str) -> dict:
     """Find an agent by ID across all Cells.  Returns {"success", "cell_id", "agent_id"}."""
     from l3.cell import get_cells
+
     for cell_id, cell in get_cells().items():
         try:
             r = cell.agent_reachable(agent_id)
             if r.get("reachable"):
                 return {
-                    "success": True, "cell_id": cell_id, "agent_id": agent_id,
+                    "success": True,
+                    "cell_id": cell_id,
+                    "agent_id": agent_id,
                 }
         except Exception as e:
             logger.warning("select_by_id %s/%s: %s", cell_id, agent_id, e)
-            capture("select_by_id failed", error_code="E_SELECT", component="l2", context={"cell_id": cell_id, "agent_id": agent_id})
+            capture(
+                "select_by_id failed",
+                error_code="E_SELECT",
+                component="l2",
+                context={"cell_id": cell_id, "agent_id": agent_id},
+            )
             continue
     return {"success": False, "error": f"agent {agent_id} not found or unreachable"}
 
 
 def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
     from l3.cell import get_cell
+
     try:
         cell = get_cell(cell_id)
         liveness = cell.liveness()
@@ -261,13 +284,16 @@ def _select_by_role(cell_id: str, role: str, domain: str) -> dict:
                 return {"success": True, "cell_id": cell_id, "agent_id": aid}
     except Exception as e:
         logger.warning("select_by_role %s/%s: %s", cell_id, role, e)
-        capture("select_by_role failed", error_code="E_SELECT", component="l2", context={"cell_id": cell_id, "role": role})
+        capture(
+            "select_by_role failed", error_code="E_SELECT", component="l2", context={"cell_id": cell_id, "role": role}
+        )
     return {"success": False, "error": f"no agent with role {role} in {cell_id}"}
 
 
 def _select_best(role: str, domain: str) -> dict:
     global _role_index, _role_index_stale
     from l3.cell import get_cells
+
     best = None
     best_score = -1
 
@@ -293,7 +319,7 @@ def _select_best(role: str, domain: str) -> dict:
         for cell_id, cell in get_cells().items():
             lv = cell.liveness()
             agents_data = lv.get("agents", {})
-            cell_territory = getattr(cell, 'territory', [])
+            cell_territory = getattr(cell, "territory", [])
             for aid, info_dict in agents_data.items():
                 score = 0
                 info_role = info_dict.get("role", "")
@@ -313,10 +339,15 @@ def _select_best(role: str, domain: str) -> dict:
             if cell_id not in cell_cache:
                 try:
                     cell = get_cells().get(cell_id)
-                    cell_cache[cell_id] = getattr(cell, 'territory', []) if cell else []
+                    cell_cache[cell_id] = getattr(cell, "territory", []) if cell else []
                 except Exception as e:
                     logger.warning("cell_cache territory for %s: %s", cell_id, e)
-                    capture("cell_cache territory failed", error_code="E_CACHE", component="l2", context={"cell_id": cell_id})
+                    capture(
+                        "cell_cache territory failed",
+                        error_code="E_CACHE",
+                        component="l2",
+                        context={"cell_id": cell_id},
+                    )
                     cell_cache[cell_id] = []
             cell_territory = cell_cache[cell_id]
             score = 2  # role match
@@ -345,4 +376,3 @@ def _scan_injection(message: str) -> float:
     if len(message) > INJECTION_LENGTH_THRESHOLD and score > 0:
         score = min(1.0, score + INJECTION_LENGTH_BOOST)
     return min(1.0, score)
-

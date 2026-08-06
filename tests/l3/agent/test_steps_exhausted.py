@@ -16,8 +16,12 @@ class TestContinuationGate:
     def test_continuation_disabled_returns_early(self):
         """When continuation_nudge is False, _finish is called immediately."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="test", agent_id="a")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("simple", "T", {}, fn)
         # continuation_nudge defaults to True in settings_center,
         # but we can verify the code path exists by running with
@@ -33,8 +37,12 @@ class TestContinuationAttempts:
     def test_continuation_runs_without_crash(self):
         """Steps-exhausted path executes without raising."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="test task", agent_id="b")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("tool_a", "T", {}, fn)
         loop.add_tool("tool_b", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15)
@@ -44,10 +52,15 @@ class TestContinuationAttempts:
     def test_continuation_respects_attempt_limit(self):
         """The inner loop does not spin forever."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="x", agent_id="c")
-        fn = lambda a, b: {"success": True, "data": "ok"}
+
+        def fn(a, b):
+            return {"success": True, "data": "ok"}
+
         loop.add_tool("simple", "T", {}, fn)
         import time
+
         t0 = time.time()
         r = loop.run(max_steps=1, timeout=15)
         elapsed = time.time() - t0
@@ -62,17 +75,22 @@ class TestContinuationWithVerifier:
     def test_continuation_with_verifier_completes(self):
         """Verifier object does not break the continuation path."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="verify continuation", agent_id="d")
 
         class FakeVerifier:
             def check(self, result, task):
                 return {"pass": True}
+
             def consistency_check(self, results, task):
                 return {"consistent": True}
+
             def correction_prompt(self, task, errors):
                 return "fix it"
 
-        fn = lambda a, b: {"success": True}
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t1", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15, verifier=FakeVerifier())
         assert isinstance(r, dict)
@@ -85,8 +103,12 @@ class TestContinuationErrorBoundary:
     def test_continuation_handles_engine_failure(self):
         """engine.generate or tool_use failure does not propagate."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="continuation error test", agent_id="e")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         # Even if the LLM backend has no engine, the continuation
         # path should catch the error and return normally.
@@ -100,8 +122,12 @@ class TestContextPreservation:
     def test_context_trail_survives(self):
         """context_trail is available (not None) after run."""
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="ctx test", agent_id="f")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         r = loop.run(max_steps=2, timeout=15)
         assert isinstance(r, dict)
@@ -121,17 +147,21 @@ class TestStepsExhaustedFailurePath:
 
     def test_failure_path_no_nameerror(self, monkeypatch):
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="failure path", agent_id="g")
-        fn = lambda a, b: {"success": True}
+
+        def fn(a, b):
+            return {"success": True}
+
         loop.add_tool("t", "T", {}, fn)
         # Force a failed turn so ``not all_passed`` is True and the
         # steps-exhausted guard (max_steps < AGENT_LOOP_UNLIMITED_STEPS)
         # is actually evaluated instead of short-circuited.
         monkeypatch.setattr(
-            loop, "_process_tool_results",
+            loop,
+            "_process_tool_results",
             lambda *a, **k: ([{"_loop_stopped": True}], False, 0, False),
         )
         r = loop.run(max_steps=1, timeout=10)
         assert isinstance(r, dict)
         assert r.get("success") is False or "total_steps" in r
-

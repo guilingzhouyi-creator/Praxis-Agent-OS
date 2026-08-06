@@ -59,6 +59,7 @@ _DOMAIN_BY_PREFIX: dict[str, str] = {
     "/api/logs": "log", "/api/errors": "log",
     "/api/lsp": "lsp", "/api/search": "search", "/api/prompt": "prompt",
     "/api/fs": "fs", "/api/buffer": "buffer", "/api/events": "sse",
+    "/api/ci": "ci",
     "/api/loop": "loop", "/api/monitor": "monitor", "/api/cell": "cell",
     "/api/cluster": "cluster", "/api/cache": "cache",
     "/api/card_types": "card", "/api/card_unified": "card", "/api/cards/plan": "card",
@@ -85,7 +86,7 @@ _DOMAIN_GROUP: dict[str, str] = {
     "session": "sessions", "l3a": "sessions", "discussion": "sessions",
     # T — tools (filesystem / LSP / prompt / diff / skills)
     "tool": "tools", "fs": "tools", "lsp": "tools", "prompt": "tools",
-    "diff": "tools", "skill": "tools", "buffer": "tools", "loop": "tools",
+    "diff": "tools", "skill": "tools", "buffer": "tools", "loop": "tools", "ci": "tools",
     # C — card-cell (cards / approvals / pending / cell / cluster)
     "card": "card-cell", "approval": "card-cell", "cell": "card-cell",
     "cluster": "card-cell", "dispatch": "card-cell",

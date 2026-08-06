@@ -329,4 +329,3 @@ think:
   distribution: "Distribution mode: {mode}"
   budget: "Thinking budget: {budget}"
   effort: "Reasoning effort: {effort}"
-

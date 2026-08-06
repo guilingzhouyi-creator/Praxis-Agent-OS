@@ -1,7 +1,7 @@
 # Praxis Agent OS — Technical Architecture
 
-> NOMOS Praxis v0.4.0 codename "Aether"  
-> Based on `src/` (commit: current working tree).  
+> NOMOS Praxis v0.4.0 codename "Aether"
+> Based on `src/` (commit: current working tree).
 > All references are to `src/l1/`, `src/l2/`, `src/l3/`, `src/l4/`, `src/l5/`.
 
 ---
@@ -815,8 +815,8 @@ flowchart TB
     MR3 -->|"search_long_term()\nFTS5"| MR1
 ```
 
-**Tool Ring** controls whether an Agent **can** perform an operation.  
-**Memory Ring** controls whether an Agent **remembers** past context.  
+**Tool Ring** controls whether an Agent **can** perform an operation.
+**Memory Ring** controls whether an Agent **remembers** past context.
 **Composite point** is at `agent_runtime.tick()` steps 7-8: within the same tick, execution passes through Tool Ring approval, results store into Memory Ring.
 
 ---
@@ -1214,7 +1214,7 @@ Each step boundary saves a checkpoint:
 ```python
 # execution_plan.py
 for ps in phase_steps:
-    save_checkpoint(agent_id=ps.agent, 
+    save_checkpoint(agent_id=ps.agent,
                     task_id=f"{card.id}:{ps.step_id}",
                     progress={"phase": ps.phase, "step": ps.step_id})
     r = execute_step(ps, timeout)

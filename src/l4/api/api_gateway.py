@@ -418,8 +418,8 @@ class ApiGateway(ApiHandlers):
                     self._do_sse()
                     return
 
-                # Read body for POST/DELETE (must happen once, before build_request)
-                body = self._read_body() if method in ("POST", "DELETE") else {}
+                # Read body for POST/PUT/DELETE (must happen once, before build_request)
+                body = self._read_body() if method in ("POST", "PUT", "DELETE") else {}
                 req = self._build_request(method, self.path, body=body)
                 handler, params = self.gateway._match_route(method, path)
                 req.params = params
@@ -506,6 +506,9 @@ class ApiGateway(ApiHandlers):
 
             def do_POST(self):
                 self._handle_via_middleware("POST")
+
+            def do_PUT(self):
+                self._handle_via_middleware("PUT")
 
             def do_GET(self):
                 self._handle_via_middleware("GET")

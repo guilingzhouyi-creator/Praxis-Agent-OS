@@ -12,11 +12,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from l1.kernel.params.agent import (
-    R4_LEAN_CASES_DEFAULT,
     R4_EVOLVED_SKILLS_DEFAULT,
+    R4_LEAN_CASES_DEFAULT,
+    R4_REFLECTION_COOLDOWN,
+    R4_REFLECTION_ENABLED,
+    R4_REFLECTION_MAX_TOKENS,
+    R4_REFLECTION_MIN_LEN,
+    R4_RETRIEVAL_ENABLED,
+    R4_RETRIEVAL_MIN_SCORE,
 )
 from l1.kernel.params.system import (
     LOG_TRUNC_30,
@@ -31,8 +36,7 @@ logger = logging.getLogger(__name__)
 class SkillFeedbackMixin:
     """SkillFeedbackMixin — lean-case retrieval and failure-trace intake."""
 
-    def _track_failure(self, agent_id: str, tool_name: str,
-                       args: dict, error: str, turn_log: list[dict]) -> None:
+    def _track_failure(self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict]) -> None:
         """Record a tool call failure for later analysis and lean case generation."""
         try:
             import json
@@ -40,24 +44,31 @@ class SkillFeedbackMixin:
 
             from l1.kernel.params.system import SKILL_LEAN_CASE_TEMPLATE
             from l1.kernel.paths import get_paths as _gp
+
             lean_dir = _gp().skill_lean_dir
             entry = {
-                "agent_id": agent_id, "tool": tool_name, "args": args,
-                "error": error[:LOG_TRUNC_200], "timestamp": time.time(),
+                "agent_id": agent_id,
+                "tool": tool_name,
+                "args": args,
+                "error": error[:LOG_TRUNC_200],
+                "timestamp": time.time(),
                 "turn_count": len(turn_log),
                 "resolved": False,
             }
             os.makedirs(lean_dir, exist_ok=True)
-            fp = os.path.join(lean_dir, SKILL_LEAN_CASE_TEMPLATE.format(
-                agent_id=agent_id, tool_name=tool_name, ts=int(time.time())))
+            fp = os.path.join(
+                lean_dir, SKILL_LEAN_CASE_TEMPLATE.format(agent_id=agent_id, tool_name=tool_name, ts=int(time.time()))
+            )
             with open(fp, "w", encoding="utf-8") as f:
                 json.dump(entry, f, indent=2)
             # R4 archive: persist the raw failure trace so a generated lean case
             # can be traced back to "why it exists" (audit trail).
             try:
                 from l3.tools._archive import _cmd_archive_store
+
                 _cmd_archive_store(
-                    fonds="skills", series="lean_trace",
+                    fonds="skills",
+                    series="lean_trace",
                     content=json.dumps(entry, ensure_ascii=False)[:LOG_TRUNC_2000],
                     tags=f"{agent_id},{tool_name},failure",
                 )
@@ -66,8 +77,7 @@ class SkillFeedbackMixin:
         except Exception as e:
             logger.warning("R4Agent: track failure failed: %s", e)
 
-    def track_tool_failure(self, agent_id: str, tool_name: str,
-                           args: dict, error: str, turn_log: list[dict]) -> None:
+    def track_tool_failure(self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict]) -> None:
         """Public entry point for tool-pipeline failure recording."""
         self._track_failure(agent_id, tool_name, args, error, turn_log)
 
@@ -154,8 +164,9 @@ class SkillFeedbackMixin:
                                         self._pmu.increment("skills.refine_hint")
                                     except Exception:
                                         logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
-                                logger.info("R4Agent: failure for %s hits evolved skill '%s' — refine hint",
-                                            tool, h["name"])
+                                logger.info(
+                                    "R4Agent: failure for %s hits evolved skill '%s' — refine hint", tool, h["name"]
+                                )
                                 break
                     except Exception:
                         logger.debug("R4Agent: refine hint scan failed", exc_info=True)
@@ -181,8 +192,89 @@ class SkillFeedbackMixin:
                 logger.warning("R4Agent: generalize lean cases failed: %s", e)
         return processed
 
-    def get_lean_cases(self, agent_id: str = "", tool_name: str = "",
-                       cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT) -> list[str]:
+    def reflect_failure(self, tool: str, cases: list[dict]) -> str | None:
+        """Reflexion-style attribution: distill failures into why/fix/pattern.
+
+        LLM-reflects on a tool's lean cases, producing a structured insight
+        (root cause, fix, canonical pattern) recorded to the reference
+        channel for correlation.  Gated by ``R4_REFLECTION_ENABLED`` and a
+        per-tool cooldown; any failure (LLM error, invalid JSON, below the
+        length floor) returns None so callers keep the raw baseline.  Never
+        writes skills — the caller owns the write.
+        """
+        import json as _json
+
+        if not R4_REFLECTION_ENABLED:
+            return None
+        now = time.time()
+        if now - self._last_reflect.get(tool, 0.0) < R4_REFLECTION_COOLDOWN:
+            logger.debug("R4Agent: failure reflection for %s skipped (cooldown)", tool)
+            return None
+        digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+        prompt = (
+            "These are repeated failures for one tool. Reflect on the root "
+            f"cause and the fix, naming a canonical pattern.\n{digest}\n"
+            'Reply with JSON only: {"why": "<root cause>", '
+            '"fix": "<how to fix>", "pattern": "<pattern-name>"}'
+        )
+        try:
+            from l4.llm.llm import get_engine
+
+            engine = get_engine()
+            result = engine.generate(
+                prompt=prompt,
+                system="You are a failure analyst for an agent operating system.",
+                max_tokens=R4_REFLECTION_MAX_TOKENS,
+                user_id="r4-agent",
+            )
+        except Exception as e:
+            logger.warning("R4Agent: failure reflection failed: %s", e)
+            self._last_reflect[tool] = now
+            return None
+        self._last_reflect[tool] = now
+        content = (result.get("content") or "").strip()
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        try:
+            data = _json.loads(content)
+            why = data.get("why", "") if isinstance(data, dict) else ""
+            fix = data.get("fix", "") if isinstance(data, dict) else ""
+            pattern = data.get("pattern", "") if isinstance(data, dict) else ""
+        except Exception as e:
+            logger.warning("R4Agent: failure reflection invalid JSON for %s: %s", tool, e)
+            return None
+        why = str(why).strip() if isinstance(why, str) else ""
+        fix = str(fix).strip() if isinstance(fix, str) else ""
+        pattern = str(pattern).strip() if isinstance(pattern, str) else ""
+        if len(why) + len(fix) < R4_REFLECTION_MIN_LEN:
+            logger.info("R4Agent: failure reflection for %s rejected (too short)", tool)
+            return None
+        # Record the attribution to the reference channel (audit/correlation).
+        try:
+            from l3.bus.reference_channel import get_rc
+
+            get_rc().event(
+                "anomaly",
+                {"tool": tool, "why": why, "fix": fix, "pattern": pattern},
+                source="r4-reflection",
+            )
+        except Exception as e:
+            logger.debug("R4Agent: failure reflection RC record failed: %s", e)
+        if self._pmu:
+            try:
+                self._pmu.increment("skills.reflections.recorded")
+            except Exception:
+                logger.debug("R4Agent: pmu increment failed, skipped", exc_info=True)
+        return f"{pattern}: {why} Fix: {fix}"
+
+    def get_lean_cases(
+        self, agent_id: str = "", tool_name: str = "", cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT
+    ) -> list[str]:
         """Retrieve lean failure cases for injection into AgentLoop prompts.
 
         When ``cell_id`` has a bound skill white-list (via SkillManager
@@ -190,6 +282,7 @@ class SkillFeedbackMixin:
         returned; unbound cells fall back to the global pool.
         """
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
         cache_key = ("lean", agent_id, tool_name, cell_id, limit)
         rev = sm.revision()
@@ -218,8 +311,9 @@ class SkillFeedbackMixin:
         self._skill_cache[cache_key] = (rev, result, names)
         return result
 
-    def get_lean_case_names(self, agent_id: str = "", tool_name: str = "",
-                            cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT) -> list[str]:
+    def get_lean_case_names(
+        self, agent_id: str = "", tool_name: str = "", cell_id: str = "", limit: int = R4_LEAN_CASES_DEFAULT
+    ) -> list[str]:
         """Return the skill names behind the lean cases get_lean_cases() yields.
 
         Shares the injection cache with get_lean_cases() so the AgentLoop can
@@ -227,6 +321,7 @@ class SkillFeedbackMixin:
         registry scan.
         """
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
         cache_key = ("lean", agent_id, tool_name, cell_id, limit)
         rev = sm.revision()
@@ -238,8 +333,13 @@ class SkillFeedbackMixin:
         cached = self._skill_cache.get(cache_key)
         return cached[2] if cached and len(cached) >= 3 else []
 
-    def get_evolved_skills(self, agent_id: str = "", cell_id: str = "",
-                           limit: int = R4_EVOLVED_SKILLS_DEFAULT, graph_diffusion: bool = False) -> list[dict]:
+    def get_evolved_skills(
+        self,
+        agent_id: str = "",
+        cell_id: str = "",
+        limit: int = R4_EVOLVED_SKILLS_DEFAULT,
+        graph_diffusion: bool = False,
+    ) -> list[dict]:
         """Retrieve evolved skills for injection into AgentLoop prompts.
 
         Filters by agent_id if provided (strict tag membership, not OR-match).
@@ -248,6 +348,7 @@ class SkillFeedbackMixin:
         recently loaded skills first.
         """
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
         cache_key = ("evolved", agent_id, cell_id, limit, graph_diffusion)
         rev = sm.revision()
@@ -265,11 +366,13 @@ class SkillFeedbackMixin:
                         if s and s.get("prompt"):
                             if allow and name not in allow:
                                 continue
-                            evolved.append({
-                                "name": s["name"],
-                                "description": s.get("description", ""),
-                                "prompt": s["prompt"],
-                            })
+                            evolved.append(
+                                {
+                                    "name": s["name"],
+                                    "description": s.get("description", ""),
+                                    "prompt": s["prompt"],
+                                }
+                            )
                     if evolved:
                         return evolved[:limit]
             except Exception as e:
@@ -282,11 +385,43 @@ class SkillFeedbackMixin:
             if allow and s["name"] not in allow:
                 continue
             if s.get("prompt"):
-                evolved.append({
-                    "name": s["name"],
-                    "description": s.get("description", ""),
-                    "prompt": s["prompt"],
-                })
+                evolved.append(
+                    {
+                        "name": s["name"],
+                        "description": s.get("description", ""),
+                        "prompt": s["prompt"],
+                    }
+                )
         evolved = evolved[:limit]
         self._skill_cache[cache_key] = (rev, evolved)
         return evolved
+
+    def retrieve_skills(
+        self,
+        query: str = "",
+        agent_id: str = "",
+        cell_id: str = "",
+        limit: int = R4_EVOLVED_SKILLS_DEFAULT,
+        graph_diffusion: bool = False,
+    ) -> list[dict]:
+        """Retrieve evolved skills ranked by task-text similarity.
+
+        Delegates ranking to the pluggable retriever backend (``tfidf`` by
+        default, see ``l3.memory.skill_retriever``).  Gated by
+        ``R4_RETRIEVAL_ENABLED``; when disabled, query is empty, or no
+        candidate clears the similarity floor, it falls back to
+        ``get_evolved_skills`` ordering (most recently loaded first).
+        """
+        if not R4_RETRIEVAL_ENABLED or not query:
+            return self.get_evolved_skills(
+                agent_id=agent_id, cell_id=cell_id, limit=limit, graph_diffusion=graph_diffusion
+            )
+        base = self.get_evolved_skills(
+            agent_id=agent_id, cell_id=cell_id, limit=limit * 4, graph_diffusion=graph_diffusion
+        )
+        if not base:
+            return []
+        from l3.memory.skill_retriever import get_retriever
+
+        ranked = get_retriever().rank(query, base, limit=limit, min_score=R4_RETRIEVAL_MIN_SCORE)
+        return ranked if ranked else base[:limit]

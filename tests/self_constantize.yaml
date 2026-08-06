@@ -40,7 +40,7 @@ phases:
             - HIGH: numeric literal >= 100 in kernel module code (not in params.py)
             - MEDIUM: hardcoded timeout/sleep/delay
             - LOW: hardcoded string key
-            
+
             List the top 10 most impactful findings that should be moved to params.py first.
             For each, suggest the constant name.
 
@@ -57,5 +57,5 @@ phases:
             2. Severity breakdown (HIGH/MEDIUM/LOW)
             3. Top 10 most impactful findings with suggested params.py constant names
             4. Estimated effort to fix (number of files to modify)
-            
+
             Format as markdown.

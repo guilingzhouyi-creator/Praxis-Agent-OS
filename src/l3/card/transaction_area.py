@@ -29,30 +29,32 @@ logger = logging.getLogger(__name__)
 
 class CardStatus(Enum):
     """CardStatus — enum of PENDING, APPROVED, DISPATCHED, POSTPONED...."""
-    PENDING = auto()       # In queue, waiting for decision
-    APPROVED = auto()      # Approved, ready to dispatch
-    DISPATCHED = auto()    # Sent to Cell
-    POSTPONED = auto()     # Postponed by human
-    CANCELLED = auto()     # Cancelled by human
-    FAILED = auto()        # Dispatch failed
+
+    PENDING = auto()  # In queue, waiting for decision
+    APPROVED = auto()  # Approved, ready to dispatch
+    DISPATCHED = auto()  # Sent to Cell
+    POSTPONED = auto()  # Postponed by human
+    CANCELLED = auto()  # Cancelled by human
+    FAILED = auto()  # Dispatch failed
 
 
 @dataclass
 class TransactionCard:
     """A card in the transaction area queue."""
+
     card_id: str
     intent: str
     domain: str
-    card_type: str              # execution | issue | composite
-    size: str                   # small | medium | large
+    card_type: str  # execution | issue | composite
+    size: str  # small | medium | large
     priority: int = 3
     status: CardStatus = CardStatus.PENDING
     created_at: float = field(default_factory=time.time)
     approved_at: float = 0.0
     dispatched_at: float = 0.0
-    source: str = "l3a"         # Who created the card
+    source: str = "l3a"  # Who created the card
     auto_approve: bool = False  # Auto-mode flag
-    auto_delay: float = 5.0     # Auto-approve delay in seconds
+    auto_delay: float = 5.0  # Auto-approve delay in seconds
     metadata: dict = field(default_factory=dict)
 
 
@@ -86,13 +88,22 @@ class TransactionArea(BaseService, PersistableMixin):
     def _serialize(self) -> dict:
         def _card_dict(c: TransactionCard) -> dict:
             return {
-                "card_id": c.card_id, "intent": c.intent, "domain": c.domain,
-                "card_type": c.card_type, "size": c.size, "priority": c.priority,
-                "status": c.status.name, "created_at": c.created_at,
-                "approved_at": c.approved_at, "dispatched_at": c.dispatched_at,
-                "source": c.source, "auto_approve": c.auto_approve,
-                "auto_delay": c.auto_delay, "metadata": c.metadata,
+                "card_id": c.card_id,
+                "intent": c.intent,
+                "domain": c.domain,
+                "card_type": c.card_type,
+                "size": c.size,
+                "priority": c.priority,
+                "status": c.status.name,
+                "created_at": c.created_at,
+                "approved_at": c.approved_at,
+                "dispatched_at": c.dispatched_at,
+                "source": c.source,
+                "auto_approve": c.auto_approve,
+                "auto_delay": c.auto_delay,
+                "metadata": c.metadata,
             }
+
         return {
             "queue": {cid: _card_dict(c) for cid, c in self._queue.items()},
             "history": [_card_dict(c) for c in self._history],
@@ -107,9 +118,12 @@ class TransactionArea(BaseService, PersistableMixin):
         self._max_queue = data.get("max_queue", 100)
         for cid, d in data.get("queue", {}).items():
             self._queue[cid] = TransactionCard(
-                card_id=d["card_id"], intent=d.get("intent", ""),
-                domain=d.get("domain", ""), card_type=d.get("card_type", "execution"),
-                size=d.get("size", "small"), priority=d.get("priority", 3),
+                card_id=d["card_id"],
+                intent=d.get("intent", ""),
+                domain=d.get("domain", ""),
+                card_type=d.get("card_type", "execution"),
+                size=d.get("size", "small"),
+                priority=d.get("priority", 3),
                 status=CardStatus[d["status"]],
                 created_at=d.get("created_at", 0.0),
                 approved_at=d.get("approved_at", 0.0),
@@ -120,19 +134,24 @@ class TransactionArea(BaseService, PersistableMixin):
                 metadata=d.get("metadata", {}),
             )
         for d in data.get("history", []):
-            self._history.append(TransactionCard(
-                card_id=d["card_id"], intent=d.get("intent", ""),
-                domain=d.get("domain", ""), card_type=d.get("card_type", "execution"),
-                size=d.get("size", "small"), priority=d.get("priority", 3),
-                status=CardStatus[d["status"]],
-                created_at=d.get("created_at", 0.0),
-                approved_at=d.get("approved_at", 0.0),
-                dispatched_at=d.get("dispatched_at", 0.0),
-                source=d.get("source", "l3a"),
-                auto_approve=d.get("auto_approve", False),
-                auto_delay=d.get("auto_delay", 5.0),
-                metadata=d.get("metadata", {}),
-            ))
+            self._history.append(
+                TransactionCard(
+                    card_id=d["card_id"],
+                    intent=d.get("intent", ""),
+                    domain=d.get("domain", ""),
+                    card_type=d.get("card_type", "execution"),
+                    size=d.get("size", "small"),
+                    priority=d.get("priority", 3),
+                    status=CardStatus[d["status"]],
+                    created_at=d.get("created_at", 0.0),
+                    approved_at=d.get("approved_at", 0.0),
+                    dispatched_at=d.get("dispatched_at", 0.0),
+                    source=d.get("source", "l3a"),
+                    auto_approve=d.get("auto_approve", False),
+                    auto_delay=d.get("auto_delay", 5.0),
+                    metadata=d.get("metadata", {}),
+                )
+            )
         return True
 
     def _on_start(self) -> dict:
@@ -144,14 +163,18 @@ class TransactionArea(BaseService, PersistableMixin):
             self._queue.clear()
         return {"success": True}
 
-    def enqueue(self, intent: str, domain: str,
-                card_type: str = "execution",
-                size: str = "small",
-                priority: int = 3,
-                source: str = "l3a",
-                auto_approve: bool = True) -> dict:
+    def enqueue(
+        self,
+        intent: str,
+        domain: str,
+        card_type: str = "execution",
+        size: str = "small",
+        priority: int = 3,
+        source: str = "l3a",
+        auto_approve: bool = True,
+    ) -> dict:
         """L3A pushes a card to the transaction queue.
-        
+
         Auto-approval is on-demand (not timer-based):
           Small cards → auto-approve immediately if auto_approve=True
           Medium cards → auto-approve after priority check
@@ -165,9 +188,14 @@ class TransactionArea(BaseService, PersistableMixin):
             can_auto = False  # High-priority medium cards need human review
 
         card = TransactionCard(
-            card_id=card_id, intent=intent, domain=domain,
-            card_type=card_type, size=size, priority=priority,
-            source=source, auto_approve=can_auto,
+            card_id=card_id,
+            intent=intent,
+            domain=domain,
+            card_type=card_type,
+            size=size,
+            priority=priority,
+            source=source,
+            auto_approve=can_auto,
         )
         with self._lock:
             if len(self._queue) >= self._max_queue:
@@ -248,11 +276,10 @@ class TransactionArea(BaseService, PersistableMixin):
         now = time.time()
         with self._lock:
             for card_id, card in list(self._queue.items()):
-                if card.auto_approve and card.status == CardStatus.PENDING:
-                    if now - card.created_at >= card.auto_delay:
-                        card.status = CardStatus.APPROVED
-                        card.approved_at = now
-                        approved.append(card_id)
+                if card.auto_approve and card.status == CardStatus.PENDING and now - card.created_at >= card.auto_delay:
+                    card.status = CardStatus.APPROVED
+                    card.approved_at = now
+                    approved.append(card_id)
         if approved:
             logger.info("auto-approved %d cards", len(approved))
         return approved
@@ -267,10 +294,18 @@ class TransactionArea(BaseService, PersistableMixin):
                 cards = [c for c in cards if c.status == status_enum]
         return {
             "success": True,
-            "cards": [{"card_id": c.card_id, "intent": c.intent[:LOG_TRUNC_60],
-                       "domain": c.domain, "size": c.size, "priority": c.priority,
-                       "status": c.status.name, "created_at": c.created_at}
-                      for c in sorted(cards, key=lambda x: -x.priority)],
+            "cards": [
+                {
+                    "card_id": c.card_id,
+                    "intent": c.intent[:LOG_TRUNC_60],
+                    "domain": c.domain,
+                    "size": c.size,
+                    "priority": c.priority,
+                    "status": c.status.name,
+                    "created_at": c.created_at,
+                }
+                for c in sorted(cards, key=lambda x: -x.priority)
+            ],
             "count": len(cards),
         }
 

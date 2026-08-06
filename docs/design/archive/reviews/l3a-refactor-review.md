@@ -85,7 +85,7 @@ except (ValueError, Exception) as e:
 
 ## 3. 异步 SSE 重构（monitor_bus.py）✅
 
-### 3.1 新增 ThreadPoolExecutor 
+### 3.1 新增 ThreadPoolExecutor
 
 ```python
 self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mon")
@@ -136,7 +136,7 @@ def get_bus() -> L3BBus:
 
 修正 3 处使用未定义变量名的问题：
 - `_HOT_RING_SIZE` → `L3B_HOT_RING_SIZE` ✅
-- `_PERSIST_HIGH_WATERMARK` → `L3B_PERSIST_HIGH_WATERMARK` ✅  
+- `_PERSIST_HIGH_WATERMARK` → `L3B_PERSIST_HIGH_WATERMARK` ✅
 - `_BACKPRESSURE_THRESHOLD` → `L3B_BACKPRESSURE_THRESHOLD` ✅
 - `_BACKPRESSURE_COOLDOWN` → `L3B_BACKPRESSURE_COOLDOWN` ✅
 

@@ -54,7 +54,7 @@ phases:
             Step 3: Generate the corrected __all__ list that includes ALL kernel modules.
             Step 4: Use write_file to save as src/kernel/__init__.py (this overwrites the original).
             Step 5: Verify by using read_file to confirm the write succeeded.
-            
+
             Rules:
             - Keep ALL existing imports, code, and logic exactly as-is.
             - Only modify the __all__ list at the very end of the file.
@@ -64,7 +64,7 @@ phases:
               get_allocator, get_constitution, get_device_manager, get_gatechain,
               get_interrupt_table, get_lock_bus, get_skill_manager, get_table,
               get_tool_chain, get_vfs, health, register_process, fire.
-            
+
             Report the path you wrote to and the number of lines written.
 
   - action: scout
@@ -73,7 +73,7 @@ phases:
     params:
       prompt: "Read src/kernel/__init__.py and src/kernel/__init__.py.fixed.
                Compare their __all__ sections.
-               Check: is every kernel module exported? Verify: skill, vfs, process, 
+               Check: is every kernel module exported? Verify: skill, vfs, process,
                interrupt, device, tool_chain, ipc modules are all present.
                Report pass/fail for each module."
 

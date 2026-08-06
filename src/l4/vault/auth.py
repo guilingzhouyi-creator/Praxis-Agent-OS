@@ -101,6 +101,7 @@ class AuthService(AuthPort, BaseService):
         """
         try:
             from cryptography.fernet import Fernet
+
             key = Fernet.generate_key()
             f = Fernet(key)
             encrypted = f.encrypt(data.encode())
@@ -116,6 +117,7 @@ class AuthService(AuthPort, BaseService):
         """
         try:
             from cryptography.fernet import Fernet
+
             f = Fernet(key.encode())
             decrypted = f.decrypt(encrypted.encode())
             return {"success": True, "decrypted": decrypted.decode(), "algorithm": "Fernet"}
@@ -152,8 +154,7 @@ class AuthService(AuthPort, BaseService):
         payload = f"{identity}|{int(expires_at)}|{token_id}"
         sig = hmac.new(self._sign_key, payload.encode(), hashlib.sha256).hexdigest()
         token = f"{payload}|{sig}"
-        return {"success": True, "token": token, "expires_at": expires_at,
-                "identity": identity, "ttl": lifetime}
+        return {"success": True, "token": token, "expires_at": expires_at, "identity": identity, "ttl": lifetime}
 
     def verify_token(self, token: str) -> dict:
         """Verify a token. Returns ``{valid, identity, error}``."""
@@ -234,4 +235,3 @@ def reset_service() -> None:
     if _service:
         _service.stop()
     _service = None
-

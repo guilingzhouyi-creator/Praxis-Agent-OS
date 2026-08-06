@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -19,6 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 def _reset() -> None:
     from l1.kernel.skill import reset_skill_manager
+
     reset_skill_manager()
 
 
@@ -28,25 +30,37 @@ class TestInjectionFeedback:
     def test_lean_case_names_consistent_with_cases(self):
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="lean_agent-1_toola", description="f", prompt="lesson-a",
-                  tags=["lean_case", "failure", "agent-1", "toola"],
-                  allowed_tools=["toola"], internal=True)
-        sm.create(name="lean_agent-1_toolb", description="f", prompt="lesson-b",
-                  tags=["lean_case", "failure", "agent-1", "toolb"],
-                  allowed_tools=["toolb"], internal=True)
+        sm.create(
+            name="lean_agent-1_toola",
+            description="f",
+            prompt="lesson-a",
+            tags=["lean_case", "failure", "agent-1", "toola"],
+            allowed_tools=["toola"],
+            internal=True,
+        )
+        sm.create(
+            name="lean_agent-1_toolb",
+            description="f",
+            prompt="lesson-b",
+            tags=["lean_case", "failure", "agent-1", "toolb"],
+            allowed_tools=["toolb"],
+            internal=True,
+        )
         r4 = R4Agent()
         cases = r4.get_lean_cases(agent_id="agent-1", cell_id="")
         names = r4.get_lean_case_names(agent_id="agent-1", cell_id="")
         assert len(cases) == len(names) == 2
         assert set(names) == {"lean_agent-1_toola", "lean_agent-1_toolb"}
         # Prompts map 1:1 to names from the same cached scan.
-        by_name = dict(zip(names, cases))
+        by_name = dict(zip(names, cases, strict=False))
         assert by_name["lean_agent-1_toola"] == "lesson-a"
 
     def test_usage_only_update_keeps_revision(self):
         from l1.kernel.skill import get_skill_manager
+
         _reset()
         sm = get_skill_manager()
         sm.create(name="s1", description="d", prompt="p", tags=["evolved"], internal=True)
@@ -62,10 +76,10 @@ class TestInjectionFeedback:
     def test_ttl_prune_spares_feedback_refreshed_skill(self):
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="evolved-1", description="d", prompt="p",
-                  tags=["evolved"], internal=True)
+        sm.create(name="evolved-1", description="d", prompt="p", tags=["evolved"], internal=True)
         sm.update("evolved-1", {"last_used": 0.0})  # mark as never used
         r4 = R4Agent()
         # Simulate the injection feedback: refresh last_used.
@@ -78,13 +92,18 @@ class TestInjectionFeedback:
         from l1.kernel.skill import get_skill_manager
         from l3.agent.agent_loop import AgentLoop
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="lean_agent-x_toolz", description="f", prompt="lesson",
-                  tags=["lean_case", "failure", "agent-x", "toolz"],
-                  allowed_tools=["toolz"], internal=True)
-        sm.create(name="evolved-x", description="d", prompt="p",
-                  tags=["evolved", "agent-x"], internal=True)
+        sm.create(
+            name="lean_agent-x_toolz",
+            description="f",
+            prompt="lesson",
+            tags=["lean_case", "failure", "agent-x", "toolz"],
+            allowed_tools=["toolz"],
+            internal=True,
+        )
+        sm.create(name="evolved-x", description="d", prompt="p", tags=["evolved", "agent-x"], internal=True)
         R4Agent()
         loop = AgentLoop.__new__(AgentLoop)
         loop.agent_id = "agent-x"
@@ -102,14 +121,13 @@ class TestSkillRefinement:
 
     def _clear_lean_dir(self) -> None:
         from l1.kernel.paths import get_paths as _gp
+
         lean_dir = _gp().skill_lean_dir
         os.makedirs(lean_dir, exist_ok=True)
         for f in os.listdir(lean_dir):
             if f.endswith(".json"):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(os.path.join(lean_dir, f))
-                except OSError:
-                    pass
 
     def test_evolve_overwrite_preserves_usage_counters(self, mocker):
         import shutil
@@ -117,23 +135,27 @@ class TestSkillRefinement:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="db-migration-helper", description="old", prompt="old prompt",
-                  tags=["evolved"], internal=True)
+        sm.create(name="db-migration-helper", description="old", prompt="old prompt", tags=["evolved"], internal=True)
         sm.update("db-migration-helper", {"useful_count": 5, "last_used": 1000.0})
-        payload = json.dumps({
-            "name": "db-migration-helper", "description": "new",
-            "prompt": "new prompt", "tags": ["database"],
-        })
+        payload = json.dumps(
+            {
+                "name": "db-migration-helper",
+                "description": "new",
+                "prompt": "new prompt",
+                "tags": ["database"],
+            }
+        )
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
         mock_engine.return_value.generate.return_value = {"content": payload}
         r4 = R4Agent()
         result = r4.evolve_skill("re-evolve db migration")
         assert result["success"], result
         s = sm.get("db-migration-helper")
-        assert s["prompt"] == "new prompt"      # overwritten with new content
-        assert s["useful_count"] == 5           # P2-1: counters preserved
+        assert s["prompt"] == "new prompt"  # overwritten with new content
+        assert s["useful_count"] == 5  # P2-1: counters preserved
         assert s["last_used"] == 1000.0
         for base in (_gp().skill_evolved_dir, _gp().skill_project_evolved_dir):
             shutil.rmtree(os.path.join(base, "db-migration-helper"), ignore_errors=True)
@@ -142,19 +164,23 @@ class TestSkillRefinement:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="evolved-toolr", description="d", prompt="p",
-                  tags=["evolved"], allowed_tools=["toolr"], internal=True)
+        sm.create(
+            name="evolved-toolr", description="d", prompt="p", tags=["evolved"], allowed_tools=["toolr"], internal=True
+        )
         self._clear_lean_dir()
         trace = os.path.join(_gp().skill_lean_dir, "r4-feedback-test.json")
         with open(trace, "w", encoding="utf-8") as f:
-            json.dump({"tool": "toolr", "agent_id": "a1", "args": {},
-                       "error": "boom", "turn_count": 3, "resolved": False}, f)
+            json.dump(
+                {"tool": "toolr", "agent_id": "a1", "args": {}, "error": "boom", "turn_count": 3, "resolved": False}, f
+            )
         captured = []
 
         class _Pmu:
-            def increment(self, name): captured.append(name)
+            def increment(self, name):
+                captured.append(name)
 
         r4 = R4Agent()
         r4.set_pmu(_Pmu())
@@ -167,20 +193,28 @@ class TestSkillRefinement:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="lean_a1_tooln", description="f", prompt="x",
-                  tags=["lean_case", "failure", "a1", "tooln"],
-                  allowed_tools=["tooln"], internal=True)
+        sm.create(
+            name="lean_a1_tooln",
+            description="f",
+            prompt="x",
+            tags=["lean_case", "failure", "a1", "tooln"],
+            allowed_tools=["tooln"],
+            internal=True,
+        )
         self._clear_lean_dir()
         trace = os.path.join(_gp().skill_lean_dir, "r4-feedback-neg.json")
         with open(trace, "w", encoding="utf-8") as f:
-            json.dump({"tool": "tooln", "agent_id": "a1", "args": {},
-                       "error": "boom", "turn_count": 1, "resolved": False}, f)
+            json.dump(
+                {"tool": "tooln", "agent_id": "a1", "args": {}, "error": "boom", "turn_count": 1, "resolved": False}, f
+            )
         captured = []
 
         class _Pmu:
-            def increment(self, name): captured.append(name)
+            def increment(self, name):
+                captured.append(name)
 
         r4 = R4Agent()
         r4.set_pmu(_Pmu())
@@ -196,15 +230,26 @@ class TestSkillRefinement:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
-        sm.create(name="lean_toolg_lessons", description="Consolidated (1 cases)",
-                  prompt="Known failure patterns when using toolg:\n- old",
-                  tags=["evolved", "toolg"], allowed_tools=["toolg"], internal=True)
+        sm.create(
+            name="lean_toolg_lessons",
+            description="Consolidated (1 cases)",
+            prompt="Known failure patterns when using toolg:\n- old",
+            tags=["evolved", "toolg"],
+            allowed_tools=["toolg"],
+            internal=True,
+        )
         for i in range(R4_LEAN_GENERALIZE_THRESHOLD):
-            sm.create(name=f"lean_a1_toolg_e{i}", description="f", prompt=f"lesson{i}",
-                      tags=["lean_case", "failure", "a1", "toolg"],
-                      allowed_tools=["toolg"], internal=True)
+            sm.create(
+                name=f"lean_a1_toolg_e{i}",
+                description="f",
+                prompt=f"lesson{i}",
+                tags=["lean_case", "failure", "a1", "toolg"],
+                allowed_tools=["toolg"],
+                internal=True,
+            )
         r4 = R4Agent()
         with mock.patch.object(r4, "_archive_before_evolve") as arch:
             n = r4._generalize_lean_cases(sm)
@@ -212,8 +257,7 @@ class TestSkillRefinement:
             arch.assert_called_once()  # P2-3: old version archived before overwrite
             assert arch.call_args[0][0] == "lean_toolg_lessons"
             assert arch.call_args[0][1]["prompt"] == "Known failure patterns when using toolg:\n- old"
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolg_lessons"),
-                      ignore_errors=True)
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolg_lessons"), ignore_errors=True)
 
     def test_generalize_skips_idempotent_without_archive(self):
         import shutil
@@ -223,37 +267,52 @@ class TestSkillRefinement:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         sm = get_skill_manager()
         for i in range(R4_LEAN_GENERALIZE_THRESHOLD):
-            sm.create(name=f"lean_a1_tooli_e{i}", description="f", prompt=f"lesson{i}",
-                      tags=["lean_case", "failure", "a1", "tooli"],
-                      allowed_tools=["tooli"], internal=True)
+            sm.create(
+                name=f"lean_a1_tooli_e{i}",
+                description="f",
+                prompt=f"lesson{i}",
+                tags=["lean_case", "failure", "a1", "tooli"],
+                allowed_tools=["tooli"],
+                internal=True,
+            )
         r4 = R4Agent()
         r4._generalize_lean_cases(sm)  # first pass creates + persists
         gen_name = "lean_tooli_lessons"
         # Ensure SKILL.md exists so the idempotency guard (prompt + file) holds.
-        r4._persist_skill_md(name=gen_name, description="d",
-                             prompt=sm.get(gen_name)["prompt"],
-                             tags=["evolved", "tooli"], allowed_tools=["tooli"])
+        r4._persist_skill_md(
+            name=gen_name,
+            description="d",
+            prompt=sm.get(gen_name)["prompt"],
+            tags=["evolved", "tooli"],
+            allowed_tools=["tooli"],
+        )
         with mock.patch.object(r4, "_archive_before_evolve") as arch:
             n = r4._generalize_lean_cases(sm)
-            assert n == 0                    # idempotent: same cases + file exists
-            arch.assert_not_called()         # negative: no archive on skip
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, gen_name),
-                      ignore_errors=True)
+            assert n == 0  # idempotent: same cases + file exists
+            arch.assert_not_called()  # negative: no archive on skip
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, gen_name), ignore_errors=True)
 
 
 class TestLessonSummarization:
     """P3 — LLM lesson summarization (gates, quality floor, degradation, anti-downgrade)."""
 
-    def _mk_cases(self, tool: str, n: int = 3) -> None:
+    def _mk_cases(self, tool: str, n: int = 5) -> None:
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
-        for i in range(max(n, 3)):
-            sm.create(name=f"lean_a1_{tool}_e{i}", description="f", prompt=f"lesson{i} for {tool}",
-                      tags=["lean_case", "failure", "a1", tool],
-                      allowed_tools=[tool], internal=True)
+        for i in range(max(n, 5)):
+            sm.create(
+                name=f"lean_a1_{tool}_e{i}",
+                description="f",
+                prompt=f"lesson{i} for {tool}",
+                tags=["lean_case", "failure", "a1", tool],
+                allowed_tools=[tool],
+                internal=True,
+            )
 
     def test_llm_lesson_wins_over_baseline(self, mocker):
         import shutil
@@ -261,6 +320,7 @@ class TestLessonSummarization:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         self._mk_cases("toolp3")
         payload = json.dumps({"lesson": "Always verify the output schema before writing files."})
@@ -272,8 +332,7 @@ class TestLessonSummarization:
         assert s is not None
         assert s["prompt"] == "Always verify the output schema before writing files."
         assert "Known failure patterns" not in s["prompt"]  # LLM won over baseline
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3_lessons"),
-                      ignore_errors=True)
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3_lessons"), ignore_errors=True)
 
     def test_llm_failure_degrades_to_baseline(self, mocker):
         import shutil
@@ -281,6 +340,7 @@ class TestLessonSummarization:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         self._mk_cases("toolp3b")
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -289,8 +349,7 @@ class TestLessonSummarization:
         r4._generalize_lean_cases(get_skill_manager())
         s = get_skill_manager().get("lean_toolp3b_lessons")
         assert s is not None and s["prompt"].startswith("Known failure patterns")  # fallback
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3b_lessons"),
-                      ignore_errors=True)
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3b_lessons"), ignore_errors=True)
 
     def test_short_lesson_rejected(self, mocker):
         import shutil
@@ -298,6 +357,7 @@ class TestLessonSummarization:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         self._mk_cases("toolp3c")
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -306,12 +366,12 @@ class TestLessonSummarization:
         r4._generalize_lean_cases(get_skill_manager())
         s = get_skill_manager().get("lean_toolp3c_lessons")
         assert s is not None and s["prompt"].startswith("Known failure patterns")  # rejected
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3c_lessons"),
-                      ignore_errors=True)
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3c_lessons"), ignore_errors=True)
 
     def test_cooldown_returns_none(self):
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         get_skill_manager()
         r4 = R4Agent()
@@ -329,6 +389,7 @@ class TestLessonSummarization:
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         _reset()
         self._mk_cases("toolp3d")
         sm = get_skill_manager()
@@ -346,5 +407,4 @@ class TestLessonSummarization:
             assert n == 0  # fingerprint idempotency → skipped entirely
             arch.assert_not_called()
         assert sm.get("lean_toolp3d_lessons")["prompt"] == refined  # NOT downgraded
-        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3d_lessons"),
-                      ignore_errors=True)
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3d_lessons"), ignore_errors=True)

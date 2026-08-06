@@ -55,6 +55,7 @@ class SupplementManager:
         """
         try:
             from l3.card.issue import get_table
+
             table = get_table()
 
             # Find the IssueCard for this session
@@ -67,8 +68,7 @@ class SupplementManager:
                     question=supplement.get("description", supplement.get("title", "")),
                     domain=supplement.get("domain", "cross-cell"),
                 )
-                logger.info("supplement routed: %s → %s",
-                            supplement.get("title", "?")[:LOG_TRUNC_40], issue_card.id)
+                logger.info("supplement routed: %s → %s", supplement.get("title", "?")[:LOG_TRUNC_40], issue_card.id)
         except Exception as e:
             logger.warning("supplement route: %s", e)
 
@@ -84,17 +84,14 @@ class SupplementManager:
 
     def _determine_scope(self, supplement: dict) -> str:
         """Heuristic scope determination based on content.
-        
+
         cross_cell: mentions other cells, coordination, territory
         human_only: mentions approval, decision, policy, security
         within_cell: everything else
         """
-        desc = (supplement.get("description", "") + " " +
-                supplement.get("title", "")).lower()
-        human_keywords = ["approval", "policy", "decision", "security",
-                         "permission", "compliance", "audit"]
-        cross_keywords = ["cell", "coordination", "territory", "shared",
-                         "cross-cell", "broadcast", "all cells"]
+        desc = (supplement.get("description", "") + " " + supplement.get("title", "")).lower()
+        human_keywords = ["approval", "policy", "decision", "security", "permission", "compliance", "audit"]
+        cross_keywords = ["cell", "coordination", "territory", "shared", "cross-cell", "broadcast", "all cells"]
 
         if any(kw in desc for kw in human_keywords):
             return "human_only"
@@ -107,9 +104,8 @@ class SupplementManager:
         try:
             cards = table.list_by_status("DELIBERATING")
             for c in cards:
-                if hasattr(c, "metadata") and c.metadata:
-                    if c.metadata.get("session_id") == session_id:
-                        return c
+                if hasattr(c, "metadata") and c.metadata and c.metadata.get("session_id") == session_id:
+                    return c
         except Exception:
             logger.debug("supplement_manager: supplement lookup failed")
         return None

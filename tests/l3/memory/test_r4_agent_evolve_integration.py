@@ -21,20 +21,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 # Layer 1: LLM mock integration — full evolve_skill flow
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestEvolveSkillLLMFullFlow:
     """Mock LLM engine to test the full evolve_skill pipeline."""
 
-    VALID_SKILL_JSON = json.dumps({
-        "name": "db-migration-helper",
-        "description": "Generate database migration templates with version control",
-        "prompt": "You are a migration specialist. Always use timestamp prefixes.",
-        "rules": ["DO: use YYYYMMDD_HHMMSS prefix", "DON'T: modify existing migrations"],
-        "procedures": [
-            {"step": "1", "action": "analyze", "description": "Analyze schema changes"},
-            {"step": "2", "action": "generate", "description": "Generate migration file"},
-        ],
-        "tags": ["evolved", "database"],
-    })
+    VALID_SKILL_JSON = json.dumps(
+        {
+            "name": "db-migration-helper",
+            "description": "Generate database migration templates with version control",
+            "prompt": "You are a migration specialist. Always use timestamp prefixes.",
+            "rules": ["DO: use YYYYMMDD_HHMMSS prefix", "DON'T: modify existing migrations"],
+            "procedures": [
+                {"step": "1", "action": "analyze", "description": "Analyze schema changes"},
+                {"step": "2", "action": "generate", "description": "Generate migration file"},
+            ],
+            "tags": ["evolved", "database"],
+        }
+    )
 
     def test_full_flow_with_mocked_llm(self, mocker):
         """Mock LLM → evolve_skill → SkillManager → SKILL.md full chain."""
@@ -73,9 +76,9 @@ class TestEvolveSkillLLMFullFlow:
         # Verify SKILL.md file creation — written to the active evolve scope
         # (project → repo skills/evolved; global → data-dir skills/evolved).
         from l3.memory.r4_agent import _resolve_skill_scope
+
         _scope = _resolve_skill_scope()
-        _base = (get_paths().skill_project_evolved_dir if _scope == "project"
-                 else get_paths().skill_evolved_dir)
+        _base = get_paths().skill_project_evolved_dir if _scope == "project" else get_paths().skill_evolved_dir
         md_path = os.path.join(_base, "db-migration-helper", "SKILL.md")
         assert os.path.isfile(md_path), f"SKILL.md not found at {md_path}"
         with open(md_path, encoding="utf-8") as f:
@@ -123,7 +126,7 @@ class TestEvolveSkillLLMFullFlow:
         from l3.memory.r4_agent import R4Agent
 
         reset_skill_manager()
-        sm = get_skill_manager()
+        get_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
         mock_engine.return_value.generate.return_value = {
@@ -135,7 +138,7 @@ class TestEvolveSkillLLMFullFlow:
 
         # lean cases should not contain evolved skills
         lean = r4.get_lean_cases()
-        assert all("timestamp" not in l for l in lean)  # evolved prompt has timestamp
+        assert all("timestamp" not in case for case in lean)  # evolved prompt has timestamp
 
         # evolved should contain
         evolved = r4.get_evolved_skills()
@@ -145,6 +148,7 @@ class TestEvolveSkillLLMFullFlow:
 # ═══════════════════════════════════════════════════════════════
 # Layer 2: SKILL.md persistence + SkillManager reload test
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestSkillPersistenceRoundtrip:
     """Verify SKILL.md can be reloaded by SkillManager after persistence."""
@@ -212,25 +216,34 @@ Prompt for {name}.""")
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
         mock_engine.return_value.generate.return_value = {
-            "content": json.dumps({
-                "name": "yaml-validate-test",
-                "description": "Testing YAML frontmatter validity",
-                "prompt": "Test prompt",
-                "rules": ["DO: test"],
-                "tags": ["evolved", "test"],
-            }),
+            "content": json.dumps(
+                {
+                    "name": "yaml-validate-test",
+                    "description": "Testing YAML frontmatter validity",
+                    "prompt": "Test prompt",
+                    "rules": ["DO: test"],
+                    "tags": ["evolved", "test"],
+                }
+            ),
         }
 
         r4 = R4Agent()
         r4.evolve_skill("测试 YAML 前导格式")
 
-        md_path = os.path.join(get_paths().skill_evolved_dir, "yaml-validate-test", "SKILL.md")
+        # Written to the active evolve scope (project → repo skills/evolved;
+        # global → data-dir skills/evolved), mirroring test_full_flow.
+        from l3.memory.r4_agent import _resolve_skill_scope
+
+        _scope = _resolve_skill_scope()
+        _base = get_paths().skill_project_evolved_dir if _scope == "project" else get_paths().skill_evolved_dir
+        md_path = os.path.join(_base, "yaml-validate-test", "SKILL.md")
         assert os.path.isfile(md_path)
 
         # Verify YAML frontmatter is parseable
         with open(md_path, encoding="utf-8") as f:
             content = f.read()
         import re
+
         m = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
         assert m is not None, "SKILL.md missing YAML frontmatter"
         meta = yaml.safe_load(m.group(1))
@@ -242,12 +255,14 @@ Prompt for {name}.""")
 # Layer 3: AgentLoop Cell-A injection hybrid test
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestAgentLoopEvolvedInjection:
     """Verify evolved skills are injected into AgentLoop via Cell-A."""
 
     def test_get_evolved_skills_returns_registered(self):
         """get_evolved_skills should return all skills tagged as evolved from SkillManager."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -255,6 +270,7 @@ class TestAgentLoopEvolvedInjection:
         sm.create(name="evolved-two", prompt="prompt two", tags=["evolved", "api"], internal=True)
 
         from l3.memory.r4_agent import R4Agent
+
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=5)
         assert len(evolved) >= 2
@@ -262,6 +278,7 @@ class TestAgentLoopEvolvedInjection:
     def test_evolved_skills_injected_via_r4(self, mocker):
         """Skills returned by R4Agent.get_evolved_skills should be consumable by AgentLoop."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
 
@@ -274,6 +291,7 @@ class TestAgentLoopEvolvedInjection:
         )
 
         from l3.memory.r4_agent import R4Agent
+
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=3)
         assert len(evolved) >= 1
@@ -285,15 +303,18 @@ class TestAgentLoopEvolvedInjection:
         import inspect
 
         from l3.agent.agent_loop import AgentLoop
+
         source = inspect.getsource(AgentLoop._inject_extra_context)
         assert "Evolved Skills" in source or "evolved" in source.lower()
 
     def test_no_evolved_skills_no_injection(self, mocker):
         """With no evolved skills, get_evolved_skills should return empty list without crashing."""
         from l1.kernel.skill import reset_skill_manager
+
         reset_skill_manager()
 
         from l3.memory.r4_agent import R4Agent
+
         r4 = R4Agent()
         evolved = r4.get_evolved_skills()
         assert evolved == []
@@ -323,6 +344,7 @@ class TestAgentLoopEvolvedInjection:
             t.join()
 
         from l3.memory.r4_agent import R4Agent
+
         r4 = R4Agent()
         evolved = r4.get_evolved_skills(limit=10)
         assert len(evolved) >= 5
@@ -332,6 +354,7 @@ class TestAgentLoopEvolvedInjection:
 # Layer 4: Exception fault tolerance — bad LLM responses
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestEvolveSkillErrorHandling:
     """Test graceful degradation when LLM returns various bad responses."""
 
@@ -339,6 +362,7 @@ class TestEvolveSkillErrorHandling:
         """LLM returns empty content → JSON decode error → graceful degradation."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -353,6 +377,7 @@ class TestEvolveSkillErrorHandling:
         """LLM returns non-JSON text → JSON decode error → graceful degradation."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -369,6 +394,7 @@ class TestEvolveSkillErrorHandling:
         """LLM returns incomplete JSON → JSON decode error → graceful degradation."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -384,6 +410,7 @@ class TestEvolveSkillErrorHandling:
         """LLM engine itself throws exception → evolve_skill catches and returns friendly error."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -398,6 +425,7 @@ class TestEvolveSkillErrorHandling:
         """LLM returns JSON with missing key fields, use defaults."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -420,6 +448,7 @@ class TestEvolveSkillErrorHandling:
         """LLM returns dict without content field → graceful degradation."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -434,6 +463,7 @@ class TestEvolveSkillErrorHandling:
 # Cleanup and boundary tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestEvolveCleanup:
     """Verify evolve_skill boundary conditions and resource cleanup."""
 
@@ -444,12 +474,14 @@ class TestEvolveCleanup:
 
         reset_skill_manager()
 
-        skill_json = json.dumps({
-            "name": "repeat-skill",
-            "description": "Repeated evolution test",
-            "prompt": "Test prompt",
-            "tags": ["evolved", "test"],
-        })
+        skill_json = json.dumps(
+            {
+                "name": "repeat-skill",
+                "description": "Repeated evolution test",
+                "prompt": "Test prompt",
+                "tags": ["evolved", "test"],
+            }
+        )
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
         mock_engine.return_value.generate.return_value = {"content": skill_json}
@@ -479,12 +511,14 @@ class TestEvolveCleanup:
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
         mock_engine.return_value.generate.return_value = {
-            "content": json.dumps({
-                "name": "readonly-test",
-                "description": "Test read-only directory",
-                "prompt": "Test",
-                "tags": ["evolved", "test"],
-            }),
+            "content": json.dumps(
+                {
+                    "name": "readonly-test",
+                    "description": "Test read-only directory",
+                    "prompt": "Test",
+                    "tags": ["evolved", "test"],
+                }
+            ),
         }
 
         r4 = R4Agent()

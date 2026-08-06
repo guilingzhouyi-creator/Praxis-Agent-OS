@@ -62,6 +62,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills reload [--role <role>]
       /skills evolve <intent>          → generate a new skill via LLM
       /skills permissions              → current write-gate policy
+      /skills retriever [status]       → active retrieval backend (tfidf|embedding)
+      /skills retriever set <backend>  → switch retrieval backend at runtime
 
     The optional ``--role``/``--agent`` flag supplies the caller identity for
     the SkillManager developer gate; omitting it treats the call as a
@@ -112,6 +114,23 @@ def _cmd_skills(args: list[str]) -> dict:
         # Policy lives on the SkillManager (L1) — L2 must not import L3.
         policy = sm.write_policy()
         return {"success": True, "policy": policy}
+
+    if sub == "retriever":
+        # Skill retriever backend control (tfidf | embedding).  Read-only
+        # status is public; switching backend is a runtime knob like
+        # /api/v2/skills/retriever (same state, two surfaces).
+        action = rest[1] if len(rest) > 1 else "status"
+        from l3.memory.skill_retriever import retriever_status, set_backend
+        if action == "status":
+            return retriever_status()
+        if action == "set":
+            backend = rest[2] if len(rest) > 2 else ""
+            if not backend:
+                return {"success": False,
+                        "error": "usage: /skills retriever set <tfidf|embedding>"}
+            return set_backend(backend)
+        return {"success": False, "error": f"unknown retriever action: {action}",
+                "suggestions": ["status", "set <tfidf|embedding>"]}
 
     if sub == "evolve":
         intent = " ".join(rest[1:])

@@ -1,7 +1,11 @@
 """Constants: API, network, LLM, IPC, transport."""
 
+import os as _os
 import socket as _socket
 from typing import Final
+
+from ..paths import get_paths as _gp
+from ..platform import IS_NT as _IS_WIN
 
 # ── PAL Router (cost-optimized LLM routing) ──
 PAL_FRUGAL_COST: Final[int] = 1
@@ -42,10 +46,10 @@ LLM_MAX_EMPTY_RETRIES: Final[int] = 3
 
 # ─── LLM provider default URLs ──
 LLM_PROVIDER_URLS: Final[dict[str, str]] = {
-    "openai":    "https://api.openai.com/v1/chat/completions",
+    "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
-    "deepseek":  "https://api.deepseek.com/v1",
-    "ollama":    "http://localhost:11434",
+    "deepseek": "https://api.deepseek.com/v1",
+    "ollama": "http://localhost:11434",
 }
 ANTHROPIC_DEFAULT_URL: Final[str] = LLM_PROVIDER_URLS["anthropic"]
 ANTHROPIC_API_VERSION: Final[str] = "2023-06-01"
@@ -68,8 +72,8 @@ REASONING_EFFORT_NONE: Final[str] = "none"
 REASONING_EFFORT_LOW: Final[str] = "low"
 REASONING_EFFORT_MEDIUM: Final[str] = "medium"
 REASONING_EFFORT_HIGH: Final[str] = "high"
-REASONING_EFFORT_XHIGH: Final[str] = "xhigh"   # OpenAI GPT-5.x / Claude Opus 5+ / DeepSeek V4
-REASONING_EFFORT_MAX: Final[str] = "max"       # OpenAI GPT-5.x / Claude Fable 5 / Opus 5
+REASONING_EFFORT_XHIGH: Final[str] = "xhigh"  # OpenAI GPT-5.x / Claude Opus 5+ / DeepSeek V4
+REASONING_EFFORT_MAX: Final[str] = "max"  # OpenAI GPT-5.x / Claude Fable 5 / Opus 5
 DEFAULT_REASONING_EFFORT: Final[str] = REASONING_EFFORT_NONE
 DEFAULT_THINKING_BUDGET: Final[int] = 0
 THINK_MAX_BUDGET: Final[int] = 32768
@@ -94,16 +98,25 @@ EFFORT_RANK: Final[dict[str, int]] = {
     REASONING_EFFORT_MAX: 5,
 }
 EFFORT_TIERS_BY_PROVIDER: Final[dict[str, tuple[str, ...]]] = {
-    "openai": (REASONING_EFFORT_NONE, "minimal", REASONING_EFFORT_LOW,
-               REASONING_EFFORT_MEDIUM, REASONING_EFFORT_HIGH,
-               REASONING_EFFORT_XHIGH, REASONING_EFFORT_MAX),
+    "openai": (
+        REASONING_EFFORT_NONE,
+        "minimal",
+        REASONING_EFFORT_LOW,
+        REASONING_EFFORT_MEDIUM,
+        REASONING_EFFORT_HIGH,
+        REASONING_EFFORT_XHIGH,
+        REASONING_EFFORT_MAX,
+    ),
     # Claude has no none/minimal: lowest supported is low
-    "anthropic": (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM,
-                  REASONING_EFFORT_HIGH, REASONING_EFFORT_XHIGH,
-                  REASONING_EFFORT_MAX),
+    "anthropic": (
+        REASONING_EFFORT_LOW,
+        REASONING_EFFORT_MEDIUM,
+        REASONING_EFFORT_HIGH,
+        REASONING_EFFORT_XHIGH,
+        REASONING_EFFORT_MAX,
+    ),
     # DeepSeek V4 reasoning_effort values observed: low/medium/high
-    "deepseek": (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM,
-                 REASONING_EFFORT_HIGH),
+    "deepseek": (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM, REASONING_EFFORT_HIGH),
     "ollama": (),
     "mock": (),
 }
@@ -237,11 +250,6 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 
 
 # ── IPC / RPC ──
-import os as _os
-
-from ..paths import get_paths as _gp
-from ..platform import IS_NT as _IS_WIN
-
 IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
 
 if _IS_WIN:

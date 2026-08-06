@@ -157,12 +157,19 @@ class TestRunShell:
 
 class TestCreateInteractiveShell:
     def test_creates_popen(self):
+        import subprocess
+
         proc = create_interactive_shell()
         assert proc is not None
         assert proc.stdin is not None
         assert proc.stdout is not None
-        proc.terminate()
-        proc.wait(timeout=5)
+        proc.stdin.write(b"exit\n")
+        proc.stdin.flush()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 
 
 class TestGrepCmd:
