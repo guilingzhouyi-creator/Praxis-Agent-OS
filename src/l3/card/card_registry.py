@@ -22,7 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
-from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
+from l1.kernel.params.agent import DEFAULT_CELL_ID, PLAN_GENERATION_MAX_TOKENS, SIGNAL_TARGET_L3
 from l1.kernel.params.system import (
     CARD_DISPATCH_INTERVAL,
     CARD_QUEUE_PENDING_MAX,
@@ -396,7 +396,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             prompt = _gp("card_registry.generate_plan", "").format(intent=intent, domain=domain)
             r = engine.generate(prompt,
                                 system=_gp("card_registry.generate_plan.system", "You are a planning assistant."),
-                                max_tokens=1024,
+                                max_tokens=PLAN_GENERATION_MAX_TOKENS,
                                 **_get_model_service().resolve_dict(_MODEL_SPEC))
             content = r.get("content", "")
             plan = json.loads(content.strip().removeprefix("```json").removesuffix("```").strip())

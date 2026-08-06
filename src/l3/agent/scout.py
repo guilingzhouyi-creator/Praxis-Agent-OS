@@ -42,6 +42,7 @@ from l1.kernel.params.system import (
     SCOUT_CACHE_MAX_ENTRIES,
     SCOUT_CACHE_TTL,
     SCOUT_MONITOR_INTERVAL,
+    SCOUT_POOL_IDLE_TIMEOUT,
     SCOUT_POOL_MAX,
     SCOUT_TIMEOUT,
 )
@@ -188,7 +189,7 @@ class ScoutPool(BaseService):
 
     def __init__(self, min_idle: int = 2, max_total: int = SCOUT_POOL_MAX,
                  max_per_agent: int = MAX_SCOUTS_PER_AGENT,
-                 idle_timeout: float = 60.0, session_timeout: float = SCOUT_TIMEOUT):
+                 idle_timeout: float = SCOUT_POOL_IDLE_TIMEOUT, session_timeout: float = SCOUT_TIMEOUT):
         super().__init__("scout")
         self.min_idle = min_idle
         self.max_total = max_total

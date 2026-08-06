@@ -11,6 +11,8 @@ import logging
 import time
 from dataclasses import asdict, dataclass, field
 
+from l1.kernel.params.system import SESSION_COMPRESS_THRESHOLD
+
 SNAPSHOT_VERSION = 1
 
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ STEPS_EXHAUSTED_NUDGE = _gp("agent_loop.steps_exhausted_nudge",
 # ── Pre-send compression guard ──
 
 def should_compress(used_tokens: int, ctx_window: int,
-                    threshold: float = 0.85) -> bool:
+                    threshold: float = SESSION_COMPRESS_THRESHOLD) -> bool:
     """Check if the current context is near the window limit.
 
     AtomCode-style: when used_tokens / ctx_window >= threshold, trigger

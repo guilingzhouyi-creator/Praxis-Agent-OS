@@ -30,6 +30,7 @@ from .params.kernel import (
     SEMAPHORE_DEFAULT_TIMEOUT,
     SEMAPHORE_POLL_INTERVAL,
 )
+from .params.sync import MUTEX_CYCLE_MAX_DEPTH
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class Mutex:
             self._ipc_channel = get_lock_bus().get_channel(f"mutex:{name}")
             self._ipc_channel.register_handler(self._handle_ipc)
 
-    def _detect_cycle(self, max_depth: int = 20) -> list[str] | None:
+    def _detect_cycle(self, max_depth: int = MUTEX_CYCLE_MAX_DEPTH) -> list[str] | None:
         """DFS cycle detection. Returns cycle path or None.
 
         *max_depth* bounds traversal to prevent O(N) blowout on large _registry.

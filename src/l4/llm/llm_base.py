@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from l1.kernel.params.api import LLM_PROVIDER_MAX_TOKENS
 from l1.kernel.params.system import LLM_PROBE_MAX_TOKENS, TOOL_SEARCH_MAX_RESULTS, TOOL_SEARCH_MAX_TOOLS
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
+                 max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                  **kwargs) -> dict:
         """Generate a response from the LLM. Must be implemented by subclasses."""
 

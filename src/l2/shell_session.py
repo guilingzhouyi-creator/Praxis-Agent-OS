@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import IO
 
-from l1.kernel.params.api import SHELL_SESSION_TIMEOUT
+from l1.kernel.params.api import SHELL_READ_CHUNK_SIZE, SHELL_SESSION_TIMEOUT
 from l1.kernel.params.system import BUFFER_MAX, POLL_INTERVAL_SLOW
 from l1.kernel.platform import IS_WINDOWS, create_interactive_shell, set_nonblocking
 
@@ -156,7 +156,7 @@ class TerminalManager:
                     s.output_buffer.append(chunk.decode("utf-8", errors="replace"))
                     _last_data = time.time()
                 else:
-                    chunk = out.read(4096)
+                    chunk = out.read(SHELL_READ_CHUNK_SIZE)
                     if not chunk:
                         break
                     buf.extend(chunk)

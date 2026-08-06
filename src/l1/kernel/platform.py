@@ -20,6 +20,8 @@ import tempfile as _tempfile
 from pathlib import Path as _Path
 from typing import Any
 
+from .params.tool import TOOL_TERMINAL_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,7 +98,7 @@ def shell_command(cmd: str) -> list[str]:
     return [SHELL_PATH, "/c" if IS_WINDOWS else "-c", cmd]
 
 
-def run_shell(cmd: str, timeout: float = 30.0, **kwargs: Any) -> _subprocess.CompletedProcess:
+def run_shell(cmd: str, timeout: float = TOOL_TERMINAL_TIMEOUT, **kwargs: Any) -> _subprocess.CompletedProcess:
     """Run a command through the system shell, cross-platform."""
     kwargs.setdefault("timeout", timeout)
     kwargs.setdefault("capture_output", True)
@@ -104,7 +106,7 @@ def run_shell(cmd: str, timeout: float = 30.0, **kwargs: Any) -> _subprocess.Com
     return _subprocess.run(shell_command(cmd), **kwargs)
 
 
-def run_args(args: list[str], timeout: float = 30.0, **kwargs: Any) -> _subprocess.CompletedProcess:
+def run_args(args: list[str], timeout: float = TOOL_TERMINAL_TIMEOUT, **kwargs: Any) -> _subprocess.CompletedProcess:
     """Run a command as an argument list (no shell), cross-platform.
 
     Mirrors ``run_shell()`` defaults but takes a pre-split argument list,

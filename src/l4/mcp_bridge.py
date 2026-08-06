@@ -33,6 +33,8 @@ from l1.kernel.params.api import (
     MCP_BRIDGE_TIMEOUT,
     MCP_OAUTH_REDIRECT_PORT,
     MCP_TIMEOUT,
+    MCP_TOKEN_EXPIRY,
+    MCP_TOKEN_REFRESH_RATIO,
 )
 from l1.kernel.params.system import MCP_STATE_FILENAME, MCP_STATUS_OK
 from l3.tool_system.tool_spec import ToolRing, ToolSpec, list_tools, register
@@ -465,7 +467,7 @@ class MCPBridge:
         with self._lock:
             auth_data["access_token"] = token_data.get("access_token", "")
             auth_data["refresh_token"] = token_data.get("refresh_token", "")
-            auth_data["expires_in"] = token_data.get("expires_in", 3600)
+            auth_data["expires_in"] = token_data.get("expires_in", MCP_TOKEN_EXPIRY)
             auth_data["token_type"] = token_data.get("token_type", "Bearer")
             auth_data["acquired_at"] = __import__("time").time()
             self._server_auth[server_name] = auth_data
@@ -482,8 +484,8 @@ class MCPBridge:
         token = auth.get("access_token", "")
         # Check expiry and attempt refresh if needed
         acquired = auth.get("acquired_at", 0)
-        expires = auth.get("expires_in", 3600)
-        if token and acquired and (__import__("time").time() - acquired) > expires * 0.8:
+        expires = auth.get("expires_in", MCP_TOKEN_EXPIRY)
+        if token and acquired and (__import__("time").time() - acquired) > expires * MCP_TOKEN_REFRESH_RATIO:
             logger.info("mcp: token for %s is near expiry, consider refreshing", server_name)
         return token
 

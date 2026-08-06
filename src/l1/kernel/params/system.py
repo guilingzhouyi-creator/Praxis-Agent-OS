@@ -256,6 +256,14 @@ CHUNK_SIZE_TOKENS: Final[int] = 512
 SEARCH_DEFAULT_RESULTS: Final[int] = 20
 SYMBOL_SEARCH_RESULTS: Final[int] = 30
 DOC_SEARCH_RESULTS: Final[int] = 10
+SEARCH_SCORE_FULL_MATCH: Final[float] = 2.0
+SEARCH_SCORE_NAME_MATCH: Final[float] = 1.0
+SEARCH_SCORE_DOCSTRING_MATCH: Final[float] = 0.5
+SEARCH_SCORE_MODULE_MATCH: Final[float] = 0.3
+SEARCH_SCORE_PACKAGE_MATCH: Final[float] = 0.2
+SEARCH_SYMBOL_EXACT_MATCH: Final[float] = 1.0
+SEARCH_SYMBOL_PARTIAL_MATCH: Final[float] = 0.5
+SEARCH_SYMBOL_ASSIGN_MATCH: Final[float] = 0.3
 SEARCH_MAX_RESULTS: Final[int] = 200
 SEARCH_EXCLUDE_DIRS: Final[set[str]] = {"__pycache__", ".git", "node_modules", ".venv", "target", "build", "dist", ".tox"}
 SEARCH_EXCLUDE_EXTS: Final[set[str]] = {".pyc", ".pyo", ".so", ".dll", ".dylib", ".exe", ".bin", ".class", ".o", ".a", ".lib"}
@@ -383,6 +391,9 @@ THREAD_JOIN_TIMEOUT_QUICK: Final[float] = 2.0    # light thread join (poll/refer
 
 # ── L3B Message Pool ──
 L3B_HOT_RING_SIZE: Final[int] = 200
+L3B_MAILBOX_MAXLEN: Final[int] = 200
+L3B_LOAD_SCORE_WEIGHT: Final[float] = 0.6
+L3B_LOAD_SCORE_BASE: Final[float] = 0.4
 L3B_PERSIST_HIGH_WATERMARK: Final[float] = 0.8
 L3B_BACKPRESSURE_THRESHOLD: Final[int] = 1000
 L3B_BACKPRESSURE_COOLDOWN: Final[float] = 30.0
@@ -480,6 +491,8 @@ CARD_STALE_ESCALATE_SECONDS: Final[int] = 3600  # QUEUED card older than this is
 
 # ── Ops console defaults ──
 OPS_MAX_ALERTS: Final[int] = 200
+OPS_CONSOLE_POOL_WARN_RATIO: Final[float] = 0.9
+SESSION_COMPRESS_THRESHOLD: Final[float] = 0.85
 AGENT_UNRESPONSIVE_TIMEOUT: Final[float] = 60.0
 INTERRUPT_HIGH_COUNT: Final[int] = 100
 

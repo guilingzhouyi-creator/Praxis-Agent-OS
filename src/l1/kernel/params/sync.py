@@ -11,6 +11,7 @@ MUTEX_DEADLOCK_TIMEOUT: Final[float] = 0.5
 MUTEX_BOOST_THRESHOLD: Final[float] = 0.5
 MUTEX_CYCLE_DETECT_AFTER: Final[float] = 1.0
 MUTEX_CYCLE_DEBOUNCE: Final[float] = 60.0
+MUTEX_CYCLE_MAX_DEPTH: Final[int] = 20
 
 
 # ── Semaphore ──

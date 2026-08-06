@@ -12,6 +12,8 @@ import logging
 import os
 import sys
 
+from l1.kernel.params.api import LLM_PROVIDER_MAX_TOKENS
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +66,7 @@ class LLMWorkerServer:
         prompt = params.get("prompt", "")
         system = params.get("system", "")
         result = engine.generate(prompt, system=system,
-                                 max_tokens=params.get("max_tokens", 512),
+                                 max_tokens=params.get("max_tokens", LLM_PROVIDER_MAX_TOKENS),
                                  user_id=params.get("user_id", ""))
         return {"content": result.get("content", ""), "tokens": result.get("tokens", 0)}
 

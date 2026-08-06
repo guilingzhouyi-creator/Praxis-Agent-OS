@@ -23,6 +23,8 @@ from l1.kernel.params.api import (
     FALLBACK_MODEL,
     LLM_HTTP_TIMEOUT,
     LLM_LIGHTWEIGHT_TIMEOUT,
+    LLM_PROVIDER_CONTEXT_WINDOW,
+    LLM_PROVIDER_MAX_TOKENS,
     LLM_PROVIDER_URLS,
 )
 from l1.kernel.params.system import LLM_DEFAULT_CONTEXT_WINDOW, LOG_TRUNC_60, LOG_TRUNC_200, MOCK_DELAY
@@ -63,7 +65,7 @@ class MockProvider:
         return {"supports": self.capabilities, "context_window": LLM_DEFAULT_CONTEXT_WINDOW, "model": "mock"}
 
     def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
+                 max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                  cache_retention: str = "", **kwargs) -> dict:
         time.sleep(MOCK_DELAY)
         return {
@@ -119,7 +121,7 @@ class OpenAIProvider(_ProviderHelperMixin):
         self.model = model or self._vault_key("openai", "model") or os.environ.get(ENV_OPENAI_MODEL, self._get_setting("llm.model", "<model>"))
 
     def _api_call(self, messages: list[dict], tools: list[dict] | None = None,
-                   max_tokens: int = 512, user_id: str = "",
+                   max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                    cache_retention: float = 0) -> dict:
         import urllib.request as req
         body_dict = {"model": self.model, "messages": messages, "max_tokens": max_tokens}
@@ -163,7 +165,7 @@ class OpenAIProvider(_ProviderHelperMixin):
             max_tokens=max_tokens, user_id=user_id, cache_retention=cache_retention)
 
     def generate_with_messages(self, messages: list[dict], tools: list[dict] | None = None,
-                                max_tokens: int = 512, user_id: str = "",
+                                max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                                 cache_retention: float = 0) -> dict:
         return self._api_call(messages=messages, tools=tools, max_tokens=max_tokens,
                               user_id=user_id, cache_retention=cache_retention)
@@ -251,7 +253,7 @@ class AnthropicProvider(_ProviderHelperMixin):
         return result
 
     def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
+                 max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                  tools: list[dict] | None = None) -> dict:
         messages = [{"role": "user", "content": prompt}]
         if tools:
@@ -322,14 +324,14 @@ class OllamaProvider(_ProviderHelperMixin):
             caps.add("thinking_budget")
         except Exception:
             logger.debug("llm_providers: thinking_budget probe failed")
-        return {"supports": caps, "context_window": 32768, "model": self.model}
+        return {"supports": caps, "context_window": LLM_PROVIDER_CONTEXT_WINDOW, "model": self.model}
 
     def __init__(self, api_url: str = "", model: str = ""):
         self.api_url = api_url or os.environ.get(ENV_OLLAMA_URL, self._get_setting("llm.api_url", (get_config("provider_urls") or {}).get("ollama", LLM_PROVIDER_URLS["ollama"])))
         self.model = model or os.environ.get(ENV_OLLAMA_MODEL, self._get_setting("llm.model", "<model>"))
 
     def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
+                 max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                  **kwargs) -> dict:
         messages = [{"role": "system", "content": system or _gp("llm.fallback_system", "You are a helpful assistant.")},
                     {"role": "user", "content": prompt}]
@@ -375,7 +377,7 @@ class WebSocketProvider(_ProviderHelperMixin):
         self.model = model or os.environ.get(ENV_LLM_WS_MODEL, self._get_setting("llm.model", ""))
 
     def generate(self, prompt: str, system: str = "",
-                 max_tokens: int = 512, user_id: str = "",
+                 max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "",
                  **kwargs) -> dict:
         import urllib.request as req
         body = json.dumps({"model": self.model, "prompt": prompt,

@@ -29,12 +29,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from l1.kernel.ipc import get_lock_bus
+from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l1.kernel.params.api import IPC_CHANNEL_MAXLEN, IPC_MSG_TTL
+from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
-
-from l1.kernel.params.agent import DEFAULT_CELL_ID
-from l1.kernel.params.system import HASH_TRUNC_MEDIUM
 
 
 class MessageType(Enum):
@@ -87,7 +87,7 @@ class IPCMessage:
     msg_type: MessageType = MessageType.HEARTBEAT
     payload: dict = field(default_factory=dict)
     reply_to: str = ""
-    ttl: float = 30.0
+    ttl: float = IPC_MSG_TTL
     timestamp: float = field(default_factory=time.time)
     signature: str = ""  # AgentProof signature (§6.1)
 
@@ -123,7 +123,7 @@ class IpcBus(BaseService):
         super().__init__("ipc")
         self._lock_bus = get_lock_bus()
         # Each agent gets a LockBus channel for message delivery
-        self._channels: dict[str, deque[IPCMessage]] = defaultdict(lambda: deque(maxlen=200))
+        self._channels: dict[str, deque[IPCMessage]] = defaultdict(lambda: deque(maxlen=IPC_CHANNEL_MAXLEN))
         self._subscribers: dict[MessageType, list[Callable]] = defaultdict(list)
         self._agents: dict[str, str] = {}  # agent_id → cell_id
         self._lock = threading.RLock()

@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel import get_event_bus
+from l1.kernel.params.system import L3B_LOAD_SCORE_BASE, L3B_LOAD_SCORE_WEIGHT
 
 logger = logging.getLogger(__name__)
 
@@ -233,8 +234,8 @@ class L3B:
         if self.tier == "L3B1":
             winner = cell_a if ca.load <= cb.load else cell_b
             return {"success": True, "winner": winner, "tier": "L3B1", "reason": "lower load"}
-        score_a = (1.0 - ca.load) * 0.6 + 0.4
-        score_b = (1.0 - cb.load) * 0.6 + 0.4
+        score_a = (1.0 - ca.load) * L3B_LOAD_SCORE_WEIGHT + L3B_LOAD_SCORE_BASE
+        score_b = (1.0 - cb.load) * L3B_LOAD_SCORE_WEIGHT + L3B_LOAD_SCORE_BASE
         return {"success": True, "winner": cell_a if score_a >= score_b else cell_b,
                 "tier": self.tier, "reason": f"score {score_a:.2f} vs {score_b:.2f}"}
 

@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from itertools import islice
 
+from .params.allocator import PROCESS_GC_INTERVAL
 from .params.kernel import (
     PROCESS_AUDIT_LOG_LIMIT,
     PROCESS_AUDIT_MAX,
@@ -187,7 +188,7 @@ class ProcessTable:
     PID 0 is the init process (kernel itself).
     """
 
-    def __init__(self, gc_interval: float = 60.0):
+    def __init__(self, gc_interval: float = PROCESS_GC_INTERVAL):
         self._lock = threading.Lock()
         self._processes: dict[int, PCB] = {}
         self._name_index: dict[str, int] = {}

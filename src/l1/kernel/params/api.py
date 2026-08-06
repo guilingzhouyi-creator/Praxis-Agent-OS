@@ -17,6 +17,9 @@ PAL_DEFAULT_TIER: Final[str] = "frugal"
 PAL_COMPLEXITY_MAX_TOKENS: Final[int] = 4000
 PAL_COMPLEXITY_MAX_TOOLS: Final[int] = 5
 PAL_COMPLEXITY_MAX_DEPTH: Final[int] = 5
+PAL_COMPLEXITY_WEIGHT_TOKENS: Final[float] = 0.30
+PAL_COMPLEXITY_WEIGHT_TOOLS: Final[float] = 0.30
+PAL_COMPLEXITY_WEIGHT_DEPTH: Final[float] = 0.40
 
 
 # ── Device rate limit defaults ──
@@ -112,6 +115,10 @@ LLM_DEFAULT_TEMPERATURE: Final[float] = 0.3
 """Default temperature in LLMConfig."""
 LLM_DEFAULT_CACHE_BREAKPOINTS: Final[int] = 4
 """Default cache_breakpoints in LLMConfig."""
+LLM_PROVIDER_MAX_TOKENS: Final[int] = 512
+"""Default max_tokens in provider generate() signatures."""
+LLM_PROVIDER_CONTEXT_WINDOW: Final[int] = 32768
+"""Provider capability context window fallback."""
 
 
 # ── Kernel network ──
@@ -208,8 +215,11 @@ SSE_QUEUE_MAXSIZE: Final[int] = 256
 LSP_MANAGER_TIMEOUT: Final[float] = 5.0
 LSP_MANAGER_LONG_TIMEOUT: Final[float] = 30.0
 MCP_BRIDGE_TIMEOUT: Final[float] = 10.0
+MCP_TOKEN_EXPIRY: Final[int] = 3600
+MCP_TOKEN_REFRESH_RATIO: Final[float] = 0.8
 MCP_BRIDGE_LONG_TIMEOUT: Final[float] = 30.0
 SHELL_SESSION_TIMEOUT: Final[float] = 3.0
+SHELL_READ_CHUNK_SIZE: Final[int] = 4096
 POOL_QUEUE_TIMEOUT: Final[float] = 1.0
 TERM_HANDLER_TIMEOUT: Final[float] = 15.0
 TERM_HANDLER_LONG_TIMEOUT: Final[float] = 30.0
@@ -244,6 +254,8 @@ else:
     IPC_LLM_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
     IPC_SANDBOX_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
 IPC_KEEPALIVE_INTERVAL: Final[float] = 5.0
+IPC_MSG_TTL: Final[float] = 30.0
+IPC_CHANNEL_MAXLEN: Final[int] = 200
 
 
 # ── Subprocess / LSP / HTTP timeouts (config-driven) ──

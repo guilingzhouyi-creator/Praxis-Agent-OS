@@ -22,7 +22,13 @@ from enum import Enum, auto
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.discovery import get_config as _get_config
-from l1.kernel.params.agent import CARD_GATE_ARCH_KEYWORDS, SIGNAL_TARGET_L3
+from l1.kernel.params.agent import (
+    CARD_GATE_APPROVAL_TIMEOUT,
+    CARD_GATE_ARCH_KEYWORDS,
+    CARD_GATE_CONVENTION_TIMEOUT,
+    CARD_GATE_HISTORY_LIMIT,
+    SIGNAL_TARGET_L3,
+)
 from l1.kernel.params.kernel import WitnessStatus
 from l1.kernel.params.system import LOG_TRUNC_200
 from l1.kernel.paths import get_paths as _gp
@@ -64,8 +70,8 @@ _DEFAULT_THRESHOLDS: dict[str, int] = {
     "small_max_lines": 50,
     "medium_max_files": 5,
     "medium_max_lines": 200,
-    "approval_timeout": 3600,
-    "convention_timeout": 7200,
+    "approval_timeout": int(CARD_GATE_APPROVAL_TIMEOUT),
+    "convention_timeout": int(CARD_GATE_CONVENTION_TIMEOUT),
 }
 
 _DEFAULT_AUTO_APPROVAL: dict[str, bool] = {
@@ -122,7 +128,23 @@ class CardGate(PersistableMixin):
         self._history.clear()
         self._human_pending.update(data.get("pending", {}))
         self._history.extend(data.get("history", []))
-        self._thresholds.update(data.get("thresholds", {}))
+        # Coerce thresholds to int (same semantics as load_config) so persisted
+        # float values (e.g. 3600.0) never violate the int-typed dict contract.
+        # Defensive per-key coercion: a corrupt/hand-edited value must not abort
+        # the whole restore (that would trigger partial-apply + auto-save
+        # overwrite of the state file); fall back to the built-in default.
+        raw = data.get("thresholds", {}) or {}
+        if not isinstance(raw, dict):
+            logger.warning("card_gate: persisted thresholds is not a dict (%s), keeping defaults", type(raw).__name__)
+        else:
+            for k, v in raw.items():
+                if k not in _DEFAULT_THRESHOLDS:
+                    continue
+                try:
+                    self._thresholds[k] = int(v)
+                except (TypeError, ValueError):
+                    logger.warning("card_gate: invalid persisted threshold %s=%r, keeping default %s",
+                                   k, v, _DEFAULT_THRESHOLDS[k])
         self._auto_approval.update(data.get("auto_approval", {}))
         return True
 
@@ -220,7 +242,7 @@ class CardGate(PersistableMixin):
         from .card.pending_queue import get_queue
         return get_queue().list(status=WitnessStatus.PENDING)
 
-    def list_history(self, limit: int = 50) -> list[dict]:
+    def list_history(self, limit: int = CARD_GATE_HISTORY_LIMIT) -> list[dict]:
         with self._lock:
             return list(self._history)[-limit:]
 
@@ -264,7 +286,7 @@ def list_pending() -> list[dict]:
     return get_gate().list_pending()
 
 
-def list_history(limit: int = 50) -> list[dict]:
+def list_history(limit: int = CARD_GATE_HISTORY_LIMIT) -> list[dict]:
     return get_gate().list_history(limit)
 
 

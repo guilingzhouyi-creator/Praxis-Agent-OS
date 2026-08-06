@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import SCOUT_POOL_IDLE_TIMEOUT
+from l1.kernel.params.system import L3B_MAILBOX_MAXLEN, SCOUT_POOL_IDLE_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class L3BBus:
         """
         with self._lock:
             if composite_id not in self._mailboxes:
-                self._mailboxes[composite_id] = deque(maxlen=200)
+                self._mailboxes[composite_id] = deque(maxlen=L3B_MAILBOX_MAXLEN)
                 logger.info("L3BBus: registered %s", composite_id)
             return {"success": True, "composite_id": composite_id}
 

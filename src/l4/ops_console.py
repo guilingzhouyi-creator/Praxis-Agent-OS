@@ -27,7 +27,13 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.interrupt import InterruptType, register_handler
 from l1.kernel.interrupt import get_table as get_int_table
 from l1.kernel.params.agent import AGENT_STATUS_CRASHED, SIGNAL_TARGET_L3
-from l1.kernel.params.system import AGENT_UNRESPONSIVE_TIMEOUT, INTERRUPT_HIGH_COUNT, OPS_MAX_ALERTS
+from l1.kernel.params.system import (
+    AGENT_UNRESPONSIVE_TIMEOUT,
+    INTERRUPT_HIGH_COUNT,
+    OPS_CONSOLE_POOL_WARN_RATIO,
+    OPS_MAX_ALERTS,
+    SCOUT_POOL_MAX_TOTAL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +188,7 @@ class OpsConsole:
             from .agent.scout import get_pool
             pool = get_pool()
             ps = pool.stats()
-            if ps.get("active", 0) >= ps.get("max_total", 16) * 0.9:
+            if ps.get("active", 0) >= ps.get("max_total", SCOUT_POOL_MAX_TOTAL) * OPS_CONSOLE_POOL_WARN_RATIO:
                 self._alert(AlertLevel.WARN, "scout/pool",
                              f"Scout pool near capacity: {ps['active']}/{ps['max_total']}",
                              ps)

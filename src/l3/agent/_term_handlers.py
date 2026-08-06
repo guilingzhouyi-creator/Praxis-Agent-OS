@@ -7,7 +7,12 @@ import logging
 from typing import Any
 
 from l1.kernel.discovery import get_tool_config
-from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS, AGENT_LOOP_DEFAULT_TIMEOUT, TERMINAL_CONTEXT_RECENT
+from l1.kernel.params.agent import (
+    AGENT_LOOP_DEFAULT_STEPS,
+    AGENT_LOOP_DEFAULT_TIMEOUT,
+    CARD_TIMEOUT,
+    TERMINAL_CONTEXT_RECENT,
+)
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
 from l1.kernel.params.system import (
     LOG_TRUNC_40,
@@ -21,6 +26,7 @@ from l1.kernel.params.system import (
     TERMINAL_OUTPUT_MAX_CHARS,
     TERMINAL_OUTPUT_MAX_LINES,
 )
+from l1.kernel.params.tool import TOOL_GREP_TIMEOUT
 from l1.kernel.platform import grep_cmd as _grep_cmd
 
 logger = logging.getLogger(__name__)
@@ -112,7 +118,7 @@ def handle_shell(term, card, phases):
     from l1.kernel.platform import SHELL_PATH, SHELL_PROMPT
 
     command = card.params.get("command", card.target)
-    timeout = int(card.params.get("timeout", 30))
+    timeout = int(card.params.get("timeout", CARD_TIMEOUT))
     session_id = card.params.get("session_id", "")
     show_prompt = card.params.get("prompt", True)
 
@@ -177,7 +183,7 @@ def _handle_grep(args, agent):
     import subprocess as _sp
     cmd_list = _grep_cmd(args.get("pattern", ""), args.get("path", "."))
     try:
-        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=get_tool_config("grep_timeout", 15))
+        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=get_tool_config("grep_timeout", TOOL_GREP_TIMEOUT))
         out = (r.stdout or "")[:LOG_TRUNC_4000] or "no matches"
         return {"success": True, "data": out}
     except FileNotFoundError:
@@ -224,8 +230,9 @@ def handle_think(term, card, phases):
     try:
         import os as _os
 
-        from .agent_loop import AgentLoop
         from l3.memory.memory import get_memory
+
+        from .agent_loop import AgentLoop
 
         task = card.params.get("prompt", card.target)
 

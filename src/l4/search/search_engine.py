@@ -25,6 +25,14 @@ from l1.kernel.params.system import (
     LOG_TRUNC_100,
     LOG_TRUNC_200,
     SEARCH_DEFAULT_RESULTS,
+    SEARCH_SCORE_DOCSTRING_MATCH,
+    SEARCH_SCORE_FULL_MATCH,
+    SEARCH_SCORE_MODULE_MATCH,
+    SEARCH_SCORE_NAME_MATCH,
+    SEARCH_SCORE_PACKAGE_MATCH,
+    SEARCH_SYMBOL_ASSIGN_MATCH,
+    SEARCH_SYMBOL_EXACT_MATCH,
+    SEARCH_SYMBOL_PARTIAL_MATCH,
     SYMBOL_SEARCH_RESULTS,
 )
 
@@ -184,7 +192,7 @@ class SymbolSearch:
         self._lock = threading.Lock()
 
     def search(self, name: str, kind: str = "",
-               root_dir: str = ".", max_results: int = 30) -> dict:
+               root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
         """Search for code symbols."""
         root = Path(root_dir).resolve()
         if not root.exists():
@@ -221,7 +229,7 @@ class SymbolSearch:
                             line=node.lineno or 1,
                             content=ast.unparse(node).splitlines()[0][:LOG_TRUNC_200]
                             if hasattr(ast, 'unparse') else f"def {node.name}(...):",
-                            score=1.0 if node.name.lower() == term else 0.5,
+                            score=SEARCH_SYMBOL_EXACT_MATCH if node.name.lower() == term else SEARCH_SYMBOL_PARTIAL_MATCH,
                             kind="symbol",
                             symbol_name=node.name,
                             symbol_type="method" if self._is_method(node) else "function",
@@ -233,7 +241,7 @@ class SymbolSearch:
                             path=str(file_path.relative_to(root)),
                             line=node.lineno or 1,
                             content=f"class {node.name}:",
-                            score=1.0 if node.name.lower() == term else 0.5,
+                            score=SEARCH_SYMBOL_EXACT_MATCH if node.name.lower() == term else SEARCH_SYMBOL_PARTIAL_MATCH,
                             kind="symbol",
                             symbol_name=node.name,
                             symbol_type="class",
@@ -245,7 +253,7 @@ class SymbolSearch:
                                     path=str(file_path.relative_to(root)),
                                     line=node.lineno or 1,
                                     content=f"{target.id} = ...",
-                                    score=0.3,
+                                    score=SEARCH_SYMBOL_ASSIGN_MATCH,
                                     kind="symbol",
                                     symbol_name=target.id,
                                     symbol_type="variable",
@@ -372,15 +380,15 @@ class DocSearch:
         for key, entry in all_entries.items():
             score = 0
             if q in key.lower():
-                score += 2
+                score += SEARCH_SCORE_FULL_MATCH
             if q in entry.name.lower():
-                score += 1
+                score += SEARCH_SCORE_NAME_MATCH
             if q in entry.docstring.lower():
-                score += 0.5
+                score += SEARCH_SCORE_DOCSTRING_MATCH
             if q in entry.module.lower():
-                score += 0.3
+                score += SEARCH_SCORE_MODULE_MATCH
             if q in entry.package.lower():
-                score += 0.2
+                score += SEARCH_SCORE_PACKAGE_MATCH
             if score > 0:
                 results.append(entry)
 
@@ -399,11 +407,11 @@ class DocSearch:
         score = 0
         full = f"{entry.package}.{entry.module}.{entry.name}".lower()
         if query in full:
-            score += 2
+            score += SEARCH_SCORE_FULL_MATCH
         if query in entry.name.lower():
-            score += 1
+            score += SEARCH_SCORE_NAME_MATCH
         if query in entry.docstring.lower():
-            score += 0.5
+            score += SEARCH_SCORE_DOCSTRING_MATCH
         return score
 
     def index(self, package: str, module: str, name: str,
