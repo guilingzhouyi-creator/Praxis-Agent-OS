@@ -20,6 +20,14 @@ def dispatch(args: list[str], mgr: SessionManager,
 
     sub = args[0].lower()
 
+    if sub == "agents-md":
+        # Generic project-handbook pipeline: collect → assemble → sandbox
+        # write → (optional) generalize into a reusable skill.
+        from .agents_md import generate_agents_md
+
+        evolve = not (len(args) > 1 and args[1].lower() in ("--no-evolve", "-n"))
+        return generate_agents_md(agent_id="l3a", evolve=evolve)
+
     if sub == "create":
         title = " ".join(args[1:]) if len(args) > 1 else ""
         s = mgr.create(title=title, model_config=model_cfg, registry=registry)

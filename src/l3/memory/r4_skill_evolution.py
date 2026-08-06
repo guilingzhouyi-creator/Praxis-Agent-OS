@@ -44,17 +44,19 @@ logger = logging.getLogger(__name__)
 class SkillEvolutionMixin:
     """SkillEvolutionMixin — skill evolution, persistence and summarization."""
 
-    def _skill_md_path(self, name: str) -> str:
+    def _skill_md_path(self, name: str, scope: str = "") -> str:
         """Resolve the SKILL.md path for a skill in the evolved dir.
 
         Layered persistence: project scope → travels with the repo; global
         scope → machine-local data dir (must match the boot discovery dirs).
+        An explicit ``scope`` ("project"/"global") overrides the configured
+        default (``skill.evolve_scope``); empty string defers to config.
         """
         import os
 
         from l1.kernel.paths import get_paths as _gp
         from l3.memory.r4_agent import _resolve_skill_scope
-        scope = _resolve_skill_scope()
+        scope = scope or _resolve_skill_scope()
         evolved_base = (_gp().skill_project_evolved_dir if scope == "project"
                         else _gp().skill_evolved_dir)
         return os.path.join(evolved_base, name, "SKILL.md")
@@ -66,19 +68,21 @@ class SkillEvolutionMixin:
                           variables: dict | None = None,
                           disable_model_invocation: bool = False,
                           dependencies: list[str] | None = None,
-                          dependency_kind: str = "soft") -> str:
+                          dependency_kind: str = "soft",
+                          scope: str = "") -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
 
         Frontmatter carries name/description/tags/allowed_tools/variables/
         disable-model-invocation/dependencies/dependency-kind so a reload via
         SkillManager._load_markdown() restores them; the prompt is the body.
         Shared by evolve_skill (LLM) and _generalize_lean_cases (rule-based)
-        so both survive restart via the boot discovery dirs.
+        so both survive restart via the boot discovery dirs.  An explicit
+        ``scope`` overrides the configured evolution scope for this write.
         """
         import os
 
         import yaml as _yaml
-        md_path = self._skill_md_path(name)
+        md_path = self._skill_md_path(name, scope)
         os.makedirs(os.path.dirname(md_path), exist_ok=True)
         meta = {"name": name, "description": description, "tags": tags}
         if disable_model_invocation:
@@ -384,7 +388,7 @@ class SkillEvolutionMixin:
             generalized += 1
         return generalized
 
-    def evolve_skill(self, intent: str, cell_id: str = "") -> dict:
+    def evolve_skill(self, intent: str, cell_id: str = "", scope: str = "") -> dict:
         """Use LLM to generate a new skill definition from a natural language intent.
 
         Uses the LLM engine to produce a structured skill (name, description, rules,
@@ -393,6 +397,8 @@ class SkillEvolutionMixin:
 
         When ``cell_id`` is provided, the evolved skill is also bound to that
         Cell's white-list (演化即回灌) so its agents can inject it immediately.
+        An explicit ``scope`` ("project"/"global") overrides the configured
+        ``skill.evolve_scope`` for this evolution's SKILL.md write.
 
         Invoked via: /skills evolve <intent>
         """
@@ -515,12 +521,13 @@ class SkillEvolutionMixin:
             # (tags/allowed_tools/variables survive reload) for both the LLM
             # evolve path and the rule-based generalization path.
             from l3.memory.r4_agent import _resolve_skill_scope
-            scope = _resolve_skill_scope()
+            scope = scope or _resolve_skill_scope()
             self._persist_skill_md(
                 name=name, description=skill_desc, prompt=skill_prompt,
                 tags=skill_tags, allowed_tools=skill_tools,
                 rules=skill_rules, procedures=skill_procs,
                 variables=skill_def.get("variables"),
+                scope=scope,
             )
 
             if self._pmu:

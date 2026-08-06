@@ -21,3 +21,14 @@ def _ensure() -> None:
 def _cmd_l3a(args: list[str]) -> dict:
     _ensure()
     return _l3a_dispatch(args)
+
+
+def _cmd_agents_md(args: list[str]) -> dict:
+    """Generate/refresh the project handbook (AGENTS.md) via the L3A pipeline.
+
+    Thin shell command: routes ``agents-md`` into the L3A dispatch, which
+    runs collect → assemble → sandbox write → (optional) generalize.
+    ``--no-evolve`` skips the R4Agent skill distillation step.
+    """
+    _ensure()
+    return _l3a_dispatch(["agents-md"] + args)

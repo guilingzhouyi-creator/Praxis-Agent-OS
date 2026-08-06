@@ -81,6 +81,7 @@ ALLOWLIST = {
     ("l3/card/card_registry.py", "l4.llm.llm"),
     ("l3/cell/__init__.py", "l4.sandbox.cell_sandbox"),
     ("l3/cell/components/cell_cross_review.py", "l4.sandbox"),
+    ("l3/cell/peers/l3a/agents_md.py", "l4.sandbox"),
     ("l3/config/config_handlers.py", "l4.api.api_gateway"),
     ("l3/config/config_handlers.py", "l4.api_handlers.api_handlers_mcp"),
     ("l3/config/config_handlers.py", "l4.mcp_bridge"),

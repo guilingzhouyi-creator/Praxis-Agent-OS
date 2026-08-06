@@ -527,3 +527,13 @@ l3a:
     - "/l3a model set provider <provider> — override L3A model provider"
     - "/l3a model set model <model>  — override L3A model"
     - "/l3a context sources            — list registered context sources"
+
+agents-md:
+  category: system
+  help: "Generate/refresh the project handbook (AGENTS.md) via L3A pipeline"
+  args:
+    - {name: "--no-evolve", optional: true, description: "Skip R4Agent skill distillation (generic-skill end)"}
+    - {name: "-n", optional: true, description: "Alias for --no-evolve"}
+  examples:
+    - "/agents-md                 — collect facts, write AGENTS.md, distill generic skill"
+    - "/agents-md --no-evolve     — write handbook only (no skill evolution)"
