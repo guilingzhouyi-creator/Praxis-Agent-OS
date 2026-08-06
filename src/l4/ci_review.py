@@ -18,6 +18,7 @@ import fnmatch
 import json
 import logging
 import os
+import queue
 import re
 import shlex
 import threading
@@ -92,8 +93,8 @@ def _is_allowed_key(key: str) -> bool:
     parts = rest.split(".")
     if len(parts) == 1:
         return parts[0] in CI_SETTING_SUFFIXES
-    if (len(parts) == 3 and parts[0] in ("cell", "agent")
-            and parts[2] in CI_SETTING_SUFFIXES):
+    if (len(parts) >= 3 and parts[0] in ("cell", "agent")
+            and ".".join(parts[2:]) in CI_SETTING_SUFFIXES):
         return bool(_ID_PATTERN.match(parts[1]))
     return False
 
@@ -149,10 +150,9 @@ class CiReviewService(BaseService):
         super().__init__("ci_review")
         self._reports: dict[str, CardCiReport] = {}
         self._dedup: dict[tuple[str, str], float] = {}
-        self._semaphore = threading.BoundedSemaphore(CI_REVIEW_MAX_CONCURRENT)
+        self._queue: queue.Queue = queue.Queue(maxsize=CI_REVIEW_QUEUE_CAP)
         self._jsonl_lock = threading.Lock()
         self._registered = False
-        self._last_run_id = ""
         if not persist_path:
             try:
                 from l1.kernel.paths import get_paths as _gp
@@ -160,6 +160,11 @@ class CiReviewService(BaseService):
             except Exception:
                 persist_path = CI_REVIEW_PERSIST_FILE
         self._persist_path = persist_path
+        # Bounded worker pool: CI_REVIEW_MAX_CONCURRENT daemon workers consume
+        # the bounded queue — both concurrency and queued work are capped.
+        for _ in range(CI_REVIEW_MAX_CONCURRENT):
+            threading.Thread(target=self._process, daemon=True,
+                             name="ci-review-worker").start()
 
     # ── BaseService lifecycle ──
 
@@ -224,14 +229,23 @@ class CiReviewService(BaseService):
             if len(self._dedup) > CI_REVIEW_QUEUE_CAP:
                 oldest = min(self._dedup, key=lambda k: self._dedup[k])
                 self._dedup.pop(oldest, None)
-        threading.Thread(
-            target=self._process, args=(card_id, state, dict(result or {})),
-            daemon=True, name=f"ci-review-{card_id[:8]}",
-        ).start()
+        self._submit(card_id, state, result)
 
-    def _process(self, card_id: str, state: str, result: dict) -> None:
-        """Run the review under the concurrency cap."""
-        with self._semaphore:
+    def _submit(self, card_id: str, state: str, result: dict) -> bool:
+        """Enqueue a review task; False when the bounded queue is full."""
+        try:
+            self._queue.put_nowait((card_id, state, dict(result or {})))
+            return True
+        except queue.Full:
+            capture("ci_review: review queue full", error_code="E_CI_REVIEW_QUEUE_FULL",
+                    component="ci_review", task_id=card_id)
+            logger.warning("ci_review: queue full, dropping card %s", card_id)
+            return False
+
+    def _process(self) -> None:
+        """Worker loop: pull reviews from the bounded queue (daemon)."""
+        while True:
+            card_id, state, result = self._queue.get()
             try:
                 self._do_review(card_id, state, result)
             except Exception as e:
@@ -254,9 +268,11 @@ class CiReviewService(BaseService):
         steps = self._build_steps(report.changed_files)
         if not steps:
             report.error = "no gates applicable to changed files"
+            report.completed_at = time.time()
             self._persist_report(report)
             return
-        gates, error = self._run_and_wait(card_id, steps, result)
+        run_id, gates, error = self._run_and_wait(card_id, steps, result)
+        report.run_id = run_id
         report.gates = gates
         report.error = error
         report.verdict = self._verdict(gates, error)
@@ -414,8 +430,12 @@ class CiReviewService(BaseService):
     # ── Pipeline execution ──
 
     def _run_and_wait(self, card_id: str, steps: list[dict],
-                      result: dict) -> tuple[list[dict], str]:
-        """Run the gate pipeline via CIService and poll until completion."""
+                      result: dict) -> tuple[str, list[dict], str]:
+        """Run the gate pipeline via CIService and poll until completion.
+
+        Returns (run_id, gates, error) so the report can link back to the
+        underlying PipelineRun.
+        """
         from l4.ci import get_service as _get_ci
         agent_id = str(result.get("agent_id") or result.get("agent") or "")
         r = _get_ci().run_pipeline(
@@ -423,7 +443,6 @@ class CiReviewService(BaseService):
             timeout=CI_REVIEW_TIMEOUT, card_id=card_id,
         )
         run_id = r.get("run_id", "")
-        self._last_run_id = run_id
         deadline = time.time() + CI_REVIEW_TIMEOUT + 10
         error = ""
         while time.time() < deadline:
@@ -446,7 +465,7 @@ class CiReviewService(BaseService):
             error = f"timed out waiting for CI pipeline ({CI_REVIEW_TIMEOUT}s)"
             gates = [{"action": s.get("action"), "exit_code": None, "status": "unknown"}
                      for s in steps]
-        return gates, error
+        return run_id, gates, error
 
     @staticmethod
     def _verdict(gates: list[dict], error: str) -> str:
@@ -536,7 +555,8 @@ class CiReviewService(BaseService):
                 fonds=CI_REVIEW_ARCHIVE_FONDS, series=CI_REVIEW_ARCHIVE_SERIES,
                 content=payload, tags=f"card:{report.card_id},verdict:{report.verdict}",
             )
-            report.archive_ref = str(ar.get("archive_ref", "")) if isinstance(ar, dict) else ""
+            report.archive_ref = str(ar.get("ref_code") or ar.get("archive_ref") or "") \
+                if isinstance(ar, dict) else ""
         except Exception as e:
             capture("ci_review: R4 archive failed", error_code="E_CI_REVIEW_ARCHIVE",
                     component="ci_review", exc=e, task_id=report.card_id)
@@ -561,7 +581,12 @@ class CiReviewService(BaseService):
         """Broadcast the review result on EventBus and MonitorBus."""
         try:
             from l1.kernel import get_event_bus
-            evt = "ci.review.completed" if report.verdict == "PASS" else "ci.review.failed"
+            if report.verdict == "PASS":
+                evt = "ci.review.completed"
+            elif report.verdict == "SKIPPED":
+                evt = "ci.review.skipped"
+            else:
+                evt = "ci.review.failed"
             get_event_bus().emit_event(evt, {
                 "card_id": report.card_id, "run_id": report.run_id,
                 "verdict": report.verdict, "gates": report.gates,
@@ -574,7 +599,7 @@ class CiReviewService(BaseService):
         try:
             from l3.bus.monitor_bus import MonitorEvent
             from l3.bus.monitor_bus import get_bus as _get_mbus
-            severity = "info" if report.verdict == "PASS" else (
+            severity = "info" if report.verdict in ("PASS", "SKIPPED") else (
                 "warn" if report.verdict == "NEEDS_CHANGES" else "crit")
             _get_mbus().emit(MonitorEvent(
                 type="ci.card.review", source="ci_review", severity=severity,
@@ -748,11 +773,7 @@ class CiReviewService(BaseService):
             return {"success": False,
                     "error": f"no CI review history for card: {card_id}"}
         result = {"agent_id": prev.agent_id or "", "changes": list(prev.changed_files)}
-        threading.Thread(
-            target=self._process,
-            args=(card_id, prev.state or "completed", result),
-            daemon=True, name=f"ci-rerun-{card_id[:8]}",
-        ).start()
+        self._submit(card_id, prev.state or "completed", result)
         return {"success": True, "card_id": card_id, "queued": True}
 
     def query(self, card_id: str = "", status: str = "",

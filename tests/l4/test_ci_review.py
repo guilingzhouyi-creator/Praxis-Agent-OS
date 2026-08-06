@@ -136,7 +136,7 @@ class TestReport:
         captured = {}
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
         monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
+            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
         monkeypatch.setattr(svc, "_persist_report",
                             lambda r: captured.update(verdict=r.verdict, error=r.error))
         monkeypatch.setattr(svc, "_dispatch_linkages", lambda r: None)
@@ -148,7 +148,7 @@ class TestReport:
         svc, _ = _make_service(tmp_path, monkeypatch)
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
         monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            [{"action": "ruff", "exit_code": 1, "status": "failed"}], "ruff failed"))
+            "run-1", [{"action": "ruff", "exit_code": 1, "status": "failed"}], "ruff failed"))
         captured = {}
         monkeypatch.setattr(svc, "_persist_report",
                             lambda r: captured.update(verdict=r.verdict, error=r.error))
@@ -172,7 +172,7 @@ class TestReport:
         called = []
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
         monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
+            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
         monkeypatch.setattr(svc, "_llm_review", lambda r: called.append(1) or {"verdict": "REJECT"})
         captured = {}
         monkeypatch.setattr(svc, "_persist_report",
@@ -187,7 +187,7 @@ class TestReport:
         called = []
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
         monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
+            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
         monkeypatch.setattr(svc, "_llm_review", lambda r: called.append(1))
         captured = {}
         monkeypatch.setattr(svc, "_persist_report",
@@ -205,7 +205,8 @@ class TestReport:
         fake = _FakeCIService(status="passed")
         monkeypatch.setattr(ci_module, "get_service", lambda: fake)
         monkeypatch.setattr(ci_review, "time", SimpleNamespace(sleep=lambda s: None, time=time.time))
-        gates, error = svc._run_and_wait("card-1", [{"action": "ruff", "cmd": "x"}], {})
+        run_id, gates, error = svc._run_and_wait("card-1", [{"action": "ruff", "cmd": "x"}], {})
+        assert run_id == "run-1"
         assert error == ""
         assert gates[0]["exit_code"] == 0
         assert fake.calls[0]["card_id"] == "card-1"
@@ -377,8 +378,10 @@ class TestLinkages:
         assert notified == ["REJECT"]  # other consumers still ran
 
     def test_concurrency_cap_exists(self, tmp_path, monkeypatch):
+        from l1.kernel.params.system import CI_REVIEW_QUEUE_CAP
+
         svc, _ = _make_service(tmp_path, monkeypatch)
-        assert svc._semaphore._value == 2  # CI_REVIEW_MAX_CONCURRENT
+        assert svc._queue.maxsize == CI_REVIEW_QUEUE_CAP
 
 
 class _FakeCenter:
@@ -743,7 +746,7 @@ class TestV4Rerun:
         monkeypatch.setattr(svc, "_emit_events", lambda r: None)
         svc._persist_report(report)
         processed = []
-        monkeypatch.setattr(svc, "_process",
+        monkeypatch.setattr(svc, "_do_review",
                             lambda cid, state, result: processed.append((cid, result)))
         r = svc.rerun("card-1")
         assert r["success"] is True and r["queued"] is True
@@ -864,7 +867,8 @@ class TestV5ErrorBus:
         svc, _ = _make_service(tmp_path, monkeypatch)
         captured = self._capture_fake(monkeypatch)
         monkeypatch.setattr(svc, "_do_review", _boom)
-        svc._process("card-1", "completed", {})  # synchronous call for determinism
+        svc._submit("card-1", "completed", {})  # worker consumes the queued task
+        time.sleep(0.3)
         assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_RUN"
         assert captured[0][1]["task_id"] == "card-1"
 

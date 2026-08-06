@@ -741,3 +741,29 @@ except Exception as e:
 
 **规划结束（v5）。** 全部异常点接入 ErrorBus（结构化 error_code + source + stack_trace + 去重），
 API 层升级结构化错误响应；控制流与降级语义零变化。
+
+---
+
+## 15. 正式审查修复记录（2026-08-06）
+
+> 对 feature/ci-review 全分支（5 commit，16 文件 +2910）运行 `code_review` 工具，
+> 返回 8 项发现（此前自审仅覆盖门禁通过，未做接口契约核对——这是真实缺口）。
+> 全部修复并验证：
+
+| # | 严重度 | 发现 | 修复 |
+|---|---|---|---|
+| 1 | P1 | `run_pipeline` 无 `card_id` 参数 → 每次有门禁的审查 TypeError（静默失败） | `CIService.run_pipeline` 增加 `card_id` 参数并写入 `PipelineRun`（匹配 §4 设计） |
+| 2 | P2 | `run_id` 从未传播到报告（`_last_run_id` 死代码，报告/事件/审批全是空 run_id） | `_run_and_wait` 返回 `(run_id, gates, error)`，`_do_review` 写入 `report.run_id`，删死代码 |
+| 3 | P2 | L2 `/ci` 命令模块未注册（`commands/__init__.py` 硬编码模块列表缺 `ci`）→ `/ci` 为 unknown command | `from . import ci` + `_SYSTEM_COMMANDS` 元组加 `ci` |
+| 4 | P2 | `PUT /api/v2/ci/config` 不可达（网关无 `do_PUT`，body 读取只含 POST/DELETE） | 网关加 `do_PUT` + body 读取分支加 PUT（顺带修复既有 PUT 路由同款问题） |
+| 5 | P3 | `archive_ref` 读错键（`_cmd_archive_store` 返回 `ref_code`）→ 归档引用恒空 | `ar.get("ref_code") or ar.get("archive_ref")` |
+| 6 | P3 | 嵌套后缀 `notify.enabled` 的作用域键被白名单拒绝（`split(".")` 恰好 3 段检查） | `".".join(parts[2:]) in CI_SETTING_SUFFIXES` |
+| 7 | P3 | SKIPPED 报告 `completed_at=0` → 负 elapsed + crit 严重度 + failed 事件（误报） | 无门禁分支先设 `completed_at`；SKIPPED 独立事件 `ci.review.skipped` + `info` 严重度 |
+| 8 | P3 | 无界线程（每卡 spawn，semaphore 只限并发不限排队） | 有界 `queue.Queue(maxsize=CI_REVIEW_QUEUE_CAP)` + 固定 worker 池（`CI_REVIEW_MAX_CONCURRENT` 个 daemon worker） |
+
+**验证**：70 测试全绿（含按新签名更新的 8 个用例）、ruff 全绿、layer/params 18、L2 200、
+网关回归 55、manifest ok、mypy 新增代码零错误（api_gateway/ci.py 的 3 处 mypy 为基线既有，
+本次未引入）。
+
+**教训**：自审门禁（测试/ruff/mypy/manifest）无法发现"接口契约不匹配"类缺陷（fake 掩盖了
+真实签名）——必须对分支做正式 `code_review`（真实接口核对 + 调用链验证）。
