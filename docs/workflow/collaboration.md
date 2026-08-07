@@ -70,7 +70,7 @@ announce intent (in commit message of the announcing commit, or this file) first
 | Shared file | Why | Preferred owner |
 |-------------|-----|-----------------|
 | `src/l3/cell/peers/l3.py` | CentralController hub: L3A + L3B + CardRegistry | c-agent, coordination with s-agent |
-| `src/l1/kernel/params/*.py` | 910 constants; strict compliance test | k-agent (others: add via review, not parallel) |
+| `src/l1/kernel/params/*.py` | 1,027 constants; strict compliance test | k-agent (others: add via review, not parallel) |
 | `src/l3/boot/` (boot.py, wiring.py) | all domains depend on wiring | b-agent |
 | `tests/conftest.py` | singleton reset registry `_RESETS` | whoever adds a new singleton; must not conflict |
 | `tests/infra/test_layer_imports.py` | cross-layer allowlist | whoever adds a new cross-layer import |
@@ -86,7 +86,7 @@ Every agent must run, on its branch, before push:
 python -m pytest tests/infra/test_layer_imports.py -x -q    # layer constraint
 python -m pytest tests/infra/test_params_compliance.py -x -q  # params constants (strict)
 python -m pytest tests/<domain>/ -x -q                       # domain tests
-python -m pytest tests/ -q                                   # full baseline (2900 tests)
+python -m pytest tests/ -q                                   # full baseline (~3,473 tests)
 ruff check src/ tests/                                       # lint
 ruff format --check src/                                     # format (double quotes, 120)
 ```

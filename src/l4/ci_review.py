@@ -169,9 +169,15 @@ class CiReviewService(BaseService):
         # Bounded worker pool: CI_REVIEW_MAX_CONCURRENT daemon workers consume
         # the bounded queue — both concurrency and queued work are capped.
         # Deployment override: praxis.yaml ci.review.max_concurrent (settings).
-        max_concurrent = int(
-            self._effective("max_concurrent", "", "", CI_REVIEW_MAX_CONCURRENT) or CI_REVIEW_MAX_CONCURRENT
-        )
+        # Guarded coercion (P2 review fix): non-numeric settings fall back to
+        # the default, and 0/negative values cannot silently disable the pool.
+        try:
+            _raw_mc = self._effective("max_concurrent", "", "", CI_REVIEW_MAX_CONCURRENT)
+            max_concurrent = int(_raw_mc) if str(_raw_mc).strip() else CI_REVIEW_MAX_CONCURRENT
+            if max_concurrent < 1:
+                max_concurrent = CI_REVIEW_MAX_CONCURRENT
+        except (TypeError, ValueError):
+            max_concurrent = CI_REVIEW_MAX_CONCURRENT
         for _ in range(max_concurrent):
             threading.Thread(target=self._process, daemon=True, name="ci-review-worker").start()
 
@@ -477,7 +483,13 @@ class CiReviewService(BaseService):
         agent_id = str(result.get("agent_id") or result.get("agent") or "")
         # Per-card pipeline timeout; deployment override: praxis.yaml
         # ci.review.timeout (settings), default CI_REVIEW_TIMEOUT.
-        timeout = int(self._effective("timeout", "", "", CI_REVIEW_TIMEOUT) or CI_REVIEW_TIMEOUT)
+        # Guarded coercion (P2 review fix): non-numeric values fall back to
+        # the default instead of raising inside the worker loop.
+        try:
+            _raw_to = self._effective("timeout", "", "", CI_REVIEW_TIMEOUT)
+            timeout = int(_raw_to) if str(_raw_to).strip() else CI_REVIEW_TIMEOUT
+        except (TypeError, ValueError):
+            timeout = CI_REVIEW_TIMEOUT
         r = _get_ci().run_pipeline(
             name=f"card-{card_id}",
             steps=steps,

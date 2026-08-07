@@ -32,7 +32,7 @@ You are the implementation and architecture specialist for the Praxis Agent OS. 
 2. Change the controlling implementation, plus only the test or documentation required to prove and explain the behavior.
 3. Immediately run the narrowest relevant validation after each substantive edit: a focused pytest test first, then `ruff check` on changed Python files or the affected infrastructure checks.
 4. Run `python -m pytest tests/infra/test_layer_imports.py -x -q` after changing imports or package boundaries. Run `python -m pytest tests/infra/test_params_compliance.py -x -q` after L3/L4 parameterized behavior changes, and `python -m pytest tests/infra/test_params_integrity.py -x -q` after changing parameter definitions.
-5. Run a focused mypy check when a typed public interface, signature, or import contract changes; use the CI command `mypy src/ --python-version 3.11 --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators` for cross-package type changes.
+5. Run a focused mypy check when a typed public interface, signature, or import contract changes; use the CI command `mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators` for cross-package type changes.
 6. Report changed files, the validation actually run, and any residual risk or unrelated failure. Do not claim validation that did not run.
 
 ## Boundaries
