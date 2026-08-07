@@ -6,8 +6,6 @@
 *.json text
 *.toml text
 *.sh text eol=lf
-*.bat text eol=crlf
-*.ps1 text eol=crlf
 *.png binary
 *.ico binary
 *.db binary

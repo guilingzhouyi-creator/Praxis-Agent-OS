@@ -90,6 +90,42 @@ never skip this recording: it is part of the safety bottom line.
 Export: `export(limit, offset, event_type)` (pure query), `count(type)`,
 `stats()` (buffered / flusher alive).
 
+## RecordCenter — unified record center (`record_center.py`)
+
+`RecordCenter` aggregates error/log/reference stores behind one facade and
+delegates to ErrorBus (fingerprint-deduped errors), LogService (ring + disk)
+and ReferenceChannel (audit JSONL). `query()` / `stats()` / `export()` unify
+the three sources with `_source` tags on every entry.
+
+**Error → MonitorBus:** `ErrorBus._ingest` mirrors every captured error to
+the MonitorBus (`type="error.bus"`, severity debug/info→info, warn→warn,
+error/critical→crit, payload carries fingerprint), in addition to its
+LogService push and `error_log` EventBus emit — so errors join the same
+observability stream as messages and logs.
+
+**Plug-in sources (`register_source`, Phase E):** boot wiring can register
+extra domains so `query()`/`stats()`/`export()` cover them without touching
+the three built-ins. The security domain is registered with
+`query_fn=security_notifications`, `stats_fn=notifications count`,
+`export_fn=security_notifications` — security-mode warnings/changes are a
+first-class RC source.
+
+**Event → StatsCenter ingestion (14-gap closure):** high-value lifecycle
+events that previously stopped at the EventBus now land in the StatsCenter
+time series under domain namespaces:
+
+| Domain | Metrics | Emitter |
+|--------|---------|---------|
+| security | `security.mode.change/warning`, `security.bypass.confirmed/denied`, `security.posture.full_power` (gauge), `security.warrant.issued/denied`, `security.team.activated`, `security.gate.injection.blocked/allowed`, `security.gate.use_skill.blocked`, `security.gate.skill_use.blocked`, `security.gate.g4.full_power` | `security_mode.py`, `helpers.py`, `agent_loop.py`, `_skills.py`, `cell/__init__.py`, L1 sink (constitution/gatechain) |
+| memory | `stats.memory.graph.switch/edge_mode/compact/semantic`, `stats.memory.mer.switch/transform/archived` | `memory_graph.py`, `memory_mer.py` `_emit_event` |
+| discussion | `discussion.completed` | `issue_orchestrator.py` |
+| agent lifecycle | `agent.turn_complete`, `agent.loop_error`, `agent.session_end` | `hook.py` `EventEmitHook` |
+
+**L1 metric sink:** the kernel layers (constitution §9.2, gatechain G4)
+never import L3 — boot injects a `set_metric_sink()` callback (same pattern
+as the posture provider) that forwards `security.*` counters to StatsCenter.
+L1 calls are best-effort and never break the protected path.
+
 ## IPC protocol layer (`ipc.py`)
 
 Transport lives in L1 (`kernel/ipc.LockBus`); `l3/bus/ipc.py` is the
@@ -108,17 +144,22 @@ spec §2). 20+ message types across 7 categories:
 Communication is constrained by an allow/deny matrix — the protocol layer
 is where agent-to-agent trust is expressed.
 
+**Default observer:** `IpcBus._on_start` registers a subscriber for every
+`MessageType` that mirrors routed messages to the MonitorBus
+(`type="ipc.message"`), so IPC traffic joins the unified observability
+stream even when no business subscriber is attached.
+
 ## Purpose-built buses
 
 | Bus | Module | Role |
 |-----|--------|------|
-| MonitorBus | `monitor_bus.py` | unified typed event stream (`kernel.*` / `network.*` / `service.*` / `task.*`), JSONL persistence, ring rehydrated on startup, streaming |
+| MonitorBus | `monitor_bus.py` | unified typed event stream (`kernel.*` / `network.*` / `service.*` / `task.*`), JSONL persistence, ring rehydrated on startup, streaming; internal `subscribe()`/`unsubscribe()` (non-SSE) path for components; every emitted event is ingested into StatsCenter as a `monitor.event.<type>` counter |
 | MessageGate | `message_gate.py` | dependency-aware policy engine over MonitorBus: `allow` / `block` / `mute` / `hold` / `redirect`, with dependency chains + hold timeout |
 | ObservabilityBus | `observability_bus.py` | single `observe()` facade wrapping ops_console (alerts) + health + counter (metrics) + audit (syscall log) |
-| LogBus | `log.py` | OS-level logging: levels, size-based rotation, time-range query, JSON export, service tagging; integrates with the kernel event bus |
+| LogBus | `log.py` | OS-level logging: levels, size-based rotation, time-range query, JSON export, service tagging; integrates with the kernel event bus; each entry is mirrored to MonitorBus (`type="log.entry"`, severity mapped debug/info→info, warn→warn, error/critical→crit) |
 | TaskBus | `task_bus.py` | webhook dispatch on card completion: subscriber filters, exponential backoff (3 attempts: 1s → 4s → 10s), non-blocking, `webhooks:` config |
-| CommMonitor | `comm_monitor.py` | traffic aggregation across IPC/cell-mailbox/event history: message counts, latency samples, trace IDs, heartbeats, health probes |
-| L3BBus | `l3b_bus.py` + `l3b_message_pool.py` | composite-to-composite chain + hop-by-hop forwarding (`CARD_FORWARD` / `RESULT_BACK` / `STATUS_CHECK` / `BACKPRESSURE`), one mailbox per composite |
+| CommMonitor | `comm_monitor.py` | traffic aggregation across IPC/cell-mailbox/event history: message counts, latency samples, trace IDs, heartbeats, health probes; each `record_message` is mirrored to MonitorBus (`type="comm.message"`) |
+| L3BBus | `l3b_bus.py` + `l3b_message_pool.py` | composite-to-composite chain + hop-by-hop forwarding (`CARD_FORWARD` / `RESULT_BACK` / `STATUS_CHECK` / `BACKPRESSURE`), one mailbox per composite; successful sends are mirrored to MonitorBus (`type="l3b.message"` via `_mirror_send`) |
 
 ## Relation
 

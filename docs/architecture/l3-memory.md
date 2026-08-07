@@ -33,6 +33,12 @@ degrade to no-ops (originals intact):
 | **R5 graph** | `memory_graph.py` | SQLite `memory_edges`; rule + semantic (LLM) edges; diffusion recall; compact/reduce | `memory.graph.enabled` |
 | **User profile** | `l3/services/user_profile.py` | Typed per-user model (preference/domain_focus/decision_style/rejection/habit/correction/trait/custom); collectors (APPROVAL_RESPONDED → decision_style, CARD_PENDING → domain_focus) + ingest API; rule refiner; TTL/decay; R4 per user; portable export/import; consumed by L3A (see `l3a-central.md`) | `user_profile.enabled` |
 
+Side-channel lifecycle events are ingested into StatsCenter for
+observability: Mer emits `stats.memory.mer.switch/transform/archived`, R5
+graph emits `stats.memory.graph.switch/edge_mode/compact/semantic` — both
+`_emit_event()` hooks publish to MonitorBus AND StatsCenter (best-effort,
+never break the bypass pipeline).
+
 ### Mer data flow (bypass pipeline)
 
 ```mermaid

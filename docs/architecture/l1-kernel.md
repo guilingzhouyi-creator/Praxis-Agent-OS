@@ -37,6 +37,8 @@ The bare-metal kernel: what every upper layer builds on. 46 files /
 emit_signal(type, sender, target, data) → Signal → history + thread-pool dispatch
 on(type, cb) / on_any(cb) / on_event(str, cb)   ← SSE/WS bridges subscribe on_any
 String events auto-register (emit_event) — extensible without enum changes.
+emit_signal resolves static enum members first, then falls back to dynamic
+registration (register_signal_type) — unknown names never raise KeyError.
 ```
 
 ### GateChain (G1–G5)

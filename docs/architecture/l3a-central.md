@@ -18,6 +18,7 @@ User (will) ──intent──> L3A central ──card──> Cell/agents (execu
 | `session.py` | case files | Session/SessionHistory/SessionManager; cursor-paged `messages(cursor, limit)`; value-weighted compression; `resume_from_archive` |
 | `ask.py` | secretary querying the will | l3a_ask clarification state machine (awaiting → answers → resume) |
 | `helpers.py` cardwrite | policy issuance | intent → structured card; attaches user profile `_profile_summary` |
+| `helpers.py` cardwrite (offensive) | action warrant | `nature="offensive"` cards are action warrants — issued ONLY when the system posture is full-power attack (`security.mode=security-test` + detection-bypass confirmed); otherwise rejected with `OFFENSIVE_WARRANT_DENIED`. Issued/denied counters land in StatsCenter (`security.warrant.issued/denied`). |
 | `helpers.py` convergence | cabinet consultation | multi-agent result convergence |
 | `subagent.py` | staff pool | L3ASubAgentPool: spawn/collect/peek |
 | `task_table.py` | docket | per-session card task monitor |

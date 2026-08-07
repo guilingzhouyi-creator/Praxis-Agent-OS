@@ -47,6 +47,14 @@ ring gate → rate limit → constitution → gatechain G1-G5 → approval polic
 → sandbox (profile-gated) → execute handler → result record → reference channel
 ```
 
+**GateChain posture linkage:** when the system posture is full-power attack
+(`security.mode=security-test` + detection-bypass confirmed), G4 skips the
+L3 review WARN for high-danger tools (`danger >= GATECHAIN_ESCALATION_DANGER`)
+but still records the call for the audit trail. The full-power decision and
+the G4 bypass are recorded via the injected L1 metric sink
+(`security.gate.g4.full_power`) — the kernel never imports L3; boot wires
+`set_metric_sink()` (same pattern as the posture provider).
+
 ## Config surface
 
 - `config/tools.yaml` — 68 tool definitions by ring layer (danger, params)

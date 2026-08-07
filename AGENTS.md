@@ -33,14 +33,14 @@ python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # re
 ## Architecture
 
 ```
-src/l5/ — User layer: cli.py (310 lines), agent_runtime.py
+src/l5/ — User layer: cli.py (~330 lines), agent_runtime.py
 src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP, vault
-src/l3/ — Cell layer (~51K lines): agents, memory, cards, scheduler, tool pipeline, discussion
+src/l3/ — Cell layer (~55K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
-src/l2/ — Shell: 50 commands, i18n, agent selector
+src/l2/ — Shell: 49 YAML commands + code-registered `_cmd_*` handlers, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — ~950 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
+src/l1/kernel/params/ — ~1,000 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
 src/l1/kernel/ports.py — 12 `*Port(ABC)` abstractions; adapters wired at boot via `register_port()`/`get_port()` in `src/l3/boot/wiring.py`
 ```
 
@@ -118,7 +118,7 @@ Key conventions:
 
 ## L3 + L4 conventions (enforced during code review)
 
-- **Use `l1.kernel.platform` abstractions** for all OS-specific operations: `grep_cmd()`, `run_shell()`, `IS_WINDOWS`, `IS_POSIX`. Never self-implement platform-specific subprocess calls (e.g., `rg` → `grep` fallback with `shell=True`).
+- **Use `l1.kernel.platform` abstractions** for all OS-specific operations: `grep_cmd()`, `run_shell()`, and the `IS_*` OS-family flags (`IS_POSIX`, `IS_LINUX`, `IS_MAC`). Never self-implement platform-specific subprocess calls (e.g., `rg` → `grep` fallback with `shell=True`).
 - **ConfigDiscovery** — structural configuration goes in `config/discovery/*.yaml`, auto-discovered at boot. See `docs/configuration/overview.md`.
 - **Three-layer config**: `params/*.py` (compile-time defaults) ← `config/discovery/*.yaml` (structural overrides) ← `config/praxis.yaml` (deployment config).
 - **Constants**: per-domain magic values (`LOG_TRUNC_*`, `HASH_TRUNC_*`,
@@ -169,7 +169,6 @@ Key conventions:
 - **Every push to main MUST go to BOTH remotes**: `git push origin main; git push github main`. Pushing only to GitCode silently skips CI.
 - **CI runs on GitHub Actions** via `.github/workflows/test.yml` (native GitHub format, matrix 3.11/3.12/3.13, full L1–L5 coverage incl. L3 root + L5 + memory R4 + API endpoint manifest; infra/L1/L5 steps pin `-n 0`, directory steps use pyproject `-n auto` — Linux fork makes xdist profitable there).
 - GitCode's AtomGit Action (`.gitcode/workflows/test.yml`) is still in gray release (no Pipeline tab even on public repos) — keep the file, it activates once the platform rolls it out.
-- **Platform note**: on local Windows, xdist spawns a fresh interpreter per worker (full src re-import) and is a net slowdown — pin `-n 0` locally; rely on CI for the parallel pass.
 
 ## Dependency management
 
@@ -261,10 +260,10 @@ Ruff (line-length 120, double quotes) and mypy configs live in `pyproject.toml`;
 
 ## Testing quirks
 
-- **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~20 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.
+- **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~33 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.
 - **Layer import test** (`test_layer_imports.py`) checks all `.py` files. New cross-layer imports must be allowlisted there.
-- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core) and Batch 2 (slow extended, ~75s: r4_agent, archive, convention). `--batch 1|2` selects one. Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"` (`testpaths = ["tests"]`, `pythonpath = ["src"]`), so plain `pytest` already parallelizes — the "pin `-n 0`" advice in the CI section is an explicit-override recommendation, not the default.
-- **Windows flaky tests**: `tests/l3/services/test_file_editor*.py` and `tests/l3/cell/test_resource_buffer.py` intermittently fail on Windows with `shutil.move` `FileNotFoundError` between `_hidden/` and `_pending/` dirs (path-timing race). Single-file re-runs pass; before blaming a change, re-run the specific test once.
+- **Test dirs beyond `l1`–`l5`/`infra`**: `tests/integration/` (cross-layer, e.g. diff system, network transport, tool+agent) and `tests/benchmarks/` (bench_card.py). Both are picked up by plain `pytest` (auto-discovery).
+- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core) and Batch 2 (slow extended, ~75s: r4_agent, integration, archive, convention). `--batch 1|2` selects one. Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"` (`testpaths = ["tests"]`, `pythonpath = ["src"]`), so plain `pytest` already parallelizes — the `-n 0` pins for infra/L1/L5 steps in `.github/workflows/test.yml` are explicit overrides, not the default.
 
 ## LLM config
 
@@ -275,7 +274,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | Path | Description |
 |------|-------------|
 | `config/praxis.yaml` | Main config (kernel, cell, LLM, constitution, gatechain, API) |
-| `config/commands.yaml` | 50 L2 shell command definitions |
+| `config/commands.yaml` | 49 L2 shell command definitions (plus code-registered `_cmd_*` handlers in `src/l2/l2_shell/commands/`) |
 | `config/tools.yaml` | 72 tool definitions by ring layer |
 | `.praxis-rules.md` | Constitution rules (parsed by `constitution.py`; repo root) |
 | `config/praxis.yaml` `mcp:` | MCP server definitions |
@@ -283,6 +282,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | `memories/` | Runtime agent memory persistence |
 | `config/skills/` | Builtin skills (read-only; loaded by `SkillManager.load_builtin`) |
 | `.praxis/skills/` | Runtime skill artifacts: `evolved/` (project-scope evolved skills) + `lean/` (failure-trace cases) |
+| `.github/agents/` | GitHub Agents definition (`assistant.agent.md`) — companion to `.github/workflows/`, not a build input |
 
 ## Key files
 

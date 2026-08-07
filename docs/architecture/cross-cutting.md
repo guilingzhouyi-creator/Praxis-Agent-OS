@@ -51,6 +51,29 @@ monitor/stats events on the time bus (`stats.*`); hook events
 (`agent.turn_complete` / `loop_error` / `session_end`) from
 `EventEmitHook`.
 
+**Signal subscribers (closed the orphan-signal gaps):** typed subscribers
+now exist for every produced signal — Cell subscribes
+`TASK_ASSIGN` / `REVIEW_REQUESTED` / `FILE_CHANGED` (+ `agent.turn_complete`
+string event), ScoutPool subscribes `SCOUT_DONE`, `TASK_CANCEL` is emitted
+by `subagent_task.cancel()` and `STATE_CHANGE` by the statecharts
+transition `_apply`. `emit_signal` falls back to dynamic registration for
+names outside the enum.
+
+## Observability convergence (MonitorBus → StatsCenter)
+
+Message, error and log streams converge on the MonitorBus and are ingested
+into StatsCenter as `monitor.event.<type>` counters:
+
+```
+IPC / L3B / cell-mailbox → CommMonitor ("comm.message" / "l3b.message")
+ErrorBus._ingest        → "error.bus" (fingerprint, severity-mapped)
+LogService._log         → "log.entry" (level-mapped)
+MonitorBus.emit         → StatsCenter ingest (monitor.event.<type> counter)
+```
+
+MonitorBus also exposes internal `subscribe()` / `unsubscribe()` (non-SSE)
+listeners so components consume the stream without a frontend.
+
 ## System-prompt injection (user-configurable)
 
 Each injectable block is gated by `prompt.inject.<domain>` (SettingsCenter
@@ -95,15 +118,13 @@ swapping the Python kernel for another language only changes adapters.
   reset there; xdist workers get isolated skill dirs.
 - **Runner batches**: `tests/runner.py` — Batch 1 (fast core), Batch 2
   (slow: r4_agent, archive, convention).
-- **xdist discipline**: CI (Linux, fork) runs `-n 4`; local Windows pins
-  `-n 0` (spawn re-imports the whole src per worker — a net slowdown).
+- **xdist discipline**: plain `pytest` runs `-n auto --dist loadfile` (pyproject
+  default); Linux fork makes xdist profitable both locally (WSL) and in CI.
 - **Hard gates**: `test_layer_imports.py` (layer boundary allowlist),
   `test_params_compliance.py` (no hardcoded truncation/hash/constants),
   `test_hardcoded_fixes_regression.py`.
 - **CI**: GitHub Actions (dual-remote mirror), matrix 3.11/3.12, concurrency
   cancel-in-progress; GitCode AtomGit Action pending platform rollout.
-- **Flaky knowns**: Windows file-lock races in file_editor/resource_buffer
-  tests — re-run the single file before blaming a change.
 
 ## Skills lifecycle (agent growth)
 
