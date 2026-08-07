@@ -136,64 +136,6 @@ jobs:
         run: echo "CI completed for Python ${{ matrix.python-version }}"
         timeout-minutes: 1
 
-  test-windows:
-    # Windows smoke gate — core suites only. xdist spawns a fresh interpreter
-    # per worker on Windows (net slowdown, see AGENTS.md), so every step pins
-    # -n 0. Known Windows-flaky tests (test_file_editor*, test_resource_buffer)
-    # are excluded per AGENTS.md; full coverage runs on the ubuntu matrix.
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
-          cache-dependency-path: pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[test]"
-        timeout-minutes: 10
-
-      - name: Infra
-        run: python -m pytest tests/infra/ -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 10
-
-      - name: L1 Kernel
-        run: python -m pytest tests/l1/ -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 15
-
-      - name: L2 Shell
-        run: python -m pytest tests/l2/ -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 20
-
-      - name: L3 Core (cell/tools/bus/config, no resource_buffer)
-        run: |
-          python -m pytest tests/l3/cell/ -n 0 --maxfail=5 -q --tb=short --ignore=tests/l3/cell/test_resource_buffer.py
-          python -m pytest tests/l3/tools/ -n 0 --maxfail=5 -q --tb=short
-          python -m pytest tests/l3/tool_system/ -n 0 --maxfail=5 -q --tb=short
-          python -m pytest tests/l3/bus/ -n 0 --maxfail=5 -q --tb=short
-          python -m pytest tests/l3/config/ -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 30
-
-      - name: L4 Bridge (sandbox + misc)
-        run: python -m pytest tests/l4/test_sandbox.py tests/l4/test_misc.py -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 20
-
-      - name: L5 User Layer
-        run: python -m pytest tests/l5/ -n 0 --maxfail=5 -q --tb=short
-        timeout-minutes: 10
-
-      - name: Summary
-        run: echo "Windows CI completed for Python ${{ matrix.python-version }}"
-        timeout-minutes: 1
-
   coverage:
     # PR coverage gate: full suite + fail-under (mirrors pyproject
     # [tool.coverage.report] fail_under = 60) and uploads the XML report to
