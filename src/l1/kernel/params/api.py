@@ -86,7 +86,7 @@ DEFAULT_MODEL_DEEPSEEK_CHAT: Final[str] = "deepseek-chat"
 DEFAULT_MODEL_OLLAMA: Final[str] = "qwen2.5"
 # Default Ollama coding model name
 DEFAULT_MODEL_OLLAMA_CODER: Final[str] = "qwen2.5-coder:7b"
-"""Default ollama coding model (documented deployment default)."""
+# Default ollama coding model (documented deployment default).
 # Mock provider model name (no real LLM call)
 DEFAULT_MODEL_MOCK: Final[str] = "mock"
 
@@ -152,19 +152,19 @@ EFFORT_TIERS_BY_PROVIDER: Final[dict[str, tuple[str, ...]]] = {
 
 # ── LLMConfig defaults (was hardcoded in ports.py) ──
 LLM_DEFAULT_MAX_TOKENS: Final[int] = 2048
-"""Default max_tokens in LLMConfig."""
+# Default max_tokens in LLMConfig.
 # Default temperature in LLMConfig
 LLM_DEFAULT_TEMPERATURE: Final[float] = 0.3
-"""Default temperature in LLMConfig."""
+# Default temperature in LLMConfig.
 # Default cache_breakpoints in LLMConfig
 LLM_DEFAULT_CACHE_BREAKPOINTS: Final[int] = 4
-"""Default cache_breakpoints in LLMConfig."""
+# Default cache_breakpoints in LLMConfig.
 # Default max_tokens in provider generate() signatures
 LLM_PROVIDER_MAX_TOKENS: Final[int] = 512
-"""Default max_tokens in provider generate() signatures."""
+# Default max_tokens in provider generate() signatures.
 # Provider capability context window fallback
 LLM_PROVIDER_CONTEXT_WINDOW: Final[int] = 32768
-"""Provider capability context window fallback."""
+# Provider capability context window fallback.
 
 
 # ── Kernel network ──
@@ -221,16 +221,16 @@ API_GATEWAY_HOST: Final[str] = "127.0.0.1"
 API_MAX_BODY_BYTES: Final[int] = 1_048_576
 # Hard cap for API list/page endpoints
 API_PAGE_MAX_LIMIT: Final[int] = 100
-"""Hard cap for API list/page endpoints (guards against unbounded responses)."""
+# Hard cap for API list/page endpoints (guards against unbounded responses).
 # WebSocket bridge port
 API_WS_PORT: Final[int] = 8081
-"""WebSocket bridge port (bidirectional realtime channel, see l4/ws)."""
+# WebSocket bridge port (bidirectional realtime channel, see l4/ws).
 # RPC server port
 RPC_SERVER_PORT: Final[int] = 42110
-"""RPC server port (distributed cell/node method invocation, see l4/rpc)."""
+# RPC server port (distributed cell/node method invocation, see l4/rpc).
 # Default auth token lifetime in seconds
 AUTH_TOKEN_TTL_SECONDS: Final[int] = 86400
-"""Default auth token lifetime in seconds (AuthService.issue_token)."""
+# Default auth token lifetime in seconds (AuthService.issue_token).
 # Default MCP server URL
 MCP_DEFAULT_URL: Final[str] = "http://localhost:3500/mcp/v1"
 # Timeout for MCP server calls (s)
@@ -321,7 +321,7 @@ SUBAGENT_RUN_TIMEOUT: Final[float] = 120.0
 SUBAGENT_JOIN_TIMEOUT: Final[float] = 30.0
 # MCP server export mode
 MCP_EXPORT_MODE: Final[str] = "full"
-"""MCP server export mode: normal (base tools only) | selected (L3A only) | full (both)."""
+# MCP server export mode: normal (base tools only) | selected (L3A only) | full (both).
 # Concurrent workers for search operations
 SEARCH_MAX_WORKERS: Final[int] = 8
 

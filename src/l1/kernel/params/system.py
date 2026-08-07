@@ -82,7 +82,7 @@ RC_EXPORT_LIMIT: Final[int] = 999999
 
 # ── Persistence / data paths ──
 PRAXIS_CONFIG_DIR: Final[str] = ".config/praxis"
-"""Default config directory name (relative/absolute path)."""
+# Default config directory name (relative/absolute path).
 # Enable automatic persistence of runtime state
 PERSIST_AUTO: Final[bool] = True
 # Seconds between automatic persistence sweeps
@@ -282,7 +282,28 @@ SKILL_TTL_EXTEND_PER_USE: Final[int] = 3600  # each bump_usage extends the effec
 SKILL_LIBRARY_MAX: Final[int] = 50  # hard cap on evolved skills; curation evicts lowest contribution
 SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5  # max skills injected by SkillCatalogHook at session start
 SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
+# ── Skill posture (productive vs offensive) ──────────────────────────────
+# Distinguishes normal project/build work from reverse-engineering / attack
+# testing. Offensive skills are registered but NEVER injected into a session
+# unless explicitly authorized (default-deny, least privilege).
+SKILL_POSTURE_PRODUCTIVE: Final[str] = "productive"  # normal build/dev work (default)
+SKILL_POSTURE_OFFENSIVE: Final[str] = "offensive"  # reverse / attack testing
+SKILL_POSTURE_DEFAULT: Final[str] = SKILL_POSTURE_PRODUCTIVE
+SKILL_POSTURE_VALID: Final[tuple[str, ...]] = (SKILL_POSTURE_PRODUCTIVE, SKILL_POSTURE_OFFENSIVE)
+# Card natures that authorize injecting offensive-posture skills into a
+# session. The L3A decision layer marks a card with one of these natures;
+# AgentLoop derives the session-level authorization flag from it (default-deny
+# otherwise, so offensive skills never leak into ordinary build sessions).
+SKILL_OFFENSIVE_AUTHORIZED_NATURES: Final[tuple[str, ...]] = ("offensive",)
+# Master switch for the posture gate (soft control, "honest-agent" gate): when
+# enabled (default) offensive-posture skills are only injected/usable when the
+# driving card nature is in SKILL_OFFENSIVE_AUTHORIZED_NATURES; when disabled
+# the gate is bypassed entirely (dedicated pentest frontends may turn it off
+# at runtime via the API — this is deliberately not a hard security boundary).
+SKILL_OFFENSIVE_ENABLED: Final[bool] = True
+# Seconds in one hour (timeout baselines)
 SECONDS_PER_HOUR: Final[int] = 3600
+# Seconds in one day (24h TTL baselines)
 SECONDS_PER_DAY: Final[int] = 86400
 # Max cell events returned per query
 CELL_EVENTS_LIMIT: Final[int] = 20
@@ -547,37 +568,37 @@ PROFILE_KINDS: Final[tuple[str, ...]] = (
 )
 # Hard cap on stored entries per user
 PROFILE_MAX_ENTRIES_PER_USER: Final[int] = 500
-"""Hard cap on stored profile entries per user (oldest evicted on overflow)."""
+# Hard cap on stored profile entries per user (oldest evicted on overflow).
 # Default entry lifetime (90 days; 0 = never expires)
 PROFILE_ENTRY_TTL_DEFAULT: Final[float] = 90 * 24 * 3600
-"""Default profile entry lifetime (90 days); 0 = never expires."""
+# Default profile entry lifetime (90 days); 0 = never expires.
 # Entries folded into a profile snapshot
 PROFILE_SNAPSHOT_ENTRIES: Final[int] = 40
-"""Max entries folded into a profile snapshot for injection."""
+# Max entries folded into a profile snapshot for injection.
 # Minimum raw entries before a refine pass
 PROFILE_REFINE_MIN_ENTRIES: Final[int] = 5
-"""Minimum raw entries before a refine pass is worthwhile."""
+# Minimum raw entries before a refine pass is worthwhile.
 # Max raw entries fed to the refiner per pass
 PROFILE_REFINE_MAX_RAW: Final[int] = 30
-"""Max raw entries fed to the LLM refiner per pass."""
+# Max raw entries fed to the LLM refiner per pass.
 # Refiner LLM call timeout in seconds
 PROFILE_REFINE_TIMEOUT: Final[float] = 20.0
-"""Refiner LLM call timeout (seconds)."""
+# Refiner LLM call timeout (seconds).
 # Confidence decay per decay cycle
 PROFILE_DECAY_CONFIDENCE: Final[float] = 0.05
-"""Confidence decay per decay cycle (0 = disabled)."""
+# Confidence decay per decay cycle (0 = disabled).
 # Seconds between decay cycles
 PROFILE_DECAY_INTERVAL: Final[float] = 3600.0
-"""Decay cycle interval in seconds (0 = disabled)."""
+# Decay cycle interval in seconds (0 = disabled).
 # R4 fonds used for profile persistence
 PROFILE_FONDS: Final[str] = "user_profile"
-"""R4 fonds for profile persistence (series = user_id)."""
+# R4 fonds for profile persistence (series = user_id).
 # Fallback profile user id
 PROFILE_USER_DEFAULT: Final[str] = "default"
-"""Fallback user id when none is provided."""
+# Fallback user id when none is provided.
 # Monitor-bus event name on profile updates
 PROFILE_EMIT_EVENT: Final[str] = "stats.user_profile.updated"
-"""Monitor-bus event emitted on profile mutations."""
+# Monitor-bus event emitted on profile mutations.
 
 
 # ── CI pipeline ──
@@ -846,10 +867,10 @@ LSP_PYTHON_EXT: Final[str] = ".py"
 
 # ── Permission defaults ──
 PERMISSION_DEFAULT_POLICY: Final[str] = "allow_all"
-"""Default Cell delegation policy (legacy). 'allow_all' = any Peer Agent can delegate any SubAgent."""
+# Default Cell delegation policy (legacy). 'allow_all' = any Peer Agent can delegate any SubAgent.
 # Master switch for subagent delegation support
 GLOBAL_SUBAGENT_ENABLED: Final[bool] = False
-"""Global kill switch for all SubAgent delegation. False = all specs invisible system-wide."""
+# Global kill switch for all SubAgent delegation. False = all specs invisible system-wide.
 
 
 # ── State file naming templates (format strings, not paths) ──
@@ -927,7 +948,7 @@ ICACHE_SEARCH_LIMIT: Final[int] = 20  # ICache.search() default limit
 
 # ── Discussion / convergence buffer ──
 CONVERGENCE_BUFFER_SIZE: Final[int] = 100
-"""Max answers kept per-phase in CellAnswerRepo in-memory ring buffer."""
+# Max answers kept per-phase in CellAnswerRepo in-memory ring buffer.
 
 
 # ── Context governance / compression thresholds ──

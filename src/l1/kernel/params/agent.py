@@ -202,31 +202,31 @@ AGENT_REPUTATION_DEFAULTS: Final[dict[str, float]] = {
 
 # ── Reputation delta constants (moved from reputation.py) ──
 REP_DEFAULT_REPUTATION: Final[float] = 0.85
-"""Default reputation score for new agents."""
+# Default reputation score for new agents.
 # Reputation floor
 REP_MIN: Final[float] = 0.0
-"""Minimum allowed reputation (floor)."""
+# Minimum allowed reputation (floor).
 # Reputation ceiling
 REP_MAX: Final[float] = 1.0
-"""Maximum allowed reputation (ceiling)."""
+# Maximum allowed reputation (ceiling).
 # Reputation delta on task success
 REP_TASK_SUCCESS: Final[float] = 0.02
-"""Reputation delta on successful task completion."""
+# Reputation delta on successful task completion.
 # Reputation delta on task failure
 REP_TASK_FAILURE: Final[float] = -0.05
-"""Reputation delta on task failure."""
+# Reputation delta on task failure.
 # Reputation delta on review approval
 REP_REVIEW_APPROVED: Final[float] = 0.01
-"""Reputation delta on cross-review approval."""
+# Reputation delta on cross-review approval.
 # Reputation delta on review rejection
 REP_REVIEW_REJECTED: Final[float] = -0.03
-"""Reputation delta on cross-review rejection."""
+# Reputation delta on cross-review rejection.
 # Reputation delta when a dispute is upheld
 REP_DISPUTE_UPHELD: Final[float] = 0.03
-"""Reputation delta on dispute upheld."""
+# Reputation delta on dispute upheld.
 # Reputation delta when a dispute is dismissed
 REP_DISPUTE_DISMISSED: Final[float] = -0.02
-"""Reputation delta on dispute dismissed."""
+# Reputation delta on dispute dismissed.
 
 # Timeout for card dispatch/execution (s)
 CARD_TIMEOUT: Final[float] = 30.0
@@ -248,10 +248,10 @@ CARD_WAIT_TIMEOUT: Final[float] = 30.0
 CELL_L3_SENDER: Final[str] = "l3"
 # Default event signal target for L3 coordination
 SIGNAL_TARGET_L3: Final[str] = "l3"
-"""Event signal target for L3 coordination. Use this constant everywhere."""
+# Event signal target for L3 coordination. Use this constant everywhere.
 # Sender identity for human-initiated actions
 HUMAN_SENDER: Final[str] = "human"
-"""Sender identifier for human-initiated actions."""
+# Sender identifier for human-initiated actions.
 # Auto-start a consensus convention when an issue is detected
 ISSUE_AUTO_CONSENSUS: Final[bool] = True
 
@@ -400,7 +400,6 @@ SUBAGENT_MAX_TOKENS: Final[int] = 4096
 SUBAGENT_SESSION_TTL: Final[float] = 300.0
 # Timeout for subagent spec generation (s)
 SUBAGENT_SPEC_TIMEOUT: Final[float] = 60.0
-"""SubAgent session retention after completion (seconds).  0 = no retention."""
 # Max tokens for memory-injected context
 MEMORY_CONTEXT_MAX_TOKENS: Final[int] = 1024
 
@@ -580,22 +579,22 @@ INJECTION_PATTERN_ZH2: Final[str] = r"你是.*(忽略|无视).*(指令|规则)"
 
 # ── Injection risk thresholds (used by selector.preconnect) ──
 INJECTION_HIGH_RISK_THRESHOLD: Final[float] = 0.7
-"""Risk score >= this → block connection (prompt_injection_suspected)."""
+# Risk score >= this → block connection (prompt_injection_suspected).
 # Risk score above which an LLM reviewer is consulted
 INJECTION_MEDIUM_RISK_THRESHOLD: Final[float] = 0.3
-"""Risk score >= this → call LLM reviewer for second opinion."""
+# Risk score >= this → call LLM reviewer for second opinion.
 # Score penalty when the reviewer confirms unsafe
 INJECTION_REVIEW_BOOST: Final[float] = 0.3
-"""Score penalty when LLM reviewer confirms unsafe."""
+# Score penalty when LLM reviewer confirms unsafe.
 # Score reduction when the reviewer confirms safe
 INJECTION_REVIEW_REWARD: Final[float] = 0.2
-"""Score reduction when LLM reviewer confirms safe."""
+# Score reduction when LLM reviewer confirms safe.
 # Message length beyond which injection scoring is amplified
 INJECTION_LENGTH_THRESHOLD: Final[int] = 2000
-"""Messages longer than this get additional scrutiny when injection patterns match."""
+# Messages longer than this get additional scrutiny when injection patterns match.
 # Extra score added for over-length messages
 INJECTION_LENGTH_BOOST: Final[float] = 0.2
-"""Extra score added when message exceeds length threshold."""
+# Extra score added when message exceeds length threshold.
 
 
 # ── Convention protocol ──
@@ -607,16 +606,13 @@ CONVENTION_TIMEOUT: Final[float] = 600.0
 CONVENTION_ARCHIVE_IMPORTANCE: Final[float] = 0.85
 # Subdir under data_dir for convention documents
 CONVENTION_DOC_DIR: Final[str] = "conventions"
-"""Subdir under data_dir where converged deliberation documents are persisted
-as .md files — readable by L3A (resource manager) and humans alike."""
+# Subdir under data_dir where converged deliberation documents are persisted as .md files — readable by L3A (resource manager) and humans alike.
 # Default memory policy keeping peer memories isolated
 CELL_MEMORY_POLICY_ISOLATED: Final[str] = "isolated"
-"""Default Cell memory policy: Peer Agents' R1-R3 stays agent-isolated."""
+# Default Cell memory policy: Peer Agents' R1-R3 stays agent-isolated.
 # Memory policy sharing a ring during conventions
 CELL_MEMORY_POLICY_DELIBERATION: Final[str] = "deliberation"
-"""Deliberation policy (L3A conference mode): Cell's shared memory ring is
-activated for the convention — Peer Agents share the negotiation context.
-Activated by convene(), restored to isolated by close_convention()."""
+# Deliberation policy (L3A conference mode): Cell's shared memory ring is activated for the convention — Peer Agents share the negotiation context. Activated by convene(), restored to isolated by close_convention().
 
 
 # ── Territory → role resolution ──
@@ -630,7 +626,7 @@ def role_for_domain(domain: str, fallback: str = "default") -> str:
     return fallback
 
 
-# ── Priority gradient (config-driven ──
+# ── Priority gradient (config-driven) ──
 PRIORITY_GRADIENT: Final[dict[str, int]] = {
     "critical": 10,
     "high": 8,
@@ -677,13 +673,13 @@ CONSTITUTION_ENV_VAR: Final[str] = "PRAXIS_CONSTITUTION"
 
 # ── L3A (Card Execution Agent) — identity only; limits via SettingsCenter ──
 L3A_AGENT_ID: Final[str] = "l3a"
-"""Agent ID used for L3A persistent session — also used as memory key."""
+# Agent ID used for L3A persistent session — also used as memory key.
 # Max memory entries injected into the system prompt before each L3A turn
 L3A_MEMORY_RECALL_LIMIT: Final[int] = 5
-"""Max memory entries injected into system prompt before each L3A session turn."""
+# Max memory entries injected into system prompt before each L3A session turn.
 # Entry type tag for L3A session memory
 L3A_MEMORY_TYPE: Final[str] = "l3a_session"
-"""Entry type tag for L3A memory — enables targeted recall and filtering."""
+# Entry type tag for L3A memory — enables targeted recall and filtering.
 
 
 # ── Convention session limits (config-driven) ──
