@@ -23,8 +23,6 @@ DANGER_TO_GATES: Final[dict[int, list[str]]] = {
 # ── Tool timeouts (consolidated) ──
 TOOL_BUILD_TIMEOUT: Final[int] = 300
 TOOL_DOCKER_TIMEOUT: Final[int] = 300
-# Timeout for pip commands (seconds)
-TOOL_PIP_TIMEOUT: Final[int] = 120
 # Timeout for git commands (seconds)
 TOOL_GIT_TIMEOUT: Final[int] = 30
 # Timeout for ping/network reachability checks (seconds)
