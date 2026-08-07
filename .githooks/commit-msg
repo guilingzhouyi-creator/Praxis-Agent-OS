@@ -23,16 +23,29 @@ fi
 first_line=$(printf '%s' "$msg" | head -n 1)
 if printf '%s' "$first_line" | grep -qE '^(Merge|Revert) '; then
   # ── Dependabot merge gate ──────────────────────────────────────────
-  # A merge whose second parent is a dependabot branch (or whose message
-  # names dependabot) must NOT drag in non-dependency files. The bot's
-  # unsigned commits also cannot land on GitCode, so these merges must be
-  # validated locally first (AGENTS.md "Dependency management").
-  if printf '%s' "$msg" | grep -qiE 'dependabot|deps'; then
-    # git merge runs this hook with HEAD already pointing at the new
-    # merge commit; HEAD^1 = previous main, HEAD^2 = merged branch.
+  # A merge that brings in a dependabot branch must NOT drag in
+  # non-dependency files. The bot's unsigned commits also cannot land on
+  # GitCode, so these merges must be validated locally first (AGENTS.md
+  # "Dependency management").
+  #
+  # Detection does NOT rely on the message: the merged-branch tip is
+  # examined directly. commit-msg runs BEFORE the commit object exists —
+  # during `git merge` the incoming branch lives at MERGE_HEAD (HEAD still
+  # points at the old main); after a manual `git commit` the merge is
+  # already created, so fall back to HEAD^2.
+  MERGE_ROOT="$(git rev-parse --git-dir)"
+  if [ -f "$MERGE_ROOT/MERGE_HEAD" ]; then
+    SECOND="$(cat "$MERGE_ROOT/MERGE_HEAD" 2>/dev/null || true)"
+  else
     SECOND="$(git rev-parse HEAD^2 2>/dev/null || true)"
-    if [ -n "$SECOND" ]; then
-      MERGED_FILES="$(git diff --name-only HEAD^1 HEAD^2 2>/dev/null || true)"
+  fi
+  if [ -n "$SECOND" ]; then
+    # Trigger on dependabot authorship OR the message naming dependabot.
+    SECOND_AUTHOR="$(git log -1 --format='%an' "$SECOND" 2>/dev/null || true)"
+    IS_DEP="$([ -n "$SECOND_AUTHOR" ] && printf '%s' "$SECOND_AUTHOR" | grep -qiE 'dependabot' && echo 1 || echo 0)"
+    MSG_HINT="$(printf '%s' "$msg" | grep -qiE 'dependabot|deps' && echo 1 || echo 0)"
+    if [ "$IS_DEP" = "1" ] || [ "$MSG_HINT" = "1" ]; then
+      MERGED_FILES="$(git diff --name-only HEAD "$SECOND" 2>/dev/null || true)"
       VIOLATIONS="$(printf '%s\n' "$MERGED_FILES" | grep -vE '^(pyproject\.toml|requirements[^/]*\.txt|uv\.lock|poetry\.lock)$' || true)"
       if [ -n "$VIOLATIONS" ]; then
         echo "❌ Dependabot merge must only touch dependency files." >&2
