@@ -875,6 +875,36 @@ class ApiHandlers:
 
         return set_harness_mode(body.get("mode", ""), confirmed=bool(body.get("confirm_risk")), source="api")
 
+    # ── Security mode (system posture: productive | security-test) ──
+
+    def _security_mode_get(self, body: dict | None = None) -> dict:
+        from l3.tool_system.security_mode import security_status
+
+        return security_status()
+
+    def _security_mode_set(self, body: dict) -> dict:
+        from l3.tool_system.security_mode import set_security_mode
+
+        return set_security_mode(
+            body.get("mode", ""),
+            confirmed=bool(body.get("confirm_risk")),
+            source="api",
+        )
+
+    def _security_mode_notifications(self, body: dict | None = None) -> dict:
+        """GET /api/v2/security/mode/notifications — recent bypass-detection
+        warnings and mode changes for frontend notification (pull channel)."""
+        from l3.tool_system.security_mode import security_notifications
+
+        b = body or {}
+        try:
+            limit = int(b.get("limit", 0))
+        except (TypeError, ValueError):
+            limit = 0
+        event_type = str(b.get("event_type", ""))
+        items = security_notifications(limit=limit, event_type=event_type)
+        return {"success": True, "count": len(items), "notifications": items}
+
     # ── Skill retriever backend ──
 
     def _retriever_backend_get(self, body: dict | None = None) -> dict:

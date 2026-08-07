@@ -67,6 +67,7 @@ from l1.kernel.params.system import (
     MEMORY_IMPORTANCE_BASE,
     MEMORY_IMPORTANCE_DECISION,
     MEMORY_PROMOTION_THRESHOLD,
+    SKILL_POSTURE_OFFENSIVE,
 )
 from l1.kernel.ports import get_port as _get_port
 from l1.kernel.prompts import get_prompt
@@ -287,9 +288,19 @@ class AgentLoop:
                     # own domain (dynamic supply, not blanket injection).
                     if es.get("disable_model_invocation"):
                         continue
+                    from l1.kernel.skill import get_skill_manager as _loop_sm
                     from l1.kernel.skill import skill_visible
 
                     if not skill_visible(es, self.agent_id):
+                        continue
+                    # Posture gate (default-deny, runtime policy): offensive
+                    # skills are only injected when the SkillManager
+                    # offensive-policy authorizes the driving card nature
+                    # (L3A decision layer). The gate can be bypassed at
+                    # runtime by disabling the policy (soft control).
+                    if es.get("posture") == SKILL_POSTURE_OFFENSIVE and not _loop_sm().offensive_authorized(
+                        getattr(self, "_card_nature", "")
+                    ):
                         continue
                     prompt_preview = es["prompt"][:LOOP_EVOLVED_SKILL_TRUNC]
                     block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"
@@ -505,6 +516,11 @@ class AgentLoop:
                         _used.add(_sk)
             except Exception:
                 pass
+            # Forward the driving card nature into the tool args so tools
+            # that gate on it (e.g. use_skill's offensive-posture check) can
+            # see it — the LLM-generated args never carry this internal field.
+            if isinstance(args, dict) and getattr(self, "_card_nature", "") and not args.get("_card_nature"):
+                args["_card_nature"] = self._card_nature
             pr = pipeline.execute(
                 tool_name=fn.__name__ if hasattr(fn, "__name__") else "unknown",
                 agent_id=self.agent_id,

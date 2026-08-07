@@ -305,6 +305,51 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         from l1.kernel.skill import get_skill_manager
         return get_skill_manager().skills_for_cell(self.cell_id)
 
+    # ══ Security-team activation (attack posture) ══
+
+    def activate_attack_team(self) -> dict:
+        """Activate the security-team binding for attack posture.
+
+        Reads ``team.attack.domains`` (SettingsCenter; default empty) and for
+        each configured domain creates one peer agent (``agent-<domain>``)
+        bound to that domain's skill white-list. Offensive skills stay dormant
+        until the system posture is full-power attack (constitution §9.2 +
+        AgentLoop posture gate + use_skill gate), so activating the team is
+        harmless in productive posture. Empty config = no attack capability.
+
+        Returns:
+            {"success": bool, "created": [agent ids], "bound": int,
+             "failed": [skill names], "domains": [...]}
+        """
+        from l1.kernel.params.system import TEAM_ATTACK_DOMAINS
+
+        try:
+            from l3.config.settings_center import get_center
+
+            domains = get_center().get("team.attack.domains", None)
+        except Exception:
+            domains = None
+        domains = domains if isinstance(domains, dict) else TEAM_ATTACK_DOMAINS
+        created: list[str] = []
+        bound = 0
+        failed: list[str] = []
+        for domain, skills in domains.items():
+            agent_id = f"agent-{domain}"
+            if agent_id not in self._agents:
+                r = self.add_agent(agent_id, role=domain, territory=[domain], auto_boot=True)
+                # Only report/bind agents actually registered — a spawn-hook
+                # veto returns success=False BEFORE registration.
+                if not r.get("success"):
+                    failed.append(agent_id)
+                    continue
+                created.append(agent_id)
+            if skills:
+                br = self.bind_skills([s for s in skills if isinstance(s, str)])
+                bound += br.get("bound", 0)
+                failed += br.get("failed", [])
+        return {"success": True, "created": created, "bound": bound,
+                "failed": failed, "domains": list(domains.keys())}
+
     # ══ Cell state persistence ══
 
     def save_state(self, path: str = "") -> dict:

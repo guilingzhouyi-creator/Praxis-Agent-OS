@@ -37,6 +37,14 @@ cell:
 skill:
   retriever_backend: tfidf        # initial skill-retrieval backend: tfidf | embedding
   # evolve_scope: project         # "project" | "global" — where evolved skills are persisted
+  # ── Offensive-posture gate (soft control; runtime-switchable via API) ──
+  # offensive_enabled: true       # false = bypass the posture gate entirely
+  # offensive_natures: [offensive] # card natures that authorize offensive-skill injection
+  # ── Security-team domains (attack posture; see security.mode) ──
+  # attack:
+  #   domains:                     # domain → skill white-list (one peer per domain)
+  #     recon:   [recon-methodology]
+  #     exploit: [exploit-development]
 
 # ── CI review (card-triggered automation) ──
 ci:

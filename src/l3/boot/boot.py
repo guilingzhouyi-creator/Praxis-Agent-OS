@@ -408,6 +408,28 @@ def _load_constitution() -> dict:
         except Exception:
             logger.debug("boot: constitution restore failed")
 
+        # Inject the security-posture provider (kernel never imports L3; the
+        # constitution's §9.2 skill.offensive_posture rule reads it to gate
+        # offensive-skill use by system posture).
+        try:
+            from l1.kernel.constitution import set_posture_provider
+            from l3.tool_system.security_mode import get_posture
+
+            set_posture_provider(get_posture)
+            result["posture_provider"] = True
+        except Exception as e:
+            logger.debug("boot: posture provider inject skipped: %s", e)
+
+        # Inject the posture provider into GateChain too — G4 escalation skips
+        # the L3 review WARN for high-danger tools when full_power is granted.
+        try:
+            from l1.kernel.gatechain import get_gatechain
+            from l3.tool_system.security_mode import get_posture as _gp2
+
+            get_gatechain().set_posture_provider(_gp2)
+        except Exception as e:
+            logger.debug("boot: gatechain posture provider inject skipped: %s", e)
+
         # Auto-trigger territory discussion if constitution is blank
         if result.get("assembly_mode"):
             try:

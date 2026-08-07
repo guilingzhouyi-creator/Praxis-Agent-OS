@@ -29,6 +29,10 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # Harness mode (governed / semi / minimal gate matrix)
     ("GET", "/api/v2/harness/mode", ".harness_mode_get", "Get harness mode"),
     ("POST", "/api/v2/harness/mode", ".harness_mode_set", "Switch harness mode (minimal needs confirm_risk=true)"),
+    # System security posture (productive | security-test; attack needs confirm_risk)
+    ("GET", "/api/v2/security/mode", ".security_mode_get", "Get system security posture"),
+    ("POST", "/api/v2/security/mode", ".security_mode_set", "Switch security posture (security-test needs confirm_risk=true)"),
+    ("GET", "/api/v2/security/mode/notifications", ".security_mode_notifications", "Recent bypass-detection warnings / mode changes (frontend notification)"),
     # Skill retriever backend (tfidf / embedding)
     ("GET", "/api/v2/skills/retriever", ".retriever_backend_get", "Get active skill retriever backend"),
     ("POST", "/api/v2/skills/retriever", ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
@@ -761,6 +765,18 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         "/api/v2/skills/permissions",
         "l4.api_handlers.api_handlers_skills.handle_skills_permissions",
         "Skill write-gate policy",
+    ),
+    (
+        "GET",
+        "/api/v2/skills/offensive-policy",
+        "l4.api_handlers.api_handlers_skills.handle_skills_offensive_policy_get",
+        "Skill offensive-posture gate policy",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/offensive-policy",
+        "l4.api_handlers.api_handlers_skills.handle_skills_offensive_policy_set",
+        "Update skill offensive-posture gate (developer)",
     ),
     # CI review (card-triggered; read-only queries + runtime switch)
     ("GET", "/api/v2/ci/reviews", "l4.api_handlers.api_handlers_ci.handle_ci_reviews", "Query CI review reports"),

@@ -2,7 +2,7 @@
 
 import logging
 
-from l1.kernel.params.system import LOG_TRUNC_60
+from l1.kernel.params.system import LOG_TRUNC_60, SKILL_POSTURE_OFFENSIVE
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,17 @@ def use_skill(args: dict, agent_id: str) -> dict:
     if not skill_visible(skill_data, agent_id):
         return {"success": False,
                 "error": f"skill '{name}' is not in the {_audience_label(agent_id)} domain"}
+
+    # Posture gate (default-deny, runtime policy): offensive-posture skills
+    # require the SkillManager offensive policy to authorize the driving card
+    # nature. The tool pipeline forwards the card nature as ``_card_nature``;
+    # disabling the policy at runtime bypasses the gate (soft control).
+    if skill_data.get("posture") == SKILL_POSTURE_OFFENSIVE:
+        nature = str(args.get("_card_nature", ""))
+        if not get_skill_manager().offensive_authorized(nature):
+            return {"success": False,
+                    "error": f"skill '{name}' is offensive-posture and requires card authorization"
+                             f" (nature '{nature}' not allowed by offensive policy)"}
 
     prompt = skill_data.get("prompt", "")
     variables = skill_data.get("variables", [])

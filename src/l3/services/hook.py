@@ -193,6 +193,7 @@ class SkillCatalogHook(LifecycleHooks):
                 LOG_TRUNC_60,
                 SKILL_AUTO_ACTIVATE_BUILTIN,
                 SKILL_CATALOG_HOOK_LIMIT,
+                SKILL_POSTURE_OFFENSIVE,
             )
             from l1.kernel.skill import get_skill_manager
 
@@ -205,21 +206,33 @@ class SkillCatalogHook(LifecycleHooks):
             except Exception:
                 pass
             skills = sm.list_skills(sort_by="loaded_at")
+            # Posture gate (default-deny, runtime policy): offensive-posture
+            # skills are not advertised in the session catalog while the gate
+            # is enabled. Disabling the policy (soft bypass) advertises them.
+            if sm.offensive_policy().get("enabled", True):
+                skills = [s for s in skills if s.get("posture") != SKILL_POSTURE_OFFENSIVE]
             if auto_builtin:
                 # Built-in (read-only) skills take priority in the catalog.
                 skills.sort(key=lambda s: (not s.get("builtin"), s.get("loaded_at", 0.0)))
-            # E2: constitutional gate at session-injection time 鈥?a skill
+            # E2: constitutional gate at session-injection time — a skill
             # whose use is blocked by the constitution is not injected
-            # (defensive layer on top of the load-time check).
+            # (defensive layer on top of the load-time check). When the
+            # offensive policy is disabled (soft bypass), offensive skills
+            # skip the §9.2 posture check so the advertised bypass stays
+            # consistent end to end.
+            policy_enabled = sm.offensive_policy().get("enabled", True)
             try:
                 from l1.kernel.constitution import get_constitution
 
                 const = get_constitution()
-                skills = [
-                    s
-                    for s in skills
-                    if const.is_allowed("skill.use", agent_id or "system", target=s["name"]).get("allowed")
-                ]
+                allowed_skills = []
+                for s in skills:
+                    if s.get("posture") == SKILL_POSTURE_OFFENSIVE and not policy_enabled:
+                        allowed_skills.append(s)
+                        continue
+                    if const.is_allowed("skill.use", agent_id or "system", target=s["name"]).get("allowed"):
+                        allowed_skills.append(s)
+                skills = allowed_skills
             except Exception as e:
                 logger.debug("SkillCatalogHook: constitution filter skipped: %s", e)
             skills = skills[:SKILL_CATALOG_HOOK_LIMIT]

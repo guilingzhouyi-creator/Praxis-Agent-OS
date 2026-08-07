@@ -3,6 +3,7 @@ name: writing-for-agents
 description: Writing documents for agents — AGENTS.md, CLAUDE.md, skill files, and any doc an agent reaches by a pointer; concise, actionable, non-obvious, project-specific
 tags: [strategy]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, write_file, grep_search]
 ---
 

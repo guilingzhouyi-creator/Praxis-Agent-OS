@@ -3,6 +3,7 @@ name: resolving-merge-conflicts
 description: Work through an in-progress git merge or rebase conflict hunk by hunk, resolving by intent traced to each side's primary source, then finish the operation — never --abort
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, grep_search, run_shell]
 ---
 

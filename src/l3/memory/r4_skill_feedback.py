@@ -32,6 +32,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_60,
     LOG_TRUNC_200,
     LOG_TRUNC_2000,
+    SKILL_POSTURE_DEFAULT,
 )
 
 logger = logging.getLogger(__name__)
@@ -467,6 +468,7 @@ class SkillFeedbackMixin:
                                     "name": s["name"],
                                     "description": s.get("description", ""),
                                     "prompt": s["prompt"],
+                                    "posture": s.get("posture", SKILL_POSTURE_DEFAULT),
                                 }
                             )
                     if evolved:
@@ -488,6 +490,7 @@ class SkillFeedbackMixin:
                         "name": s["name"],
                         "description": s.get("description", ""),
                         "prompt": s["prompt"],
+                        "posture": s.get("posture", SKILL_POSTURE_DEFAULT),
                     }
                 )
         evolved = evolved[:limit]

@@ -3,6 +3,7 @@ name: command-execution
 description: Run commands and shell operations safely — build, test, and diagnostic commands with explicit timeouts, output caps, and failure recovery
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [run_in_terminal, execute_shell, read_file, list_dir, grep_search]
 ---
 

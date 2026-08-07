@@ -3,6 +3,7 @@ name: codebase-design
 description: Deep-module design discipline — a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface; shared vocabulary for making modules deep
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, grep_search, symbol_search, list_functions, review_code]
 ---
 

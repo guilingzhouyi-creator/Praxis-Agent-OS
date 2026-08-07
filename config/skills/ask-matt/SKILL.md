@@ -3,6 +3,7 @@ name: ask-matt
 description: The skill router — given a situation, name the skill or flow that fits it; a decision-layer entry point over the whole skill catalog
 tags: [strategy]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, grep_search]
 ---
 

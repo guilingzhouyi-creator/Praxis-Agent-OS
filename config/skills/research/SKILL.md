@@ -3,6 +3,7 @@ name: research
 description: Investigate a question against high-trust primary sources and capture the findings as a cited Markdown file — web research with provenance
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [web_fetch, web_search, read_file, write_file, list_dir, grep_search]
 ---
 
