@@ -617,6 +617,13 @@ def _init_discovery() -> dict:
             "memory_ring_score_medium_tokens": _ps.MEMORY_RING_SCORE_MEDIUM_TOKENS,
             "memory_ring_score_good_threshold": _ps.MEMORY_RING_SCORE_GOOD_THRESHOLD,
             "memory_ring_score_average_threshold": _ps.MEMORY_RING_SCORE_AVERAGE_THRESHOLD,
+            # ── L4 key modules (config-driven via get_service_limit) ──
+            "channel_ring_capacity": _pa.CHANNEL_RING_CAPACITY,
+            "api_middleware_timeout": _pa.API_MIDDLEWARE_TIMEOUT,
+            "lsp_cache_ttl": _pa.LSP_CACHE_TTL,
+            "search_cache_max": _ps.SEARCH_CACHE_MAX,
+            "ops_console_interval": _ps.OPS_CONSOLE_INTERVAL,
+            "memory_recall_page_limit": _ps.MEMORY_RECALL_PAGE_LIMIT,
         },
     )
 
