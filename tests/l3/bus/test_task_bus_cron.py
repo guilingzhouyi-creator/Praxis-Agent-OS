@@ -1,4 +1,5 @@
 """TaskBus + CronScheduler integration tests."""
+
 from __future__ import annotations
 
 import json
@@ -13,9 +14,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 # TaskBus — webhook dispatch tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestTaskBusCore:
     def test_register(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         r = bus.register("test-hook", "http://localhost:1/hook")
@@ -24,6 +27,7 @@ class TestTaskBusCore:
 
     def test_register_invalid_url(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         r = bus.register("bad", "not-a-url")
@@ -31,6 +35,7 @@ class TestTaskBusCore:
 
     def test_list(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         bus.register("a", "http://a.com/hook")
@@ -40,6 +45,7 @@ class TestTaskBusCore:
 
     def test_unregister(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         bus.register("x", "http://x.com/hook")
@@ -49,6 +55,7 @@ class TestTaskBusCore:
 
     def test_dispatch_no_subscribers(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         n = bus.dispatch("card-1", "DONE", {"domain": "test"})
@@ -56,17 +63,18 @@ class TestTaskBusCore:
 
     def test_dispatch_skips_disabled(self):
         from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         # Directly add disabled subscriber
-        bus._subscribers["off"] = WebhookSubscriber(
-            name="off", url="http://localhost:1/hook", enabled=False)
+        bus._subscribers["off"] = WebhookSubscriber(name="off", url="http://localhost:1/hook", enabled=False)
         n = bus.dispatch("card-1", "DONE")
         assert n == 0
 
     def test_dispatch_runs_async(self):
         """dispatch returns immediately (async), doesn't wait for HTTP call."""
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         bus.register("slow", "http://localhost:1/slow")
@@ -77,20 +85,20 @@ class TestTaskBusCore:
 class TestTaskBusFilters:
     def test_filter_matches(self):
         from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
-        sub = WebhookSubscriber(name="filtered", url="http://h/hook",
-                                 filters={"domain": "deploy"})
+        sub = WebhookSubscriber(name="filtered", url="http://h/hook", filters={"domain": "deploy"})
         bus._subscribers["filtered"] = sub
         n = bus.dispatch("card-1", "DONE", {"domain": "deploy"})
         assert n == 1
 
     def test_filter_blocks(self):
         from l3.bus.task_bus import WebhookSubscriber, get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
-        sub = WebhookSubscriber(name="filtered", url="http://h/hook",
-                                 filters={"domain": "deploy"})
+        sub = WebhookSubscriber(name="filtered", url="http://h/hook", filters={"domain": "deploy"})
         bus._subscribers["filtered"] = sub
         n = bus.dispatch("card-1", "DONE", {"domain": "test"})
         assert n == 0
@@ -99,9 +107,18 @@ class TestTaskBusFilters:
 class TestTaskBusPayload:
     def test_payload_structure(self):
         from l3.bus.task_bus import _build_payload
-        p = json.loads(_build_payload("card-abc", "COMPLETED", {
-            "intent": "test intent", "domain": "test", "result": {"ok": True},
-        }))
+
+        p = json.loads(
+            _build_payload(
+                "card-abc",
+                "COMPLETED",
+                {
+                    "intent": "test intent",
+                    "domain": "test",
+                    "result": {"ok": True},
+                },
+            )
+        )
         assert p["event"] == "card.completed"
         assert p["card_id"] == "card-abc"
         assert p["state"] == "COMPLETED"
@@ -113,9 +130,11 @@ class TestTaskBusPayload:
 # CronScheduler tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestCronValidate:
     def test_valid_expressions(self):
         from l4.cron_scheduler import validate_cron
+
         assert validate_cron("*/5 * * * *")
         assert validate_cron("0 3 * * *")
         assert validate_cron("30 4 * * *")
@@ -124,6 +143,7 @@ class TestCronValidate:
 
     def test_invalid_expressions(self):
         from l4.cron_scheduler import validate_cron
+
         assert not validate_cron("")
         assert not validate_cron("invalid")
         assert not validate_cron("* * * *")
@@ -131,12 +151,14 @@ class TestCronValidate:
 
     def test_cron_matches(self):
         from l4.cron_scheduler import _cron_matches
+
         now = time.localtime()
         # "* * * * *" matches any time
         assert _cron_matches("* * * * *", now)
 
     def test_cron_not_matches_wrong_minute(self):
         from l4.cron_scheduler import _cron_matches
+
         now = time.struct_time((2026, 7, 25, 10, 0, 0, 5, 206, 0))
         # "30 * * * *" only matches minute=30, not minute=0
         assert not _cron_matches("30 * * * *", now)
@@ -147,6 +169,7 @@ class TestCronValidate:
 class TestCronScheduler:
     def test_add(self):
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         r = s.add("test-job", "*/5 * * * *", "Run health check", domain="ops")
@@ -157,6 +180,7 @@ class TestCronScheduler:
 
     def test_add_invalid_cron(self):
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         r = s.add("bad", "not-cron", "test")
@@ -164,6 +188,7 @@ class TestCronScheduler:
 
     def test_remove(self):
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         s.add("job-1", "*/5 * * * *", "test")
@@ -175,6 +200,7 @@ class TestCronScheduler:
 
     def test_replace_existing(self):
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         s.add("same-id", "*/5 * * * *", "original")
@@ -185,6 +211,7 @@ class TestCronScheduler:
 
     def test_start_stop(self):
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         s.start()
@@ -196,6 +223,7 @@ class TestCronScheduler:
         """Cron entry dispatches a card when cron matches."""
         from l3.card.card_registry import get_registry, reset_registry
         from l4.cron_scheduler import _cron_matches, get_scheduler, reset_scheduler
+
         reset_scheduler()
         reset_registry()
         s = get_scheduler()
@@ -224,6 +252,7 @@ class TestCronScheduler:
 # Missing coverage: HMAC, retry, _tick, edge cases, integration
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestTaskBusSignature:
     def test_payload_has_hmac_when_secret_set(self):
         """_dispatch_one should set X-Praxis-Signature when secret is configured."""
@@ -231,11 +260,11 @@ class TestTaskBusSignature:
         import hmac
 
         from l3.bus.task_bus import TaskBus, WebhookSubscriber
+
         bus = TaskBus()
-        sub = WebhookSubscriber(name="signed", url="http://localhost:1/hook",
-                                 secret="test-secret")
+        sub = WebhookSubscriber(name="signed", url="http://localhost:1/hook", secret="test-secret")
         payload = '{"test": true}'
-        expected_sig = hmac.new(b"test-secret", payload.encode(), hashlib.sha256).hexdigest()
+        hmac.new(b"test-secret", payload.encode(), hashlib.sha256).hexdigest()
         # The actual HTTP call will fail, but we verify the header construction
         # by inspecting the prepared request
         result = bus._dispatch_one(sub, payload)  # will return False (no server)
@@ -246,9 +275,9 @@ class TestTaskBusRetry:
     def test_dispatch_one_retries_on_failure(self, mocker):
         """dispatch_one should retry on failure and log appropriately."""
         from l3.bus.task_bus import TaskBus, WebhookSubscriber
+
         bus = TaskBus()
-        sub = WebhookSubscriber(name="retry-test", url="http://localhost:2/hook",
-                                 retries=2)
+        sub = WebhookSubscriber(name="retry-test", url="http://localhost:2/hook", retries=2)
         result = bus._dispatch_one(sub, '{"test": true}')
         assert result is False  # no server, but no crash
 
@@ -256,6 +285,7 @@ class TestTaskBusRetry:
 class TestCronEdgeCases:
     def test_cron_every_5_minutes_matches(self):
         from l4.cron_scheduler import _cron_matches
+
         # Every 5 minutes at 0, 5, 10...
         t1 = time.struct_time((2026, 7, 25, 10, 0, 0, 5, 206, 0))
         t2 = time.struct_time((2026, 7, 25, 10, 5, 0, 5, 206, 0))
@@ -266,6 +296,7 @@ class TestCronEdgeCases:
 
     def test_cron_daily_3am(self):
         from l4.cron_scheduler import _cron_matches
+
         t_match = time.struct_time((2026, 7, 25, 3, 0, 0, 5, 206, 0))
         t_no = time.struct_time((2026, 7, 25, 10, 30, 0, 5, 206, 0))
         assert _cron_matches("0 3 * * *", t_match)
@@ -277,6 +308,7 @@ class TestCronTick:
         """_tick should dispatch entry when cron matches and not recently dispatched."""
         from l3.card.card_registry import reset_registry
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         reset_registry()
         s = get_scheduler()
@@ -295,6 +327,7 @@ class TestCronTick:
 class TestL2ShellCron:
     def test_cron_list_via_dispatch(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/cron")
         assert r.get("success")
@@ -302,6 +335,7 @@ class TestL2ShellCron:
 
     def test_cron_add_missing_args(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/cron add")
         assert not r.get("success")
@@ -311,6 +345,7 @@ class TestCardRegistryTaskBusIntegration:
     def test_complete_fires_task_bus(self, mocker):
         """CardRegistry.complete() should call TaskBus.dispatch()."""
         from l3.card.card_registry import CardRegistry
+
         # Mock the function that card_registry imports internally
         mock_dispatch = mocker.patch("l3.bus.task_bus.get_task_bus")
         reg = CardRegistry(persist_path="")
@@ -324,21 +359,28 @@ class TestRestApiCron:
         """Cron REST API endpoint should respond."""
 
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
         r = handler._cron_list()
         assert "schedules" in r
 
     def test_cron_add_endpoint(self):
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
-        r = handler._cron_add({
-            "id": "api-test", "cron": "0 4 * * *",
-            "intent": "API test dispatch", "domain": "test",
-        })
+        r = handler._cron_add(
+            {
+                "id": "api-test",
+                "cron": "0 4 * * *",
+                "intent": "API test dispatch",
+                "domain": "test",
+            }
+        )
         assert r.get("success")
 
     def test_cron_remove_endpoint(self):
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
         handler._cron_add({"id": "rm-test", "cron": "0 5 * * *", "intent": "to remove"})
         r = handler._cron_remove({"id": "rm-test"})
@@ -349,12 +391,14 @@ class TestRestApiCron:
 # Gap 1: Concurrency safety
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestTaskBusConcurrency:
     def test_concurrent_dispatch_no_crash(self):
         """Multiple threads dispatching simultaneously should not crash."""
         from concurrent.futures import ThreadPoolExecutor
 
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
         bus.register("c1", "http://localhost:11/h1")
@@ -374,14 +418,15 @@ class TestTaskBusConcurrency:
         from concurrent.futures import ThreadPoolExecutor
 
         from l3.bus.task_bus import get_task_bus, reset_task_bus
+
         reset_task_bus()
         bus = get_task_bus()
 
         def add_remove(i):
             if i % 2 == 0:
-                bus.register(f"con-{i}", f"http://localhost:{100+i}/h")
+                bus.register(f"con-{i}", f"http://localhost:{100 + i}/h")
             else:
-                bus.unregister(f"con-{i-1}")
+                bus.unregister(f"con-{i - 1}")
             return i
 
         with ThreadPoolExecutor(max_workers=4) as ex:
@@ -396,6 +441,7 @@ class TestCronSchedulerConcurrency:
         from concurrent.futures import ThreadPoolExecutor
 
         from l4.cron_scheduler import get_scheduler, reset_scheduler
+
         reset_scheduler()
         s = get_scheduler()
         s.start()
@@ -413,20 +459,23 @@ class TestCronSchedulerConcurrency:
 # Gap 2: Config file loading
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestTaskBusConfigLoad:
     def test_config_load_does_not_crash(self):
         """TaskBus config loading should handle missing config gracefully."""
         from l3.bus.task_bus import TaskBus
+
         bus = TaskBus()
         # Should not crash even if praxis.yaml is missing or has no webhooks section
-        assert hasattr(bus, '_subscribers')
+        assert hasattr(bus, "_subscribers")
         assert isinstance(bus._subscribers, dict)
 
     def test_cron_config_load_does_not_crash(self):
         """CronScheduler config loading should handle missing config gracefully."""
         from l4.cron_scheduler import CronScheduler
+
         s = CronScheduler()
-        assert hasattr(s, '_entries')
+        assert hasattr(s, "_entries")
         assert isinstance(s._entries, list)
 
 
@@ -436,31 +485,40 @@ class TestTaskBusLoadFromConfig:
         import yaml
 
         from l3.bus.task_bus import TaskBus
+
         cfg_path = tmp_path / "praxis.yaml"
-        cfg_path.write_text(yaml.dump({
-            "webhooks": {
-                "ci": {"url": "http://ci.example.com/hook", "retries": 5},
-                "monitor": {"url": "http://monitor.example.com/alert",
-                            "filters": {"domain": "deploy"}},
-            }
-        }), encoding="utf-8")
+        cfg_path.write_text(
+            yaml.dump(
+                {
+                    "webhooks": {
+                        "ci": {"url": "http://ci.example.com/hook", "retries": 5},
+                        "monitor": {"url": "http://monitor.example.com/alert", "filters": {"domain": "deploy"}},
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
 
         # Monkey-patch config_loader to return our temp config
         import l3.bus.task_bus as tb_mod
-        original_load = getattr(tb_mod, '_load_config', None)
+
+        getattr(tb_mod, "_load_config", None)
 
         # Direct test: simulate what _load_config does
-        bus = TaskBus()
+        TaskBus()
         # Manually trigger load with our data
         try:
-            from l3.config.config_loader import load_config
+            from importlib import util as _importlib_util
+
+            _importlib_util.find_spec("l3.config.config_loader")
         except ImportError:
             # config_loader not available, but we can still test the parsing logic
             import yaml as _yaml
+
             data = _yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
             hooks = data.get("webhooks", {})
             count = 0
-            for name, info in hooks.items():
+            for _name, info in hooks.items():
                 if isinstance(info, dict) and info.get("url"):
                     count += 1
             assert count == 2  # Both webhooks would be loaded
@@ -470,10 +528,12 @@ class TestTaskBusLoadFromConfig:
 # Gap 3: REST API error handling
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestRestApiErrorHandling:
     def test_cron_add_missing_id(self):
         """POST /api/cron without 'id' should fail gracefully."""
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
         r = handler._cron_add({"cron": "0 3 * * *", "intent": "test"})
         # id is empty, add() should return error
@@ -482,6 +542,7 @@ class TestRestApiErrorHandling:
     def test_cron_add_missing_cron(self):
         """POST /api/cron without 'cron' should fail gracefully."""
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
         r = handler._cron_add({"id": "no-cron", "intent": "test"})
         assert not r.get("success") or "error" in r
@@ -489,16 +550,22 @@ class TestRestApiErrorHandling:
     def test_cron_add_invalid_cron(self):
         """POST /api/cron with invalid cron expression should fail."""
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
-        r = handler._cron_add({
-            "id": "bad-cron", "cron": "not-a-cron",
-            "intent": "test", "domain": "test",
-        })
+        r = handler._cron_add(
+            {
+                "id": "bad-cron",
+                "cron": "not-a-cron",
+                "intent": "test",
+                "domain": "test",
+            }
+        )
         assert not r.get("success")
 
     def test_cron_remove_unknown(self):
         """DELETE /api/cron with unknown id should return error."""
         from l4.api_handlers import ApiHandlers
+
         handler = ApiHandlers.__new__(ApiHandlers)
         r = handler._cron_remove({"id": "does-not-exist"})
         assert r.get("success")  # remove on non-existent is OK (idempotent)

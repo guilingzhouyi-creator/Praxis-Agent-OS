@@ -45,64 +45,83 @@ def _build_default_registry() -> ContextRegistry:
     reg = ContextRegistry()
     try:
         from l3.memory.central_memory import get_l3a_memory as _gm
+
         def _mem_loader():
             try:
-                return _gm().build_context(_p.AGENT_ID,
-                    max_tokens=_p.MEMORY_MAX_TOKENS)
+                return _gm().build_context(_p.AGENT_ID, max_tokens=_p.MEMORY_MAX_TOKENS)
             except Exception:
                 capture("l3a: memory context build failed", error_code="E_L3A_CTX", component="l3a")
                 return ""
-        reg.register(ContextSource(
-            key="memory",
-            loader=_mem_loader,
-            render_baseline=lambda v: f"## Memory context\n{v}",
-            render_update=lambda o, n: f"## Memory context (updated)\n{n}",
-            render_removal=lambda: "## Memory context\n(no recent memory)",
-        ))
+
+        reg.register(
+            ContextSource(
+                key="memory",
+                loader=_mem_loader,
+                render_baseline=lambda v: f"## Memory context\n{v}",
+                render_update=lambda o, n: f"## Memory context (updated)\n{n}",
+                render_removal=lambda: "## Memory context\n(no recent memory)",
+            )
+        )
     except Exception:
         capture("l3a: memory source registration skipped", error_code="E_L3A_CTX", component="l3a")
         logger.debug("l3a: memory source registration skipped")
 
     try:
         from l1.kernel.constitution import get_constitution as _gc
-        reg.register(ContextSource(
-            key="constitution",
-            loader=lambda: _gc().summary(for_agent=_p.AGENT_ID),
-            render_baseline=lambda v: f"## Rules\n{v}",
-            render_update=lambda o, n: f"## Rules (updated)\n{n}",
-        ))
+
+        reg.register(
+            ContextSource(
+                key="constitution",
+                loader=lambda: _gc().summary(for_agent=_p.AGENT_ID),
+                render_baseline=lambda v: f"## Rules\n{v}",
+                render_update=lambda o, n: f"## Rules (updated)\n{n}",
+            )
+        )
     except Exception:
         capture("l3a: constitution source registration skipped", error_code="E_L3A_CTX", component="l3a")
         logger.debug("l3a: constitution source registration skipped")
 
     from datetime import datetime
-    reg.register(ContextSource(
-        key="system_time",
-        loader=lambda: datetime.now(UTC).isoformat(),
-        render_baseline=lambda v: f"## Current time\n{v}",
-        render_update=lambda o, n: f"## Time updated\n{n}",
-    ))
 
-    reg.register(ContextSource(
-        key="model_info",
-        loader=lambda: _active_model.show(),
-        render_baseline=lambda v: f"## Active model\nProvider: {v.get('provider','?')}  Model: {v.get('model','?')}",
-        render_update=lambda o, n: f"## Model changed\nProvider: {o.get('provider','?')} -> {n.get('provider','?')}  Model: {o.get('model','?')} -> {n.get('model','?')}",
-    ))
+    reg.register(
+        ContextSource(
+            key="system_time",
+            loader=lambda: datetime.now(UTC).isoformat(),
+            render_baseline=lambda v: f"## Current time\n{v}",
+            render_update=lambda o, n: f"## Time updated\n{n}",
+        )
+    )
 
-    reg.register(ContextSource(
-        key="convergence",
-        loader=lambda: _convergence_loader(),
-        render_baseline=lambda v: _convergence_render(v),
-        render_update=lambda o, n: _convergence_render(n),
-    ))
+    reg.register(
+        ContextSource(
+            key="model_info",
+            loader=lambda: _active_model.show(),
+            render_baseline=lambda v: (
+                f"## Active model\nProvider: {v.get('provider', '?')}  Model: {v.get('model', '?')}"
+            ),
+            render_update=lambda o, n: (
+                f"## Model changed\nProvider: {o.get('provider', '?')} -> {n.get('provider', '?')}  Model: {o.get('model', '?')} -> {n.get('model', '?')}"
+            ),
+        )
+    )
 
-    reg.register(ContextSource(
-        key="l3a_memory",
-        loader=lambda: _l3a_memory_loader(),
-        render_baseline=lambda v: _l3a_memory_render(v),
-        render_update=lambda o, n: _l3a_memory_render(n),
-    ))
+    reg.register(
+        ContextSource(
+            key="convergence",
+            loader=lambda: _convergence_loader(),
+            render_baseline=lambda v: _convergence_render(v),
+            render_update=lambda o, n: _convergence_render(n),
+        )
+    )
+
+    reg.register(
+        ContextSource(
+            key="l3a_memory",
+            loader=lambda: _l3a_memory_loader(),
+            render_baseline=lambda v: _l3a_memory_render(v),
+            render_update=lambda o, n: _l3a_memory_render(n),
+        )
+    )
 
     return reg
 
@@ -111,6 +130,7 @@ def _l3a_memory_loader() -> list[dict]:
     """Load L3A's distilled deliberation summaries (bypass memory, latest 5)."""
     try:
         from .summaries import get_store
+
         return [s.to_dict() for s in get_store().latest(limit=5)]
     except Exception:
         capture("l3a: summaries loader failed", error_code="E_L3A_CTX", component="l3a")
@@ -122,8 +142,7 @@ def _l3a_memory_render(summaries: list[dict]) -> str:
         return "## L3A memory\n(no distilled deliberations yet)"
     lines = ["## L3A memory (recent deliberations)"]
     for s in summaries:
-        lines.append(f"- [{s.get('issue_id', '?')}] {s.get('title', '')} "
-                     f"(domain={s.get('domain', '')})")
+        lines.append(f"- [{s.get('issue_id', '?')}] {s.get('title', '')} (domain={s.get('domain', '')})")
         lines.append(f"  {s.get('summary', '')[:150]}")
     return "\n".join(lines)
 
@@ -133,16 +152,28 @@ def _convergence_loader() -> list[dict]:
     try:
         from l3.cell import _cells
         from l3.discussion.cell_answer_repo import CellAnswerRepo
+
         items = []
         for cid in list(_cells.keys()):
             try:
                 repo = CellAnswerRepo(cid, "")
                 for a in repo.get_all():
-                    items.append({"cell": cid, "agent_id": a.agent_id,
-                                  "phase": a.phase, "type": a.answer_type,
-                                  "created_at": a.created_at})
+                    items.append(
+                        {
+                            "cell": cid,
+                            "agent_id": a.agent_id,
+                            "phase": a.phase,
+                            "type": a.answer_type,
+                            "created_at": a.created_at,
+                        }
+                    )
             except Exception:
-                capture("l3a: cell answer repo read failed", error_code="E_L3A_CTX", component="l3a", context={"cell_id": cid})
+                capture(
+                    "l3a: cell answer repo read failed",
+                    error_code="E_L3A_CTX",
+                    component="l3a",
+                    context={"cell_id": cid},
+                )
                 continue
         return items
     except Exception:
@@ -188,6 +219,7 @@ class L3ADaemon:
     def _init_pmu(self) -> None:
         try:
             from l3.cell.components.cell_pmu import CellPmu
+
             self._pmu = CellPmu(cell_id="l3a")
         except Exception as e:
             capture("l3a: CellPmu init failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
@@ -197,16 +229,18 @@ class L3ADaemon:
     def _init_subagent_pool(self) -> None:
         try:
             from .subagent import get_pool as _get_sa_pool
+
             self._sa_pool = _get_sa_pool()
         except Exception as e:
-            capture("l3a: subagent pool init failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
+            capture(
+                "l3a: subagent pool init failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)}
+            )
             logger.debug("l3a: subagent pool init failed: %s", e)
             self._sa_pool = None
 
     def create_session(self, title: str = "") -> Session:
         """Create a new session wired with the daemon's model config and PMU."""
-        s = self.manager.create(title=title, model_config=self.model_config,
-                                registry=self.registry)
+        s = self.manager.create(title=title, model_config=self.model_config, registry=self.registry)
         if self._pmu:
             s.set_pmu(self._pmu)
         return s
@@ -217,11 +251,9 @@ class L3ADaemon:
 
     def dispatch(self, args: list[str]) -> dict:
         """Route L2 shell args through the L3A command dispatcher and return its result dict."""
-        return _api.dispatch(args, self.manager, self.registry,
-                             self.model_config)
+        return _api.dispatch(args, self.manager, self.registry, self.model_config)
 
-    def archive_search(self, limit: int = 10,
-                       session_id: str | None = None) -> dict:
+    def archive_search(self, limit: int = 10, session_id: str | None = None) -> dict:
         """Search archived sessions and return their metadata entries."""
         return _archive.search_sessions(limit=limit, session_id=session_id)
 
@@ -238,18 +270,19 @@ class L3ADaemon:
         # Inject global LLM config before first session
         try:
             from l3.config.settings_center import get_center
+
             global_config = get_center().all()
             self.model_config.apply_global(global_config)
         except Exception:
             capture("l3a: global config injection failed", error_code="E_L3A_DAEMON", component="l3a")
             logger.debug("l3a: global config injection failed, using defaults")
         self._running = True
-        self._thread = threading.Thread(target=self._daemon_loop,
-                                        daemon=True, name="l3a-daemon")
+        self._thread = threading.Thread(target=self._daemon_loop, daemon=True, name="l3a-daemon")
         self._thread.start()
         logger.info("L3A daemon started")
         try:
             from l3.bus.log import get_service as _ls
+
             _ls().info("L3A daemon started", service="l3a")
         except Exception:
             logger.debug("l3a: log service unavailable at start, skipped", exc_info=True)
@@ -270,6 +303,7 @@ class L3ADaemon:
         logger.info("L3A daemon stopped")
         try:
             from l3.bus.log import get_service as _ls
+
             _ls().info("L3A daemon stopped", service="l3a")
         except Exception:
             logger.debug("l3a: log service unavailable at stop, skipped", exc_info=True)
@@ -295,7 +329,9 @@ class L3ADaemon:
             try:
                 self._pmu.snapshot(force=True)
             except Exception as e:
-                capture("l3a: PMU snapshot failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
+                capture(
+                    "l3a: PMU snapshot failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)}
+                )
                 logger.debug("l3a: PMU snapshot failed: %s", e)
 
         # Watcher: reconcile session task tables with CardRegistry
@@ -307,7 +343,12 @@ class L3ADaemon:
                 try:
                     synced += sess.tasks.sync_from_registry()
                 except Exception as e:
-                    capture("l3a: task sync failed", error_code="E_L3A_DAEMON", component="l3a", context={"session_id": sid, "error": str(e)})
+                    capture(
+                        "l3a: task sync failed",
+                        error_code="E_L3A_DAEMON",
+                        component="l3a",
+                        context={"session_id": sid, "error": str(e)},
+                    )
                     logger.debug("l3a: task sync failed for %s: %s", sid, e)
         if synced:
             results["tasks_synced"] = synced
@@ -323,16 +364,22 @@ class L3ADaemon:
                 r = sess.auto_compress_check()
                 if r.get("action") == "compressed":
                     auto_compressed += 1
-                    self._auto_compressions = getattr(
-                        self, "_auto_compressions", 0) + 1
-                    results.setdefault("auto_compressed", []).append({
-                        "session_id": sid,
-                        "compressed": r.get("compressed", 0),
-                        "pressure": r.get("pressure_before", 0),
-                        "threshold": r.get("threshold", 0),
-                    })
+                    self._auto_compressions = getattr(self, "_auto_compressions", 0) + 1
+                    results.setdefault("auto_compressed", []).append(
+                        {
+                            "session_id": sid,
+                            "compressed": r.get("compressed", 0),
+                            "pressure": r.get("pressure_before", 0),
+                            "threshold": r.get("threshold", 0),
+                        }
+                    )
             except Exception as e:
-                capture("l3a: auto-compress check failed", error_code="E_L3A_DAEMON", component="l3a", context={"session_id": sid, "error": str(e)})
+                capture(
+                    "l3a: auto-compress check failed",
+                    error_code="E_L3A_DAEMON",
+                    component="l3a",
+                    context={"session_id": sid, "error": str(e)},
+                )
                 logger.debug("l3a: auto-compress failed for %s: %s", sid, e)
         if auto_compressed:
             results["auto_compressed_count"] = auto_compressed
@@ -341,6 +388,7 @@ class L3ADaemon:
         # (toggled by memory.mer.enabled; bypass failure does not affect the main flow)
         try:
             from l3.memory.memory_mer import get_mer
+
             mer = get_mer()
             if mer.enabled:
                 mr = mer.transform_and_archive()
@@ -348,13 +396,13 @@ class L3ADaemon:
                     results["mer_archived"] = mr["archived"]
                     results["mer_entries"] = mr.get("entries", 0)
         except Exception as e:
-            capture("l3a: mer transform failed", error_code="E_L3A_DAEMON",
-                    component="l3a", context={"error": str(e)})
+            capture("l3a: mer transform failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
             logger.debug("l3a: mer transform failed: %s", e)
 
         idle_timeout = _p.IDLE_TIMEOUT_DEFAULT
         try:
             from l3.config.settings_center import get_center
+
             idle_timeout = get_center().get("l3a.idle_timeout", _p.IDLE_TIMEOUT_DEFAULT)
         except Exception:
             capture("l3a: idle_timeout resolve failed", error_code="E_L3A_DAEMON", component="l3a")
@@ -379,15 +427,18 @@ class L3ADaemon:
                 "total_cards": sum(s.get("card_count", 0) for s in active_sessions),
             }
             try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME
+                from l3.bus.monitor_bus import MonitorEvent as MonitorEventCls
                 from l3.bus.monitor_bus import get_bus as _mb
-                _mb().emit(_ME(
-                    type="l3a.governance",
-                    source="l3a_daemon",
-                    severity="info",
-                    message=f"{results['governance']['active_sessions']} active sessions",
-                    data=results["governance"],
-                ))
+
+                _mb().emit(
+                    MonitorEventCls(
+                        type="l3a.governance",
+                        source="l3a_daemon",
+                        severity="info",
+                        message=f"{results['governance']['active_sessions']} active sessions",
+                        data=results["governance"],
+                    )
+                )
             except Exception:
                 capture("l3a: governance event emit failed", error_code="E_L3A_DAEMON", component="l3a")
                 logger.debug("l3a: governance event emit failed")
@@ -439,14 +490,14 @@ def dispatch(args: list[str] | None = None) -> dict:
 
 
 # ── Re-exports ──
-from .helpers import build_l3a_prompt, cardwrite_handler, get_convergence_queue
-from .model import L3AModelConfig
-from .subagent import L3ASubAgentPool
-from .subagent import get_pool as get_l3a_pool
-from .summaries import L3ASummary, L3ASummaryStore
-from .summaries import get_store as get_summary_store
-from .task_table import SessionTask, SessionTaskTable
-from .types import L3ATask, L3ATaskGroup
+from .helpers import build_l3a_prompt, cardwrite_handler, get_convergence_queue  # noqa: E402
+from .model import L3AModelConfig  # noqa: E402
+from .subagent import L3ASubAgentPool  # noqa: E402
+from .subagent import get_pool as get_l3a_pool  # noqa: E402
+from .summaries import L3ASummary, L3ASummaryStore  # noqa: E402
+from .summaries import get_store as get_summary_store  # noqa: E402
+from .task_table import SessionTask, SessionTaskTable  # noqa: E402
+from .types import L3ATask, L3ATaskGroup  # noqa: E402
 
 start_l3a_daemon = start
 stop_l3a_daemon = stop

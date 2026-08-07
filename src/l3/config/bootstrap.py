@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 def _config_path() -> str:
     from l1.kernel.paths import get_paths
+
     return get_paths().config_file
 
 
@@ -45,6 +46,7 @@ _CONFIG_PATH = _config_path()
 _BACKUP_SUFFIX = ".bak"
 
 # ── Default configuration template ──
+
 
 def default_config() -> dict:
     """Return the default configuration dict from kernel/params.py constants."""
@@ -56,10 +58,15 @@ def default_config() -> dict:
         SCOUT_POOL_MAX,
         SCOUT_POOL_MAX_PER_AGENT,
     )
+
     return {
         "cell": {
             "terminal": {"workers": TERMINAL_MAX_WORKERS, "poll": 0.05},
-            "scout": {"max_total": SCOUT_POOL_MAX, "max_per_agent": SCOUT_POOL_MAX_PER_AGENT, "cache_ttl": SCOUT_CACHE_TTL},
+            "scout": {
+                "max_total": SCOUT_POOL_MAX,
+                "max_per_agent": SCOUT_POOL_MAX_PER_AGENT,
+                "cache_ttl": SCOUT_CACHE_TTL,
+            },
             "card": {"timeout": CARD_TIMEOUT},
         },
         "kernel": {
@@ -67,8 +74,11 @@ def default_config() -> dict:
             "swapper": {"interval": SWAPPER_DEFAULT_INTERVAL},
         },
         "llm": {
-            "provider": "<provider>", "model": "<model>", "api_url": "",
-            "max_tokens": 4096, "temperature": 0.3,
+            "provider": "<provider>",
+            "model": "<model>",
+            "api_url": "",
+            "max_tokens": 4096,
+            "temperature": 0.3,
         },
         "territories": {"reader": ["."], "writer": ["."], "reviewer": ["."]},
         "clearance": {"reader": 1, "writer": 2, "reviewer": 3},
@@ -82,6 +92,7 @@ def default_config() -> dict:
 
 
 # ── Public API (for TUI) ──
+
 
 def needs_bootstrap() -> bool:
     """Check if first-boot wizard should run (no config file exists)."""
@@ -98,26 +109,49 @@ def get_defaults() -> dict:
         MEMORY_RING_WORKING_BUDGET,
         MEMORY_RING_WORKING_TTL,
     )
+
     cfg = default_config()
     return {
         "cells": 1,
         "agents_per_cell": 3,
         "default_roles": list(CENTRAL_DEFAULT_ROLES),
         "llm_providers": [
-            {"name": "openai", "url": "https://api.openai.com/v1", "models": [DEFAULT_MODEL_OPENAI, DEFAULT_MODEL_OPENAI_MINI]},
-            {"name": "anthropic", "url": "https://api.anthropic.com/v1", "models": [DEFAULT_MODEL_ANTHROPIC_SONNET, DEFAULT_MODEL_ANTHROPIC_HAIKU]},
-            {"name": "deepseek", "url": "https://api.deepseek.com/v1", "models": [DEFAULT_MODEL_DEEPSEEK_V4, DEFAULT_MODEL_DEEPSEEK_CHAT]},
-            {"name": "ollama", "url": LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"), "models": [DEFAULT_MODEL_OLLAMA]},
+            {
+                "name": "openai",
+                "url": "https://api.openai.com/v1",
+                "models": [DEFAULT_MODEL_OPENAI, DEFAULT_MODEL_OPENAI_MINI],
+            },
+            {
+                "name": "anthropic",
+                "url": "https://api.anthropic.com/v1",
+                "models": [DEFAULT_MODEL_ANTHROPIC_SONNET, DEFAULT_MODEL_ANTHROPIC_HAIKU],
+            },
+            {
+                "name": "deepseek",
+                "url": "https://api.deepseek.com/v1",
+                "models": [DEFAULT_MODEL_DEEPSEEK_V4, DEFAULT_MODEL_DEEPSEEK_CHAT],
+            },
+            {
+                "name": "ollama",
+                "url": LLM_PROVIDER_URLS.get("ollama", "http://localhost:11434"),
+                "models": [DEFAULT_MODEL_OLLAMA],
+            },
             {"name": "mock", "url": "", "models": [DEFAULT_MODEL_MOCK]},
         ],
         "token_presets": [
-            {"label": f"Small ({MEMORY_RING_WORKING_BUDGET//1024}K/{MEMORY_RING_SHORT_BUDGET//1024}K/{MEMORY_RING_LONG_BUDGET//1024}K)",
-             "working": MEMORY_RING_WORKING_BUDGET, "short": MEMORY_RING_SHORT_BUDGET, "long": MEMORY_RING_LONG_BUDGET},
+            {
+                "label": f"Small ({MEMORY_RING_WORKING_BUDGET // 1024}K/{MEMORY_RING_SHORT_BUDGET // 1024}K/{MEMORY_RING_LONG_BUDGET // 1024}K)",
+                "working": MEMORY_RING_WORKING_BUDGET,
+                "short": MEMORY_RING_SHORT_BUDGET,
+                "long": MEMORY_RING_LONG_BUDGET,
+            },
             {"label": "Medium (16K/64K/256K)", "working": 16384, "short": 65536, "long": 262144},
             {"label": "Large (32K/128K/512K)", "working": 32768, "short": 131072, "long": 524288},
         ],
         "memory_ring_ttl": {
-            "ring1": int(MEMORY_RING_WORKING_TTL), "ring2": int(MEMORY_RING_SHORT_TTL), "ring3": int(MEMORY_RING_LONG_TTL),
+            "ring1": int(MEMORY_RING_WORKING_TTL),
+            "ring2": int(MEMORY_RING_SHORT_TTL),
+            "ring3": int(MEMORY_RING_LONG_TTL),
         },
         "config": cfg,
     }
@@ -144,11 +178,11 @@ def apply_config(config: dict) -> dict:
     if "api" in config:
         merged["api"] = {**merged["api"], **config["api"]}
 
-    result = _write_config(merged, num_cells)
-    return result
+    return _write_config(merged, num_cells)
 
 
 # ── Interactive CLI wizard (legacy, for terminal use) ──
+
 
 def run_bootstrap(interactive: bool = True) -> dict:
     """Run the bootstrap wizard (CLI or auto)."""
@@ -167,8 +201,8 @@ def run_bootstrap(interactive: bool = True) -> dict:
     default_roles = list(CENTRAL_DEFAULT_ROLES)
     agents_config = []
     for i in range(agents_per_cell):
-        role = default_roles[i] if i < len(default_roles) else f"agent-{chr(97+i)}"
-        r = _prompt_string(f"  Agent {i+1} role", default=role)
+        role = default_roles[i] if i < len(default_roles) else f"agent-{chr(97 + i)}"
+        r = _prompt_string(f"  Agent {i + 1} role", default=role)
         agents_config.append(r)
 
     config["territories"] = {r: [_prompt_string(f"  Territory for '{r}'", default=".")] for r in agents_config}
@@ -177,7 +211,10 @@ def run_bootstrap(interactive: bool = True) -> dict:
     config["_cells"] = num_cells
 
     print()
-    config["kernel"] = {"allocator": {"tokens": _prompt_int("  Max tokens", default=131072)}, "swapper": {"interval": 60.0}}
+    config["kernel"] = {
+        "allocator": {"tokens": _prompt_int("  Max tokens", default=131072)},
+        "swapper": {"interval": 60.0},
+    }
     config["llm"] = {
         "provider": _prompt_string("  LLM Provider", default="openai"),
         "model": _prompt_string("  Model", default=DEFAULT_MODEL_OPENAI),
@@ -219,8 +256,7 @@ def _validate(config: dict) -> list[str]:
     return errors
 
 
-def _prompt_int(prompt: str, default: int, min_val: int = 1,
-                max_val: int = 65535) -> int:
+def _prompt_int(prompt: str, default: int, min_val: int = 1, max_val: int = 65535) -> int:
     while True:
         raw = input(f"{prompt} [{default}]: ").strip()
         if not raw:
@@ -256,8 +292,7 @@ def _write_config(config: dict, num_cells: int) -> dict:
 
     try:
         with open(_CONFIG_PATH + ".tmp", "w", encoding="utf-8") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False,
-                      allow_unicode=True, indent=2)
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False, allow_unicode=True, indent=2)
         os.replace(_CONFIG_PATH + ".tmp", _CONFIG_PATH)
         logger.info("bootstrap config written: %d cells, %s", num_cells, _CONFIG_PATH)
         return {

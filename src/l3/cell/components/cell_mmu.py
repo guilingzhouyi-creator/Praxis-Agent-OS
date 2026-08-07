@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TlbEntry:
     """A cached territory → agent translation."""
+
     territory_pattern: str = ""
     agent_id: str = ""
     ring: int = TLB_DEFAULT_RING
@@ -77,8 +78,7 @@ class CellTlb:
 
     # ─── Fill ─────────────────────────────────────────────────────
 
-    def fill(self, territory_pattern: str, agent_id: str,
-             ring: int = TLB_DEFAULT_RING) -> None:
+    def fill(self, territory_pattern: str, agent_id: str, ring: int = TLB_DEFAULT_RING) -> None:
         """Insert or update a TLB entry."""
         with self._lock:
             self._entries[territory_pattern] = TlbEntry(
@@ -178,8 +178,7 @@ class CellMmu:
 
     # ── Translation ───────────────────────────────────────────────
 
-    def resolve(self, territory_pattern: str,
-                agents: dict[str, Any] | None = None) -> dict:
+    def resolve(self, territory_pattern: str, agents: dict[str, Any] | None = None) -> dict:
         """Resolve a territory pattern to an agent.
 
         Returns {"agent_id": str, "ring": int} or
@@ -208,13 +207,20 @@ class CellMmu:
         if agents:
             best_match = None
             for aid, info in agents.items():
-                terr = getattr(info, "territory", info.get("territory", [])) if isinstance(info, dict) else info.territory
+                terr = (
+                    getattr(info, "territory", info.get("territory", [])) if isinstance(info, dict) else info.territory
+                )
                 terr = terr or []
-                ring = getattr(info, "ring", info.get("ring", TLB_DEFAULT_RING)) if isinstance(info, dict) else info.ring
+                ring = (
+                    getattr(info, "ring", info.get("ring", TLB_DEFAULT_RING)) if isinstance(info, dict) else info.ring
+                )
                 for t in terr:
-                    if territory_pattern.startswith(t) or t.startswith(territory_pattern):
-                        if best_match is None or len(t) > len(getattr(best_match, "territory", [None])[0] if hasattr(best_match, "territory") else ""):
-                            best_match = (aid, ring)
+                    if (territory_pattern.startswith(t) or t.startswith(territory_pattern)) and (
+                        best_match is None
+                        or len(t)
+                        > len(getattr(best_match, "territory", [None])[0] if hasattr(best_match, "territory") else "")
+                    ):
+                        best_match = (aid, ring)
             if best_match:
                 agent_id, ring = best_match
                 self._tlb.fill(territory_pattern, agent_id, ring)
@@ -222,8 +228,7 @@ class CellMmu:
 
         return {"agent_id": "", "ring": 0, "error": f"no agent for territory: {territory_pattern}"}
 
-    def resolve_many(self, patterns: list[str],
-                     agents: dict[str, Any] | None = None) -> dict[str, dict]:
+    def resolve_many(self, patterns: list[str], agents: dict[str, Any] | None = None) -> dict[str, dict]:
         """Batch resolve multiple territory patterns."""
         return {p: self.resolve(p, agents) for p in patterns}
 

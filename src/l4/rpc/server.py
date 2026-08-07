@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from l1.kernel.params.api import API_GATEWAY_HOST, RPC_SERVER_PORT
 from l1.kernel.ports import RpcServerPort
@@ -83,8 +83,7 @@ class RpcServer(RpcServerPort):
                     asyncio.start_server(self._handle_conn, self._host, self._port)
                 )
             except Exception as e:
-                logger.warning("rpc server: listen failed on %s:%d: %s",
-                               self._host, self._port, e)
+                logger.warning("rpc server: listen failed on %s:%d: %s", self._host, self._port, e)
                 return
             logger.info("rpc server listening on %s:%d", self._host, self._port)
             try:
@@ -100,13 +99,12 @@ class RpcServer(RpcServerPort):
     def stop(self) -> None:
         """Stop the async server loop."""
         if self._loop and self._server:
-            try:
-                self._loop.call_soon_threadsafe(self._server.close)
-            except Exception:
-                pass
+            from contextlib import suppress
 
-    async def _handle_conn(self, reader: asyncio.StreamReader,
-                           writer: asyncio.StreamWriter) -> None:
+            with suppress(Exception):
+                self._loop.call_soon_threadsafe(self._server.close)
+
+    async def _handle_conn(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Serve one connection: recv RpcMessage -> route -> respond."""
         try:
             while True:
@@ -124,10 +122,10 @@ class RpcServer(RpcServerPort):
                 except Exception:
                     break
         finally:
-            try:
+            from contextlib import suppress
+
+            with suppress(Exception):
                 writer.close()
-            except Exception:
-                pass
 
 
 _server: RpcServer | None = None

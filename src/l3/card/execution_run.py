@@ -5,15 +5,13 @@ Contains the main execution flow: execute, _run_phase, _execute_step, _execute_a
 
 from __future__ import annotations
 
+import contextlib  # noqa: E402  (mid-file import avoids circularity)
 import logging
 import threading
 import time
 from typing import Any
 
 from l1.kernel import EVENT_REVIEW_REQUESTED, emit_signal
-
-import contextlib  # noqa: E402  (mid-file import avoids circularity)
-
 from l3.card.models import PhaseMode  # noqa: E402
 from l3.card.plan_step_types import StepState  # noqa: E402
 

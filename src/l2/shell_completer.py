@@ -13,8 +13,9 @@ def get_tool_names() -> list[str]:
     """Get all registered tool names from ToolConfig + built-in commands."""
     tool_names = []
     try:
-        from l3.tool_system.tool_config import ToolConfig as _TC
-        tool_names = sorted(_TC.completions().keys())
+        from l3.tool_system.tool_config import ToolConfig as ToolConfigCls
+
+        tool_names = sorted(ToolConfigCls.completions().keys())
     except Exception:
         logger.warning("shell_completer: get_tool_names failed")
     builtins = ["help", "exit", "clear", "history", "tools", "status"]
@@ -23,12 +24,14 @@ def get_tool_names() -> list[str]:
 
 # ── Shell-level constants (consumed by shell.py REPL) ──
 
+
 def _load_tool_help() -> dict[str, str]:
     """Load help text for all registered tools. Returns {tool_name: help_text}."""
     help_map: dict[str, str] = {}
     try:
-        from l3.tool_system.tool_config import ToolConfig as _TC
-        for name, meta in _TC.completions().items():
+        from l3.tool_system.tool_config import ToolConfig as ToolConfigCls
+
+        for name, meta in ToolConfigCls.completions().items():
             h = meta.get("help", "") if isinstance(meta, dict) else ""
             help_map[name] = str(h)[:LOG_TRUNC_60]
     except Exception:
@@ -40,16 +43,25 @@ def _load_aliases() -> dict[str, str]:
     """Load shell aliases from config, fall back to built-in."""
     try:
         from l1.kernel.discovery import get_config
+
         cfg = get_config("shell_aliases")
         if cfg and isinstance(cfg, dict):
             return cfg
     except Exception:
         logger.debug("shell_completer: shell_aliases config lookup failed, using defaults", exc_info=True)
     return {
-        "rf": "read_file", "wf": "write_file", "ls": "list_directory",
-        "g": "grep", "glob": "glob", "cat": "read_file",
-        "h": "help", "q": "exit", "st": "status", "tl": "tools",
-        "clr": "clear", "hist": "history",
+        "rf": "read_file",
+        "wf": "write_file",
+        "ls": "list_directory",
+        "g": "grep",
+        "glob": "glob",
+        "cat": "read_file",
+        "h": "help",
+        "q": "exit",
+        "st": "status",
+        "tl": "tools",
+        "clr": "clear",
+        "hist": "history",
     }
 
 
@@ -83,7 +95,9 @@ def get_command_help() -> dict[str, str]:
         _COMMAND_HELP = _load_tool_help()
     return _COMMAND_HELP
 
+
 # ── TerminalCompleter ──
+
 
 class TerminalCompleter:
     """Tab completion for Agent OS terminal commands."""
@@ -105,9 +119,9 @@ class TerminalCompleter:
         """
         try:
             if state == 0:
-                if ' ' in text:
-                    cmd, _, partial = text.rpartition(' ')
-                    matches = [p for p in ['.', '..', '/'] if p.startswith(partial)]
+                if " " in text:
+                    cmd, _, partial = text.rpartition(" ")
+                    matches = [p for p in [".", "..", "/"] if p.startswith(partial)]
                     self._matches = matches
                 else:
                     self._matches = [c for c in self._commands if c.startswith(text)]

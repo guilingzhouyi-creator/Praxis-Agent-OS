@@ -19,7 +19,8 @@ from typing import Any
 from l1.kernel.discovery import get_tool_config
 from l1.kernel.params.system import LOG_TRUNC_80, MEMORY_PRESSURE_INTERVAL
 
-from .execution_run import _execute_agent as _run_execute_agent, _execute_step, _run_phase
+from .execution_run import _execute_agent as _run_execute_agent
+from .execution_run import _execute_step, _run_phase
 from .execution_run import execute as _execute
 from .models import Card, CardMode
 from .plan_step_types import PlanStep, StepState
@@ -80,8 +81,10 @@ class ExecutionPlan:
             n_phases = len(card.phases)
             n_steps = sum(len(p.steps) for p in card.phases)
         from l3.scheduler.scheduler_scope import get_scope_scheduler
+
         self._step_budget = get_scope_scheduler().calc_step_budget(
-            n_phases, n_steps,
+            n_phases,
+            n_steps,
         )
 
         self._decompose()
@@ -101,15 +104,18 @@ class ExecutionPlan:
         if self._is_unified:
             return self.card.nature
         mode = self.card.mode
-        return {CardMode.EXECUTE: "execution", CardMode.ISSUE: "issue",
-                CardMode.PARALLEL_ALL: "parallel_all"}.get(mode, "execution")
+        return {CardMode.EXECUTE: "execution", CardMode.ISSUE: "issue", CardMode.PARALLEL_ALL: "parallel_all"}.get(
+            mode, "execution"
+        )
 
     def _phase_mode(self, phase) -> str:
         """Return normalized phase mode string: 'sequential' | 'parallel'."""
         if self._is_unified:
             from .card_unified import PhaseMode as NewPM
+
             return "parallel" if phase.mode == NewPM.MULTI else "sequential"
         from .models import PhaseMode as OldPM
+
         return "parallel" if phase.mode == OldPM.PARALLEL else "sequential"
 
     def _card_phases_items(self, phase):
@@ -148,6 +154,7 @@ class ExecutionPlan:
         """Save checkpoint before executing a step."""
         try:
             from l3.services.fault_tolerance import get_service
+
             ft = get_service()
             ft.save_checkpoint(
                 agent_id=ps.agent,
@@ -161,6 +168,7 @@ class ExecutionPlan:
         """Mark checkpoint done for completed agents."""
         try:
             from l3.services.fault_tolerance import get_service
+
             ft = get_service()
             for aid in agent_ids:
                 try:
@@ -170,8 +178,9 @@ class ExecutionPlan:
         except Exception as e:
             logger.warning("checkpoint service unavailable: %s", e)
 
-    def _run_phase(self, phase_name: str, phase_steps: list[PlanStep],
-                   mode: str, aggregated: dict, timeout: float) -> None:
+    def _run_phase(
+        self, phase_name: str, phase_steps: list[PlanStep], mode: str, aggregated: dict, timeout: float
+    ) -> None:
         """Execute all steps in a single phase. Delegates to execution_run.py."""
         return _run_phase(self, phase_name, phase_steps, mode, aggregated, timeout)
 
@@ -188,6 +197,7 @@ class ExecutionPlan:
             return
         try:
             from .memory.memory import get_memory
+
             mem = get_memory()
             p = mem.pressure()
             if p["level"] != "high":
@@ -195,6 +205,7 @@ class ExecutionPlan:
 
             # 1. Snapshot: save context register snapshots for all agents
             from l3.agent_terminal import get_terminals
+
             snapshots = {}
             for aid, term in get_terminals().items():
                 try:
@@ -225,30 +236,39 @@ class ExecutionPlan:
                 except Exception as e:
                     logger.warning("snapshot restore failed: %s", e)
 
-            aggregated.setdefault("_memory_compactions", []).append({
-                "timestamp": time.time(),
-                "pressure": p,
-                "merged": compact_r.get("merged", 0),
-                "saved_tokens": compact_r.get("saved_tokens", 0),
-            })
-            logger.info("memory compact between phases: merged=%d saved=%d tokens",
-                        compact_r.get("merged", 0), compact_r.get("saved_tokens", 0))
+            aggregated.setdefault("_memory_compactions", []).append(
+                {
+                    "timestamp": time.time(),
+                    "pressure": p,
+                    "merged": compact_r.get("merged", 0),
+                    "saved_tokens": compact_r.get("saved_tokens", 0),
+                }
+            )
+            logger.info(
+                "memory compact between phases: merged=%d saved=%d tokens",
+                compact_r.get("merged", 0),
+                compact_r.get("saved_tokens", 0),
+            )
         except Exception as e:
             logger.warning("memory compaction skipped: %s", e)
 
     def _execute_step(self, ps: PlanStep, timeout: float) -> dict:
         """Execute a single plan step. Delegates to execution_run.py."""
         return _execute_step(self, ps, timeout)
+
     def _execute_scout_verify(self, ps: PlanStep, spec: dict, phase: str) -> dict:
         from .card.execution_verify import execute_scout_verify as _verify
+
         return _verify(ps, spec, phase)
 
     def _diff_verify(self, before: dict, after: dict) -> dict:
         from .card.execution_verify import diff_verify as _diff
+
         return _diff(before, after)
 
     def _execute_scout(self, ps: PlanStep) -> dict:
         from .card.execution_verify import execute_scout as _scout
+
         return _scout(ps)
 
     def _execute_agent(self, ps: PlanStep, timeout: float) -> dict:
@@ -267,10 +287,11 @@ class ExecutionPlan:
         try:
             from l1.kernel.params.kernel import RING_1
 
-            from .tool_system.tool_config import ToolConfig as _TC
-            read_tools = {t.name for t in _TC.by_ring(RING_1)}
-            write_tools = _TC.write_tool_names()
-            shell_tools = _TC.terminal_tool_names()
+            from .tool_system.tool_config import ToolConfig as ToolConfigCls
+
+            read_tools = {t.name for t in ToolConfigCls.by_ring(RING_1)}
+            write_tools = ToolConfigCls.write_tool_names()
+            shell_tools = ToolConfigCls.terminal_tool_names()
         except Exception:
             read_tools = _FALLBACK_READ_TOOLS
             write_tools = set()

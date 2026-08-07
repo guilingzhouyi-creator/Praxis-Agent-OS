@@ -8,8 +8,6 @@ import time
 
 import pytest
 
-from l1.kernel.params.api import API_WS_PORT
-
 
 def _free_port() -> int:
     s = socket.socket()
@@ -24,7 +22,7 @@ def ws_server():
     from l4.ws.ws_bridge import start_server
 
     port = _free_port()
-    t = start_server(port=port)
+    start_server(port=port)
     # Wait for the listener to come up
     deadline = time.time() + 3.0
     ready = False
@@ -46,10 +44,10 @@ def client(ws_server):
 
     conn = connect(f"ws://127.0.0.1:{ws_server}")
     yield conn
-    try:
+    from contextlib import suppress
+
+    with suppress(Exception):
         conn.close()
-    except Exception:
-        pass
 
 
 def _send(conn, msg: dict) -> None:
@@ -62,8 +60,7 @@ def _recv(conn) -> dict:
 
 class TestWsProtocol:
     def test_rpc_roundtrip(self, client):
-        _send(client, {"type": "rpc", "method": "/api/v2/auth/login",
-                       "params": {"identity": "ws-user"}})
+        _send(client, {"type": "rpc", "method": "/api/v2/auth/login", "params": {"identity": "ws-user"}})
         msg = _recv(client)
         assert msg["type"] == "rpc.result"
         assert msg["method"] == "/api/v2/auth/login"
@@ -90,8 +87,7 @@ class TestWsProtocol:
         _send(client, {"type": "subscribe", "events": ["card.pending"]})
         _send(client, {"type": "unsubscribe", "events": ["card.pending"]})
         # No response expected for subscribe; a subsequent rpc still works
-        _send(client, {"type": "rpc", "method": "/api/v2/auth/login",
-                       "params": {"identity": "x"}})
+        _send(client, {"type": "rpc", "method": "/api/v2/auth/login", "params": {"identity": "x"}})
         msg = _recv(client)
         assert msg["type"] == "rpc.result"
 
@@ -117,8 +113,9 @@ class TestWsPortContract:
         import json as _json
         import time as _time
 
-        from l4.ws.ws_bridge import WsBridgePort
         from websockets.sync.client import connect
+
+        from l4.ws.ws_bridge import WsBridgePort
 
         port = WsBridgePort()
         conn = connect(f"ws://127.0.0.1:{ws_server}")
@@ -128,7 +125,7 @@ class TestWsPortContract:
         msg = _json.loads(conn.recv())
         assert msg["type"] == "event" and msg["event"] == "card.pending"
         assert msg["data"]["card_id"] == "x"
-        try:
+        from contextlib import suppress
+
+        with suppress(Exception):
             conn.close()
-        except Exception:
-            pass

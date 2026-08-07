@@ -10,8 +10,6 @@ import time
 
 import pytest
 
-from l1.kernel.params.api import RPC_SERVER_PORT
-
 
 def _free_port() -> int:
     s = socket.socket()
@@ -77,8 +75,7 @@ class TestSocketRoundtrip:
     def test_request_response_over_socket(self, rpc_port):
         async def client() -> dict:
             reader, writer = await asyncio.open_connection("127.0.0.1", rpc_port)
-            msg = {"id": "t-1", "method": "/api/v2/auth/login",
-                   "params": {"identity": "rpc-sock"}, "error": ""}
+            msg = {"id": "t-1", "method": "/api/v2/auth/login", "params": {"identity": "rpc-sock"}, "error": ""}
             body = json.dumps(msg).encode()
             writer.write(struct.pack("!I", len(body)))
             writer.write(body)

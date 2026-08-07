@@ -23,14 +23,16 @@ from l1.kernel.params.system import (
 logger = logging.getLogger(__name__)
 
 # Keys used in config dicts for think configuration
-ALL_KEYS = frozenset({
-    "reasoning_effort",
-    "thinking_budget",
-    "max_tokens",
-    "temperature",
-    "model",
-    "context_window",
-})
+ALL_KEYS = frozenset(
+    {
+        "reasoning_effort",
+        "thinking_budget",
+        "max_tokens",
+        "temperature",
+        "model",
+        "context_window",
+    }
+)
 
 DISTRIBUTION_MODES = frozenset({"inherit", "auto_balance", "manual"})
 
@@ -66,9 +68,13 @@ class CapabilityDetector:
         """Run probe() on a provider, with error handling."""
         try:
             result = provider_instance.probe()
-            logger.info("probe %s/%s: supports=%s ctx=%d",
-                        provider_name, getattr(provider_instance, "model", ""),
-                        result.get("supports", set()), result.get("context_window", 0))
+            logger.info(
+                "probe %s/%s: supports=%s ctx=%d",
+                provider_name,
+                getattr(provider_instance, "model", ""),
+                result.get("supports", set()),
+                result.get("context_window", 0),
+            )
             return result
         except Exception as e:
             logger.warning("probe %s failed: %s", provider_name, e)
@@ -88,8 +94,9 @@ class CapabilityDetector:
                 try:
                     result = entry.result(timeout=THREAD_JOIN_TIMEOUT)
                     self._cache[key] = result
-                    logger.debug("probe %s/%s completed: supports=%s", provider_name, model,
-                                 result.get("supports", set()))
+                    logger.debug(
+                        "probe %s/%s completed: supports=%s", provider_name, model, result.get("supports", set())
+                    )
                     return result
                 except Exception as e:
                     logger.warning("probe %s/%s wait failed: %s", provider_name, model, e)
@@ -108,7 +115,7 @@ class CapabilityDetector:
         """Batch probe all providers in a ModelRegistry. Returns count submitted."""
         count = 0
         try:
-            for name, cls, config in registry.iter_instances():
+            for name, cls, _config in registry.iter_instances():
                 self.discover(name, cls)
                 count += 1
         except Exception:
@@ -205,8 +212,7 @@ class ModelStrategyEngine:
         with self._lock:
             return dict(self._agents.get(key, {}))
 
-    def resolve(self, cell_id: str, agent_id: str,
-                provider_name: str = "", model: str = "") -> dict[str, Any]:
+    def resolve(self, cell_id: str, agent_id: str, provider_name: str = "", model: str = "") -> dict[str, Any]:
         """Three-layer merge: agent > cell > global, filtered by provider capabilities.
 
         Returns a config dict with only the parameters the provider supports.

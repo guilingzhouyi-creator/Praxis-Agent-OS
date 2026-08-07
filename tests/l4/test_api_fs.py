@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import os
-import time
 
 import pytest
 
+from l3.services.fs_adapter import reset_adapter
 from l4.api_handlers.api_handlers_fs import (
     handle_fs_read,
     handle_fs_tree,
     handle_fs_unwatch,
     handle_fs_watch,
 )
-from l3.services.fs_adapter import reset_adapter
 
 
 @pytest.fixture(autouse=True)
@@ -75,15 +74,14 @@ class TestFsApi:
 
     def test_port_registered(self):
         from l1.kernel.ports import get_port
-
         from l3.services.fs_adapter import get_adapter
 
         get_adapter()
         port = get_port("fs")
-        r = port.write("/tmp-unused-praxis-probe.txt", "probe")
+        port.write("/tmp-unused-praxis-probe.txt", "probe")
         # write may succeed or fail depending on env; the point is the port resolves
         assert port is not None
-        try:
+        from contextlib import suppress
+
+        with suppress(OSError):
             os.remove("/tmp-unused-praxis-probe.txt")
-        except OSError:
-            pass

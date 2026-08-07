@@ -47,9 +47,11 @@ MCP_NAME_SEP = ":"
 
 # ── MCP Client (speaks MCP protocol over HTTP) ──
 
+
 @dataclass
 class McpTool:
     """McpTool — mcp tool record (name, description, input_schema)."""
+
     name: str
     description: str
     input_schema: dict  # JSON Schema
@@ -57,6 +59,7 @@ class McpTool:
 
 class McpClientError(Exception):
     """McpClientError — mcp client error."""
+
     pass
 
 
@@ -81,8 +84,7 @@ class McpClient:
         """Fetch and return the remote server's tool list."""
         url = f"{self.endpoint}/tools/list"
         try:
-            r = self._opener.open(req.Request(url, headers=self._headers, method="GET"),
-                                  timeout=self.timeout)
+            r = self._opener.open(req.Request(url, headers=self._headers, method="GET"), timeout=self.timeout)
             data = json.loads(r.read())
         except Exception as e:
             raise McpClientError(f"list_tools failed: {e}") from e
@@ -100,8 +102,9 @@ class McpClient:
         url = f"{self.endpoint}/tools/call"
         body = json.dumps({"name": name, "arguments": arguments}).encode()
         try:
-            r = self._opener.open(req.Request(url, data=body, headers=self._headers, method="POST"),
-                                  timeout=self.timeout)
+            r = self._opener.open(
+                req.Request(url, data=body, headers=self._headers, method="POST"), timeout=self.timeout
+            )
             return json.loads(r.read())
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -109,8 +112,7 @@ class McpClient:
     def ping(self) -> bool:
         """Return True when the remote server responds OK to a ping."""
         try:
-            r = self._opener.open(req.Request(f"{self.endpoint}/ping", headers=self._headers),
-                                  timeout=MCP_TIMEOUT)
+            r = self._opener.open(req.Request(f"{self.endpoint}/ping", headers=self._headers), timeout=MCP_TIMEOUT)
             return r.status == MCP_STATUS_OK
         except Exception:
             return False
@@ -132,6 +134,7 @@ def _mcp_state_path() -> str:
     if not MCP_STATE_PATH:
         try:
             from l1.kernel.paths import get_paths as _gp
+
             MCP_STATE_PATH = _gp().mcp_state
         except Exception:
             MCP_STATE_PATH = os.environ.get("PRAXIS_MCP_STATE", MCP_STATE_FILENAME)
@@ -169,6 +172,7 @@ _default_mcp_tools: dict[str, ToolSpec] = {}  # registered export tools
 
 # ── MCPBridge ──
 
+
 class MCPBridge:
     """Bidirectional MCP ↔ ToolSpec bridge with 5-state connection management.
 
@@ -183,15 +187,18 @@ class MCPBridge:
     """
 
     SERVER_STATUSES = {
-        MCP_STATUS_CONNECTED, MCP_STATUS_DISABLED, MCP_STATUS_FAILED,
-        MCP_STATUS_NEEDS_AUTH, MCP_STATUS_NEEDS_REGISTRATION,
+        MCP_STATUS_CONNECTED,
+        MCP_STATUS_DISABLED,
+        MCP_STATUS_FAILED,
+        MCP_STATUS_NEEDS_AUTH,
+        MCP_STATUS_NEEDS_REGISTRATION,
     }
 
     def __init__(self):
         self._imported_servers: dict[str, McpClient] = {}
-        self._server_status: dict[str, str] = {}       # name → status
-        self._server_error: dict[str, str] = {}         # name → last error
-        self._server_auth: dict[str, dict] = {}          # name → auth data
+        self._server_status: dict[str, str] = {}  # name → status
+        self._server_error: dict[str, str] = {}  # name → last error
+        self._server_auth: dict[str, dict] = {}  # name → auth data
         self._lock = threading.Lock()
         self._restore_state()
 
@@ -215,8 +222,7 @@ class MCPBridge:
                 servers[name] = {
                     "status": self._server_status.get(name, MCP_STATUS_FAILED),
                     "error": self._server_error.get(name, ""),
-                    "endpoint": self._imported_servers[name].endpoint
-                    if name in self._imported_servers else "",
+                    "endpoint": self._imported_servers[name].endpoint if name in self._imported_servers else "",
                     "auth": self._server_auth.get(name, {}),
                 }
         _save_mcp_state(servers)
@@ -262,20 +268,30 @@ class MCPBridge:
 
     def _json_schema_to_params(self, schema: dict) -> list[Any]:
         """Convert JSON Schema to list of ParamSpec."""
-        from l3.tool_system.tool_spec import ParamSpec as _PS
+        from l3.tool_system.tool_spec import ParamSpec as ParamSpecCls
+
         props = schema.get("properties", {})
         required = set(schema.get("required", []))
-        type_map = {"string": "string", "integer": "int", "number": "float",
-                    "boolean": "bool", "array": "list", "object": "dict"}
+        type_map = {
+            "string": "string",
+            "integer": "int",
+            "number": "float",
+            "boolean": "bool",
+            "array": "list",
+            "object": "dict",
+        }
         params = []
         for name, prop in props.items():
             js_type = prop.get("type", "string")
             pt = type_map.get(js_type, "string")
-            params.append(_PS(
-                name=name, type=pt,
-                required=name in required,
-                description=prop.get("description", ""),
-            ))
+            params.append(
+                ParamSpecCls(
+                    name=name,
+                    type=pt,
+                    required=name in required,
+                    description=prop.get("description", ""),
+                )
+            )
         return params
 
     def import_server(self, server_name: str, client: McpClient) -> dict:
@@ -286,8 +302,7 @@ class MCPBridge:
         # Check disabled
         with self._lock:
             if self._server_status.get(server_name) == MCP_STATUS_DISABLED:
-                return {"success": False, "error": f"server '{server_name}' is disabled",
-                        "status": MCP_STATUS_DISABLED}
+                return {"success": False, "error": f"server '{server_name}' is disabled", "status": MCP_STATUS_DISABLED}
 
         try:
             mcp_tools = client.list_tools()
@@ -296,8 +311,7 @@ class MCPBridge:
                 self._server_status[server_name] = MCP_STATUS_FAILED
                 self._server_error[server_name] = str(e)
             self._persist()
-            return {"success": False, "error": str(e), "server": server_name,
-                    "status": MCP_STATUS_FAILED}
+            return {"success": False, "error": str(e), "server": server_name, "status": MCP_STATUS_FAILED}
 
         registered = []
         for mt in mcp_tools:
@@ -309,9 +323,7 @@ class MCPBridge:
                 ring=ToolRing.RING_2_5,
                 danger=2,
                 parameters=self._json_schema_to_params(mt.input_schema),
-                handler=lambda args, agent, _mt=mt, _client=client: self._call_imported(
-                    _client, _mt, args
-                ),
+                handler=lambda args, agent, _mt=mt, _client=client: self._call_imported(_client, _mt, args),
                 metadata={"mcp_server": server_name, "mcp_tool": mt.name},
             )
             register(spec, plugin=f"{MCP_PLUGIN_PREFIX}{MCP_NAME_SEP}{server_name}")
@@ -324,12 +336,18 @@ class MCPBridge:
         self._persist()
 
         logger.info("mcp import %s: %d tools registered", server_name, len(registered))
-        return {"success": True, "server": server_name, "tools": registered,
-                "count": len(registered), "status": MCP_STATUS_CONNECTED}
+        return {
+            "success": True,
+            "server": server_name,
+            "tools": registered,
+            "count": len(registered),
+            "status": MCP_STATUS_CONNECTED,
+        }
 
     def remove_server(self, server_name: str) -> dict:
         """Unregister all tools from an MCP server and remove."""
         from l3.tool_system.tool_spec import unregister, unregister_plugin
+
         with self._lock:
             self._imported_servers.pop(server_name, None)
             self._server_status.pop(server_name, None)
@@ -374,10 +392,7 @@ class MCPBridge:
 
     # ── OAuth Authentication ──
 
-    def start_oauth(self, server_name: str,
-                    auth_url: str = "",
-                    client_id: str = "",
-                    redirect_port: int = 0) -> dict:
+    def start_oauth(self, server_name: str, auth_url: str = "", client_id: str = "", redirect_port: int = 0) -> dict:
         """Initiate OAuth flow for an MCP server.
 
         Returns the authorization URL the user must visit in their browser.
@@ -385,34 +400,48 @@ class MCPBridge:
         with a code parameter — call finish_oauth() with that code.
         """
         from l1.kernel.params.api import MCP_OAUTH_REDIRECT_PORT
+
         if not redirect_port:
             redirect_port = MCP_OAUTH_REDIRECT_PORT
         import urllib.parse as _parse
+
         with self._lock:
             self._server_status[server_name] = MCP_STATUS_NEEDS_AUTH
             auth_data = self._server_auth.get(server_name, {})
-            auth_data.update({
-                "client_id": client_id,
-                "redirect_port": redirect_port,
-                "state": __import__("secrets").token_hex(16),
-            })
+            auth_data.update(
+                {
+                    "client_id": client_id,
+                    "redirect_port": redirect_port,
+                    "state": __import__("secrets").token_hex(16),
+                }
+            )
             self._server_auth[server_name] = auth_data
         self._persist()
 
         if not auth_url:
-            return {"success": False, "error": "auth_url required",
-                    "server": server_name, "status": MCP_STATUS_NEEDS_AUTH}
+            return {
+                "success": False,
+                "error": "auth_url required",
+                "server": server_name,
+                "status": MCP_STATUS_NEEDS_AUTH,
+            }
 
         redirect_uri = f"http://localhost:{redirect_port}/mcp/oauth/callback"
-        params = _parse.urlencode({
-            "response_type": "code",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "state": auth_data["state"],
-        })
+        params = _parse.urlencode(
+            {
+                "response_type": "code",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "state": auth_data["state"],
+            }
+        )
         authorization_url = f"{auth_url}?{params}"
-        return {"success": True, "authorization_url": authorization_url,
-                "state": auth_data["state"], "server": server_name}
+        return {
+            "success": True,
+            "authorization_url": authorization_url,
+            "state": auth_data["state"],
+            "server": server_name,
+        }
 
     def finish_oauth(self, server_name: str, authorization_code: str) -> dict:
         """Complete OAuth flow by exchanging authorization code for tokens."""
@@ -427,9 +456,9 @@ class MCPBridge:
             if client:
                 try:
                     import urllib.request as _req
+
                     wk = _req.urlopen(
-                        _req.Request(f"{client.endpoint}/.well-known/oauth-authorization-server",
-                                     method="GET"),
+                        _req.Request(f"{client.endpoint}/.well-known/oauth-authorization-server", method="GET"),
                         timeout=MCP_BRIDGE_TIMEOUT,
                     )
                     wk_data = json.loads(wk.read())
@@ -442,16 +471,17 @@ class MCPBridge:
 
         try:
             import urllib.request as _req
-            body = json.dumps({
-                "grant_type": "authorization_code",
-                "code": authorization_code,
-                "redirect_uri": f"http://localhost:{auth_data.get('redirect_port', MCP_OAUTH_REDIRECT_PORT)}/mcp/oauth/callback",
-                "client_id": auth_data.get("client_id", ""),
-            }).encode()
+
+            body = json.dumps(
+                {
+                    "grant_type": "authorization_code",
+                    "code": authorization_code,
+                    "redirect_uri": f"http://localhost:{auth_data.get('redirect_port', MCP_OAUTH_REDIRECT_PORT)}/mcp/oauth/callback",
+                    "client_id": auth_data.get("client_id", ""),
+                }
+            ).encode()
             r = _req.urlopen(
-                _req.Request(token_url, data=body,
-                             headers={"Content-Type": "application/json"},
-                             method="POST"),
+                _req.Request(token_url, data=body, headers={"Content-Type": "application/json"}, method="POST"),
                 timeout=MCP_BRIDGE_TIMEOUT,
             )
             token_data = json.loads(r.read())
@@ -468,9 +498,12 @@ class MCPBridge:
             self._server_status.pop(server_name, None)  # clear needs_auth
         self._persist()
 
-        return {"success": True, "server": server_name,
-                "token_type": auth_data["token_type"],
-                "expires_in": auth_data["expires_in"]}
+        return {
+            "success": True,
+            "server": server_name,
+            "token_type": auth_data["token_type"],
+            "expires_in": auth_data["expires_in"],
+        }
 
     def get_auth_token(self, server_name: str) -> str:
         """Get the access token for a server (for use in McpClient)."""
@@ -498,8 +531,7 @@ class MCPBridge:
         self._persist()
         return {"success": True, "server": server_name}
 
-    def export_tools(self, categories: list[str] | None = None,
-                     include_muted: bool = False) -> dict:
+    def export_tools(self, categories: list[str] | None = None, include_muted: bool = False) -> dict:
         """Register selected Praxis tools as MCP-exportable."""
         tools = list_tools(include_muted=include_muted)
         if categories:
@@ -530,12 +562,11 @@ class MCPBridge:
             return {"success": False, "error": f"server '{server_name}' not imported"}
         try:
             import urllib.request as _req
+
             url = f"{client.endpoint}/prompts/list"
-            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"),
-                              timeout=client.timeout)
+            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"), timeout=client.timeout)
             data = json.loads(r.read())
-            return {"success": True, "prompts": data.get("prompts", []),
-                    "server": server_name}
+            return {"success": True, "prompts": data.get("prompts", []), "server": server_name}
         except Exception as e:
             return {"success": False, "error": str(e), "server": server_name}
 
@@ -548,12 +579,11 @@ class MCPBridge:
             return {"success": False, "error": f"server '{server_name}' not imported"}
         try:
             import urllib.request as _req
+
             url = f"{client.endpoint}/resources/list"
-            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"),
-                              timeout=client.timeout)
+            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"), timeout=client.timeout)
             data = json.loads(r.read())
-            return {"success": True, "resources": data.get("resources", []),
-                    "server": server_name}
+            return {"success": True, "resources": data.get("resources", []), "server": server_name}
         except Exception as e:
             return {"success": False, "error": str(e), "server": server_name}
 
@@ -574,11 +604,19 @@ class MCPBridge:
                     "error": self._server_error.get(name, ""),
                     "has_auth": name in self._server_auth,
                     "endpoint": client.endpoint if client else "",
-                    "tool_count": len([k for k in list(
-                        __import__("sys").modules.get("l3.tool_spec",
-                                                      __import__("types").SimpleNamespace()).__dict__
-                        .get("TOOL_REGISTRY", {})
-                    ) if k.startswith(f"mcp:{name}:")]) if client else 0,
+                    "tool_count": len(
+                        [
+                            k
+                            for k in list(
+                                __import__("sys")
+                                .modules.get("l3.tool_spec", __import__("types").SimpleNamespace())
+                                .__dict__.get("TOOL_REGISTRY", {})
+                            )
+                            if k.startswith(f"mcp:{name}:")
+                        ]
+                    )
+                    if client
+                    else 0,
                 }
         return {
             "servers": servers,

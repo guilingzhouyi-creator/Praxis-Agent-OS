@@ -22,7 +22,12 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULT_RETENTION, EXECUTION_RESULTS_AUTO_SAVE, EXECUTION_STEP_TIMEOUT
+from l1.kernel.params.system import (
+    EXEC_BACKOFF_INTERVAL,
+    EXECUTION_RESULT_RETENTION,
+    EXECUTION_RESULTS_AUTO_SAVE,
+    EXECUTION_STEP_TIMEOUT,
+)
 from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
@@ -53,16 +58,21 @@ def _register_default_rollbacks() -> None:
     def _rollback_replace(s, plan, executor):
         params = s.params
         if "old_string" in params and "new_string" in params:
-            executor("replace_string_in_file", {
-                "path": params.get("path", ""),
-                "old_string": params["new_string"],
-                "new_string": params["old_string"],
-            }, plan.agent_id)
+            executor(
+                "replace_string_in_file",
+                {
+                    "path": params.get("path", ""),
+                    "old_string": params["new_string"],
+                    "new_string": params["old_string"],
+                },
+                plan.agent_id,
+            )
 
     def _rollback_file_create(s, plan, executor):
         path = s.params.get("path", "")
         if path:
             import os as _os
+
             if _os.path.exists(path):
                 _os.remove(path)
 
@@ -71,6 +81,7 @@ def _register_default_rollbacks() -> None:
         new_path = s.params.get("new", "") or s.params.get("new_path", "")
         if old_path and new_path:
             import shutil as _su
+
             _su.move(new_path, old_path)
 
     register_rollback("replace_string_in_file", _rollback_replace)
@@ -84,6 +95,7 @@ _register_default_rollbacks()
 
 class StepStatus(Enum):
     """StepStatus — enum of PENDING, RUNNING, DONE, FAILED...."""
+
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -94,15 +106,17 @@ class StepStatus(Enum):
 
 class RecoveryStrategy(Enum):
     """RecoveryStrategy — enum of ABORT, RETRY, SKIP, ROLLBACK."""
-    ABORT = "abort"        # Stop execution, mark failed
-    RETRY = "retry"        # Retry N times
-    SKIP = "skip"          # Skip this step, continue
+
+    ABORT = "abort"  # Stop execution, mark failed
+    RETRY = "retry"  # Retry N times
+    SKIP = "skip"  # Skip this step, continue
     ROLLBACK = "rollback"  # Run rollback steps, then abort
 
 
 @dataclass
 class Step:
     """A single execution step."""
+
     id: str
     tool: str
     params: dict = field(default_factory=dict)
@@ -122,6 +136,7 @@ class Step:
 @dataclass
 class ExecutionPlan:
     """Execution plan — ordered steps with context."""
+
     plan_id: str
     intent: str
     agent_id: str
@@ -129,16 +144,22 @@ class ExecutionPlan:
     context_refs: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
-    def add_step(self, tool: str, params: dict | None = None,
-                 depends_on: list[str] | None = None,
-                 recovery: str = RecoveryStrategy.ABORT.value,
-                 max_retries: int = 2) -> Step:
+    def add_step(
+        self,
+        tool: str,
+        params: dict | None = None,
+        depends_on: list[str] | None = None,
+        recovery: str = RecoveryStrategy.ABORT.value,
+        max_retries: int = 2,
+    ) -> Step:
         """Append a step to the plan and return the created Step."""
         step = Step(
             id=f"step-{len(self.steps)}",
-            tool=tool, params=params or {},
+            tool=tool,
+            params=params or {},
             depends_on=depends_on or [],
-            recovery=recovery, max_retries=max_retries,
+            recovery=recovery,
+            max_retries=max_retries,
         )
         self.steps.append(step)
         return step
@@ -147,6 +168,7 @@ class ExecutionPlan:
 @dataclass
 class ExecutionResult:
     """Execution result — summary of all steps."""
+
     plan_id: str
     success: bool
     steps: list[dict] = field(default_factory=list)
@@ -184,21 +206,31 @@ class ExecutionEngine(BaseService, PersistableMixin):
     def _serialize(self) -> dict:
         def _result_dict(r: ExecutionResult) -> dict:
             return {
-                "plan_id": r.plan_id, "success": r.success,
-                "steps": r.steps, "total": r.total, "done": r.done,
-                "failed": r.failed, "skipped": r.skipped,
-                "elapsed": r.elapsed, "error": r.error,
+                "plan_id": r.plan_id,
+                "success": r.success,
+                "steps": r.steps,
+                "total": r.total,
+                "done": r.done,
+                "failed": r.failed,
+                "skipped": r.skipped,
+                "elapsed": r.elapsed,
+                "error": r.error,
             }
+
         return {"executions": {pid: _result_dict(r) for pid, r in self._executions.items()}}
 
     def _deserialize(self, data: dict) -> bool:
         self._executions.clear()
         for pid, d in data.get("executions", {}).items():
             self._executions[pid] = ExecutionResult(
-                plan_id=d["plan_id"], success=d.get("success", True),
-                steps=d.get("steps", []), total=d.get("total", 0),
-                done=d.get("done", 0), failed=d.get("failed", 0),
-                skipped=d.get("skipped", 0), elapsed=d.get("elapsed", 0.0),
+                plan_id=d["plan_id"],
+                success=d.get("success", True),
+                steps=d.get("steps", []),
+                total=d.get("total", 0),
+                done=d.get("done", 0),
+                failed=d.get("failed", 0),
+                skipped=d.get("skipped", 0),
+                elapsed=d.get("elapsed", 0.0),
                 error=d.get("error", ""),
             )
         return True
@@ -215,9 +247,12 @@ class ExecutionEngine(BaseService, PersistableMixin):
     def execute(self, plan: ExecutionPlan, tool_executor: Callable | None = None) -> ExecutionResult:
         """Execute a plan: topological sort → run steps → collect results."""
         if tool_executor is None:
+
             def _default_executor(tool: str, params: dict, agent_id: str) -> dict:
                 from l3.tool_system.tool_pipeline import get_pipeline
+
                 return get_pipeline().execute(tool_name=tool, agent_id=agent_id, args=params)
+
             tool_executor = _default_executor
         started_at = time.time()
         result = ExecutionResult(plan_id=plan.plan_id, success=True, total=len(plan.steps))
@@ -273,15 +308,15 @@ class ExecutionEngine(BaseService, PersistableMixin):
                     break
 
         result.elapsed = time.time() - started_at
-        result.steps = [{"id": s.id, "tool": s.tool, "status": s.status.name,
-                         "error": s.error, "elapsed": round(s.elapsed, 3)}
-                        for s in plan.steps]
+        result.steps = [
+            {"id": s.id, "tool": s.tool, "status": s.status.name, "error": s.error, "elapsed": round(s.elapsed, 3)}
+            for s in plan.steps
+        ]
 
         with self._lock:
             self._executions[plan.plan_id] = result
             self._trim_executions_locked()
-        logger.info("execution %s: %d/%d done, %.2fs", plan.plan_id,
-                    result.done, result.total, result.elapsed)
+        logger.info("execution %s: %d/%d done, %.2fs", plan.plan_id, result.done, result.total, result.elapsed)
         return result
 
     def _trim_executions_locked(self) -> None:
@@ -289,8 +324,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
         while len(self._executions) > EXECUTION_RESULT_RETENTION:
             self._executions.popitem(last=False)
 
-    def _execute_with_retry(self, step: Step, agent_id: str,
-                            executor: Callable) -> bool:
+    def _execute_with_retry(self, step: Step, agent_id: str, executor: Callable) -> bool:
         """Execute a step with retry logic."""
         for attempt in range(step.max_retries + 1):
             try:
@@ -319,8 +353,8 @@ class ExecutionEngine(BaseService, PersistableMixin):
     def _topological_sort(self, steps: list[Step]) -> list[Step] | None:
         """Topological sort by dependency. Returns None if circular."""
         step_map = {s.id: s for s in steps}
-        visited = set()    # permanently visited (done)
-        in_stack = set()   # in current DFS path (cycle detection)
+        visited = set()  # permanently visited (done)
+        in_stack = set()  # in current DFS path (cycle detection)
         result = []
 
         def dfs(sid: str) -> bool:
@@ -328,7 +362,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
             if sid in in_stack:
                 return False  # cycle detected
             if sid in visited:
-                return True   # already processed
+                return True  # already processed
             in_stack.add(sid)
             step = step_map.get(sid)
             if step:
@@ -347,21 +381,17 @@ class ExecutionEngine(BaseService, PersistableMixin):
 
     # ── Recovery strategies ──
 
-    def _recovery_abort(self, step: Step, plan: ExecutionPlan,
-                        executor: Callable) -> dict:
+    def _recovery_abort(self, step: Step, plan: ExecutionPlan, executor: Callable) -> dict:
         return {"abort": True}
 
-    def _recovery_retry(self, step: Step, plan: ExecutionPlan,
-                        executor: Callable) -> dict:
+    def _recovery_retry(self, step: Step, plan: ExecutionPlan, executor: Callable) -> dict:
         return {"abort": True}
 
-    def _recovery_skip(self, step: Step, plan: ExecutionPlan,
-                       executor: Callable) -> dict:
+    def _recovery_skip(self, step: Step, plan: ExecutionPlan, executor: Callable) -> dict:
         step.status = StepStatus.SKIPPED
         return {"abort": False}
 
-    def _recovery_rollback(self, step: Step, plan: ExecutionPlan,
-                           executor: Callable) -> dict:
+    def _recovery_rollback(self, step: Step, plan: ExecutionPlan, executor: Callable) -> dict:
         for s in reversed(plan.steps):
             if s.status != StepStatus.DONE:
                 continue
@@ -380,15 +410,22 @@ class ExecutionEngine(BaseService, PersistableMixin):
             r = self._executions.get(plan_id)
             if not r:
                 return None
-            return {"plan_id": r.plan_id, "success": r.success, "total": r.total,
-                    "done": r.done, "failed": r.failed, "skipped": r.skipped,
-                    "elapsed": round(r.elapsed, 3), "error": r.error, "steps": r.steps}
+            return {
+                "plan_id": r.plan_id,
+                "success": r.success,
+                "total": r.total,
+                "done": r.done,
+                "failed": r.failed,
+                "skipped": r.skipped,
+                "elapsed": round(r.elapsed, 3),
+                "error": r.error,
+                "steps": r.steps,
+            }
 
     def stats(self) -> dict:
         """Return execution counts and plan IDs."""
         with self._lock:
-            return {"executions": len(self._executions),
-                    "plans": list(self._executions.keys())}
+            return {"executions": len(self._executions), "plans": list(self._executions.keys())}
 
 
 _service: ExecutionEngine | None = None

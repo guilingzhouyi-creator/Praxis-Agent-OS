@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _registry = get_registry()
 
 # ── Import sub-modules to register their @system_command handlers ──
-from . import (
+from . import (  # noqa: E402
     ci,  # noqa: F401
     connect,  # noqa: F401
     extra,  # noqa: F401
@@ -31,7 +31,7 @@ from . import (
 )
 
 # ── Backward-compatible re-exports ──
-from .common import (
+from .common import (  # noqa: E402
     _coerce,
     _list_defs,
     _parse_agent_ref,
@@ -41,13 +41,13 @@ from .common import (
     resolve_agents,
     resolve_scope,
 )
-from .connect import (
+from .connect import (  # noqa: E402
     _cmd_agents,
     _cmd_connect,
     _cmd_disconnect,
     _cmd_mode,
 )
-from .extra import (
+from .extra import (  # noqa: E402
     _cmd_buffer,
     _cmd_cells,
     _cmd_cluster,
@@ -56,10 +56,10 @@ from .extra import (
     _cmd_mcp,
     _cmd_security,
 )
-from .l3a import (
+from .l3a import (  # noqa: E402
     _cmd_l3a,
 )
-from .memory import (
+from .memory import (  # noqa: E402
     _cmd_agent_refresh,
     _cmd_agent_restart,
     _cmd_audit,
@@ -73,13 +73,13 @@ from .memory import (
     _cmd_spawn,
     _cmd_tokens,
 )
-from .model import (
+from .model import (  # noqa: E402
     _cmd_config,
     _cmd_cron,
     _cmd_model,
     _cmd_settings,
 )
-from .system import (
+from .system import (  # noqa: E402
     _cmd_cache,
     _cmd_clear,
     _cmd_devices,
@@ -104,16 +104,17 @@ def _pipeline(segments: list[str]) -> dict:
     Maps first command's output as second command's input.
     """
     from .common import _pipeline
+
     return _pipeline(segments)
+
 
 # ── Auto-register all _cmd_* functions ──
 # This must run AFTER all sub-modules are imported.
-import sys as _sys
+import sys as _sys  # noqa: E402
 
 _SYSTEM_COMMANDS: list[tuple[str, Callable, dict]] = []
 
-for _module_name in ("common", "connect", "system", "memory", "model", "extra",
-                     "harness", "l3a", "test_auto", "ci"):
+for _module_name in ("common", "connect", "system", "memory", "model", "extra", "harness", "l3a", "test_auto", "ci"):
     _mod = _sys.modules.get(f"l2.l2_shell.commands.{_module_name}")
     if _mod is None:
         continue

@@ -8,6 +8,7 @@ class TestProvenanceModel:
 
     def test_provenance_defaults(self):
         from l3.services.content_trust import Provenance, SourceType
+
         p = Provenance()
         assert p.source_type == SourceType.UNKNOWN
         assert p.source_id == ""
@@ -16,6 +17,7 @@ class TestProvenanceModel:
 
     def test_provenance_create(self):
         from l3.services.content_trust import Provenance, SourceType
+
         p = Provenance(
             source_type=SourceType.AGENT,
             source_id="agent-1",
@@ -29,6 +31,7 @@ class TestProvenanceModel:
 
     def test_provenance_to_dict(self):
         from l3.services.content_trust import Provenance, SourceType
+
         p = Provenance(source_type=SourceType.TOOL, source_id="read_file", trust_score=0.9)
         d = p.to_dict()
         assert d["source_type"] == "tool"
@@ -37,6 +40,7 @@ class TestProvenanceModel:
 
     def test_provenance_from_dict_roundtrip(self):
         from l3.services.content_trust import Provenance, SourceType
+
         p = Provenance(source_type=SourceType.HUMAN, source_id="shell", method="input", trust_score=1.0)
         d = p.to_dict()
         p2 = Provenance.from_dict(d)
@@ -46,6 +50,7 @@ class TestProvenanceModel:
 
     def test_provenance_from_dict_unknown_type(self):
         from l3.services.content_trust import Provenance, SourceType
+
         d = {"source_type": "invalid_type", "source_id": "test"}
         p = Provenance.from_dict(d)
         assert p.source_type == SourceType.UNKNOWN
@@ -56,6 +61,7 @@ class TestSourceReputation:
 
     def test_record_and_avg(self):
         from l3.services.content_trust import get_source_reputation, record_source_performance, reset_source_reputation
+
         reset_source_reputation()
         record_source_performance("agent-a", 0.8)
         record_source_performance("agent-a", 0.9)
@@ -65,13 +71,15 @@ class TestSourceReputation:
 
     def test_empty_reputation(self):
         from l3.services.content_trust import get_source_reputation
+
         score = get_source_reputation("nonexistent")
         assert score == 0.0
 
     def test_record_capped(self):
         from l3.services.content_trust import get_source_reputation, record_source_performance, reset_source_reputation
+
         reset_source_reputation()
-        for i in range(150):
+        for _i in range(150):
             record_source_performance("agent-b", 0.5)
         avg = get_source_reputation("agent-b")
         assert avg == 0.5
@@ -82,6 +90,7 @@ class TestGetTrust:
 
     def test_tag_returns_provenance(self):
         from l3.services.content_trust import ContentTrust, SourceType
+
         ct = ContentTrust()
         p = ct.tag("agent", source_id="agent-1", method="test", trace_id="t1")
         assert p.source_type == SourceType.AGENT
@@ -90,6 +99,7 @@ class TestGetTrust:
 
     def test_tag_tool_source(self):
         from l3.services.content_trust import ContentTrust, SourceType
+
         ct = ContentTrust()
         p = ct.tag("tool", source_id="read_file", method="execution")
         assert p.source_type == SourceType.TOOL
@@ -97,6 +107,7 @@ class TestGetTrust:
 
     def test_tag_human_source(self):
         from l3.services.content_trust import ContentTrust, SourceType
+
         ct = ContentTrust()
         p = ct.tag("human", source_id="user-1")
         assert p.source_type == SourceType.HUMAN

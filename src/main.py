@@ -22,7 +22,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR) if _SCRIPT_DIR.endswith("src") else _SCRIPT_DIR
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
-from l5.cli import COMMANDS
+from l5.cli import COMMANDS  # noqa: E402
 
 
 def repl():
@@ -31,9 +31,10 @@ def repl():
 
     try:
         from l3.memory.memory_init import register_shutdown_handler
+
         register_shutdown_handler()
     except Exception:
-            pass
+        pass
 
     while True:
         try:
@@ -50,6 +51,7 @@ def repl():
             print("\n⏻ Shutting down...")
             try:
                 from l3.memory.memory_init import shutdown_to_memories
+
                 r = shutdown_to_memories()
                 if r.get("success"):
                     for k, v in r.get("results", {}).items():

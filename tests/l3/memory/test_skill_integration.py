@@ -13,6 +13,7 @@ class TestVfsSkillRead:
         """Reading /skills returns the catalog listing."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l1.kernel.vfs import get_vfs, reset_vfs
+
         reset_skill_manager()
         reset_vfs()
         sm = get_skill_manager()
@@ -25,6 +26,7 @@ class TestVfsSkillRead:
         """Reading /skills/<name> returns rules of that skill."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l1.kernel.vfs import get_vfs, reset_vfs
+
         reset_skill_manager()
         reset_vfs()
         sm = get_skill_manager()
@@ -37,6 +39,7 @@ class TestVfsSkillRead:
         """Reading /skills/<missing> returns ENOENT."""
         from l1.kernel.skill import reset_skill_manager
         from l1.kernel.vfs import get_vfs, reset_vfs
+
         reset_skill_manager()
         reset_vfs()
         r = get_vfs().read("/skills/does-not-exist")
@@ -48,6 +51,7 @@ class TestSkillCatalogHook:
     def test_session_start_injects_limited_skills(self, mocker):
         """SkillCatalogHook injects at most 5 skill lines, truncated desc."""
         from l3.services.hook import SkillCatalogHook
+
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_sm.return_value.list_skills.return_value = [
             {"name": f"skill-{i}", "description": "d" * 200} for i in range(8)
@@ -63,6 +67,7 @@ class TestSkillCatalogHook:
     def test_session_start_no_skills(self, mocker):
         """Hook leaves task unchanged when no skills exist."""
         from l3.services.hook import SkillCatalogHook
+
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_sm.return_value.list_skills.return_value = []
         hook = SkillCatalogHook()
@@ -73,11 +78,11 @@ class TestCfgSkillHandler:
     def test_cfg_skill_sets_write_policy(self, mocker):
         """cfg_skill mirrors praxis.yaml skill: section into SkillManager."""
         from l3.config.config_handlers import cfg_skill
+
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_center = mocker.patch("l3.config.settings_center.get_center")
         center = mock_center.return_value
-        center.get.side_effect = lambda k, d=None: {"skill.write_min_ring": 5,
-                                                     "skill.write_roles": ["x"]}.get(k, d)
+        center.get.side_effect = lambda k, d=None: {"skill.write_min_ring": 5, "skill.write_roles": ["x"]}.get(k, d)
 
         results = {}
         cfg_skill({"write_min_ring": 5, "write_roles": ["x"]}, None, results)
@@ -90,7 +95,8 @@ class TestCfgSkillHandler:
     def test_cfg_skill_sets_evolve_scope(self, mocker):
         """cfg_skill mirrors evolve_scope into SettingsCenter."""
         from l3.config.config_handlers import cfg_skill
-        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+
+        mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_center = mocker.patch("l3.config.settings_center.get_center")
         center = mock_center.return_value
         center.get.side_effect = lambda k, d=None: {"skill.evolve_scope": "global"}.get(k, d)
@@ -102,7 +108,8 @@ class TestCfgSkillHandler:
     def test_cfg_skill_rejects_bad_scope(self, mocker):
         """cfg_skill ignores invalid evolve_scope values."""
         from l3.config.config_handlers import cfg_skill
-        mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
+
+        mocker.patch("l1.kernel.skill.get_skill_manager")
         mock_center = mocker.patch("l3.config.settings_center.get_center")
         center = mock_center.return_value
         center.get.side_effect = lambda k, d=None: {"skill.evolve_scope": "project"}.get(k, d)
@@ -117,6 +124,7 @@ class TestCellSkillBinding:
     def test_bind_and_unbind_skill(self):
         """bind_skill/unbind_skill round-trip via SkillManager."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="cell-skill", prompt="p", tags=["evolved"], internal=True)
@@ -130,6 +138,7 @@ class TestCellSkillBinding:
     def test_bind_missing_skill_fails(self):
         """bind_skill for an unknown skill returns an error."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
         r = sm.bind_skill("cell-1", "nope")
@@ -139,6 +148,7 @@ class TestCellSkillBinding:
     def test_delete_skill_drops_cell_binding(self):
         """Deleting a skill removes it from every Cell binding."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="drop-me", prompt="p", tags=["evolved"], internal=True)
@@ -150,6 +160,7 @@ class TestCellSkillBinding:
         """Cell.bind_skills delegates to SkillManager (L3 → L1)."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.cell import Cell
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="a", prompt="p", tags=["evolved"], internal=True)
@@ -165,6 +176,7 @@ class TestCellFilteredInjection:
         """get_evolved_skills(cell_id=...) returns only white-listed skills."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="cell-only", prompt="p", tags=["evolved"], internal=True)
@@ -180,6 +192,7 @@ class TestCellFilteredInjection:
         """get_lean_cases without cell binding returns the global pool."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="lean-global", prompt="lean-prompt", tags=["lean_case", "failure"], internal=True)
@@ -193,11 +206,13 @@ class TestSkillScope:
     def test_scope_default_project(self):
         """_resolve_skill_scope defaults to project."""
         from l3.memory.r4_agent import _resolve_skill_scope
+
         assert _resolve_skill_scope() in ("project", "global")
 
     def test_project_evolved_dir_path(self):
         """paths exposes a project-scoped evolved dir."""
         from l1.kernel.paths import get_paths
+
         p = get_paths()
         assert p.skill_project_evolved_dir
         assert p.skill_scope in ("project", "global")
@@ -208,6 +223,7 @@ class TestGraphDiffusion:
         """get_evolved_skills(graph_diffusion=True) falls back to linear order."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="diff-a", prompt="p", tags=["evolved"], internal=True)
@@ -221,6 +237,7 @@ class TestGraphDiffusion:
         """_graph_diffuse_evolved returns [] when no evolved skills exist."""
         from l1.kernel.skill import reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         r4 = R4Agent()
         assert r4._graph_diffuse_evolved(limit=3) == []
@@ -231,6 +248,7 @@ class TestR4ArchiveHooks:
         """Pre-evolution version is archived to R4 (fonds=skills)."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="arch", prompt="old-prompt", tags=["evolved"], internal=True)
@@ -247,6 +265,7 @@ class TestR4ArchiveHooks:
         """Pruning archives the skill before removing it."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.create(name="stale-arch", prompt="p", tags=["evolved"], internal=True)
@@ -265,8 +284,9 @@ class TestGraphEdgeCreation:
         """Lean case generation creates a depends_on graph edge."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
-        sm = get_skill_manager()
+        get_skill_manager()
         mock_graph = mocker.patch("l3.memory.memory_graph.get_graph")
         mock_graph.return_value.add_semantic_edge.return_value = {"success": True}
         r4 = R4Agent()

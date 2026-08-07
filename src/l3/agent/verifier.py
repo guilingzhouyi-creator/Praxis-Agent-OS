@@ -116,7 +116,8 @@ class Verifier:
         if result.get("error"):
             return False
         output = result.get("output", "")
-        if isinstance(output, str) and ("error" in output.lower() or "fail" in output.lower()):
-            if "error" in output.lower()[:LOG_TRUNC_100]:
-                return False
-        return True
+        return not (
+            isinstance(output, str)
+            and ("error" in output.lower() or "fail" in output.lower())
+            and "error" in output.lower()[:LOG_TRUNC_100]
+        )

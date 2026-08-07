@@ -65,6 +65,7 @@ class SessionAskMixin:
     def submit_answers(self, answers: dict, free_form: str = "") -> dict:
         """Fill answers for pending questions (command/API path)."""
         from .ask import submit_answers as _submit
+
         r = _submit(self, answers, free_form)
         if r.get("success"):
             self._persist_state()
@@ -78,29 +79,32 @@ class SessionAskMixin:
         injected into history and the tool loop resumes.
         """
         from .ask import submit_answers as _submit
+
         answers: dict = {}
         if "=" in text:
             pairs = [part.strip() for part in text.split(";")]
-            answers = {
-                part.split("=", 1)[0].strip(): part.split("=", 1)[1].strip()
-                for part in pairs if "=" in part
-            }
+            answers = {part.split("=", 1)[0].strip(): part.split("=", 1)[1].strip() for part in pairs if "=" in part}
         _submit(self, answers, text)
         return self.resume_after_ask()
 
     def resume_after_ask(self) -> dict:
         """Inject the answered Q&A block into history and resume the loop."""
-        from .ask import build_answer_block
         from l3.cell.peers.l3a.session import Message as _Message
+
+        from .ask import build_answer_block
+
         st = self._ask
         if not st or st.status != _p.ASK_STATUS_ANSWERED:
             return {"success": False, "error": "no answered questions to resume"}
         block = build_answer_block(st)
-        self.history.append(_Message(
-            id=f"ask-{uuid.uuid4().hex[:4]}",
-            role="user", content=block,
-            metadata={"kind": "ask_answer"},
-        ))
+        self.history.append(
+            _Message(
+                id=f"ask-{uuid.uuid4().hex[:4]}",
+                role="user",
+                content=block,
+                metadata={"kind": "ask_answer"},
+            )
+        )
         self.last_active_at = time.time()
         try:
             self._report_stats()
@@ -122,7 +126,8 @@ class SessionAskMixin:
         tool_calls = result.get("tool_calls", [])
         answer_msg = _Message(
             id=f"asst-{uuid.uuid4().hex[:4]}",
-            role="assistant", content=answer,
+            role="assistant",
+            content=answer,
             tool_calls=tool_calls,
         )
         self.history.append(answer_msg)

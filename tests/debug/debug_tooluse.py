@@ -1,10 +1,11 @@
 """Debug tool_use native function calling."""
+
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-with open(os.path.join(os.path.dirname(__file__),"..","portal",".env"), encoding="utf-8") as f:
+with open(os.path.join(os.path.dirname(__file__), "..", "portal", ".env"), encoding="utf-8") as f:
     for line in f:
         line = line.strip()
         if "=" in line and not line.startswith("#"):
@@ -14,13 +15,20 @@ with open(os.path.join(os.path.dirname(__file__),"..","portal",".env"), encoding
 from l1.kernel.settings import get_settings
 
 s = get_settings()
-s.set_many({"llm.provider":"openai","llm.model":"deepseek-v4-flash",
-            "llm.api_url":"https://api.deepseek.com/v1/chat/completions","llm.max_tokens":4096})
+s.set_many(
+    {
+        "llm.provider": "openai",
+        "llm.model": "deepseek-v4-flash",
+        "llm.api_url": "https://api.deepseek.com/v1/chat/completions",
+        "llm.max_tokens": 4096,
+    }
+)
 
-from l4.llm import ToolDef, get_engine, reset_engine
+from l4.llm import ToolDef, get_engine, reset_engine  # noqa: E402
 
 reset_engine()
 engine = get_engine()
+
 
 def tool_read(args, agent):
     path = args.get("path", "")
@@ -31,11 +39,17 @@ def tool_read(args, agent):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-tools = [ToolDef("read_file", "Read file", {
-    "type": "object", "properties": {"path": {"type": "string"}},
-    "required": ["path"]}, tool_read)]
 
-import time
+tools = [
+    ToolDef(
+        "read_file",
+        "Read file",
+        {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+        tool_read,
+    )
+]
+
+import time  # noqa: E402
 
 t0 = time.time()
 r = engine.tool_use(
@@ -45,8 +59,8 @@ r = engine.tool_use(
     max_turns=5,
 )
 t = time.time() - t0
-print(f"Time: {t:.1f}s | Turns: {r.get('turns',0)}", flush=True)
-print(f"Error: {r.get('error','none')}", flush=True)
-print(f"Content: {r.get('content','')[:200]}", flush=True)
+print(f"Time: {t:.1f}s | Turns: {r.get('turns', 0)}", flush=True)
+print(f"Error: {r.get('error', 'none')}", flush=True)
+print(f"Content: {r.get('content', '')[:200]}", flush=True)
 for tc in r.get("tool_calls", []):
-    print(f"  Tool: {tc.get('name','')} args={tc.get('arguments',{})}", flush=True)
+    print(f"  Tool: {tc.get('name', '')} args={tc.get('arguments', {})}", flush=True)

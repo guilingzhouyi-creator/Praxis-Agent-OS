@@ -3,9 +3,9 @@
 覆盖：开关、Mermaid 生成、多 scope 聚合、R4 归档、API 端点、daemon tick 联动。
 """
 
+from l3.memory.central_memory import get_center, reset_center
 from l3.memory.memory import MemoryManager, reset_memory
 from l3.memory.memory_mer import MerTransformer, get_mer, reset_mer
-from l3.memory.central_memory import get_center, reset_center
 
 
 def _setup_memory(tmp_path) -> None:
@@ -15,12 +15,9 @@ def _setup_memory(tmp_path) -> None:
     for sid in ("l3a", "cell-a"):
         mem = MemoryManager()
         mem.set_persist_dir(str(tmp_path))
-        mem.remember("a1", "decision", "high value decision one", ring=3,
-                     importance=0.8)
-        mem.remember("a1", "decision", "high value decision two", ring=3,
-                     importance=0.7)
-        mem.remember("a1", "summary", "low value noise", ring=3,
-                     importance=0.2)
+        mem.remember("a1", "decision", "high value decision one", ring=3, importance=0.8)
+        mem.remember("a1", "decision", "high value decision two", ring=3, importance=0.7)
+        mem.remember("a1", "summary", "low value noise", ring=3, importance=0.2)
         center.register(sid, mem)
 
 
@@ -28,6 +25,7 @@ def test_mer_disabled_by_default(tmp_path):
     # API set 会持久化 settings——先重置避免跨测试污染
     try:
         from l3.config.settings_center import get_center as _sc
+
         _sc().set("memory.mer.enabled", False)
     except Exception:
         pass
@@ -52,7 +50,7 @@ def test_mer_to_mermaid(tmp_path):
     assert md.startswith("flowchart LR")
     assert "subgraph test" in md
     # decision -> diamond, summary -> round, content preview present
-    assert "{decision:" in md or "(\"summary:" in md
+    assert "{decision:" in md or '("summary:' in md
     # importance label is rendered
     assert "imp=0." in md
 
@@ -62,12 +60,23 @@ def test_mer_mermaid_time_chain(tmp_path):
     _setup_memory(tmp_path)
     m = MerTransformer(enabled=True)
     entries = [
-        {"id": "a", "entry_type": "decision", "content": "first",
-         "importance": 0.8, "timestamp": 1.0, "_scope": "l3a"},
-        {"id": "b", "entry_type": "decision", "content": "second",
-         "importance": 0.8, "timestamp": 2.0, "_scope": "l3a"},
-        {"id": "c", "entry_type": "summary", "content": "other scope",
-         "importance": 0.8, "timestamp": 3.0, "_scope": "cell-a"},
+        {"id": "a", "entry_type": "decision", "content": "first", "importance": 0.8, "timestamp": 1.0, "_scope": "l3a"},
+        {
+            "id": "b",
+            "entry_type": "decision",
+            "content": "second",
+            "importance": 0.8,
+            "timestamp": 2.0,
+            "_scope": "l3a",
+        },
+        {
+            "id": "c",
+            "entry_type": "summary",
+            "content": "other scope",
+            "importance": 0.8,
+            "timestamp": 3.0,
+            "_scope": "cell-a",
+        },
     ]
     md = m.to_mermaid(entries, [], title="test")
     # temporal chain links a -> b in scope l3a; c is alone in its scope
@@ -75,11 +84,12 @@ def test_mer_mermaid_time_chain(tmp_path):
     assert "e1 -.->|t| e2" not in md
     # distinct shapes for decision vs summary
     assert "{decision:" in md
-    assert "(\"summary:" in md
+    assert '("summary:' in md
 
 
 def test_mer_mermaid_includes_edges(tmp_path):
     from l3.memory.memory_graph import get_graph, reset_graph
+
     reset_graph()
     g = get_graph(db_path=str(tmp_path / "mer_graph.db"))
     g.set_enabled(True)
@@ -88,10 +98,8 @@ def test_mer_mermaid_includes_edges(tmp_path):
     m = MerTransformer(enabled=True)
     # 手工构造节点 id 与边匹配的条目
     entries = [
-        {"id": "m1", "entry_type": "decision", "content": "use JWT",
-         "importance": 0.8, "timestamp": 1.0},
-        {"id": "m2", "entry_type": "decision", "content": "drop JWT",
-         "importance": 0.8, "timestamp": 2.0},
+        {"id": "m1", "entry_type": "decision", "content": "use JWT", "importance": 0.8, "timestamp": 1.0},
+        {"id": "m2", "entry_type": "decision", "content": "drop JWT", "importance": 0.8, "timestamp": 2.0},
     ]
     edges = m.collect_edges(["m1", "m2"])
     md = m.to_mermaid(entries, edges)
@@ -116,6 +124,7 @@ def test_mer_disabled_transform_refused(tmp_path):
 
 def test_mer_api_endpoints(tmp_path):
     from l4.api_handlers import ApiHandlers
+
     reset_mer()
     api = ApiHandlers()
     st = api._memory_mer_status()
@@ -130,7 +139,8 @@ def test_mer_api_endpoints(tmp_path):
 def test_mer_daemon_tick_linkage(tmp_path):
     """daemon tick 在开关开启时触发 Mer 旁路。"""
     from l3.cell.peers.l3a import get_daemon
-    from l3.memory.memory_mer import reset_mer, get_mer
+    from l3.memory.memory_mer import get_mer, reset_mer
+
     reset_center()
     reset_mer()
     m = get_mer()

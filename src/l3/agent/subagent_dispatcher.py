@@ -45,16 +45,15 @@ class SubAgentDispatcher:
                 name = m.group(1)
                 rest = m.group(2).strip()
                 if name in self._specs:
-                    results.append((name, remaining[:m.start()], rest))
+                    results.append((name, remaining[: m.start()], rest))
                     remaining = rest
                     continue
             break
         return results
 
-    def dispatch(self, spec_name: str, prompt: str,
-                 parent_agent_id: str = "",
-                 context: dict | None = None,
-                 cell=None) -> dict:
+    def dispatch(
+        self, spec_name: str, prompt: str, parent_agent_id: str = "", context: dict | None = None, cell=None
+    ) -> dict:
         """Dispatch a sub-agent task."""
         with self._lock:
             spec = self._specs.get(spec_name)
@@ -74,15 +73,14 @@ class SubAgentDispatcher:
 
         return task.start()
 
-    def dispatch_from_text(self, text: str, parent_agent_id: str = "",
-                           cell=None) -> dict:
+    def dispatch_from_text(self, text: str, parent_agent_id: str = "", cell=None) -> dict:
         """Auto-parse @mention from text and dispatch."""
         mentions = self.parse_mentions(text)
         if not mentions:
             return {"success": False, "error": "no @mention found"}
 
         results = []
-        for name, before, rest in mentions:
+        for name, _before, rest in mentions:
             r = self.dispatch(name, rest, parent_agent_id, cell=cell)
             results.append(r)
 

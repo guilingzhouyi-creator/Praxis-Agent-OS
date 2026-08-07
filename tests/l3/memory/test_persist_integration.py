@@ -1,4 +1,5 @@
 """Memory 4-ring 持久化集成测试 — remember → pressure → swap → persist → restore → recall。"""
+
 from __future__ import annotations
 
 import os
@@ -13,30 +14,36 @@ class TestMemoryPersistenceIntegration:
 
     def _make_mem(self):
         from l3.memory.memory import MemoryManager
+
         return MemoryManager()
 
     def test_remember_ring1(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
-        eid = mem.remember("agent-r1", "decision",
-                           "Use Python 3.11 for this project across all environments.",
-                           tags=["python"], ring=1)
+        eid = mem.remember(
+            "agent-r1", "decision", "Use Python 3.11 for this project across all environments.", tags=["python"], ring=1
+        )
         assert eid.startswith("mem-")
         stats = mem.stats()
         assert stats["working"]["entries"] >= 1
 
     def test_remember_all_rings(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
-        mem.remember("agent-all", "decision",
-                     "Memory ring 1 working entry with sufficient length to pass quality check.",
-                     ring=1)
-        mem.remember("agent-all", "note",
-                     "Memory ring 2 short term entry with enough content for quality validation.",
-                     ring=2)
-        mem.remember("agent-all", "knowledge",
-                     "Memory ring 3 long term entry with sufficient content to meet quality requirements.",
-                     ring=3)
+        mem.remember(
+            "agent-all", "decision", "Memory ring 1 working entry with sufficient length to pass quality check.", ring=1
+        )
+        mem.remember(
+            "agent-all", "note", "Memory ring 2 short term entry with enough content for quality validation.", ring=2
+        )
+        mem.remember(
+            "agent-all",
+            "knowledge",
+            "Memory ring 3 long term entry with sufficient content to meet quality requirements.",
+            ring=3,
+        )
         stats = mem.stats()
         assert stats["working"]["entries"] >= 1
         assert stats["short"]["entries"] >= 1
@@ -45,13 +52,17 @@ class TestMemoryPersistenceIntegration:
     def test_persist_and_restore(self):
         """persist Ring 2 → JSONL + Ring 3 → SQLite, 然后 restore"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
-        mem.remember("agent-persist", "note",
-                     "This is a persistent memory entry that will be saved and restored.",
-                     ring=2)
-        mem.remember("agent-persist", "knowledge",
-                     "Long term knowledge entry that should survive persist and restore cycle.",
-                     ring=3)
+        mem.remember(
+            "agent-persist", "note", "This is a persistent memory entry that will be saved and restored.", ring=2
+        )
+        mem.remember(
+            "agent-persist",
+            "knowledge",
+            "Long term knowledge entry that should survive persist and restore cycle.",
+            ring=3,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             r = mem.persist(tmpdir)
             assert r.get("success"), f"persist failed: {r}"
@@ -63,11 +74,15 @@ class TestMemoryPersistenceIntegration:
     def test_pressure_high_with_data(self):
         """大量写入使压力升高"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager(working_budget=500)
         for i in range(10):
-            mem.remember("agent-press", "observation",
-                         f"Test observation entry number {i} that must pass quality gate validation.",
-                         ring=1)
+            mem.remember(
+                "agent-press",
+                "observation",
+                f"Test observation entry number {i} that must pass quality gate validation.",
+                ring=1,
+            )
         p = mem.pressure("agent-press")
         assert "level" in p
         assert p["working_pct"] >= 0
@@ -75,11 +90,16 @@ class TestMemoryPersistenceIntegration:
     def test_compact_merges_entries(self):
         """compact 合并同类条目"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         for i in range(5):
-            mem.remember("agent-compact", "tool_call",
-                         f"Running build command number {i} for project compilation and testing.",
-                         tags=["build"], ring=1)
+            mem.remember(
+                "agent-compact",
+                "tool_call",
+                f"Running build command number {i} for project compilation and testing.",
+                tags=["build"],
+                ring=1,
+            )
         r = mem.compact("agent-compact")
         assert isinstance(r, dict)
         assert "merged" in r
@@ -87,6 +107,7 @@ class TestMemoryPersistenceIntegration:
     def test_fts_search_empty(self):
         """FTS5 搜索空数据库（需先 set_persist_dir 才能访问 _db_path）"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         with tempfile.TemporaryDirectory() as tmpdir:
             mem.set_persist_dir(tmpdir)
@@ -98,14 +119,23 @@ class TestMemoryPersistenceIntegration:
         """CentralMemory.remember → CentralMemory.recall 跨环"""
         from l3.memory.central_memory import get_center, reset_center
         from l3.memory.memory import get_memory, reset_memory
+
         reset_center()
         reset_memory()
         cm = get_center()
-        mem = get_memory()
-        cm.remember("agent-ci", "Important decision with very high importance and sufficient content length.",
-                    entry_type="decision", ring=1)
-        cm.remember("agent-ci", "Short term observation with enough content to pass quality gate.",
-                    entry_type="observation", ring=2)
+        get_memory()
+        cm.remember(
+            "agent-ci",
+            "Important decision with very high importance and sufficient content length.",
+            entry_type="decision",
+            ring=1,
+        )
+        cm.remember(
+            "agent-ci",
+            "Short term observation with enough content to pass quality gate.",
+            entry_type="observation",
+            ring=2,
+        )
         results = cm.recall(agent_id="agent-ci", limit=10)
         assert len(results) >= 1
 
@@ -116,15 +146,19 @@ class TestMemoryDirtyTracking:
     def test_persist_only_dirty_ring2(self):
         """persist 只写入脏的 Ring 2 条目，清除脏标记后再次 persist 不做重复写入"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
 
         # 写 2 条到 Ring 2 → 标记为 dirty
-        eid1 = mem.remember("agent-dirty", "note",
-                            "First dirty entry for ring2 with enough content to pass quality validation.",
-                            ring=2)
-        eid2 = mem.remember("agent-dirty", "note",
-                            "Second dirty entry for ring2 with enough content to pass quality validation.",
-                            ring=2)
+        eid1 = mem.remember(
+            "agent-dirty", "note", "First dirty entry for ring2 with enough content to pass quality validation.", ring=2
+        )
+        eid2 = mem.remember(
+            "agent-dirty",
+            "note",
+            "Second dirty entry for ring2 with enough content to pass quality validation.",
+            ring=2,
+        )
         assert eid1 in mem._dirty_short
         assert eid2 in mem._dirty_short
 
@@ -141,9 +175,9 @@ class TestMemoryDirtyTracking:
             assert r2["short_written"] == 0, f"expected 0 writes (no new dirty), got {r2}"
 
             # 再写 1 条 → 再次只写入这条
-            eid3 = mem.remember("agent-dirty", "note",
-                                "Third entry added after persist, should be the only dirty one.",
-                                ring=2)
+            eid3 = mem.remember(
+                "agent-dirty", "note", "Third entry added after persist, should be the only dirty one.", ring=2
+            )
             assert eid3 in mem._dirty_short
             r3 = mem.persist(tmpdir)
             assert r3.get("success"), f"third persist failed: {r3}"
@@ -152,11 +186,15 @@ class TestMemoryDirtyTracking:
     def test_persist_only_dirty_ring3(self):
         """persist 只写入脏的 Ring 3 SQLite 条目"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
 
-        eid1 = mem.remember("agent-dirty-l3", "knowledge",
-                            "Long term knowledge entry for dirty tracking test with sufficient content.",
-                            ring=3)
+        eid1 = mem.remember(
+            "agent-dirty-l3",
+            "knowledge",
+            "Long term knowledge entry for dirty tracking test with sufficient content.",
+            ring=3,
+        )
         assert eid1 in mem._dirty_long
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -173,11 +211,16 @@ class TestMemoryDirtyTracking:
     def test_dirty_set_after_compact(self):
         """compact 创建的 summary 条目应被标记为 dirty"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         for i in range(5):
-            mem.remember("agent-compact-dirty", "tool_call",
-                         f"compact test entry number {i} with enough text content to pass quality validation.",
-                         tags=["build"], ring=2)
+            mem.remember(
+                "agent-compact-dirty",
+                "tool_call",
+                f"compact test entry number {i} with enough text content to pass quality validation.",
+                tags=["build"],
+                ring=2,
+            )
         before = len(mem._dirty_short)
         r = mem.compact("agent-compact-dirty")
         assert isinstance(r, dict)
@@ -193,6 +236,7 @@ class TestMemoryDirtyTrackingConcurrent:
         import threading
 
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         n_threads = 4
         entries_per_thread = 25
@@ -202,7 +246,8 @@ class TestMemoryDirtyTrackingConcurrent:
             for i in range(entries_per_thread):
                 try:
                     mem.remember(
-                        f"agent-con-{n}", "note",
+                        f"agent-con-{n}",
+                        "note",
                         f"Concurrent dirty entry {n}-{i} with enough content to pass validation.",
                         ring=2,
                     )
@@ -217,9 +262,7 @@ class TestMemoryDirtyTrackingConcurrent:
 
         assert len(errors) == 0, f"concurrent remember errors: {errors}"
         expected = n_threads * entries_per_thread
-        assert len(mem._dirty_short) == expected, (
-            f"expected {expected} dirty entries, got {len(mem._dirty_short)}"
-        )
+        assert len(mem._dirty_short) == expected, f"expected {expected} dirty entries, got {len(mem._dirty_short)}"
 
     def test_concurrent_remember_and_persist(self):
         """并发 remember + persist 不应丢失脏条目。persist 后新 remember 重新标记为 dirty。"""
@@ -227,6 +270,7 @@ class TestMemoryDirtyTrackingConcurrent:
         import threading
 
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         barrier = threading.Barrier(3)
         errors = []
@@ -235,7 +279,8 @@ class TestMemoryDirtyTrackingConcurrent:
             try:
                 for i in range(20):
                     mem.remember(
-                        f"agent-cp-{n}", "note",
+                        f"agent-cp-{n}",
+                        "note",
                         f"Concurrent persist test entry {n}-{i} with enough content.",
                         ring=2,
                     )
@@ -250,16 +295,13 @@ class TestMemoryDirtyTrackingConcurrent:
 
         # 在主线程中也写入并 persist
         for i in range(10):
-            mem.remember("agent-cp-main", "note",
-                         f"Main thread entry {i} for concurrent persist test.", ring=2)
+            mem.remember("agent-cp-main", "note", f"Main thread entry {i} for concurrent persist test.", ring=2)
         barrier.wait()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             r = mem.persist(tmpdir)
             assert r.get("success"), f"concurrent persist failed: {r}"
-            assert r["short_written"] == 50, (
-                f"expected 50 dirty entries persisted, got {r['short_written']}"
-            )
+            assert r["short_written"] == 50, f"expected 50 dirty entries persisted, got {r['short_written']}"
 
         t1.join()
         t2.join()
@@ -270,6 +312,7 @@ class TestMemoryDirtyTrackingConcurrent:
         import threading
 
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         errors = []
 
@@ -277,7 +320,8 @@ class TestMemoryDirtyTrackingConcurrent:
             try:
                 for i in range(10):
                     mem.remember(
-                        f"agent-l3-{n}", "knowledge",
+                        f"agent-l3-{n}",
+                        "knowledge",
                         f"Long term concurrent entry {n}-{i} with sufficient content.",
                         ring=3,
                     )
@@ -291,9 +335,7 @@ class TestMemoryDirtyTrackingConcurrent:
             t.join()
 
         assert len(errors) == 0
-        assert len(mem._dirty_long) == 30, (
-            f"expected 30 dirty long entries, got {len(mem._dirty_long)}"
-        )
+        assert len(mem._dirty_long) == 30, f"expected 30 dirty long entries, got {len(mem._dirty_long)}"
 
 
 class TestPersistCrashSafety:
@@ -305,11 +347,12 @@ class TestPersistCrashSafety:
         import tempfile
 
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
 
-        eid = mem.remember("agent-safe", "note",
-                           "This entry should survive a persist failure with enough content.",
-                           ring=2)
+        eid = mem.remember(
+            "agent-safe", "note", "This entry should survive a persist failure with enough content.", ring=2
+        )
         assert eid in mem._dirty_short
 
         # 用只读目录模拟写入失败（如果 tempdir 被 chmod）
@@ -327,33 +370,26 @@ class TestPersistCrashSafety:
                     return
 
             # 写入失败后，脏条目应保留
-            assert eid in mem._dirty_short, (
-                "dirty entry should survive failed persist"
-            )
+            assert eid in mem._dirty_short, "dirty entry should survive failed persist"
 
             # 重试到可写目录应成功
             writable = os.path.join(tmpdir, "writable")
             os.mkdir(writable)
             r2 = mem.persist(writable)
             assert r2.get("success"), f"retry persist failed: {r2}"
-            assert r2["short_written"] == 1, (
-                f"expected 1 entry on retry, got {r2['short_written']}"
-            )
-            assert eid not in mem._dirty_short, (
-                "dirty set should be cleared after successful persist"
-            )
+            assert r2["short_written"] == 1, f"expected 1 entry on retry, got {r2['short_written']}"
+            assert eid not in mem._dirty_short, "dirty set should be cleared after successful persist"
 
     def test_dirty_survives_interrupted_write(self):
         """模拟中途异常，验证脏集在异常后仍保留。"""
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
 
-        mem.remember("agent-interrupt", "note",
-                     "Entry that should survive an interrupted persist with enough content.",
-                     ring=2)
-        mem.remember("agent-interrupt", "knowledge",
-                     "Long term entry for interrupt test with enough content.",
-                     ring=3)
+        mem.remember(
+            "agent-interrupt", "note", "Entry that should survive an interrupted persist with enough content.", ring=2
+        )
+        mem.remember("agent-interrupt", "knowledge", "Long term entry for interrupt test with enough content.", ring=3)
 
         before_short = set(mem._dirty_short)
         before_long = set(mem._dirty_long)

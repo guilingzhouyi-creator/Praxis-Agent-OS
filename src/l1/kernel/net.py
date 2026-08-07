@@ -39,15 +39,18 @@ from .ports import (
 
 logger = logging.getLogger(__name__)
 
+
 def _peer_timeout() -> float:
     """Resolve peer timeout dynamically so praxis.yaml overrides take effect."""
-    from .params.system import NET_PEER_TIMEOUT as _v
-    return _v
+    from .params.system import NET_PEER_TIMEOUT
+
+    return NET_PEER_TIMEOUT
 
 
 @dataclass
 class Peer:
     """Peer — peer record (id, host, port, last_seen, cell_count)."""
+
     id: str
     host: str
     port: int
@@ -85,15 +88,18 @@ def _get_card_registry() -> CardRegistryPort | None:
         return None
 
 
-def _emit_event(type_: str, severity: str, message: str,
-                data: dict | None = None) -> None:
+def _emit_event(type_: str, severity: str, message: str, data: dict | None = None) -> None:
     bus = _get_bus()
     if bus:
-        bus.emit(Event(
-            type=type_, source="net",
-            severity=severity, message=message,
-            data=data or {},
-        ))
+        bus.emit(
+            Event(
+                type=type_,
+                source="net",
+                severity=severity,
+                message=message,
+                data=data or {},
+            )
+        )
 
 
 class NetKernel:
@@ -113,8 +119,7 @@ class NetKernel:
         self._running = False
         self._started_at: float = 0.0
 
-    def start(self, node_id: str = "", port: int = 0,
-              config: TransportConfig | None = None) -> dict:
+    def start(self, node_id: str = "", port: int = 0, config: TransportConfig | None = None) -> dict:
         """Start network services: discovery + transport listener."""
         self._node_id = node_id or f"node-{socket.gethostname()}-{os.getpid()}"
         self._running = True
@@ -130,8 +135,7 @@ class NetKernel:
         self._transport.register_handler("card_registry_sync", self._on_card_registry_sync)
 
         result = self._transport.start(self._node_id, config)
-        logger.info("net started: %s on transport=%s port=%d",
-                     self._node_id, self._transport.name, self._port)
+        logger.info("net started: %s on transport=%s port=%d", self._node_id, self._transport.name, self._port)
         return {"success": result.success, "error": result.error, **result.data}
 
     def stop(self) -> None:
@@ -174,21 +178,22 @@ class NetKernel:
         with self._lock:
             p = self._peers.get(target_node)
             if p and p.alive:
-                peer = Peer(id=p.id, host=p.host, port=p.port,
-                            last_seen=p.last_seen)
+                peer = Peer(id=p.id, host=p.host, port=p.port, last_seen=p.last_seen)
         if not peer:
             return {"success": False, "error": f"peer '{target_node}' not found or dead"}
 
         i18n = _get_i18n()
         locale = i18n.get_locale() if i18n else "en"
 
-        data = json.dumps({
-            "from": self._node_id,
-            "type": payload.get("type", "message"),
-            "payload": payload,
-            "timestamp": time.time(),
-            "locale": locale,
-        }).encode()
+        data = json.dumps(
+            {
+                "from": self._node_id,
+                "type": payload.get("type", "message"),
+                "payload": payload,
+                "timestamp": time.time(),
+                "locale": locale,
+            }
+        ).encode()
 
         ep = Endpoint(f"{peer.host}:{peer.port}", hint="tcp")
         r = self._transport.send(ep, data)
@@ -208,11 +213,17 @@ class NetKernel:
     def list_peers(self) -> list[dict]:
         """List known peers as dicts, most recently seen first."""
         with self._lock:
-            return [{"id": p.id, "host": p.host, "port": p.port,
-                     "alive": p.alive, "cells": p.cell_count,
-                     "last_seen": round(time.time() - p.last_seen, 1)}
-                    for p in sorted(self._peers.values(),
-                                    key=lambda x: x.last_seen, reverse=True)]
+            return [
+                {
+                    "id": p.id,
+                    "host": p.host,
+                    "port": p.port,
+                    "alive": p.alive,
+                    "cells": p.cell_count,
+                    "last_seen": round(time.time() - p.last_seen, 1),
+                }
+                for p in sorted(self._peers.values(), key=lambda x: x.last_seen, reverse=True)
+            ]
 
     def health(self) -> dict:
         """Return network health status. Uses consistent PEER_TIMEOUT."""
@@ -222,7 +233,7 @@ class NetKernel:
             alive_peers = [p for p in self._peers.values() if p.alive]
             alive = len(alive_peers)
             for p in self._peers.values():
-                if not p.alive and hasattr(p, '_loss_reported') and not p._loss_reported:
+                if not p.alive and hasattr(p, "_loss_reported") and not p._loss_reported:
                     p._loss_reported = True
                     _emit_event(
                         type_="network.peer.loss",
@@ -232,7 +243,8 @@ class NetKernel:
                     )
             return {
                 "status": "healthy" if alive >= 1 else "lonely",
-                "peers_total": total, "peers_alive": alive,
+                "peers_total": total,
+                "peers_alive": alive,
                 "peers_dead": total - alive,
                 "node_id": self._node_id,
                 "port": self._port,
@@ -248,7 +260,8 @@ class NetKernel:
         is_new = peer_id not in self._peers
         with self._lock:
             self._peers[peer_id] = Peer(
-                id=peer_id, host=msg.get("host", ""),
+                id=peer_id,
+                host=msg.get("host", ""),
                 port=msg.get("port", self._port),
                 last_seen=time.time(),
                 cell_count=msg.get("cells", 0),

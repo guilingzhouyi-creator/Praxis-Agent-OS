@@ -14,6 +14,7 @@ class TestCellSandboxInit:
 
     def test_create_and_register_agent(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             p = sb.register_agent("agent-a")
@@ -22,6 +23,7 @@ class TestCellSandboxInit:
 
     def test_write_and_read_own_sandbox(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -34,6 +36,7 @@ class TestCellSandboxInit:
 
     def test_write_creates_diff_hunks(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -44,6 +47,7 @@ class TestCellSandboxInit:
 
     def test_write_populates_entry_metadata(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -57,6 +61,7 @@ class TestCellSandboxReadWriteCycle:
 
     def test_write_disk_file_staged_pending(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -68,6 +73,7 @@ class TestCellSandboxReadWriteCycle:
 
     def test_stage_then_flush_writes_to_project(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -79,10 +85,12 @@ class TestCellSandboxReadWriteCycle:
             # After flush, file should exist on real disk
             real_path = os.path.join(td, "f.txt")
             assert os.path.exists(real_path)
-            assert open(real_path).read() == "staged content"
+            with open(real_path) as f:
+                assert f.read() == "staged content"
 
     def test_discard_removes_pending_changes(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -98,6 +106,7 @@ class TestCellSandboxCrossAgentVersionRouting:
 
     def test_read_own_sandbox_first(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -108,6 +117,7 @@ class TestCellSandboxCrossAgentVersionRouting:
 
     def test_read_upstream_when_own_missing(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -119,6 +129,7 @@ class TestCellSandboxCrossAgentVersionRouting:
 
     def test_read_project_fallback_when_no_sandbox(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             # Create a project file first
             real_file = os.path.join(td, "project.txt")
@@ -137,6 +148,7 @@ class TestCellSandboxConflictDetection:
 
     def test_same_agent_no_conflict(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -146,6 +158,7 @@ class TestCellSandboxConflictDetection:
 
     def test_diff_agent_detects_conflict(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"))
             sb.register_agent("agent-a")
@@ -160,9 +173,9 @@ class TestCellSandboxStatus:
 
     def test_status_after_write(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
-            sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"),
-                             state_path=os.path.join(td, "state.json"))
+            sb = CellSandbox("test-cell", td, os.path.join(td, ".sandbox"), state_path=os.path.join(td, "state.json"))
             sb.register_agent("agent-a")
             s0 = sb.status()
             assert s0["pending"] == 0

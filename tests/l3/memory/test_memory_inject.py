@@ -5,8 +5,12 @@ Cell 挂钩、L3A 挂钩。
 """
 
 from l3.memory.memory_inject import (
-    MemoryInjector, build_context, classify_task, TASK_EXECUTE,
-    TASK_DECIDE, TASK_RESUME,
+    TASK_DECIDE,
+    TASK_EXECUTE,
+    TASK_RESUME,
+    MemoryInjector,
+    build_context,
+    classify_task,
 )
 
 
@@ -52,8 +56,7 @@ def test_injector_summary_falls_back(tmp_path):
 def test_injector_mer_requires_graph(tmp_path):
     """Mer 维度在图未启用时回退 summary（零影响）。"""
     inj = MemoryInjector()
-    r = inj.build_context("a1", card=FakeCard(nature="decision"),
-                          max_tokens=512)
+    r = inj.build_context("a1", card=FakeCard(nature="decision"), max_tokens=512)
     assert isinstance(r, str)
 
 
@@ -66,21 +69,23 @@ def test_l3a_prompt_injection(tmp_path):
     """L3A prompt 路径：提示词分类 → 注入块加入 context_trail。"""
     from l3.cell.peers.l3a import get_daemon
     from l3.memory.central_memory import reset_center
+
     reset_center()
     d = get_daemon()
     s = d.create_session("inject-test")
     s._ensure_loop()
 
     def fake_run(**kw):
-        return {"answer": "ok", "success": True, "tool_calls": [],
-                "reasoning_trail": ["t"], "reasoning_tokens": 1}
+        return {"answer": "ok", "success": True, "tool_calls": [], "reasoning_trail": ["t"], "reasoning_tokens": 1}
+
     s._loop.run = fake_run
     r = s.prompt("please review the memory injection design")
     assert r.get("success")
     # 决策类提示词 → 注入块应出现（Task-Aware Memory）
-    injected = [m for m in s._loop._context_trail
-                if isinstance(m, dict)
-                and m.get("role") == "system"
-                and "Task-Aware Memory" in m.get("content", "")]
+    injected = [
+        m
+        for m in s._loop._context_trail
+        if isinstance(m, dict) and m.get("role") == "system" and "Task-Aware Memory" in m.get("content", "")
+    ]
     assert injected, "task-aware block should be injected for decide prompts"
     s.close()

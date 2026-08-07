@@ -38,7 +38,7 @@ def classify_hunk_semantic(hunk: dict) -> str:
 
     # Comment-only changes
     all_lines = (added + "\n" + removed).splitlines()
-    if all(l.strip().startswith(("#", "//", "/*", "*", "<!--")) for l in all_lines if l.strip()):
+    if all(ln.strip().startswith(("#", "//", "/*", "*", "<!--")) for ln in all_lines if ln.strip()):
         return "comment_only"
 
     # Reformat (only whitespace/indentation differences)
@@ -60,9 +60,9 @@ def classify_hunk_semantic(hunk: dict) -> str:
     return "logic_change"
 
 
-def compute_hunks(old_text: str, new_text: str,
-                  agent_id: str = "", tool_name: str = "",
-                  timestamp: float = 0.0) -> list[dict]:
+def compute_hunks(
+    old_text: str, new_text: str, agent_id: str = "", tool_name: str = "", timestamp: float = 0.0
+) -> list[dict]:
     """Compute structured diff hunks from old/new text.
 
     Returns a list of hunk dicts::
@@ -112,9 +112,9 @@ def compute_hunks(old_text: str, new_text: str,
 
         # Context lines (up to DIFF_CONTEXT_LINES before/after)
         ctx_before = max(0, i1 - DIFF_CONTEXT_LINES)
-        hunk["context_before"] = [l.rstrip("\n") for l in old_lines[ctx_before:i1]]
+        hunk["context_before"] = [ln.rstrip("\n") for ln in old_lines[ctx_before:i1]]
         ctx_after = min(len(old_lines), i2 + DIFF_CONTEXT_LINES)
-        hunk["context_after"] = [l.rstrip("\n") for l in old_lines[i2:ctx_after]]
+        hunk["context_after"] = [ln.rstrip("\n") for ln in old_lines[i2:ctx_after]]
 
         # Character-level changes for replace hunks (VSCode ICharChange style)
         if op == "replace" and (i2 - i1) <= DIFF_CHAR_LEVEL_MAX_LINES and (j2 - j1) <= DIFF_CHAR_LEVEL_MAX_LINES:
@@ -133,14 +133,20 @@ def compute_hunks(old_text: str, new_text: str,
                 add_line = hunk["modified_start"] + add_before.count("\n")
                 removed_chars = removed_text[ci1:ci2]
                 added_chars = added_text[cj1:cj2]
-                hunk["changes"].append({
-                    "original_start": {"line": rem_line, "col": rem_col},
-                    "original_end": {"line": rem_line + removed_chars.count("\n"),
-                                     "col": rem_col + len(removed_chars.rsplit("\n")[-1])},
-                    "modified_start": {"line": add_line, "col": add_col},
-                    "modified_end": {"line": add_line + added_chars.count("\n"),
-                                     "col": add_col + len(added_chars.rsplit("\n")[-1])},
-                })
+                hunk["changes"].append(
+                    {
+                        "original_start": {"line": rem_line, "col": rem_col},
+                        "original_end": {
+                            "line": rem_line + removed_chars.count("\n"),
+                            "col": rem_col + len(removed_chars.rsplit("\n")[-1]),
+                        },
+                        "modified_start": {"line": add_line, "col": add_col},
+                        "modified_end": {
+                            "line": add_line + added_chars.count("\n"),
+                            "col": add_col + len(added_chars.rsplit("\n")[-1]),
+                        },
+                    }
+                )
 
         hunks.append(hunk)
 
@@ -149,9 +155,11 @@ def compute_hunks(old_text: str, new_text: str,
         collapsed = [hunks[0]]
         for h in hunks[1:]:
             prev = collapsed[-1]
-            if (h["type"] == prev["type"]
-                    and h["original_start"] <= prev["original_end"] + 2
-                    and h["modified_start"] <= prev["modified_end"] + 2):
+            if (
+                h["type"] == prev["type"]
+                and h["original_start"] <= prev["original_end"] + 2
+                and h["modified_start"] <= prev["modified_end"] + 2
+            ):
                 prev["original_end"] = h["original_end"]
                 prev["modified_end"] = h["modified_end"]
                 prev["added_lines"].extend(h["added_lines"])
@@ -169,9 +177,7 @@ def compute_hunks(old_text: str, new_text: str,
     return hunks
 
 
-def check_conflict(rel_path: str, agent_id: str,
-                   path_index: dict[str, list[str]],
-                   entries: dict) -> str:
+def check_conflict(rel_path: str, agent_id: str, path_index: dict[str, list[str]], entries: dict) -> str:
     """Check if another agent has pending/staged changes to the same file.
 
     Uses ``path_index`` for O(1) lookup instead of O(N) scan.

@@ -44,8 +44,7 @@ class CentralController:
         self._cards: list[TaskCard] = []
         self._next_id = 0
 
-    def register_cell(self, cell_id: str, territory: list[str],
-                      agents: list[str] | None = None) -> None:
+    def register_cell(self, cell_id: str, territory: list[str], agents: list[str] | None = None) -> None:
         """Register a cell and its territory with the controller."""
         self._routes[territory[0]] = cell_id
         self.b.register(cell_id, territory)
@@ -53,8 +52,11 @@ class CentralController:
 
         try:
             from .cell.components.cell_monitor import get_cell_monitor
+
             get_cell_monitor().register_cell(
-                cell_id, territory, {a: "" for a in agents} if agents else {},
+                cell_id,
+                territory,
+                {a: "" for a in agents} if agents else {},
             )
         except Exception as e:
             logger.warning("cellmonitor register failed: %s", e)
@@ -68,6 +70,7 @@ class CentralController:
 
         try:
             from .bus.htn_a import get_htn_a
+
             get_htn_a()
         except Exception as e:
             logger.warning("HTN-A init failed: %s", e)
@@ -85,13 +88,14 @@ class CentralController:
 
     def is_cross_cell_active(self) -> bool:
         """Return True when multi-cell routing is active."""
-        return bool(getattr(self, '_cross_cell_active', False))
+        return bool(getattr(self, "_cross_cell_active", False))
 
     def remove_cell(self, cell_id: str) -> dict:
         """Remove a cell from the controller and rebuild the L3B bus."""
         with self._lock:
             self._cells = [c for c in self._cells if c.get("id") != cell_id]
             from l3.bus.l3b import L3B
+
             new_l3b = L3B()
             for c in self._cells:
                 new_l3b.register(c.get("id", ""), c.get("territory", ["."]))
@@ -125,11 +129,13 @@ class CentralController:
         status = "queued" if cid else "parsed"
         with self._lock:
             self._intents[cid or text[:8]] = {
-                "card": None, "card_id": cid or "", "status": status.upper(),
-                "created_at": time.time(), "result": parsed,
+                "card": None,
+                "card_id": cid or "",
+                "status": status.upper(),
+                "created_at": time.time(),
+                "result": parsed,
             }
-        return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80],
-                "status": status, "answer": answer}
+        return {"success": bool(cid), "card_id": cid, "intent": text[:LOG_TRUNC_80], "status": status, "answer": answer}
 
     def _process_taskcard_result(self, card: TaskCard) -> dict:
         """Handle a TaskCard result: submit, queue, route cross-cell (HTN-A)."""
@@ -141,8 +147,10 @@ class CentralController:
         cid = ""
         try:
             from .card.card_registry import get_registry
+
             cid = get_registry().submit(
-                intent=card.intent, domain=domain,
+                intent=card.intent,
+                domain=domain,
                 priority=getattr(card, "priority", CARD_DEFAULT_PRIORITY),
             )
         except Exception as e:
@@ -151,12 +159,17 @@ class CentralController:
 
         with self._lock:
             self._intents[cid] = {
-                "card": card, "card_id": cid, "status": WitnessStatus.PENDING,
-                "created_at": time.time(), "result": None,
+                "card": card,
+                "card_id": cid,
+                "status": WitnessStatus.PENDING,
+                "created_at": time.time(),
+                "result": None,
             }
 
         result = {
-            "card_id": cid, "intent": card.intent, "domain": domain,
+            "card_id": cid,
+            "intent": card.intent,
+            "domain": domain,
             "card_type": card.card_type.name if hasattr(card, "card_type") else "execution",
             "status": "queued",
         }
@@ -166,6 +179,7 @@ class CentralController:
             try:
                 from .bus.htn_a import get_htn_a
                 from .bus.htn_a import get_shards as _get_shards
+
                 htn_a = get_htn_a()
                 htn_task = htn_a.decompose(card.intent, domain)
                 shards = _get_shards(htn_task)
@@ -177,10 +191,14 @@ class CentralController:
                     shard_cell = shard["cell_id"]
                     for composite in self.b.composites:
                         if composite.next_cell == shard_cell:
-                            composite.dispatch_to_next({
-                                "intent": f"{card.intent} — {shard_cell}",
-                                "domain": domain, "task_name": shard_cell, "target_cell": shard_cell,
-                            })
+                            composite.dispatch_to_next(
+                                {
+                                    "intent": f"{card.intent} — {shard_cell}",
+                                    "domain": domain,
+                                    "task_name": shard_cell,
+                                    "target_cell": shard_cell,
+                                }
+                            )
                             break
                 result["cross_cell"] = {"active": True, "composites": len(self.b.composites), "shards": len(shards)}
             except Exception as e:
@@ -206,15 +224,18 @@ class CentralController:
     def _rule_parse(self, text: str) -> TaskCard:
         card_type = CardType.EXECUTION
         domain = ""
-        for kw, cell in self._routes.items():
+        for kw, _cell in self._routes.items():
             if kw.lower() in text.lower():
                 domain = kw
                 break
         if "?" in text:
             card_type = CardType.ISSUE
         card = TaskCard(
-            id=f"card-{self._next_id:04d}", intent=text,
-            card_type=card_type, domain=domain, priority=CARD_DEFAULT_PRIORITY,
+            id=f"card-{self._next_id:04d}",
+            intent=text,
+            card_type=card_type,
+            domain=domain,
+            priority=CARD_DEFAULT_PRIORITY,
         )
         self._next_id += 1
         self._cards.append(card)
@@ -237,17 +258,26 @@ class CentralController:
         """List tracked intents, optionally filtered by status."""
         with self._lock:
             return [
-                {"card_id": i["card_id"],
-                 "intent": i["card"].intent if i.get("card") else "",
-                 "status": i["status"], "created_at": i.get("created_at")}
+                {
+                    "card_id": i["card_id"],
+                    "intent": i["card"].intent if i.get("card") else "",
+                    "status": i["status"],
+                    "created_at": i.get("created_at"),
+                }
                 for i in self._intents.values()
                 if not status or i["status"] == status
             ]
 
     def _process_admin_card(self, card) -> dict:
-        admin_action = getattr(card, 'admin_action', getattr(card, 'tools_hint', [''])[0] if hasattr(card, 'tools_hint') and card.tools_hint else 'cluster_status')
-        intent = getattr(card, 'intent', '')
-        target_agent = getattr(card, 'agent_id', getattr(card, 'target_agent', ''))
+        admin_action = getattr(
+            card,
+            "admin_action",
+            getattr(card, "tools_hint", [""])[0]
+            if hasattr(card, "tools_hint") and card.tools_hint
+            else "cluster_status",
+        )
+        intent = getattr(card, "intent", "")
+        target_agent = getattr(card, "agent_id", getattr(card, "target_agent", ""))
         cid = f"admin-{int(time.time())}"
         status = "DONE"
 
@@ -256,23 +286,27 @@ class CentralController:
                 from l1.kernel.params.agent import AGENT_ROLE_MAP
 
                 from .cell import get_cell
+
                 role = AGENT_ROLE_MAP.get(3, "default")
                 cell = get_cell()
                 cell.add_agent(target_agent or f"auto-{int(time.time())}", role=role, territory=["."], auto_boot=True)
                 result = {"success": True, "action": "spawn_agent", "agent": target_agent, "role": role}
             elif admin_action == "kill_agent":
                 from .cell import get_cell
+
                 cell = get_cell()
                 cell.remove_agent(target_agent)
                 result = {"success": True, "action": "kill_agent", "agent": target_agent}
             elif admin_action == "emergency_stop":
                 from .cell import get_cell
+
                 cell = get_cell()
                 result = cell.emergency_stop()
             elif admin_action == "cluster_status":
                 from .cell.components.cell_monitor import get_cell_monitor
+
                 cm = get_cell_monitor()
-                cells: list[Any] = getattr(cm, 'list_cells', lambda: [])()
+                cells: list[Any] = getattr(cm, "list_cells", lambda: [])()
                 result = {"success": True, "action": "cluster_status", "cells": cells}
             else:
                 result = {"success": False, "error": f"unknown admin_action: {admin_action}"}
@@ -282,11 +316,19 @@ class CentralController:
 
         with self._lock:
             self._intents[cid] = {
-                "card": card, "card_id": cid, "status": status,
-                "created_at": time.time(), "result": result,
+                "card": card,
+                "card_id": cid,
+                "status": status,
+                "created_at": time.time(),
+                "result": result,
             }
-        return {"success": result.get("success", False), "card_id": cid,
-                "intent": intent[:LOG_TRUNC_80], "status": status, "result": result}
+        return {
+            "success": result.get("success", False),
+            "card_id": cid,
+            "intent": intent[:LOG_TRUNC_80],
+            "status": status,
+            "result": result,
+        }
 
     def status(self) -> dict:
         """Return controller status (L3A, L3B, intent counts)."""

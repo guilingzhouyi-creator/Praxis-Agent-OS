@@ -31,9 +31,9 @@ from l3.cell.components.cell_types import CellProtocol, MessageType
 logger = logging.getLogger(__name__)
 
 # Resolve convention limits from config with params fallback
-from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS
-from l1.kernel.params.agent import CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT
-from l1.kernel.params.agent import SIGNAL_TARGET_L3
+from l1.kernel.params.agent import CONVENTION_MAX_ROUNDS as _DEFAULT_ROUNDS  # noqa: E402
+from l1.kernel.params.agent import CONVENTION_TIMEOUT as _DEFAULT_TIMEOUT  # noqa: E402
+from l1.kernel.params.agent import SIGNAL_TARGET_L3  # noqa: E402
 
 _CONV_MAX_ROUNDS: int = _DEFAULT_ROUNDS
 _CONV_TIMEOUT: float = _DEFAULT_TIMEOUT
@@ -46,16 +46,18 @@ if _cfg:
 @dataclass
 class ConventionTranscript:
     """Transcript entry — one statement in a round."""
+
     speaker: str = ""
-    target: str = ""       # Agent being cross-examined
+    target: str = ""  # Agent being cross-examined
     statement: str = ""
-    msg_type: str = ""     # "cross_examine" | "rebut" | "propose"
+    msg_type: str = ""  # "cross_examine" | "rebut" | "propose"
     timestamp: float = field(default_factory=time.time)
 
 
 @dataclass
 class ConventionRound:
     """One round of cross-examination."""
+
     round_num: int = 0
     speaker_order: list[str] = field(default_factory=list)
     current_index: int = 0
@@ -83,9 +85,9 @@ class ConventionProtocol:
         self._lock = threading.Lock()
         self._started_at = 0.0
         self._completed_at = 0.0
-        self._cache_ref = ""       # CacheDocument buffer_id
-        self._archive_ref = ""     # Archive entry_id
-        self._doc_path = ""        # persisted .md file path
+        self._cache_ref = ""  # CacheDocument buffer_id
+        self._archive_ref = ""  # Archive entry_id
+        self._doc_path = ""  # persisted .md file path
         self._table = get_table()
 
     # ── Public API ──
@@ -98,19 +100,25 @@ class ConventionProtocol:
 
         # Broadcast CONVENE to all participating Agents
         for aid in self.agent_ids:
-            self._send_message(aid, MessageType.CONVENE, {
-                "card_id": card.id, "title": card.title,
-                "intent": card.intent, "domain": card.domain,
-                "items": [it.to_dict() for it in card.items],
-                "agent_ids": self.agent_ids,
-            })
+            self._send_message(
+                aid,
+                MessageType.CONVENE,
+                {
+                    "card_id": card.id,
+                    "title": card.title,
+                    "intent": card.intent,
+                    "domain": card.domain,
+                    "items": [it.to_dict() for it in card.items],
+                    "agent_ids": self.agent_ids,
+                },
+            )
 
         self._current_round = ConventionRound(round_num=1)
         self._rounds.append(self._current_round)
-        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target="cell",
-                     data={"card_id": card.id, "event": "convene"})
-        logger.info("convention started: %s — %d agents, %d items",
-                    card.id, len(self.agent_ids), len(card.items))
+        emit_signal(
+            EVENT_TASK_ASSIGN, sender="convention", target="cell", data={"card_id": card.id, "event": "convene"}
+        )
+        logger.info("convention started: %s — %d agents, %d items", card.id, len(self.agent_ids), len(card.items))
         return {"success": True, "card_id": card.id, "agents": self.agent_ids}
 
     def answer(self, agent_id: str, item_id: str, answer: str) -> dict:
@@ -129,8 +137,12 @@ class ConventionProtocol:
         if not iid:
             return {"success": False, "error": "card not found"}
         self._add_transcript(agent_id, "", "propose", f"proposes new issue: {question[:LOG_TRUNC_200]}")
-        emit_signal(EVENT_TASK_ASSIGN, sender=agent_id, target="cell",
-                     data={"card_id": card.id, "event": "propose_issue", "item_id": iid})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender=agent_id,
+            target="cell",
+            data={"card_id": card.id, "event": "propose_issue", "item_id": iid},
+        )
         return {"success": True, "item_id": iid}
 
     def cross_examine(self, speaker: str, target: str, statement: str) -> dict:
@@ -138,10 +150,15 @@ class ConventionProtocol:
         if target not in self.agent_ids:
             return {"success": False, "error": f"unknown target: {target}"}
         self._add_transcript(speaker, target, "cross_examine", statement)
-        self._send_message(target, MessageType.CROSS_EXAMINE, {
-            "card_id": self.issue_card.id,
-            "from": speaker, "statement": statement,
-        })
+        self._send_message(
+            target,
+            MessageType.CROSS_EXAMINE,
+            {
+                "card_id": self.issue_card.id,
+                "from": speaker,
+                "statement": statement,
+            },
+        )
         return {"success": True}
 
     def rebut(self, agent_id: str, statement: str) -> dict:
@@ -184,6 +201,7 @@ class ConventionProtocol:
 
             from l1.kernel.params.agent import CONVENTION_DOC_DIR
             from l1.kernel.paths import get_paths as _gp
+
             doc_dir = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR)
             _os.makedirs(doc_dir, exist_ok=True)
             doc_path = _os.path.join(doc_dir, f"{card.id}.md")
@@ -198,6 +216,7 @@ class ConventionProtocol:
 
         # Save to CacheDocument
         from l3.memory.cache_doc import get_store
+
         store = get_store()
         cache_id = store.put(
             title=f"Convention: {card.title}",
@@ -209,6 +228,7 @@ class ConventionProtocol:
         # Archive to Ring 4
         try:
             from l3.tools._archive import _cmd_archive_store
+
             arch = _cmd_archive_store(
                 fonds=f"CONVENTION:{card.id}",
                 series="deliberation",
@@ -224,6 +244,7 @@ class ConventionProtocol:
         # Inject convergence summary into Memory Ring 2 for agent recall
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             for aid in self.agent_ids:
                 mem.remember(
@@ -241,14 +262,23 @@ class ConventionProtocol:
         self._completed_at = time.time()
         self._table.set_status(card.id, IssueCardStatus.CONVERGED)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="convention", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card.id, "event": "converged",
-                           "cache_ref": self._cache_ref,
-                           "archive_ref": self._archive_ref})
-        logger.info("convention closed: %s — %d rounds, %d transcripts",
-                    card.id, len(self._rounds), self._total_transcripts())
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="convention",
+            target=SIGNAL_TARGET_L3,
+            data={
+                "card_id": card.id,
+                "event": "converged",
+                "cache_ref": self._cache_ref,
+                "archive_ref": self._archive_ref,
+            },
+        )
+        logger.info(
+            "convention closed: %s — %d rounds, %d transcripts", card.id, len(self._rounds), self._total_transcripts()
+        )
         return {
-            "success": True, "card_id": card.id,
+            "success": True,
+            "card_id": card.id,
             "cache_ref": self._cache_ref,
             "archive_ref": self._archive_ref,
             "doc_path": self._doc_path,
@@ -260,6 +290,7 @@ class ConventionProtocol:
         """Get discussion doc (prefer CacheDocument cache)."""
         if self._cache_ref:
             from l3.memory.cache_doc import get_store
+
             doc = get_store().get_content(self._cache_ref)
             if doc:
                 return doc
@@ -280,17 +311,19 @@ class ConventionProtocol:
 
     # ── Internal ──
 
-    def _add_transcript(self, speaker: str, target: str,
-                        msg_type: str, statement: str) -> None:
+    def _add_transcript(self, speaker: str, target: str, msg_type: str, statement: str) -> None:
         with self._lock:
             if self._current_round:
-                self._current_round.transcripts.append(ConventionTranscript(
-                    speaker=speaker, target=target,
-                    statement=statement, msg_type=msg_type,
-                ))
+                self._current_round.transcripts.append(
+                    ConventionTranscript(
+                        speaker=speaker,
+                        target=target,
+                        statement=statement,
+                        msg_type=msg_type,
+                    )
+                )
 
-    def _send_message(self, target: str, msg_type: MessageType,
-                      payload: dict) -> None:
+    def _send_message(self, target: str, msg_type: MessageType, payload: dict) -> None:
         try:
             self.cell.send_message("convention", target, msg_type, payload)
         except Exception as e:
@@ -306,19 +339,23 @@ class ConventionProtocol:
           - Transcript lines: [msg_type] speaker → target: statement
         """
         card = self.issue_card
-        lines = [f"# Convention: {card.title}",
-                 f"<!-- meta: issue={card.id} domain={card.domain} "
-                 f"agents={','.join(self.agent_ids)} rounds={len(self._rounds)} "
-                 f"duration={self._completed_at - self._started_at:.1f}s -->",
-                 ""]
+        lines = [
+            f"# Convention: {card.title}",
+            f"<!-- meta: issue={card.id} domain={card.domain} "
+            f"agents={','.join(self.agent_ids)} rounds={len(self._rounds)} "
+            f"duration={self._completed_at - self._started_at:.1f}s -->",
+            "",
+        ]
 
         lines.append("## Issues")
         for idx, it in enumerate(card.items, start=1):
             status = "resolved" if it.status == IssueStatus.RESOLVED else "open"
             lines.append(f"\n### [I-{idx}] {it.question}")
-            lines.append(f"<!-- issue-id: I-{idx} | domain: {it.domain} | "
-                         f"proposed_by: {it.proposed_by} | assigned_to: {it.assigned_to} | "
-                         f"status: {status} -->")
+            lines.append(
+                f"<!-- issue-id: I-{idx} | domain: {it.domain} | "
+                f"proposed_by: {it.proposed_by} | assigned_to: {it.assigned_to} | "
+                f"status: {status} -->"
+            )
             if it.answer:
                 lines.append(f"- **Answer** ({it.assigned_to}): {it.answer}")
 
@@ -335,8 +372,7 @@ class ConventionProtocol:
             lines.append(f"\n### Round {r.round_num}")
             for t in r.transcripts:
                 target_str = f" → {t.target}" if t.target else ""
-                lines.append(f"- [{t.msg_type}] {t.speaker}{target_str}: "
-                             f"{t.statement[:LOG_TRUNC_500]}")
+                lines.append(f"- [{t.msg_type}] {t.speaker}{target_str}: {t.statement[:LOG_TRUNC_500]}")
 
         return "\n".join(lines)
 

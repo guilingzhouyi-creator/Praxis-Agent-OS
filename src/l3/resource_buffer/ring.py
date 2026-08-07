@@ -22,7 +22,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-from l1.kernel.params.system import (
+from l1.kernel.params.system import (  # noqa: E402
     HASH_TRUNC_LONG,
     RESOURCE_BUFFER_AUTO_EXPAND,
     RESOURCE_BUFFER_CHECKPOINT_FILE,
@@ -36,7 +36,7 @@ from l1.kernel.params.system import (
     RESOURCE_BUFFER_SLOT_GLOB,
     RESOURCE_BUFFER_SLOT_NAME,
 )
-from l1.kernel.paths import get_paths as _gp
+from l1.kernel.paths import get_paths as _gp  # noqa: E402
 
 
 class RingBuffer:
@@ -55,8 +55,7 @@ class RingBuffer:
         self._root.mkdir(parents=True, exist_ok=True)
         self._locks: dict[str, threading.Lock] = {}
         self._running = True
-        self._thread = threading.Thread(target=self._flush_loop, daemon=True,
-                                        name="resource-buffer-flush")
+        self._thread = threading.Thread(target=self._flush_loop, daemon=True, name="resource-buffer-flush")
         self._thread.start()
 
     def stop(self) -> None:
@@ -198,11 +197,14 @@ class RingBuffer:
             else:
                 return {"success": False, "error": "no pending changes", "path": path}
 
-        diff = list(difflib.unified_diff(
-            old.splitlines(keepends=True),
-            new.splitlines(keepends=True),
-            fromfile=f"a/{path}", tofile=f"b/{path}",
-        ))
+        diff = list(
+            difflib.unified_diff(
+                old.splitlines(keepends=True),
+                new.splitlines(keepends=True),
+                fromfile=f"a/{path}",
+                tofile=f"b/{path}",
+            )
+        )
         return {"success": True, "path": path, "diff": diff, "lines": len(diff)}
 
     def status(self) -> dict:
@@ -219,22 +221,33 @@ class RingBuffer:
             journal = self._root / file_hash / RESOURCE_BUFFER_JOURNAL_FILE
             path = self._resolve_path_from_journal(journal) or file_hash
             oldest = min(s.stat().st_mtime for s in slots)
-            files.append({"path": path, "slots": len(slots), "oldest_age_s": time.time() - oldest,
-                          "hash": file_hash})
+            files.append({"path": path, "slots": len(slots), "oldest_age_s": time.time() - oldest, "hash": file_hash})
             total_slots += len(slots)
-        return {"success": True, "files": files, "total_files": len(files),
-                "total_slots": total_slots, "root": str(self._root)}
+        return {
+            "success": True,
+            "files": files,
+            "total_files": len(files),
+            "total_slots": total_slots,
+            "root": str(self._root),
+        }
 
     # ── Journal ──
 
-    def _append_journal(self, file_hash: str, slot_idx: int,
-                        path: str, op: str) -> None:
+    def _append_journal(self, file_hash: str, slot_idx: int, path: str, op: str) -> None:
         journal = self._root / file_hash / RESOURCE_BUFFER_JOURNAL_FILE
         with open(journal, "a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "slot": slot_idx, "path": path, "op": op,
-                "ts": time.time(),
-            }, ensure_ascii=False) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "slot": slot_idx,
+                        "path": path,
+                        "op": op,
+                        "ts": time.time(),
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
 
     def _resolve_path_from_journal(self, journal: Path) -> str:
         """Read the last journal entry to find the original file path."""

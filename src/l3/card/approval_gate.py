@@ -1,4 +1,5 @@
 """Human approval gate — persisted, blocks tool execution until human confirms."""
+
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,8 @@ REJECTED = "rejected"
 TIMEOUT = "timeout"
 
 # Resolve persistence defaults from config with params fallback
-from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE as _DEFAULT_AUTO_SAVE
-from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT as _DEFAULT_WAIT_TIMEOUT
+from l1.kernel.params.system import APPROVAL_GATE_AUTO_SAVE as _DEFAULT_AUTO_SAVE  # noqa: E402
+from l1.kernel.params.system import APPROVAL_GATE_WAIT_TIMEOUT as _DEFAULT_WAIT_TIMEOUT  # noqa: E402
 
 _AUTO_SAVE: float = _DEFAULT_AUTO_SAVE
 _WAIT_TIMEOUT: float = _DEFAULT_WAIT_TIMEOUT
@@ -34,6 +35,7 @@ if _cfg:
 @dataclass
 class ApprovalRequest:
     """ApprovalRequest — approval request record (id, tool_name, agent_id, args, reason)."""
+
     id: str = field(default_factory=lambda: f"apr-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
     tool_name: str = ""
     agent_id: str = ""
@@ -92,22 +94,31 @@ class ApprovalGate(PersistableMixin):
 
     def _serialize(self) -> dict:
         return {
-            "requests": {rid: {
-                "id": r.id, "tool_name": r.tool_name, "agent_id": r.agent_id,
-                "args": {k: str(v)[:LOG_TRUNC_200] for k, v in r.args.items()},
-                "reason": r.reason, "status": r.status,
-                "created_at": r.created_at, "responded_at": r.responded_at,
-                "response": r.response,
-            } for rid, r in self._requests.items()},
+            "requests": {
+                rid: {
+                    "id": r.id,
+                    "tool_name": r.tool_name,
+                    "agent_id": r.agent_id,
+                    "args": {k: str(v)[:LOG_TRUNC_200] for k, v in r.args.items()},
+                    "reason": r.reason,
+                    "status": r.status,
+                    "created_at": r.created_at,
+                    "responded_at": r.responded_at,
+                    "response": r.response,
+                }
+                for rid, r in self._requests.items()
+            },
         }
 
     def _deserialize(self, data: dict) -> bool:
         self._requests.clear()
         for rid, d in data.get("requests", {}).items():
             ar = ApprovalRequest(
-                id=d["id"], tool_name=d.get("tool_name", ""),
+                id=d["id"],
+                tool_name=d.get("tool_name", ""),
                 agent_id=d.get("agent_id", ""),
-                args=d.get("args", {}), reason=d.get("reason", ""),
+                args=d.get("args", {}),
+                reason=d.get("reason", ""),
                 status=d.get("status", PENDING),
                 created_at=d.get("created_at", 0.0),
                 responded_at=d.get("responded_at", 0.0),
@@ -116,11 +127,9 @@ class ApprovalGate(PersistableMixin):
             self._requests[rid] = ar
         return True
 
-    def request(self, tool_name: str, agent_id: str, args: dict,
-                reason: str = "") -> ApprovalRequest:
+    def request(self, tool_name: str, agent_id: str, args: dict, reason: str = "") -> ApprovalRequest:
         """Create and persist a new approval request, returning it."""
-        ar = ApprovalRequest(tool_name=tool_name, agent_id=agent_id,
-                             args=args, reason=reason)
+        ar = ApprovalRequest(tool_name=tool_name, agent_id=agent_id, args=args, reason=reason)
         with self._lock:
             self._requests[ar.id] = ar
             self._persist()
@@ -129,9 +138,12 @@ class ApprovalGate(PersistableMixin):
         try:
             from l1.kernel import emit_signal
 
-            emit_signal("APPROVAL_REQUIRED", sender="approval_gate",
-                        target="cell", data={"req_id": ar.id, "tool_name": tool_name,
-                                             "agent_id": agent_id, "reason": reason})
+            emit_signal(
+                "APPROVAL_REQUIRED",
+                sender="approval_gate",
+                target="cell",
+                data={"req_id": ar.id, "tool_name": tool_name, "agent_id": agent_id, "reason": reason},
+            )
         except Exception:
             logger.debug("approval_gate: APPROVAL_REQUIRED emit failed")
         return ar
@@ -153,10 +165,12 @@ class ApprovalGate(PersistableMixin):
         try:
             from l1.kernel import emit_signal
 
-            emit_signal("APPROVAL_RESPONDED", sender="approval_gate",
-                        target="cell", data={"req_id": req_id, "approved": approved,
-                                             "response": response,
-                                             "status": ar.status})
+            emit_signal(
+                "APPROVAL_RESPONDED",
+                sender="approval_gate",
+                target="cell",
+                data={"req_id": req_id, "approved": approved, "response": response, "status": ar.status},
+            )
         except Exception:
             logger.debug("approval_gate: APPROVAL_RESPONDED emit failed")
         return {"success": True, "status": ar.status}
@@ -165,10 +179,16 @@ class ApprovalGate(PersistableMixin):
         """Return a list of summary dicts for all pending requests."""
         with self._lock:
             return [
-                {"id": r.id, "tool_name": r.tool_name, "agent_id": r.agent_id,
-                 "reason": r.reason, "created_at": r.created_at,
-                 "args": {k: str(v)[:LOG_TRUNC_100] for k, v in r.args.items()}}
-                for r in self._requests.values() if r.status == PENDING
+                {
+                    "id": r.id,
+                    "tool_name": r.tool_name,
+                    "agent_id": r.agent_id,
+                    "reason": r.reason,
+                    "created_at": r.created_at,
+                    "args": {k: str(v)[:LOG_TRUNC_100] for k, v in r.args.items()},
+                }
+                for r in self._requests.values()
+                if r.status == PENDING
             ]
 
     def stats(self) -> dict:

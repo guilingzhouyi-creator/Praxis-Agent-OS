@@ -38,9 +38,10 @@ logger = logging.getLogger(__name__)
 
 class SpecState(Enum):
     """Per-Spec gate state in the Cell."""
-    DISABLED = auto()      # Invisible to all agents.  Default.
+
+    DISABLED = auto()  # Invisible to all agents.  Default.
     CELL_ENABLED = auto()  # Visible to agents with ring >= min_ring.
-    AGENT_GRANTED = auto() # Visible only to explicitly granted agents.
+    AGENT_GRANTED = auto()  # Visible only to explicitly granted agents.
 
 
 class SubAgentRegistry:
@@ -64,8 +65,7 @@ class SubAgentRegistry:
                     "granted_agents": set(),
                 }
 
-    def set_spec_state(self, spec_name: str, state: SpecState,
-                       min_ring: int | None = None) -> dict:
+    def set_spec_state(self, spec_name: str, state: SpecState, min_ring: int | None = None) -> dict:
         """Set gate state for a spec.  Returns {"success": bool}."""
         with self._lock:
             if spec_name not in self._specs:
@@ -73,8 +73,7 @@ class SubAgentRegistry:
             self._specs[spec_name]["state"] = state
             if min_ring is not None:
                 self._specs[spec_name]["min_ring"] = min_ring
-            logger.info("permission: %s → %s (min_ring=%s)",
-                        spec_name, state.name, self._specs[spec_name]["min_ring"])
+            logger.info("permission: %s → %s (min_ring=%s)", spec_name, state.name, self._specs[spec_name]["min_ring"])
             return {"success": True}
 
     def agent_grant(self, agent_id: str, spec_name: str) -> dict:
@@ -100,8 +99,7 @@ class SubAgentRegistry:
 
     # ── Visibility queries ────────────────────────────────────────
 
-    def is_visible(self, spec_name: str, agent_id: str,
-                   agent_ring: int = 1) -> bool:
+    def is_visible(self, spec_name: str, agent_id: str, agent_ring: int = 1) -> bool:
         """Check if a spec is visible to an agent (stateless query).
 
         Gate hierarchy:
@@ -126,14 +124,13 @@ class SubAgentRegistry:
                 return agent_id in spec["granted_agents"]
             return False
 
-    def list_visible_specs(self, agent_id: str,
-                           agent_ring: int = 1) -> list[str]:
+    def list_visible_specs(self, agent_id: str, agent_ring: int = 1) -> list[str]:
         """Return all spec names visible to an agent."""
         if not _params.system.GLOBAL_SUBAGENT_ENABLED:
             return []
         visible: list[str] = []
         with self._lock:
-            for name, spec in self._specs.items():
+            for name, _spec in self._specs.items():
                 if self.is_visible(name, agent_id, agent_ring):
                     visible.append(name)
         return sorted(visible)

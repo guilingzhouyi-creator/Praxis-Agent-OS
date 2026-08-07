@@ -25,23 +25,27 @@ def autocomplete(line: str) -> list[dict]:
 
     if not stripped or stripped == "/":
         for c in cmds:
-            results.append({
-                "type": "command", "value": f"/{c['name']}",
-                "help": c["help"], "args": len(c.get("args", [])),
-            })
+            results.append(
+                {
+                    "type": "command",
+                    "value": f"/{c['name']}",
+                    "help": c["help"],
+                    "args": len(c.get("args", [])),
+                }
+            )
         return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
-    if stripped.startswith("/"):
-        parts = stripped[1:].split()
-    else:
-        parts = stripped.split()
+    parts = stripped[1:].split() if stripped.startswith("/") else stripped.split()
 
     if len(parts) == 0:
         for c in cmds:
-            results.append({
-                "type": "command", "value": f"/{c['name']}",
-                "help": c["help"],
-            })
+            results.append(
+                {
+                    "type": "command",
+                    "value": f"/{c['name']}",
+                    "help": c["help"],
+                }
+            )
         return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
     cmd_name = parts[0].lower()
@@ -51,10 +55,14 @@ def autocomplete(line: str) -> list[dict]:
         partial = parts[0].lower()
         for c in cmds:
             if c["name"].startswith(partial):
-                results.append({
-                    "type": "command", "value": f"/{c['name']}",
-                    "help": c["help"], "args": len(c.get("args", [])),
-                })
+                results.append(
+                    {
+                        "type": "command",
+                        "value": f"/{c['name']}",
+                        "help": c["help"],
+                        "args": len(c.get("args", [])),
+                    }
+                )
         return results[:SHELL_AUTOCOMPLETE_LIMIT]
 
     if cmd_info and cmd_name in ("connect", "spawn", "kill", "destroy", "card", "memory", "tokens"):
@@ -78,10 +86,12 @@ def autocomplete(line: str) -> list[dict]:
 def _complete_agent(partial: str, cmd_name: str = "") -> list[dict]:
     """Complete agent IDs matching *partial*.  Falls back to current state agent."""
     from .state import get_state
+
     state = get_state()
     results = []
     try:
         from l3.agent_terminal import get_terminals
+
         agents = list(get_terminals().keys())
     except Exception:
         logger.warning("completer: get_terminals failed, falling back to state agent_id")
@@ -101,7 +111,11 @@ def _complete_role(partial: str) -> list[dict]:
     Excludes the ``default`` role — it is a fallback, not a connectable role.
     """
     from l1.kernel.params.agent import CENTRAL_ROLES
+
     roles = [r for r in CENTRAL_ROLES if r != "default"]
     partial_l = partial.lower()
-    return [{"type": "role", "value": r, "help": f"role: {r}"}
-            for r in roles if not partial or r.lower().startswith(partial_l)]
+    return [
+        {"type": "role", "value": r, "help": f"role: {r}"}
+        for r in roles
+        if not partial or r.lower().startswith(partial_l)
+    ]

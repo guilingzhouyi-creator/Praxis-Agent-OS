@@ -1,6 +1,7 @@
 """Terminal action handlers — registry + default implementations.
 Extracted from agent_terminal.py for modularity.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +40,7 @@ def _inject_enabled(domain: str) -> bool:
 
     return _ie(domain)
 
+
 # ── Action handler registry (dual: method-name + function) ──
 
 _ACTION_HANDLERS: dict[str, str] = {}
@@ -65,13 +67,18 @@ def register_func_handler(action: str, handler_fn: Any) -> None:
 def get_action_handler(term, action: str):
     """Resolve action → handler via ToolConfig first, then legacy registries."""
     try:
-        from .tool_system.tool_config import ToolConfig as _TC
-        from .tool_system.tool_policy import ToolPolicy as _TP
-        if not _TP.is_allowed(term.agent_id, action):
+        from .tool_system.tool_config import ToolConfig as ToolConfigCls
+        from .tool_system.tool_policy import ToolPolicy as ToolPolicyCls
+
+        if not ToolPolicyCls.is_allowed(term.agent_id, action):
             return None
-        handler = _TC.resolve_handler(action)
+        handler = ToolConfigCls.resolve_handler(action)
         if handler:
-            return lambda t, c, p: (handler(c.params or {}, t.agent_id), [], handler(c.params or {}, t.agent_id).get("success", True))
+            return lambda t, c, p: (
+                handler(c.params or {}, t.agent_id),
+                [],
+                handler(c.params or {}, t.agent_id).get("success", True),
+            )
     except Exception:
         logger.debug("_term_handlers: handler resolution failed")
     direct_fn = _FUNC_HANDLERS.get(action)
@@ -93,6 +100,7 @@ def get_action_handler(term, action: str):
 
 
 # ── Default handlers (extensible) ──
+
 
 def handle_read_file(term, card, phases):
     """Handle read_file/list_dir actions using the terminal file cache."""
@@ -134,6 +142,7 @@ def handle_shell(term, card, phases):
     if session_id:
         try:
             from l3.shell import get_manager as _sh
+
             sm = _sh()
             existing = sm.get(session_id)
             if existing and existing.is_alive():
@@ -147,27 +156,40 @@ def handle_shell(term, card, phases):
 
     try:
         from l1.kernel.platform import run_shell
+
         r = run_shell(command, timeout=timeout)
         out = (r.stdout or "")[:LOG_TRUNC_3000]
         err = (r.stderr or "")[:LOG_TRUNC_1000]
         exit_code = r.returncode
         success = exit_code == 0
-        result = (f"{prompt_str}{command}\n{out}")
+        result = f"{prompt_str}{command}\n{out}"
         if err:
             result += f"\nstderr:\n{err}"
         if exit_code != 0:
             result += f"\nexit code: {exit_code}"
         phases.append(f"shell_done:{exit_code}")
-        return result, [{"exit_code": exit_code, "stdout_len": len(r.stdout or ""),
-                          "stderr_len": len(r.stderr or ""), "timed_out": False}], success
+        return (
+            result,
+            [
+                {
+                    "exit_code": exit_code,
+                    "stdout_len": len(r.stdout or ""),
+                    "stderr_len": len(r.stderr or ""),
+                    "timed_out": False,
+                }
+            ],
+            success,
+        )
     except subprocess.TimeoutExpired:
         phases.append("shell_timeout")
-        return f"{prompt_str}{command}\nTIMEOUT after {timeout}s", \
-               [{"exit_code": -1, "timed_out": True, "timeout": timeout}], False
+        return (
+            f"{prompt_str}{command}\nTIMEOUT after {timeout}s",
+            [{"exit_code": -1, "timed_out": True, "timeout": timeout}],
+            False,
+        )
     except FileNotFoundError:
         phases.append("shell_not_found")
-        return f"command not found: {command.split()[0]}", \
-               [{"exit_code": -2, "error": "command not found"}], False
+        return f"command not found: {command.split()[0]}", [{"exit_code": -2, "error": "command not found"}], False
     except Exception as e:
         phases.append("shell_error")
         return str(e), [{"exit_code": -3, "error": str(e)}], False
@@ -183,9 +205,12 @@ def handle_write(term, card, phases):
 def _handle_grep(args, agent):
     """Inline grep tool."""
     import subprocess as _sp
+
     cmd_list = _grep_cmd(args.get("pattern", ""), args.get("path", "."))
     try:
-        r = _sp.run(cmd_list, capture_output=True, text=True, timeout=get_tool_config("grep_timeout", TOOL_GREP_TIMEOUT))
+        r = _sp.run(
+            cmd_list, capture_output=True, text=True, timeout=get_tool_config("grep_timeout", TOOL_GREP_TIMEOUT)
+        )
         out = (r.stdout or "")[:LOG_TRUNC_4000] or "no matches"
         return {"success": True, "data": out}
     except FileNotFoundError:
@@ -197,12 +222,18 @@ def _handle_shell(args, agent):
     import subprocess as _sp
 
     from l1.kernel.platform import run_shell as _run_shell
+
     cmd = args.get("command", "")
     if not cmd:
         return {"success": False, "error": "command required"}
     try:
         r = _run_shell(cmd, timeout=SHELL_CMD_TIMEOUT)
-        return {"success": r.returncode == 0, "stdout": r.stdout[:LOG_TRUNC_3000], "stderr": r.stderr[:LOG_TRUNC_1000], "exit_code": r.returncode}
+        return {
+            "success": r.returncode == 0,
+            "stdout": r.stdout[:LOG_TRUNC_3000],
+            "stderr": r.stderr[:LOG_TRUNC_1000],
+            "exit_code": r.returncode,
+        }
     except _sp.TimeoutExpired:
         return {"success": False, "error": "timeout"}
 
@@ -244,49 +275,57 @@ def handle_think(term, card, phases):
         memory = get_memory()
         ctx_parts = []
         from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
+
         if _inject_enabled("memory"):
             # Task-aware injection: card metadata picks the dimension (execute→summary, decide→Mer, resume→layered)
             try:
                 from l3.memory.memory_inject import build_context as _inject
-                ring_context = _inject(term.agent_id, card=card,
-                                       max_tokens=CONTEXT_BUILD_MAX_TOKENS,
-                                       memory=memory)
+
+                ring_context = _inject(term.agent_id, card=card, max_tokens=CONTEXT_BUILD_MAX_TOKENS, memory=memory)
             except Exception:
-                ring_context = memory.build_context(
-                    term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
+                ring_context = memory.build_context(term.agent_id, max_tokens=CONTEXT_BUILD_MAX_TOKENS)
             if ring_context:
                 ctx_parts.append(ring_context)
             recent = term.context.recent(TERMINAL_CONTEXT_RECENT)
             if recent:
-                ctx_parts.append("=== Recent Context ===\n" + "\n".join(
-                    str(r.get("value", ""))[:LOG_TRUNC_200] for r in recent
-                ))
+                ctx_parts.append(
+                    "=== Recent Context ===\n" + "\n".join(str(r.get("value", ""))[:LOG_TRUNC_200] for r in recent)
+                )
         memory_context = "\n\n".join(ctx_parts)
 
         from l1.kernel.prompts import get_prompt
+
         base_prompt = get_prompt("agent_terminal.think").format(
-            agent_id=term.agent_id, role=term.role,
-            task=task, territory=term.territory,
+            agent_id=term.agent_id,
+            role=term.role,
+            task=task,
+            territory=term.territory,
             tools=term.ring,
         )
         system_prompt = base_prompt
         if memory_context:
             from l1.kernel.prompts import get_prompt as _gp
+
             system_prompt += _gp("agent_terminal.memory_context", "").format(memory_context=memory_context)
 
         human_user = card.params.get("user_id", "")
-        loop = AgentLoop(task=task, agent_id=term.agent_id, system=system_prompt,
-                         user_id=human_user or term.agent_id, cell_id=term.cell_id)
+        loop = AgentLoop(
+            task=task,
+            agent_id=term.agent_id,
+            system=system_prompt,
+            user_id=human_user or term.agent_id,
+            cell_id=term.cell_id,
+        )
         # Pass card-level gate_scope for GateChain enforcement
-        gate_scope = card.params.get('_gate_scope', '') if hasattr(card, 'params') else ''
+        gate_scope = card.params.get("_gate_scope", "") if hasattr(card, "params") else ""
         if gate_scope:
             loop._gate_scope = gate_scope
         # Card→skill linkage: derive card:nature / card:domain tags from the
         # driving card so skill retrieval biases toward this card type.
         try:
             _ptags = []
-            _nature = card.params.get('_card_nature', '') if hasattr(card, 'params') else ''
-            _domain = card.params.get('_card_domain', '') if hasattr(card, 'params') else ''
+            _nature = card.params.get("_card_nature", "") if hasattr(card, "params") else ""
+            _domain = card.params.get("_card_domain", "") if hasattr(card, "params") else ""
             if _nature:
                 _ptags.append(f"{R4_CARD_TAG_PREFIX}{_nature}")
                 loop._card_nature = _nature
@@ -296,20 +335,23 @@ def handle_think(term, card, phases):
                 loop.set_card_tags(_ptags)
         except Exception:
             logger.debug("term_handlers: card tags inject failed")
-        if getattr(term, '_pmu', None):
+        if getattr(term, "_pmu", None):
             loop.set_pmu(term._pmu)
         from l3.tool_system.tool_spec import is_muted as _is_muted
 
-        _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+        project_root = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
 
         def _resolve(p):
-            if _os.path.isabs(p): return p
-            for c in [_os.path.join(_PROJECT_ROOT, p), _os.path.abspath(p)]:
-                if _os.path.exists(c) or "write" in p: return c
-            return _os.path.join(_PROJECT_ROOT, p)
+            if _os.path.isabs(p):
+                return p
+            for c in [_os.path.join(project_root, p), _os.path.abspath(p)]:
+                if _os.path.exists(c) or "write" in p:
+                    return c
+            return _os.path.join(project_root, p)
 
         def _read(args, agent):
-            p = args.get("path", ""); full = _resolve(p)
+            p = args.get("path", "")
+            full = _resolve(p)
             try:
                 with open(full, encoding="utf-8") as f:
                     return {"success": True, "data": f.read()[:LOG_TRUNC_4000], "resolved": full}
@@ -336,13 +378,16 @@ def handle_think(term, card, phases):
 
         # ── Capability scoping: only register tools allowed by the step action ──
         allowed = card.params.get("_allowed_actions", [])
+
         def _scope(name: str) -> bool:
             return not allowed or name in allowed
 
         if _scope("read_file") and not _is_muted("read_file"):
             loop.add_tool("read_file", "Read file", {"path": "string"}, _read, parallel_safe=True)
         if _scope("grep_search") and not _is_muted("grep_search"):
-            loop.add_tool("grep_search", "Grep search", {"pattern": "string", "path": "string"}, _handle_grep, parallel_safe=True)
+            loop.add_tool(
+                "grep_search", "Grep search", {"pattern": "string", "path": "string"}, _handle_grep, parallel_safe=True
+            )
         if _scope("list_dir") and not _is_muted("list_dir"):
             loop.add_tool("list_dir", "List directory", {"path": "string"}, _list, parallel_safe=True)
         if _scope("write_file") and not _is_muted("write_file"):
@@ -353,19 +398,20 @@ def handle_think(term, card, phases):
             loop.add_tool("shell", "Run shell command", {"command": "string"}, _handle_shell)
 
         # Pet watchdog before entering the long-running AgentLoop (multi-turn LLM)
-        if getattr(term, '_watchdog_pet', None):
+        if getattr(term, "_watchdog_pet", None):
             term._watchdog_pet(term.agent_id)
 
-        ar = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
-                      model_config=term.model_config)
+        ar = loop.run(
+            max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT, model_config=term.model_config
+        )
 
         # Store loop for persistent mode (reuse across cards)
-        if getattr(term, '_persistent_loop', False):
+        if getattr(term, "_persistent_loop", False):
             with term._active_loop_lock:
                 term._active_loop = loop
 
         # Pet watchdog again after AgentLoop returns (before post-processing)
-        if getattr(term, '_watchdog_pet', None):
+        if getattr(term, "_watchdog_pet", None):
             term._watchdog_pet(term.agent_id)
 
         # ── Collect multi tool_use → batch TerminalCard for Agent internal parallel ──
@@ -375,11 +421,12 @@ def handle_think(term, card, phases):
                 batch_tool_calls.append({"name": tc["name"], "input": tc["input"]})
         if len(batch_tool_calls) > 1:
             from ._term_types import TerminalCard as _TCCard
+
             term.stdin.append(_TCCard(action="batch", target=card.target or "", batch=batch_tool_calls))
             phases.append(f"batch_sent:{len(batch_tool_calls)}")
 
-        output = ar.get("answer", "") or f"[AgentLoop] {len(ar.get('steps',[]))} steps"
-        phases.append(f"agentloop:{len(ar.get('steps',[]))}steps")
+        output = ar.get("answer", "") or f"[AgentLoop] {len(ar.get('steps', []))} steps"
+        phases.append(f"agentloop:{len(ar.get('steps', []))}steps")
 
         # Store thought result in memory (Ring 1) + context register
         memory.remember(
@@ -389,9 +436,12 @@ def handle_think(term, card, phases):
             tags=["think", card.action],
             ring=1,
         )
-        term.context.store(key=f"think:{card.target[:LOG_TRUNC_40]}",
-                           value={"agent": term.agent_id, "thought": card.target, "output": output[:LOG_TRUNC_200]},
-                           agent_id=term.agent_id, entry_type="thought")
+        term.context.store(
+            key=f"think:{card.target[:LOG_TRUNC_40]}",
+            value={"agent": term.agent_id, "thought": card.target, "output": output[:LOG_TRUNC_200]},
+            agent_id=term.agent_id,
+            entry_type="thought",
+        )
         phases.append("memory_stored")
         return output, [], True
     except Exception as e:
@@ -401,14 +451,21 @@ def handle_think(term, card, phases):
 # ── Handler dispatch map (legacy; prefer register_func_handler) ──
 
 _HANDLER_MAP: dict[str, Any] = {
-    "read_file": handle_read_file, "list_dir": handle_read_file,
-    "grep_search": handle_read_file, "scout": handle_scout,
-    "write_file": handle_write, "replace_string": handle_write,
-    "delete": handle_write, "rename": handle_write,
+    "read_file": handle_read_file,
+    "list_dir": handle_read_file,
+    "grep_search": handle_read_file,
+    "scout": handle_scout,
+    "write_file": handle_write,
+    "replace_string": handle_write,
+    "delete": handle_write,
+    "rename": handle_write,
     "think": handle_think,
-    "shell": handle_shell, "run_in_terminal": handle_shell,
-    "bash": handle_shell, "powershell": handle_shell,
-    "exec": handle_shell, "execute": handle_shell,
+    "shell": handle_shell,
+    "run_in_terminal": handle_shell,
+    "bash": handle_shell,
+    "powershell": handle_shell,
+    "exec": handle_shell,
+    "execute": handle_shell,
 }
 
 # Register all built-in handlers via the public API for extensibility

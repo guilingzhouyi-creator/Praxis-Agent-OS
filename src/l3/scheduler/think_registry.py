@@ -36,13 +36,15 @@ logger = logging.getLogger(__name__)
 
 # ── Keys used in config dicts ──
 
-ALL_KEYS = frozenset({
-    "reasoning_effort",   # "none" | "low" | "medium" | "high"
-    "thinking_budget",    # int, tokens
-    "max_tokens",         # int
-    "temperature",        # float
-    "model",              # str | None
-})
+ALL_KEYS = frozenset(
+    {
+        "reasoning_effort",  # "none" | "low" | "medium" | "high"
+        "thinking_budget",  # int, tokens
+        "max_tokens",  # int
+        "temperature",  # float
+        "model",  # str | None
+    }
+)
 
 DISTRIBUTION_MODES = frozenset({"inherit", "auto_balance", "manual"})
 
@@ -83,12 +85,10 @@ class ThinkQuotaRegistry:
 
     # ── Cell layer ────────────────────────────────────────────────────────
 
-    def set_cell(self, cell_id: str, distribution: str = "inherit",
-                 **config: Any) -> None:
+    def set_cell(self, cell_id: str, distribution: str = "inherit", **config: Any) -> None:
         """Set Cell-level think config and distribution mode."""
         if distribution not in DISTRIBUTION_MODES:
-            raise ValueError(f"invalid distribution mode: {distribution}, "
-                             f"must be one of {DISTRIBUTION_MODES}")
+            raise ValueError(f"invalid distribution mode: {distribution}, must be one of {DISTRIBUTION_MODES}")
         with self._lock:
             entry = self._cells.setdefault(cell_id, {})
             entry.update({k: v for k, v in config.items() if v is not None})
@@ -141,14 +141,13 @@ class ThinkQuotaRegistry:
         """
         try:
             from l3.services.model_service import get_service as _ms
+
             defn = _ms().resolve_strategy_pack(strategy_name)
         except Exception:
             defn = None
         if not defn:
-            return {"success": False,
-                    "error": f"unknown or disabled strategy: {strategy_name}"}
-        keys = {k: v for k, v in defn.items()
-                if k in ("reasoning_effort", "thinking_budget")}
+            return {"success": False, "error": f"unknown or disabled strategy: {strategy_name}"}
+        keys = {k: v for k, v in defn.items() if k in ("reasoning_effort", "thinking_budget")}
         if scope == "global":
             self.set_global(**keys)
         elif scope == "cell":
@@ -158,14 +157,12 @@ class ThinkQuotaRegistry:
             self.set_agent(cell_id, agent_id, **keys)
         else:
             return {"success": False, "error": f"unknown scope: {scope}"}
-        return {"success": True, "scope": scope, "name": name,
-                "strategy": strategy_name, "applied": list(keys)}
+        return {"success": True, "scope": scope, "name": name, "strategy": strategy_name, "applied": list(keys)}
 
     def clear_strategy(self, scope: str, name: str = "") -> dict:
         """Remove a strategy override from a think scope (restore defaults)."""
         if scope == "global":
-            self.set_global(reasoning_effort=THINK_REASONING_DEFAULT,
-                            thinking_budget=THINK_BUDGET_GLOBAL_DEFAULT)
+            self.set_global(reasoning_effort=THINK_REASONING_DEFAULT, thinking_budget=THINK_BUDGET_GLOBAL_DEFAULT)
         elif scope == "cell":
             with self._lock:
                 self._cells.pop(name, None)
@@ -174,14 +171,13 @@ class ThinkQuotaRegistry:
             self.remove_agent(cell_id, agent_id)
         else:
             return {"success": False, "error": f"unknown scope: {scope}"}
-        return {"success": True, "scope": scope, "name": name,
-                "restored": "defaults"}
+        return {"success": True, "scope": scope, "name": name, "restored": "defaults"}
 
     # ── Resolve ───────────────────────────────────────────────────────────
 
-    def resolve(self, cell_id: str, agent_id: str,
-                active_agents: int = 1,
-                agent_model_config: dict | None = None) -> dict[str, Any]:
+    def resolve(
+        self, cell_id: str, agent_id: str, active_agents: int = 1, agent_model_config: dict | None = None
+    ) -> dict[str, Any]:
         """Merge three layers: agent > cell > global, clamped to [0, max_budget].
 
         In *auto_balance* mode, if the Cell has a ``thinking_budget``, it
@@ -203,6 +199,7 @@ class ThinkQuotaRegistry:
         # Read upper bounds from settings_center
         try:
             from l3.config.settings_center import get_center
+
             center = get_center()
             max_budget = center.get("think.max_budget", THINK_MAX_BUDGET)
             max_reasoning = center.get("think.max_reasoning", "high")
@@ -210,9 +207,8 @@ class ThinkQuotaRegistry:
             max_budget = THINK_MAX_BUDGET
             max_reasoning = "high"
 
-        _EFFORT_RANK = {"none": 0, "low": 1, "medium": 2,
-                        "high": 3, "xhigh": 4, "max": 5}
-        max_rank = _EFFORT_RANK.get(max_reasoning, 5)
+        effort_rank = {"none": 0, "low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
+        max_rank = effort_rank.get(max_reasoning, 5)
 
         with self._lock:
             # Start with global
@@ -221,8 +217,7 @@ class ThinkQuotaRegistry:
             # Cell layer
             cell_entry = self._cells.get(cell_id, {})
             dist = cell_entry.get("distribution", "inherit")
-            cell_cfg = {k: v for k, v in cell_entry.items()
-                        if k != "distribution" and v is not None}
+            cell_cfg = {k: v for k, v in cell_entry.items() if k != "distribution" and v is not None}
             merged.update(cell_cfg)
 
             # Handle auto_balance: split Cell's thinking_budget
@@ -253,7 +248,7 @@ class ThinkQuotaRegistry:
 
         # ── Clamp: reasoning_effort rank ──
         if "reasoning_effort" in result:
-            current_rank = _EFFORT_RANK.get(result["reasoning_effort"], 0)
+            current_rank = effort_rank.get(result["reasoning_effort"], 0)
             if current_rank > max_rank:
                 result["reasoning_effort"] = max_reasoning
 
@@ -266,10 +261,8 @@ class ThinkQuotaRegistry:
         with self._lock:
             return {
                 "global": dict(self._global),
-                "cells": {cid: dict(entry)
-                          for cid, entry in self._cells.items()},
-                "agents": {key: dict(cfg)
-                           for key, cfg in self._agents.items()},
+                "cells": {cid: dict(entry) for cid, entry in self._cells.items()},
+                "agents": {key: dict(cfg) for key, cfg in self._agents.items()},
                 "cell_count": len(self._cells),
                 "agent_overrides": len(self._agents),
             }

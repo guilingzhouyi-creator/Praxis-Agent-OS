@@ -46,8 +46,7 @@ class SecurityVerdict:
         self.blocked_by: list[str] = []
         self.recommendation: str = ""
 
-    def add_gate(self, name: str, success: bool, detail: str = "",
-                 score: float = 0.0) -> None:
+    def add_gate(self, name: str, success: bool, detail: str = "", score: float = 0.0) -> None:
         """Record one gate result, updating the overall verdict."""
         self.gates[name] = {"success": success, "detail": detail, "score": score}
         if not success:
@@ -75,9 +74,16 @@ class CentralSecurity:
     def __init__(self):
         self._stats = {"checks": 0, "allowed": 0, "blocked": 0}
 
-    def check_all(self, action: str, agent_id: str, *,
-                  target: str = "", args: dict | None = None,
-                  tool_name: str = "", user_token: str = "") -> dict:
+    def check_all(
+        self,
+        action: str,
+        agent_id: str,
+        *,
+        target: str = "",
+        args: dict | None = None,
+        tool_name: str = "",
+        user_token: str = "",
+    ) -> dict:
         """Run ALL security gates and return unified verdict.
 
         Args:
@@ -94,20 +100,34 @@ class CentralSecurity:
         # 1. Constitution
         try:
             from l1.kernel.constitution import get_constitution as _gc
+
             cc = _gc().is_allowed(action, agent_id, target=target, territory=args.get("territory", "") if args else "")
             passed = cc.get("allowed", True)
-            verdict.add_gate("constitution", passed, str(cc.get("reason", "")), score=SECURITY_GATE_SCORE_CONSTITUTION if not passed else 0)
+            verdict.add_gate(
+                "constitution",
+                passed,
+                str(cc.get("reason", "")),
+                score=SECURITY_GATE_SCORE_CONSTITUTION if not passed else 0,
+            )
         except Exception as e:
-            verdict.add_gate("constitution", False, f"constitution error: {e}", score=SECURITY_GATE_SCORE_CONSTITUTION_ERROR)
+            verdict.add_gate(
+                "constitution", False, f"constitution error: {e}", score=SECURITY_GATE_SCORE_CONSTITUTION_ERROR
+            )
 
         # 2. GateChain (using correct check() API)
         try:
             from l1.kernel.gatechain import get_gatechain as _gg
+
             gcr = _gg().check(tool_name or action, agent_id, target=target)
             gc_allowed = gcr.get("allowed", True)
             gc_steps = gcr.get("steps", [])
             gc_decision = gcr.get("decision", "?")
-            verdict.add_gate("gatechain", gc_allowed, detail=f"decision={gc_decision}, steps={len(gc_steps)}", score=SECURITY_GATE_SCORE_GATECHAIN if not gc_allowed else 0)
+            verdict.add_gate(
+                "gatechain",
+                gc_allowed,
+                detail=f"decision={gc_decision}, steps={len(gc_steps)}",
+                score=SECURITY_GATE_SCORE_GATECHAIN if not gc_allowed else 0,
+            )
         except Exception as e:
             verdict.add_gate("gatechain", True, f"gatechain unavailable: {e}")
 
@@ -128,34 +148,49 @@ class CentralSecurity:
         # 4. Identity / clearance
         try:
             from l1.kernel.params.agent import AGENT_CLEARANCE
+
             ring = AGENT_CLEARANCE.get(agent_id, 1)
-            verdict.add_gate("clearance", ring >= 1, detail=f"agent_ring={ring}", score=SECURITY_GATE_SCORE_CLEARANCE if ring < 1 else 0)
+            verdict.add_gate(
+                "clearance",
+                ring >= 1,
+                detail=f"agent_ring={ring}",
+                score=SECURITY_GATE_SCORE_CLEARANCE if ring < 1 else 0,
+            )
         except Exception as e:
             verdict.add_gate("clearance", True, f"clearance unavailable: {e}")
 
         # 5. Tool mode (read/write gate)
         try:
-            from .tool_system.tool_config import ToolConfig as _TC
+            from .tool_system.tool_config import ToolConfig as ToolConfigCls
+
             mode = "read"  # legacy stub
             if mode == "read":
-                write_names = _TC.write_tool_names()
+                write_names = ToolConfigCls.write_tool_names()
                 if action in write_names:
-                    verdict.add_gate("tool_mode", False, "read mode, write blocked", score=SECURITY_GATE_SCORE_TOOL_MODE)
+                    verdict.add_gate(
+                        "tool_mode", False, "read mode, write blocked", score=SECURITY_GATE_SCORE_TOOL_MODE
+                    )
         except Exception as e:
             verdict.add_gate("tool_mode", True, f"tool_mode unavailable: {e}")
 
         # 6. Rate limit check
         try:
             from .tool_system.tool_pipeline import get_pipeline as _gp
+
             pipe = _gp()
             from l1.kernel.params.kernel import RING_1, RING_2_5
             from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
 
-            from .tool_system.tool_config import ToolConfig as _TC
-            tool_ring = _RNM.get(RING_2_5 if action in _TC.write_tool_names() else RING_1, 1)
+            from .tool_system.tool_config import ToolConfig as ToolConfigCls
+
+            tool_ring = _RNM.get(RING_2_5 if action in ToolConfigCls.write_tool_names() else RING_1, 1)
             rl = pipe._rate_limiter.check(agent_id, tool_ring)
-            verdict.add_gate("rate_limit", rl.get("allowed", True),
-                             detail=f"remaining={rl.get('remaining', 0)}", score=SECURITY_GATE_SCORE_RATE_LIMIT if not rl.get("allowed") else 0)
+            verdict.add_gate(
+                "rate_limit",
+                rl.get("allowed", True),
+                detail=f"remaining={rl.get('remaining', 0)}",
+                score=SECURITY_GATE_SCORE_RATE_LIMIT if not rl.get("allowed") else 0,
+            )
         except Exception:
             verdict.add_gate("rate_limit", True, "rate_limit unavailable")
 

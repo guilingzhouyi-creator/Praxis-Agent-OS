@@ -4,6 +4,7 @@ Extracted from:
   - _term_types.py: TerminalStatus, CardMode, TerminalCard, CardResult
   - _term_handlers.py: handler registry, default handlers, _HANDLER_MAP
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,9 +60,14 @@ _MODEL_SPEC = "peer_agent"
 class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
     """Persistent background terminal process for one Agent."""
 
-    def __init__(self, agent_id: str, role: str = "",
-                 territory: list[str] | None = None,
-                 cell_id: str = "", project_root: str = ""):
+    def __init__(
+        self,
+        agent_id: str,
+        role: str = "",
+        territory: list[str] | None = None,
+        cell_id: str = "",
+        project_root: str = "",
+    ):
         self.agent_id = agent_id
         self.role = role
         self.territory = territory or []
@@ -75,11 +81,16 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         self.model_config = None
         try:
             from ..scheduler.think_registry import get_think_registry
+
             reg = get_think_registry()
-            self.model_config = reg.resolve(
-                cell_id, agent_id,
-                agent_model_config=cfg.model_config if cfg else None,
-            ) or None
+            self.model_config = (
+                reg.resolve(
+                    cell_id,
+                    agent_id,
+                    agent_model_config=cfg.model_config if cfg else None,
+                )
+                or None
+            )
         except Exception:
             # Fallback: use config defaults directly
             self.model_config = cfg.model_config if cfg and cfg.model_config else None
@@ -111,6 +122,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         self._async_scout_count = 0
         self._tool_registry: dict[str, Any] | None = None
         from l1.kernel.params.agent import TERMINAL_MODE_DEFAULT, TERMINAL_STATE_DEFAULT
+
         self._loop_mode: str = TERMINAL_MODE_DEFAULT
         self._loop_state: str = TERMINAL_STATE_DEFAULT
         self._paused: bool = False
@@ -125,9 +137,11 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         self._cards_since_pressure_check: int = 0
         # ── AgentLoop instance budget (reserved, not yet enforced) ──
         from l1.kernel.params.agent import TERMINAL_MAX_CONCURRENT_LOOPS
+
         self._max_concurrent_loops: int = TERMINAL_MAX_CONCURRENT_LOOPS
         self._active_loops: int = 0
         from ..services.todo import TodoTable
+
         self.todo = TodoTable(agent_id)
         # Watchdog pet callback (set by Cell)
         self._watchdog_pet: Any = None
@@ -145,8 +159,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         if self._running:
             current = len([w for w in self._workers if w.is_alive()])
             for i in range(current, self._max_workers):
-                w = threading.Thread(target=self._worker, daemon=True,
-                                     name=f"term-{self.agent_id}-w{i}")
+                w = threading.Thread(target=self._worker, daemon=True, name=f"term-{self.agent_id}-w{i}")
                 w.start()
                 self._workers.append(w)
         return {"success": True, "max_workers": self._max_workers}
@@ -169,32 +182,46 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             return []
         from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
         from l3.tool_system.tool_spec import is_muted as _is_muted
+
         tools = []
         for name, spec in self._tool_registry.items():
             sr = getattr(spec, "ring", RING_1)
             if self.ring >= _RNM.get(sr, 1) and not _is_muted(name):
-                tools.append({"name": name, "ring": sr,
-                              "danger": getattr(spec, "danger", 0),
-                              "description": getattr(spec, "description", "")[:LOG_TRUNC_80]})
+                tools.append(
+                    {
+                        "name": name,
+                        "ring": sr,
+                        "danger": getattr(spec, "danger", 0),
+                        "description": getattr(spec, "description", "")[:LOG_TRUNC_80],
+                    }
+                )
         return sorted(tools, key=lambda t: (t["ring"], t["name"]))
 
-
-
-
-
-
-
     def _issue_card(self, card: TerminalCard) -> CardResult:
-        emit_signal(EVENT_REVIEW_REQUESTED, sender=self.agent_id, target="cell",
-                     data={"type": "issue", "action": card.action, "target": card.target,
-                           "params": card.params, "card_id": card.card_id, "proposed_by": self.agent_id})
-        return CardResult(card_id=card.card_id, action=card.action,
-                          success=True, output=f"issue created: {card.action}", phase=["issue"])
+        emit_signal(
+            EVENT_REVIEW_REQUESTED,
+            sender=self.agent_id,
+            target="cell",
+            data={
+                "type": "issue",
+                "action": card.action,
+                "target": card.target,
+                "params": card.params,
+                "card_id": card.card_id,
+                "proposed_by": self.agent_id,
+            },
+        )
+        return CardResult(
+            card_id=card.card_id,
+            action=card.action,
+            success=True,
+            output=f"issue created: {card.action}",
+            phase=["issue"],
+        )
 
     # ── Todo Table API ──
 
-    def add_todo(self, intent: str, domain: str = "", priority: int = 5,
-                 depends_on: list[str] | None = None) -> str:
+    def add_todo(self, intent: str, domain: str = "", priority: int = 5, depends_on: list[str] | None = None) -> str:
         """Add a todo entry; returns the new todo id."""
         tid = self.todo.add(intent, domain, priority, depends_on)
         with self._lock:
@@ -205,6 +232,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
     def list_todos(self, status: str = "", limit: int = 20) -> list[dict]:
         """List todos, optionally filtered by status, up to *limit* entries."""
         from ..services.todo import TodoStatus
+
         st = TodoStatus[status.upper()] if status else None
         return self.todo.list(st, limit)
 
@@ -258,6 +286,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
 
     def _convention_handler(self, card: TerminalCard) -> CardResult:
         from ..agent._term_convention import convention_handler as _ch
+
         return _ch(self, card)
 
     # ── Direct message handler ──
@@ -265,30 +294,39 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
     def _handle_direct(self, card: TerminalCard) -> CardResult:
         """Handle direct message via stdin queue. Runs AgentLoop, writes to Memory R2."""
         from ..agent.agent_loop import AgentLoop
+
         text = card.params.get("text", "")
         sender = card.params.get("sender", "shell")
         from l1.kernel.prompts import get_prompt as _get_prompt
+
         loop = AgentLoop(
-            task=text, agent_id=self.agent_id,
+            task=text,
+            agent_id=self.agent_id,
             system=_get_prompt("agent_terminal.direct").format(
-                agent_id=self.agent_id, role=self.role,
+                agent_id=self.agent_id,
+                role=self.role,
             ),
             cell_id=self.cell_id,
         )
-        result = loop.run(max_steps=AGENT_LOOP_DEFAULT_STEPS, timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
-                          **_get_model_service().resolve_dict(_MODEL_SPEC))
+        result = loop.run(
+            max_steps=AGENT_LOOP_DEFAULT_STEPS,
+            timeout=AGENT_LOOP_DEFAULT_TIMEOUT,
+            **_get_model_service().resolve_dict(_MODEL_SPEC),
+        )
         answer = result.get("answer", "")
         try:
             from ..memory.memory import get_memory
+
             get_memory().remember(
-                agent_id=self.agent_id, entry_type="direct_message",
+                agent_id=self.agent_id,
+                entry_type="direct_message",
                 content=f"{sender}: {text[:LOG_TRUNC_200]}\nAgent: {answer[:LOG_TRUNC_500]}",
-                tags=["direct_session"], ring=2,
+                tags=["direct_session"],
+                ring=2,
             )
         except Exception:
             logger.debug("agent_terminal: direct message remember failed")
-        return CardResult(card_id=card.card_id, action="direct_message",
-                          success=True, output=answer)
+        return CardResult(card_id=card.card_id, action="direct_message", success=True, output=answer)
 
     def spawn_scout_async(self, template: str, scope: dict | None = None) -> dict:
         """Spawn a scout in the background; returns an ack with scout_id."""
@@ -298,8 +336,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
                 return {"success": False, "error": f"max async scouts ({self.max_scouts})"}
             self._async_scout_count += 1
             self._async_pending.add(scout_id)
-        threading.Thread(target=self._run_async_scout, args=(scout_id, template, scope or {}),
-                         daemon=True).start()
+        threading.Thread(target=self._run_async_scout, args=(scout_id, template, scope or {}), daemon=True).start()
         return {"success": True, "scout_id": scout_id, "async": True}
 
     def _run_async_scout(self, scout_id: str, template: str, scope: dict) -> None:
@@ -369,6 +406,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
     def set_mode(self, mode: str) -> dict:
         """Set the loop mode; returns success or a validation error."""
         from l1.kernel.params.agent import TERMINAL_MODE_VALID
+
         valid = TERMINAL_MODE_VALID
         if mode not in valid:
             return {"success": False, "error": f"mode must be one of {valid}"}
@@ -393,7 +431,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         for w in self._workers:
             w.join(timeout=AGENT_TERMINAL_WORKER_JOIN_TIMEOUT)
         # Clean up any orphaned convention loops
-        for conv_id, session in list(self._convention_loops.items()):
+        for _conv_id, session in list(self._convention_loops.items()):
             loop_obj = session.get("loop")
             if loop_obj:
                 try:
@@ -406,9 +444,10 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         # Lifecycle hook chain: session_end (agent session terminated)
         try:
             from l3.services.hook import get_hook_chain as _get_hc
-            _get_hc().session_end({"agent_id": self.agent_id,
-                                   "cards_processed": self._cards_processed,
-                                   "status": "stopped"})
+
+            _get_hc().session_end(
+                {"agent_id": self.agent_id, "cards_processed": self._cards_processed, "status": "stopped"}
+            )
         except Exception as e:
             logger.debug("agent_terminal: session_end hook emit failed: %s", e)
         return {"success": True, "agent_id": self.agent_id, "cards_processed": self._cards_processed}
@@ -419,13 +458,13 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             return {"reachable": False, "reason": "not_running"}
         if self.status in (TerminalStatus.CRASHED, TerminalStatus.STOPPED):
             return {"reachable": False, "reason": self.status.name.lower()}
-        return {"reachable": True, "reason": "ready",
-                "queue_depth": len(self.stdin) if hasattr(self, 'stdin') else 0}
+        return {"reachable": True, "reason": "ready", "queue_depth": len(self.stdin) if hasattr(self, "stdin") else 0}
 
     def send_direct_message(self, text: str, sender: str = "shell") -> dict:
         """Queue a direct message as a TerminalCard via stdin."""
         from ..agent._term_types import CardMode as TermCardMode
         from ..agent._term_types import TerminalCard
+
         card = TerminalCard(
             mode=TermCardMode.EXECUTE,
             action="direct_message",
@@ -440,11 +479,17 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         """Return a snapshot of terminal status and counters."""
         with self._lock:
             return {
-                "agent_id": self.agent_id, "role": self.role, "ring": self.ring,
-                "status": self.status.name, "cards_processed": self._cards_processed,
-                "alive": self._running, "active_cards": self._active_cards,
-                "mode": self._loop_mode, "loop_state": self._loop_state,
-                "paused": self._paused, "current_card": self._current_card,
+                "agent_id": self.agent_id,
+                "role": self.role,
+                "ring": self.ring,
+                "status": self.status.name,
+                "cards_processed": self._cards_processed,
+                "alive": self._running,
+                "active_cards": self._active_cards,
+                "mode": self._loop_mode,
+                "loop_state": self._loop_state,
+                "paused": self._paused,
+                "current_card": self._current_card,
             }
 
 
@@ -454,9 +499,7 @@ _terminals: dict[str, AgentTerminal] = {}
 _terminals_lock = threading.Lock()
 
 
-def get_terminal(agent_id: str, role: str = "",
-                 territory: list[str] | None = None,
-                 cell_id: str = "") -> AgentTerminal:
+def get_terminal(agent_id: str, role: str = "", territory: list[str] | None = None, cell_id: str = "") -> AgentTerminal:
     """Return the shared terminal for *agent_id*, creating it on first use."""
     with _terminals_lock:
         if agent_id not in _terminals:

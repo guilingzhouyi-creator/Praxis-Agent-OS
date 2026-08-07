@@ -38,7 +38,7 @@ from l3.card.card_unified import CardLifecycle
 logger = logging.getLogger(__name__)
 
 # Resolve auto-save interval from config with params fallback
-from l1.kernel.params.system import CARD_GATE_AUTO_SAVE as _PARAMS_AUTO_SAVE
+from l1.kernel.params.system import CARD_GATE_AUTO_SAVE as _PARAMS_AUTO_SAVE  # noqa: E402
 
 _GATE_AUTO_SAVE: float = _PARAMS_AUTO_SAVE
 _cfg = _get_config("persistence")
@@ -48,6 +48,7 @@ if _cfg:
 
 class CardSize(Enum):
     """CardSize — enum of SMALL, MEDIUM, LARGE, DISPUTED."""
+
     SMALL = auto()
     MEDIUM = auto()
     LARGE = auto()
@@ -56,6 +57,7 @@ class CardSize(Enum):
 
 class ApprovalStatus(Enum):
     """ApprovalStatus — enum of PENDING, AUTO_APPROVED, HUMAN_APPROVED, HUMAN_REJECTED...."""
+
     PENDING = auto()
     AUTO_APPROVED = auto()
     HUMAN_APPROVED = auto()
@@ -84,6 +86,7 @@ _DEFAULT_AUTO_APPROVAL: dict[str, bool] = {
 
 # ── Gate engine with persistence ──
 
+
 class CardGate(PersistableMixin):
     """Card Gate engine — classify, evaluate, hold, approve, persist."""
 
@@ -106,12 +109,10 @@ class CardGate(PersistableMixin):
             return
         t = cfg.get("thresholds", {})
         if t:
-            self._thresholds.update({k: int(v) for k, v in t.items()
-                                      if k in _DEFAULT_THRESHOLDS})
+            self._thresholds.update({k: int(v) for k, v in t.items() if k in _DEFAULT_THRESHOLDS})
         a = cfg.get("auto_approval", {})
         if a:
-            self._auto_approval.update({k: bool(v) for k, v in a.items()
-                                         if k in _DEFAULT_AUTO_APPROVAL})
+            self._auto_approval.update({k: bool(v) for k, v in a.items() if k in _DEFAULT_AUTO_APPROVAL})
         logger.info("card_gate config loaded")
 
     # ── Persistence ──
@@ -144,8 +145,9 @@ class CardGate(PersistableMixin):
                 try:
                     self._thresholds[k] = int(v)
                 except (TypeError, ValueError):
-                    logger.warning("card_gate: invalid persisted threshold %s=%r, keeping default %s",
-                                   k, v, _DEFAULT_THRESHOLDS[k])
+                    logger.warning(
+                        "card_gate: invalid persisted threshold %s=%r, keeping default %s", k, v, _DEFAULT_THRESHOLDS[k]
+                    )
         self._auto_approval.update(data.get("auto_approval", {}))
         return True
 
@@ -159,9 +161,14 @@ class CardGate(PersistableMixin):
         lower = intent.lower()
         return any(kw in lower for kw in CARD_GATE_ARCH_KEYWORDS)
 
-    def classify(self, intent: str = "", domain: str = "",
-                 file_count: int = 0, estimated_lines: int = 0,
-                 has_conflict: bool = False) -> CardSize:
+    def classify(
+        self,
+        intent: str = "",
+        domain: str = "",
+        file_count: int = 0,
+        estimated_lines: int = 0,
+        has_conflict: bool = False,
+    ) -> CardSize:
         """Classify a card into a size tier based on conflict and work estimate."""
         if has_conflict:
             return CardSize.DISPUTED
@@ -170,7 +177,10 @@ class CardGate(PersistableMixin):
             return CardSize.LARGE
         if file_count <= self._thresholds["small_max_files"] and estimated_lines <= self._thresholds["small_max_lines"]:
             return CardSize.SMALL
-        if file_count <= self._thresholds["medium_max_files"] and estimated_lines <= self._thresholds["medium_max_lines"]:
+        if (
+            file_count <= self._thresholds["medium_max_files"]
+            and estimated_lines <= self._thresholds["medium_max_lines"]
+        ):
             return CardSize.MEDIUM
         return CardSize.LARGE
 
@@ -178,6 +188,7 @@ class CardGate(PersistableMixin):
         """Stamp approval trail on card record."""
         try:
             from .card_registry import get_registry
+
             reg = get_registry()
             card = reg._cards.get(card_id)
             if card:
@@ -190,26 +201,36 @@ class CardGate(PersistableMixin):
         except Exception:
             logger.debug("card_gate: approval set failed")
 
-    def evaluate(self, card_id: str, intent: str = "", domain: str = "",
-                 file_count: int = 0, estimated_lines: int = 0,
-                 has_conflict: bool = False) -> dict:
+    def evaluate(
+        self,
+        card_id: str,
+        intent: str = "",
+        domain: str = "",
+        file_count: int = 0,
+        estimated_lines: int = 0,
+        has_conflict: bool = False,
+    ) -> dict:
         """Evaluate a card and return an approval decision dict."""
         size = self.classify(intent, domain, file_count, estimated_lines, has_conflict)
         size_name = size.name.lower()
         auto_ok = self._auto_approval.get(size_name, False)
 
         with self._lock:
-            self._history.append({
-                "card_id": card_id, "size": size_name,
-                "status": ApprovalStatus.AUTO_APPROVED.name if auto_ok else ApprovalStatus.PENDING.name,
-                "timestamp": time.time(),
-            })
+            self._history.append(
+                {
+                    "card_id": card_id,
+                    "size": size_name,
+                    "status": ApprovalStatus.AUTO_APPROVED.name if auto_ok else ApprovalStatus.PENDING.name,
+                    "timestamp": time.time(),
+                }
+            )
             self._persist()
 
         if auto_ok:
             self._stamp(card_id, "auto_approved", size_name, "system")
             return {
-                "card_id": card_id, "size": size_name,
+                "card_id": card_id,
+                "size": size_name,
                 "auto_approve": True,
                 "status": ApprovalStatus.AUTO_APPROVED.name,
                 "action": "dispatch",
@@ -217,13 +238,23 @@ class CardGate(PersistableMixin):
 
         self._stamp(card_id, "pending", size_name, "gate")
         from .card.pending_queue import get_queue
+
         get_queue().enqueue(card_id, intent=intent, domain=domain, size=size_name)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="card_gate", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "event": "held_for_approval",
-                           "size": size_name, "intent": intent[:LOG_TRUNC_200]})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="card_gate",
+            target=SIGNAL_TARGET_L3,
+            data={
+                "card_id": card_id,
+                "event": "held_for_approval",
+                "size": size_name,
+                "intent": intent[:LOG_TRUNC_200],
+            },
+        )
         return {
-            "card_id": card_id, "size": size_name,
+            "card_id": card_id,
+            "size": size_name,
             "auto_approve": False,
             "status": ApprovalStatus.PENDING.name,
             "action": "hold" if size_name == "large" else "convention",
@@ -233,6 +264,7 @@ class CardGate(PersistableMixin):
         """Approve or reject a pending card, delegating to PendingQueue."""
         # Delegate to PendingQueue
         from .card.pending_queue import get_queue
+
         pq = get_queue()
         items = pq.list(status=WitnessStatus.PENDING)
         for item in items:
@@ -245,6 +277,7 @@ class CardGate(PersistableMixin):
     def list_pending(self) -> list[dict]:
         """Return all cards waiting for human approval."""
         from .card.pending_queue import get_queue
+
         return get_queue().list(status=WitnessStatus.PENDING)
 
     def list_history(self, limit: int = CARD_GATE_HISTORY_LIMIT) -> list[dict]:
@@ -280,9 +313,14 @@ def load_config(cfg: dict) -> None:
     get_gate().load_config(cfg)
 
 
-def evaluate(card_id: str, intent: str = "", domain: str = "",
-             file_count: int = 0, estimated_lines: int = 0,
-             has_conflict: bool = False) -> dict:
+def evaluate(
+    card_id: str,
+    intent: str = "",
+    domain: str = "",
+    file_count: int = 0,
+    estimated_lines: int = 0,
+    has_conflict: bool = False,
+) -> dict:
     """Evaluate a card via the singleton gate and return the approval decision."""
     return get_gate().evaluate(card_id, intent, domain, file_count, estimated_lines, has_conflict)
 

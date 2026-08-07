@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 import subprocess
 import threading
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
 from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
 from l1.kernel.params.tool import (
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Package:
     """Package — package record (name, version, manager, description, installed)."""
+
     name: str
     version: str = ""
     manager: str = ""
@@ -55,6 +56,7 @@ class PackageManager(BaseService):
     def _run(self, cmd: list[str], timeout: int = TOOL_PACKAGE_MANAGER_TIMEOUT) -> dict:
         """Run a package manager command."""
         from l1.kernel.platform import run_args
+
         try:
             r = run_args(cmd, timeout=timeout)
             with self._lock:
@@ -135,8 +137,7 @@ class PackageManager(BaseService):
 
     # ── Unified ──
 
-    def install(self, package: str, manager: str = "pip",
-                version: str = "") -> dict:
+    def install(self, package: str, manager: str = "pip", version: str = "") -> dict:
         """Install a package using the specified package manager."""
         handlers = {
             "pip": lambda: self.pip_install(package, version),

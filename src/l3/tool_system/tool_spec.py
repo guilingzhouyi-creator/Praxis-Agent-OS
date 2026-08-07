@@ -52,6 +52,7 @@ _MIDDLEWARE: list[dict] = []
 
 # ── Tool handler Protocol ──
 
+
 @runtime_checkable
 class ToolHandler(Protocol):
     """Protocol for tool handler functions.
@@ -59,14 +60,17 @@ class ToolHandler(Protocol):
     Every tool handler must accept (args: dict, agent_id: str) -> dict.
     Use this as the type annotation for ToolSpec.handler.
     """
+
     def __call__(self, args: dict, agent_id: str) -> dict: ...
 
 
 class ToolRing:
     """Canonical tool ring constants — single source in kernel.params."""
+
     # Re-export from kernel.params so callers importing from tool_spec still
     # work, but there is ONE source of truth (kernel.params.RING_*).
     from l1.kernel.params.kernel import RING_1, RING_2_5, RING_3
+
 
 RING_GATE_MAP: dict[str, list[str]] = {
     ToolRing.RING_1: ["G1", "G2"],
@@ -78,6 +82,7 @@ RING_GATE_MAP: dict[str, list[str]] = {
 @dataclass
 class ParamSpec:
     """Tool parameter specification."""
+
     name: str
     type: str = "string"
     required: bool = False
@@ -98,11 +103,16 @@ class ParamSpec:
 @dataclass
 class ReturnSpec:
     """Tool return value specification."""
+
     type: str = "object"
     description: str = ""
-    properties: dict[str, str] = field(default_factory=lambda: {
-        "success": "bool", "data": "any", "error": "string?",
-    })
+    properties: dict[str, str] = field(
+        default_factory=lambda: {
+            "success": "bool",
+            "data": "any",
+            "error": "string?",
+        }
+    )
 
 
 @dataclass
@@ -119,6 +129,7 @@ class ToolSpec:
     Also available as ToolSpecBase(RegisterableSpec) for users of the
     unified registry architecture (see registry_base.py).
     """
+
     name: str
     description: str
     category: str
@@ -178,9 +189,12 @@ class ToolSpec:
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict."""
         return {
-            "name": self.name, "description": self.description,
-            "category": self.category, "ring": self.ring,
-            "danger": self.danger, "gates": self.gates,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "ring": self.ring,
+            "danger": self.danger,
+            "gates": self.gates,
             "parallel_safe": self.parallel_safe,
             "sandbox_profile": self.sandbox_profile,
         }
@@ -196,6 +210,7 @@ class ToolSpecBase(RegisterableSpec):
     Use this when registering tools via a MapRegistry[ToolSpecBase]
     from the unified registry architecture.
     """
+
     ring: str = RING_1
     danger: int = 0
     gates: list[str] = field(default_factory=list)
@@ -248,15 +263,22 @@ class ToolSpecBase(RegisterableSpec):
             },
         }
 
+
 # ═════════════════════════════════════════════════════════════════════════════
 # @tool decorator — register a tool at module load time
 # ═════════════════════════════════════════════════════════════════════════════
 
-def tool(name: str = "", description: str = "", category: str = "",
-         ring: str = RING_1, danger: int = 0,
-         params: list | None = None,
-         parallel_safe: bool = False,
-         metadata: dict | None = None) -> Callable:
+
+def tool(
+    name: str = "",
+    description: str = "",
+    category: str = "",
+    ring: str = RING_1,
+    danger: int = 0,
+    params: list | None = None,
+    parallel_safe: bool = False,
+    metadata: dict | None = None,
+) -> Callable:
     """Decorator: register a ToolSpec when the decorated function is defined.
 
     Usage::
@@ -270,6 +292,7 @@ def tool(name: str = "", description: str = "", category: str = "",
     The tool is registered immediately upon module import.
     The original handler function is returned (not wrapped).
     """
+
     def decorator(handler: Callable) -> Callable:
         """Wrap a handler, register its ToolSpec, and return the original handler."""
         spec = ToolSpec(
@@ -285,12 +308,14 @@ def tool(name: str = "", description: str = "", category: str = "",
         )
         register(spec)
         return handler
+
     return decorator
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Auto-discovery (deprecated — use ToolConfig.load() instead)
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 def auto_discover(package_path: str = "") -> int:
     """Deprecated: use ToolConfig.load(). Kept for backward compat."""
@@ -300,6 +325,7 @@ def auto_discover(package_path: str = "") -> int:
 # ═════════════════════════════════════════════════════════════════════════════
 # Execution with middleware
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     """Execute a tool through the registry, with mute and middleware support."""
@@ -319,9 +345,10 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     # ── ResultStore: try cache hit for read-only tools ──
     from l3.memory.result_store import get_result_store as _get_rs
 
-    from .tool_config import ToolConfig as _TC
+    from .tool_config import ToolConfig as ToolConfigCls
+
     _rs = _get_rs()
-    is_write = tool_name in _TC.write_tool_names()
+    is_write = tool_name in ToolConfigCls.write_tool_names()
     if not is_write and spec.ring == RING_1:
         _fp = _rs.fingerprint(tool_name, args)
         _cached = _rs.get(_fp)
@@ -364,9 +391,8 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     # Record tool call
     try:
         from l3.services.counter import get_counter
-        get_counter().record_tool(agent_id=agent_id or "unknown",
-                                  tool=tool_name,
-                                  success=result.get("success", False))
+
+        get_counter().record_tool(agent_id=agent_id or "unknown", tool=tool_name, success=result.get("success", False))
     except Exception as e:
         logger.warning("tool counter failed: %s", e)
 
@@ -383,12 +409,19 @@ def execute_tool_spec(tool_name: str, args: dict, agent_id: str = "") -> dict:
     # ── Reference Channel: {prediction, actual, deviation} triplet ──
     try:
         from l3.bus.reference_channel import get_rc as _rc
+
         actual_ok = result.get("success", False)
         pred_summary = result.get("data", result.get("output", ""))[:LOG_TRUNC_200]
-        _rc().tool_call(tool_name, agent_id, allowed=actual_ok,
-                        gate="", reason="", args=args,
-                        predicted_success=True,
-                        predicted_summary=pred_summary)
+        _rc().tool_call(
+            tool_name,
+            agent_id,
+            allowed=actual_ok,
+            gate="",
+            reason="",
+            args=args,
+            predicted_success=True,
+            predicted_summary=pred_summary,
+        )
     except Exception:
         logger.debug("tool_spec: prediction record failed")
 

@@ -9,7 +9,6 @@ Endpoints:
 from __future__ import annotations
 
 
-
 def _get_auth():
     from l4.vault.auth import get_service
 
@@ -31,8 +30,7 @@ def handle_auth_login(body: dict | None = None) -> dict:
         r = _get_auth().issue_token(identity, ttl=ttl)
     except Exception as e:
         return {"success": False, "error": f"login failed: {e}"}
-    return {"success": True, "token": r.get("token"),
-            "identity": identity, "expires_at": r.get("expires_at")}
+    return {"success": True, "token": r.get("token"), "identity": identity, "expires_at": r.get("expires_at")}
 
 
 def handle_auth_logout(body: dict | None = None) -> dict:
@@ -60,8 +58,7 @@ def handle_auth_refresh(body: dict | None = None) -> dict:
         return {"success": False, "error": f"refresh failed: {e}"}
     if not r.get("success"):
         return {"success": False, "error": r.get("error", "invalid token")}
-    return {"success": True, "token": r.get("token"),
-            "identity": r.get("identity"), "expires_at": r.get("expires_at")}
+    return {"success": True, "token": r.get("token"), "identity": r.get("identity"), "expires_at": r.get("expires_at")}
 
 
 # Re-export for introspection tools that scan module-level handler names.

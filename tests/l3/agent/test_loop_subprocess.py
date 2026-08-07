@@ -36,8 +36,7 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
         def context_window(self):
             return 32_000
 
-        def tool_use(self, prompt, tools, system="", max_turns=5,
-                     user_id="", **overrides):
+        def tool_use(self, prompt, tools, system="", max_turns=5, user_id="", **overrides):
             # Mimic the real LLMEngine.tool_use contract: for each canned
             # tool-call, dispatch to the matching tool's handler so the
             # AgentLoop-side wrapper (pipeline.execute + handler) runs and
@@ -48,20 +47,26 @@ def _install_mock_engine(tool_call_results, generate_responses=None):
                 name = canned.get("name", "unknown")
                 spec = tool_map.get(name)
                 if not spec or not hasattr(spec, "handler"):
-                    executed.append({
-                        "name": name, "args": canned.get("args", {}),
-                        "error": "no such tool",
-                    })
+                    executed.append(
+                        {
+                            "name": name,
+                            "args": canned.get("args", {}),
+                            "error": "no such tool",
+                        }
+                    )
                     continue
                 try:
                     result = spec.handler(canned.get("args", {}), user_id or "")
                 except Exception as e:
                     result = {"success": False, "error": str(e)}
-                executed.append({
-                    "name": name, "args": canned.get("args", {}),
-                    "result": result, "success": result.get("success", False)
-                    if isinstance(result, dict) else True,
-                })
+                executed.append(
+                    {
+                        "name": name,
+                        "args": canned.get("args", {}),
+                        "result": result,
+                        "success": result.get("success", False) if isinstance(result, dict) else True,
+                    }
+                )
             return {
                 "content": "mock final answer",
                 "tool_calls": [],
@@ -95,6 +100,7 @@ class TestAgentLoopMultistepChain:
 
     def setup_method(self):
         from l1.kernel.tool_chain import reset_tool_chain
+
         reset_tool_chain()
 
     def test_multistep_run_links_tool_chain_and_verifies(self):
@@ -110,8 +116,6 @@ class TestAgentLoopMultistepChain:
         each step's result back to the LLM-engine loop contract + ToolChain
         chain integrity.
         """
-        import l3.agent.agent_loop as al_mod
-        import l4.llm as llm_mod
         from l1.kernel.tool_chain import get_tool_chain
         from l3.agent.agent_loop import AgentLoop
 
@@ -128,8 +132,7 @@ class TestAgentLoopMultistepChain:
             def context_window(self):
                 return 32_000
 
-            def tool_use(self, prompt, tools, system="", max_turns=5,
-                         user_id="", **overrides):
+            def tool_use(self, prompt, tools, system="", max_turns=5, user_id="", **overrides):
                 canned = [
                     ("read_file", 1, {"path": "src/x.py"}),
                     ("edit_file", 2, {"path": "src/x.py"}),
@@ -137,15 +140,13 @@ class TestAgentLoopMultistepChain:
                 ]
                 executed = []
                 for name, ring, args in canned:
-                    cid = tc.start(name, user_id or "agent-loop",
-                                   ring=ring,
-                                   parent_id=chain_state["prev_call_id"])
+                    cid = tc.start(name, user_id or "agent-loop", ring=ring, parent_id=chain_state["prev_call_id"])
                     chain_state["prev_call_id"] = cid
                     call_log.append((name, cid))
                     tc.complete(cid, True, duration=0.01)
-                    executed.append({"name": name, "args": args,
-                                      "result": {"success": True, "data": "ok"},
-                                      "success": True})
+                    executed.append(
+                        {"name": name, "args": args, "result": {"success": True, "data": "ok"}, "success": True}
+                    )
                 return {
                     "content": "mock final answer",
                     "tool_calls": [],
@@ -164,6 +165,7 @@ class TestAgentLoopMultistepChain:
 
         mock = _ChainingMockEngine()
         from l1.kernel.ports import _PORTS, register_port
+
         saved = _PORTS.get("llm")
         register_port("llm", mock)
         try:
@@ -178,9 +180,7 @@ class TestAgentLoopMultistepChain:
         assert r["success"], f"loop failed: {r.get('error', '')}"
         # total_steps counts LLM turns (1 here); processed tool calls live in
         # r["steps"] — assert those reflect all 3 chained calls
-        assert len(r["steps"]) >= 3, (
-            f"expected ≥3 processed steps, got {len(r['steps'])}: {r.get('steps')}"
-        )
+        assert len(r["steps"]) >= 3, f"expected ≥3 processed steps, got {len(r['steps'])}: {r.get('steps')}"
 
         # all 3 steps were chained on ToolChain
         assert len(call_log) == 3, f"expected 3 chain entries, got {call_log}"
@@ -196,9 +196,7 @@ class TestAgentLoopMultistepChain:
         assert ancestry[0].call_id == call_log[-1][1], "leaf mismatch"
 
         v = tc.verify(leaf_call_id)
-        assert v["valid"], (
-            f"fingerprint chain invalid: steps={v.get('steps')}"
-        )
+        assert v["valid"], f"fingerprint chain invalid: steps={v.get('steps')}"
         assert v["depth"] == 3
 
     def test_orphan_re_root_after_trim_still_verifies(self):
@@ -225,25 +223,17 @@ class TestAgentLoopMultistepChain:
         remaining = list(small._calls.values())
         remaining_ids = {c.call_id for c in remaining}
         # At least the oldest step_0 is removed
-        assert ids[0] not in remaining_ids, (
-            f"step_0 should be trimmed, remaining={remaining_ids}"
-        )
+        assert ids[0] not in remaining_ids, f"step_0 should be trimmed, remaining={remaining_ids}"
 
         # The earliest surviving call's parent_id should have been re-rooted (cleared)
         earliest = min(remaining, key=lambda c: c.depth)
-        assert earliest.parent_id == "", (
-            f"orphan parent_id not re-rooted: {earliest.parent_id!r}"
-        )
-        assert earliest.prev_fingerprint == "GENESIS", (
-            f"orphan prev_fp not reset: {earliest.prev_fingerprint!r}"
-        )
+        assert earliest.parent_id == "", f"orphan parent_id not re-rooted: {earliest.parent_id!r}"
+        assert earliest.prev_fingerprint == "GENESIS", f"orphan prev_fp not reset: {earliest.prev_fingerprint!r}"
 
         # Verify every surviving call — all should pass (no broken lineage)
         for cid in remaining_ids:
             v = small.verify(cid)
-            assert v["valid"], (
-                f"verify failed after trim for {cid}: {v.get('steps')}"
-            )
+            assert v["valid"], f"verify failed after trim for {cid}: {v.get('steps')}"
 
 
 class TestAgentLoopToolFailureRetry:
@@ -256,6 +246,7 @@ class TestAgentLoopToolFailureRetry:
 
     def setup_method(self):
         from l1.kernel.tool_chain import reset_tool_chain
+
         reset_tool_chain()
 
     def test_failed_step_with_verifier_reports_corrections(self):
@@ -280,8 +271,7 @@ class TestAgentLoopToolFailureRetry:
         class _RetryVerifier:
             def check(self, result, task):
                 if result.get("success") is False:
-                    return {"pass": False, "retry_allowed": True,
-                            "reason": "tool failed"}
+                    return {"pass": False, "retry_allowed": True, "reason": "tool failed"}
                 return {"pass": True}
 
             def consistency_check(self, results, task):
@@ -294,9 +284,7 @@ class TestAgentLoopToolFailureRetry:
         loop.add_tool("flaky_tool", "A flaky tool", {}, _flaky_handler)
 
         canned = [{"name": "flaky_tool", "args": {}, "success": False, "error": "boom"}]
-        mock, uninstall = _install_mock_engine(
-            canned, generate_responses=["retry now"]
-        )
+        mock, uninstall = _install_mock_engine(canned, generate_responses=["retry now"])
         try:
             r = loop.run(max_steps=2, timeout=30, verifier=_RetryVerifier())
         finally:
@@ -317,6 +305,7 @@ class TestAgentLoopConcurrentRingRace:
 
     def test_two_agents_concurrent_ring3_one_blocked(self):
         from l3.tool_system.tool_pipeline import get_rate_scheduler
+
         rl = get_rate_scheduler()
 
         # RING_3 default budget is small (params.RATE_LIMIT_RING3), two agents in the same
@@ -331,16 +320,16 @@ class TestAgentLoopConcurrentRingRace:
 
         t1 = threading.Thread(target=_hit, args=("race-a",))
         t2 = threading.Thread(target=_hit, args=("race-b",))
-        t1.start(); t2.start()
+        t1.start()
+        t2.start()
         barrier.set()
-        t1.join(); t2.join()
+        t1.join()
+        t2.join()
 
         allowed = sum(1 for _, ok in results if ok)
         denied = sum(1 for _, ok in results if not ok)
         # 40 total concurrent attempts, RING_3 rate limiter should deny at least some (not all pass)
-        assert denied > 0, (
-            f"RING_3 rate limiter never denied under race: allowed={allowed}"
-        )
+        assert denied > 0, f"RING_3 rate limiter never denied under race: allowed={allowed}"
 
 
 class TestDialogueCrossTurnToolFeedback:
@@ -364,15 +353,11 @@ class TestDialogueCrossTurnToolFeedback:
             tool_calls=[{"name": "read_file", "args": {"path": "src/x.py"}}],
         )
         # Feed back: push tool result into next turn's context
-        session.push_context(role="tool",
-                             content="read_file(src/x.py) => 'file content'",
-                             source="read_file")
+        session.push_context(role="tool", content="read_file(src/x.py) => 'file content'", source="read_file")
 
         # Turn 2: build_context must include previous turn's tool result
         ctx = session.build_context()
-        assert "file content" in ctx, (
-            f"cross-turn tool feedback missing from build_context: {ctx!r}"
-        )
+        assert "file content" in ctx, f"cross-turn tool feedback missing from build_context: {ctx!r}"
         assert "[tool]" in ctx, f"tool role tag missing: {ctx!r}"
 
         # Record turn 2 as well; prompt should reflect it's based on previous tool result
@@ -383,9 +368,7 @@ class TestDialogueCrossTurnToolFeedback:
         # Turn 2's context_snapshot should be able to trace back the tool feedback
         turn2 = session._turns[-1]
         snapshot_str = str(turn2.context_snapshot)
-        assert "file content" in snapshot_str, (
-            f"turn-2 context_snapshot missing tool feedback: {snapshot_str[:200]}"
-        )
+        assert "file content" in snapshot_str, f"turn-2 context_snapshot missing tool feedback: {snapshot_str[:200]}"
 
     def test_cross_turn_multi_step_accumulation(self):
         """3 turns of tool call accumulation feedback: turn 3 build_context contains previous 2 turns' tool results."""
@@ -399,7 +382,7 @@ class TestDialogueCrossTurnToolFeedback:
             ("edit_file", "edit_file(src/a.py) => 'edited'", "edit it"),
             ("verify", "verify() => 'ok'", "verify"),
         ]
-        for i, (tool_name, tool_feedback, prompt) in enumerate(steps):
+        for _i, (tool_name, tool_feedback, prompt) in enumerate(steps):
             session.record_turn(
                 prompt=prompt,
                 response=f"doing {tool_name}",
@@ -410,15 +393,11 @@ class TestDialogueCrossTurnToolFeedback:
         # Turn 3 build_context must contain all previous tool results
         ctx = session.build_context()
         for tool_feedback in ("a content", "edited", "ok"):
-            assert tool_feedback in ctx, (
-                f"missing tool feedback {tool_feedback!r} in ctx: {ctx!r}"
-            )
+            assert tool_feedback in ctx, f"missing tool feedback {tool_feedback!r} in ctx: {ctx!r}"
 
         # There should be 3 accumulated tool role entries
         tool_entries = [e for e in session._context_entries if e["role"] == "tool"]
-        assert len(tool_entries) == 3, (
-            f"expected 3 tool context entries, got {len(tool_entries)}"
-        )
+        assert len(tool_entries) == 3, f"expected 3 tool context entries, got {len(tool_entries)}"
 
 
 class TestDialogueMultiTurnBudgetFold:
@@ -445,9 +424,7 @@ class TestDialogueMultiTurnBudgetFold:
 
         # First push 8 tool entries (critical tool results)
         for i in range(8):
-            session.push_context(role="tool",
-                                 content=f"tool_result_{i}: 'content_{i}'",
-                                 source=f"tool_{i}")
+            session.push_context(role="tool", content=f"tool_result_{i}: 'content_{i}'", source=f"tool_{i}")
         # Then push one large user entry that will exceed budget (200 chars ≈ 50 tokens,
         # used ~50 tokens + 50 > 80 → triggers evict)
         big_user = "U" * 200
@@ -457,19 +434,13 @@ class TestDialogueMultiTurnBudgetFold:
         # large user entry is appended after eviction, so it should still be there; the previous
         # 8 tool entries should be truncated to the last 5
         tool_entries = [e for e in session._context_entries if e["role"] == "tool"]
-        assert len(tool_entries) <= 5, (
-            f"tool entries not capped to 5 after fold: got {len(tool_entries)}"
-        )
+        assert len(tool_entries) <= 5, f"tool entries not capped to 5 after fold: got {len(tool_entries)}"
         # Critical tool results should keep the most recent 5 (including content_7)
         tool_str = str(tool_entries)
-        assert "content_7" in tool_str, (
-            f"latest tool result lost after fold: {tool_str[:300]}"
-        )
+        assert "content_7" in tool_str, f"latest tool result lost after fold: {tool_str[:300]}"
         # Most recent tool results content_3..content_7 should be in the retention window
         for i in (3, 4, 5, 6, 7):
-            assert f"content_{i}" in tool_str, (
-                f"tool result content_{i} lost after fold: {tool_str[:300]}"
-            )
+            assert f"content_{i}" in tool_str, f"tool result content_{i} lost after fold: {tool_str[:300]}"
 
     def test_overshoot_does_not_corrupt_session_state(self):
         """Session can still normally record_turn + build_context after budget fold.
@@ -487,9 +458,9 @@ class TestDialogueMultiTurnBudgetFold:
         )
         # Accumulate pushes over many turns, intentionally exceeding budget
         for i in range(10):
-            session.push_context(role="tool" if i % 2 == 0 else "user",
-                                 content=f"chunk_{i}: " + "X" * 200,
-                                 source=f"src_{i}")
+            session.push_context(
+                role="tool" if i % 2 == 0 else "user", content=f"chunk_{i}: " + "X" * 200, source=f"src_{i}"
+            )
         # build_context still assembles normally without error
         ctx = session.build_context()
         assert isinstance(ctx, str)

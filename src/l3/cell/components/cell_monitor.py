@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 # Default ring size — keeps the last 1000 events across all Cells
-from l1.kernel.params.agent import CELL_MONITOR_RING_SIZE
-from l1.kernel.params.system import CELL_MONITOR_EVENT_LIMIT
+from l1.kernel.params.agent import CELL_MONITOR_RING_SIZE  # noqa: E402
+from l1.kernel.params.system import CELL_MONITOR_EVENT_LIMIT  # noqa: E402
 
 _DEFAULT_RING_SIZE = CELL_MONITOR_RING_SIZE
 
@@ -29,11 +29,12 @@ _DEFAULT_RING_SIZE = CELL_MONITOR_RING_SIZE
 @dataclass
 class CellSnapshot:
     """Point-in-time snapshot of a Cell's status."""
+
     cell_id: str
     territory: list[str] = field(default_factory=list)
-    agents: dict[str, str] = field(default_factory=dict)       # agent_id → role
+    agents: dict[str, str] = field(default_factory=dict)  # agent_id → role
     agent_status: dict[str, str] = field(default_factory=dict)  # agent_id → status
-    agent_cards: dict[str, int] = field(default_factory=dict)   # agent_id → card count
+    agent_cards: dict[str, int] = field(default_factory=dict)  # agent_id → card count
     cell_healthy: bool = True
     last_seen: float = 0.0
     created_at: float = field(default_factory=time.time)
@@ -42,8 +43,9 @@ class CellSnapshot:
 @dataclass
 class CellEvent:
     """A single event recorded in the CellMonitor ring buffer."""
+
     cell_id: str
-    event: str          # registered | boot | crash | health_change | card_done | card_fail
+    event: str  # registered | boot | crash | health_change | card_done | card_fail
     agent_id: str = ""
     message: str = ""
     data: dict = field(default_factory=dict)
@@ -62,12 +64,14 @@ class CellMonitor:
 
     # ── Cell lifecycle ──
 
-    def register_cell(self, cell_id: str, territory: list[str] | None = None,
-                      agents: dict[str, str] | None = None) -> dict:
+    def register_cell(
+        self, cell_id: str, territory: list[str] | None = None, agents: dict[str, str] | None = None
+    ) -> dict:
         """Register a new Cell with optional territory and agent role map."""
         with self._lock:
             self._snapshots[cell_id] = CellSnapshot(
-                cell_id=cell_id, territory=territory or [],
+                cell_id=cell_id,
+                territory=territory or [],
                 agents=agents or {},
             )
         self._push_event(cell_id, "registered", data={"territory": territory, "agents": agents})
@@ -83,8 +87,7 @@ class CellMonitor:
 
     # ── Agent status ──
 
-    def report_agent(self, cell_id: str, agent_id: str, role: str = "",
-                     status: str = "", cards: int = 0) -> dict:
+    def report_agent(self, cell_id: str, agent_id: str, role: str = "", status: str = "", cards: int = 0) -> dict:
         """Update a Cell snapshot with the latest agent role, status, and card count."""
         with self._lock:
             snap = self._snapshots.get(cell_id)
@@ -99,24 +102,22 @@ class CellMonitor:
             snap.last_seen = time.time()
         return {"success": True}
 
-    def report_agent_crash(self, cell_id: str, agent_id: str,
-                           reason: str = "") -> dict:
+    def report_agent_crash(self, cell_id: str, agent_id: str, reason: str = "") -> dict:
         """Record an agent crash event and mark the Cell as unhealthy."""
         self._push_event(cell_id, "crash", agent_id=agent_id, message=reason)
         with self._lock:
             snap = self._snapshots.get(cell_id)
             if snap:
                 from l1.kernel.params.agent import AGENT_STATUS_CRASHED
+
                 snap.agent_status[agent_id] = AGENT_STATUS_CRASHED
                 snap.cell_healthy = False
         return {"success": True}
 
-    def report_card_result(self, cell_id: str, agent_id: str,
-                           card_id: str, success: bool) -> dict:
+    def report_card_result(self, cell_id: str, agent_id: str, card_id: str, success: bool) -> dict:
         """Record a card completion or failure event for the given agent."""
         event = "card_done" if success else "card_fail"
-        self._push_event(cell_id, event, agent_id=agent_id,
-                         data={"card_id": card_id, "success": success})
+        self._push_event(cell_id, event, agent_id=agent_id, data={"card_id": card_id, "success": success})
         with self._lock:
             snap = self._snapshots.get(cell_id)
             if snap:
@@ -131,9 +132,13 @@ class CellMonitor:
         """Return a summary list of all registered Cells."""
         with self._lock:
             return [
-                {"cell_id": s.cell_id, "territory": s.territory,
-                 "agent_count": len(s.agents), "healthy": s.cell_healthy,
-                 "last_seen": s.last_seen}
+                {
+                    "cell_id": s.cell_id,
+                    "territory": s.territory,
+                    "agent_count": len(s.agents),
+                    "healthy": s.cell_healthy,
+                    "last_seen": s.last_seen,
+                }
                 for s in self._snapshots.values()
             ]
 
@@ -144,16 +149,18 @@ class CellMonitor:
             if not s:
                 return None
             return {
-                "cell_id": s.cell_id, "territory": s.territory,
-                "agents": {aid: {"role": r, "status": s.agent_status.get(aid, "unknown"),
-                                  "cards": s.agent_cards.get(aid, 0)}
-                            for aid, r in s.agents.items()},
-                "healthy": s.cell_healthy, "last_seen": s.last_seen,
+                "cell_id": s.cell_id,
+                "territory": s.territory,
+                "agents": {
+                    aid: {"role": r, "status": s.agent_status.get(aid, "unknown"), "cards": s.agent_cards.get(aid, 0)}
+                    for aid, r in s.agents.items()
+                },
+                "healthy": s.cell_healthy,
+                "last_seen": s.last_seen,
                 "created_at": s.created_at,
             }
 
-    def get_events(self, cell_id: str = "", since: float = 0.0,
-                   limit: int = CELL_MONITOR_EVENT_LIMIT) -> list[dict]:
+    def get_events(self, cell_id: str = "", since: float = 0.0, limit: int = CELL_MONITOR_EVENT_LIMIT) -> list[dict]:
         """Return recent ring-buffer events, optionally filtered by Cell and timestamp."""
         with self._lock:
             results = []
@@ -162,11 +169,16 @@ class CellMonitor:
                     continue
                 if since and e.timestamp < since:
                     continue
-                results.append({
-                    "timestamp": e.timestamp, "cell_id": e.cell_id,
-                    "event": e.event, "agent_id": e.agent_id,
-                    "message": e.message, "data": e.data,
-                })
+                results.append(
+                    {
+                        "timestamp": e.timestamp,
+                        "cell_id": e.cell_id,
+                        "event": e.event,
+                        "agent_id": e.agent_id,
+                        "message": e.message,
+                        "data": e.data,
+                    }
+                )
                 if len(results) >= limit:
                     break
             return results
@@ -182,25 +194,37 @@ class CellMonitor:
 
     # ── Internal ──
 
-    def _push_event(self, cell_id: str, event: str, agent_id: str = "",
-                    message: str = "", data: dict | None = None) -> None:
+    def _push_event(
+        self, cell_id: str, event: str, agent_id: str = "", message: str = "", data: dict | None = None
+    ) -> None:
         with self._lock:
-            self._ring.append(CellEvent(
-                cell_id=cell_id, event=event, agent_id=agent_id,
-                message=message, data=data or {},
-            ))
+            self._ring.append(
+                CellEvent(
+                    cell_id=cell_id,
+                    event=event,
+                    agent_id=agent_id,
+                    message=message,
+                    data=data or {},
+                )
+            )
             self._event_count += 1
         # Also emit to MonitorBus
         try:
             from .bus.monitor_bus import MonitorEvent
             from .bus.monitor_bus import get_bus as _mb
+
             severity_map = {"crash": "crit", "card_fail": "warn", "card_done": "info", "registered": "info"}
-            _mb().emit(MonitorEvent(
-                type="service.cell." + event, source="cell_monitor",
-                severity=severity_map.get(event, "info"),
-                agent_id=agent_id, cell_id=cell_id,
-                message=message or event, data=data or {},
-            ))
+            _mb().emit(
+                MonitorEvent(
+                    type="service.cell." + event,
+                    source="cell_monitor",
+                    severity=severity_map.get(event, "info"),
+                    agent_id=agent_id,
+                    cell_id=cell_id,
+                    message=message or event,
+                    data=data or {},
+                )
+            )
         except Exception:
             logger.debug("cell_monitor: monitor event emit failed")
 

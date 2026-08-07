@@ -53,29 +53,40 @@ def decompose_card(domain: str, card: Any, cell_id: str, ensure_terminal_fn=None
         terr = [prefix]
 
         steps_for_role = []
-        for phase_name, items, phase in _card_phases_and_steps(card):
+        for _phase_name, items, _phase in _card_phases_and_steps(card):
             for item in items:
                 if item.agent == role or item.agent == "scout":
                     steps_for_role.append(item)
 
         sub_phases = []
         if steps_for_role:
-            sub_phases.append(Phase(name=f"{role}_work", mode=PhaseMode.PARALLEL,
-                                     steps=steps_for_role))
+            sub_phases.append(Phase(name=f"{role}_work", mode=PhaseMode.PARALLEL, steps=steps_for_role))
 
         if is_unified:
-            sub_card = Card(id=f"{card.id}-{role}",
-                            intent=card.summary.title or "",
-                            domain=prefix, mode=card.nature,
-                            priority=card.priority,
-                            phases=sub_phases)
+            sub_card = Card(
+                id=f"{card.id}-{role}",
+                intent=card.summary.title or "",
+                domain=prefix,
+                mode=card.nature,
+                priority=card.priority,
+                phases=sub_phases,
+            )
         else:
-            sub_card = Card(id=f"{card.id}-{role}", intent=card.intent,
-                            domain=prefix, mode=card.mode, priority=card.priority,
-                            phases=sub_phases)
-        result = {"card": sub_card, "role": role, "agent_id": aid,
-                  "agent_map": {role: aid, "scout": "scout_pool"},
-                  "territory": terr}
+            sub_card = Card(
+                id=f"{card.id}-{role}",
+                intent=card.intent,
+                domain=prefix,
+                mode=card.mode,
+                priority=card.priority,
+                phases=sub_phases,
+            )
+        result = {
+            "card": sub_card,
+            "role": role,
+            "agent_id": aid,
+            "agent_map": {role: aid, "scout": "scout_pool"},
+            "territory": terr,
+        }
         slices.append(result)
 
         if ensure_terminal_fn:
@@ -87,7 +98,7 @@ def decompose_card(domain: str, card: Any, cell_id: str, ensure_terminal_fn=None
 def auto_agent_map(card: Any, cell_id: str, ensure_terminal_fn=None) -> dict[str, str]:
     """Auto-build agent_map from Card steps."""
     required_roles: set[str] = set()
-    for phase_name, items, phase in _card_phases_and_steps(card):
+    for _phase_name, items, _phase in _card_phases_and_steps(card):
         for item in items:
             if item.agent and item.agent != "scout":
                 required_roles.add(item.agent)

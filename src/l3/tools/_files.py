@@ -16,6 +16,7 @@ def read_file(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         content = get_manager().read(path)
         return {"success": True, "data": content, "path": path}
     except FileNotFoundError:
@@ -45,7 +46,10 @@ def file_stat(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         s = os.stat(path)
-        return {"success": True, "data": {"size": s.st_size, "mode": oct(s.st_mode), "mtime": s.st_mtime, "is_dir": os.path.isdir(path)}}
+        return {
+            "success": True,
+            "data": {"size": s.st_size, "mode": oct(s.st_mode), "mtime": s.st_mtime, "is_dir": os.path.isdir(path)},
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -58,6 +62,7 @@ def create_file(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         r = get_manager().stage(path, content, op="create")
         return {"success": True, "path": path, "buffer": r}
     except Exception as e:
@@ -72,6 +77,7 @@ def file_append(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         current = get_manager().read(path)
         get_manager().stage(path, current + content, op="edit")
         return {"success": True, "path": path}
@@ -87,6 +93,7 @@ def file_move(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "source and destination are required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         content = get_manager().read(src)
         get_manager().stage(dst, content, op="create")
         # After commit, the real move will happen; for now buffer only
@@ -103,6 +110,7 @@ def file_copy(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "source and destination are required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         content = get_manager().read(src)
         get_manager().stage(dst, content, op="create")
         return {"success": True, "from": src, "to": dst, "buffered": True}
@@ -117,6 +125,7 @@ def file_delete(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         from l3.resource_buffer.manager import get_manager
+
         get_manager().discard(path)
         if not os.path.exists(path):
             return {"success": True, "deleted": path, "buffered": True}
@@ -176,10 +185,14 @@ def file_diff(args: dict, agent_id: str) -> dict:
         else:
             lines_b = content_b.splitlines(keepends=True)
         import difflib
-        diff = list(difflib.unified_diff(lines_a, lines_b,
-                                         fromfile=path_a, tofile=path_b or "<inline>"))
-        return {"success": True, "diff": "".join(diff[:LOG_TRUNC_200]), "total_lines": len(diff),
-                "changed": sum(1 for d in diff if d.startswith("+") or d.startswith("-"))}
+
+        diff = list(difflib.unified_diff(lines_a, lines_b, fromfile=path_a, tofile=path_b or "<inline>"))
+        return {
+            "success": True,
+            "diff": "".join(diff[:LOG_TRUNC_200]),
+            "total_lines": len(diff),
+            "changed": sum(1 for d in diff if d.startswith("+") or d.startswith("-")),
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -194,10 +207,13 @@ def read_binary(args: dict, agent_id: str) -> dict:
         s = os.stat(path)
         with open(path, "rb") as f:
             raw = f.read(min(max_bytes, 4096))
-        return {"success": True, "size": s.st_size,
-                "preview_hex": raw.hex()[:LOG_TRUNC_4000],
-                "preview_ascii": "".join(chr(b) if 32 <= b < 127 else "." for b in raw),
-                "mime": _detect_mime(path)}
+        return {
+            "success": True,
+            "size": s.st_size,
+            "preview_hex": raw.hex()[:LOG_TRUNC_4000],
+            "preview_ascii": "".join(chr(b) if 32 <= b < 127 else "." for b in raw),
+            "mime": _detect_mime(path),
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -205,12 +221,24 @@ def read_binary(args: dict, agent_id: str) -> dict:
 def _detect_mime(path: str) -> str:
     ext = os.path.splitext(path)[1].lower()
     mime_map = {
-        ".txt": "text/plain", ".py": "text/x-python", ".md": "text/markdown",
-        ".json": "application/json", ".yaml": "application/x-yaml", ".yml": "application/x-yaml",
-        ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
-        ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-        ".gif": "image/gif", ".svg": "image/svg+xml", ".pdf": "application/pdf",
-        ".zip": "application/zip", ".tar": "application/x-tar", ".gz": "application/gzip",
+        ".txt": "text/plain",
+        ".py": "text/x-python",
+        ".md": "text/markdown",
+        ".json": "application/json",
+        ".yaml": "application/x-yaml",
+        ".yml": "application/x-yaml",
+        ".html": "text/html",
+        ".css": "text/css",
+        ".js": "application/javascript",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+        ".pdf": "application/pdf",
+        ".zip": "application/zip",
+        ".tar": "application/x-tar",
+        ".gz": "application/gzip",
     }
     return mime_map.get(ext, "application/octet-stream")
 
@@ -224,8 +252,11 @@ def file_encoding_detect(args: dict, agent_id: str) -> dict:
         with open(path, "rb") as f:
             bom = f.read(4)
         encoding = _detect_encoding(bom)
-        return {"success": True, "encoding": encoding,
-                "has_bom": len(bom) >= 2 and bom[:2] in (b"\xff\xfe", b"\xfe\xff")}
+        return {
+            "success": True,
+            "encoding": encoding,
+            "has_bom": len(bom) >= 2 and bom[:2] in (b"\xff\xfe", b"\xfe\xff"),
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -247,14 +278,15 @@ def _detect_encoding(bom: bytes) -> str:
 def _apply_unified_diff(original: list[str], diff_text: str) -> list[str]:
     """Apply a unified diff to original lines. Returns the patched lines."""
     import re
+
     result = list(original)
     lines = diff_text.splitlines(keepends=True)
     i = 0
     while i < len(lines):
         line = lines[i]
         # Match hunk header: @@ -start,count +start,count @@
-        if line.startswith('@@ '):
-            m = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', line)
+        if line.startswith("@@ "):
+            m = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
             if not m:
                 i += 1
                 continue
@@ -264,15 +296,15 @@ def _apply_unified_diff(original: list[str], diff_text: str) -> list[str]:
             added = 0
             before = []
             after = []
-            while i < len(lines) and not lines[i].startswith('@@ '):
+            while i < len(lines) and not lines[i].startswith("@@ "):
                 cl = lines[i]
-                if cl.startswith('---') or cl.startswith('+++'):
+                if cl.startswith("---") or cl.startswith("+++"):
                     i += 1
                     continue
-                if cl.startswith('-'):
+                if cl.startswith("-"):
                     before.append(cl[1:])
                     removed += 1
-                elif cl.startswith('+'):
+                elif cl.startswith("+"):
                     after.append(cl[1:])
                     added += 1
                 else:
@@ -288,7 +320,7 @@ def _apply_unified_diff(original: list[str], diff_text: str) -> list[str]:
             offset = added - removed
             if offset != 0:
                 for j in range(i, len(lines)):
-                    m2 = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', lines[j])
+                    m2 = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", lines[j])
                     if m2:
                         o_start = int(m2.group(1)) + offset
                         o_new = int(m2.group(3)) + offset
@@ -314,9 +346,14 @@ def file_patch(args: dict, agent_id: str) -> dict:
             original = f.readlines()
         patched = _apply_unified_diff(original, diff_text)
         from l3.resource_buffer.manager import get_manager
+
         get_manager().stage(path, "".join(patched), op="edit")
-        return {"success": True, "path": path, "buffered": True,
-                "diff_lines": sum(1 for l in diff_text.splitlines() if l.startswith(('+', '-')))}
+        return {
+            "success": True,
+            "path": path,
+            "buffered": True,
+            "diff_lines": sum(1 for ln in diff_text.splitlines() if ln.startswith(("+", "-"))),
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -341,6 +378,7 @@ def file_diff_structured(args: dict, agent_id: str) -> dict:
     try:
         from l4.sandbox import SandboxEntry
         from l4.sandbox import get_manager as _get_sb
+
         sb_mgr = _get_sb()
     except Exception as e:
         return {"success": False, "error": f"sandbox unavailable: {e}"}

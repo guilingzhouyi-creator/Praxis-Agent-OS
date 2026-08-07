@@ -35,12 +35,14 @@ logger = logging.getLogger(__name__)
 
 class TaskType(Enum):
     """TaskType — enum of PRIMITIVE, COMPOUND."""
-    PRIMITIVE = auto()   # Atomic action, can be executed directly
-    COMPOUND = auto()   # Has sub-tasks, needs decomposition
+
+    PRIMITIVE = auto()  # Atomic action, can be executed directly
+    COMPOUND = auto()  # Has sub-tasks, needs decomposition
 
 
 class TaskStatus(Enum):
     """TaskStatus — enum of PENDING, RUNNING, DONE, FAILED...."""
+
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -51,6 +53,7 @@ class TaskStatus(Enum):
 @dataclass
 class Task:
     """A single task in the HTN hierarchy."""
+
     id: str
     name: str
     task_type: TaskType = TaskType.COMPOUND
@@ -75,6 +78,7 @@ class Task:
 @dataclass
 class DecompositionMethod:
     """A method for decomposing a compound task into sub-tasks."""
+
     name: str
     domain: str
     patterns: list[str]
@@ -116,38 +120,45 @@ class HTNPlanner(BaseService):
         """Register built-in decomposition methods."""
         try:
             from l1.kernel.params.tool import HTN_DEFAULT_TOOLS, HTN_DOMAIN_PREFIX
+
             self._tools = dict(HTN_DEFAULT_TOOLS)
             domain = HTN_DOMAIN_PREFIX
         except Exception:
             domain = "app"
-        self.register_method("develop", f"{domain}/dev", ["develop", "create", "implement", "snake"],
-                             self._decompose_develop)
-        self.register_method("build", f"{domain}/build", ["build", "compile", "make"],
-                             self._decompose_build)
-        self.register_method("fix", f"{domain}/fix", ["bug", "fix", "error", "crash"],
-                             self._decompose_fix)
-        self.register_method("refactor", f"{domain}/refactor", ["refactor", "rename", "extract"],
-                             self._decompose_refactor)
-        self.register_method("review", f"{domain}/review", ["review", "audit", "inspect", "check"],
-                             self._decompose_review)
+        self.register_method(
+            "develop", f"{domain}/dev", ["develop", "create", "implement", "snake"], self._decompose_develop
+        )
+        self.register_method("build", f"{domain}/build", ["build", "compile", "make"], self._decompose_build)
+        self.register_method("fix", f"{domain}/fix", ["bug", "fix", "error", "crash"], self._decompose_fix)
+        self.register_method(
+            "refactor", f"{domain}/refactor", ["refactor", "rename", "extract"], self._decompose_refactor
+        )
+        self.register_method(
+            "review", f"{domain}/review", ["review", "audit", "inspect", "check"], self._decompose_review
+        )
 
-    def register_method(self, name: str, domain: str,
-                        patterns: list[str],
-                        decompose_fn: Callable) -> None:
+    def register_method(self, name: str, domain: str, patterns: list[str], decompose_fn: Callable) -> None:
         """Register a decomposition method. Extensible from outside."""
         with self._lock:
-            self._methods.append(DecompositionMethod(
-                name=name, domain=domain, patterns=[p.lower() for p in patterns],
-                decompose_fn=decompose_fn,
-            ))
+            self._methods.append(
+                DecompositionMethod(
+                    name=name,
+                    domain=domain,
+                    patterns=[p.lower() for p in patterns],
+                    decompose_fn=decompose_fn,
+                )
+            )
 
-    def decompose(self, intent: str, domain: str = "",
-                  priority: int = 5, agent_id: str = "") -> Task:
+    def decompose(self, intent: str, domain: str = "", priority: int = 5, agent_id: str = "") -> Task:
         """Decompose a high-level intent into a task hierarchy."""
         task_id = f"htn-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         root = Task(
-            id=task_id, name=intent, task_type=TaskType.COMPOUND,
-            domain=domain, priority=priority, agent_id=agent_id,
+            id=task_id,
+            name=intent,
+            task_type=TaskType.COMPOUND,
+            domain=domain,
+            priority=priority,
+            agent_id=agent_id,
         )
 
         intent_lower = intent.lower()
@@ -165,12 +176,17 @@ class HTNPlanner(BaseService):
                     logger.warning("decomposition failed for %s: %s", method.name, e)
 
         if not matched:
-            root.sub_tasks = [Task(
-                id=f"{task_id}-step-0", name=intent,
-                task_type=TaskType.PRIMITIVE, domain=domain,
-                description=f"Execute: {intent}",
-                priority=priority, agent_id=agent_id,
-            )]
+            root.sub_tasks = [
+                Task(
+                    id=f"{task_id}-step-0",
+                    name=intent,
+                    task_type=TaskType.PRIMITIVE,
+                    domain=domain,
+                    description=f"Execute: {intent}",
+                    priority=priority,
+                    agent_id=agent_id,
+                )
+            ]
 
         return root
 
@@ -222,8 +238,7 @@ class HTNPlanner(BaseService):
             logger.warning("circular dependency detected in HTN plan")
         return ordered
 
-    def execute(self, root: Task, tool_executor: Callable,
-                agent_id: str = "") -> dict:
+    def execute(self, root: Task, tool_executor: Callable, agent_id: str = "") -> dict:
         """Execute a decomposed task hierarchy through the tool executor."""
         primitives = self.flatten(root)
         results = []
@@ -245,11 +260,15 @@ class HTNPlanner(BaseService):
                 task.error = str(e)
                 all_passed = False
 
-            results.append({
-                "task_id": task.id, "name": task.name,
-                "tool": task.tool, "status": task.status.name,
-                "error": task.error,
-            })
+            results.append(
+                {
+                    "task_id": task.id,
+                    "name": task.name,
+                    "tool": task.tool,
+                    "status": task.status.name,
+                    "error": task.error,
+                }
+            )
 
             if not all_passed:
                 # Re-plan: try to continue with remaining tasks
@@ -271,98 +290,226 @@ class HTNPlanner(BaseService):
     # ── Built-in decomposition methods ──
 
     def _decompose_develop(self, root: Task) -> list[Task]:
-        tid = root.id; t = self._tool
+        tid = root.id
+        t = self._tool
         return [
-            Task(id=f"{tid}-design", task_type=TaskType.COMPOUND, domain=root.domain,
-                 name="Design", sub_tasks=[
-                     Task(id=f"{tid}-design-req", task_type=TaskType.PRIMITIVE,
-                          tool=t("analyze","read_file"), name="Analyze requirements",
-                          description=f"Analyze: {root.name}", domain=root.domain),
-                     Task(id=f"{tid}-design-arch", task_type=TaskType.PRIMITIVE,
-                          tool=t("write","write_file"), name="Design doc",
-                          description="Write design", domain=root.domain,
-                          depends_on=[f"{tid}-design-req"]),
-                 ]),
-            Task(id=f"{tid}-impl", task_type=TaskType.COMPOUND, domain=root.domain,
-                 name="Implement", depends_on=[f"{tid}-design"], sub_tasks=[
-                     Task(id=f"{tid}-impl-code", task_type=TaskType.PRIMITIVE,
-                          tool=t("create","create_file"), name="Write code",
-                          description="Implement", domain=root.domain),
-                     Task(id=f"{tid}-impl-test", task_type=TaskType.PRIMITIVE,
-                          tool=t("create","create_file"), name="Write tests",
-                          domain=root.domain, depends_on=[f"{tid}-impl-code"]),
-                 ]),
-            Task(id=f"{tid}-verify", task_type=TaskType.COMPOUND, domain=root.domain,
-                 name="Verify", depends_on=[f"{tid}-impl"], sub_tasks=[
-                     Task(id=f"{tid}-verify-build", task_type=TaskType.PRIMITIVE,
-                          tool=t("build","build_project"), name="Build", domain=root.domain),
-                     Task(id=f"{tid}-verify-test", task_type=TaskType.PRIMITIVE,
-                          tool=t("test","test_project"), name="Test",
-                          domain=root.domain, depends_on=[f"{tid}-verify-build"]),
-                     Task(id=f"{tid}-verify-lint", task_type=TaskType.PRIMITIVE,
-                          tool=t("lint","lint"), name="Lint", domain=root.domain),
-                 ]),
-            Task(id=f"{tid}-doc", task_type=TaskType.PRIMITIVE,
-                 tool=t("doc","write_file"), name="Documentation",
-                 domain=root.domain, depends_on=[f"{tid}-verify"]),
+            Task(
+                id=f"{tid}-design",
+                task_type=TaskType.COMPOUND,
+                domain=root.domain,
+                name="Design",
+                sub_tasks=[
+                    Task(
+                        id=f"{tid}-design-req",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("analyze", "read_file"),
+                        name="Analyze requirements",
+                        description=f"Analyze: {root.name}",
+                        domain=root.domain,
+                    ),
+                    Task(
+                        id=f"{tid}-design-arch",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("write", "write_file"),
+                        name="Design doc",
+                        description="Write design",
+                        domain=root.domain,
+                        depends_on=[f"{tid}-design-req"],
+                    ),
+                ],
+            ),
+            Task(
+                id=f"{tid}-impl",
+                task_type=TaskType.COMPOUND,
+                domain=root.domain,
+                name="Implement",
+                depends_on=[f"{tid}-design"],
+                sub_tasks=[
+                    Task(
+                        id=f"{tid}-impl-code",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("create", "create_file"),
+                        name="Write code",
+                        description="Implement",
+                        domain=root.domain,
+                    ),
+                    Task(
+                        id=f"{tid}-impl-test",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("create", "create_file"),
+                        name="Write tests",
+                        domain=root.domain,
+                        depends_on=[f"{tid}-impl-code"],
+                    ),
+                ],
+            ),
+            Task(
+                id=f"{tid}-verify",
+                task_type=TaskType.COMPOUND,
+                domain=root.domain,
+                name="Verify",
+                depends_on=[f"{tid}-impl"],
+                sub_tasks=[
+                    Task(
+                        id=f"{tid}-verify-build",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("build", "build_project"),
+                        name="Build",
+                        domain=root.domain,
+                    ),
+                    Task(
+                        id=f"{tid}-verify-test",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("test", "test_project"),
+                        name="Test",
+                        domain=root.domain,
+                        depends_on=[f"{tid}-verify-build"],
+                    ),
+                    Task(
+                        id=f"{tid}-verify-lint",
+                        task_type=TaskType.PRIMITIVE,
+                        tool=t("lint", "lint"),
+                        name="Lint",
+                        domain=root.domain,
+                    ),
+                ],
+            ),
+            Task(
+                id=f"{tid}-doc",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("doc", "write_file"),
+                name="Documentation",
+                domain=root.domain,
+                depends_on=[f"{tid}-verify"],
+            ),
         ]
 
     def _decompose_build(self, root: Task) -> list[Task]:
-        tid = root.id; t = self._tool
+        tid = root.id
+        t = self._tool
         return [
-            Task(id=f"{tid}-lint", task_type=TaskType.PRIMITIVE,
-                 tool=t("lint","lint"), name="Lint", domain=root.domain),
-            Task(id=f"{tid}-test", task_type=TaskType.PRIMITIVE,
-                 tool=t("test","test_project"), name="Test",
-                 domain=root.domain, depends_on=[f"{tid}-lint"]),
-            Task(id=f"{tid}-build", task_type=TaskType.PRIMITIVE,
-                 tool=t("build","build_project"), name="Build",
-                 domain=root.domain, depends_on=[f"{tid}-test"]),
+            Task(
+                id=f"{tid}-lint", task_type=TaskType.PRIMITIVE, tool=t("lint", "lint"), name="Lint", domain=root.domain
+            ),
+            Task(
+                id=f"{tid}-test",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("test", "test_project"),
+                name="Test",
+                domain=root.domain,
+                depends_on=[f"{tid}-lint"],
+            ),
+            Task(
+                id=f"{tid}-build",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("build", "build_project"),
+                name="Build",
+                domain=root.domain,
+                depends_on=[f"{tid}-test"],
+            ),
         ]
 
     def _decompose_fix(self, root: Task) -> list[Task]:
-        tid = root.id; t = self._tool
+        tid = root.id
+        t = self._tool
         return [
-            Task(id=f"{tid}-scout", task_type=TaskType.PRIMITIVE,
-                 tool=t("scout","scout_delegate"), name="Investigate", domain=root.domain),
-            Task(id=f"{tid}-diagnose", task_type=TaskType.PRIMITIVE,
-                 tool=t("analyze","read_file"), name="Diagnose",
-                 domain=root.domain, depends_on=[f"{tid}-scout"]),
-            Task(id=f"{tid}-fix", task_type=TaskType.PRIMITIVE,
-                 tool=t("fix","write_file"), name="Fix",
-                 domain=root.domain, depends_on=[f"{tid}-diagnose"]),
-            Task(id=f"{tid}-verify", task_type=TaskType.PRIMITIVE,
-                 tool=t("test","test_project"), name="Verify",
-                 domain=root.domain, depends_on=[f"{tid}-fix"]),
+            Task(
+                id=f"{tid}-scout",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("scout", "scout_delegate"),
+                name="Investigate",
+                domain=root.domain,
+            ),
+            Task(
+                id=f"{tid}-diagnose",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("analyze", "read_file"),
+                name="Diagnose",
+                domain=root.domain,
+                depends_on=[f"{tid}-scout"],
+            ),
+            Task(
+                id=f"{tid}-fix",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("fix", "write_file"),
+                name="Fix",
+                domain=root.domain,
+                depends_on=[f"{tid}-diagnose"],
+            ),
+            Task(
+                id=f"{tid}-verify",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("test", "test_project"),
+                name="Verify",
+                domain=root.domain,
+                depends_on=[f"{tid}-fix"],
+            ),
         ]
 
     def _decompose_refactor(self, root: Task) -> list[Task]:
-        tid = root.id; t = self._tool
+        tid = root.id
+        t = self._tool
         return [
-            Task(id=f"{tid}-scout", task_type=TaskType.PRIMITIVE,
-                 tool=t("analyze","read_file"), name="Analyze", domain=root.domain),
-            Task(id=f"{tid}-plan", task_type=TaskType.PRIMITIVE,
-                 tool=t("write","write_file"), name="Plan",
-                 domain=root.domain, depends_on=[f"{tid}-scout"]),
-            Task(id=f"{tid}-exec", task_type=TaskType.PRIMITIVE,
-                 tool=t("extract","write_file"), name="Execute",
-                 domain=root.domain, depends_on=[f"{tid}-plan"]),
-            Task(id=f"{tid}-verify", task_type=TaskType.PRIMITIVE,
-                 tool=t("test","test_project"), name="Verify",
-                 domain=root.domain, depends_on=[f"{tid}-exec"]),
+            Task(
+                id=f"{tid}-scout",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("analyze", "read_file"),
+                name="Analyze",
+                domain=root.domain,
+            ),
+            Task(
+                id=f"{tid}-plan",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("write", "write_file"),
+                name="Plan",
+                domain=root.domain,
+                depends_on=[f"{tid}-scout"],
+            ),
+            Task(
+                id=f"{tid}-exec",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("extract", "write_file"),
+                name="Execute",
+                domain=root.domain,
+                depends_on=[f"{tid}-plan"],
+            ),
+            Task(
+                id=f"{tid}-verify",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("test", "test_project"),
+                name="Verify",
+                domain=root.domain,
+                depends_on=[f"{tid}-exec"],
+            ),
         ]
 
     def _decompose_review(self, root: Task) -> list[Task]:
-        tid = root.id; t = self._tool
+        tid = root.id
+        t = self._tool
         return [
-            Task(id=f"{tid}-scan", task_type=TaskType.PRIMITIVE,
-                 tool=t("review","read_file"), name="Scan", domain=root.domain),
-            Task(id=f"{tid}-analyze", task_type=TaskType.PRIMITIVE,
-                 tool=t("analyze","read_file"), name="Analyze",
-                 domain=root.domain, depends_on=[f"{tid}-scan"]),
-            Task(id=f"{tid}-report", task_type=TaskType.PRIMITIVE,
-                 tool=t("doc","write_file"), name="Report",
-                 domain=root.domain, depends_on=[f"{tid}-analyze"]),
+            Task(
+                id=f"{tid}-scan",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("review", "read_file"),
+                name="Scan",
+                domain=root.domain,
+            ),
+            Task(
+                id=f"{tid}-analyze",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("analyze", "read_file"),
+                name="Analyze",
+                domain=root.domain,
+                depends_on=[f"{tid}-scan"],
+            ),
+            Task(
+                id=f"{tid}-report",
+                task_type=TaskType.PRIMITIVE,
+                tool=t("doc", "write_file"),
+                name="Report",
+                domain=root.domain,
+                depends_on=[f"{tid}-analyze"],
+            ),
         ]
 
     def to_card(self, root: Task, task_id: str = "", domain: str = "") -> Card:
@@ -415,14 +562,15 @@ class HTNPlanner(BaseService):
             phases.append(CardPhase(name=pn, tasks=tasks))
 
         if not phases:
-            phases.append(CardPhase(
-                name="execute",
-                tasks=[CardTask(action="think", target=intent, params={})],
-            ))
+            phases.append(
+                CardPhase(
+                    name="execute",
+                    tasks=[CardTask(action="think", target=intent, params={})],
+                )
+            )
 
         card = CardUnified(id=cid, priority=5, nature="execution", phases=phases)
-        card.summary = CardSummary(title=intent, description="",
-                                   columns={"domain": dom or "."})
+        card.summary = CardSummary(title=intent, description="", columns={"domain": dom or "."})
         return card
 
     @staticmethod
@@ -444,8 +592,9 @@ class HTNPlanner(BaseService):
         try:
             from l1.kernel.params.agent import AGENT_ROLE_MAP
 
-            from .tool_system.tool_config import ToolConfig as _TC
-            spec = _TC.get(tool)
+            from .tool_system.tool_config import ToolConfig as ToolConfigCls
+
+            spec = ToolConfigCls.get(tool)
             if spec:
                 return AGENT_ROLE_MAP.get(spec.ring, "default")
         except Exception:

@@ -19,7 +19,7 @@ def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
         files_to_scan = [path]
     elif os.path.isdir(path):
         files_to_scan = []
-        for root, dirs, files in os.walk(path):
+        for root, _dirs, files in os.walk(path):
             for fname in files:
                 files_to_scan.append(os.path.join(root, fname))
     else:
@@ -54,10 +54,10 @@ def _run_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
     platform dispatch in implementation code).
     """
     from l1.kernel.platform import grep_cmd
+
     try:
         cmd = grep_cmd(pattern, path, fixed=fixed)
-        r = subprocess.run(cmd, capture_output=True, text=True,
-                           timeout=get_tool_config("search_timeout", 30))
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=get_tool_config("search_timeout", 30))
         if r.returncode == 0:
             return _parse_grep_output(r.stdout.splitlines())
         logger.debug("_search: grep_cmd returned %s", r.returncode)
@@ -89,7 +89,7 @@ def file_search(args: dict, agent_id: str) -> dict:
     if not pattern:
         return {"success": False, "error": "pattern is required"}
     results = []
-    for root, dirs, files in os.walk(path):
+    for root, _dirs, files in os.walk(path):
         for fname in files:
             if pattern in fname or re.search(pattern, fname):
                 results.append(os.path.join(root, fname))

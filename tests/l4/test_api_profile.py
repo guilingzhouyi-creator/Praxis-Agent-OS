@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from l3.services.user_profile import get_service, reset_service
 from l4.api_handlers.api_handlers_profile import (
     handle_profile_clear,
     handle_profile_export,
@@ -13,7 +14,6 @@ from l4.api_handlers.api_handlers_profile import (
     handle_profile_list,
     handle_profile_refine,
 )
-from l3.services.user_profile import get_service, reset_service
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +28,7 @@ def _profile_on():
 
 class TestProfileApi:
     def test_ingest_and_get(self):
-        r = handle_profile_ingest({"kind": "preference", "value": "concise",
-                                   "confidence": 0.8}, user_id="alice")
+        r = handle_profile_ingest({"kind": "preference", "value": "concise", "confidence": 0.8}, user_id="alice")
         assert r["success"]
         g = handle_profile_get({}, user_id="alice")
         assert g["success"]
@@ -46,20 +45,16 @@ class TestProfileApi:
     def test_ingest_validation(self):
         assert not handle_profile_ingest({}, user_id="a")["success"]
         assert not handle_profile_ingest({"kind": "preference"}, user_id="a")["success"]
-        assert not handle_profile_ingest({"kind": "nope", "value": 1},
-                                         user_id="a")["success"]
-        assert not handle_profile_ingest({"kind": "preference", "value": 1,
-                                          "confidence": "x"}, user_id="a")["success"]
+        assert not handle_profile_ingest({"kind": "nope", "value": 1}, user_id="a")["success"]
+        assert not handle_profile_ingest({"kind": "preference", "value": 1, "confidence": "x"}, user_id="a")["success"]
 
     def test_requires_user_id(self):
         assert "user_id" in handle_profile_get({})["error"]
-        assert "user_id" in handle_profile_ingest({"kind": "preference",
-                                                   "value": 1})["error"]
+        assert "user_id" in handle_profile_ingest({"kind": "preference", "value": 1})["error"]
 
     def test_refine_via_api(self):
         for _ in range(6):
-            handle_profile_ingest({"kind": "domain_focus", "value": "python"},
-                                  user_id="alice")
+            handle_profile_ingest({"kind": "domain_focus", "value": "python"}, user_id="alice")
         r = handle_profile_refine({}, user_id="alice")
         assert r["success"] and r["refined"] == 1
         assert get_service().get_profile("alice", kinds=("trait",))["count"] == 1
@@ -75,5 +70,4 @@ class TestProfileApi:
 
     def test_import_validation(self):
         assert not handle_profile_import({}, user_id="a")["success"]
-        assert not handle_profile_import({"payload": {"entries": "nope"}},
-                                         user_id="a")["success"]
+        assert not handle_profile_import({"payload": {"entries": "nope"}}, user_id="a")["success"]

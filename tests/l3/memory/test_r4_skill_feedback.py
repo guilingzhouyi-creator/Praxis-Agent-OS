@@ -430,7 +430,7 @@ class TestCardLinkage:
         from l3.memory.r4_agent import R4Agent
 
         _reset()
-        sm = get_skill_manager()
+        get_skill_manager()
         self._mk_evolved("skill_review", ["evolved", "card:review"], prompt="review steps")
         self._mk_evolved("skill_deploy", ["evolved", "card:deploy"], prompt="deploy steps")
         r4 = R4Agent()
@@ -453,7 +453,7 @@ class TestCardLinkage:
         from l3.memory.r4_agent import R4Agent
 
         _reset()
-        sm = get_skill_manager()
+        get_skill_manager()
         self._mk_evolved("skill_audit", ["evolved", "card:audit"], prompt="audit steps")
         r4 = R4Agent()
         got = r4.retrieve_skills(query="run the audit", agent_id="", cell_id="", tags=["card:audit"])
@@ -465,7 +465,6 @@ class TestCardLinkage:
 
     def test_lean_case_gets_card_tags(self, mocker, tmp_path):
         import json
-        import shutil
 
         from l1.kernel.paths import get_paths as _gp
         from l1.kernel.skill import get_skill_manager

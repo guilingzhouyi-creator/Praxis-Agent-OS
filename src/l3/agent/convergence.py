@@ -33,6 +33,7 @@ def converge(card_id: str, llm_call: Callable | None = None) -> dict:
         {"success", "summary", "cache_ref", "archive_ref"}
     """
     from l3.card.issue import get_table
+
     table = get_table()
     issue_card = table.get(card_id)
     if not issue_card:
@@ -49,10 +50,7 @@ def converge(card_id: str, llm_call: Callable | None = None) -> dict:
         doc_text = _build_fallback_doc(issue_card)
 
     # LLM convergence summary
-    if llm_call:
-        summary = _llm_converge(doc_text, llm_call)
-    else:
-        summary = _rule_converge(issue_card, doc_text)
+    summary = _llm_converge(doc_text, llm_call) if llm_call else _rule_converge(issue_card, doc_text)
 
     issue_card.metadata["summary"] = summary
 
@@ -80,26 +78,37 @@ def to_execution_card(issue_card: IssueCard, summary: str) -> CardUnified:
     for it in issue_card.items:
         if it.answer:
             action = "think" if it.assigned_to == "thinker" else "write_file"
-            work_tasks.append(CardTask(
-                action=action,
-                target=it.domain or it.question,
-                params={"question": it.question, "answer": it.answer[:LOG_TRUNC_500]},
-                agent=it.assigned_to or "default",
-            ))
+            work_tasks.append(
+                CardTask(
+                    action=action,
+                    target=it.domain or it.question,
+                    params={"question": it.question, "answer": it.answer[:LOG_TRUNC_500]},
+                    agent=it.assigned_to or "default",
+                )
+            )
 
     if work_tasks:
-        phases.append(CardPhase(name="execute_issues", mode=PhaseMode.MULTI,
-                                 tasks=work_tasks))
+        phases.append(CardPhase(name="execute_issues", mode=PhaseMode.MULTI, tasks=work_tasks))
 
     # Gap-filling phase
-    phases.append(CardPhase(name="verify", tasks=[
-        CardTask(action="scout", target=issue_card.domain, agent="scout"),
-    ]))
+    phases.append(
+        CardPhase(
+            name="verify",
+            tasks=[
+                CardTask(action="scout", target=issue_card.domain, agent="scout"),
+            ],
+        )
+    )
 
     if not phases:
-        phases.append(CardPhase(name="default", tasks=[
-            CardTask(action="think", target=issue_card.intent, params={}),
-        ]))
+        phases.append(
+            CardPhase(
+                name="default",
+                tasks=[
+                    CardTask(action="think", target=issue_card.intent, params={}),
+                ],
+            )
+        )
 
     card = CardUnified(
         id=f"exec-{issue_card.id}",
@@ -107,17 +116,15 @@ def to_execution_card(issue_card: IssueCard, summary: str) -> CardUnified:
         nature="execution",
         phases=phases,
     )
-    card.summary = CardSummary(title=issue_card.intent, description="",
-                               columns={"domain": issue_card.domain or "."})
+    card.summary = CardSummary(title=issue_card.intent, description="", columns={"domain": issue_card.domain or "."})
     return card
 
 
 def _llm_converge(doc_text: str, llm_call: Callable) -> str:
     from l1.kernel.prompts import get_prompt
+
     base = get_prompt("convergence.summary")
-    prompt = (
-        base + "\n\n--- Discussion Document ---\n" + doc_text[:8000]
-    )
+    prompt = base + "\n\n--- Discussion Document ---\n" + doc_text[:8000]
     try:
         raw = llm_call(prompt)
         parsed = json.loads(raw)
@@ -129,23 +136,30 @@ def _llm_converge(doc_text: str, llm_call: Callable) -> str:
 def _rule_converge(issue_card: IssueCard, doc_text: str = "") -> str:
     resolved = [it for it in issue_card.items if it.status.name == "RESOLVED"]
     unresolved = [it for it in issue_card.items if it.status.name != "RESOLVED"]
-    return json.dumps({
-        "summary": f"Converged {len(resolved)}/{len(issue_card.items)} issues",
-        "decisions": [f"{it.question}: {it.answer[:LOG_TRUNC_200]}" for it in resolved if it.answer],
-        "unresolved": [it.question for it in unresolved],
-        "recommendations": [],
-        "confidence": round(len(resolved) / max(len(issue_card.items), 1), 2),
-    }, indent=2, ensure_ascii=False)
+    return json.dumps(
+        {
+            "summary": f"Converged {len(resolved)}/{len(issue_card.items)} issues",
+            "decisions": [f"{it.question}: {it.answer[:LOG_TRUNC_200]}" for it in resolved if it.answer],
+            "unresolved": [it.question for it in unresolved],
+            "recommendations": [],
+            "confidence": round(len(resolved) / max(len(issue_card.items), 1), 2),
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
 
 
 def _rule_converge_from_text(doc_text: str = "") -> str:
-    return json.dumps({
-        "summary": "Rule-based convergence (LLM unavailable)",
-        "decisions": [],
-        "unresolved": [],
-        "recommendations": [],
-        "confidence": 0.0,
-    }, indent=2)
+    return json.dumps(
+        {
+            "summary": "Rule-based convergence (LLM unavailable)",
+            "decisions": [],
+            "unresolved": [],
+            "recommendations": [],
+            "confidence": 0.0,
+        },
+        indent=2,
+    )
 
 
 def _build_fallback_doc(issue_card: IssueCard) -> str:

@@ -35,8 +35,8 @@ from l1.kernel.params.system import (
     RC_FLUSH_INTERVAL,
     RC_PATH,
     RC_RING_SIZE,
-    THREAD_JOIN_TIMEOUT_QUICK,
     RC_SHA256_TRUNC,
+    THREAD_JOIN_TIMEOUT_QUICK,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,7 @@ class ReferenceChannel:
       })
     """
 
-    def __init__(self, path: str = "", flush_interval: float = RC_FLUSH_INTERVAL,
-                 ring_size: int = RC_RING_SIZE):
+    def __init__(self, path: str = "", flush_interval: float = RC_FLUSH_INTERVAL, ring_size: int = RC_RING_SIZE):
         self._path = path or os.environ.get("PRAXIS_RC_PATH", RC_PATH)
         self._flush_interval = flush_interval
         # Ring buffer: fixed-size deque; when full, events are flushed to disk
@@ -87,7 +86,9 @@ class ReferenceChannel:
         """Start the periodic flush daemon thread."""
         self._running = True
         self._thread = threading.Thread(
-            target=self._flush_loop, name="rc-flusher", daemon=True,
+            target=self._flush_loop,
+            name="rc-flusher",
+            daemon=True,
         )
         self._thread.start()
 
@@ -120,8 +121,7 @@ class ReferenceChannel:
                 self._ring.extendleft(reversed(lines))
             return 0
 
-    def event(self, event_type: str, data: dict,
-              source: str = "", trace_id: str = "") -> None:
+    def event(self, event_type: str, data: dict, source: str = "", trace_id: str = "") -> None:
         """Record a single event. O(1) ring buffer append, never blocks.
 
         Args:
@@ -158,12 +158,19 @@ class ReferenceChannel:
 
     # ── Convenience helpers ──
 
-    def tool_call(self, tool_name: str, agent_id: str, allowed: bool,
-                  gate: str = "", reason: str = "", args: dict | None = None,
-                  trace_id: str = "",
-                  predicted_success: bool = True,
-                  predicted_summary: str = "",
-                  card_scope: str = "") -> None:
+    def tool_call(
+        self,
+        tool_name: str,
+        agent_id: str,
+        allowed: bool,
+        gate: str = "",
+        reason: str = "",
+        args: dict | None = None,
+        trace_id: str = "",
+        predicted_success: bool = True,
+        predicted_summary: str = "",
+        card_scope: str = "",
+    ) -> None:
         """Record a tool call with optional prediction for causal training.
 
         Args:
@@ -179,65 +186,104 @@ class ReferenceChannel:
             deviation = "false_positive_expectation"
         elif not predicted_success and allowed:
             deviation = "false_negative_expectation"
-        self.event("tool_call", {
-            "tool_name": tool_name, "agent_id": agent_id,
-            "allowed": allowed, "gate": gate, "reason": reason,
-            "predicted_success": predicted_success,
-            "predicted_summary": predicted_summary[:LOG_TRUNC_200],
-            "deviation": deviation,
-            "card_scope": card_scope,
-            "args_keys": list((args or {}).keys()),
-        }, source="tool_pipeline", trace_id=trace_id)
+        self.event(
+            "tool_call",
+            {
+                "tool_name": tool_name,
+                "agent_id": agent_id,
+                "allowed": allowed,
+                "gate": gate,
+                "reason": reason,
+                "predicted_success": predicted_success,
+                "predicted_summary": predicted_summary[:LOG_TRUNC_200],
+                "deviation": deviation,
+                "card_scope": card_scope,
+                "args_keys": list((args or {}).keys()),
+            },
+            source="tool_pipeline",
+            trace_id=trace_id,
+        )
 
-    def card_lifecycle(self, card_id: str, intent: str, state: str,
-                       nature: str = "", size: str = "",
-                       error: str = "",
-                       predicted_state: str = "completed") -> None:
+    def card_lifecycle(
+        self,
+        card_id: str,
+        intent: str,
+        state: str,
+        nature: str = "",
+        size: str = "",
+        error: str = "",
+        predicted_state: str = "completed",
+    ) -> None:
         """Record card lifecycle transition with prediction for causal training."""
         deviation = ""
         if predicted_state == "completed" and state in ("failed", "cancelled"):
             deviation = "completion_mismatch"
         elif predicted_state == "failed" and state == "completed":
             deviation = "unexpected_completion"
-        self.event("card_lifecycle", {
-            "card_id": card_id, "intent": intent[:LOG_TRUNC_100],
-            "state": state, "nature": nature, "size": size,
-            "error": error[:LOG_TRUNC_100],
-            "predicted_state": predicted_state,
-            "deviation": deviation,
-        }, source="card_registry", trace_id=card_id)
+        self.event(
+            "card_lifecycle",
+            {
+                "card_id": card_id,
+                "intent": intent[:LOG_TRUNC_100],
+                "state": state,
+                "nature": nature,
+                "size": size,
+                "error": error[:LOG_TRUNC_100],
+                "predicted_state": predicted_state,
+                "deviation": deviation,
+            },
+            source="card_registry",
+            trace_id=card_id,
+        )
 
-    def human_correction(self, card_id: str, agent_id: str,
-                         field: str, old_value: str,
-                         new_value: str, reason: str = "") -> None:
+    def human_correction(
+        self, card_id: str, agent_id: str, field: str, old_value: str, new_value: str, reason: str = ""
+    ) -> None:
         """Record a human correction signal. Returns None."""
-        self.event("human_correction", {
-            "card_id": card_id, "agent_id": agent_id,
-            "field": field, "old_preview": str(old_value)[:LOG_TRUNC_200],
-            "new_preview": str(new_value)[:LOG_TRUNC_200], "reason": reason[:200],
-        }, source="l2_shell", trace_id=card_id)
+        self.event(
+            "human_correction",
+            {
+                "card_id": card_id,
+                "agent_id": agent_id,
+                "field": field,
+                "old_preview": str(old_value)[:LOG_TRUNC_200],
+                "new_preview": str(new_value)[:LOG_TRUNC_200],
+                "reason": reason[:200],
+            },
+            source="l2_shell",
+            trace_id=card_id,
+        )
 
-    def anomaly(self, card_id: str, detection: dict,
-                cell_id: str = "") -> None:
+    def anomaly(self, card_id: str, detection: dict, cell_id: str = "") -> None:
         """Record an anomaly detection event. Returns None."""
-        self.event("anomaly", {
-            "card_id": card_id, "cell_id": cell_id,
-            "detection": detection,
-        }, source="sequence_monitor", trace_id=card_id)
+        self.event(
+            "anomaly",
+            {
+                "card_id": card_id,
+                "cell_id": cell_id,
+                "detection": detection,
+            },
+            source="sequence_monitor",
+            trace_id=card_id,
+        )
 
-    def convention(self, card_id: str, outcome: str,
-                   participants: list[str], summary: str = "") -> None:
+    def convention(self, card_id: str, outcome: str, participants: list[str], summary: str = "") -> None:
         """Record a convention deliberation outcome. Returns None."""
-        self.event("convention", {
-            "card_id": card_id, "outcome": outcome,
-            "participant_count": len(participants),
-            "summary": summary[:LOG_TRUNC_200],
-        }, source="convention", trace_id=card_id)
+        self.event(
+            "convention",
+            {
+                "card_id": card_id,
+                "outcome": outcome,
+                "participant_count": len(participants),
+                "summary": summary[:LOG_TRUNC_200],
+            },
+            source="convention",
+            trace_id=card_id,
+        )
 
     # ── Export ──
 
-    def export(self, limit: int = LOG_TRUNC_1000, offset: int = 0,
-               event_type: str = "") -> list[dict]:
+    def export(self, limit: int = LOG_TRUNC_1000, offset: int = 0, event_type: str = "") -> list[dict]:
         """Read events from disk. Pure query, no side effects."""
         results: list[dict] = []
         try:

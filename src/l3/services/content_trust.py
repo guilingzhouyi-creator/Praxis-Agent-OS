@@ -29,19 +29,22 @@ logger = logging.getLogger(__name__)
 
 # ── Source types ──
 
+
 class SourceType(Enum):
     """SourceType — enum of TOOL, AGENT, HUMAN, SYSTEM...."""
-    TOOL = "tool"               # tool execution result (write_file, read_file, ...)
-    AGENT = "agent"             # agent-generated (AgentLoop response)
-    HUMAN = "human"             # direct human input (L2 Shell / API)
-    SYSTEM = "system"           # system-generated (boot, config, auto-summary)
-    EXTERNAL = "external"       # external origin (MCP import, web fetch, email)
-    MEMORY = "memory"           # recalled from memory ring (re-stored)
-    CONVENTION = "convention"   # convention deliberation result
+
+    TOOL = "tool"  # tool execution result (write_file, read_file, ...)
+    AGENT = "agent"  # agent-generated (AgentLoop response)
+    HUMAN = "human"  # direct human input (L2 Shell / API)
+    SYSTEM = "system"  # system-generated (boot, config, auto-summary)
+    EXTERNAL = "external"  # external origin (MCP import, web fetch, email)
+    MEMORY = "memory"  # recalled from memory ring (re-stored)
+    CONVENTION = "convention"  # convention deliberation result
     UNKNOWN = "unknown"
 
 
 # ── Provenance: immutable origin record ──
+
 
 @dataclass
 class Provenance:
@@ -50,16 +53,17 @@ class Provenance:
     Attached to every piece of content flowing through the system:
     memory entries, cell messages, card step results, tool outputs.
     """
+
     source_type: SourceType = SourceType.UNKNOWN
-    source_id: str = ""            # "agent-1", "write_file", "l3a", "shell"
-    method: str = ""               # "execution", "direct_message", "import", "recall"
+    source_id: str = ""  # "agent-1", "write_file", "l3a", "shell"
+    method: str = ""  # "execution", "direct_message", "import", "recall"
     timestamp: float = field(default_factory=time.time)
-    trace_id: str = ""             # links to Card trace_id for full audit trail
-    signature: str = ""            # Ed25519 hex signature (agent-to-agent)
-    signer_id: str = ""            # who signed it ("agent-1")
-    verified: bool = False         # was the signature verified?
-    trust_score: float = 0.0       # computed by TrustPolicy, 0.0-1.0
-    policy_name: str = ""          # which policy evaluated this
+    trace_id: str = ""  # links to Card trace_id for full audit trail
+    signature: str = ""  # Ed25519 hex signature (agent-to-agent)
+    signer_id: str = ""  # who signed it ("agent-1")
+    verified: bool = False  # was the signature verified?
+    trust_score: float = 0.0  # computed by TrustPolicy, 0.0-1.0
+    policy_name: str = ""  # which policy evaluated this
 
     def to_dict(self) -> dict:
         """Serialize the provenance record to a dict."""
@@ -127,6 +131,7 @@ def reset_source_reputation() -> None:
 
 # ── Trust policy: configurable evaluation rules ──
 
+
 @dataclass
 class TrustPolicy:
     """Configurable policy for evaluating content trustworthiness.
@@ -148,17 +153,24 @@ class TrustPolicy:
             min_trust_for_store: 0.1
             source_reputation_weight: 0.3
     """
+
     name: str = "default"
-    initial_scores: dict[str, float] = field(default_factory=lambda: {
-        "tool": 0.8, "agent": 0.7, "human": 1.0,
-        "system": 0.9, "external": 0.2, "unknown": 0.1,
-    })
-    decay_per_hour: float = 0.05       # trust decays over time
-    require_provenance: bool = True     # reject content without provenance
-    min_trust_for_recall: float = 0.3   # minimum trust to appear in recall results
-    min_trust_for_store: float = 0.1    # minimum trust to be stored in memory
+    initial_scores: dict[str, float] = field(
+        default_factory=lambda: {
+            "tool": 0.8,
+            "agent": 0.7,
+            "human": 1.0,
+            "system": 0.9,
+            "external": 0.2,
+            "unknown": 0.1,
+        }
+    )
+    decay_per_hour: float = 0.05  # trust decays over time
+    require_provenance: bool = True  # reject content without provenance
+    min_trust_for_recall: float = 0.3  # minimum trust to appear in recall results
+    min_trust_for_store: float = 0.1  # minimum trust to be stored in memory
     source_reputation_weight: float = 0.3  # how much to weight historical reputation
-    deny_if_unverified: bool = False    # for agent-to-agent: reject unsigned messages
+    deny_if_unverified: bool = False  # for agent-to-agent: reject unsigned messages
 
     def evaluate(self, provenance: Provenance) -> float:
         """Compute trust score for a provenance record. Returns 0.0-1.0."""
@@ -223,10 +235,12 @@ def load_policies(cfg: dict) -> None:
 
 # ── Signature helpers (Ed25519) ──
 
+
 def sign_content(content: str, agent_id: str) -> str:
     """Sign content with agent's Ed25519 key. Returns hex signature."""
     try:
         from .services.identity import get_service as _id
+
         svc = _id()
         return svc.sign(agent_id, content.encode())
     except Exception:
@@ -239,6 +253,7 @@ def verify_content(content: str, signature: str, signer_id: str) -> bool:
     """Verify content against a claimed signer's public key."""
     try:
         from .services.identity import get_service as _id
+
         svc = _id()
         return svc.verify(signer_id, content.encode(), bytes.fromhex(signature))
     except Exception:
@@ -246,6 +261,7 @@ def verify_content(content: str, signature: str, signer_id: str) -> bool:
 
 
 # ── Central facade ──
+
 
 class ContentTrust:
     """Universal content provenance and trust evaluation.
@@ -262,9 +278,15 @@ class ContentTrust:
         self._policy = get_policy(policy_name)
         self._stats = {"tagged": 0, "evaluated": 0, "accepted": 0, "rejected": 0}
 
-    def tag(self, source_type: SourceType | str, source_id: str = "",
-            method: str = "", trace_id: str = "", sign: bool = False,
-            signer_id: str = "") -> Provenance:
+    def tag(
+        self,
+        source_type: SourceType | str,
+        source_id: str = "",
+        method: str = "",
+        trace_id: str = "",
+        sign: bool = False,
+        signer_id: str = "",
+    ) -> Provenance:
         """Create a provenance record with initial metadata."""
         if isinstance(source_type, str):
             try:
@@ -312,15 +334,10 @@ class ContentTrust:
         """Check if content meets minimum trust for storage."""
         return provenance.trust_score >= self._policy.min_trust_for_store
 
-    def check_message(self, sender: str, content: str,
-                      signature: str = "", signer_id: str = "") -> dict:
+    def check_message(self, sender: str, content: str, signature: str = "", signer_id: str = "") -> dict:
         """Verify and evaluate a signed agent-to-agent message."""
-        if signature and signer_id:
-            verified = verify_content(content, signature, signer_id)
-        else:
-            verified = False
-        prov = self.tag(SourceType.AGENT, source_id=sender,
-                        method="message", signer_id=signer_id or sender)
+        verified = verify_content(content, signature, signer_id) if signature and signer_id else False
+        prov = self.tag(SourceType.AGENT, source_id=sender, method="message", signer_id=signer_id or sender)
         prov.signature = signature
         prov.verified = verified
         score = self.evaluate(prov)
@@ -332,9 +349,9 @@ class ContentTrust:
             "policy": self._policy.name,
         }
 
-    def wrap(self, data: dict, source_type: SourceType | str,
-             source_id: str = "", method: str = "",
-             trace_id: str = "") -> dict:
+    def wrap(
+        self, data: dict, source_type: SourceType | str, source_id: str = "", method: str = "", trace_id: str = ""
+    ) -> dict:
         """Attach provenance to a data dict (for memory/message/card storage)."""
         prov = self.tag(source_type, source_id, method, trace_id)
         return {

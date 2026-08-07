@@ -29,22 +29,23 @@ import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 from typing import Self
 
 from .platform import IS_MAC, IS_WINDOWS
 
+logger = logging.getLogger(__name__)
+
 
 class DeployMode(Enum):
     """Detected or configured deployment mode — determines all path defaults."""
-    CLI_PROJECT = "cli"         # Local project (default)
-    PIP_PACKAGE = "pip"         # pip install
-    IDE_PLUGIN  = "ide"         # VSCode / JetBrains plugin
-    DESKTOP_MAC = "desktop_mac" # macOS desktop app
-    DESKTOP_WIN = "desktop_win" # Windows desktop app
-    DOCKER      = "docker"      # Container
-    BINARY      = "binary"      # PyInstaller / Nuitka bundled
+
+    CLI_PROJECT = "cli"  # Local project (default)
+    PIP_PACKAGE = "pip"  # pip install
+    IDE_PLUGIN = "ide"  # VSCode / JetBrains plugin
+    DESKTOP_MAC = "desktop_mac"  # macOS desktop app
+    DESKTOP_WIN = "desktop_win"  # Windows desktop app
+    DOCKER = "docker"  # Container
+    BINARY = "binary"  # PyInstaller / Nuitka bundled
 
 
 def _detect_deploy_mode() -> DeployMode:
@@ -59,7 +60,7 @@ def _detect_deploy_mode() -> DeployMode:
     if os.path.exists("/.dockerenv") or os.environ.get("DOCKER") == "1":
         return DeployMode.DOCKER
 
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         return DeployMode.BINARY
 
     if os.environ.get("PRAXIS_IDE_MODE"):
@@ -67,8 +68,9 @@ def _detect_deploy_mode() -> DeployMode:
 
     try:
         import l1.kernel as _mod
+
         _pkg = Path(_mod.__file__).resolve().parent.parent.parent.parent
-        if 'site-packages' in str(_pkg):
+        if "site-packages" in str(_pkg):
             return DeployMode.PIP_PACKAGE
     except Exception:
         logger.debug("paths: PIP_PACKAGE detection failed", exc_info=True)
@@ -96,8 +98,8 @@ def _get_data_dir(mode: DeployMode) -> str:
         DeployMode.IDE_PLUGIN: str(user_data_dir),
         DeployMode.DESKTOP_MAC: str(home / "Library" / "Application Support" / "praxis"),
         DeployMode.DESKTOP_WIN: str(Path(os.environ.get("APPDATA", str(home))) / "praxis"),
-        DeployMode.DOCKER:      "/var/praxis",
-        DeployMode.BINARY:      str(home / ".praxis"),
+        DeployMode.DOCKER: "/var/praxis",
+        DeployMode.BINARY: str(home / ".praxis"),
     }
     return base.get(mode, ".praxis")
 
@@ -123,16 +125,21 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
 
     base: dict[DeployMode, list[str]] = {
         DeployMode.CLI_PROJECT: [
-            "config/skills",     # built-in skills — shipped with the repo (read-only)
-            ".praxis/skills",    # runtime skill store (evolved/lean/user)
+            "config/skills",  # built-in skills — shipped with the repo (read-only)
+            ".praxis/skills",  # runtime skill store (evolved/lean/user)
             "skills",
-            "skills/evolved",   # project-scoped evolved skills (round-trip with skill_project_evolved_dir)
+            "skills/evolved",  # project-scoped evolved skills (round-trip with skill_project_evolved_dir)
             ".skills",
         ],
         DeployMode.PIP_PACKAGE: [
             os.path.join(data_dir, "skills"),
-            (lambda _pkg: os.path.join(os.path.dirname(_pkg.__file__), "..", "..", "skills")
-             if _pkg is not None and _pkg.__file__ else "")(sys.modules.get("l1.kernel")),
+            (
+                lambda _pkg: (
+                    os.path.join(os.path.dirname(_pkg.__file__), "..", "..", "skills")
+                    if _pkg is not None and _pkg.__file__
+                    else ""
+                )
+            )(sys.modules.get("l1.kernel")),
         ],
         DeployMode.IDE_PLUGIN: [
             os.path.join(data_dir, "skills"),
@@ -148,7 +155,7 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
             os.path.join(data_dir, "skills"),
         ],
         DeployMode.BINARY: [
-            os.path.join(os.path.dirname(sys.executable), "skills") if getattr(sys, 'frozen', False) else "",
+            os.path.join(os.path.dirname(sys.executable), "skills") if getattr(sys, "frozen", False) else "",
             os.path.join(data_dir, "skills"),
         ],
     }
@@ -261,8 +268,7 @@ class PraxisPaths:
                 # the discovery base used by SkillManager.load_builtin()
                 # (kernel_dir/../../..), not the ephemeral os.getcwd().
                 kernel_dir = os.path.dirname(os.path.abspath(__file__))
-                self.skill_project_evolved_dir = os.path.join(
-                    kernel_dir, "..", "..", "..", "skills", "evolved")
+                self.skill_project_evolved_dir = os.path.join(kernel_dir, "..", "..", "..", "skills", "evolved")
             else:
                 self.skill_project_evolved_dir = self.skill_evolved_dir
         if not self.skill_lean_dir:
@@ -271,31 +277,31 @@ class PraxisPaths:
             self.memories_dir = os.path.join(self.data_dir, "memories")
 
         dd = self.data_dir
-        self.events_db         = os.path.join(dd, "events.db")
-        self.state_json        = os.path.join(dd, "state.json")
-        self.card_registry     = os.path.join(dd, "card_registry.json")
-        self.card_gate         = os.path.join(dd, "card_gate.json")
-        self.pending_queue     = os.path.join(dd, "pending_queue.json")
-        self.issue_table       = os.path.join(dd, "issue_table.json")
-        self.approval_gate     = os.path.join(dd, "approval_gate.json")
-        self.mute_state        = os.path.join(dd, "mute_state.json")
-        self.mode_state        = os.path.join(dd, "mode.json")
-        self.todo_state        = os.path.join(dd, "todo_state.json")
-        self.sandbox_state     = os.path.join(dd, "sandbox_state.json")
-        self.todo_table        = os.path.join(dd, "todo_table.json")
-        self.todo_dir          = os.path.join(dd, "todos")
-        self.transaction_area  = os.path.join(dd, "transaction_area.json")
-        self.statecharts       = os.path.join(dd, "statecharts.json")
+        self.events_db = os.path.join(dd, "events.db")
+        self.state_json = os.path.join(dd, "state.json")
+        self.card_registry = os.path.join(dd, "card_registry.json")
+        self.card_gate = os.path.join(dd, "card_gate.json")
+        self.pending_queue = os.path.join(dd, "pending_queue.json")
+        self.issue_table = os.path.join(dd, "issue_table.json")
+        self.approval_gate = os.path.join(dd, "approval_gate.json")
+        self.mute_state = os.path.join(dd, "mute_state.json")
+        self.mode_state = os.path.join(dd, "mode.json")
+        self.todo_state = os.path.join(dd, "todo_state.json")
+        self.sandbox_state = os.path.join(dd, "sandbox_state.json")
+        self.todo_table = os.path.join(dd, "todo_table.json")
+        self.todo_dir = os.path.join(dd, "todos")
+        self.transaction_area = os.path.join(dd, "transaction_area.json")
+        self.statecharts = os.path.join(dd, "statecharts.json")
         self.execution_results = os.path.join(dd, "execution_results.json")
-        self.dialogue_session  = os.path.join(dd, "dialogue_session.json")
+        self.dialogue_session = os.path.join(dd, "dialogue_session.json")
         self.message_gate_state = os.path.join(dd, "message_gate.json")
-        self.vault_salt        = os.path.join(dd, ".praxis_vault_salt")
-        self.chain_key         = os.path.join(dd, ".chain_key")
-        self.archive_db        = os.path.join(dd, "archive.db")
-        self.mcp_state         = os.path.join(dd, "mcp_state.json")
-        self.monitor_bus_log   = os.path.join(dd, "monitor_bus.jsonl")
-        self.sandbox_root      = os.path.join(dd, "sandbox")
-        self.socket_dir        = os.path.join(dd, "sockets")
+        self.vault_salt = os.path.join(dd, ".praxis_vault_salt")
+        self.chain_key = os.path.join(dd, ".chain_key")
+        self.archive_db = os.path.join(dd, "archive.db")
+        self.mcp_state = os.path.join(dd, "mcp_state.json")
+        self.monitor_bus_log = os.path.join(dd, "monitor_bus.jsonl")
+        self.sandbox_root = os.path.join(dd, "sandbox")
+        self.socket_dir = os.path.join(dd, "sockets")
         self.cell_state_template = os.path.join(dd, "cell_{}.json")
         self.seq_monitor_template = os.path.join(dd, "seq_monitor_{}.json")
 
@@ -314,8 +320,7 @@ class PraxisPaths:
 
     def to_dict(self) -> dict:
         """Export all paths as flat dict (for debugging / API)."""
-        return {k: str(v) for k, v in self.__dict__.items()
-                if not k.startswith("_") and isinstance(v, (str, list))}
+        return {k: str(v) for k, v in self.__dict__.items() if not k.startswith("_") and isinstance(v, (str, list))}
 
 
 # ── Singleton ──
@@ -363,26 +368,34 @@ def configure_paths(
 
 # ── Backward-compatible accessors ──
 
+
 def data_dir() -> str:
     return get_paths().data_dir
+
 
 def config_dir() -> str:
     return get_paths().config_dir
 
+
 def skill_evolved_dir() -> str:
     return get_paths().skill_evolved_dir
+
 
 def skill_project_evolved_dir() -> str:
     return get_paths().skill_project_evolved_dir
 
+
 def skill_lean_dir() -> str:
     return get_paths().skill_lean_dir
+
 
 def memories_dir() -> str:
     return get_paths().memories_dir
 
+
 def events_db() -> str:
     return get_paths().events_db
+
 
 def monitor_bus_log() -> str:
     return get_paths().monitor_bus_log
