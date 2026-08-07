@@ -18,6 +18,7 @@ from l1.kernel.params.agent import (
     R4_CARD_TAG_PREFIX,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_CASES_DEFAULT,
+    R4_LEAN_KNOWLEDGE_MAX,
     R4_REFLECTION_COOLDOWN,
     R4_REFLECTION_ENABLED,
     R4_REFLECTION_MAX_TOKENS,
@@ -211,10 +212,28 @@ class SkillFeedbackMixin:
                         case_tags.append(f"{R4_CARD_TAG_PREFIX}{_nature}")
                     if _domain:
                         case_tags.append(f"{R4_CARD_TAG_PREFIX}{_domain}")
+                    # Structured knowledge: preserve the raw failure detail
+                    # (args/error/domain/nature/turn count) so distillation
+                    # and summarization see real failure data, not the
+                    # flattened prompt template. Truncated to bound memory.
+                    try:
+
+                        _knowledge = {
+                            "tool": tool,
+                            "args": str(entry.get("args", ""))[:R4_LEAN_KNOWLEDGE_MAX],
+                            "error": str(entry.get("error", ""))[:R4_LEAN_KNOWLEDGE_MAX],
+                            "domain": _domain,
+                            "nature": _nature,
+                            "turn_count": int(entry.get("turn_count", 0) or 0),
+                            "pattern_hint": error_stem,
+                        }
+                    except Exception:
+                        _knowledge = {"tool": tool, "error": error_stem}
                     sm.create(
                         name=skill_name,
                         description=f"Failure case: {tool} — {entry['error'][:LOG_TRUNC_60]}",
                         prompt=lean_text,
+                        knowledge=_knowledge,
                         tags=case_tags,
                         allowed_tools=[tool],
                         internal=True,

@@ -307,8 +307,7 @@ SKILL_CONTRACT_FORBIDDEN_PATHS: Final[tuple[str, ...]] = (
 )
 # ── Evolved-skill conflict detection (R4Agent consistency pass) ──
 # Two evolved skills for the same tool whose prompts overlap more than this
-# ratio (token-set Jaccard) are flagged as duplicates; rules that directly
-# contradict (DO vs DON'T on the same topic) are flagged as conflicts.
+# ratio (token-set Jaccard) are flagged as duplicates; rules that directly# contradict (DO vs DON'T on the same topic) are flagged as conflicts.
 SKILL_CONFLICT_SIMILARITY: Final[float] = 0.6
 SKILL_CONFLICT_SCAN_LIMIT: Final[int] = 50  # evolved skills scanned per tick
 # ── Skill posture (productive vs offensive) ──────────────────────────────
@@ -1018,3 +1017,4 @@ STATS_SSE_BUFFER: Final[int] = 100  # max SSE events buffered per subscriber
 STATS_DEFAULT_WINDOW: Final[str] = "5m"  # default query window
 STATS_TOP_LIMIT: Final[int] = 10  # default row cap for cross-cell ranking
 STATS_TIMELINE_LIMIT: Final[int] = 20  # l2 extra.py timeline query default
+
