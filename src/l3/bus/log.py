@@ -40,6 +40,7 @@ _LOG_DIR = Path(_gp().config_dir) / "logs"
 @dataclass
 class LogEntry:
     """LogEntry — log entry record (level, service, message, timestamp, agent_id)."""
+
     level: str
     service: str
     message: str
@@ -75,9 +76,11 @@ class LogService(BaseService):
         # Subscribe to kernel events for cross-service log collection
         try:
             from l1.kernel import SignalType, get_event_bus
+
             bus = get_event_bus()
-            bus.on(SignalType.STATE_CHANGE, lambda s: self.info(
-                f"State: {s.data}", s.source, s.data.get("agent_id", "")))
+            bus.on(
+                SignalType.STATE_CHANGE, lambda s: self.info(f"State: {s.data}", s.source, s.data.get("agent_id", ""))
+            )
         except Exception as e:
             logger.warning("services/log: %s", e)
         return {"success": True, "log_dir": str(self._log_dir)}
@@ -105,8 +108,7 @@ class LogService(BaseService):
         return self._log("ERROR", message, service, agent_id, task_id)
 
     def _log(self, level: str, message: str, service: str, agent_id: str, task_id: str) -> dict:
-        entry = LogEntry(level=level, service=service or "system",
-                         message=message, agent_id=agent_id, task_id=task_id)
+        entry = LogEntry(level=level, service=service or "system", message=message, agent_id=agent_id, task_id=task_id)
         with self._lock:
             self._entries.append(entry)
             self._current_size += len(message) + 50
@@ -117,26 +119,36 @@ class LogService(BaseService):
         # observability pipeline (SSE/query without polling the API).
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
-            severity = {"DEBUG": "info", "INFO": "info",
-                        "WARNING": "warn", "ERROR": "crit",
-                        "CRITICAL": "crit"}.get(level, "info")
-            get_bus().emit(MonitorEvent(
-                type="log.entry", source="log_service", severity=severity,
-                agent_id=agent_id,
-                message=message[:LOG_TRUNC_500],
-                data={"level": level, "service": service or "system",
-                      "task_id": task_id},
-            ))
+
+            severity = {"DEBUG": "info", "INFO": "info", "WARNING": "warn", "ERROR": "crit", "CRITICAL": "crit"}.get(
+                level, "info"
+            )
+            get_bus().emit(
+                MonitorEvent(
+                    type="log.entry",
+                    source="log_service",
+                    severity=severity,
+                    agent_id=agent_id,
+                    message=message[:LOG_TRUNC_500],
+                    data={"level": level, "service": service or "system", "task_id": task_id},
+                )
+            )
         except Exception as e:
             logger.debug("log: monitor emit failed: %s", e)
         return {"success": True, "entry_id": len(self._entries), "level": level}
 
     # ── Query ──
 
-    def query(self, level: str | None = None, service: str | None = None,
-              agent_id: str | None = None, task_id: str | None = None,
-              since: float | None = None, until: float | None = None,
-              limit: int = 100) -> dict:
+    def query(
+        self,
+        level: str | None = None,
+        service: str | None = None,
+        agent_id: str | None = None,
+        task_id: str | None = None,
+        since: float | None = None,
+        until: float | None = None,
+        limit: int = 100,
+    ) -> dict:
         """Query entries filtered by level/service/agent/time. Returns matching entries."""
         with self._lock:
             results = list(self._entries)
@@ -152,14 +164,16 @@ class LogService(BaseService):
             results = [e for e in results if e.timestamp >= since]
         if until:
             results = [e for e in results if e.timestamp <= until]
-        return {"success": True, "entries": [e.to_dict() for e in results[-limit:]],
-                "count": min(len(results), limit)}
+        return {"success": True, "entries": [e.to_dict() for e in results[-limit:]], "count": min(len(results), limit)}
 
     def recent(self, limit: int = 50) -> dict:
         """Return the most recent entries. Returns a dict with entries and count."""
         with self._lock:
-            return {"success": True, "entries": [e.to_dict() for e in list(self._entries)[-limit:]],
-                    "count": min(len(self._entries), limit)}
+            return {
+                "success": True,
+                "entries": [e.to_dict() for e in list(self._entries)[-limit:]],
+                "count": min(len(self._entries), limit),
+            }
 
     # ── Export ──
 
@@ -169,8 +183,7 @@ class LogService(BaseService):
         entries = r.get("entries", [])
         out_path = path or str(self._log_dir / LOG_EXPORT_FILE.format(ts=int(time.time())))
         try:
-            Path(out_path).write_text(
-                json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+            Path(out_path).write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
             return {"success": True, "path": out_path, "count": len(entries)}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -191,8 +204,7 @@ class LogService(BaseService):
                 log_files[0].unlink()
             fname = LOG_ROTATE_FILE.format(ts=int(time.time()))
             path = self._log_dir / fname
-            path.write_text(json.dumps([e.to_dict() for e in entries[-500:]], indent=2),
-                           encoding="utf-8")
+            path.write_text(json.dumps([e.to_dict() for e in entries[-500:]], indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning("log flush failed: %s", e)
 
@@ -215,6 +227,7 @@ class LogService(BaseService):
 
         class _LogServiceHandler(_logging.Handler):
             """_LogServiceHandler — _ log service handler."""
+
             def __init__(self, svc: LogService):
                 super().__init__()
                 self._svc = svc
@@ -225,9 +238,9 @@ class LogService(BaseService):
                 level = record.levelname
                 msg = record.getMessage()[:LOG_TRUNC_500]
                 try:
-                    self._svc._log(level, msg, record.name,
-                                   getattr(record, 'agent_id', ''),
-                                   getattr(record, 'task_id', ''))
+                    self._svc._log(
+                        level, msg, record.name, getattr(record, "agent_id", ""), getattr(record, "task_id", "")
+                    )
                 except Exception:
                     logger.debug("log: log handler emit failed")
 
@@ -279,6 +292,7 @@ def reset_service() -> None:
 
 
 # ── API route handlers ──
+
 
 def handle_log_query(body: dict | None = None) -> dict:
     """POST /api/logs/query — query logs with filters."""
