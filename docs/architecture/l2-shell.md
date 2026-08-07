@@ -1,7 +1,8 @@
 # L2 — Shell Layer
 
-Human interface: 46 commands, i18n, completion, agent selection. 18 files /
-2,636 lines. Imports L1 only (shell logic is pure dict-in/dict-out).
+Human interface: 49 YAML commands + 2 code-registered, i18n, completion,
+agent selection. 22 files / 3,384 lines. Imports L1 only (shell logic is
+pure dict-in/dict-out).
 
 ## Responsibility boundary
 

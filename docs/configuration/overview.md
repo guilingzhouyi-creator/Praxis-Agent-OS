@@ -47,15 +47,24 @@ Atomic constants (timeouts, limits, thresholds) defined in five sub-modules:
 
 Structural configuration discovered at boot by `l1.kernel.discovery`.
 
-**Section name** mappings from `_init_discovery()` boot step:
+**Registration**: `_init_discovery()` boot step registers a fixed set of
+params-derived default sections; `config/discovery/*.yaml` overrides them.
+Current registered sections (defaults live in `src/l1/kernel/params/` unless
+noted):
 
-| YAML file | Section names | Defaults source |
-|-----------|---------------|-----------------|
-| `agent_configs.yaml` | `central_roles`, `agent_clearance`, `agent_priority`, `agent_role_map`, `priority_gradient`, `reputation_defaults`, `agent_defaults`, `agent_id_prefixes`, `event_types`, `card_builder_modes`, `injection_patterns`, `constitution`, `resource_keys`, `htn_default_tools`, `builtin_rule_defs`, `memory_persist_files`, `search.exclude_dirs`, `search.exclude_exts`, `resource_buffer.*`, `skill_dirs`, `shell_aliases` | `params/agent.py` |
-| `build_detectors.yaml` | `build_detectors`, `test_detectors` | `params/tool.py` |
-| `danger_levels.yaml` | `danger_levels`, `danger_to_gates`, `ring_gates`, `ring_num_map`, `ring_name_map`, `gatechain_danger_levels`, `gatechain_pattern_template` | `params/tool.py`, `params/kernel.py` |
-| `error_codes.yaml` | `error_codes`, `i18n.zh-CN` | `l1/kernel/errors.py` |
-| `providers.yaml` | `provider_urls`, `default_models`, `provider_discovery`, `anthropic_api_version`, `llm.empty_response_waits`, `reasoning_effort_levels`, `mcp_default_url`, `search_default_url`, `ipc_sockets`, `env_vars` | `params/api.py` |
+`build_detectors`, `test_detectors`, `provider_urls`, `ring_gates`,
+`gatechain_danger_levels`, `constitution`, `tool_rates`, `services`,
+`skill_dirs`, `shell_aliases`, `tool`, `persistence`, `service_limits`
+
+YAML files only carry the sections that override the code defaults:
+
+| YAML file | Section names |
+|-----------|---------------|
+| `agent_configs.yaml` | `skill_dirs`, `shell_aliases` |
+| `build_detectors.yaml` | `build_detectors`, `test_detectors` |
+| `danger_levels.yaml` | `gatechain_danger_levels`, `ring_gates` |
+| `providers.yaml` | `provider_urls` |
+| `service_limits.yaml` | `service_limits` |
 
 **Adding new values**: Simply add new keys to the appropriate YAML file. No code changes needed.
 

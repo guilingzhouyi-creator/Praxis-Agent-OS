@@ -20,8 +20,8 @@ python -m l2.l2_shell             # interactive L2 Shell
 python -m pytest tests/ -x -q                                               # all tests (auto-discovers subdirs)
 python tests/runner.py                                                      # batch 1 (fast) + batch 2 (slow)
 python -m pytest tests/l1/test_kernel.py -x -q                             # single file (L1 kernel)
-python -m pytest tests/l3/test_sandbox.py -x -q                            # single file (L4 sandbox)
-python tests/runner.py test_kernel                                           # single via runner
+python -m pytest tests/l4/test_sandbox.py -x -q                            # single file (L4 sandbox)
+python tests/runner.py --batch 1|2                                          # runner takes --batch ONLY (no test-name arg)
 python -m pytest tests/ -k "kernel" -x -q                                   # keyword filter (works across subdirs)
 python -m pytest tests/l2/test_l2_shell.py -x -q                           # L2 shell test
 python -m pytest tests/infra/test_layer_imports.py -x -q                    # layer import constraint
@@ -263,7 +263,7 @@ Ruff (line-length 120, double quotes) and mypy configs live in `pyproject.toml`;
 - **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~33 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.
 - **Layer import test** (`test_layer_imports.py`) checks all `.py` files. New cross-layer imports must be allowlisted there.
 - **Test dirs beyond `l1`–`l5`/`infra`**: `tests/integration/` (cross-layer, e.g. diff system, network transport, tool+agent) and `tests/benchmarks/` (bench_card.py). Both are picked up by plain `pytest` (auto-discovery).
-- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core) and Batch 2 (slow extended, ~75s: r4_agent, integration, archive, convention). `--batch 1|2` selects one. Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"` (`testpaths = ["tests"]`, `pythonpath = ["src"]`), so plain `pytest` already parallelizes — the `-n 0` pins for infra/L1/L5 steps in `.github/workflows/test.yml` are explicit overrides, not the default.
+- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core) and Batch 2 (slow extended, ~75s: r4_agent, convention, orchestration). `--batch 1|2` selects one. Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"` (`testpaths = ["tests"]`, `pythonpath = ["src"]`), so plain `pytest` already parallelizes — the `-n 0` pins for infra/L1/L5 steps in `.github/workflows/test.yml` are explicit overrides, not the default.
 
 ## LLM config
 
@@ -310,7 +310,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - **Diff views**: `agent` (attribution), `human` (readable), `summary`
   (stats-only), `colored` (semantic colorization). Colors configurable via
   `config/praxis.yaml` `diff.colors` (see `docs/architecture/` for the
-  scheme); API: `POST /api/diff/colors` get/set/reset.
+  scheme); API: `POST /api/v2/diff/colors` get/set/reset.
 - **Flow**: agent writes → entry with per-hunk attribution → cross-review
   reads all entries for the file → message shows who changed what, with
   which tool, and when.

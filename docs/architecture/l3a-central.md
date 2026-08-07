@@ -1,7 +1,7 @@
 # L3A — The Central Decision Layer
 
 L3A is not another agent loop — it is the **central office** between the
-will (user) and the departments (cells/agents). 15 files / 4,015 lines in
+will (user) and the departments (cells/agents). 19 files / 4,990 lines in
 `src/l3/cell/peers/l3a/`.
 
 ```

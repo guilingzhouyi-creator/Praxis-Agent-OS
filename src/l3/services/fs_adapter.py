@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from l1.kernel.params.system import FS_WATCH_INTERVAL
+from l1.kernel.params.system import FS_WATCH_INTERVAL, HASH_TRUNC_LONG
 from l1.kernel.ports import FilesystemPort
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class FsAdapter(FilesystemPort):
                 self._watchers[root] = {"mtime": self._snapshot(p), "stop": False,
                                         "callback": callback}
             threading.Thread(target=self._poll, args=(str(p), root),
-                             name=f"fs-watch-{root[:16]}", daemon=True).start()
+                             name=f"fs-watch-{root[:HASH_TRUNC_LONG]}", daemon=True).start()
             return {"success": True, "watching": root}
         except Exception as e:
             return {"success": False, "error": str(e)}

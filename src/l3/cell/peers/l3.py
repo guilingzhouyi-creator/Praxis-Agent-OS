@@ -17,7 +17,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.kernel import WitnessStatus
-from l1.kernel.params.system import CARD_DEFAULT_PRIORITY, LOG_TRUNC_80
+from l1.kernel.params.system import CARD_DEFAULT_PRIORITY, HASH_TRUNC_SHORT, LOG_TRUNC_80
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l3.cell.peers.l3a import CardType, TaskCard, get_daemon
@@ -128,7 +128,7 @@ class CentralController:
             cid = m.group(0) if m else ""
         status = "queued" if cid else "parsed"
         with self._lock:
-            self._intents[cid or text[:8]] = {
+            self._intents[cid or text[:HASH_TRUNC_SHORT]] = {
                 "card": None,
                 "card_id": cid or "",
                 "status": status.upper(),

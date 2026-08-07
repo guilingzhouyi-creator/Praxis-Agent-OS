@@ -1,7 +1,7 @@
 # L3 — Card Lifecycle (produce → execute → archive)
 
 The card is the unit of will: everything in L3 orbits it. This document
-follows one card end-to-end. 225 files / 50,272 lines across L3.
+follows one card end-to-end. 242 files across L3.
 
 ```
 PRODUCE ──> EXECUTE ──> APPROVE ──> COMPLETE ──> ARCHIVE
@@ -52,8 +52,8 @@ stateDiagram-v2
 - **Tools**: `tool_pipeline.py` 9-step pipeline — constitution gate →
   GateChain G1–G5 → sandbox → rate limit → execution → record.
 - **Agents**: `agent/` (24 files) — AgentLoop, Scout pool, SubAgent gate/
-  pool, term handlers; `cell/` (22 files) — Cell, PMU, watchdog, MMU,
-  interrupt, decomposition.
+  pool, term handlers; `cell/components/` (20 files) — Cell, PMU, watchdog,
+  MMU, interrupt, decomposition.
 - **Verification**: `execution_verify` — scout verification + diff verify
   on file mutations.
 

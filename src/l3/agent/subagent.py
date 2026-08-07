@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from l1.kernel.params.agent import SUBAGENT_LOOP_STEPS, SUBAGENT_LOOP_TIMEOUT
 from l1.kernel.params.kernel import RUN_SUBPROCESS_TIMEOUT
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_500, LOG_TRUNC_4000
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_300, LOG_TRUNC_500, LOG_TRUNC_4000
 from l1.kernel.platform import grep_cmd as _grep_cmd
 from l3.services.model_service import get_service as _get_model_service
 
@@ -117,7 +117,7 @@ class SubAgent:
                 findings.append({
                     "type": action,
                     "args": step.get("args", {}),
-                    "result": str(step.get("result", ""))[:300],
+                    "result": str(step.get("result", ""))[:LOG_TRUNC_300],
                 })
         return findings
 

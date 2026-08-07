@@ -37,6 +37,7 @@ from l1.kernel.params.system import (
     ERROR_BUS_TOP_SOURCES,
     ERROR_EXPORT_FILE,
     HASH_TRUNC_LONG,
+    HASH_TRUNC_MEDIUM,
     LOG_ROTATE_GLOB,
     LOG_TRUNC_100,
     LOG_TRUNC_200,
@@ -101,7 +102,7 @@ class ErrorLogEntry:
     def to_dict(self) -> dict:
         """Serialize the entry to a dict."""
         return {
-            "id": self.fingerprint[:12],
+            "id": self.fingerprint[:HASH_TRUNC_MEDIUM],
             "level": self.level,
             "error_code": self.error_code,
             "component": self.component,
@@ -112,7 +113,7 @@ class ErrorLogEntry:
             "datetime": datetime.fromtimestamp(self.timestamp, tz=UTC).isoformat(),
             "agent_id": self.agent_id,
             "task_id": self.task_id,
-            "stack_trace": (self.stack_trace or "")[:1000],
+            "stack_trace": (self.stack_trace or "")[:LOG_TRUNC_1000],
             "context": self.context,
             "count": self.count,
         }

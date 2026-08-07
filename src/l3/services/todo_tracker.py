@@ -11,7 +11,7 @@ import json
 import logging
 import os
 
-from l1.kernel.params.system import LOG_TRUNC_40
+from l1.kernel.params.system import LOG_TRUNC_40, LOG_TRUNC_60
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -174,11 +174,11 @@ class TodoTracker:
         if task["attempts"] >= self._max_attempts:
             task["status"] = "escalated"
             self._persist()
-            return {"action": "escalate", "task": task["content"][:40],
+            return {"action": "escalate", "task": task["content"][:LOG_TRUNC_40],
                     "detail": f"exhausted {self._max_attempts} attempts"}
         task["status"] = "pending"
         self._persist()
-        return {"action": "retry", "task": task["content"][:40],
+        return {"action": "retry", "task": task["content"][:LOG_TRUNC_40],
                 "detail": f"attempt {task['attempts']}/{self._max_attempts} failed"}
 
     def waive(self, content: str, reason: str = "") -> dict:
@@ -193,7 +193,7 @@ class TodoTracker:
 
     def can_close(self) -> tuple[bool, list[str]]:
         """Return whether every task is verified/waived, plus blockers."""
-        blocked = [t["content"][:60] for t in self._items
+        blocked = [t["content"][:LOG_TRUNC_60] for t in self._items
                    if t["status"] not in ("verified", "waived")]
         return len(blocked) == 0, blocked
 
@@ -212,11 +212,11 @@ class TodoTracker:
         escalated = [t for t in self._items if t["status"] == "escalated"]
         lines = []
         if escalated:
-            lines.append(f">> ESCALATED: {escalated[0]['content'][:60]} - needs human review")
+            lines.append(f">> ESCALATED: {escalated[0]['content'][:LOG_TRUNC_60]} - needs human review")
         if verifying:
-            lines.append(f">> Verifying: {verifying[0]['content'][:60]} - run checks")
+            lines.append(f">> Verifying: {verifying[0]['content'][:LOG_TRUNC_60]} - run checks")
         if in_progress:
-            lines.append(f">> You are currently ON task '{in_progress[0]['content'][:60]}'")
+            lines.append(f">> You are currently ON task '{in_progress[0]['content'][:LOG_TRUNC_60]}'")
         elif pending:
             lines.append(">> NOTHING is in_progress but tasks remain.")
         if lines or self.has_open_items():

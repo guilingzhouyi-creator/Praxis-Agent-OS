@@ -21,6 +21,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.system import (
+    HASH_TRUNC_MEDIUM,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_200,
     LOG_TRUNC_2000,
@@ -184,7 +185,7 @@ def maybe_trigger(agent_id: str, cell_id: str, task: str,
             target=_run,
             args=(agent_id, cell_id, task, list(unverified), card_id or ""),
             daemon=True,
-            name=f"auto-test-{agent_id[:12]}",
+            name=f"auto-test-{agent_id[:HASH_TRUNC_MEDIUM]}",
         )
         thread.start()
         return True
