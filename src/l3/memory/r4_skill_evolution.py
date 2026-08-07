@@ -24,6 +24,7 @@ from l1.kernel.params.agent import (
     R4_CONTRIB_MIN_TRIALS,
     R4_CURATION_ENABLED,
     R4_DISTILL_COOLDOWN,
+    R4_DISTILL_SAMPLES,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_GENERALIZE_THRESHOLD,
     R4_RULE_MIN_PREFERRED,
@@ -257,24 +258,39 @@ class SkillEvolutionMixin:
     def _distill_lessons_skill(self, tool: str, cases: list[dict], verified_context: str = "") -> dict | None:
         """Distill a tool's lean cases into a structured skill definition.
 
-        P4 upgrade path: after the plain lesson summary succeeds, ask the
-        skill architect to emit a full definition — name, description,
-        rules (enforceable DO/DON'T) and procedures — for the tool's failure
-        patterns. ``verified_context`` (batch 2) carries already-verified
-        rules so a re-distillation keeps what worked. Returns
-        ``{"prompt", "rules", "procedures"}`` or None on any failure (LLM
-        error, invalid JSON, contract violation). The caller keeps the
-        summary as the fallback.
+        Batch 3 upgrade: rejection sampling. Up to ``R4_DISTILL_SAMPLES``
+        (1-3, configurable) candidate definitions are sampled for the same
+        digest; a heuristic verifier scores each (operability, coverage of
+        the digest's error terms, consistency) and the best-scoring
+        candidate wins. Any failure degrades to None so the caller keeps
+        the summary fallback. ``verified_context`` (batch 2) carries
+        already-verified rules across re-distillation.
         """
-        import json as _json
-
-        from l1.kernel.skill import validate_skill_content as _validate_content
-
         now = time.time()
         if now - self._last_distill.get(tool, 0.0) < R4_DISTILL_COOLDOWN:
             logger.debug("R4Agent: skill distillation for %s skipped (cooldown)", tool)
             return None
         digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+        samples = int(R4_DISTILL_SAMPLES) if R4_DISTILL_SAMPLES >= 1 else 1
+        best: dict | None = None
+        best_score = -1.0
+        for _i in range(samples):
+            candidate = self._sample_distill_candidate(tool, digest, verified_context)
+            if candidate is None:
+                continue
+            score = self._score_distill_candidate(candidate, digest)
+            if score > best_score:
+                best, best_score = candidate, score
+        if best is not None:
+            self._last_distill[tool] = now
+        return best
+
+    def _sample_distill_candidate(self, tool: str, digest: str, verified_context: str) -> dict | None:
+        """One LLM sample of a distilled skill definition (batch 3)."""
+        import json as _json
+
+        from l1.kernel.skill import validate_skill_content as _validate_content
+
         prompt = (
             "You are a skill architect. Distill these failure patterns for "
             f"the tool '{tool}' into a structured skill definition:\n{digest}\n"
@@ -296,7 +312,6 @@ class SkillEvolutionMixin:
         except Exception as e:
             logger.warning("R4Agent: skill distillation failed: %s", e)
             return None
-        self._last_distill[tool] = now
         content = (result.get("content") or "").strip()
         if content.startswith("```"):
             lines = content.splitlines()
@@ -338,6 +353,40 @@ class SkillEvolutionMixin:
                 )
         procs = [p for p in (data.get("procedures") or []) if isinstance(p, dict)]
         return {"prompt": skill_prompt, "rules": rules, "procedures": procs}
+
+    def _score_distill_candidate(self, candidate: dict, digest: str) -> float:
+        """Heuristic verifier for a distilled candidate (batch 3).
+
+        Three signals, summed:
+          - operability: share of rules that are actionable (start with
+            DO/DONT/CHECK/VERIFY/ALWAYS/NEVER) — rewards enforceable rules
+          - coverage: share of the digest's distinct error terms mentioned
+            across the candidate's prompt+rules — rewards completeness
+          - structure: procedures present add a bonus (structured skills
+            are more executable than prose-only ones)
+        Returns a score in [0, 3].
+        """
+        import re as _re
+
+        rules = candidate.get("rules") or []
+        rule_texts = [r.get("rule", "") if isinstance(r, dict) else str(r) for r in rules]
+        prompt = candidate.get("prompt", "") or ""
+        # Operability.
+        actionable = 0
+        for rt in rule_texts:
+            head = rt.strip().upper()
+            if any(head.startswith(p) for p in ("DO", "DON'T", "DONT", "CHECK", "VERIFY", "ALWAYS", "NEVER")):
+                actionable += 1
+        operability = actionable / len(rule_texts) if rule_texts else 0.0
+        # Coverage: digest error terms appearing in prompt+rules.
+        terms = set(_re.split(r"[\s,;:._-]+", digest.lower()))
+        terms = {t for t in terms if len(t) > 2}
+        blob = f"{prompt} {' '.join(rule_texts)}".lower()
+        covered = sum(1 for t in terms if t in blob)
+        coverage = covered / len(terms) if terms else 0.0
+        # Structure bonus.
+        structure = 1.0 if candidate.get("procedures") else 0.0
+        return round(operability + coverage + structure, 3)
 
     @staticmethod
     def _archive_before_evolve(name: str, skill_data: dict) -> None:

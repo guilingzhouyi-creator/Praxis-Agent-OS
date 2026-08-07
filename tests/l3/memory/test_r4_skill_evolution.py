@@ -585,3 +585,93 @@ class TestRulePreferenceSignal:
         rules = sm.get("lean_git_lessons")["rules"]
         assert rules[0]["rule"] == "DO: fresh rule"
         assert rules[0]["verified"] == 0  # fresh rule starts unverified
+
+
+class TestRejectionSampling:
+    """Batch 3 — multi-candidate distillation with heuristic verifier."""
+
+    def _mk_cases(self, sm, tool, n=5):
+        for i in range(n):
+            sm.create(name=f"lean_s{i}_{tool}", prompt=f"failed with error {tool} {i}",
+                      tags=["lean_case", "failure", f"s{i}", tool],
+                      allowed_tools=[tool], internal=True)
+
+    def test_best_candidate_wins(self, mocker):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_cases(sm, "gitsync")
+        r4 = R4Agent()
+        r4._last_distill = {}
+        r4._last_summarize = {}
+        # 候选1: 可操作规则 + procedures(高覆盖)
+        good = json.dumps({
+            "name": "gitsync_lessons", "description": "d",
+            "prompt": "Check gitsync status before sync and verify the log output.",
+            "rules": ["DO: verify gitsync log", "CHECK: gitsync status"],
+            "procedures": [{"step": "verify"}],
+        })
+        # 候选2: 无规则无 procedures(低分)
+        bad = json.dumps({
+            "name": "gitsync_lessons", "description": "d",
+            "prompt": "gitsync things happened.",
+            "rules": [],
+            "procedures": [],
+        })
+        calls = {"n": 0}
+
+        def _fake(prompt, **kw):
+            if "into a structured skill definition" in prompt:
+                calls["n"] += 1
+                return {"content": good if calls["n"] == 1 else bad}
+            return {"content": json.dumps({"lesson": "A useful lesson about gitsync operations."})}
+
+        mock_engine = mocker.patch("l4.llm.llm.get_engine")
+        mock_engine.return_value.generate.side_effect = _fake
+        n = r4._generalize_lean_cases(sm)
+        assert n >= 1
+        rec = sm.get("lean_gitsync_lessons")
+        # 高分候选(good)胜出
+        assert rec.get("procedures") == [{"step": "verify"}]
+        assert rec.get("rules")[0]["rule"] == "DO: verify gitsync log"
+
+    def test_verifier_scores_operable_higher(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        get_skill_manager()
+        r4 = R4Agent()
+        digest = "- failed with error gitsync 0\n- failed with error gitsync 1"
+        operable = {"prompt": "Check gitsync and verify log.", "rules": [{"rule": "DO: verify gitsync"}], "procedures": [{"step": "x"}]}
+        vague = {"prompt": "gitsync things.", "rules": [{"rule": "maybe check"}], "procedures": []}
+        assert r4._score_distill_candidate(operable, digest) > r4._score_distill_candidate(vague, digest)
+
+    def test_samples_respect_config(self, mocker):
+        from l1.kernel.params.agent import R4_DISTILL_SAMPLES
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_cases(sm, "cfgsync")
+        r4 = R4Agent()
+        r4._last_distill = {}
+        r4._last_summarize = {}
+        samples = int(R4_DISTILL_SAMPLES)
+        calls = {"n": 0}
+
+        def _fake(prompt, **kw):
+            if "into a structured skill definition" in prompt:
+                calls["n"] += 1
+                return {"content": json.dumps({
+                    "name": "cfgsync_lessons", "description": "d",
+                    "prompt": "Check cfgsync config before sync and verify output.",
+                    "rules": ["DO: verify cfgsync"], "procedures": [],
+                })}
+            return {"content": json.dumps({"lesson": "A useful lesson about cfgsync operations."})}
+
+        mock_engine = mocker.patch("l4.llm.llm.get_engine")
+        mock_engine.return_value.generate.side_effect = _fake
+        n = r4._generalize_lean_cases(sm)
+        assert n >= 1
+        assert calls["n"] == samples, f"expected {samples} samples, got {calls['n']}"
