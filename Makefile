@@ -32,6 +32,7 @@ typecheck:
 
 hooks:
 	git config core.hooksPath .githooks
+	chmod +x .githooks/pre-commit .githooks/commit-msg .githooks/post-checkout
 
 precommit:
 	pre-commit run --all-files
