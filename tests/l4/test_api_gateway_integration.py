@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -78,12 +79,13 @@ class TestHttpParamLink:
     def test_http_query_cannot_override_path(self):
         import http.client
         import json
-        import time
 
         from l4.api.api_gateway import ApiGateway
 
-        port = 18231
-        gw = ApiGateway(port=port, auth_token="")
+        # port=0 → OS-assigned ephemeral port: no fixed-port collision race
+        # between parallel workers. Readiness is polled instead of a blind
+        # sleep, so a loaded CI runner cannot hit a not-yet-bound server.
+        gw = ApiGateway(port=0, auth_token="")
         gw._routes.clear()
         gw.register_route(
             "GET", "/api/v2/card/{id}",
@@ -91,14 +93,19 @@ class TestHttpParamLink:
             "get card (param-confusion regression)")
         gw.start()
         try:
-            time.sleep(0.2)  # allow the background server thread to bind
-            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-            try:
-                conn.request("GET", "/api/v2/card/abc?_id=evil")
-                resp = conn.getresponse()
-                data = json.loads(resp.read().decode())
-            finally:
-                conn.close()
+            deadline = time.time() + 5.0
+            while True:
+                try:
+                    conn = http.client.HTTPConnection("127.0.0.1", gw.port, timeout=1)
+                    conn.request("GET", "/api/v2/card/abc?_id=evil")
+                    resp = conn.getresponse()
+                    data = json.loads(resp.read().decode())
+                    conn.close()
+                    break
+                except (ConnectionRefusedError, ConnectionResetError, OSError):
+                    if time.time() > deadline:
+                        raise
+                    time.sleep(0.05)
             assert data.get("ok") is True
             assert data.get("_id") == "abc", (
                 f"path id must win over query, got {data.get('_id')!r}")

@@ -541,6 +541,10 @@ class ApiGateway(ApiHandlers):
         try:
             addr = (self.host, self.port)
             self._server = http.server.ThreadingHTTPServer(addr, _Handler)
+            # port=0 (ephemeral) — backfill the OS-assigned port so callers
+            # can connect without a fixed-port collision race.
+            if self.port == 0:
+                self.port = int(self._server.server_address[1])
             self._server.serve_forever()
         except OSError as e:
             logger.error("API gateway failed to start: %s", e)
