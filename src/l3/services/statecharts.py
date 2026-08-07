@@ -21,6 +21,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
+from l1.kernel.params.system import (
+    STATECHART_COMM_DEGRADE_THRESHOLD,
+    STATECHART_COMM_DISCONNECT_THRESHOLD,
+    STATECHART_CRASH_TIMEOUT,
+    STATECHART_HEALTH_FAIL_THRESHOLD,
+    STATECHART_HEALTH_SUCCESS_THRESHOLD,
+    STATECHART_HEALTH_TIMEOUT,
+    STATECHART_RESOURCE_MEMORY_LIMIT,
+    STATECHART_RESOURCE_TOKEN_BUDGET,
+)
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -111,7 +121,8 @@ class TaskRegion(Region):
 class HealthRegion(Region):
     """HealthRegion — health region."""
     name = "Health"
-    def __init__(self, ft=3, st=5, hto=15, cto=30):
+    def __init__(self, ft=STATECHART_HEALTH_FAIL_THRESHOLD, st=STATECHART_HEALTH_SUCCESS_THRESHOLD,
+                 hto=STATECHART_HEALTH_TIMEOUT, cto=STATECHART_CRASH_TIMEOUT):
         self.state = "HEALTHY"
         self.ft, self.st, self.hto, self.cto = ft, st, hto, cto
         self._fc = self._sc = 0; self._lh = time.time()
@@ -187,7 +198,7 @@ class ReviewRegion(Region):
 class ResourceRegion(Region):
     """ResourceRegion — resource region."""
     name = "Resource"
-    def __init__(self, tb=73000, ml=500):
+    def __init__(self, tb=STATECHART_RESOURCE_TOKEN_BUDGET, ml=STATECHART_RESOURCE_MEMORY_LIMIT):
         self.state = "NORMAL"
         self.tb, self.ml = tb, ml
         self.tc = self.mu = 0
@@ -210,7 +221,7 @@ class ResourceRegion(Region):
 class CommRegion(Region):
     """CommRegion — comm region."""
     name = "Comm"
-    def __init__(self, dt=10.0, dst=30.0):
+    def __init__(self, dt=STATECHART_COMM_DEGRADE_THRESHOLD, dst=STATECHART_COMM_DISCONNECT_THRESHOLD):
         self.state = "CONNECTED"
         self.dt, self.dst = dt, dst
         self._latency = 0.0; self._ra = 0

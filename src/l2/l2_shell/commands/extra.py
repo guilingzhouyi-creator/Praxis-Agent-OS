@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.system import STATS_TIMELINE_LIMIT, STATS_TOP_LIMIT
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def _cmd_stats(args: list[str]) -> dict:
 
     if sub == "timeline":
         from l3.card.card_registry import get_registry
-        limit = 20
+        limit = STATS_TIMELINE_LIMIT
         for a in args[1:]:
             if a.isdigit():
                 limit = int(a)
@@ -146,7 +147,7 @@ def _cmd_stats(args: list[str]) -> dict:
         metric = args[1] if len(args) > 1 else "card.execution.total"
         from l3.services.stats_center import get_center as _sc
         return {"success": True, "metric": metric,
-                "ranking": _sc().top(metric, limit=10, window=window)}
+                "ranking": _sc().top(metric, limit=STATS_TOP_LIMIT, window=window)}
 
     if sub in ("tools", "compression", "cell", "agent", "cells"):
         from l3.services.stats_center import get_center as _sc

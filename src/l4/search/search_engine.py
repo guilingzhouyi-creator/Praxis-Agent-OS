@@ -20,10 +20,12 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from l1.kernel.discovery import get_service_limit
 from l1.kernel.params.system import (
     DOC_SEARCH_RESULTS,
     LOG_TRUNC_100,
     LOG_TRUNC_200,
+    SEARCH_CACHE_MAX,
     SEARCH_DEFAULT_RESULTS,
     SEARCH_SCORE_DOCSTRING_MATCH,
     SEARCH_SCORE_FULL_MATCH,
@@ -182,7 +184,7 @@ class SymbolSearch:
     """
 
     _ast_cache: dict[tuple[str, float], ast.Module] = {}  # (path, mtime) → AST
-    _CACHE_MAX = 200
+    _CACHE_MAX = SEARCH_CACHE_MAX
 
     LANGUAGES: dict[str, tuple[str, list[str]]] = {
         "python": ("python", [".py"]),
@@ -192,6 +194,9 @@ class SymbolSearch:
 
     def __init__(self):
         self._lock = threading.Lock()
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        self._cache_max = get_service_limit("search_cache_max", SEARCH_CACHE_MAX)
 
     def search(self, name: str, kind: str = "",
                root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
@@ -217,7 +222,7 @@ class SymbolSearch:
                     content = file_path.read_text(encoding="utf-8", errors="replace")
                     tree = ast.parse(content)
                     # LRU eviction: keep cache bounded
-                    if len(self._ast_cache) >= self._CACHE_MAX:
+                    if len(self._ast_cache) >= self._cache_max:
                         # Remove oldest entry (dict preserves insertion order in 3.7+)
                         self._ast_cache.pop(next(iter(self._ast_cache)))
                     self._ast_cache[cache_key] = tree

@@ -112,6 +112,33 @@ MEMORY_RING_SCORE_MEDIUM_TOKENS: Final[int] = 5
 MEMORY_RING_SCORE_GOOD_THRESHOLD: Final[int] = 40
 MEMORY_RING_SCORE_AVERAGE_THRESHOLD: Final[int] = 15
 
+# ── Statecharts region thresholds (statecharts.py) ──
+STATECHART_HEALTH_FAIL_THRESHOLD: Final[int] = 3          # ft: consecutive failures → DEGRADED
+STATECHART_HEALTH_SUCCESS_THRESHOLD: Final[int] = 5       # st: consecutive successes → HEALTHY
+STATECHART_HEALTH_TIMEOUT: Final[int] = 15                # hto: heartbeat timeout
+STATECHART_CRASH_TIMEOUT: Final[int] = 30                 # cto: crash timeout
+STATECHART_RESOURCE_TOKEN_BUDGET: Final[int] = 73000      # tb: token budget
+STATECHART_RESOURCE_MEMORY_LIMIT: Final[int] = 500        # ml: memory limit
+STATECHART_COMM_DEGRADE_THRESHOLD: Final[float] = 10.0    # dt: latency degrade threshold
+STATECHART_COMM_DISCONNECT_THRESHOLD: Final[float] = 30.0 # dst: disconnect threshold
+
+# ── Model strategy / probe cache (model_strategy.py) ──
+MODEL_STRATEGY_MAX_WORKERS: Final[int] = 4
+MODEL_STRATEGY_CACHE_TTL: Final[float] = 86400.0  # 24h probe cache
+
+# ── Counter token-rate window (counter.py) ──
+COUNTER_TOKEN_RATE_WINDOW: Final[float] = 60.0
+
+# ── L3B message pool default limit (l3b_message_pool.py) ──
+L3B_MESSAGE_POOL_DEFAULT_LIMIT: Final[int] = 10
+
+# ── Config watcher interval (config_loader.py) ──
+CONFIG_WATCH_INTERVAL: Final[float] = 30.0
+
+# ── Card registry client timeouts (card_registry_protocol.py) ──
+CARD_REGISTRY_TIMEOUT: Final[float] = 15.0
+CARD_REGISTRY_PUBLISH_TIMEOUT: Final[float] = 30.0
+
 
 # ── Fault tolerance ──
 HEARTBEAT_TIMEOUT: Final[float] = 15.0
@@ -266,6 +293,7 @@ SCHEDULER_TASK_RETENTION: Final[int] = 100
 
 # ── Pager / memory recall ──
 PAGER_RECALL_LIMIT: Final[int] = 50
+MEMORY_RECALL_PAGE_LIMIT: Final[int] = 50  # _comm.py memory recall page size
 
 # ── TUI ──
 TUI_REFRESH_MS: Final[int] = 300
@@ -283,6 +311,7 @@ SYMBOL_SEARCH_RESULTS: Final[int] = 30
 DOC_SEARCH_RESULTS: Final[int] = 10
 SEARCH_SCORE_FULL_MATCH: Final[float] = 2.0
 SEARCH_SCORE_NAME_MATCH: Final[float] = 1.0
+SEARCH_CACHE_MAX: Final[int] = 200  # search_engine.py result cache cap
 SEARCH_SCORE_DOCSTRING_MATCH: Final[float] = 0.5
 SEARCH_SCORE_MODULE_MATCH: Final[float] = 0.3
 SEARCH_SCORE_PACKAGE_MATCH: Final[float] = 0.2
@@ -560,6 +589,7 @@ CARD_STALE_ESCALATE_SECONDS: Final[int] = 3600  # QUEUED card older than this is
 # ── Ops console defaults ──
 OPS_MAX_ALERTS: Final[int] = 200
 OPS_CONSOLE_POOL_WARN_RATIO: Final[float] = 0.9
+OPS_CONSOLE_INTERVAL: Final[float] = 15.0
 SESSION_COMPRESS_THRESHOLD: Final[float] = 0.85
 AGENT_UNRESPONSIVE_TIMEOUT: Final[float] = 60.0
 INTERRUPT_HIGH_COUNT: Final[int] = 100
@@ -719,3 +749,5 @@ STATS_BUCKET_SIZE: Final[int] = 600  # seconds per bucket (10 min)
 STATS_HISTORY_BUCKETS: Final[int] = 144  # 24h of buckets
 STATS_SSE_BUFFER: Final[int] = 100  # max SSE events buffered per subscriber
 STATS_DEFAULT_WINDOW: Final[str] = "5m"  # default query window
+STATS_TOP_LIMIT: Final[int] = 10  # default row cap for cross-cell ranking
+STATS_TIMELINE_LIMIT: Final[int] = 20  # l2 extra.py timeline query default

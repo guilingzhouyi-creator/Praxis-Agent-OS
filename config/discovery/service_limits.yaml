@@ -1,13 +1,13 @@
 # Service runtime limits — auto-discovered by ConfigDiscovery.
-# Overlays src/l1/kernel/params/system.py defaults (see _init_discovery in
+# Overlays src/l1/kernel/params/*.py defaults (see _init_discovery in
 # src/l3/boot/boot.py, section "service_limits").
 #
-# The values below are the params/system.py defaults, kept commented out so
+# The values below are the params defaults, kept commented out so
 # this file carries no duplicated truth. Uncomment + edit a key to override
 # the default at deployment time — e.g. raise a dialogue turn cap or a
 # retention window without touching code.
 #
-# Consumers (get_config("service_limits", {})):
+# Consumers (get_service_limit(key, params_default)):
 #   - transaction_area.py   — transaction_area_max_queue
 #   - record_center.py      — record_center_default_limit, record_center_retention_days
 #   - dialogue_session.py   — dialogue_max_turns, dialogue_max_context_tokens,
@@ -16,6 +16,12 @@
 #   - monitor_bus.py        — monitor_bus_max_queued
 #   - error_bus             — error_bus_query_limit
 #   - memory_ring.py        — memory_ring_score_* (quality_note scoring weights)
+#   - channel_ring.py       — channel_ring_capacity (L4 ChannelPort ring)
+#   - api_middleware.py     — api_middleware_timeout (L4 request deadline)
+#   - lsp_manager.py        — lsp_cache_ttl (L4 diagnostic cache TTL)
+#   - search_engine.py      — search_cache_max (L4 AST cache cap)
+#   - ops_console.py        — ops_console_interval (L4 health monitor poll)
+#   - tools/_comm.py        — memory_recall_page_limit (memory recall page size)
 
 service_limits:
   # execution_step_timeout: 30.0
@@ -35,3 +41,9 @@ service_limits:
   # memory_ring_score_medium_tokens: 5
   # memory_ring_score_good_threshold: 40
   # memory_ring_score_average_threshold: 15
+  # channel_ring_capacity: 1024
+  # api_middleware_timeout: 30.0
+  # lsp_cache_ttl: 30.0
+  # search_cache_max: 200
+  # ops_console_interval: 15.0
+  # memory_recall_page_limit: 50

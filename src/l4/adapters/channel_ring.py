@@ -17,6 +17,8 @@ import threading
 import time
 from typing import Any
 
+from l1.kernel.discovery import get_service_limit
+from l1.kernel.params.api import CHANNEL_RING_CAPACITY
 from l1.kernel.ports import ChannelPort
 
 
@@ -26,7 +28,11 @@ class RingChannel(ChannelPort):
     Thread-safety: single Lock + two Conditions (not_full, not_empty).
     """
 
-    def __init__(self, capacity: int = 1024, overwrite: bool = False) -> None:
+    def __init__(self, capacity: int | None = None, overwrite: bool = False) -> None:
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        if capacity is None:
+            capacity = get_service_limit("channel_ring_capacity", CHANNEL_RING_CAPACITY)
         if capacity < 1:
             raise ValueError(f"capacity must be >= 1, got {capacity}")
         self._capacity: int = capacity

@@ -30,8 +30,10 @@ from dataclasses import dataclass, field
 
 from l1.kernel.params.system import (
     STATS_BUCKET_SIZE,
+    STATS_DEFAULT_WINDOW,
     STATS_HISTORY_BUCKETS,
     STATS_SSE_BUFFER,
+    STATS_TOP_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -184,7 +186,7 @@ class StatsCenter:
         self,
         metrics: list[str] | None = None,
         tags: dict | None = None,
-        window: str = "5m",
+        window: str = STATS_DEFAULT_WINDOW,
         agg: str = "sum",
     ) -> list[dict]:
         """Query aggregated metrics.
@@ -233,7 +235,7 @@ class StatsCenter:
         return results
 
     def top(self, metric: str, order: str = "desc",
-            limit: int = 10, window: str = "5m") -> list[dict]:
+            limit: int = STATS_TOP_LIMIT, window: str = STATS_DEFAULT_WINDOW) -> list[dict]:
         """Cross-Cell ranking for a single metric.
 
         Returns sorted list of {tags_key, value} aggregated per tags.
