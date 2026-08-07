@@ -28,10 +28,12 @@ jobs:
         run: python -m pytest tests/ -v --tb=short -q --ignore=tests/benchmarks/bench_card.py
 
   lint-full-tree:
-    # Full-tree ruff gate: PR lint (ci.yml) only checks changed files, so
-    # pre-existing debt in untouched files could rot silently. The weekly run
-    # enforces the whole src/ + tests/ tree stays clean — matches the local
-    # .githooks/pre-commit, which already runs full-tree ruff on every commit.
+    # Full-tree ruff gate: PR lint (ci.yml) only checks changed files, and
+    # the local .githooks/pre-commit only checks staged files (staged-scoped
+    # since 2026-08-07 — it must never run whole-tree passes, which silently
+    # reformat files outside the commit). This weekly run is the ONLY
+    # full-tree style gate: it enforces that src/ + tests/ stays clean and
+    # catches debt rotting in untouched files.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +46,19 @@ jobs:
         run: ruff check src/ tests/
       - name: ruff format (full tree)
         run: ruff format --check src/ tests/
+      - name: hooks executable (gate guards)
+        # The pre-commit/commit-msg/post-checkout hooks are load-bearing
+        # gates; git silently skips non-executable core.hooksPath hooks, and
+        # the tracked exec bits drifted to 100644 once (2026-08-07), silently
+        # disabling every gate. Fail if the tracked modes are not 100755.
+        run: |
+          BAD=$(git ls-files -s .githooks/ | awk '$1 != "100755" {print $4}' || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ hooks not tracked as executable:"; printf '%s\n' "$BAD"
+            echo "   fix with: git update-index --chmod=+x <file>"
+            exit 1
+          fi
+          echo "✅ hooks tracked as 100755"
 
   mypy-debt:
     # mypy no-new-debt gate: type checking stays non-gating in PR CI, but the
