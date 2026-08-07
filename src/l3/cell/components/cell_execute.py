@@ -10,7 +10,7 @@ import logging
 import time
 import uuid
 
-from l1.kernel.params.agent import CELL_SNAPSHOT_MAX
+from l1.kernel.params.agent import CELL_SNAPSHOT_MAX, R4_CARD_SKILL_SIGNAL_MAX
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l1.kernel.params.system import (
     CELL_RING_NORMALIZE,
@@ -123,6 +123,23 @@ def execute_card(
     )
     result["intent"] = card.intent[:LOG_TRUNC_80] if hasattr(card, "intent") else str(card)[:LOG_TRUNC_80]
     result["agent_map"] = agent_map
+    # Card→skill preference signal (batch 1): collect the skills each
+    # agent's persistent loop used/injected during this card, so the
+    # success/failure below can be attributed to them (DPO-style weighting
+    # consumes this downstream in R4Agent).
+    try:
+        from l3.agent_terminal import get_terminals as _get_terms
+
+        _used: list[str] = []
+        for _term in _get_terms().values():
+            _loop = getattr(_term, "_active_loop", None)
+            _sk = getattr(_loop, "_card_skills_used", None)
+            if _sk:
+                _used.extend(sorted(_sk)[:R4_CARD_SKILL_SIGNAL_MAX])
+        if _used:
+            result["card_skills_used"] = sorted(set(_used))[:R4_CARD_SKILL_SIGNAL_MAX]
+    except Exception:
+        logger.debug("cell_execute: card-skill signal collection skipped")
     # PMU counters
     if result.get("success"):
         cell._pmu.increment("cards.completed")

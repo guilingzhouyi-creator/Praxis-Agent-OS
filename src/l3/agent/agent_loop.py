@@ -47,6 +47,7 @@ from l1.kernel.params.agent import (
     LOOP_FOLD_LIST_PREVIEW,
     LOOP_FOLD_LIST_TRUNCATION,
     LOOP_LEAN_CASES_LIMIT,
+    R4_CARD_SKILL_SIGNAL_MAX,
     R4_CARD_TAG_MAX,
 )
 from l1.kernel.params.kernel import RING_1
@@ -141,6 +142,10 @@ class AgentLoop:
         self._card_tags: list[str] = []
         self._gate_scope: str = ""
         self._card_nature: str = ""
+        # Skills used (use_skill) or injected during the current card's
+        # execution — the preference signal for DPO-style rule weighting
+        # (card success/failure is attributed to these skills downstream).
+        self._card_skills_used: set[str] = set()
         # Persistent thread pool for parallel read-only tool execution
         # (avoids creating/destroying ThreadPoolExecutor on every loop iteration)
         self._parallel_executor = ThreadPoolExecutor(
@@ -317,6 +322,11 @@ class AgentLoop:
                     for _name in injected:
                         _sm.update(_name, {"last_used": _now})
                         _sm.bump_usage(_name, key="inject_count")
+                        # Card→skill signal: injected skills ride the current
+                        # card's preference attribution (bounded set).
+                        _used = getattr(self, "_card_skills_used", None)
+                        if _used is not None and len(_used) < R4_CARD_SKILL_SIGNAL_MAX:
+                            _used.add(_name)
                 except Exception as e:
                     logger.debug("agent_loop: skill last_used refresh failed: %s", e)
         except Exception as e:
@@ -484,6 +494,17 @@ class AgentLoop:
 
         def wrapped(args, agent):
             """Execute the handler through the pipeline and log failures."""
+            # Card→skill signal: a use_skill invocation names the skill in
+            # args; attribute it to the current card's preference set.
+            try:
+                _tool = fn.__name__ if hasattr(fn, "__name__") else ""
+                if _tool == "use_skill":
+                    _sk = args.get("name", "") if isinstance(args, dict) else ""
+                    _used = getattr(self, "_card_skills_used", None)
+                    if _sk and _used is not None and len(_used) < R4_CARD_SKILL_SIGNAL_MAX:
+                        _used.add(_sk)
+            except Exception:
+                pass
             pr = pipeline.execute(
                 tool_name=fn.__name__ if hasattr(fn, "__name__") else "unknown",
                 agent_id=self.agent_id,

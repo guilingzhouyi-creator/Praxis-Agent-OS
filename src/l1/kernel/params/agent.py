@@ -690,3 +690,13 @@ CONVENTION_SESSION_TIMEOUT: Final[float] = 300.0
 CONVENTION_SUB_MAX_STEPS: Final[int] = 1
 # Timeout per convention subagent (s)
 CONVENTION_SUB_TIMEOUT: Final[float] = 60.0
+
+# ── Skill distillation / generalization upgrade (LLM-training-inspired) ──
+R4_LEAN_KNOWLEDGE_MAX: Final[int] = 500  # structured knowledge field truncation (chars)
+R4_CARD_SKILL_SIGNAL_MAX: Final[int] = 32  # max skills tracked per card for preference signal
+R4_RULE_MIN_PREFERRED: Final[float] = 0.3  # rule weight below this → deprecated on next distill
+R4_REDISTILL_COOLDOWN: Final[float] = 3600.0  # min gap between targeted re-distills per tool (s)
+R4_DISTILL_SAMPLES: Final[int] = 2  # candidate samples per distillation (1-3, configurable)
+R4_CLUSTER_SIMILARITY: Final[float] = 0.7  # shingle Jaccard above this merges failure clusters
+R4_CLUSTER_SAMPLE_MAX: Final[int] = 3  # representative cases sampled per cluster into the digest
+R4_DIFFICULTY_WORDS: Final[int] = 8  # error word-count proxy marking a "complex" pattern

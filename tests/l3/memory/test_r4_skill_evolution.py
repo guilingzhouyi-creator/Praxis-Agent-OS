@@ -366,3 +366,125 @@ class TestSkillConflictDetection:
         contrad = [r for r in report if r["kind"] == "contradiction"]
         assert contrad, f"expected contradiction, got {report}"
         assert {"c_a", "c_b"} <= set(contrad[0]["skills"])
+
+
+class TestLeanStructuredKnowledge:
+    """Batch 1 — lean cases carry structured failure detail for distillation."""
+
+    def test_lean_case_gets_structured_knowledge(self, mocker, tmp_path):
+        import json
+
+        from l1.kernel.paths import get_paths as _gp
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        r4 = R4Agent()
+        mocker.patch.object(_gp(), "skill_lean_dir", tmp_path)
+        trace = {
+            "agent_id": "agent-1",
+            "tool": "file_editor",
+            "args": {"path": "x", "content": "y"},
+            "error": "permission denied on /etc/passwd",
+            "turn_count": 3,
+            "resolved": False,
+            "domain": "auth",
+            "nature": "review",
+        }
+        fp = tmp_path / "lean_agent-1_file_editor.json"
+        fp.write_text(json.dumps(trace), encoding="utf-8")
+        r4._process_failure_traces()
+        names = [s["name"] for s in sm.list_skills(tags=["lean_case"])]
+        assert len(names) >= 1
+        rec = sm.get(names[0])
+        kn = rec.get("knowledge") or {}
+        assert kn.get("tool") == "file_editor"
+        assert kn.get("domain") == "auth"
+        assert kn.get("nature") == "review"
+        assert "permission denied" in kn.get("error", "")
+        assert kn.get("turn_count") == 3
+        assert kn.get("pattern_hint")
+
+    def test_create_accepts_knowledge(self):
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.create(name="kn_skill", description="d", prompt="p", tags=["evolved"],
+                  knowledge={"tool": "x", "error": "boom"}, internal=True)
+        rec = sm.get("kn_skill")
+        assert rec.get("knowledge", {}).get("error") == "boom"
+        # Default knowledge still populated when not passed.
+        sm.create(name="kn_default", description="d", prompt="ppp", tags=["evolved"], internal=True)
+        assert sm.get("kn_default").get("knowledge", {}).get("evolved") is True
+
+
+class TestCardSkillSignal:
+    """Batch 1 — AgentLoop tracks skills used per card for preference signals."""
+
+    def test_loop_tracks_injected_skills(self):
+        from l3.agent.agent_loop import AgentLoop
+
+        loop = AgentLoop(task="t")
+        loop._card_skills_used.add("manual_a")
+        assert "manual_a" in loop._card_skills_used
+
+    def test_wrapped_use_skill_records(self):
+        from l3.agent.agent_loop import AgentLoop
+
+        loop = AgentLoop(task="t")
+        calls = []
+
+        def _fake_skill(args, agent):
+            calls.append(args)
+            return {"success": True, "prompt": "expanded"}
+
+        _fake_skill.__name__ = "use_skill"
+        wrapped = loop._wrap_handler(_fake_skill)
+        import contextlib
+        with contextlib.suppress(Exception):
+            wrapped({"name": "refactor_skill", "goal": "x"}, "agent-1")
+        assert "refactor_skill" in loop._card_skills_used
+
+    def test_cell_execute_collects_skill_signal(self, mocker):
+        from l3.cell.components.cell_execute import execute_card
+
+        cell = mocker.Mock()
+        cell._agents = {}
+        cell.cell_id = "cell-1"
+        cell.territory = ["docs"]
+        cell._emergency = False
+        cell._current_user_id = ""
+        cell._card_snapshots = {}
+        cell._pmu = mocker.Mock()
+        cell._card_history = mocker.Mock()
+        from unittest.mock import MagicMock
+        cell.cache = MagicMock()
+        cell.cache.keys.return_value = []
+        cell._cache = None
+        cell._rollback_ring = None
+        class _FakeCard:
+            id = "c-1"
+            intent = "do work"
+            nature = "execution"
+            domain = ""
+            summary = mocker.Mock(title="do work", columns={})
+            phases = []
+            priority = 5
+            sender = "l3"
+            cell_id = ""
+            created_at = 0.0
+        card = _FakeCard()
+        # Auto-agent-map needs cell attributes
+        cell._ensure_terminal = mocker.Mock()
+        cell._inject_tools = mocker.Mock()
+        mocker.patch("l3.cell.components.cell_execute._auto_agent_map", return_value={"agent-1": "agent-1"})
+        mocker.patch("l3.card.execution_plan.ExecutionPlan")
+        from l3.card.execution_plan import ExecutionPlan
+        ExecutionPlan.return_value.execute.return_value = {"success": True, "steps": []}
+        from l3.agent_terminal import TerminalStatus
+        class _FakeTerm:
+            status = TerminalStatus.IDLE
+            _active_loop = mocker.Mock(_card_skills_used={"refactor_skill", "code_review"})
+        mocker.patch("l3.agent_terminal.get_terminals", return_value={"agent-1": _FakeTerm()})
+        r = execute_card(cell, card)
+        assert r.get("card_skills_used")
+        assert "refactor_skill" in r["card_skills_used"]
