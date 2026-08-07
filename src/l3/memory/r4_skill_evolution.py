@@ -20,12 +20,17 @@ from typing import Any
 
 from l1.kernel.params.agent import (
     R4_CARD_TAG_MAX,
+    R4_CLUSTER_SAMPLE_MAX,
+    R4_CLUSTER_SIMILARITY,
     R4_CONTRIB_MIN_RATIO,
     R4_CONTRIB_MIN_TRIALS,
     R4_CURATION_ENABLED,
+    R4_DIFFICULTY_WORDS,
     R4_DISTILL_COOLDOWN,
+    R4_DISTILL_SAMPLES,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_GENERALIZE_THRESHOLD,
+    R4_RULE_MIN_PREFERRED,
     R4_SUMMARIZE_COOLDOWN,
     R4_SUMMARIZE_MAX_TOKENS,
     R4_SUMMARIZE_MIN_INTERVAL,
@@ -168,7 +173,13 @@ class SkillEvolutionMixin:
         if rules:
             md_lines.append("## Rules")
             for rule in rules:
-                md_lines.append(f"- {rule}")
+                # Batch 2: rules may be dicts carrying DPO preference
+                # metadata — persist the rule text (metadata is runtime-only,
+                # rebuilt by the next distillation from card signals).
+                if isinstance(rule, dict):
+                    md_lines.append(f"- {rule.get('rule', '')}")
+                else:
+                    md_lines.append(f"- {rule}")
             md_lines.append("")
         if procedures:
             md_lines.append("## Procedures")
@@ -247,28 +258,46 @@ class SkillEvolutionMixin:
             return None
         return lesson
 
-    def _distill_lessons_skill(self, tool: str, cases: list[dict]) -> dict | None:
+    def _distill_lessons_skill(self, tool: str, cases: list[dict], verified_context: str = "") -> dict | None:
         """Distill a tool's lean cases into a structured skill definition.
 
-        P4 upgrade path: after the plain lesson summary succeeds, ask the
-        skill architect to emit a full definition — name, description,
-        rules (enforceable DO/DON'T) and procedures — for the tool's failure
-        patterns. Returns ``{"prompt", "rules", "procedures"}`` or None on
-        any failure (LLM error, invalid JSON, contract violation). The
-        caller keeps the summary as the fallback.
+        Batch 3 upgrade: rejection sampling. Up to ``R4_DISTILL_SAMPLES``
+        (1-3, configurable) candidate definitions are sampled for the same
+        digest; a heuristic verifier scores each (operability, coverage of
+        the digest's error terms, consistency) and the best-scoring
+        candidate wins. Any failure degrades to None so the caller keeps
+        the summary fallback. ``verified_context`` (batch 2) carries
+        already-verified rules across re-distillation.
         """
-        import json as _json
-
-        from l1.kernel.skill import validate_skill_content as _validate_content
-
         now = time.time()
         if now - self._last_distill.get(tool, 0.0) < R4_DISTILL_COOLDOWN:
             logger.debug("R4Agent: skill distillation for %s skipped (cooldown)", tool)
             return None
         digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+        samples = int(R4_DISTILL_SAMPLES) if R4_DISTILL_SAMPLES >= 1 else 1
+        best: dict | None = None
+        best_score = -1.0
+        for _i in range(samples):
+            candidate = self._sample_distill_candidate(tool, digest, verified_context)
+            if candidate is None:
+                continue
+            score = self._score_distill_candidate(candidate, digest)
+            if score > best_score:
+                best, best_score = candidate, score
+        if best is not None:
+            self._last_distill[tool] = now
+        return best
+
+    def _sample_distill_candidate(self, tool: str, digest: str, verified_context: str) -> dict | None:
+        """One LLM sample of a distilled skill definition (batch 3)."""
+        import json as _json
+
+        from l1.kernel.skill import validate_skill_content as _validate_content
+
         prompt = (
             "You are a skill architect. Distill these failure patterns for "
             f"the tool '{tool}' into a structured skill definition:\n{digest}\n"
+            f"{verified_context}\n"
             'Reply with JSON only: {"name": "<tool>_lessons", '
             '"description": "<one line>", "prompt": "<procedural guidance>", '
             '"rules": ["DO: ...", "DONT: ..."], "procedures": [{"step": "..."}]}'
@@ -286,7 +315,6 @@ class SkillEvolutionMixin:
         except Exception as e:
             logger.warning("R4Agent: skill distillation failed: %s", e)
             return None
-        self._last_distill[tool] = now
         content = (result.get("content") or "").strip()
         if content.startswith("```"):
             lines = content.splitlines()
@@ -310,9 +338,58 @@ class SkillEvolutionMixin:
         if _validate_content(skill_prompt, skill_desc):
             logger.warning("R4Agent: distilled skill for %s violates content contract — dropped", tool)
             return None
-        rules = [r for r in (data.get("rules") or []) if isinstance(r, str)]
+        # Batch 2: rules carry DPO-style preference metadata so downstream
+        # card signals can weight them (verified/hit/preferred/deprecated).
+        rules = []
+        for r in (data.get("rules") or []):
+            if isinstance(r, str):
+                rules.append({"rule": r, "verified": 0, "hit": 0, "preferred": 1.0, "deprecated": False})
+            elif isinstance(r, dict) and r.get("rule"):
+                rules.append(
+                    {
+                        "rule": str(r.get("rule")),
+                        "verified": int(r.get("verified", 0) or 0),
+                        "hit": int(r.get("hit", 0) or 0),
+                        "preferred": float(r.get("preferred", 1.0) or 1.0),
+                        "deprecated": bool(r.get("deprecated", False)),
+                    }
+                )
         procs = [p for p in (data.get("procedures") or []) if isinstance(p, dict)]
         return {"prompt": skill_prompt, "rules": rules, "procedures": procs}
+
+    def _score_distill_candidate(self, candidate: dict, digest: str) -> float:
+        """Heuristic verifier for a distilled candidate (batch 3).
+
+        Three signals, summed:
+          - operability: share of rules that are actionable (start with
+            DO/DONT/CHECK/VERIFY/ALWAYS/NEVER) — rewards enforceable rules
+          - coverage: share of the digest's distinct error terms mentioned
+            across the candidate's prompt+rules — rewards completeness
+          - structure: procedures present add a bonus (structured skills
+            are more executable than prose-only ones)
+        Returns a score in [0, 3].
+        """
+        import re as _re
+
+        rules = candidate.get("rules") or []
+        rule_texts = [r.get("rule", "") if isinstance(r, dict) else str(r) for r in rules]
+        prompt = candidate.get("prompt", "") or ""
+        # Operability.
+        actionable = 0
+        for rt in rule_texts:
+            head = rt.strip().upper()
+            if any(head.startswith(p) for p in ("DO", "DON'T", "DONT", "CHECK", "VERIFY", "ALWAYS", "NEVER")):
+                actionable += 1
+        operability = actionable / len(rule_texts) if rule_texts else 0.0
+        # Coverage: digest error terms appearing in prompt+rules.
+        terms = set(_re.split(r"[\s,;:._-]+", digest.lower()))
+        terms = {t for t in terms if len(t) > 2}
+        blob = f"{prompt} {' '.join(rule_texts)}".lower()
+        covered = sum(1 for t in terms if t in blob)
+        coverage = covered / len(terms) if terms else 0.0
+        # Structure bonus.
+        structure = 1.0 if candidate.get("procedures") else 0.0
+        return round(operability + coverage + structure, 3)
 
     @staticmethod
     def _archive_before_evolve(name: str, skill_data: dict) -> None:
@@ -410,6 +487,66 @@ class SkillEvolutionMixin:
                 logger.info("R4Agent: pruned stale skill '%s' (age=%.1f days)", name, age / SECONDS_PER_DAY)
         return pruned
 
+    def record_card_skill_signal(self, skills_used: list[str], success: bool) -> int:
+        """DPO-style preference signal: adjust rule weights from card outcome.
+
+        For each skill used during a card, attribute the card's
+        success/failure to its generalized lessons rules:
+          - success → ``verified++``, ``preferred`` up (REP_TASK_SUCCESS delta)
+          - failure → ``hit++``, ``preferred`` down (REP_TASK_FAILURE delta)
+        Rules whose ``preferred`` drops below ``R4_RULE_MIN_PREFERRED`` are
+        marked ``deprecated`` — the next targeted re-distill rewrites them.
+        Returns the number of rules updated (0 when no signal applies).
+        """
+        from l1.kernel.params.agent import REP_TASK_FAILURE, REP_TASK_SUCCESS
+        from l1.kernel.skill import get_skill_manager
+
+        if not skills_used:
+            return 0
+        try:
+            sm = get_skill_manager()
+        except Exception:
+            return 0
+        delta = REP_TASK_SUCCESS if success else REP_TASK_FAILURE
+        updated = 0
+        for name in skills_used:
+            # Only generalized lessons skills carry weighted rules.
+            rec = sm.get(name)
+            if not rec:
+                continue
+            rules = rec.get("rules") or []
+            if not isinstance(rules, list):
+                continue
+            new_rules: list[Any] = []
+            changed = False
+            for r in rules:
+                if isinstance(r, str):
+                    new_rules.append(r)
+                    continue
+                if not isinstance(r, dict):
+                    continue
+                meta = dict(r)
+                rule_text = meta.get("rule", "")
+                if not rule_text:
+                    continue
+                preferred = float(meta.get("preferred", 1.0)) + delta
+                meta["preferred"] = round(max(0.0, min(1.0, preferred)), 3)
+                if success:
+                    meta["verified"] = int(meta.get("verified", 0)) + 1
+                else:
+                    meta["hit"] = int(meta.get("hit", 0)) + 1
+                if meta["preferred"] < R4_RULE_MIN_PREFERRED:
+                    meta["deprecated"] = True
+                new_rules.append(meta)
+                changed = True
+            if changed:
+                try:
+                    sm.update(name, {"rules": new_rules}, internal=True)
+                    updated += 1
+                except Exception:
+                    logger.debug("R4Agent: rule preference update failed for %s", name)
+        return updated
+
     def _detect_skill_conflicts(self) -> list[dict]:
         """Detect duplicate / contradictory evolved skills per tool.
 
@@ -474,11 +611,17 @@ class SkillEvolutionMixin:
                             }
                         )
                     # Rule contradiction: DO: X in one, DON'T: X in the other.
+                    # Rules may be str (legacy) or dict with preference
+                    # metadata (batch 2) — normalize both to text.
                     ra_raw, rb_raw = a.get("rules"), b.get("rules")
                     ra_list = ra_raw if isinstance(ra_raw, list) else []
                     rb_list = rb_raw if isinstance(rb_raw, list) else []
-                    rules_a = [r.lower() for r in ra_list if isinstance(r, str)]
-                    rules_b = [r.lower() for r in rb_list if isinstance(r, str)]
+
+                    def _rule_text(r: Any) -> str:
+                        return r.get("rule", "") if isinstance(r, dict) else (r if isinstance(r, str) else "")
+
+                    rules_a = [_rule_text(r).lower() for r in ra_list if _rule_text(r)]
+                    rules_b = [_rule_text(r).lower() for r in rb_list if _rule_text(r)]
                     for ra in rules_a:
                         for rb in rules_b:
                             topic = _re.sub(r"^(do|don'?t)\s*[:.]?\s*", "", ra)
@@ -674,6 +817,78 @@ class SkillEvolutionMixin:
         # preserving the seed-first order that recall already emits.
         return [n for n in nodes if n not in seeds][:limit]
 
+    def _cluster_lean_cases(self, cases: list[dict]) -> list[list[dict]]:
+        """Semantic clustering of lean cases by error text (batch 4).
+
+        Uses 3-gram shingle Jaccard similarity on the case's error text
+        (from structured knowledge when present, else the prompt). Cases
+        whose shingle similarity exceeds ``R4_CLUSTER_SIMILARITY`` are
+        merged into one cluster — same-root-cause failures written
+        differently no longer split across distillations.
+        """
+        import re as _re
+
+        def _error_text(c: dict) -> str:
+            kn = c.get("knowledge") or {}
+            err = kn.get("error", "") if isinstance(kn, dict) else ""
+            if not err:
+                err = c.get("prompt", "") or ""
+            return err.lower()
+
+        def _shingles(text: str) -> set[str]:
+            words = _re.split(r"[\s,;:._\-/]+", text)
+            words = [w for w in words if len(w) > 2]
+            return {f"{words[i]}_{words[i+1]}_{words[i+2]}" for i in range(len(words) - 2)}
+
+        cache = {id(c): _shingles(_error_text(c)) for c in cases}
+        clusters: list[list[dict]] = []
+        for c in cases:
+            c_sh = cache[id(c)]
+            placed = False
+            for cl in clusters:
+                rep_sh = cache[id(cl[0])]
+                union = c_sh | rep_sh
+                if union and len(c_sh & rep_sh) / len(union) >= R4_CLUSTER_SIMILARITY:
+                    cl.append(c)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([c])
+        return clusters
+
+    def _sample_digest(self, cases: list[dict], tool: str) -> str:
+        """Build a distillation digest with frequency weighting + difficulty order.
+
+        Batch 4 curriculum-style sampling: clusters are ordered by size
+        (frequent failure modes first), each cluster contributes up to
+        ``R4_CLUSTER_SAMPLE_MAX`` representative cases, and within a cluster
+        simpler patterns (short error text) come before complex ones (long
+        error text, ``R4_DIFFICULTY_WORDS``+ words).
+        """
+        clusters = self._cluster_lean_cases(cases)
+        clusters.sort(key=len, reverse=True)
+        lines: list[str] = []
+        for cl in clusters:
+            # Representative sampling within the cluster: shortest (simplest)
+            # first, then progressively longer (difficulty ramp). Complex
+            # patterns (>= R4_DIFFICULTY_WORDS words in the error text) get a
+            # marker so the LLM treats them as edge cases, not the norm.
+            def _err_len(c: dict) -> int:
+                kn = c.get("knowledge") or {}
+                if isinstance(kn, dict) and kn.get("error"):
+                    return len(str(kn["error"]).split())
+                return len((c.get("prompt") or "").split())
+
+            sub = sorted(cl, key=_err_len)
+            for c in sub[:R4_CLUSTER_SAMPLE_MAX]:
+                kn = c.get("knowledge") or {}
+                if isinstance(kn, dict) and kn.get("error"):
+                    marker = "[complex]" if _err_len(c) >= R4_DIFFICULTY_WORDS else ""
+                    lines.append(f"- {marker}{tool}: {kn['error'][:LOG_TRUNC_200]}")
+                else:
+                    lines.append(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}")
+        return "\n".join(lines) if lines else "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+
     def _generalize_lean_cases(self, sm: Any) -> int:
         """Merge per-tool lean cases into one generalized lessons skill.
 
@@ -707,7 +922,11 @@ class SkillEvolutionMixin:
             if len(cases) < R4_LEAN_GENERALIZE_THRESHOLD:
                 continue
             gen_name = f"lean_{tool}_lessons"
-            lessons = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+            # Batch 4: curriculum-style digest — semantic clustering
+            # (shingle), frequency ordering and difficulty ramp via
+            # _sample_digest; the fingerprint is computed over the sampled
+            # digest so a stable case set stays idempotent.
+            lessons = self._sample_digest(cases, tool)
             baseline = f"Known failure patterns when using {tool}:\n{lessons}"
             # Deterministic case fingerprint — idempotency is independent of
             # whether the stored prompt is LLM-summarized or rule-based, so a
@@ -717,6 +936,25 @@ class SkillEvolutionMixin:
             existing = sm.get(gen_name)
             if existing and self._fp_of(existing) == fp and os.path.exists(self._skill_md_path(gen_name)):
                 continue  # same case set already generalized + persisted
+            # Batch 2: preserve verified (non-deprecated) rules across
+            # re-distillation — the digest carries them so the LLM keeps what
+            # worked and only rewrites the deprecated ones. Deprecated rules
+            # (preferred < R4_RULE_MIN_PREFERRED via card signals) are dropped.
+            verified_context = ""
+            if existing:
+                ex_rules = existing.get("rules") or []
+                if isinstance(ex_rules, list):
+                    keep = []
+                    for r in ex_rules:
+                        if isinstance(r, str):
+                            keep.append(r)
+                        elif isinstance(r, dict) and not r.get("deprecated") and r.get("rule"):
+                            keep.append(r["rule"])
+                    if keep:
+                        verified_context = (
+                            "\nAlready-verified rules to KEEP (do not contradict):\n"
+                            + "\n".join(f"- {r}" for r in keep)
+                        )
             # P3: LLM semantic summary (gated: threshold + per-tool cooldown +
             # per-tick throttle); any failure degrades to the rule-based baseline.
             llm_lesson = self._summarize_tool_lessons(tool, cases)
@@ -725,7 +963,7 @@ class SkillEvolutionMixin:
             # procedures) so the generalized skill carries enforceable
             # guidance, not just a prose paragraph. Falls back to the summary
             # (or baseline) on any failure; never blocks generalization.
-            distilled = self._distill_lessons_skill(tool, cases) if llm_lesson else None
+            distilled = self._distill_lessons_skill(tool, cases, verified_context) if llm_lesson else None
             if distilled:
                 candidate: str = distilled.get("prompt") or llm_lesson or baseline
                 rules = distilled.get("rules") or []
