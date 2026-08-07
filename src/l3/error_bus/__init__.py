@@ -92,7 +92,10 @@ class ErrorLogEntry:
     def __post_init__(self) -> None:
         if not self.fingerprint:
             self.fingerprint = _compute_fingerprint(
-                self.level, self.error_code, self.source, self.message,
+                self.level,
+                self.error_code,
+                self.source,
+                self.message,
             )
 
     def to_dict(self) -> dict:
@@ -106,9 +109,7 @@ class ErrorLogEntry:
             "message": self.message[:LOG_TRUNC_500],
             "source": self.source,
             "timestamp": self.timestamp,
-            "datetime": datetime.fromtimestamp(
-                self.timestamp, tz=UTC
-            ).isoformat(),
+            "datetime": datetime.fromtimestamp(self.timestamp, tz=UTC).isoformat(),
             "agent_id": self.agent_id,
             "task_id": self.task_id,
             "stack_trace": (self.stack_trace or "")[:1000],
@@ -118,7 +119,10 @@ class ErrorLogEntry:
 
 
 def _compute_fingerprint(
-    level: str, error_code: str, source: str, message: str,
+    level: str,
+    error_code: str,
+    source: str,
+    message: str,
 ) -> str:
     """Compute deduplication fingerprint — sha256(level + error_code + source + message[:LOG_TRUNC_100]) → hex[:16]"""
     raw = f"{level}|{error_code}|{source}|{message[:LOG_TRUNC_100]}"
@@ -128,6 +132,7 @@ def _compute_fingerprint(
 def _caller_source(depth: int = 2) -> str:
     """Auto-detect caller location — returns 'file.py:line'"""
     import inspect
+
     try:
         frame = inspect.currentframe()
         # Skip up depth levels: capture() → error() → caller()
@@ -145,9 +150,7 @@ def _format_exc(exc: Exception | None) -> str:
     """Format exception stack trace, truncated to first 1000 characters"""
     if not exc:
         return ""
-    lines = "".join(
-        traceback.format_exception(type(exc), exc, exc.__traceback__)
-    )
+    lines = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     return lines[:LOG_TRUNC_1000]
 
 
@@ -186,6 +189,7 @@ class ErrorBus(BaseService):
         """Subscribe to EventBus error events on startup"""
         try:
             from l1.kernel import get_event_bus
+
             bus = get_event_bus()
             bus.on_event("error_log", self._on_error_event)
         except Exception as e:
@@ -216,10 +220,18 @@ class ErrorBus(BaseService):
         context: dict | None = None,
     ) -> dict:
         """Log an ERROR level error."""
-        return self._ingest(level="ERROR", message=message, error_code=error_code,
-                            component=component, service=service or component,
-                            source=source, stack_trace=stack_trace,
-                            agent_id=agent_id, task_id=task_id, context=context or {})
+        return self._ingest(
+            level="ERROR",
+            message=message,
+            error_code=error_code,
+            component=component,
+            service=service or component,
+            source=source,
+            stack_trace=stack_trace,
+            agent_id=agent_id,
+            task_id=task_id,
+            context=context or {},
+        )
 
     def critical(
         self,
@@ -234,10 +246,18 @@ class ErrorBus(BaseService):
         context: dict | None = None,
     ) -> dict:
         """Log a CRITICAL level error."""
-        return self._ingest(level="CRITICAL", message=message, error_code=error_code,
-                            component=component, service=service or component,
-                            source=source, stack_trace=stack_trace,
-                            agent_id=agent_id, task_id=task_id, context=context or {})
+        return self._ingest(
+            level="CRITICAL",
+            message=message,
+            error_code=error_code,
+            component=component,
+            service=service or component,
+            source=source,
+            stack_trace=stack_trace,
+            agent_id=agent_id,
+            task_id=task_id,
+            context=context or {},
+        )
 
     def warn(
         self,
@@ -251,11 +271,17 @@ class ErrorBus(BaseService):
         context: dict | None = None,
     ) -> dict:
         """Log a WARN level warning."""
-        return self._ingest(level="WARN", message=message,
-                            error_code=error_code or "E_WARN",
-                            component=component, service=service or component,
-                            source=source, agent_id=agent_id,
-                            task_id=task_id, context=context or {})
+        return self._ingest(
+            level="WARN",
+            message=message,
+            error_code=error_code or "E_WARN",
+            component=component,
+            service=service or component,
+            source=source,
+            agent_id=agent_id,
+            task_id=task_id,
+            context=context or {},
+        )
 
     def exception(
         self,
@@ -276,10 +302,17 @@ class ErrorBus(BaseService):
         stack_trace = _format_exc(exc)
         _source = source or _caller_source(depth=3)
         _message = message or str(exc)[:LOG_TRUNC_200]
-        return self.error(message=_message, error_code=error_code,
-                          component=component, service=service,
-                          source=_source, stack_trace=stack_trace,
-                          agent_id=agent_id, task_id=task_id, context=context or {})
+        return self.error(
+            message=_message,
+            error_code=error_code,
+            component=component,
+            service=service,
+            source=_source,
+            stack_trace=stack_trace,
+            agent_id=agent_id,
+            task_id=task_id,
+            context=context or {},
+        )
 
     # ── Internal ingestion logic ──
 
@@ -334,6 +367,7 @@ class ErrorBus(BaseService):
         # ── Push to LogService ──
         try:
             from l3.bus.log import get_service as get_log_service
+
             log_svc = get_log_service()
             log_svc._log(
                 level=level,
@@ -348,11 +382,11 @@ class ErrorBus(BaseService):
         # ── Push to EventBus ──
         try:
             from l1.kernel.event import get_bus
+
             # String-typed emit under "error_log" so _on_error_event and SSE
             # type filters (types={"error_log"}) receive the event; push_event
             # would force SignalType.TASK_ASSIGN and break the contract.
-            get_bus().emit_event("error_log", result_entry.to_dict(),
-                                 source=component)
+            get_bus().emit_event("error_log", result_entry.to_dict(), source=component)
         except Exception as e:
             logger.warning("error_bus: event push failed: %s", e)
 
@@ -360,15 +394,26 @@ class ErrorBus(BaseService):
         try:
             from l3.bus.monitor_bus import MonitorEvent
             from l3.bus.monitor_bus import get_bus as get_mbus
-            sev = {"DEBUG": "info", "INFO": "info", "WARNING": "warn",
-                   "ERROR": "crit", "CRITICAL": "crit"}.get(level, "warn")
-            get_mbus().emit(MonitorEvent(
-                type="error.bus", source="error_bus", severity=sev,
-                agent_id=agent_id,
-                message=f"[{error_code}] {message[:LOG_TRUNC_200]}",
-                data={"level": level, "service": service, "component": component,
-                      "task_id": task_id, "fingerprint": result_entry.fingerprint},
-            ))
+
+            sev = {"DEBUG": "info", "INFO": "info", "WARNING": "warn", "ERROR": "crit", "CRITICAL": "crit"}.get(
+                level, "warn"
+            )
+            get_mbus().emit(
+                MonitorEvent(
+                    type="error.bus",
+                    source="error_bus",
+                    severity=sev,
+                    agent_id=agent_id,
+                    message=f"[{error_code}] {message[:LOG_TRUNC_200]}",
+                    data={
+                        "level": level,
+                        "service": service,
+                        "component": component,
+                        "task_id": task_id,
+                        "fingerprint": result_entry.fingerprint,
+                    },
+                )
+            )
         except Exception as e:
             logger.warning("error_bus: monitor push failed: %s", e)
 
@@ -445,7 +490,7 @@ class ErrorBus(BaseService):
         results.sort(key=lambda e: e.timestamp, reverse=True)
 
         total = len(results)
-        page = results[offset:offset + limit]
+        page = results[offset : offset + limit]
 
         return {
             "success": True,
@@ -497,9 +542,7 @@ class ErrorBus(BaseService):
             "by_level": by_level,
             "by_error_code": by_error_code,
             "by_component": by_component,
-            "top_sources": [
-                {"source": s, "count": c} for s, c in sorted_sources
-            ],
+            "top_sources": [{"source": s, "count": c} for s, c in sorted_sources],
             "agents": len(agents),
         }
 
@@ -583,9 +626,7 @@ class ErrorBus(BaseService):
 
         out_path = path or str(_LOG_DIR / ERROR_EXPORT_FILE.format(ts=int(time.time())))
         try:
-            Path(out_path).write_text(
-                json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            Path(out_path).write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
             return {"success": True, "path": out_path, "count": len(entries)}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -639,8 +680,9 @@ def error_boundary(
     try:
         yield
     except Exception as e:
-        capture(message or str(e), error_code=error_code, component=component,
-                exc=e, agent_id=agent_id, task_id=task_id)
+        capture(
+            message or str(e), error_code=error_code, component=component, exc=e, agent_id=agent_id, task_id=task_id
+        )
         if re_raise:
             raise
 

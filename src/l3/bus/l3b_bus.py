@@ -33,23 +33,25 @@ logger = logging.getLogger(__name__)
 
 class L3BMessageType(Enum):
     """L3BMessageType — enum of CARD_FORWARD, RESULT_BACK, STATUS_CHECK, BACKPRESSURE...."""
-    CARD_FORWARD = auto()        # forward card fragments
-    RESULT_BACK = auto()         # send execution results backward
-    STATUS_CHECK = auto()        # status query
-    BACKPRESSURE = auto()        # backpressure signal
-    HEARTBEAT = auto()           # heartbeat
+
+    CARD_FORWARD = auto()  # forward card fragments
+    RESULT_BACK = auto()  # send execution results backward
+    STATUS_CHECK = auto()  # status query
+    BACKPRESSURE = auto()  # backpressure signal
+    HEARTBEAT = auto()  # heartbeat
 
 
 @dataclass
 class L3BMessage:
     """L3BMessage — l3 b message record (msg_id, msg_type, sender, target, payload)."""
+
     msg_id: str = ""
     msg_type: L3BMessageType = L3BMessageType.CARD_FORWARD
-    sender: str = ""             # composite_id
-    target: str = ""             # composite_id
+    sender: str = ""  # composite_id
+    target: str = ""  # composite_id
     payload: Any = None
     timestamp: float = field(default_factory=time.time)
-    ttl: float = SCOUT_POOL_IDLE_TIMEOUT            # message timeout auto-discard
+    ttl: float = SCOUT_POOL_IDLE_TIMEOUT  # message timeout auto-discard
 
 
 class L3BBus:
@@ -87,8 +89,7 @@ class L3BBus:
             logger.info("L3BBus: unregistered %s", composite_id)
             return {"success": True}
 
-    def send(self, sender: str, target: str, msg_type: L3BMessageType,
-             payload: Any = None) -> dict:
+    def send(self, sender: str, target: str, msg_type: L3BMessageType, payload: Any = None) -> dict:
         """Send a message to a target composite.
 
         Chain rule: only adjacent composites may communicate.
@@ -141,22 +142,24 @@ class L3BBus:
             self._mirror_send(sender, target, msg_type, payload)
             return {"success": True}
 
-    def _mirror_send(self, sender: str, target: str, msg_type: L3BMessageType,
-                     payload: dict | None = None) -> None:
+    def _mirror_send(self, sender: str, target: str, msg_type: L3BMessageType, payload: dict | None = None) -> None:
         """Mirror an L3B send to the MonitorBus observability stream."""
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
-            get_bus().emit(MonitorEvent(
-                type="l3b.message", source="l3b_bus", severity="info",
-                message=f"L3B {sender} -> {target} ({msg_type.value})",
-                data={"sender": sender, "target": target,
-                      "msg_type": msg_type.value, "payload": payload or {}},
-            ))
+
+            get_bus().emit(
+                MonitorEvent(
+                    type="l3b.message",
+                    source="l3b_bus",
+                    severity="info",
+                    message=f"L3B {sender} -> {target} ({msg_type.value})",
+                    data={"sender": sender, "target": target, "msg_type": msg_type.value, "payload": payload or {}},
+                )
+            )
         except Exception as e:
             logger.debug("l3b_bus: monitor emit failed: %s", e)
 
-    def read(self, composite_id: str, limit: int = 10,
-             clear: bool = True) -> list[dict]:
+    def read(self, composite_id: str, limit: int = 10, clear: bool = True) -> list[dict]:
         """Read messages from a target composite's mailbox.
 
         Returns a list of messages, optionally leaving them in place (non-destructive read).
@@ -174,14 +177,16 @@ class L3BBus:
                 if msg.ttl > 0 and now - msg.timestamp > msg.ttl:
                     self._stats["expired"] += 1
                     continue
-                messages.append({
-                    "msg_id": msg.msg_id,
-                    "msg_type": msg.msg_type.name,
-                    "sender": msg.sender,
-                    "target": msg.target,
-                    "payload": msg.payload,
-                    "timestamp": msg.timestamp,
-                })
+                messages.append(
+                    {
+                        "msg_id": msg.msg_id,
+                        "msg_type": msg.msg_type.name,
+                        "sender": msg.sender,
+                        "target": msg.target,
+                        "payload": msg.payload,
+                        "timestamp": msg.timestamp,
+                    }
+                )
                 if len(messages) >= limit:
                     break
 
@@ -198,14 +203,18 @@ class L3BBus:
             self._stats["received"] += len(messages)
             return messages
 
-    def send_backpressure(self, sender: str, target: str,
-                          reason: str = "") -> dict:
+    def send_backpressure(self, sender: str, target: str, reason: str = "") -> dict:
         """Send a backpressure signal: downstream tells upstream to reduce sending rate."""
         self._stats["backpressure"] += 1
-        return self.send(sender, target, L3BMessageType.BACKPRESSURE, {
-            "reason": reason,
-            "timestamp": time.time(),
-        })
+        return self.send(
+            sender,
+            target,
+            L3BMessageType.BACKPRESSURE,
+            {
+                "reason": reason,
+                "timestamp": time.time(),
+            },
+        )
 
     def _find_relay(self, sender: str, target: str) -> str | None:
         """Find a forwarding path in the chain topology.
@@ -230,10 +239,7 @@ class L3BBus:
             return {
                 **self._stats,
                 "registered_composites": len(self._mailboxes),
-                "mailboxes": {
-                    cid: len(mbox)
-                    for cid, mbox in self._mailboxes.items()
-                },
+                "mailboxes": {cid: len(mbox) for cid, mbox in self._mailboxes.items()},
             }
 
 
