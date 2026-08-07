@@ -5,7 +5,9 @@
 #   1. Commit message MUST be written in English (reject CJK characters).
 #   2. Every commit MUST carry a Co-Authored-By trailer naming the authoring
 #      agent/model — attribution is a governance requirement.
-#   3. Merge commits are exempt (git-generated messages).
+#   3. Merge commits are exempt from 1-2 (git-generated messages), BUT a
+#      merge that brings in a dependabot branch is gated: its diff must only
+#      touch dependency files (see AGENTS.md "Dependency management").
 #   Bypass (temporary): PRAXIS_SKIP_AUTHOR_CHECK=1
 set -euo pipefail
 
@@ -16,9 +18,35 @@ if [ -n "${PRAXIS_SKIP_AUTHOR_CHECK:-}" ]; then
   exit 0
 fi
 
-# Merge commits carry git-generated messages — exempt.
+# Merge commits carry git-generated messages — exempt from 1-2, but gated
+# for dependabot merges (dependency-only diff scope).
 first_line=$(printf '%s' "$msg" | head -n 1)
 if printf '%s' "$first_line" | grep -qE '^(Merge|Revert) '; then
+  # ── Dependabot merge gate ──────────────────────────────────────────
+  # A merge whose second parent is a dependabot branch (or whose message
+  # names dependabot) must NOT drag in non-dependency files. The bot's
+  # unsigned commits also cannot land on GitCode, so these merges must be
+  # validated locally first (AGENTS.md "Dependency management").
+  if printf '%s' "$msg" | grep -qiE 'dependabot|deps'; then
+    # git merge runs this hook with HEAD already pointing at the new
+    # merge commit; HEAD^1 = previous main, HEAD^2 = merged branch.
+    SECOND="$(git rev-parse HEAD^2 2>/dev/null || true)"
+    if [ -n "$SECOND" ]; then
+      MERGED_FILES="$(git diff --name-only HEAD^1 HEAD^2 2>/dev/null || true)"
+      VIOLATIONS="$(printf '%s\n' "$MERGED_FILES" | grep -vE '^(pyproject\.toml|requirements[^/]*\.txt|uv\.lock|poetry\.lock)$' || true)"
+      if [ -n "$VIOLATIONS" ]; then
+        echo "❌ Dependabot merge must only touch dependency files." >&2
+        echo "   Non-dependency files brought in by this merge:" >&2
+        printf '%s\n' "$VIOLATIONS" | sed 's/^/     ✗ /' >&2
+        echo "   Fix: split the code changes into a feature branch, or" >&2
+        echo "        run bash scripts/verify-deps-merge.sh <branch> first." >&2
+        exit 1
+      fi
+      echo "--- commit-msg: dependabot merge (dependency-only diff) ---" >&2
+      echo "   Reminder: run bash scripts/verify-deps-merge.sh <branch>," >&2
+      echo "   then push BOTH remotes via bash scripts/push-both.sh main." >&2
+    fi
+  fi
   exit 0
 fi
 

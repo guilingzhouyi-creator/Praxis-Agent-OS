@@ -145,6 +145,30 @@ Key conventions:
 - GitCode's AtomGit Action (`.gitcode/workflows/test.yml`) is still in gray release (no Pipeline tab even on public repos) — keep the file, it activates once the platform rolls it out.
 - **Platform note**: on local Windows, xdist spawns a fresh interpreter per worker (full src re-import) and is a net slowdown — pin `-n 0` locally; rely on CI for the parallel pass.
 
+## Dependency management
+
+- **Dependabot opens dependency PRs automatically** (`.github/dependabot.yml`):
+  weekly for pip, monthly for GitHub Actions. They are **NOT auto-merged** —
+  every dependabot branch must go through the double-green merge flow.
+- **A dependency bump MUST be validated before merging**: after touching
+  `pyproject.toml` run `pip install -e ".[test]"` then the full suite
+  (`python -m pytest tests/`). A green PR CI is not sufficient — the merge
+  commit itself must also pass locally and be pushed to BOTH remotes.
+- **Dependabot/GitHub bot commits are unsigned**; GitCode's pre-receive hook
+  rejects unsigned commits. Never merge a dependabot branch directly on
+  GitHub — merge locally (GPG-signed) and push both remotes via
+  `bash scripts/push-both.sh main`.
+- **Before merging a dependabot branch, run**
+  `bash scripts/verify-deps-merge.sh <branch>` — it checks the diff scope
+  (dependency files only, mixing code changes fails) and runs the full
+  suite when `pyproject.toml` changed.
+- **The commit-msg hook gates dependabot merges**: a `Merge` commit that
+  brings in a dependabot branch is rejected when its diff touches
+  non-dependency files, and reminds you to run `verify-deps-merge.sh`.
+- **CI gate**: `.github/workflows/deps.yml` runs on any PR that touches
+  dependency files — it enforces the dependency-only diff scope and runs
+  the full test suite, so a dependabot PR mixing code+dep changes fails.
+
 ## Branching workflow (see `docs/workflow/branching.md`)
 
 - **Semi-finished work never enters mainline** — commit it or branch it; never leave in-flight refactors in the working tree.

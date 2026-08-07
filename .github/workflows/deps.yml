@@ -1,0 +1,67 @@
+name: Dependency gate
+
+# Runs on any PR touching dependency files (Dependabot and manual alike).
+# Enforces AGENTS.md "Dependency management":
+#   - the PR diff may only touch dependency manifests (no mixed code changes)
+#   - the full test suite must pass against the new dependency floor
+# A dependabot PR mixing dep + code changes fails here before any reviewer
+# sees it; the commit-msg hook + verify-deps-merge.sh guard the local merge.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "uv.lock"
+      - "poetry.lock"
+
+concurrency:
+  group: deps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+      - name: Install dependencies
+        run: pip install -e ".[test]"
+        timeout-minutes: 5
+
+      - name: Diff scope (dependency files only)
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE"..."$HEAD" || git diff --name-only "$BASE" "$HEAD" || true)
+          echo "Changed files:"
+          printf '%s\n' "$CHANGED" | sed 's/^/  /'
+          VIOLATIONS=$(printf '%s\n' "$CHANGED" | grep -vE '^(pyproject\.toml|requirements[^/]*\.txt|uv\.lock|poetry\.lock)$' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "❌ PR mixes dependency changes with non-dependency files:" >&2
+            printf '%s\n' "$VIOLATIONS" | sed 's/^/     /' >&2
+            exit 1
+          fi
+          echo "✅ dependency-only diff scope."
+
+      - name: Full suite
+        run: python -m pytest tests/ -q --tb=short
+        timeout-minutes: 30
+
+      - name: Lint (changed files)
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only "$BASE"..."$HEAD" | grep -E '\.py$' || true)
+          if [ -n "$FILES" ]; then
+            ruff check $FILES --output-format=full
+          else
+            echo "no Python files changed — lint OK"
+          fi
