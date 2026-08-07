@@ -23,7 +23,8 @@ import threading
 import time
 from typing import Any
 
-from l1.kernel.params.api import I18N_DEFAULT_LOCALE
+from l1.kernel.discovery import get_service_limit
+from l1.kernel.params.api import API_MIDDLEWARE_TIMEOUT, I18N_DEFAULT_LOCALE
 
 logger = logging.getLogger(__name__)
 
@@ -315,7 +316,11 @@ class TimeoutMiddleware(Middleware):
     This middleware sets a deadline marker for observability.
     """
 
-    def __init__(self, timeout: float = 30.0) -> None:
+    def __init__(self, timeout: float | None = None) -> None:
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        if timeout is None:
+            timeout = get_service_limit("api_middleware_timeout", API_MIDDLEWARE_TIMEOUT)
         self._timeout = timeout
 
     def process(self, request: Request) -> Request:

@@ -223,10 +223,14 @@ SUBAGENT_POOL_EXECUTE_WORKERS: Final[int] = 4
 # ── SSE bridge ──
 SSE_QUEUE_MAXSIZE: Final[int] = 256
 
+# ── API middleware (l4/api/api_middleware.py) ──
+API_MIDDLEWARE_TIMEOUT: Final[float] = 30.0
+
 
 # ── Service timeouts (scattered in code, centralized here) ──
 LSP_MANAGER_TIMEOUT: Final[float] = 5.0
 LSP_MANAGER_LONG_TIMEOUT: Final[float] = 30.0
+LSP_CACHE_TTL: Final[float] = 30.0
 MCP_BRIDGE_TIMEOUT: Final[float] = 10.0
 MCP_TOKEN_EXPIRY: Final[int] = 3600
 MCP_TOKEN_REFRESH_RATIO: Final[float] = 0.8

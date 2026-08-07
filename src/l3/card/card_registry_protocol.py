@@ -14,6 +14,11 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.system import (
+    CARD_REGISTRY_PUBLISH_TIMEOUT,
+    CARD_REGISTRY_TIMEOUT,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +28,7 @@ class CardRegistryProtocol:
     PROTO_VERSION = "1.0"
 
     @staticmethod
-    def list_cards(registry_url: str, query: str = "", timeout: float = 15.0) -> dict:
+    def list_cards(registry_url: str, query: str = "", timeout: float = CARD_REGISTRY_TIMEOUT) -> dict:
         """List card types from remote registry.
 
         Returns:
@@ -50,7 +55,7 @@ class CardRegistryProtocol:
         return r
 
     @staticmethod
-    def get_card(registry_url: str, name: str, timeout: float = 15.0) -> dict:
+    def get_card(registry_url: str, name: str, timeout: float = CARD_REGISTRY_TIMEOUT) -> dict:
         """Download a specific card definition from remote registry.
 
         Returns:
@@ -71,7 +76,7 @@ class CardRegistryProtocol:
         return r
 
     @staticmethod
-    def publish_card(registry_url: str, card_def: dict, timeout: float = 30.0) -> dict:
+    def publish_card(registry_url: str, card_def: dict, timeout: float = CARD_REGISTRY_PUBLISH_TIMEOUT) -> dict:
         """Publish a card definition to remote registry."""
         from l3.net_client import NetClient
 
@@ -79,6 +84,6 @@ class CardRegistryProtocol:
         return NetClient.post(url, card_def, timeout=timeout)
 
     @staticmethod
-    def search(registry_url: str, query: str, timeout: float = 15.0) -> dict:
+    def search(registry_url: str, query: str, timeout: float = CARD_REGISTRY_TIMEOUT) -> dict:
         """Search card types across remote registry."""
         return CardRegistryProtocol.list_cards(registry_url, query=query, timeout=timeout)

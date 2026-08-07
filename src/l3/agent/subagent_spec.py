@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from l1.kernel.params.agent import SUBAGENT_SPEC_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_100
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class SubAgentSpec:
     allowed_tools: list[str] = field(default_factory=lambda: ["read_file", "grep_search"])
     model: str = ""
     max_steps: int = 5
-    timeout: float = 60.0
+    timeout: float = SUBAGENT_SPEC_TIMEOUT
     read_only: bool = True
     tags: list[str] = field(default_factory=list)
     model_spec: str = "subagent"            # model_spec reference name, defined in praxis.yaml

@@ -17,6 +17,8 @@ import json
 import logging
 import time
 
+from l1.kernel.params.system import MEMORY_RECALL_PAGE_LIMIT
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -95,7 +97,7 @@ def pending_questions(agent_id: str = "") -> list[dict]:
             entry_type="user_pending_question",
             tag=agent_id or "",
             rings=[2],
-            limit=50,
+            limit=MEMORY_RECALL_PAGE_LIMIT,
         )
         out = []
         for e in entries:

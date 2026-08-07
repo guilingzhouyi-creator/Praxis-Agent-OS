@@ -37,7 +37,9 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from l1.kernel.discovery import get_service_limit
 from l1.kernel.params.api import (
+    LSP_CACHE_TTL,
     LSP_INIT_TIMEOUT,
     LSP_MANAGER_TIMEOUT,
     LSP_RESPONSE_TIMEOUT,
@@ -379,7 +381,11 @@ class FileDiagnostics:
 class DiagnosticCache:
     """Diagnostic cache — file-level + incremental updates + TTL."""
 
-    def __init__(self, ttl: float = 30.0):
+    def __init__(self, ttl: float | None = None):
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        if ttl is None:
+            ttl = get_service_limit("lsp_cache_ttl", LSP_CACHE_TTL)
         self._cache: dict[str, FileDiagnostics] = {}
         self._lock = threading.RLock()
         self._ttl = ttl

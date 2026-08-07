@@ -22,6 +22,8 @@ import time
 from collections import defaultdict
 from typing import Any
 
+from l1.kernel.params.system import COUNTER_TOKEN_RATE_WINDOW
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +80,7 @@ class CellCounter:
 
     # ── Token queries ──
 
-    def token_rate(self, window: float = 60.0) -> dict:
+    def token_rate(self, window: float = COUNTER_TOKEN_RATE_WINDOW) -> dict:
         """Token consumption rate over the last N seconds.
 
         Returns tokens/minute for each agent + Cell total.

@@ -31,6 +31,7 @@ from l1.kernel.params.system import (
     L3B_HOT_RING_SIZE,
     L3B_MESSAGE_DB,
     L3B_MESSAGE_DIR,
+    L3B_MESSAGE_POOL_DEFAULT_LIMIT,
     L3B_PERSIST_HIGH_WATERMARK,
 )
 from l1.kernel.paths import get_paths as _gp
@@ -145,7 +146,7 @@ class L3BMessagePool:
 
     # ── Read Path ──
 
-    def pop(self, limit: int = 10, block: bool = False,
+    def pop(self, limit: int = L3B_MESSAGE_POOL_DEFAULT_LIMIT, block: bool = False,
             timeout: float = 1.0) -> list[dict]:
         """Read messages from the cache pool.
 
@@ -170,7 +171,7 @@ class L3BMessagePool:
 
         return [self._to_dict(m) for m in results]
 
-    def peek(self, limit: int = 10) -> list[dict]:
+    def peek(self, limit: int = L3B_MESSAGE_POOL_DEFAULT_LIMIT) -> list[dict]:
         """Non-destructive read."""
         with self._lock:
             results = list(self._hot)[:limit]

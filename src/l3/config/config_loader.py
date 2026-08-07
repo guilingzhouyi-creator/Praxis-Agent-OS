@@ -14,6 +14,8 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+from l1.kernel.params.system import CONFIG_WATCH_INTERVAL
+
 from .config_handlers import (
     cfg_agent_priority,
     cfg_agent_role_map,
@@ -344,7 +346,7 @@ def config_category(prefix: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def watch_config(interval: float = 30.0, callback: Callable | None = None) -> dict:
+def watch_config(interval: float = CONFIG_WATCH_INTERVAL, callback: Callable | None = None) -> dict:
     """Start watching config file for changes. Calls callback on change."""
     import threading
     import time

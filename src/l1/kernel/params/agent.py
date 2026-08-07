@@ -335,6 +335,7 @@ PLAN_GENERATION_MAX_TOKENS: Final[int] = 1024
 SKILL_ARCHITECT_MAX_TOKENS: Final[int] = 2048
 SUBAGENT_MAX_TOKENS: Final[int] = 4096
 SUBAGENT_SESSION_TTL: Final[float] = 300.0
+SUBAGENT_SPEC_TIMEOUT: Final[float] = 60.0
 """SubAgent session retention after completion (seconds).  0 = no retention."""
 MEMORY_CONTEXT_MAX_TOKENS: Final[int] = 1024
 

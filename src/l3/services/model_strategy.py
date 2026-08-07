@@ -12,7 +12,13 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
-from l1.kernel.params.system import THINK_BUDGET_GLOBAL_DEFAULT, THINK_REASONING_DEFAULT, THREAD_JOIN_TIMEOUT
+from l1.kernel.params.system import (
+    MODEL_STRATEGY_CACHE_TTL,
+    MODEL_STRATEGY_MAX_WORKERS,
+    THINK_BUDGET_GLOBAL_DEFAULT,
+    THINK_REASONING_DEFAULT,
+    THREAD_JOIN_TIMEOUT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +42,7 @@ class CapabilityDetector:
     Probes are dispatched to a thread pool to avoid blocking agent execution.
     """
 
-    def __init__(self, max_workers: int = 4, cache_ttl: float = 86400.0):
+    def __init__(self, max_workers: int = MODEL_STRATEGY_MAX_WORKERS, cache_ttl: float = MODEL_STRATEGY_CACHE_TTL):
         self._pool = ThreadPoolExecutor(max_workers, thread_name_prefix="probe")
         self._cache: dict[tuple[str, str], Any] = {}
         self._cache_ttl = cache_ttl

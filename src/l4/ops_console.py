@@ -27,9 +27,11 @@ from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.interrupt import InterruptType, register_handler
 from l1.kernel.interrupt import get_table as get_int_table
 from l1.kernel.params.agent import AGENT_STATUS_CRASHED, SIGNAL_TARGET_L3
+from l1.kernel.discovery import get_service_limit
 from l1.kernel.params.system import (
     AGENT_UNRESPONSIVE_TIMEOUT,
     INTERRUPT_HIGH_COUNT,
+    OPS_CONSOLE_INTERVAL,
     OPS_CONSOLE_POOL_WARN_RATIO,
     OPS_MAX_ALERTS,
     SCOUT_POOL_MAX_TOTAL,
@@ -83,8 +85,12 @@ class OpsConsole:
         register_handler(InterruptType.DEADLOCK_DETECTED, self._on_deadlock)
         register_handler(InterruptType.OOM_KILL, self._on_oom)
 
-    def start(self, interval: float = 15.0) -> dict:
+    def start(self, interval: float | None = None) -> dict:
         """Start background health monitor."""
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        if interval is None:
+            interval = get_service_limit("ops_console_interval", OPS_CONSOLE_INTERVAL)
         self._running = True
         self._monitor_event = threading.Event()
         self._monitor_thread = threading.Thread(
