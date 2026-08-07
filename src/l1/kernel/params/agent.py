@@ -692,6 +692,11 @@ CONVENTION_SUB_MAX_STEPS: Final[int] = 1
 CONVENTION_SUB_TIMEOUT: Final[float] = 60.0
 
 # ── Skill distillation / generalization upgrade (LLM-training-inspired) ──
+# Master switches (API-controllable via /api/v2/skills/distill-policy and
+# L2 /skills distill; runtime overrides land in SkillManager runtime state,
+# config defaults here).
+R4_DISTILL_ENABLED: Final[bool] = True  # master switch: generalization + distillation + clustering + sampling
+R4_DPO_SIGNAL_ENABLED: Final[bool] = True  # master switch: card→skill preference signals (rule weighting)
 R4_LEAN_KNOWLEDGE_MAX: Final[int] = 500  # structured knowledge field truncation (chars)
 R4_CARD_SKILL_SIGNAL_MAX: Final[int] = 32  # max skills tracked per card for preference signal
 R4_RULE_MIN_PREFERRED: Final[float] = 0.3  # rule weight below this → deprecated on next distill

@@ -156,3 +156,44 @@ def handle_skills_offensive_policy_set(body: dict | None = None) -> dict:
         logger.debug("skills: offensive policy SettingsCenter mirror skipped", exc_info=True)
     policy["authorized"] = who
     return policy
+
+
+def handle_skills_distill_policy_get(body: dict | None = None) -> dict:
+    """GET /api/skills/distill-policy — current distillation/DPO master switches."""
+    return {"success": True, "policy": _manager().distill_policy()}
+
+
+def handle_skills_distill_policy_set(body: dict | None = None) -> dict:
+    """POST /api/skills/distill-policy — update distillation/DPO switches (developer).
+
+    Body (both optional; only provided fields change):
+      distill: bool    — False disables generalization/distillation/clustering
+      dpo_signal: bool — False disables card→skill preference weighting
+
+    Mirrors the new values into SettingsCenter (L2) so config-driven reads
+    stay in sync; applied atomically on the SkillManager.
+    """
+    b = body or {}
+    agent_id, role = _caller(b)
+    sm = _manager()
+    ok, who = sm.authorize_write(agent_id, role)
+    if not ok:
+        return {"success": False, "error": f"permission denied: {who}"}
+    distill = b.get("distill")
+    dpo = b.get("dpo_signal")
+    policy = sm.set_distill_policy(
+        distill=distill if isinstance(distill, bool) else None,
+        dpo_signal=dpo if isinstance(dpo, bool) else None,
+    )
+    try:
+        from l3.config.settings_center import get_center
+
+        center = get_center()
+        if isinstance(distill, bool):
+            center.set_l2("skill.distill_enabled", distill)
+        if isinstance(dpo, bool):
+            center.set_l2("skill.dpo_signal_enabled", dpo)
+    except Exception:
+        logger.debug("skills: distill policy SettingsCenter mirror skipped", exc_info=True)
+    policy["authorized"] = who
+    return policy

@@ -498,6 +498,13 @@ class SkillEvolutionMixin:
         marked ``deprecated`` — the next targeted re-distill rewrites them.
         Returns the number of rules updated (0 when no signal applies).
         """
+        try:
+            from l1.kernel.skill import get_skill_manager as _sm_gate
+
+            if not _sm_gate().distill_policy().get("dpo_signal", True):
+                return 0  # DPO signal weighting disabled at runtime
+        except Exception:
+            pass
         from l1.kernel.params.agent import REP_TASK_FAILURE, REP_TASK_SUCCESS
         from l1.kernel.skill import get_skill_manager
 
@@ -901,6 +908,16 @@ class SkillEvolutionMixin:
         """
         import hashlib
         import os
+
+        # Master switch: generalization/distillation disabled at runtime
+        # (API /config override) → skip entirely.
+        try:
+            from l1.kernel.skill import get_skill_manager as _sm_gate
+
+            if not _sm_gate().distill_policy().get("distill", True):
+                return 0
+        except Exception:
+            pass
 
         by_tool: dict[str, list[dict]] = {}
         for s in sm.list_skills(tags=["lean_case"]):

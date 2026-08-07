@@ -24,7 +24,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Final
 
-from l1.kernel.params.agent import AGENT_CLEARANCE
+from l1.kernel.params.agent import AGENT_CLEARANCE, R4_DISTILL_ENABLED, R4_DPO_SIGNAL_ENABLED
 from l1.kernel.params.system import (
     LOG_TRUNC_50,
     LOG_TRUNC_60,
@@ -177,9 +177,33 @@ class SkillManager:
         # at runtime (soft control, see SKILL_OFFENSIVE_ENABLED).
         self._offensive_enabled: bool = SKILL_OFFENSIVE_ENABLED
         self._offensive_natures: tuple[str, ...] = SKILL_OFFENSIVE_AUTHORIZED_NATURES
+        # Distillation/DPO master switches — compile-time defaults; the API
+        # and config center may override at runtime (see
+        # /api/v2/skills/distill-policy). R4Agent gates its pipeline on these.
+        self._distill_enabled: bool = R4_DISTILL_ENABLED
+        self._dpo_signal_enabled: bool = R4_DPO_SIGNAL_ENABLED
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
+
+    def set_distill_policy(self, distill: bool | None = None, dpo_signal: bool | None = None) -> dict:
+        """Override the distillation/DPO master switches at runtime (API/config).
+
+        ``distill=False`` disables generalization/distillation/clustering/
+        sampling; ``dpo_signal=False`` disables card→skill preference
+        weighting. Neither field is required, so a caller can flip just one.
+        """
+        with self._lock:
+            if distill is not None:
+                self._distill_enabled = bool(distill)
+            if dpo_signal is not None:
+                self._dpo_signal_enabled = bool(dpo_signal)
+            return {"success": True, "distill": self._distill_enabled, "dpo_signal": self._dpo_signal_enabled}
+
+    def distill_policy(self) -> dict:
+        """Return the current distillation/DPO master-switch policy."""
+        with self._lock:
+            return {"distill": self._distill_enabled, "dpo_signal": self._dpo_signal_enabled}
 
     # ── Per-Cell skill binding (回灌到 Cell) ──
 

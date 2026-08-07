@@ -738,3 +738,69 @@ class TestSemanticClustering:
         digest = r4._sample_digest(cases, "shingletool")
         count = digest.count("permission denied on config file")
         assert count == R4_CLUSTER_SAMPLE_MAX, f"expected {R4_CLUSTER_SAMPLE_MAX}, got {count}"
+
+
+class TestDistillPolicySwitch:
+    """Master-switch gating — distillation/DPO pipeline disabled at runtime."""
+
+    def test_default_policy_enabled(self):
+        from l1.kernel.skill import get_skill_manager
+
+        reset_skill_manager()
+        p = get_skill_manager().distill_policy()
+        assert p["distill"] is True
+        assert p["dpo_signal"] is True
+
+    def test_set_policy_flips_flags(self):
+        from l1.kernel.skill import get_skill_manager
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.set_distill_policy(distill=False)
+        assert sm.distill_policy()["distill"] is False
+        sm.set_distill_policy(dpo_signal=False)
+        assert sm.distill_policy()["dpo_signal"] is False
+        sm.set_distill_policy(distill=True, dpo_signal=True)
+        assert sm.distill_policy() == {"distill": True, "dpo_signal": True}
+
+    def test_generalize_gated_off(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.set_distill_policy(distill=False)
+        for i in range(5):
+            sm.create(name=f"lean_g{i}_t", prompt=f"f{i}", tags=["lean_case", "failure", f"g{i}", "t"],
+                      allowed_tools=["t"], internal=True)
+        r4 = R4Agent()
+        assert r4._generalize_lean_cases(sm) == 0
+
+    def test_dpo_signal_gated_off(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.set_distill_policy(dpo_signal=False)
+        sm.create(name="lean_d_lessons", description="d [abcd1234abcd]", prompt="p", tags=["evolved", "t"],
+                  allowed_tools=["t"],
+                  rules=[{"rule": "DO: x", "verified": 0, "hit": 0, "preferred": 0.5, "deprecated": False}],
+                  internal=True)
+        r4 = R4Agent()
+        assert r4.record_card_skill_signal(["lean_d_lessons"], success=True) == 0
+
+    def test_l2_shell_distill_command(self):
+        from l2.l2_shell.commands.system import _cmd_skills
+
+        reset_skill_manager()
+        r = _cmd_skills(["distill", "status"])
+        assert r["success"]
+        assert r["policy"]["distill"] is True
+        r = _cmd_skills(["distill", "set", "distill", "off"])
+        assert r["success"]
+        assert r["distill"] is False
+        r = _cmd_skills(["distill", "set", "distill", "on"])
+        assert r["success"]
+        assert r["distill"] is True
+        # Invalid field rejected.
+        r = _cmd_skills(["distill", "set", "bogus", "on"])
+        assert not r["success"]

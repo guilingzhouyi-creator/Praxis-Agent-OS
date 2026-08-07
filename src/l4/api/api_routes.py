@@ -36,6 +36,9 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     # Skill retriever backend (tfidf / embedding)
     ("GET", "/api/v2/skills/retriever", ".retriever_backend_get", "Get active skill retriever backend"),
     ("POST", "/api/v2/skills/retriever", ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
+    # Skill distillation / DPO policy (master switches)
+    ("GET", "/api/v2/skills/distill-policy", "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_get", "Skill distillation/DPO policy"),
+    ("POST", "/api/v2/skills/distill-policy", "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_set", "Update skill distillation/DPO switches (developer)"),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),
     ("POST", "/api/v2/card/batch", ".submit_batch", "Submit batch cards"),
