@@ -5,16 +5,36 @@ Extracted from cell/__init__.py to reduce the 1091-line Cell class."""
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS, MEMORY_RESTORE_RING2_LIMIT
 from l3.agent_terminal import get_terminals
+
+if TYPE_CHECKING:
+    from l3.cell.components.cell_types import AgentInfo
 
 logger = logging.getLogger(__name__)
 
 
 class CellLifecycleMixin:
     """Mixin providing Cell lifecycle methods — boot, shutdown, restart, emergency."""
+
+    # ── Attributes injected by the concrete Cell (see cell/__init__.py) ──
+    cell_id: str
+    _lock: threading.RLock
+    _agents: dict[str, AgentInfo]
+    _boot_hooks: list[Callable]
+    _shutdown_hooks: list[Callable]
+    _spawn_hooks: list[Callable]
+    _kill_hooks: list[Callable]
+    _emergency: bool
+    _pmu: Any
+    _watchdog: Any
+    _mmu: Any
+    _interrupt: Any
+    _icache: Any
 
     # ── Lifecycle hooks ──
 

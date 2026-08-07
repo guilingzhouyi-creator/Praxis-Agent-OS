@@ -44,6 +44,57 @@ class TestAddTool:
         loop.add_tool("read_only", "test", {}, fn, parallel_safe=True)
         assert loop._tools[0].name == "read_only"
 
+    def test_add_tool_from_spec_marshals_toolspec(self):
+        from l3.agent.agent_loop import AgentLoop
+        from l3.tool_system.tool_spec import ParamSpec, ToolSpec
+
+        def _handler(args, agent_id):
+            return {"success": True, "data": "ok"}
+
+        spec = ToolSpec(
+            name="spec_tool",
+            description="Tool from spec",
+            category="",
+            ring="RING_1",
+            danger=0,
+            parameters=[
+                ParamSpec(name="p1", type="string"),
+                ParamSpec(name="p2", type="int"),
+            ],
+            handler=_handler,
+            parallel_safe=True,
+        )
+        loop = AgentLoop(task="test")
+        loop.add_tool_from_spec(spec)
+        assert len(loop._tools) == 1
+        tool = loop._tools[0]
+        assert tool.name == "spec_tool"
+        assert tool.description == "Tool from spec"
+        assert tool.handler is _handler
+        assert tool.parallel_safe is True
+        assert [p.name for p in tool.parameters] == ["p1", "p2"]
+
+    def test_add_tool_from_spec_override_and_dict_params(self):
+        from l3.agent.agent_loop import AgentLoop
+
+        def _override(args, agent_id):
+            return {"success": True}
+
+        class _DictSpec:
+            name = "dict_tool"
+            description = "dict style"
+            parameters = {"p1": {"type": "string"}}
+            parallel_safe = False
+            handler = None
+
+        loop = AgentLoop(task="test")
+        loop.add_tool_from_spec(_DictSpec(), handler=_override)
+        tool = loop._tools[0]
+        assert tool.name == "dict_tool"
+        assert tool.handler is _override
+        assert tool.parallel_safe is False
+        assert [p.name for p in tool.parameters] == ["p1"]
+
 
 class TestFoldResult:
     """Result folding (Head+Tail truncation)"""

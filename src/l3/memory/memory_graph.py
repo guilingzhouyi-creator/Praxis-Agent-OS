@@ -28,7 +28,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from l1.kernel.params.system import LOG_TRUNC_300, MEMORY_GRAPH_LLM_TIMEOUT
+from l1.kernel.params.system import LOG_TRUNC_300
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,6 @@ _EDGE_MODE_TRANSITIONS: dict[str, set[str]] = {
     _EDGE_MODE_PAUSED: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
 }
 _LLM_EXTRACT_MAX_PAIRS = 5          # max comparison pairs per extraction round
-_LLM_EXTRACT_TIMEOUT = MEMORY_GRAPH_LLM_TIMEOUT
 _LLM_EXTRACT_MAX_TOKENS = 256
 
 _DEFAULT_DB_NAME = "memory_graph.db"
@@ -129,6 +128,7 @@ class MemoryGraph:
         return self._enabled
 
     def set_enabled(self, flag: bool) -> None:
+        """Enable or disable the memory graph, emitting a switch event."""
         changed = self._enabled != bool(flag)
         self._enabled = bool(flag)
         logger.info("memory_graph: enabled=%s", self._enabled)
@@ -224,6 +224,8 @@ class MemoryGraph:
         return created
 
     def _edge_exists(self, from_id: str, to_id: str, relation: str) -> bool:
+        if self._conn is None:
+            return False
         cur = self._conn.execute(
             "SELECT 1 FROM memory_edges WHERE from_id=? AND to_id=? AND relation=? LIMIT 1",
             (from_id, to_id, relation))
@@ -231,6 +233,8 @@ class MemoryGraph:
 
     def _insert_edge(self, from_id: str, to_id: str, relation: str,
                      weight: float, created_by: str, created_at: float) -> str | None:
+        if self._conn is None:
+            return None
         eid = f"edge-{uuid.uuid4().hex[:_EDGE_ID_LEN]}"
         try:
             self._conn.execute(
@@ -528,11 +532,12 @@ class MemoryGraph:
                     return rel
             return ""
         except Exception:
-            return None  # engine exception (distinct from "none" = no relation)
+            return ""  # engine exception (distinct from "none" = no relation)
 
     # ── Query / Maintenance ─────────────────────────────────────────
 
     def edges_of(self, entry_id: str, limit: int = 20) -> list[dict]:
+        """Return edges touching the given entry id, both directions."""
         if self._conn is None:
             return []
         try:
@@ -547,6 +552,7 @@ class MemoryGraph:
             return []
 
     def stats(self) -> dict:
+        """Return graph statistics: enabled flag, edge count, and DB path."""
         if self._conn is None:
             return {"enabled": self._enabled, "edges": 0, "db": self._db_path}
         try:
@@ -562,6 +568,7 @@ class MemoryGraph:
             return {"enabled": self._enabled, "edges": 0, "db": self._db_path}
 
     def clear(self) -> int:
+        """Delete all graph edges; returns the number of removed rows."""
         if self._conn is None:
             return 0
         try:
@@ -573,6 +580,7 @@ class MemoryGraph:
             return 0
 
     def close(self) -> None:
+        """Close the underlying SQLite connection, if open."""
         if self._conn is not None:
             try:
                 self._conn.close()
@@ -588,6 +596,7 @@ _graph_lock = threading.Lock()
 
 
 def get_graph(db_path: str = "") -> MemoryGraph:
+    """Get the singleton MemoryGraph, creating it with the given DB path."""
     global _graph
     if _graph is None:
         with _graph_lock:
@@ -597,6 +606,7 @@ def get_graph(db_path: str = "") -> MemoryGraph:
 
 
 def reset_graph() -> None:
+    """Close and reset the singleton MemoryGraph (for testing)."""
     global _graph
     with _graph_lock:
         if _graph is not None:

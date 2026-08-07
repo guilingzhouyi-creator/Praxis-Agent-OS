@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULT_RETENTION, EXECUTION_RESULTS_AUTO_SAVE
+from l1.kernel.params.system import EXEC_BACKOFF_INTERVAL, EXECUTION_RESULT_RETENTION, EXECUTION_RESULTS_AUTO_SAVE, EXECUTION_STEP_TIMEOUT
 from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 
 # ── Rollback handler registry ──
 # External code can register custom rollback handlers via register_rollback().
-_rollback_handlers: dict[str, callable] = {}
+_rollback_handlers: dict[str, Callable] = {}
 
 
-def register_rollback(tool_name: str, handler: callable) -> None:
+def register_rollback(tool_name: str, handler: Callable) -> None:
     """Register a rollback handler for a tool name.
 
     The handler receives (step: Step, plan: ExecutionPlan, executor: Callable).
@@ -43,7 +43,7 @@ def register_rollback(tool_name: str, handler: callable) -> None:
     _rollback_handlers[tool_name] = handler
 
 
-def _get_rollback_handler(tool_name: str) -> callable | None:
+def _get_rollback_handler(tool_name: str) -> Callable | None:
     return _rollback_handlers.get(tool_name)
 
 
@@ -107,7 +107,7 @@ class Step:
     tool: str
     params: dict = field(default_factory=dict)
     depends_on: list[str] = field(default_factory=list)
-    timeout: float = 30.0
+    timeout: float = EXECUTION_STEP_TIMEOUT
     retry_count: int = 0
     max_retries: int = 2
     recovery: str = RecoveryStrategy.ABORT.value
@@ -133,6 +133,7 @@ class ExecutionPlan:
                  depends_on: list[str] | None = None,
                  recovery: str = RecoveryStrategy.ABORT.value,
                  max_retries: int = 2) -> Step:
+        """Append a step to the plan and return the created Step."""
         step = Step(
             id=f"step-{len(self.steps)}",
             tool=tool, params=params or {},
@@ -213,6 +214,11 @@ class ExecutionEngine(BaseService, PersistableMixin):
 
     def execute(self, plan: ExecutionPlan, tool_executor: Callable | None = None) -> ExecutionResult:
         """Execute a plan: topological sort → run steps → collect results."""
+        if tool_executor is None:
+            def _default_executor(tool: str, params: dict, agent_id: str) -> dict:
+                from l3.tool_system.tool_pipeline import get_pipeline
+                return get_pipeline().execute(tool_name=tool, agent_id=agent_id, args=params)
+            tool_executor = _default_executor
         started_at = time.time()
         result = ExecutionResult(plan_id=plan.plan_id, success=True, total=len(plan.steps))
 
@@ -318,6 +324,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
         result = []
 
         def dfs(sid: str) -> bool:
+            """Visit a step recursively; returns False on cycle."""
             if sid in in_stack:
                 return False  # cycle detected
             if sid in visited:
@@ -368,6 +375,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
         return {"abort": True}
 
     def get_result(self, plan_id: str) -> dict | None:
+        """Return the result for a plan, or None if not found."""
         with self._lock:
             r = self._executions.get(plan_id)
             if not r:
@@ -377,6 +385,7 @@ class ExecutionEngine(BaseService, PersistableMixin):
                     "elapsed": round(r.elapsed, 3), "error": r.error, "steps": r.steps}
 
     def stats(self) -> dict:
+        """Return execution counts and plan IDs."""
         with self._lock:
             return {"executions": len(self._executions),
                     "plans": list(self._executions.keys())}
@@ -386,6 +395,7 @@ _service: ExecutionEngine | None = None
 
 
 def get_service() -> ExecutionEngine:
+    """Return the ExecutionEngine singleton, creating it if needed."""
     global _service
     if _service is None:
         _service = ExecutionEngine()
@@ -393,6 +403,7 @@ def get_service() -> ExecutionEngine:
 
 
 def reset_service() -> None:
+    """Stop and reset the ExecutionEngine singleton."""
     global _service
     if _service:
         _service.stop()

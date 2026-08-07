@@ -71,7 +71,7 @@ class L3BMessagePool:
         self._high_watermark = high_watermark
         self._bp_threshold = bp_threshold
         self._bp_cooldown = L3B_BACKPRESSURE_COOLDOWN
-        self._hot = deque(maxlen=hot_size)        # Hot Ring
+        self._hot: deque[CacheMessage] = deque(maxlen=hot_size)        # Hot Ring
         self._lock = threading.Lock()
         self._total_pushed = 0
         self._total_popped = 0
@@ -179,16 +179,19 @@ class L3BMessagePool:
     # ── Status ──
 
     def hot_usage(self) -> float:
+        """Return the hot ring usage ratio (0.0-1.0)."""
         with self._lock:
             return len(self._hot) / self._hot_size
 
     def persist_count(self) -> int:
+        """Return the count of undelivered persisted messages."""
         conn = sqlite3.connect(self._db_path)
         cnt = conn.execute("SELECT COUNT(*) FROM messages WHERE delivered=0").fetchone()[0]
         conn.close()
         return cnt
 
     def stats(self) -> dict:
+        """Return cache pool statistics. Returns a stats dict."""
         return {
             "composite_id": self.composite_id,
             "hot_usage": round(self.hot_usage() * 100, 1),

@@ -81,6 +81,7 @@ class L3BBus:
             return {"success": True, "composite_id": composite_id}
 
     def unregister(self, composite_id: str) -> dict:
+        """Unregister a composite from the bus. Returns a result dict."""
         with self._lock:
             self._mailboxes.pop(composite_id, None)
             logger.info("L3BBus: unregistered %s", composite_id)
@@ -172,7 +173,7 @@ class L3BBus:
             if clear:
                 # Destructive read: drop consumed messages, keep unread ones.
                 consumed_ids = {m["msg_id"] for m in messages}
-                kept = deque(maxlen=mailbox.maxlen)
+                kept: deque[L3BMessage] = deque(maxlen=mailbox.maxlen)
                 for msg in mailbox:
                     if msg.msg_id not in consumed_ids:
                         kept.append(msg)
@@ -239,5 +240,6 @@ def get_bus() -> L3BBus:
 
 
 def reset_bus() -> None:
+    """Reset the L3B message bus singleton. Returns None."""
     global _bus
     _bus = None

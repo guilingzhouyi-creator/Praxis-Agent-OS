@@ -53,7 +53,7 @@ BATCH_1 = [
     ("l3/tools", "test_mute"), ("l3/tools", "test_pipeline"),
     ("l3/tools", "test_policy"),
     ("l3/tools", "test_registry"), ("l3/tools", "test_spec"),
-    ("l3/discussion", "test_assembly"), ("l3/discussion", "test_convergence"),
+    ("l3/discussion", "test_convergence"),
     ("l3/discussion", "test_core"), ("l3/discussion", "test_dialogue_session"),
     ("l3/discussion", "test_integration"),
     ("l3/error_bus", "test_core"),

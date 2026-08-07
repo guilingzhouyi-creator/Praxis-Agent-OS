@@ -75,6 +75,7 @@ class WorkerPool:
                kwargs: dict | None = None, priority: int = 5,
                timeout: float = 0,
                callback: Callable | None = None) -> dict:
+        """Submit a task to the pool and return an ack dict."""
         task = WorkTask(
             id=task_id, fn=fn, args=args, kwargs=kwargs or {},
             priority=priority, timeout=timeout, callback=callback,
@@ -86,6 +87,7 @@ class WorkerPool:
         return {"success": True, "id": task_id}
 
     def get(self, task_id: str) -> dict:
+        """Return task state/result for a task id."""
         with self._lock:
             task = self._tasks.get(task_id)
         if not task:
@@ -100,11 +102,13 @@ class WorkerPool:
         }
 
     def list(self) -> dict:
+        """List all tracked tasks with their states."""
         with self._lock:
             items = [{"id": t.id, "state": t.state.name} for t in self._tasks.values()]
         return {"success": True, "tasks": items, "count": len(items), "active": self._active_count}
 
     def cancel(self, task_id: str) -> dict:
+        """Cancel a pending task; returns success or error dict."""
         with self._lock:
             task = self._tasks.get(task_id)
             if task and task.state == TaskState.PENDING:
@@ -113,6 +117,7 @@ class WorkerPool:
         return {"success": False, "error": "task not found or already running"}
 
     def wait_all(self, timeout: float = 30) -> None:
+        """Block until all tasks finish or the timeout elapses."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:
@@ -123,8 +128,9 @@ class WorkerPool:
             time.sleep(POLL_INTERVAL_DEFAULT)
 
     def stats(self) -> dict:
+        """Return pool statistics (size, active workers, task states)."""
         with self._lock:
-            states = {}
+            states: dict[str, int] = {}
             for t in self._tasks.values():
                 states[t.state.name] = states.get(t.state.name, 0) + 1
         return {
@@ -135,6 +141,7 @@ class WorkerPool:
         }
 
     def shutdown(self) -> dict:
+        """Stop the worker pool; returns drain status dict."""
         self._running = False
         return {"success": True, "drained": self._queue.qsize()}
 
@@ -183,6 +190,7 @@ _pool_lock = threading.Lock()
 
 
 def get_pool(name: str = "default", size: int = 4) -> WorkerPool:
+    """Return the named shared pool, creating it on first use."""
     with _pool_lock:
         if name not in _pools:
             _pools[name] = WorkerPool(size)
@@ -190,5 +198,6 @@ def get_pool(name: str = "default", size: int = 4) -> WorkerPool:
 
 
 def shutdown_all() -> None:
+    """Shut down every registered shared pool."""
     for pool in _pools.values():
         pool.shutdown()

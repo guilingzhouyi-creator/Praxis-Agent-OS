@@ -58,12 +58,9 @@ logger = logging.getLogger(__name__)
 # Source tags
 SRC_CARD = "card"
 SRC_APPROVAL = "approval"
-SRC_SESSION = "session"
-SRC_CORRECTION = "correction"
 SRC_REFINED = "refined"
 SRC_IMPORT = "import"
 SRC_API = "api"
-SRC_EVENT = "event"
 
 
 @dataclass
@@ -418,8 +415,8 @@ class UserProfileService(BaseService):
             kind_count[e.kind] = kind_count.get(e.kind, 0) + 1
             key = str(e.value)[:LOG_TRUNC_60]
             value_count[key] = value_count.get(key, 0) + 1
-        top_kinds = sorted(kind_count, key=kind_count.get, reverse=True)[:3]
-        top_values = sorted(value_count, key=value_count.get, reverse=True)[:5]
+        top_kinds = sorted(kind_count, key=lambda k: kind_count[k], reverse=True)[:3]
+        top_values = sorted(value_count, key=lambda k: value_count[k], reverse=True)[:5]
         return {"method": "rule", "top_kinds": top_kinds, "top_values": top_values, "sample_size": len(entries)}
 
     def refine_all(self) -> dict:

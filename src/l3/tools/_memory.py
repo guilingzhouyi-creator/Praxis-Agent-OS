@@ -10,6 +10,7 @@ except ImportError:
 
 
 def memory_store(args: dict, agent_id: str) -> dict:
+    """Store a keyed memory entry for the agent; returns success dict."""
     key = args.get("key", "")
     content = args.get("content", "")
     if not key or not content:
@@ -25,6 +26,7 @@ def memory_store(args: dict, agent_id: str) -> dict:
 
 
 def memory_retrieve(args: dict, agent_id: str) -> dict:
+    """Retrieve a memory entry by key for the agent; returns data dict."""
     key = args.get("key", "")
     if not key:
         return {"success": False, "error": "key is required"}
@@ -39,6 +41,7 @@ def memory_retrieve(args: dict, agent_id: str) -> dict:
 
 
 def memory_search(args: dict, agent_id: str) -> dict:
+    """Search agent memory by query; returns results dict."""
     query = args.get("query", "")
     if not query:
         return {"success": False, "error": "query is required"}

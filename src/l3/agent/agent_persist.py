@@ -139,6 +139,7 @@ class SnapshotHook:
         self.agent_id = agent_id
 
     def turn_complete(self, result: dict, elapsed: float) -> None:
+        """Persist a snapshot summarizing the completed turn."""
         save_snapshot(self.agent_id, {
             "status": result.get("success", True),
             "summary": str(result.get("output", ""))[:LOG_TRUNC_200],
@@ -147,6 +148,7 @@ class SnapshotHook:
         })
 
     def on_error(self, error: str) -> None:
+        """Persist a failure-marked snapshot for the errored turn."""
         save_snapshot(self.agent_id, {
             "status": False,
             "error": str(error)[:LOG_TRUNC_200],

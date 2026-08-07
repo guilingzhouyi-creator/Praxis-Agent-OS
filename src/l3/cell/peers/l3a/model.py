@@ -27,7 +27,8 @@ class L3AModelConfig:
     _source: str = "default"
 
     def resolve(self, override: dict | None = None) -> dict:
-        effective = {}
+        """Resolve the effective model dict, merging an optional per-prompt override."""
+        effective: dict[str, Any] = {}
         if self.provider:
             effective["provider"] = self.provider
         if self.model:
@@ -43,6 +44,7 @@ class L3AModelConfig:
         return effective
 
     def apply_global(self, global_config: dict) -> None:
+        """Fill unset fields from the global LLM config dict."""
         if not self.provider:
             self.provider = global_config.get("provider", "")
             self._source = "global"
@@ -57,6 +59,7 @@ class L3AModelConfig:
             self.thinking_budget = int(global_config.get("thinking_budget", 0))
 
     def set(self, key: str, value: Any) -> None:
+        """Set one config field, coercing thinking_budget to int and marking the source as l3a."""
         if key in ("provider", "model", "max_tokens", "temperature",
                    "reasoning_effort", "thinking_budget"):
             if key == "thinking_budget":
@@ -68,6 +71,7 @@ class L3AModelConfig:
             self._source = "l3a"
 
     def show(self) -> dict:
+        """Return the config as a dict for display."""
         return {
             "provider": self.provider,
             "model": self.model,

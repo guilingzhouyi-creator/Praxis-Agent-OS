@@ -280,5 +280,6 @@ class AnswerAggregator:
 
 
 def hashlib_md5(text: str) -> str:
+    """Return a truncated md5 hex digest of *text*."""
     import hashlib
     return hashlib.md5(text.encode()).hexdigest()[:HASH_TRUNC_LONG]

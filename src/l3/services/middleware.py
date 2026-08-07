@@ -48,10 +48,12 @@ class MiddlewareChain:
         self._middlewares: list[ToolMiddleware] = []
 
     def add(self, mw: ToolMiddleware) -> None:
+        """Append a middleware to the chain."""
         self._middlewares.append(mw)
 
     def before(self, tool_name: str, args: dict,
                agent_id: str, ctx: dict | None = None) -> str:
+        """Run all middlewares' before hooks; returns the first DENY/ASK outcome."""
         for mw in self._middlewares:
             outcome = mw.before(tool_name, args, agent_id, ctx)
             if outcome in (BeforeOutcome.DENY, BeforeOutcome.ASK):
@@ -61,6 +63,7 @@ class MiddlewareChain:
         return BeforeOutcome.PROCEED
 
     def after(self, tool_name: str, result: dict, agent_id: str) -> str:
+        """Run all middlewares' after hooks; returns the first BLOCK outcome."""
         for mw in self._middlewares:
             outcome = mw.after(tool_name, result, agent_id)
             if outcome == AfterOutcome.BLOCK:
@@ -82,6 +85,7 @@ class ApprovalMiddleware(ToolMiddleware):
 
     def before(self, tool_name: str, args: dict,
                agent_id: str, ctx: dict | None = None) -> str:
+        """Gate dangerous tools behind approval; returns ASK or PROCEED."""
         try:
             from l3.tool_system.tool_policy import ToolPolicy
             if not ToolPolicy.requires_approval(agent_id, tool_name):
@@ -142,6 +146,7 @@ class ConfineMiddleware(ToolMiddleware):
 
     def before(self, tool_name: str, args: dict,
                agent_id: str, ctx: dict | None = None) -> str:
+        """Deny tool calls whose path falls outside the allowed roots."""
         if not self._allowed_roots:
             return BeforeOutcome.PROCEED
 
@@ -167,6 +172,7 @@ class ArgRepairMiddleware(ToolMiddleware):
 
     def before(self, tool_name: str, args: dict,
                agent_id: str, ctx: dict | None = None) -> str:
+        """Normalize string argument values (trim, quote-strip, bool coercion)."""
         for k, v in list(args.items()):
             if isinstance(v, str):
                 v = v.strip().strip("\"'")

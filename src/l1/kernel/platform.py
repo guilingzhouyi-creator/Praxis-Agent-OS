@@ -36,16 +36,21 @@ IS_POSIX: bool = _os.name == "posix"
 
 # ── Shell detection ──
 
+SHELL_PATH: str
+SHELL_NAME: str
+SHELL_PROMPT: str
+DEFAULT_SHELL: str
+
 if IS_WINDOWS:
-    SHELL_PATH: str = _os.environ.get("COMSPEC", "cmd.exe")
-    SHELL_NAME: str = "powershell.exe" if "powershell" in SHELL_PATH.lower() else "cmd.exe"
-    SHELL_PROMPT: str = "PS > " if "powershell" in SHELL_PATH.lower() else "C:\\> "
-    DEFAULT_SHELL: str = SHELL_PATH
+    SHELL_PATH = _os.environ.get("COMSPEC", "cmd.exe")
+    SHELL_NAME = "powershell.exe" if "powershell" in SHELL_PATH.lower() else "cmd.exe"
+    SHELL_PROMPT = "PS > " if "powershell" in SHELL_PATH.lower() else "C:\\> "
+    DEFAULT_SHELL = SHELL_PATH
 else:
-    SHELL_PATH: str = _os.environ.get("SHELL", "/bin/bash")
-    SHELL_NAME: str = "bash"
-    SHELL_PROMPT: str = "$ "
-    DEFAULT_SHELL: str = SHELL_PATH
+    SHELL_PATH = _os.environ.get("SHELL", "/bin/bash")
+    SHELL_NAME = "bash"
+    SHELL_PROMPT = "$ "
+    DEFAULT_SHELL = SHELL_PATH
 
 
 # ── Command adapters ──

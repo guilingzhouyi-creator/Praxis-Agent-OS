@@ -261,7 +261,7 @@ def _sys_process(agent_id: str, kw: dict) -> dict:
     if sub == "exit":
         return {"success": pt.exit(kw.get("pid", 0), kw.get("exit_code", 0), kw.get("reason", ""))}
     if sub == "list":
-        return {"success": True, "processes": pt.list()}
+        return {"success": True, "processes": pt.list_processes()}
     return {"success": False, "error": f"unknown process op: {sub}"}
 
 
@@ -366,6 +366,7 @@ def health() -> dict:
 
 def register_process(name: str, role: str = "", ring: int = SYSCALL_DEFAULT_RING,
                      agent_id: str = SYSCALL_REGISTER_DEFAULT_AGENT) -> int:
+    """Register a process via syscall and return its pid."""
     return syscall("process.spawn", agent_id=agent_id,
                    name=name, role=role, ring=ring).get("pid", 0)
 

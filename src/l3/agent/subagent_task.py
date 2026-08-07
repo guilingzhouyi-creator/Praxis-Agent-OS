@@ -55,6 +55,7 @@ class SubAgentTask:
         self._cancelled = False
 
     def start(self) -> dict:
+        """Start the task in a background thread; returns an ack dict."""
         with self._lock:
             self.status = "running"
             self.started_at = time.time()
@@ -114,12 +115,8 @@ class SubAgentTask:
         try:
             from ..agent.scout import get_pool
             pool = get_pool()
-            session = pool.get(self.parent_agent_id or self.id)
-            if session is None:
-                return {"type": "scout", "error": "no scout available"}
-            result = session.run(prompt)
-            pool.put(session)
-            return {"type": "scout", "result": str(result)[:LOG_TRUNC_2000]}
+            scout_result = pool.commission(self.parent_agent_id or self.id, prompt)
+            return {"type": "scout", "result": str(scout_result.get("output") or scout_result)[:LOG_TRUNC_2000]}
         except Exception as e:
             return {"type": "scout", "error": str(e)}
 
@@ -144,7 +141,7 @@ class SubAgentTask:
         """Fast path — single LLM call, no tools."""
         from l4.llm.llm import get_engine
         engine = get_engine()
-        model_kwargs = self._resolve_model_kwargs()
+        model_kwargs = self.resolve_model_kwargs()
         from l1.kernel.prompts import get_prompt as _gpr
         system = self.spec.system_prompt or _gpr(
             "subagent.fallback", "You are {name}. {description}"
@@ -192,15 +189,15 @@ class SubAgentTask:
             spec = get_tool(tool_name)
             if spec is None:
                 continue
-            params = getattr(spec, "parameters", {}) or {}
-            desc = getattr(spec, "description", "") or tool_name
             handler = _resolve_tool_handler(tool_name)
+            if handler is None:
+                continue
             parallel = getattr(spec, "parallel_safe", False) or tool_name in (
                 "read_file", "grep_search", "list_dir",
             )
-            loop.add_tool(tool_name, desc, params, handler, parallel_safe=parallel)
+            loop.add_tool_from_spec(spec, handler=handler, parallel_safe=parallel)
 
-        model_kwargs = self._resolve_model_kwargs()
+        model_kwargs = self.resolve_model_kwargs()
         result = loop.run(
             max_steps=self.spec.max_steps or AGENT_LOOP_DEFAULT_STEPS,
             timeout=self.spec.timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
@@ -240,6 +237,7 @@ class SubAgentTask:
             logger.warning("subagent %s: result delivery failed: %s", self.id, e)
 
     def cancel(self) -> dict:
+        """Request cancellation of the task; returns a status dict."""
         with self._lock:
             self._cancelled = True
             if self.status != "running":
@@ -249,8 +247,9 @@ class SubAgentTask:
         return {"success": True, "task_id": self.id, "status": "cancelled"}
 
     def get_result(self) -> dict:
+        """Return the task result snapshot with timing info."""
         with self._lock:
-            elapsed = 0
+            elapsed: float = 0.0
             if self.started_at > 0:
                 elapsed = (self.completed_at or time.time()) - self.started_at
             return {

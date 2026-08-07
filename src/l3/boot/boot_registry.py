@@ -50,9 +50,9 @@ def register_boot_step(name: str, fn: Callable,
 def resolve_boot_order() -> list[str]:
     """Topological sort of registered boot steps by dependency."""
     names = list(_boot_registry.keys())
-    ordered = []
-    visited = set()
-    in_stack = set()
+    ordered: list[str] = []
+    visited: set[str] = set()
+    in_stack: set[str] = set()
 
     def _dfs(n: str) -> bool:
         if n in in_stack:

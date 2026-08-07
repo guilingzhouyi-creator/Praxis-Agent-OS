@@ -27,12 +27,6 @@ logger = logging.getLogger(__name__)
 
 CAP_MAX_TOKENS = "max_tokens"
 CAP_TEMPERATURE = "temperature"
-CAP_REASONING_EFFORT = "reasoning_effort"
-CAP_THINKING_BUDGET = "thinking_budget"
-CAP_CONTEXT_WINDOW = "context_window"
-CAP_TOOL_USE = "tool_use"
-CAP_VISION = "vision"
-CAP_STREAMING = "streaming"
 
 _BASE_CAPABILITIES = {CAP_MAX_TOKENS, CAP_TEMPERATURE}
 
@@ -131,6 +125,7 @@ def register_provider(name: str, provider_cls: type[LLMProvider], override: bool
 
 
 def list_providers() -> list[str]:
+    """Return the sorted names of all registered providers."""
     return sorted(_PROVIDER_REGISTRY.keys())
 
 
@@ -186,13 +181,16 @@ class ToolSearch:
         self._max_tools = max_tools
 
     def register(self, tool: Any) -> None:
+        """Register a single tool for deferred loading."""
         self._tools[tool.name] = tool
 
     def register_many(self, tools: list[Any]) -> None:
+        """Register multiple tools for deferred loading."""
         for t in tools:
             self._tools[t.name] = t
 
     def search(self, query: str, max_results: int = TOOL_SEARCH_MAX_RESULTS) -> list[Any]:
+        """Rank and return the tools best matching the query."""
         if not query or not self._tools:
             return list(self._tools.values())[:max_results]
         query_lower = query.lower()
@@ -211,6 +209,7 @@ class ToolSearch:
         return [t for _, _, t in scored[:max_results]]
 
     def to_api_format(self, tools: list[ToolDef] | None = None) -> list[dict]:
+        """Convert tools to the LLM API function-calling format."""
         if tools is None:
             tools = list(self._tools.values())[: self._max_tools]
         return [
@@ -228,4 +227,5 @@ class ToolSearch:
         ]
 
     def count(self) -> int:
+        """Return the number of registered tools."""
         return len(self._tools)

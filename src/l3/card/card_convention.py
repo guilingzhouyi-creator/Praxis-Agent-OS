@@ -7,14 +7,35 @@ lazily from the parent module to avoid a circular import.
 from __future__ import annotations
 
 import logging
+import threading
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from l1.kernel.params.system import LOG_TRUNC_500
+
+if TYPE_CHECKING:
+    from l3.card.card_unified import CardUnified
 
 logger = logging.getLogger(__name__)
 
 
 class CardConventionMixin:
     """CardConventionMixin — route cards through the convention protocol."""
+
+    # ── Attributes injected by the concrete CardRegistry (see card_registry.py) ──
+    _lock: threading.RLock
+    _cards: dict[str, CardUnified]
+    _cell_map: dict[str, Any]
+    _cell_resolver: Callable[[str], Any] | None
+
+    def complete(self, card_id: str, result: dict | None = None,
+                 error: str = "") -> bool:
+        """Complete a card (implemented by CardRegistry)."""
+        raise NotImplementedError
+
+    def hold_card(self, card_id: str) -> None:
+        """Hold a card pending convention convergence (implemented by CardRegistry)."""
+        raise NotImplementedError
 
     def _route_to_convention(self, card_id: str, intent: str,
                              domain: str) -> None:
@@ -47,7 +68,7 @@ class CardConventionMixin:
             get_table().submit(issue)
 
             from l3.cell.components.cell_convention import convene
-            conv_r = convene(cell, issue)
+            convene(cell, issue)
             with self._lock:
                 rec = self._cards.get(card_id)
                 if rec:

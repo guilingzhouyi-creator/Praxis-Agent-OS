@@ -12,7 +12,7 @@ Usage:
   sm = get_skill_manager()
   sm.load("python_style")
   sm.get("python_style")  # → {"name": "...", "rules": [...]}
-  sm.list()               # → all loaded skills
+  sm.list_skills()               # → all loaded skills
 """
 
 from __future__ import annotations
@@ -106,6 +106,7 @@ class Skill:
         return result
 
     def to_dict(self) -> dict:
+        """Serialize the skill to a plain dict for inspection and persistence."""
         return {
             "name": self.name,
             "description": self.description,
@@ -360,10 +361,11 @@ class SkillManager:
         return self.register(name, data, agent_id=agent_id, role=role, internal=internal)
 
     def get(self, name: str) -> dict | None:
+        """Return the skill record for *name*, or None."""
         with self._lock:
             return self._skills.get(name)
 
-    def list(self, tags: list[str] | None = None, limit: int = 0, sort_by: str = "name") -> list[dict]:
+    def list_skills(self, tags: list[str] | None = None, limit: int = 0, sort_by: str = "name") -> list[dict]:
         """List skills, optionally filtered by tags and sorted.
 
         Args:
@@ -523,7 +525,7 @@ class SkillManager:
         if not q:
             return []
         terms = set(_re.split(r"[\s,;:._-]+", q))
-        results = []
+        results: list[dict[str, Any]] = []
         with self._lock:
             for name, skill in self._skills.items():
                 score = 0.0
@@ -553,7 +555,7 @@ class SkillManager:
                         score += 0.5 * count
                 if score > 0:
                     results.append({"name": name, "score": round(score, 1), "skill": skill})
-        results.sort(key=lambda x: -x["score"])
+        results.sort(key=lambda x: float(x["score"]), reverse=True)
         return results
 
     def skill_vfs_content(self) -> str:
@@ -688,6 +690,7 @@ def skill_visible(skill: dict, agent_id: str) -> bool:
 
 
 def get_skill_manager() -> SkillManager:
+    """Get the skill manager singleton (lazily created)."""
     global _manager
     if _manager is None:
         with _manager_lock:
@@ -697,5 +700,6 @@ def get_skill_manager() -> SkillManager:
 
 
 def reset_skill_manager() -> None:
+    """Reset the skill manager singleton to None (for tests / hot reset)."""
     global _manager
     _manager = None

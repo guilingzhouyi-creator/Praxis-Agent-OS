@@ -50,6 +50,7 @@ class WsBridgePort(WebSocketPort):
     """
 
     def upgrade(self, request: Any) -> Any:
+        """Register an accepted socket and return a per-client connection handle."""
         global _ws_counter
         _register_event_listener()
         with _ws_lock:
@@ -59,6 +60,7 @@ class WsBridgePort(WebSocketPort):
         return handle
 
     def recv(self, conn: Any) -> dict | None:
+        """Receive and decode one JSON message, or None on failure."""
         raw = conn["conn"].recv()
         if raw is None:
             return None
@@ -68,6 +70,7 @@ class WsBridgePort(WebSocketPort):
             return None
 
     def send(self, conn: Any, msg: dict) -> bool:
+        """Send a JSON-encoded message on the connection; True on success."""
         try:
             conn["conn"].send(json.dumps(msg, default=str))
             return True
@@ -75,6 +78,7 @@ class WsBridgePort(WebSocketPort):
             return False
 
     def close(self, conn: Any) -> None:
+        """Deregister and close the given connection handle."""
         with _ws_lock:
             _ws_clients[:] = [c for c in _ws_clients if c["id"] != conn["id"]]
         try:
@@ -83,6 +87,7 @@ class WsBridgePort(WebSocketPort):
             pass
 
     def broadcast(self, event: str, data: dict) -> None:
+        """Push an event to all subscribed clients."""
         _broadcast(event, data)
 
 

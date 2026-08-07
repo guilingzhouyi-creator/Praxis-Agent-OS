@@ -194,11 +194,13 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 "dependents_cancelled": len(dependents)}
 
     def set_cell_resolver(self, resolver: Callable[[str], Any]) -> None:
+        """Register the callable used to resolve a cell_id to a Cell object."""
         self._cell_resolver = resolver
 
     # ── Background dispatcher ──
 
     def start_dispatcher(self) -> None:
+        """Start the background dispatcher thread if not already running."""
         if self._dispatcher_running:
             return
         self._dispatcher_running = True
@@ -209,6 +211,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         logger.info("card dispatcher started (poll every %.1fs)", CARD_DISPATCH_INTERVAL)
 
     def stop_dispatcher(self) -> None:
+        """Stop the background dispatcher thread."""
         self._dispatcher_running = False
 
     def _dispatcher_loop(self) -> None:
@@ -261,6 +264,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         return entry.split(":", 1)[1] if ":" in entry else ""
 
     def restore_card(self, card_id: str) -> bool:
+        """Replace a card's queue placeholder with the real id; True if restored."""
         placeholder = self._placeholder_of(card_id)
         with self._lock:
             for i, entry in enumerate(self._queue):
@@ -272,6 +276,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         return False
 
     def hold_card(self, card_id: str) -> None:
+        """Put a card on hold: placeholder in queue plus HOLD state."""
         with self._lock:
             for i, entry in enumerate(self._queue):
                 if entry == card_id:
@@ -406,6 +411,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
     # ── Plan generation ──
 
     def generate_plan(self, intent: str, domain: str = "") -> dict:
+        """Generate an execution plan for a card via the LLM, falling back to a default."""
         try:
             from l4.llm.llm import get_engine as _ge
             engine = _ge()
@@ -435,6 +441,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             }
 
     def get_card_plan(self, card_id: str) -> dict:
+        """Return a card's plan and details dict, or an error dict if unknown."""
         with self._lock:
             rec = self._cards.get(card_id)
         if not rec:
@@ -447,6 +454,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
     # ── Cell registration ──
 
     def register_cell(self, cell_id: str, territories: list[str]) -> None:
+        """Register a Cell with its territories for dispatch routing."""
         with self._lock:
             if cell_id not in self._cell_map:
                 self._cell_map[cell_id] = {"territories": territories, "active_cards": 0}
@@ -456,6 +464,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
     def submit(self, intent: str, domain: str = "",
                priority: int = 5, card_id: str = "",
                depends_on: list[str] | None = None) -> str:
+        """Submit a card to the queue and return its id (empty if the queue is full)."""
         cid = card_id or f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             if len(self._queue) >= CARD_QUEUE_PENDING_MAX:
@@ -483,6 +492,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
     # ── Dispatch ──
 
     def dispatch(self, card_id: str, cell_id: str = "") -> dict:
+        """Dispatch a queued card to a Cell, resolving the target by domain if needed."""
         with self._lock:
             record = self._cards.get(card_id)
             if not record:
@@ -511,6 +521,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
 
     def complete(self, card_id: str, result: dict | None = None,
                  error: str = "") -> bool:
+        """Complete or fail a card, notify subscribers, and fire lifecycle events."""
         with self._lock:
             record = self._cards.get(card_id)
             if not record:
@@ -555,6 +566,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         return True
 
     def cancel(self, card_id: str) -> bool:
+        """Cancel a card; returns False if unknown or already in a terminal state."""
         with self._lock:
             record = self._cards.get(card_id)
             if not record or record.state in (CardLifecycle.COMPLETED, CardLifecycle.FAILED, CardLifecycle.CANCELLED):
@@ -571,11 +583,13 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
     # ── Query ──
 
     def get(self, card_id: str) -> CardUnified | None:
+        """Return the CardUnified for a card, or None if not registered."""
         with self._lock:
             return self._cards.get(card_id)
 
     def list(self, state: CardLifecycle | str | None = None,
              cell_id: str = "", domain: str = "", limit: int = 50) -> list[dict]:
+        """List cards as dicts, filtered by state, cell, and domain, newest first."""
         with self._lock:
             result = []
             for r in sorted(self._cards.values(), key=lambda x: x.timestamps.created_at, reverse=True):
@@ -593,10 +607,12 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             return result
 
     def pending_count(self) -> int:
+        """Return the number of cards currently in the queue."""
         with self._lock:
             return len(self._queue)
 
     def cell_load(self, cell_id: str) -> dict:
+        """Return a Cell's load stats (active cards, territories) or empty stats."""
         with self._lock:
             cell = self._cell_map.get(cell_id)
             if not cell:
@@ -604,6 +620,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             return dict(cell)
 
     def stats(self) -> dict:
+        """Return registry statistics: totals, queue length, cells, and state counts."""
         with self._lock:
             states: dict[str, int] = {}
             for r in self._cards.values():
@@ -632,6 +649,7 @@ _registry: CardRegistry | None = None
 
 
 def get_registry() -> CardRegistry:
+    """Return the CardRegistry singleton, creating it on first call."""
     global _registry
     if _registry is None:
         _registry = CardRegistry()
@@ -639,5 +657,6 @@ def get_registry() -> CardRegistry:
 
 
 def reset_registry() -> None:
+    """Reset the CardRegistry singleton so the next access re-creates it."""
     global _registry
     _registry = None

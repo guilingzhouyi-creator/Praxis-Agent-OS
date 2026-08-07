@@ -15,7 +15,7 @@ def _cmd_memory(args: list[str]) -> dict:
     agents = resolve_agents(scope, scope_id)
     if not agents: return {"success": False, "error": "no agents found"}
     op = rest[0].lower() if rest else "search"
-    kwargs = {"agent_ids": agents}
+    kwargs: dict[str, object] = {"agent_ids": agents}
     if len(rest) >= 2: kwargs["query"] = " ".join(rest[1:])
     for aid in agents:
         try:
@@ -81,7 +81,7 @@ def _cmd_audit(args: list[str]) -> dict:
 def _cmd_cell_create(args: list[str]) -> dict:
     from l3.cell import get_cell
     cell_id = args[0] if args else "cell-new"
-    cell = get_cell(cell_id, [args[1] if len(args) > 1 else "."])
+    get_cell(cell_id, [args[1] if len(args) > 1 else "."])
     return {"success": True, "cell_id": cell_id}
 
 def _cmd_agent_restart(args: list[str]) -> dict:

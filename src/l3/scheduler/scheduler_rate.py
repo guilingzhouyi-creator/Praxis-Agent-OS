@@ -70,6 +70,7 @@ class RateScheduler:
         self._counters: dict[str, list[float]] = {}
 
     def check(self, agent_id: str, tool_ring: str) -> dict:
+        """Check and record a tool call against the ring rate limit."""
         rate = _RING_RATE.get(tool_ring, _TR1)
         key = f"{agent_id}:{tool_ring}"
         now = _time.time()
@@ -84,6 +85,7 @@ class RateScheduler:
             return {"allowed": True, "remaining": rate - len(ts_list), "ring": tool_ring}
 
     def stats(self) -> dict:
+        """Return rate scheduler stats."""
         with self._lock:
             return {"active_keys": len(self._counters)}
 
@@ -100,5 +102,6 @@ def get_rate_scheduler() -> RateScheduler:
 
 
 def reset_rate_scheduler() -> None:
+    """Reset the rate scheduler singleton."""
     global _rate_scheduler
     _rate_scheduler = None

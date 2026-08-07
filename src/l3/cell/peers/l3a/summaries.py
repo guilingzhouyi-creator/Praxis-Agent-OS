@@ -57,6 +57,7 @@ class L3ASummary:
     archive_ref: str = ""
 
     def to_dict(self) -> dict:
+        """Serialize the summary record to a dict."""
         return {k: v for k, v in self.__dict__.items()}
 
 
@@ -156,6 +157,7 @@ class L3ASummaryStore:
             logger.debug("l3a.summaries: append failed, ignored", exc_info=True)
 
     def get(self, issue_id: str) -> L3ASummary | None:
+        """Return the summary for issue_id, touching its access time; or None."""
         with self._lock:
             s = self._cache.get(issue_id)
         if s:
@@ -163,6 +165,7 @@ class L3ASummaryStore:
         return s
 
     def latest(self, domain: str = "", limit: int = 5) -> list[L3ASummary]:
+        """Return the most recent summaries, optionally filtered by domain."""
         with self._lock:
             items = list(self._cache.values())
         items.sort(key=lambda s: s.created_at, reverse=True)
@@ -174,6 +177,7 @@ class L3ASummaryStore:
         return picked
 
     def search(self, query: str, limit: int = 5) -> list[L3ASummary]:
+        """Search cached summaries by query text and return the top matches."""
         q = query.lower()
         with self._lock:
             items = list(self._cache.values())
@@ -192,10 +196,12 @@ class L3ASummaryStore:
         return picked
 
     def count(self) -> int:
+        """Return the number of cached summaries."""
         with self._lock:
             return len(self._cache)
 
     def all(self) -> list[dict]:
+        """Return all cached summaries as dicts."""
         with self._lock:
             return [s.to_dict() for s in self._cache.values()]
 
@@ -276,6 +282,7 @@ _store: L3ASummaryStore | None = None
 
 
 def get_store() -> L3ASummaryStore:
+    """Return the process-wide summary store singleton, creating it on first use."""
     global _store
     if _store is None:
         _store = L3ASummaryStore()
@@ -283,5 +290,6 @@ def get_store() -> L3ASummaryStore:
 
 
 def reset_store() -> None:
+    """Clear the summary store singleton (for testing)."""
     global _store
     _store = None

@@ -48,6 +48,7 @@ class SecurityVerdict:
 
     def add_gate(self, name: str, success: bool, detail: str = "",
                  score: float = 0.0) -> None:
+        """Record one gate result, updating the overall verdict."""
         self.gates[name] = {"success": success, "detail": detail, "score": score}
         if not success:
             self.allowed = False
@@ -55,6 +56,7 @@ class SecurityVerdict:
         self.risk_score = max(self.risk_score, score)
 
     def to_dict(self) -> dict:
+        """Serialize the verdict to a dict."""
         return {
             "action": self.action,
             "agent_id": self.agent_id,
@@ -167,9 +169,11 @@ class CentralSecurity:
         return verdict.to_dict()
 
     def stats(self) -> dict:
+        """Return check/allowed/blocked counters."""
         return dict(self._stats)
 
     def reset_stats(self) -> None:
+        """Reset the check/allowed/blocked counters to zero."""
         self._stats = {"checks": 0, "allowed": 0, "blocked": 0}
 
 
@@ -177,6 +181,7 @@ _center: CentralSecurity | None = None
 
 
 def get_center() -> CentralSecurity:
+    """Return the shared CentralSecurity singleton, creating it on first use."""
     global _center
     if _center is None:
         _center = CentralSecurity()
@@ -184,5 +189,6 @@ def get_center() -> CentralSecurity:
 
 
 def reset_center() -> None:
+    """Drop the CentralSecurity singleton (for testing / hot-reload)."""
     global _center
     _center = None

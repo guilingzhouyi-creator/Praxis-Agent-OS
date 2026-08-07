@@ -160,6 +160,7 @@ class SubAgentRegistry:
     # ── Stats ──────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return permission controller statistics as a dict."""
         with self._lock:
             return {
                 "cell_id": self.cell_id,

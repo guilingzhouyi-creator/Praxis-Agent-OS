@@ -78,9 +78,11 @@ class NotifyService(BaseService):
         return {"success": True, "channel": "log"}
 
     def history(self, limit: int = 20) -> dict:
+        """Return the most recent notifications up to the given limit."""
         return {"success": True, "notifications": self._history[-limit:], "count": min(len(self._history), limit)}
 
     def stats(self) -> dict:
+        """Return notification delivery statistics."""
         total = len(self._history)
         success = sum(1 for n in self._history if n["success"])
         return {"success": True, "total": total, "delivered": success, "failed": total - success}
@@ -91,6 +93,7 @@ _service_lock = threading.Lock()
 
 
 def get_service() -> NotifyService:
+    """Return the process-wide NotifyService singleton."""
     global _service
     if _service is None:
         with _service_lock:
@@ -100,6 +103,7 @@ def get_service() -> NotifyService:
 
 
 def reset_service() -> None:
+    """Stop and clear the NotifyService singleton."""
     global _service
     if _service:
         _service.stop()

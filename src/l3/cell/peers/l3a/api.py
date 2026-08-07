@@ -10,11 +10,12 @@ from .session import SessionManager
 
 
 def dispatch(args: list[str], mgr: SessionManager, registry: ContextRegistry, model_cfg: L3AModelConfig) -> dict:
+    """Route `/l3a` shell subcommands to their handlers and return a result dict."""
     if not args:
         return {
             "success": True,
             "data": {
-                "active_sessions": [s.info() for s in mgr.list_active()],
+                "active_sessions": mgr.list_active(),
                 "model": model_cfg.show(),
             },
         }
@@ -31,8 +32,8 @@ def dispatch(args: list[str], mgr: SessionManager, registry: ContextRegistry, mo
 
     if sub == "create":
         title = " ".join(args[1:]) if len(args) > 1 else ""
-        s = mgr.create(title=title, model_config=model_cfg, registry=registry)
-        return {"success": True, "data": s.info()}
+        created = mgr.create(title=title, model_config=model_cfg, registry=registry)
+        return {"success": True, "data": created.info()}
 
     if sub == "resume":
         if len(args) < 2:
@@ -110,7 +111,7 @@ def dispatch(args: list[str], mgr: SessionManager, registry: ContextRegistry, mo
         return {
             "success": True,
             "session_id": sid,
-            "data": s.tasks.list(status=status),
+            "data": s.tasks.list_tasks(status=status),
             "pending": s.tasks.pending_count(),
             "count": len(s.tasks.all()),
         }
@@ -193,14 +194,14 @@ def dispatch(args: list[str], mgr: SessionManager, registry: ContextRegistry, mo
         }
         # live pressure for all active sessions
         live = []
-        for s in mgr.list_active():
-            sess = mgr.get(s.get("session_id", ""))
+        for info in mgr.list_active():
+            sess = mgr.get(info.get("session_id", ""))
             if sess:
                 try:
                     cs = sess.context_stats()
                     live.append(
                         {
-                            "session_id": s["session_id"],
+                            "session_id": info["session_id"],
                             "pressure": cs.get("pressure_ratio", 0),
                             "level": cs.get("pressure_level", "ok"),
                             "history": sess.history.count(),

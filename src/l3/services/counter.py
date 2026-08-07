@@ -20,6 +20,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class CellCounter:
     def record_token(self, agent_id: str, input_tokens: int = 0,
                      output_tokens: int = 0, cache_hit: int = 0,
                      cache_miss: int = 0, model: str = "") -> None:
+        """Record a token usage entry for an agent."""
         entry = {
             "ts": time.time(),
             "input": input_tokens, "output": output_tokens,
@@ -54,6 +56,7 @@ class CellCounter:
 
     def record_tool(self, agent_id: str, tool: str,
                     success: bool, elapsed: float = 0.0) -> None:
+        """Record a tool call entry for an agent."""
         entry = {"ts": time.time(), "tool": tool,
                  "success": success, "elapsed": round(elapsed, 3)}
         with self._lock:
@@ -104,6 +107,7 @@ class CellCounter:
         }
 
     def token_summary(self, agent_id: str = "") -> dict:
+        """Return token usage summary per agent (or a single agent's summary)."""
         with self._lock:
             ids = [agent_id] if agent_id else list(self._tokens.keys())
         result = {}
@@ -131,9 +135,10 @@ class CellCounter:
     # ── Tool call queries ──
 
     def tool_summary(self, agent_id: str = "") -> dict:
+        """Return tool call statistics per agent (or a single agent's summary)."""
         with self._lock:
             ids = [agent_id] if agent_id else list(self._tools.keys())
-        result = {}
+        result: dict[str, dict] = {}
         for aid in ids:
             entries = list(self._tools.get(aid, []))
             if not entries:
@@ -159,9 +164,10 @@ class CellCounter:
     # ── AgentLoop turn queries ──
 
     def loop_summary(self, agent_id: str = "") -> dict:
+        """Return AgentLoop turn statistics per agent (or a single agent's summary)."""
         with self._lock:
             ids = [agent_id] if agent_id else list(self._loops.keys())
-        result = {}
+        result: dict[str, dict] = {}
         for aid in ids:
             entries = list(self._loops.get(aid, []))
             if not entries:
@@ -189,7 +195,8 @@ class CellCounter:
     # ── Cell total (all agents aggregated) ──
 
     def cell_total(self) -> dict:
-        agents = set()
+        """Return token/tool/loop summaries aggregated across all agents."""
+        agents: set[str] = set()
         with self._lock:
             agents.update(self._tokens.keys())
             agents.update(self._tools.keys())
@@ -202,6 +209,17 @@ class CellCounter:
         }
 
     # ── Structured export for monitoring ──
+
+    def summary(self) -> dict:
+        """Compact cell-level summary (agent + record counts)."""
+        with self._lock:
+            agents = sorted(set(self._tokens) | set(self._tools) | set(self._loops))
+            return {
+                "agents": agents,
+                "token_records": sum(len(v) for v in self._tokens.values()),
+                "tool_records": sum(len(v) for v in self._tools.values()),
+                "loop_records": sum(len(v) for v in self._loops.values()),
+            }
 
     def export_json(self, agent_id: str = "",
                     window: float = 0.0,
@@ -217,7 +235,7 @@ class CellCounter:
             dict with metadata + token/tool/loop sections
         """
         cutoff = time.time() - window if window > 0 else 0
-        result = {
+        result: dict[str, Any] = {
             "exported_at": time.time(),
             "window": window,
             "agent_filter": agent_id,
@@ -229,55 +247,58 @@ class CellCounter:
 
         with self._lock:
             # Token export
-            for aid, data in self._tokens.items():
+            for aid, records in self._tokens.items():
                 if agent_id and aid != agent_id:
                     continue
+                input_tok = sum(e.get("input", 0) for e in records)
+                output_tok = sum(e.get("output", 0) for e in records)
                 entry = {
-                    "input": data.get("input", 0),
-                    "output": data.get("output", 0),
-                    "cache_hit": data.get("cache_hit", 0),
-                    "total": data.get("input", 0) + data.get("output", 0),
+                    "input": input_tok,
+                    "output": output_tok,
+                    "cache_hit": sum(e.get("cache_hit", 0) for e in records),
+                    "total": input_tok + output_tok,
                 }
-                if include_raw and "events" in data:
-                    entry["events"] = [e for e in data["events"]
-                                       if e.get("ts", 0) >= cutoff]
+                if include_raw:
+                    entry["events"] = [e for e in records if e.get("ts", 0) >= cutoff]
                 result["tokens"][aid] = entry
 
             # Tool export
-            for aid, tools in self._tools.items():
+            for aid, records in self._tools.items():
                 if agent_id and aid != agent_id:
                     continue
-                tool_data = {}
-                for tname, tinfo in tools.items():
+                tool_data: dict[str, dict] = {}
+                by_tool: dict[str, list[dict]] = {}
+                for e in records:
+                    by_tool.setdefault(e.get("tool", "?"), []).append(e)
+                for tname, tevents in by_tool.items():
                     entry = {
-                        "calls": tinfo.get("calls", 0),
-                        "success": tinfo.get("success", 0),
-                        "failure": tinfo.get("failure", 0),
-                        "last_call": tinfo.get("last_call", 0),
+                        "calls": len(tevents),
+                        "success": sum(1 for e in tevents if e.get("success")),
+                        "failure": sum(1 for e in tevents if not e.get("success")),
+                        "last_call": max((e.get("ts", 0) for e in tevents), default=0),
                     }
-                    if include_raw and "events" in tinfo:
-                        entry["events"] = [e for e in tinfo["events"]
-                                           if e.get("ts", 0) >= cutoff]
+                    if include_raw:
+                        entry["events"] = [e for e in tevents if e.get("ts", 0) >= cutoff]
                     tool_data[tname] = entry
                 result["tools"][aid] = tool_data
 
             # Loop export
-            for aid, data in self._loops.items():
+            for aid, records in self._loops.items():
                 if agent_id and aid != agent_id:
                     continue
+                total_turns = sum(e.get("turns", 0) for e in records)
+                total_steps = sum(e.get("steps", 0) for e in records)
+                total_elapsed = sum(e.get("elapsed", 0.0) for e in records)
                 entry = {
-                    "total_turns": data.get("total_turns", 0),
-                    "total_steps": data.get("total_steps", 0),
-                    "total_elapsed": data.get("total_elapsed", 0.0),
+                    "total_turns": total_turns,
+                    "total_steps": total_steps,
+                    "total_elapsed": total_elapsed,
                     "average_elapsed": 0.0,
                 }
-                if entry["total_turns"] > 0:
-                    entry["average_elapsed"] = round(
-                        entry["total_elapsed"] / entry["total_turns"], 3
-                    )
-                if include_raw and "turns" in data:
-                    entry["turns"] = [t for t in data["turns"]
-                                      if t.get("ts", 0) >= cutoff]
+                if total_turns > 0:
+                    entry["average_elapsed"] = round(total_elapsed / total_turns, 3)
+                if include_raw:
+                    entry["turns"] = [e for e in records if e.get("ts", 0) >= cutoff]
                 result["loops"][aid] = entry
 
         return result
@@ -289,25 +310,28 @@ class CellCounter:
         """
         metrics = []
         with self._lock:
-            for aid, data in self._tokens.items():
+            for aid, records in self._tokens.items():
                 metrics.append({"name": "praxis_tokens_input_total",
                                 "labels": {"agent": aid},
-                                "value": data.get("input", 0)})
+                                "value": sum(e.get("input", 0) for e in records)})
                 metrics.append({"name": "praxis_tokens_output_total",
                                 "labels": {"agent": aid},
-                                "value": data.get("output", 0)})
-            for aid, tools in self._tools.items():
-                for tname, tinfo in tools.items():
+                                "value": sum(e.get("output", 0) for e in records)})
+            for aid, records in self._tools.items():
+                by_tool: dict[str, list[dict]] = {}
+                for e in records:
+                    by_tool.setdefault(e.get("tool", "?"), []).append(e)
+                for tname, tevents in by_tool.items():
                     metrics.append({"name": "praxis_tool_calls_total",
                                     "labels": {"agent": aid, "tool": tname},
-                                    "value": tinfo.get("calls", 0)})
+                                    "value": len(tevents)})
                     metrics.append({"name": "praxis_tool_failures_total",
                                     "labels": {"agent": aid, "tool": tname},
-                                    "value": tinfo.get("failure", 0)})
-            for aid, data in self._loops.items():
+                                    "value": sum(1 for e in tevents if not e.get("success"))})
+            for aid, records in self._loops.items():
                 metrics.append({"name": "praxis_loop_turns_total",
                                 "labels": {"agent": aid},
-                                "value": data.get("total_turns", 0)})
+                                "value": sum(e.get("turns", 0) for e in records)})
         return metrics
 
 
@@ -315,6 +339,7 @@ _counter: CellCounter | None = None
 
 
 def get_counter() -> CellCounter:
+    """Return the shared CellCounter singleton, creating it on first use."""
     global _counter
     if _counter is None:
         _counter = CellCounter()
@@ -322,5 +347,6 @@ def get_counter() -> CellCounter:
 
 
 def reset_counter() -> None:
+    """Drop the CellCounter singleton (for testing / hot-reload)."""
     global _counter
     _counter = None

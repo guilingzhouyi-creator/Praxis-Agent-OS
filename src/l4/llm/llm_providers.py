@@ -66,6 +66,7 @@ class MockProvider:
         return {"max_tokens", "temperature"}
 
     def probe(self) -> dict:
+        """Probe capabilities and return context window, model, and supported features."""
         return {"supports": self.capabilities, "context_window": LLM_DEFAULT_CONTEXT_WINDOW, "model": "mock"}
 
     def generate(
@@ -77,6 +78,7 @@ class MockProvider:
         cache_retention: str = "",
         **kwargs,
     ) -> dict:
+        """Return a deterministic mock completion without contacting a model service."""
         time.sleep(MOCK_DELAY)
         return {
             "content": f"[mock] analyzed: {prompt[:LOG_TRUNC_60]}...",
@@ -86,6 +88,7 @@ class MockProvider:
         }
 
     def health(self) -> dict:
+        """Report mock provider health with zero latency."""
         return {"status": "ok", "model": "mock", "latency_ms": 0.0}
 
 
@@ -99,6 +102,7 @@ class OpenAIProvider(_ProviderHelperMixin):
         return {"max_tokens", "temperature", "reasoning_effort", "context_window", "tool_use", "streaming"}
 
     def probe(self) -> dict:
+        """Probe optional capabilities and return context window and model."""
         caps = {"max_tokens", "temperature", "tool_use"}
         # Probe reasoning_effort with a minimal request
         try:
@@ -194,8 +198,10 @@ class OpenAIProvider(_ProviderHelperMixin):
             return {"content": "", "tool_calls": [], "tokens": 0, "model": self.model, "error": str(e)}
 
     def generate(
-        self, prompt: str, system: str = "", max_tokens: int = 512, user_id: str = "", cache_retention: float = 0
+        self, prompt: str, system: str = "", max_tokens: int = 512, user_id: str = "", cache_retention: float = 0,
+        **kwargs,
     ) -> dict:
+        """Generate a completion for the prompt via the OpenAI-compatible API."""
         return self._api_call(
             messages=[
                 {"role": "system", "content": system or _gp("llm.fallback_system", "You are a helpful assistant.")},
@@ -214,11 +220,13 @@ class OpenAIProvider(_ProviderHelperMixin):
         user_id: str = "",
         cache_retention: float = 0,
     ) -> dict:
+        """Generate from a full message list, optionally passing tools."""
         return self._api_call(
             messages=messages, tools=tools, max_tokens=max_tokens, user_id=user_id, cache_retention=cache_retention
         )
 
     def health(self) -> dict:
+        """Run a lightweight health self-check, returning status, model, and latency."""
         import time
 
         t0 = time.perf_counter()
@@ -261,12 +269,13 @@ class OpenAIProvider(_ProviderHelperMixin):
             ]
             if not vectors:
                 return {"success": False, "error": "no embeddings returned"}
+            first = vectors[0]
             return {
                 "success": True,
                 "vectors": vectors,
                 "model": self.model,
                 "count": len(vectors),
-                "dim": len(vectors[0]),
+                "dim": len(first) if first is not None else 0,
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -282,6 +291,7 @@ class AnthropicProvider(_ProviderHelperMixin):
         return {"max_tokens", "temperature", "thinking_budget", "context_window", "tool_use", "vision"}
 
     def probe(self) -> dict:
+        """Probe optional capabilities and return context window and model."""
         caps = {"max_tokens", "temperature", "tool_use", "vision"}
         # Probe thinking_budget
         try:
@@ -359,7 +369,9 @@ class AnthropicProvider(_ProviderHelperMixin):
         max_tokens: int = LLM_PROVIDER_MAX_TOKENS,
         user_id: str = "",
         tools: list[dict] | None = None,
+        **kwargs,
     ) -> dict:
+        """Generate a completion via the Anthropic API with cache breakpoints."""
         messages = [{"role": "user", "content": prompt}]
         if tools:
             tools[-1]["cache_control"] = {"type": "ephemeral"}
@@ -406,6 +418,7 @@ class AnthropicProvider(_ProviderHelperMixin):
             return {"content": "", "tokens": 0, "model": FALLBACK_MODEL, "error": str(e)}
 
     def health(self) -> dict:
+        """Run a lightweight health self-check, returning status, model, and latency."""
         import time
 
         t0 = time.perf_counter()
@@ -435,6 +448,7 @@ class OllamaProvider(_ProviderHelperMixin):
         return {"max_tokens", "temperature", "context_window"}
 
     def probe(self) -> dict:
+        """Probe optional capabilities and return context window and model."""
         caps = {"max_tokens", "temperature"}
         try:
             self.generate("ping", reasoning_effort="low", max_tokens=1)
@@ -460,6 +474,7 @@ class OllamaProvider(_ProviderHelperMixin):
     def generate(
         self, prompt: str, system: str = "", max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "", **kwargs
     ) -> dict:
+        """Generate a completion via the native Ollama chat API."""
         messages = [
             {"role": "system", "content": system or _gp("llm.fallback_system", "You are a helpful assistant.")},
             {"role": "user", "content": prompt},
@@ -489,6 +504,7 @@ class OllamaProvider(_ProviderHelperMixin):
             return {"content": "", "tokens": 0, "model": self.model, "error": str(e)}
 
     def health(self) -> dict:
+        """Run a lightweight health self-check, returning status, model, and latency."""
         import time
 
         t0 = time.perf_counter()
@@ -525,12 +541,13 @@ class OllamaProvider(_ProviderHelperMixin):
             vectors = data.get("embeddings") or []
             if not vectors:
                 return {"success": False, "error": "no embeddings returned"}
+            first = vectors[0]
             return {
                 "success": True,
                 "vectors": vectors,
                 "model": self.model,
                 "count": len(vectors),
-                "dim": len(vectors[0]),
+                "dim": len(first) if first is not None else 0,
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -548,6 +565,7 @@ class WebSocketProvider(_ProviderHelperMixin):
     def generate(
         self, prompt: str, system: str = "", max_tokens: int = LLM_PROVIDER_MAX_TOKENS, user_id: str = "", **kwargs
     ) -> dict:
+        """Generate a completion via the WebSocket LLM endpoint."""
         import urllib.request as req
 
         body = json.dumps(
@@ -568,6 +586,7 @@ class WebSocketProvider(_ProviderHelperMixin):
             return {"content": "", "tokens": 0, "model": self.model, "error": str(e)}
 
     def health(self) -> dict:
+        """Run a lightweight health self-check, returning status, model, and latency."""
         import time
 
         t0 = time.perf_counter()

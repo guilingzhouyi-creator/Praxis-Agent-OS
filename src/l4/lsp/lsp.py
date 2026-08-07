@@ -103,6 +103,7 @@ class LocalAnalyzer:
         return results
 
     def symbol_search(self, query: str, file_path: str = "", limit: int = TOOL_LSP_SYMBOL_LIMIT) -> list[Symbol]:
+        """Search symbols by name pattern across the analyzed sources."""
         results: list[Symbol] = []
         for rel, tree in self._walk_python(file_path):
             for node in ast.walk(tree):
@@ -112,6 +113,7 @@ class LocalAnalyzer:
         return results[:limit]
 
     def go_to_definition(self, name: str, file_path: str = "") -> Symbol | None:
+        """Locate the first symbol definition matching the name."""
         for rel, tree in self._walk_python(file_path):
             for node in ast.walk(tree):
                 sym = self._node_to_symbol(node, rel)
@@ -120,6 +122,7 @@ class LocalAnalyzer:
         return None
 
     def find_references(self, name: str, file_path: str = "") -> list[dict]:
+        """Find line references of the name across the analyzed sources."""
         refs: list[dict] = []
         for rel, _tree in self._walk_python(file_path):
             src = ""
@@ -142,6 +145,7 @@ class LocalAnalyzer:
         return refs[:LOG_TRUNC_50]
 
     def hover_info(self, name: str, file_path: str = "") -> dict:
+        """Return hover details (kind, docstring, parent) for a symbol."""
         sym = self.go_to_definition(name, file_path)
         if not sym:
             return {"symbol": name, "found": False}
@@ -156,6 +160,7 @@ class LocalAnalyzer:
         }
 
     def workspace_symbols(self, query: str = "") -> list[Symbol]:
+        """List workspace symbols, optionally filtered by the query."""
         return self.symbol_search(query or "*")
 
     def diagnostics(self, file_path: str = "") -> list[dict]:
@@ -251,6 +256,7 @@ _lsp_lock = threading.Lock()
 
 
 def get_lsp(root: str = "") -> LocalAnalyzer:
+    """Return the process-wide LocalAnalyzer singleton."""
     global _lsp_instance
     if _lsp_instance is None:
         with _lsp_lock:
@@ -260,5 +266,6 @@ def get_lsp(root: str = "") -> LocalAnalyzer:
 
 
 def reset_lsp() -> None:
+    """Clear the LocalAnalyzer singleton."""
     global _lsp_instance
     _lsp_instance = None

@@ -22,6 +22,7 @@ class MonitorBusAdapter(MonitorBusPort):
 
     def emit(self, type_: str, source: str, severity: str,
              message: str, data: dict | None = None) -> None:
+        """Route a monitor event to the bus; best-effort on failure."""
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
             bus = get_bus()
@@ -36,6 +37,7 @@ class MonitorBusAdapter(MonitorBusPort):
     def query(self, type_prefix: str = "", severity: str = "",
               source: str = "", since: float = 0.0,
               limit: int = 100) -> list[dict]:
+        """Query recent monitor events matching the filters."""
         try:
             from l3.bus.monitor_bus import get_bus
             return get_bus().query(

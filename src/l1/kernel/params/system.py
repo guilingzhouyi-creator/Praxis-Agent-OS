@@ -89,6 +89,29 @@ DIALOGUE_SESSION_AUTO_SAVE: Final[float] = 30.0
 APPROVAL_GATE_WAIT_TIMEOUT: Final[float] = 300.0
 DIALOGUE_IDLE_TIMEOUT: Final[float] = 300.0
 
+# ── Execution engine / dialogue / transaction defaults ──
+EXECUTION_STEP_TIMEOUT: Final[float] = 30.0
+DIALOGUE_MAX_TURNS: Final[int] = 20
+DIALOGUE_MAX_CONTEXT_TOKENS: Final[int] = 4096
+DIALOGUE_PERSIST_EVERY: Final[int] = 5
+TRANSACTION_AREA_MAX_QUEUE: Final[int] = 100
+
+# ── Monitor bus / error bus / record center ──
+MONITOR_BUS_MAX_QUEUED: Final[int] = 200
+ERROR_BUS_QUERY_LIMIT: Final[int] = 50
+RECORD_CENTER_DEFAULT_LIMIT: Final[int] = 50
+RECORD_CENTER_RETENTION_DAYS: Final[int] = 30
+
+# ── Memory ring quality scoring (quality_note) ──
+MEMORY_RING_SCORE_CHAR_WEIGHT: Final[float] = 0.3
+MEMORY_RING_SCORE_TAG_WEIGHT: Final[int] = 5
+MEMORY_RING_SCORE_HIGH_IMPORTANCE: Final[int] = 20
+MEMORY_RING_SCORE_MODERATE_IMPORTANCE: Final[int] = 10
+MEMORY_RING_SCORE_LONG_TOKENS: Final[int] = 15
+MEMORY_RING_SCORE_MEDIUM_TOKENS: Final[int] = 5
+MEMORY_RING_SCORE_GOOD_THRESHOLD: Final[int] = 40
+MEMORY_RING_SCORE_AVERAGE_THRESHOLD: Final[int] = 15
+
 
 # ── Fault tolerance ──
 HEARTBEAT_TIMEOUT: Final[float] = 15.0
@@ -317,6 +340,7 @@ MEMORY_IMPORTANCE_SUMMARY: Final[float] = 0.2
 MEMORY_IMPORTANCE_OBSERVATION: Final[float] = 0.1
 MEMORY_PRESSURE_HIGH: Final[float] = 0.80
 MEMORY_PRESSURE_MEDIUM: Final[float] = 0.60
+MEMORY_PRESSURE_INTERVAL: Final[float] = 60.0
 MEMORY_PROMOTION_THRESHOLD: Final[float] = 0.6
 MEMORY_IMPORTANCE_HIGH: Final[float] = 0.7
 MEMORY_IMPORTANCE_VERY_HIGH: Final[float] = 0.85

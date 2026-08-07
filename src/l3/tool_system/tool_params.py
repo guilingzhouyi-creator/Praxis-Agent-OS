@@ -19,6 +19,7 @@ class ParamSpec:
     description: str = ""
 
     def validate(self, value: Any) -> str | None:
+        """Validate a value against this param spec; returns an error string or None."""
         if value is None and not self.required:
             return None
         type_map = {"string": str, "int": int, "bool": bool, "list": list, "dict": dict}

@@ -132,6 +132,7 @@ def _cmd_archive_store_batch(rows: list[tuple[str, str, str, str]]) -> dict:
 
 
 def archive_store(args: dict, agent_id: str) -> dict:
+    """Store an entry in the archive; returns success dict."""
     return _cmd_archive_store(
         fonds=args.get("fonds", "default"),
         series=args.get("series", "general"),
@@ -140,14 +141,16 @@ def archive_store(args: dict, agent_id: str) -> dict:
     )
 
 def init_archive() -> dict:
+    """Initialize the archive database; returns success dict with the db path."""
     try:
-        conn = _get_db()
+        _get_db()
         return {"success": True, "path": _ARCHIVE_DB}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def archive_search(args: dict, agent_id: str) -> dict:
+    """Search archived entries by query, fonds, or series; returns matching rows."""
     query = args.get("query", "")
     fonds = args.get("fonds", "")
     series = args.get("series", "")

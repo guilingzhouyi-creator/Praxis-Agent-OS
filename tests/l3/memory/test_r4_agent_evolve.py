@@ -125,7 +125,7 @@ class TestSkillManagerPersistence:
             internal=True,
         )
 
-        skills = sm.list(tags=["evolved"])
+        skills = sm.list_skills(tags=["evolved"])
         assert len(skills) >= 1
         skill = next((s for s in skills if s["name"] == "roundtrip-test"), None)
         assert skill is not None
@@ -133,7 +133,7 @@ class TestSkillManagerPersistence:
         assert skill["prompt"] == "Test prompt content"
 
     def test_skill_list_all_without_tags(self):
-        """sm.list() without tags returns all skills."""
+        """sm.list_skills() without tags returns all skills."""
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         reset_skill_manager()
         sm = get_skill_manager()
@@ -141,7 +141,7 @@ class TestSkillManagerPersistence:
         sm.create(name="skill-a", prompt="a", tags=["evolved"], internal=True)
         sm.create(name="skill-b", prompt="b", tags=["lean_case"], internal=True)
 
-        all_skills = sm.list()
+        all_skills = sm.list_skills()
         assert len(all_skills) >= 2
 
 

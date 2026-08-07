@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def install() -> dict:
+    """Run first-install/upgrade steps and return a results dict."""
     lifecycle = get_lifecycle()
     lifecycle.load()
 

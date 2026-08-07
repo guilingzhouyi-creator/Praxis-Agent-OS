@@ -20,6 +20,14 @@ from l1.kernel.params.system import (
     MEMORY_IMPORTANCE_BASE,
     MEMORY_IMPORTANCE_HIGH,
     MEMORY_IMPORTANCE_MODERATE,
+    MEMORY_RING_SCORE_AVERAGE_THRESHOLD,
+    MEMORY_RING_SCORE_CHAR_WEIGHT,
+    MEMORY_RING_SCORE_GOOD_THRESHOLD,
+    MEMORY_RING_SCORE_HIGH_IMPORTANCE,
+    MEMORY_RING_SCORE_LONG_TOKENS,
+    MEMORY_RING_SCORE_MEDIUM_TOKENS,
+    MEMORY_RING_SCORE_MODERATE_IMPORTANCE,
+    MEMORY_RING_SCORE_TAG_WEIGHT,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,12 +69,14 @@ class MemEntry:
     importance: float = MEMORY_IMPORTANCE_BASE
     timestamp: float = field(default_factory=time.time)
     ttl: float = 0.0
+    provenance: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.tokens:
             self.tokens = _estimate_tokens(self.content)
 
     def expired(self) -> bool:
+        """Check whether this entry has exceeded its TTL."""
         return self.ttl > 0 and (time.time() - self.timestamp) > self.ttl
 
     def to_dict(self) -> dict:
@@ -74,22 +84,23 @@ class MemEntry:
         return asdict(self)
 
     def quality_note(self) -> str:
+        """Score entry quality; returns a keyword note describing the score band."""
         if not self.content or not self.content.strip():
             return "empty"
-        score = len(self.content) * 0.3
+        score = len(self.content) * MEMORY_RING_SCORE_CHAR_WEIGHT
         if self.tags:
-            score += len(self.tags) * 5
+            score += len(self.tags) * MEMORY_RING_SCORE_TAG_WEIGHT
         if self.importance > MEMORY_IMPORTANCE_HIGH:
-            score += 20
+            score += MEMORY_RING_SCORE_HIGH_IMPORTANCE
         elif self.importance > MEMORY_IMPORTANCE_MODERATE:
-            score += 10
+            score += MEMORY_RING_SCORE_MODERATE_IMPORTANCE
         if self.tokens > LOG_TRUNC_500:
-            score += 15
+            score += MEMORY_RING_SCORE_LONG_TOKENS
         elif self.tokens > LOG_TRUNC_100:
-            score += 5
-        if score >= 40:
+            score += MEMORY_RING_SCORE_MEDIUM_TOKENS
+        if score >= MEMORY_RING_SCORE_GOOD_THRESHOLD:
             return "good"
-        if score >= 15:
+        if score >= MEMORY_RING_SCORE_AVERAGE_THRESHOLD:
             return "average"
         return "low"
 
@@ -138,7 +149,7 @@ class RingLayer:
             elif tag and tag in self._tag_index:
                 candidates = self._tag_index[tag]
             else:
-                candidates = self._entries
+                candidates = list(self._entries)
             results = [e for e in candidates if not e.expired()]
         if entry_type and not (agent_id and agent_id in self._agent_index):
             results = [e for e in results if e.entry_type == entry_type]

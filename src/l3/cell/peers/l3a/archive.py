@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 def store_session(session_id: str, metadata: dict,
                   transcript: list[dict]) -> dict:
+    """Persist a session (metadata + transcript) into the R4 archive and return the store result."""
     blob = json.dumps({"metadata": metadata, "transcript": transcript},
                       ensure_ascii=False, default=str)
     tags = ",".join(metadata.get("tags", ["l3a", "session"]))
@@ -77,6 +78,7 @@ def search_sessions(limit: int = 10, cursor: str | None = None,
 
 
 def get_transcript(session_id: str) -> list[dict] | None:
+    """Return the archived transcript list for a session id, or None when absent."""
     blob = load_session_blob(session_id)
     return blob.get("transcript") if blob else None
 

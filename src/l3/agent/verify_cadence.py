@@ -32,14 +32,17 @@ class VerifyCadence:
             return True
 
     def record_edit(self, path: str) -> None:
+        """Record a file path as edited and pending verification."""
         if path:
             self._edited.add(path)
 
     def record_check(self, command: str) -> None:
+        """Clear pending edits when *command* is a verifying check."""
         if self._is_verifying(command):
             self._edited.clear()
 
     def nudge(self) -> str | None:
+        """Return a nudge message for unverified edits, or None."""
         if not self._enabled:
             return None
         unverified = [p for p in self._edited if p not in self._nudged]
@@ -102,6 +105,7 @@ class VerifyCadence:
             return {"success": False, "exit_code": -1, "evidence": str(e)}
 
     def can_close(self) -> tuple[bool, list[str]]:
+        """Return (True, []) if all edits are verified, else (False, pending paths)."""
         unverified = [p for p in self._edited if p not in self._nudged]
         return len(unverified) == 0, list(unverified)
 
@@ -110,9 +114,11 @@ class VerifyCadence:
         return list(self._edited)
 
     def evidence_log(self) -> list[dict]:
+        """Return the collected verification evidence entries."""
         return list(self._evidence)
 
     def reset(self) -> None:
+        """Clear all tracked edits, nudges, and evidence."""
         self._edited.clear()
         self._nudged.clear()
         self._evidence.clear()

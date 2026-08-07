@@ -10,16 +10,63 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from typing import TYPE_CHECKING, Any
 
 from l3.error_bus import capture
 
 from . import params as _p
+
+if TYPE_CHECKING:
+    from l3.cell.peers.l3a.context import ContextEpoch, ContextRegistry
+    from l3.cell.peers.l3a.inbox import PromptInbox
+    from l3.cell.peers.l3a.model import L3AModelConfig
+    from l3.cell.peers.l3a.session import SessionHistory
 
 logger = logging.getLogger(__name__)
 
 
 class SessionPromptMixin:
     """SessionPromptMixin — prompt building and context-window accounting."""
+
+    # ── Attributes injected by the concrete Session (see session.py) ──
+    id: str
+    _cell_id: str
+    turn_count: int
+    last_active_at: float
+    _ask: Any
+    inbox: PromptInbox
+    epoch: ContextEpoch | None
+    registry: ContextRegistry | None
+    history: SessionHistory
+    model_config: L3AModelConfig
+    _pmu: Any
+    _loop: Any
+    _ctx_window_cache: int
+    _model_spec_cache: dict | None
+
+    def _continue_after_ask(self, text: str) -> dict:
+        """Resume the loop after clarification answers (provided by SessionAskMixin)."""
+        raise NotImplementedError
+
+    def _ensure_epoch(self) -> None:
+        """Create the context epoch if absent (provided by Session)."""
+        raise NotImplementedError
+
+    def _ensure_loop(self) -> None:
+        """Create the AgentLoop if absent (provided by Session)."""
+        raise NotImplementedError
+
+    def _persist_state(self) -> None:
+        """Persist session state (provided by Session)."""
+        raise NotImplementedError
+
+    def _ingest_tool_results(self, result: dict, user_text: str) -> None:
+        """Ingest tool results into memory (provided by Session)."""
+        raise NotImplementedError
+
+    def _ingest_reasoning(self, result: dict, user_text: str) -> None:
+        """Ingest reasoning into memory (provided by Session)."""
+        raise NotImplementedError
 
     def prompt(self, text: str, mode: str = "steer") -> dict:
         """Run one turn: admit the prompt, build context, execute the tool loop."""
@@ -31,10 +78,10 @@ class SessionPromptMixin:
         # clarification questions (chat-window semantics), then the loop resumes.
         if self._ask and self._ask.status == _p.ASK_STATUS_AWAITING:
             return self._continue_after_ask(text)
-        admission = self.inbox.admit(text, mode=mode)
+        self.inbox.admit(text, mode=mode)
         self.last_active_at = time.time()
         self._ensure_epoch()
-        changes = self.epoch.sync(self.registry) if self.registry else []
+        changes = self.epoch.sync(self.registry) if self.registry and self.epoch else []
         for c in changes:
             self.history.append(_Message(
                 id=f"sys-{uuid.uuid4().hex[:4]}",
@@ -268,7 +315,6 @@ class SessionPromptMixin:
         """Emit token/pressure/turn metrics to PMU + StatsCenter."""
         stats = self.context_stats()
         est = stats["projected_tokens"]
-        window = stats["context_window"]
         pressure = stats["pressure_ratio"]
         level = stats["pressure_level"]
 

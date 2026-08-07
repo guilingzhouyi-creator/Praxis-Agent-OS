@@ -381,5 +381,6 @@ def get_service() -> ModelService:
 
 
 def reset_service() -> None:
+    """Drop the ModelService singleton (for testing / hot-reload)."""
     global _service
     _service = None

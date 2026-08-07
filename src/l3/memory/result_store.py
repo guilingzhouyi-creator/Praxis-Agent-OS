@@ -123,6 +123,7 @@ class ResultStore:
             return n
 
     def clear(self) -> None:
+        """Clear the result cache and reset all counters."""
         with self._lock:
             self._cache.clear()
             self._hits = 0
@@ -130,6 +131,7 @@ class ResultStore:
             self._invalidations = 0
 
     def stats(self) -> dict:
+        """Return cache statistics: entries, counters, and hit rate."""
         with self._lock:
             total = self._hits + self._misses
             return {
@@ -147,6 +149,7 @@ _store_lock = threading.Lock()
 
 
 def get_result_store() -> ResultStore:
+    """Get the ResultStore singleton, creating it on first call."""
     global _store
     if _store is None:
         with _store_lock:
@@ -156,5 +159,6 @@ def get_result_store() -> ResultStore:
 
 
 def reset_result_store() -> None:
+    """Reset the ResultStore singleton (for testing)."""
     global _store
     _store = None

@@ -36,12 +36,12 @@ class TestLeanCaseDedup:
             # First trace → generates lean case
             r4._track_failure("agent-a", "bash", {"cmd": "x"}, "boom", [])
             assert r4._process_failure_traces() >= 1
-            count_after_first = len(sm.list(tags=["lean_case"]))
+            count_after_first = len(sm.list_skills(tags=["lean_case"]))
 
             # Second trace for same tool+agent → deduped (no new skill)
             r4._track_failure("agent-a", "bash", {"cmd": "y"}, "boom2", [])
             r4._process_failure_traces()
-            count_after_second = len(sm.list(tags=["lean_case"]))
+            count_after_second = len(sm.list_skills(tags=["lean_case"]))
             assert count_after_second == count_after_first
         finally:
             import shutil
@@ -67,7 +67,7 @@ class TestLeanCaseDedup:
         try:
             r4._track_failure("agent-b", "grep", {}, "not found", [])
             r4._process_failure_traces()
-            names = [s["name"] for s in sm.list(tags=["lean_case"])]
+            names = [s["name"] for s in sm.list_skills(tags=["lean_case"])]
             assert any(n.startswith("lean_agent-b_grep") for n in names)
         finally:
             import shutil

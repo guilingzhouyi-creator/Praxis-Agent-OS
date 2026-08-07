@@ -39,7 +39,6 @@ def auto_cross_review(cell, completed_agent: str, action: str,
     resp_events: dict[str, _Event] = {p: _Event() for p in peers}
     resp_results: dict[str, dict] = {}
     bus = None
-    _on_signal = None
 
     def _on_resp(sender: str, payload: dict) -> None:
         if sender in resp_events:
@@ -57,12 +56,12 @@ def auto_cross_review(cell, completed_agent: str, action: str,
         from l1.kernel.event import get_bus as _get_bus
         bus = _get_bus()
         bus.on_any(_on_signal)
-    except Exception as e:
-        logger.warning("cross-review subscription failed: %s", e)
+    except Exception as exc:
+        logger.warning("cross-review subscription failed: %s", exc)
 
     all_entries = _get_sandbox_entries(cell, target)
     for peer in peers:
-        payload = {
+        payload: dict[str, Any] = {
             "file": target, "card_id": card_id, "action": action,
             "from": completed_agent,
         }

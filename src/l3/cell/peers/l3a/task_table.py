@@ -34,6 +34,7 @@ class SessionTask:
     result: dict | None = None
 
     def to_dict(self) -> dict:
+        """Serialize the task record to a dict."""
         return {
             "card_id": self.card_id,
             "title": self.title,
@@ -56,6 +57,7 @@ class SessionTaskTable:
     # ── Write ──
 
     def track(self, card_id: str, title: str = "", turn: int = 0) -> None:
+        """Register a card in the table, creating or refreshing its entry."""
         with self._lock:
             if card_id not in self._tasks:
                 self._tasks[card_id] = SessionTask(
@@ -64,6 +66,7 @@ class SessionTaskTable:
                 self._tasks[card_id].title = title or self._tasks[card_id].title
 
     def update(self, card_id: str, status: str, result: dict | None = None) -> None:
+        """Update a card's status and optional result, stamping completion time."""
         with self._lock:
             t = self._tasks.get(card_id)
             if not t:
@@ -75,16 +78,19 @@ class SessionTaskTable:
                 t.result = result
 
     def remove(self, card_id: str) -> None:
+        """Remove a card entry from the table."""
         with self._lock:
             self._tasks.pop(card_id, None)
 
     # ── Read ──
 
     def get(self, card_id: str) -> SessionTask | None:
+        """Return the task for a card id, or None when absent."""
         with self._lock:
             return self._tasks.get(card_id)
 
-    def list(self, status: str = "") -> list[dict]:
+    def list_tasks(self, status: str = "") -> list[dict]:
+        """Return task dicts, optionally filtered by status, oldest first."""
         with self._lock:
             tasks = list(self._tasks.values())
         if status:
@@ -93,25 +99,30 @@ class SessionTaskTable:
         return [t.to_dict() for t in sorted(tasks, key=lambda t: t.created_at)]
 
     def pending_count(self) -> int:
+        """Return the count of tasks still in a non-terminal status."""
         with self._lock:
             return sum(1 for t in self._tasks.values()
                        if t.status in ("queued", "dispatched", "running"))
 
     def all(self) -> list[SessionTask]:
+        """Return all tracked task objects."""
         with self._lock:
             return list(self._tasks.values())
 
     def clear(self) -> None:
+        """Remove all tracked tasks."""
         with self._lock:
             self._tasks.clear()
 
     # ── Persistence (session snapshot) ──
 
     def to_dict(self) -> dict:
+        """Serialize the whole table as a card-id to dict map."""
         with self._lock:
             return {cid: t.to_dict() for cid, t in self._tasks.items()}
 
     def from_dict(self, data: dict) -> None:
+        """Restore the table from a serialized card-id to dict map."""
         with self._lock:
             self._tasks.clear()
             for cid, td in (data or {}).items():

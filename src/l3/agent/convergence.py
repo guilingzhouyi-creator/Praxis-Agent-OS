@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
 from l3.card.card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMode
@@ -20,12 +21,12 @@ from l3.memory.cache_doc import get_store
 logger = logging.getLogger(__name__)
 
 
-def converge(card_id: str, llm_call: callable | None = None) -> dict:
+def converge(card_id: str, llm_call: Callable | None = None) -> dict:
     """L3A convergence summary - reads discussion doc from CacheDocument, LLM summarizes.
 
     Args:
         card_id: IssueCard ID
-        llm_call: optional LLM callable fn(prompt) -> str.
+        llm_call: optional LLM Callable fn(prompt) -> str.
                   Uses rule fallback when None.
 
     Returns:
@@ -111,7 +112,7 @@ def to_execution_card(issue_card: IssueCard, summary: str) -> CardUnified:
     return card
 
 
-def _llm_converge(doc_text: str, llm_call: callable) -> str:
+def _llm_converge(doc_text: str, llm_call: Callable) -> str:
     from l1.kernel.prompts import get_prompt
     base = get_prompt("convergence.summary")
     prompt = (

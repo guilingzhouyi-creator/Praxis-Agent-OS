@@ -149,6 +149,7 @@ class SubAgentPool:
         return {"success": True, "task_id": task_id, "buffer": card_type}
 
     def collect(self, task_id: str, timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
+        """Wait for and collect a task result, or time out."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             task = self._tasks.get(task_id)
@@ -168,6 +169,7 @@ class SubAgentPool:
 
     def collect_all(self, task_ids: list[str],
                     timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
+        """Collect results for many tasks, waiting until all finish or timeout."""
         deadline = time.time() + timeout
         results: list[dict] = []
         remaining = set(task_ids)
@@ -193,6 +195,7 @@ class SubAgentPool:
                 "timed_out": len(remaining), "results": results}
 
     def stats(self) -> dict:
+        """Return pool commission and worker statistics."""
         with self._lock:
             return {"total_commissioned": self._total_commissioned,
                     "tracked": len(self._tasks),

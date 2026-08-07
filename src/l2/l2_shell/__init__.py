@@ -16,7 +16,7 @@ import shlex
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.commands import get_command, get_handler
 from l1.kernel.commands import get_registry as _get_cmd_reg
-from l1.kernel.params.agent import DEFAULT_CELL_ID, SIGNAL_TARGET_L3
+from l1.kernel.params.agent import SIGNAL_TARGET_L3
 
 from .commands import (
     _cmd_agents,

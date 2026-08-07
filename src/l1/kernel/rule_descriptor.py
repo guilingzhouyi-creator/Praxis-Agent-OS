@@ -98,6 +98,7 @@ class RuleDescriptor:
         return CheckResult.PASS
 
     def to_dict(self) -> dict:
+        """Serialize the rule to a plain dict for inspection and export."""
         return {
             "id": self.id,
             "section": self.section,

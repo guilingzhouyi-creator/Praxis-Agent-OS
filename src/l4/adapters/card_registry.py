@@ -21,6 +21,7 @@ class CardRegistryAdapter(CardRegistryPort):
     """
 
     def list_types(self) -> list[dict]:
+        """List registered card type definitions."""
         try:
             from l3.card.card_unified import list_card_types
             return list_card_types()
@@ -29,6 +30,7 @@ class CardRegistryAdapter(CardRegistryPort):
             return []
 
     def install_def(self, cdef: dict, source: str = "") -> bool:
+        """Install a card definition. Returns True on success."""
         try:
             from l3.card_pool import get_pool
             pool = get_pool()

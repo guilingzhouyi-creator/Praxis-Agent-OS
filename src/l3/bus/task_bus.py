@@ -118,7 +118,7 @@ class TaskBus:
             del self._subscribers[name]
         return {"success": True, "name": name}
 
-    def list(self) -> list[dict]:
+    def list_subscribers(self) -> list[dict]:
         """List all registered webhook subscribers."""
         with self._lock:
             return [

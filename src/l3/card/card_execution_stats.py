@@ -7,15 +7,24 @@ lazily from the parent module to avoid a circular import.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from typing import TYPE_CHECKING
 
-from l1.kernel.params.system import LOG_TRUNC_80, LOG_TRUNC_500
+from l1.kernel.params.system import LOG_TRUNC_80
+
+if TYPE_CHECKING:
+    from l3.card.card_unified import CardUnified
 
 logger = logging.getLogger(__name__)
 
 
 class CardExecutionStatsMixin:
     """CardExecutionStatsMixin — record, expose and aggregate card timing."""
+
+    # ── Attributes injected by the concrete CardRegistry (see card_registry.py) ──
+    _lock: threading.RLock
+    _cards: dict[str, CardUnified]
 
     def _record_card_executions(self, card_id: str, cell_id: str,
                                 cell_elapsed: float, result: dict) -> None:
@@ -69,7 +78,7 @@ class CardExecutionStatsMixin:
                 total = round(rec.timestamps.completed_at - rec.timestamps.created_at, 3)
         except Exception:
             total = 0.0
-        agents = {}
+        agents: dict[str, float] = {}
         for e in getattr(rec, "executions", []) or []:
             if e.executor and e.executor != cell_id:
                 agents[e.executor] = agents.get(e.executor, 0.0) + e.elapsed

@@ -51,6 +51,7 @@ def open_path(path: str) -> dict:
 
 
 def recent(max_count: int = 10) -> dict:
+    """Return recently opened projects, newest first, up to max_count."""
     data = _load()
     items = []
     for r in data.get("recent", [])[:max_count]:
@@ -65,12 +66,14 @@ def recent(max_count: int = 10) -> dict:
 
 
 def get_config(path: str) -> dict:
+    """Return the saved workspace config for the given project path."""
     data = _load()
     ws = data.get("workspaces", {}).get(path, {})
     return {"success": True, "config": ws}
 
 
 def set_config(path: str, config: dict) -> dict:
+    """Persist the workspace config for the given project path."""
     data = _load()
     data.setdefault("workspaces", {})[path] = config
     _save(data)
@@ -78,6 +81,7 @@ def set_config(path: str, config: dict) -> dict:
 
 
 def remove(path: str) -> dict:
+    """Remove a project from the recent list and workspace configs."""
     data = _load()
     data["recent"] = [r for r in data.get("recent", []) if r.get("path") != path]
     data.get("workspaces", {}).pop(path, None)

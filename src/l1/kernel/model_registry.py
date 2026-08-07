@@ -192,7 +192,7 @@ class ModelRegistry:
 
     # ── Query ────────────────────────────────────────────────────────────
 
-    def list(self, provider: str = "") -> list[ModelInfo]:
+    def list_models(self, provider: str = "") -> list[ModelInfo]:
         """List all discovered models. Optionally filter by provider name."""
         if not self._discovered:
             self.discover()
@@ -325,6 +325,7 @@ _registry: ModelRegistry | None = None
 
 
 def get_registry() -> ModelRegistry:
+    """Get the model registry singleton, discovering providers on first use."""
     global _registry
     if _registry is None:
         _registry = ModelRegistry()
@@ -333,6 +334,7 @@ def get_registry() -> ModelRegistry:
 
 
 def reset_registry() -> None:
+    """Reset the model registry singleton, resetting it first (for tests / hot reset)."""
     global _registry
     if _registry:
         _registry.reset()

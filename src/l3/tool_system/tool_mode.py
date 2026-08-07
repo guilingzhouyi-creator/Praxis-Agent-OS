@@ -79,6 +79,7 @@ def get_mode() -> str:
 
 
 def set_mode(mode: str) -> dict:
+    """Set tool mode (read|write|toggle), apply it, and return the old/new mode dict."""
     mode = mode.lower().strip()
     if mode not in ("read", "write", "toggle"):
         return {"success": False, "error": f"invalid mode: {mode}, expected read|write|toggle"}
@@ -95,6 +96,7 @@ def set_mode(mode: str) -> dict:
 
 
 def init_tool_mode() -> dict:
+    """Load the persisted mode, apply it at boot, and return the active mode dict."""
     _load_mode()
     _apply_mode()
     logger.info("tool_mode: initialized as '%s'", _MODE)

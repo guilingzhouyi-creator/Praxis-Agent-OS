@@ -21,6 +21,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 # ── Action type constants ──
 _ACTION_THINK = "think"
@@ -77,6 +78,7 @@ class AgentRuntime:
         self.on(SignalType.CONSTITUTION_UPDATE, self._on_constitution_update)
 
     def on(self, signal_type: SignalType, handler: Callable) -> None:
+        """Register a handler for the signal type and subscribe it to the agent's share of the event bus."""
         self._handlers[signal_type] = handler
         self.bus.on(signal_type, lambda sig: handler(sig) if sig.target in ("", self.agent_id) else None)
 
@@ -93,7 +95,7 @@ class AgentRuntime:
         if not action:
             return {"success": True, "idle": True}
 
-        result = {"action": action.type, "target": action.target, "ticks": []}
+        result: dict[str, Any] = {"action": action.type, "target": action.target, "ticks": []}
 
         # ─── 1. Memory refeed (auto-load context before inference) ───
         if action.type in (_ACTION_THINK, _ACTION_TOOL_CALL):
@@ -166,6 +168,7 @@ class AgentRuntime:
         return {"released": []}
 
     def status(self) -> dict:
+        """Summarize the agent's runtime state: id, territory, active tools and resource usage."""
         return {
             "agent_id": self.agent_id,
             "territory": self.territory,
@@ -175,5 +178,6 @@ class AgentRuntime:
         }
 
     def emit(self, signal_type: SignalType, target: str = "", data: dict | None = None) -> None:
+        """Emit a typed signal from this agent onto the shared event bus."""
         sig = Signal(type=signal_type, sender=self.agent_id, target=target, data=data or {})
         self.bus.emit(sig)

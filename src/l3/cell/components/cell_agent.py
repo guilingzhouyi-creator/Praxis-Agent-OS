@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def init_mailbox(self) -> None:
     """Initialize a mailbox dict for the cell, called by Cell.__init__."""
-    self._mailbox: dict[str, list] = {}
+    self._mailbox = {}
 
 
 def add_agent(self, agent_id: str, role: str = "",

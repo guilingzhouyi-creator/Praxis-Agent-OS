@@ -49,6 +49,7 @@ class LogEntry:
     task_id: str = ""
 
     def to_dict(self) -> dict:
+        """Serialize the log entry to a dict."""
         return {
             "level": self.level,
             "service": self.service,
@@ -89,15 +90,19 @@ class LogService(BaseService):
     # ── Log methods ──
 
     def debug(self, message: str, service: str = "", agent_id: str = "", task_id: str = "") -> dict:
+        """Log a debug entry and return the write result."""
         return self._log("DEBUG", message, service, agent_id, task_id)
 
     def info(self, message: str, service: str = "", agent_id: str = "", task_id: str = "") -> dict:
+        """Log an info entry and return the write result."""
         return self._log("INFO", message, service, agent_id, task_id)
 
     def warn(self, message: str, service: str = "", agent_id: str = "", task_id: str = "") -> dict:
+        """Log a warn entry and return the write result."""
         return self._log("WARN", message, service, agent_id, task_id)
 
     def error(self, message: str, service: str = "", agent_id: str = "", task_id: str = "") -> dict:
+        """Log an error entry and return the write result."""
         return self._log("ERROR", message, service, agent_id, task_id)
 
     def _log(self, level: str, message: str, service: str, agent_id: str, task_id: str) -> dict:
@@ -117,6 +122,7 @@ class LogService(BaseService):
               agent_id: str | None = None, task_id: str | None = None,
               since: float | None = None, until: float | None = None,
               limit: int = 100) -> dict:
+        """Query entries filtered by level/service/agent/time. Returns matching entries."""
         with self._lock:
             results = list(self._entries)
         if level:
@@ -135,6 +141,7 @@ class LogService(BaseService):
                 "count": min(len(results), limit)}
 
     def recent(self, limit: int = 50) -> dict:
+        """Return the most recent entries. Returns a dict with entries and count."""
         with self._lock:
             return {"success": True, "entries": [e.to_dict() for e in list(self._entries)[-limit:]],
                     "count": min(len(self._entries), limit)}
@@ -199,6 +206,7 @@ class LogService(BaseService):
                 self.setLevel(_logging.DEBUG)
 
             def emit(self, record: _logging.LogRecord) -> None:
+                """Route a stdlib log record into LogService."""
                 level = record.levelname
                 msg = record.getMessage()[:LOG_TRUNC_500]
                 try:
@@ -216,10 +224,11 @@ class LogService(BaseService):
         root.addHandler(_LogServiceHandler(self))
 
     def stats(self) -> dict:
+        """Return log statistics (totals by level/service/agent and file count)."""
         with self._lock:
-            levels = {}
-            services = {}
-            agents = set()
+            levels: dict[str, int] = {}
+            services: dict[str, int] = {}
+            agents: set[str] = set()
             for e in self._entries:
                 levels[e.level] = levels.get(e.level, 0) + 1
                 services[e.service] = services.get(e.service, 0) + 1
@@ -239,6 +248,7 @@ _service: LogService | None = None
 
 
 def get_service() -> LogService:
+    """Return the LogService singleton."""
     global _service
     if _service is None:
         _service = LogService()
@@ -246,6 +256,7 @@ def get_service() -> LogService:
 
 
 def reset_service() -> None:
+    """Stop and reset the LogService singleton."""
     global _service
     if _service:
         _service.stop()
@@ -257,12 +268,13 @@ def reset_service() -> None:
 def handle_log_query(body: dict | None = None) -> dict:
     """POST /api/logs/query — query logs with filters."""
     svc = get_service()
+    b = body or {}
     return svc.query(
-        level=body.get("level") if body else None,
-        service=body.get("service") if body else None,
-        agent_id=body.get("agent_id") if body else None,
-        since=body.get("since") if body else None,
-        limit=body.get("limit", 100),
+        level=b.get("level"),
+        service=b.get("service"),
+        agent_id=b.get("agent_id"),
+        since=b.get("since"),
+        limit=b.get("limit", 100),
     )
 
 

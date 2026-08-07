@@ -23,11 +23,6 @@ from l1.kernel.registry_base import RegisterableSpec
 
 logger = logging.getLogger(__name__)
 
-# Argument completion types
-ARG_AGENT = "agent"
-ARG_ROLE = "role"
-ARG_DOMAIN = "domain"
-
 # Source identifiers for command registration
 SRC_DEFAULT = "default"
 SRC_SYSTEM = "system"
@@ -268,6 +263,7 @@ class CommandRegistry:
     # ── Stats ───────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return command registry size counters."""
         with self._lock:
             return {
                 "system": len(self._system_handlers),
@@ -310,6 +306,7 @@ def get_registry() -> CommandRegistry:
 
 
 def reset_registry() -> None:
+    """Reset the command registry singleton."""
     global _REGISTRY
     _REGISTRY = None
 
@@ -317,6 +314,7 @@ def reset_registry() -> None:
 # ── Backward-compatible aliases ─────────────────────────────
 
 def load_command_defs(yaml_path: str = "") -> int:
+    """Load command definitions from YAML into the singleton registry."""
     return get_registry().load_defaults(yaml_path)
 
 
@@ -325,7 +323,10 @@ def load_command_defs(yaml_path: str = "") -> int:
 
 def register_command_spec(spec: RegisterableSpec) -> bool:
     """Register a command via the unified Registry protocol."""
-    return get_registry().register(spec)
+    if spec.handler is None:
+        return False
+    r = get_registry().register_user(spec.name, spec.handler, spec.metadata)
+    return bool(r.get("success", False))
 
 
 def list_command_specs(category: str = "") -> list[RegisterableSpec]:
@@ -334,11 +335,13 @@ def list_command_specs(category: str = "") -> list[RegisterableSpec]:
 
 
 def load_command_overrides(cfg: dict) -> None:
+    """Apply deployment command metadata overrides."""
     get_registry().load_overrides(cfg)
 
 
 def register_command(name: str, handler: Callable,
                      metadata: dict | None = None) -> None:
+    """Register a system command with optional metadata."""
     get_registry().register_system(name, handler, metadata)
 
 
@@ -376,6 +379,7 @@ def list_commands() -> list[dict]:
 
 
 def list_all_definitions() -> dict:
+    """List all system/user definitions plus metadata overrides."""
     reg = get_registry()
     return {
         "system": {n: {"help": cd.help, "category": cd.category}

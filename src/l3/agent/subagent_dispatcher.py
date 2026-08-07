@@ -89,16 +89,19 @@ class SubAgentDispatcher:
         return {"success": True, "dispatched": len(results), "results": results}
 
     def get_task(self, task_id: str) -> SubAgentTask | None:
+        """Return the task with the given id, or None if unknown."""
         with self._lock:
             return self._tasks.get(task_id)
 
     def cancel_task(self, task_id: str) -> dict:
+        """Cancel the task with the given id; returns an error dict if unknown."""
         task = self.get_task(task_id)
         if not task:
             return {"success": False, "error": f"task not found: {task_id}"}
         return task.cancel()
 
     def list_tasks(self, status: str = "") -> list[dict]:
+        """List task results, optionally filtered by status."""
         with self._lock:
             tasks = list(self._tasks.values())
         if status:
@@ -106,11 +109,13 @@ class SubAgentDispatcher:
         return [t.get_result() for t in tasks]
 
     def register_spec(self, spec: SubAgentSpec) -> dict:
+        """Register a subagent spec for future dispatches."""
         with self._lock:
             self._specs[spec.name] = spec
         return {"success": True, "spec": spec.to_dict()}
 
     def list_specs(self) -> dict:
+        """Return all registered subagent specs as a dict."""
         with self._lock:
             return {
                 "success": True,

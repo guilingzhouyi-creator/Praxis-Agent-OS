@@ -119,6 +119,7 @@ class TodoTable(PersistableMixin):
 
     def add(self, intent: str, domain: str = "", priority: int = 5,
             depends_on: list[str] | None = None, todo_id: str = "") -> str:
+        """Add a todo item; returns its id (unknown deps mark it blocked)."""
         tid = todo_id or f"{self.agent_id}-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         item = TodoItem(id=tid, intent=intent, domain=domain,
                         priority=priority,
@@ -156,11 +157,13 @@ class TodoTable(PersistableMixin):
         return False
 
     def get(self, todo_id: str) -> TodoItem | None:
+        """Return the todo item with the given id (None when missing)."""
         with self._lock:
             return self._items.get(todo_id)
 
     def update(self, todo_id: str, status: TodoStatus | None = None,
                result: dict | None = None, error: str = "") -> bool:
+        """Update a todo item's status/result/error; unblocks dependents; returns success."""
         with self._lock:
             item = self._items.get(todo_id)
             if not item:
@@ -182,9 +185,11 @@ class TodoTable(PersistableMixin):
             return True
 
     def cancel(self, todo_id: str) -> bool:
+        """Cancel the todo item with the given id; returns success."""
         return self.update(todo_id, status=TodoStatus.CANCELLED)
 
     def list(self, status: TodoStatus | None = None, limit: int = 20) -> list[dict]:
+        """List todo items, optionally filtered by status, up to limit."""
         with self._lock:
             result = []
             for it in sorted(self._items.values(), key=lambda x: (x.priority, x.created_at)):
@@ -208,13 +213,15 @@ class TodoTable(PersistableMixin):
             return result
 
     def stats(self) -> dict:
+        """Return total item count and status distribution."""
         with self._lock:
-            counts = {}
+            counts: dict[str, int] = {}
             for it in self._items.values():
                 counts[it.status.name] = counts.get(it.status.name, 0) + 1
             return {"total": len(self._items), "by_status": counts}
 
     def clear_done(self) -> int:
+        """Remove all DONE/FAILED/CANCELLED items; returns the number removed."""
         with self._lock:
             done = [tid for tid, it in self._items.items()
                     if it.status in (TodoStatus.DONE, TodoStatus.FAILED, TodoStatus.CANCELLED)]

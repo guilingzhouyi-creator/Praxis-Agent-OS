@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Any
 
 from l1.kernel.params.system import OBS_AUDIT_LIMIT
 
@@ -42,7 +43,7 @@ class ObservabilityBus:
         Data: kind-specific payload
         """
         self._ensure()
-        results = {}
+        results: dict[str, Any] = {}
 
         if kind == "alert":
             results["alert"] = self._alert(source, data.get("message", ""),
@@ -138,6 +139,7 @@ _obs_bus: ObservabilityBus | None = None
 
 
 def get_obs_bus() -> ObservabilityBus:
+    """Get the ObservabilityBus singleton. Returns the shared bus."""
     global _obs_bus
     if _obs_bus is None:
         _obs_bus = ObservabilityBus()
@@ -145,5 +147,6 @@ def get_obs_bus() -> ObservabilityBus:
 
 
 def reset_obs_bus() -> None:
+    """Reset the ObservabilityBus singleton. Returns None."""
     global _obs_bus
     _obs_bus = None

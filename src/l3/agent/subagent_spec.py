@@ -9,9 +9,6 @@ from l1.kernel.params.system import LOG_TRUNC_100
 logger = logging.getLogger(__name__)
 
 
-def _default_tools() -> list[str]:
-    return ["read_file", "grep_search"]
-
 @dataclass
 class SubAgentSpec:
     """Sub-agent spec definition."""
@@ -39,6 +36,7 @@ class SubAgentSpec:
     """
 
     def to_dict(self) -> dict:
+        """Serialize the spec into a plain dict."""
         return {
             "name": self.name,
             "description": self.description[:LOG_TRUNC_100],
@@ -181,22 +179,27 @@ class _LazyBuiltins(dict):
         return key in self._data
 
     def keys(self):
+        """Return the loaded spec keys, loading on first access."""
         self._ensure()
         return self._data.keys()
 
     def values(self):
+        """Return the loaded spec values, loading on first access."""
         self._ensure()
         return self._data.values()
 
     def items(self):
+        """Return the loaded spec items, loading on first access."""
         self._ensure()
         return self._data.items()
 
     def get(self, key, default=None):
+        """Return the spec for *key* or *default*, loading on first access."""
         self._ensure()
         return self._data.get(key, default)
 
     def copy(self):
+        """Return a plain dict copy of the loaded specs."""
         self._ensure()
         return dict(self._data)
 

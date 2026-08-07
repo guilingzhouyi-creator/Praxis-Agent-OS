@@ -42,6 +42,7 @@ class YamlI18nAdapter(I18nPort):
     # ── I18nPort interface ────────────────────────────────────────────────
 
     def t(self, key: str, **kwargs: Any) -> str:
+        """Translate *key* in the current locale, applying {var} substitution."""
         msg = self._lookup(key)
         if msg is None:
             return key if I18N_FALLBACK_TO_KEY else key
@@ -54,6 +55,7 @@ class YamlI18nAdapter(I18nPort):
         return msg
 
     def set_locale(self, locale: str) -> None:
+        """Switch the active locale, falling back to the default if unknown."""
         with self._lock:
             # Contract (I18nPort): unknown locale falls back to "en" so a
             # bogus /lang argument can never wedge the global adapter.
@@ -68,6 +70,7 @@ class YamlI18nAdapter(I18nPort):
         return self._locale
 
     def get_available(self) -> list[str]:
+        """Return sorted locale names found in the locale directory."""
         d = self._find_dir()
         if not d:
             return ["en"]

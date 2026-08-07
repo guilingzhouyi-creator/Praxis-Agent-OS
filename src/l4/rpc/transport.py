@@ -25,6 +25,7 @@ class RpcTransport:
 
     @staticmethod
     async def send(writer: asyncio.StreamWriter, data: dict) -> None:
+        """Encode and write a message with a 4-byte length prefix."""
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         writer.write(struct.pack(_RPC_HDR_FMT, len(body)))
         writer.write(body)
@@ -32,6 +33,7 @@ class RpcTransport:
 
     @staticmethod
     async def recv(reader: asyncio.StreamReader) -> dict:
+        """Read and decode one length-prefixed message from the reader."""
         raw = await reader.readexactly(_RPC_HDR_SIZE)
         length = struct.unpack(_RPC_HDR_FMT, raw)[0]
         body = await reader.readexactly(length)

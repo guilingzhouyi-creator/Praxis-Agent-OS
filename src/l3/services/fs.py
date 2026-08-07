@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def read(path: str, encoding: str | None = None) -> dict[str, Any]:
+    """Read a file with encoding auto-detection; returns content or an error dict."""
     try:
         p = Path(path).resolve()
         if not p.exists():
@@ -31,6 +32,7 @@ def read(path: str, encoding: str | None = None) -> dict[str, Any]:
 
 
 def write(path: str, content: str, encoding: str = "utf-8") -> dict[str, Any]:
+    """Write content to a file, creating parent dirs; returns size or an error dict."""
     try:
         p = Path(path).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -41,6 +43,7 @@ def write(path: str, content: str, encoding: str = "utf-8") -> dict[str, Any]:
 
 
 def list_dir(path: str) -> dict[str, Any]:
+    """List directory entries with type/size/modified info."""
     try:
         p = Path(path).resolve()
         if not p.exists():
@@ -66,6 +69,7 @@ def list_dir(path: str) -> dict[str, Any]:
 
 
 def tree(path: str, max_depth: int = 5) -> dict[str, Any]:
+    """Build a nested tree of a directory up to max_depth."""
     try:
         p = Path(path).resolve()
         if not p.exists():
@@ -89,10 +93,12 @@ def _build_tree(p: Path, depth: int, max_depth: int) -> dict[str, Any]:
 
 
 def exists(path: str) -> dict[str, Any]:
+    """Return whether the path exists."""
     return {"exists": Path(path).exists()}
 
 
 def delete(path: str) -> dict[str, Any]:
+    """Delete a file or empty directory; returns success or an error dict."""
     try:
         p = Path(path).resolve()
         if not p.exists():
@@ -107,6 +113,7 @@ def delete(path: str) -> dict[str, Any]:
 
 
 def mkdir(path: str) -> dict[str, Any]:
+    """Create a directory (and parents), ignoring existing dirs."""
     try:
         Path(path).resolve().mkdir(parents=True, exist_ok=True)
         return {"success": True}
@@ -115,6 +122,7 @@ def mkdir(path: str) -> dict[str, Any]:
 
 
 def rename(old_path: str, new_path: str) -> dict[str, Any]:
+    """Rename or move a file; returns success or an error dict."""
     try:
         Path(old_path).resolve().rename(Path(new_path).resolve())
         return {"success": True}
@@ -123,6 +131,7 @@ def rename(old_path: str, new_path: str) -> dict[str, Any]:
 
 
 def glob(pattern: str, root: str = ".") -> dict[str, Any]:
+    """Recursively match files under root against the pattern."""
     try:
         matches = [str(p) for p in Path(root).resolve().rglob(pattern)]
         return {"success": True, "matches": matches, "count": len(matches)}

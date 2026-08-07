@@ -28,6 +28,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ def handle_model_strategy_apply_many(body: dict | None = None) -> dict:
     ms = get_service()
     if "all" in specs:
         specs = ["scout", "l3a", "l3a_subagent", "subagent", "r4_agent"]
-    results = []
+    results: list[dict] = []
     for name in specs:
         r = ms.apply_strategy(name, strategy)
         if not r.get("success"):
@@ -210,7 +211,7 @@ def handle_model_spec_overview(body: dict | None = None) -> dict:
             "strategy": cur["strategy"],
             "overrides": cur["overrides"],
         }
-    strategies = {}
+    strategies: dict[str, dict[str, Any]] = {}
     for key, value in sc.all().items():
         if key.startswith("model_spec.strategies."):
             parts = key.split(".")

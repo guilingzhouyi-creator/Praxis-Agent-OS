@@ -27,6 +27,7 @@ class SandboxEntry:
             self.modified_at = time.time()
 
     def to_serializable(self) -> dict:
+        """Convert the entry to a plain JSON-serializable dict."""
         return {"path": self.path, "sandbox_path": self.sandbox_path, "agent_id": self.agent_id,
                 "tool_name": self.tool_name, "status": self.status, "original_hash": self.original_hash,
                 "modified_at": self.modified_at, "hunks": self.hunks, "stats": self.stats,
@@ -34,6 +35,7 @@ class SandboxEntry:
 
     @classmethod
     def from_dict(cls, d: dict) -> SandboxEntry:
+        """Rebuild a SandboxEntry from a serialized dict."""
         return cls(path=d["path"], sandbox_path=d["sandbox_path"], agent_id=d["agent_id"],
                    tool_name=d.get("tool_name", ""), status=d.get("status", "pending"),
                    original_hash=d.get("original_hash", ""), modified_at=d.get("modified_at", 0.0),
@@ -42,10 +44,11 @@ class SandboxEntry:
                    conflict_level=d.get("conflict_level", "none"))
 
     def to_human_readable(self) -> dict:
+        """Render the entry as a human-readable diff with summary and semantic tag."""
         if not self.hunks:
             return {"success": True, "path": self.path, "diff": "",
                     "summary": f"no changes in {self.path}", "stats": self.stats, "semantic": ""}
-        lines, start_line = [], 1
+        lines = []
         for h in self.hunks:
             orig_s, orig_e = h.get("original_start", 1), h.get("original_end", 0) or h.get("original_start", 1)
             mod_s, mod_e = h.get("modified_start", 1), h.get("modified_end", 0) or h.get("modified_start", 1)
@@ -70,6 +73,7 @@ class SandboxEntry:
                 "summary": summary, "stats": self.stats, "semantic": semantic}
 
     def to_summary(self) -> dict:
+        """Return (cached) compact stats, ranges, and semantic classification."""
         if self._summary_cache:
             return self._summary_cache
         if not self.hunks:
@@ -78,7 +82,9 @@ class SandboxEntry:
                       "semantic": "", "ranges": [], "by_type": {}, "modified_at": self.modified_at}
             self._summary_cache = result
             return result
-        ranges, by_type, semantic = [], {}, ""
+        ranges: list = []
+        by_type: dict[str, int] = {}
+        semantic = ""
         for h in self.hunks:
             t = h.get("type", "replace"); by_type[t] = by_type.get(t, 0) + 1
             s = h.get("semantic", "")
@@ -97,6 +103,7 @@ class SandboxEntry:
         return result
 
     def to_colored_diff(self, scheme: dict[str, str] | None = None) -> dict:
+        """Render the human-readable diff with ANSI colors per the given scheme."""
         _DEFAULT = {"logic_change": "\033[31m", "reformat": "\033[34m", "comment_only": "\033[32m",
                      "import_change": "\033[33m", "rename": "\033[36m", "mixed": "\033[35m",
                      "added": "\033[32m", "removed": "\033[31m"}

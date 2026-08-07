@@ -174,6 +174,7 @@ _pool: CardPool | None = None
 
 
 def get_pool() -> CardPool:
+    """Return the global CardPool singleton, creating it if needed."""
     global _pool
     if _pool is None:
         _pool = CardPool()
@@ -181,5 +182,6 @@ def get_pool() -> CardPool:
 
 
 def reset_pool() -> None:
+    """Reset the CardPool singleton to None."""
     global _pool
     _pool = None

@@ -39,24 +39,29 @@ class ApprovalPolicy:
         return GATECHAIN_DANGER_LEVELS.get(tool_name, 1)
 
     def set_cell_danger(self, cell_id: str, tool_name: str, level: int) -> None:
+        """Set a Cell-level danger override for the given tool."""
         with self._lock:
             self._cell_overrides.setdefault(cell_id, {})[tool_name] = level
 
     def set_agent_danger(self, cell_id: str, agent_id: str, tool_name: str, level: int) -> None:
+        """Set an Agent-level danger override for the given tool."""
         with self._lock:
             key = f"{cell_id}.{agent_id}"
             self._agent_overrides.setdefault(key, {})[tool_name] = level
 
     def get_cell_dangers(self, cell_id: str) -> dict[str, int]:
+        """Return all Cell-level danger overrides for a cell."""
         with self._lock:
             return dict(self._cell_overrides.get(cell_id, {}))
 
     def get_agent_dangers(self, cell_id: str, agent_id: str) -> dict[str, int]:
+        """Return all Agent-level danger overrides for an agent."""
         with self._lock:
             key = f"{cell_id}.{agent_id}"
             return dict(self._agent_overrides.get(key, {}))
 
     def stats(self) -> dict:
+        """Return override counts per Cell and Agent level."""
         with self._lock:
             return {
                 "cell_overrides": {c: len(t) for c, t in self._cell_overrides.items()},
@@ -76,5 +81,6 @@ def get_policy() -> ApprovalPolicy:
 
 
 def reset_policy() -> None:
+    """Reset the approval policy singleton."""
     global _policy
     _policy = None

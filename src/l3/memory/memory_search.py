@@ -33,7 +33,7 @@ def search_long_term(mem, query: str, agent_id: str | None = None, limit: int = 
             sql += " AND k.agent = ?"
             params.append(agent_id)
         sql += " ORDER BY rank LIMIT ?"
-        params.append(limit)
+        params.append(str(limit))
         rows = conn.execute(sql, params).fetchall()
         conn.close()
         return [

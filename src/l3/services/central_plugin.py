@@ -117,6 +117,7 @@ class CentralPlugin:
         ]
 
     def get_plugin(self, name: str) -> dict | None:
+        """Return metadata for a plugin, or None if not installed."""
         with self._lock:
             pi = self._plugins.get(name)
         if not pi:
@@ -126,6 +127,7 @@ class CentralPlugin:
                 "tool_count": pi.tool_count}
 
     def stats(self) -> dict:
+        """Return plugin counts by kind and the full plugin name list."""
         with self._lock:
             by_kind: dict[str, int] = {}
             for p in self._plugins.values():
@@ -141,6 +143,7 @@ _center: CentralPlugin | None = None
 
 
 def get_center() -> CentralPlugin:
+    """Return the CentralPlugin singleton, creating it if needed."""
     global _center
     if _center is None:
         _center = CentralPlugin()
@@ -148,5 +151,6 @@ def get_center() -> CentralPlugin:
 
 
 def reset_center() -> None:
+    """Reset the CentralPlugin singleton."""
     global _center
     _center = None

@@ -95,14 +95,17 @@ class CommMonitor:
                 self._history.pop(0)
 
     def record_dropped(self, channel: str = "ipc", count: int = 1) -> None:
+        """Record dropped communication events. Returns None."""
         with self._lock:
             self._stats.total_dropped += count
 
     def record_signal(self) -> None:
+        """Record a signal event. Returns None."""
         with self._lock:
             self._stats.total_signals += 1
 
     def set_active_sessions(self, n: int) -> None:
+        """Set the number of active sessions. Returns None."""
         with self._lock:
             self._stats.active_sessions = n
 
@@ -171,6 +174,7 @@ _monitor: CommMonitor | None = None
 
 
 def get_monitor() -> CommMonitor:
+    """Get the CommMonitor singleton. Returns the shared CommMonitor."""
     global _monitor
     if _monitor is None:
         _monitor = CommMonitor()
@@ -178,5 +182,6 @@ def get_monitor() -> CommMonitor:
 
 
 def reset_monitor() -> None:
+    """Reset the CommMonitor singleton. Returns None."""
     global _monitor
     _monitor = None

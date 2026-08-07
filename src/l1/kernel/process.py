@@ -307,7 +307,7 @@ class ProcessTable:
             self._audit("reap", pid, pcb.name, "")
             return pcb.snapshot()
 
-    def list(self, state: ProcessState | None = None) -> list[dict]:
+    def list_processes(self, state: ProcessState | None = None) -> list[dict]:
         """List all processes, optionally filtered by state."""
         with self._lock:
             result = [p.snapshot() for p in self._processes.values()

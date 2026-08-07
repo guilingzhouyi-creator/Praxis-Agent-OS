@@ -48,7 +48,8 @@ class _DiscardSteps(list):
     while avoiding per-phase dict accumulation on the hot path.
     """
 
-    def append(self, item: Any) -> None:  # type: ignore[override]
+    def append(self, item: Any) -> None:
+        """No-op append — drops the item when step tracing is off."""
         pass
 
 
@@ -122,22 +123,27 @@ class ToolPipeline:
         return spec
 
     def _record_tool_failure(self, agent_id: str, tool_name: str,
-                             args: dict, error: str, turn_log: list) -> None:
+                             args: dict, error: str, turn_log: list,
+                             domain: str = "", nature: str = "") -> None:
         """Record a tool execution failure for R4Agent lean-case generation.
 
         Lazily imports R4Agent so the pipeline stays decoupled from memory.
+        ``domain`` is the card-level GateChain scope; ``nature`` is the
+        driving card's type — both become card-linkage tags on the lean case.
         """
         try:
             from l3.memory.r4_agent import get_r4_agent
             get_r4_agent().track_tool_failure(
                 agent_id=agent_id, tool_name=tool_name,
-                args=args, error=error, turn_log=turn_log)
+                args=args, error=error, turn_log=turn_log,
+                domain=domain, nature=nature)
         except Exception as e:
             logger.debug("tool_pipeline: failure tracking skipped: %s", e)
 
     def execute(self, tool_name: str, agent_id: str,
                 args: dict | None = None,
                 domain: str = "",
+                nature: str = "",
                 _registry: dict | None = None,
                 _executor: Any = None,
                 _parent_call_id: str = "") -> dict:
@@ -145,6 +151,7 @@ class ToolPipeline:
 
         Args:
             domain: card-level gate scope for GateChain enforcement.
+            nature: driving card's type (card→skill linkage on failure paths).
             _registry: TOOL_REGISTRY dict (passed by caller)
             _executor: execute_tool function (passed by caller)
             _parent_call_id: parent composite tool's call_id for chain tracking
@@ -338,6 +345,8 @@ class ToolPipeline:
                 args=args or {},
                 error=str((result.get("result") or {}).get("error", "tool failed")),
                 turn_log=result.get("steps", []),
+                domain=domain,
+                nature=nature or (args.get("_card_nature", "") if isinstance(args, dict) else ""),
             )
 
         # 10. Release
@@ -384,5 +393,6 @@ def get_pipeline() -> ToolPipeline:
 
 
 def reset_pipeline() -> None:
+    """Reset the tool pipeline singleton to None."""
     global _pipeline
     _pipeline = None

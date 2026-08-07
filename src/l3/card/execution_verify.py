@@ -88,7 +88,6 @@ class Verifier:
         Returns:
             Dict with consistent flag, conflicts, and recommendation.
         """
-        successes = [r for r in results if r.get("success")]
         failures = [r for r in results if not r.get("success")]
         return {
             "consistent": len(failures) == 0,

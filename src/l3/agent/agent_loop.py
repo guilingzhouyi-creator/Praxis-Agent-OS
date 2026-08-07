@@ -47,6 +47,7 @@ from l1.kernel.params.agent import (
     LOOP_FOLD_LIST_PREVIEW,
     LOOP_FOLD_LIST_TRUNCATION,
     LOOP_LEAN_CASES_LIMIT,
+    R4_CARD_TAG_MAX,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import (
@@ -135,6 +136,11 @@ class AgentLoop:
         self._cached_tools: tuple[list, list] = ([], [])
         self._cached_model_kwargs: dict | None = None
         self._pmu: Any = None
+        # Card-derived context tags (nature/domain of the driving card). These
+        # bias skill retrieval so different card types hit different skills.
+        self._card_tags: list[str] = []
+        self._gate_scope: str = ""
+        self._card_nature: str = ""
         # Persistent thread pool for parallel read-only tool execution
         # (avoids creating/destroying ThreadPoolExecutor on every loop iteration)
         self._parallel_executor = ThreadPoolExecutor(
@@ -145,6 +151,18 @@ class AgentLoop:
     def set_pmu(self, pmu: Any) -> None:
         """Attach a Performance Monitoring Unit for counter tracking."""
         self._pmu = pmu
+
+    def set_card_tags(self, tags: list[str]) -> None:
+        """Set the card-derived context tags that bias skill retrieval."""
+        if tags:
+            self._card_tags = [t for t in tags if isinstance(t, str) and t][:R4_CARD_TAG_MAX]
+
+    def _card_query_boost(self) -> str:
+        """Build the tag-boost fragment appended to the retrieval query."""
+        tags = getattr(self, "_card_tags", []) or []
+        if not tags:
+            return ""
+        return " " + " ".join(tags)
 
     def _build_run_context(
         self, max_steps: int, model_config: dict | None, engine: Any
@@ -246,11 +264,15 @@ class AgentLoop:
             # falls back to loaded_at ordering when disabled or low-score.
             # getattr guard: tests may construct AgentLoop via __new__ (no
             # __init__), so task may be absent — empty query = loaded_at order.
+            # Card linkage: card-derived tags (nature/domain) are appended to
+            # the query so the same task text under different card types can
+            # surface different skills (e.g. review vs deploy cards).
             evolved = r4.retrieve_skills(
-                query=getattr(self, "task", ""),
+                query=(getattr(self, "task", "") or "") + self._card_query_boost(),
                 agent_id=self.agent_id,
                 cell_id=self._cell_id,
                 limit=LOOP_EVOLVED_SKILLS_LIMIT,
+                tags=getattr(self, "_card_tags", []) or [],
             )
             if evolved and budget > 0:
                 for es in evolved:
@@ -337,6 +359,44 @@ class AgentLoop:
             )
         )
 
+    def add_tool_from_spec(
+        self, spec: Any, handler: Any = None, parallel_safe: bool | None = None
+    ) -> None:
+        """Register a tool marshalled from an existing spec.
+
+        Shared marshalling point for the Cell SubAgentPool and L3A
+        subagent runners: name/description/parameters/parallel_safe come
+        from ``spec`` (a ToolSpec, or any object exposing those) and the
+        executor is ``handler`` when given, else ``spec.handler``.
+
+        Args:
+            spec: ToolSpec (or compatible) to register.
+            handler: callable (args, agent_id) -> dict; overrides spec.handler.
+            parallel_safe: explicit override; defaults to spec.parallel_safe.
+        """
+        raw = getattr(spec, "parameters", None)
+        params: dict[str, str] = {}
+        if isinstance(raw, dict):
+            for pn, pv in raw.items():
+                params[pn] = pv.get("type", "string") if isinstance(pv, dict) else "string"
+        elif isinstance(raw, (list, tuple)):
+            for p in raw:
+                pn = getattr(p, "name", None)
+                if pn:
+                    params[pn] = str(getattr(p, "type", "") or "string")
+        if parallel_safe is None:
+            is_parallel = bool(getattr(spec, "parallel_safe", False))
+        else:
+            is_parallel = parallel_safe
+        executor = handler if handler is not None else getattr(spec, "handler", None)
+        self.add_tool(
+            name=spec.name,
+            description=getattr(spec, "description", "") or spec.name,
+            params=params,
+            executor=executor,
+            parallel_safe=is_parallel,
+        )
+
     def _register_todowrite(self) -> None:
         """Register the todowrite tool for task-list management."""
 
@@ -393,7 +453,7 @@ class AgentLoop:
         last half are preserved with a truncation marker. This is better than
         head-only truncation because tool output's signal often lives at both ends.
         """
-        folded = {}
+        folded: dict[str, Any] = {}
         truncated = False
         for k, v in result.items():
             if isinstance(v, str) and len(v) > max_chars:
@@ -429,6 +489,7 @@ class AgentLoop:
                 agent_id=self.agent_id,
                 args=args,
                 domain=getattr(self, "_gate_scope", ""),
+                nature=getattr(self, "_card_nature", ""),
                 _executor=lambda name, a, aid: fn(a, aid),
             )
             if not pr.get("success"):
@@ -601,6 +662,17 @@ class AgentLoop:
             timeout=timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
             model_config=model_config,
         )
+
+    def update_card_context(self, tags: list[str] | None = None, nature: str = "") -> None:
+        """Refresh card-derived context for a persistent loop between cards.
+
+        The persistent AgentLoop is reused across cards; skill retrieval
+        must re-bias when the next card has a different nature/domain.
+        """
+        if tags:
+            self.set_card_tags(tags)
+        if nature:
+            self._card_nature = nature
 
     def _resolve_max_steps(self, max_steps: int) -> int:
         """Resolve the effective step limit: SettingsCenter >= caller override > default."""

@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from typing import TYPE_CHECKING
 
 from l1.kernel import emit_signal
 from l1.kernel.params.agent import AGENT_TERMINAL_RESULTS_MAX, EVENT_TASK_ASSIGN, SUBAGENT_MAX_TOKENS
@@ -21,11 +22,53 @@ from l1.kernel.params.system import (
     POLL_INTERVAL_PAUSED,
 )
 
+if TYPE_CHECKING:
+    from collections import OrderedDict, deque
+    from collections.abc import Callable
+
+    from l1.kernel.constitution import Constitution
+    from l3.agent._term_types import CardResult, TerminalCard, TerminalStatus
+    from l3.agent.agent_persist import SnapshotHook
+    from l3.memory.cache import ContextRegister
+
 logger = logging.getLogger(__name__)
 
 
 class WorkerPoolMixin:
     """WorkerPoolMixin — boot sequence and the per-worker card loop."""
+
+    # ── Attributes injected by the concrete AgentTerminal (see agent_terminal/__init__.py) ──
+    agent_id: str
+    role: str
+    territory: list[str]
+    cell_id: str
+    ring: int
+    constitution: Constitution
+    status: TerminalStatus
+    context: ContextRegister
+    _boot_result: dict
+    _snapshot_hook: SnapshotHook | None
+    _running: bool
+    _max_workers: int
+    _workers: list[threading.Thread]
+    _paused: bool
+    _card_timeout: float
+    _card_deadline: float
+    _lock: threading.RLock
+    _current_card: str
+    _results: OrderedDict[str, CardResult]
+    _pending: dict[str, threading.Event]
+    stdin: deque[TerminalCard]
+    stdout: deque[CardResult]
+    _active_cards: int
+    _loop_state: str
+    _cards_processed: int
+    _cards_since_pressure_check: int
+    _watchdog_pet: Callable[[str], None] | None
+
+    def _process_card(self, card: TerminalCard) -> CardResult:
+        """Process a card (implemented by CardExecutionMixin)."""
+        raise NotImplementedError
 
     def boot(self) -> dict:
         """Boot the agent terminal: constitution check → warm memory → start workers."""
@@ -55,7 +98,7 @@ class WorkerPoolMixin:
         try:
             from l1.kernel.skill import get_skill_manager
             sm = get_skill_manager()
-            all_s = sm.list(limit=20)
+            all_s = sm.list_skills(limit=20)
             if all_s:
                 parts = ["=== Agent Manual (boot) ==="]
                 for s in all_s:
@@ -63,9 +106,8 @@ class WorkerPoolMixin:
                     d = getattr(s, 'description', '')[:LOG_TRUNC_120]
                     p = getattr(s, 'prompt', '')[:LOG_TRUNC_300]
                     parts.append(f"[{n}] {d}\n{p}")
-                from ..memory.context import get_context as _gc
-                _gc().store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
-                            agent_id=self.agent_id, entry_type="manual")
+                self.context.store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
+                                   agent_id=self.agent_id, entry_type="manual")
                 phases.append({"phase": "manual_loaded", "count": len(all_s)})
                 logger.info("agent %s: loaded %d skills", self.agent_id, len(all_s))
         except Exception as e:

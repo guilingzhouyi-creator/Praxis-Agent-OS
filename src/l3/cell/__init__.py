@@ -49,7 +49,6 @@ from ..agent.scout import get_pool as get_scout_pool
 from ..agent.scout import scout_cache_get
 from ..agent_terminal import CardMode as TermCardMode
 from ..agent_terminal import TerminalCard, TerminalStatus, get_terminal, get_terminals
-from ..card.issue import IssueCard as _IssueCard
 from ..cell.components.cell_cross_review import auto_cross_review as _auto_cross_review
 from ..cell.components.cell_decompose import auto_agent_map as _auto_agent_map
 from ..cell.components.cell_decompose import decompose_card as _decompose_card
@@ -172,7 +171,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
 
         # SubAgent delegation pool (async, ring-limited)
         from l3.agent.subagent_pool import SubAgentPool
-        pool_config = {}  # populated from cell config in future
+        pool_config: dict = {}  # populated from cell config in future
         self._subagent_pool = SubAgentPool(cell_id, config=pool_config)
 
         # Register with ThinkQuotaRegistry
@@ -429,16 +428,16 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         _ssi(self, card_id, card)
 
     @staticmethod
-    def _take_snapshot(card: Any) -> dict:
-        """Snapshot files referenced in card steps. Delegates to cell_execute.py."""
+    def _take_snapshot(cell: Any, path: str) -> str | None:
+        """Snapshot a file by copying to temp dir (delegates to cell_execute.py)."""
         from ..cell.components.cell_execute import _take_snapshot as _ts
-        return _ts(card)
+        return _ts(cell, path)
 
     @staticmethod
-    def _cleanup_snapshot(snapshot: dict) -> None:
-        """Clean up temporary snapshot files. Delegates to cell_execute.py."""
+    def _cleanup_snapshot(cell: Any, files: dict) -> None:
+        """Clean up temporary snapshot files (delegates to cell_execute.py)."""
         from ..cell.components.cell_execute import _cleanup_snapshot as _cs
-        _cs(snapshot)
+        _cs(cell, files)
 
     @staticmethod
     def _archive_item(kind: str, item: Any) -> None:
@@ -857,6 +856,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                      self.cell_id, self.distribution_mode, config)
 
     def stats(self) -> dict:
+        """Return a snapshot of cell state (agents, pmu, watchdog, caches)."""
         with self._lock:
             return {
                 "cell_id": self.cell_id,
@@ -902,6 +902,7 @@ _cells_lock = threading.Lock()
 
 
 def get_cell(cell_id: str, territory: list[str] | None = None) -> Cell:
+    """Return the Cell for cell_id, creating it lazily."""
     with _cells_lock:
         if cell_id not in _cells:
             _cells[cell_id] = Cell(cell_id, territory)
@@ -915,5 +916,6 @@ def get_cells() -> dict[str, Cell]:
 
 
 def reset_cells() -> None:
+    """Clear all registered Cells."""
     with _cells_lock:
         _cells.clear()

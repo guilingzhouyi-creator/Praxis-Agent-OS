@@ -115,6 +115,7 @@ _service: AIService | None = None
 
 
 def get_service() -> AIService:
+    """Return the shared AIService singleton, creating it on first use."""
     global _service
     if _service is None:
         _service = AIService()
@@ -122,6 +123,7 @@ def get_service() -> AIService:
 
 
 def reset_service() -> None:
+    """Stop and reset the shared AIService singleton."""
     global _service
     if _service:
         _service.stop()

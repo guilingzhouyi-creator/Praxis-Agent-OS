@@ -139,6 +139,7 @@ class CellTlb:
     # ── Stats ─────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return TLB statistics (valid entries, patterns)."""
         with self._lock:
             valid = [e for e in self._entries.values() if e.valid]
             return {
@@ -206,9 +207,9 @@ class CellMmu:
         # 3. Fallback — agents dict scan
         if agents:
             best_match = None
-            best_ring = TLB_DEFAULT_RING
             for aid, info in agents.items():
                 terr = getattr(info, "territory", info.get("territory", [])) if isinstance(info, dict) else info.territory
+                terr = terr or []
                 ring = getattr(info, "ring", info.get("ring", TLB_DEFAULT_RING)) if isinstance(info, dict) else info.ring
                 for t in terr:
                     if territory_pattern.startswith(t) or t.startswith(territory_pattern):
@@ -233,9 +234,10 @@ class CellMmu:
         mappings: dict[str, tuple[str, int]] = {}
         for aid, info in agents.items():
             terr = getattr(info, "territory", info.get("territory", [])) if isinstance(info, dict) else info.territory
+            terr = terr or []
             ring = getattr(info, "ring", info.get("ring", TLB_DEFAULT_RING)) if isinstance(info, dict) else info.ring
             for t in terr:
-                mappings[t] = (aid, ring)
+                mappings[t] = (aid, int(ring) if ring is not None else TLB_DEFAULT_RING)
         self._tlb.fill_many(mappings)
 
     def flush_agent(self, agent_id: str) -> int:
@@ -249,6 +251,7 @@ class CellMmu:
     # ── Stats ─────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return MMU statistics including the underlying TLB stats."""
         return {
             "cell_id": self.cell_id,
             "tlb": self._tlb.stats(),

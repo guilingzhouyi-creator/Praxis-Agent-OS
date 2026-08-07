@@ -62,6 +62,7 @@ class Provenance:
     policy_name: str = ""          # which policy evaluated this
 
     def to_dict(self) -> dict:
+        """Serialize the provenance record to a dict."""
         return {
             "source_type": self.source_type.value,
             "source_id": self.source_id,
@@ -76,6 +77,7 @@ class Provenance:
 
     @staticmethod
     def from_dict(d: dict) -> Provenance:
+        """Rebuild a provenance record from a dict."""
         st = SourceType.UNKNOWN
         try:
             st = SourceType(d.get("source_type", "unknown"))
@@ -119,6 +121,7 @@ def get_source_reputation(source_id: str) -> float:
 
 
 def reset_source_reputation() -> None:
+    """Clear the source reputation store."""
     _source_reputation.clear()
 
 
@@ -189,10 +192,12 @@ _policies: dict[str, TrustPolicy] = {
 
 
 def register_policy(name: str, policy: TrustPolicy) -> None:
+    """Register a trust policy under the given name."""
     _policies[name] = policy
 
 
 def get_policy(name: str = "") -> TrustPolicy:
+    """Return the named trust policy, falling back to the default."""
     return _policies.get(name, _policies.get("default", TrustPolicy()))
 
 
@@ -345,9 +350,11 @@ class ContentTrust:
         return data, prov
 
     def stats(self) -> dict:
+        """Return tagged/evaluated/accepted/rejected counters."""
         return dict(self._stats)
 
     def reset_stats(self) -> None:
+        """Reset the tagged/evaluated/accepted/rejected counters."""
         self._stats = {"tagged": 0, "evaluated": 0, "accepted": 0, "rejected": 0}
 
 
@@ -357,6 +364,7 @@ _trust: ContentTrust | None = None
 
 
 def get_trust(policy_name: str = "") -> ContentTrust:
+    """Return the shared ContentTrust singleton, creating it on first use."""
     global _trust
     if _trust is None:
         _trust = ContentTrust(policy_name)
@@ -364,6 +372,7 @@ def get_trust(policy_name: str = "") -> ContentTrust:
 
 
 def reset_trust() -> None:
+    """Drop the ContentTrust singleton and clear source reputation."""
     global _trust
     _trust = None
     reset_source_reputation()

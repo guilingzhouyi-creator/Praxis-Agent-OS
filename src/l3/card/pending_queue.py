@@ -235,6 +235,7 @@ class PendingQueue(PersistableMixin):
             return result
 
     def get(self, msg_id: str) -> dict | None:
+        """Return a serialized witness message or None if not found."""
         with self._lock:
             m = self._items.get(msg_id)
             if not m:
@@ -249,8 +250,9 @@ class PendingQueue(PersistableMixin):
             }
 
     def stats(self) -> dict:
+        """Return queue size and per-status counts."""
         with self._lock:
-            counts = {}
+            counts: dict[str, int] = {}
             for m in self._items.values():
                 counts[m.status.name] = counts.get(m.status.name, 0) + 1
             return {
@@ -260,6 +262,7 @@ class PendingQueue(PersistableMixin):
             }
 
     def set_priority(self, msg_id: str, priority: int) -> dict:
+        """Update the priority of a message and persist the change."""
         with self._lock:
             m = self._items.get(msg_id)
             if not m:
@@ -275,6 +278,7 @@ _queue: PendingQueue | None = None
 
 
 def get_queue() -> PendingQueue:
+    """Return the global PendingQueue singleton, creating it if needed."""
     global _queue
     if _queue is None:
         _queue = PendingQueue()
@@ -282,5 +286,6 @@ def get_queue() -> PendingQueue:
 
 
 def reset_queue() -> None:
+    """Reset the PendingQueue singleton to None."""
     global _queue
     _queue = None

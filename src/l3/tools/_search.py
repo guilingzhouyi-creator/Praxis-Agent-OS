@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
     """Pure Python search fallback for platforms without rg/grep."""
-    results = []
+    results: list[dict] = []
     if os.path.isfile(path):
         # Search a single file directly
         files_to_scan = [path]
@@ -33,7 +33,7 @@ def _py_grep(pattern: str, path: str, fixed: bool = False) -> list[dict]:
                             matched = pattern in line
                         else:
                             try:
-                                matched = re.search(pattern, line)
+                                matched = re.search(pattern, line) is not None
                             except re.error:
                                 continue
                         if matched:
@@ -97,6 +97,7 @@ def file_search(args: dict, agent_id: str) -> dict:
 
 
 def grep_search(args: dict, agent_id: str) -> dict:
+    """Search file contents by regex pattern under path; returns match dict."""
     pattern = args.get("pattern", "")
     path = args.get("path", ".")
     if not pattern:
@@ -106,6 +107,7 @@ def grep_search(args: dict, agent_id: str) -> dict:
 
 
 def content_search(args: dict, agent_id: str) -> dict:
+    """Search file contents for fixed text under path; returns match dict."""
     query = args.get("query", "")
     path = args.get("path", ".")
     if not query:

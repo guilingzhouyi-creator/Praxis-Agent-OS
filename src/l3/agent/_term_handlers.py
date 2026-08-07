@@ -11,6 +11,7 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
     CARD_TIMEOUT,
+    R4_CARD_TAG_PREFIX,
     TERMINAL_CONTEXT_RECENT,
 )
 from l1.kernel.params.api import SHELL_CMD_TIMEOUT
@@ -94,6 +95,7 @@ def get_action_handler(term, action: str):
 # ── Default handlers (extensible) ──
 
 def handle_read_file(term, card, phases):
+    """Handle read_file/list_dir actions using the terminal file cache."""
     cached = term.file_cache.get(card.target)
     if cached is not None:
         phases.append("cache_hit")
@@ -105,6 +107,7 @@ def handle_read_file(term, card, phases):
 
 
 def handle_scout(term, card, phases):
+    """Commission a scout subagent and return its output and findings."""
     phases.append("scout")
     sr = term.scout_pool.commission(term.agent_id, card.target, card.params)
     return str(sr.get("output", [])), sr.get("findings", []), True
@@ -115,17 +118,15 @@ def handle_shell(term, card, phases):
     import subprocess
     import time as _time
 
-    from l1.kernel.platform import SHELL_PATH, SHELL_PROMPT
+    from l1.kernel.platform import SHELL_PROMPT
 
     command = card.params.get("command", card.target)
     timeout = int(card.params.get("timeout", CARD_TIMEOUT))
     session_id = card.params.get("session_id", "")
-    show_prompt = card.params.get("prompt", True)
 
     if not command:
         return "no command specified", [], False
 
-    shell_path = SHELL_PATH
     prompt_str = SHELL_PROMPT
 
     phases.append("shell")
@@ -173,6 +174,7 @@ def handle_shell(term, card, phases):
 
 
 def handle_write(term, card, phases):
+    """Execute a write action and invalidate the affected file cache entry."""
     phases.append(f"execute:{card.action}")
     term.file_cache.invalidate(card.target)
     return f"executed {card.action} on {card.target}", [], True
@@ -226,6 +228,7 @@ def _handle_edit(args, agent):
 
 
 def handle_think(term, card, phases):
+    """Run an AgentLoop reasoning pass over the card prompt; returns output, findings, success."""
     phases.append("think")
     try:
         import os as _os
@@ -278,6 +281,21 @@ def handle_think(term, card, phases):
         gate_scope = card.params.get('_gate_scope', '') if hasattr(card, 'params') else ''
         if gate_scope:
             loop._gate_scope = gate_scope
+        # Card→skill linkage: derive card:nature / card:domain tags from the
+        # driving card so skill retrieval biases toward this card type.
+        try:
+            _ptags = []
+            _nature = card.params.get('_card_nature', '') if hasattr(card, 'params') else ''
+            _domain = card.params.get('_card_domain', '') if hasattr(card, 'params') else ''
+            if _nature:
+                _ptags.append(f"{R4_CARD_TAG_PREFIX}{_nature}")
+                loop._card_nature = _nature
+            if _domain:
+                _ptags.append(f"{R4_CARD_TAG_PREFIX}{_domain}")
+            if _ptags:
+                loop.set_card_tags(_ptags)
+        except Exception:
+            logger.debug("term_handlers: card tags inject failed")
         if getattr(term, '_pmu', None):
             loop.set_pmu(term._pmu)
         from l3.tool_system.tool_spec import is_muted as _is_muted

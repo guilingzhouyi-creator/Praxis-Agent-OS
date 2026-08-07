@@ -17,7 +17,6 @@ Endpoints (served by ApiGateway under /api/skills):
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ def handle_skills_list(body: dict | None = None) -> dict:
     tag = b.get("tag", "")
     limit = int(b.get("limit", 0))
     tags = [tag] if tag else None
-    skills = sm.list(tags=tags, limit=limit)
+    skills = sm.list_skills(tags=tags, limit=limit)
     return {"success": True, "skills": skills, "count": len(skills)}
 
 

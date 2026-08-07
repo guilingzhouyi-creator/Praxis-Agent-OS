@@ -59,6 +59,7 @@ class CacheDocumentStore:
             metadata: dict | None = None,
             tags: list[str] | None = None,
             archive_ref: str = "") -> str:
+        """Store a document and return its generated buffer_id."""
         buffer_id = f"cache-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
         doc = CacheDocument(
             buffer_id=buffer_id, title=title, content=content,
@@ -71,6 +72,7 @@ class CacheDocumentStore:
         return buffer_id
 
     def get(self, buffer_id: str) -> CacheDocument | None:
+        """Get a live document by buffer_id, purging it if expired."""
         with self._lock:
             doc = self._docs.get(buffer_id)
             if doc is None:
@@ -82,6 +84,7 @@ class CacheDocumentStore:
             return doc
 
     def get_content(self, buffer_id: str) -> str:
+        """Return the content of a document, or empty string if missing."""
         doc = self.get(buffer_id)
         if doc is None:
             logger.warning("cache_doc get_content: buffer %s not found", buffer_id)
@@ -89,10 +92,12 @@ class CacheDocumentStore:
         return doc.content
 
     def delete(self, buffer_id: str) -> bool:
+        """Delete a document by buffer_id; returns True if it existed."""
         with self._lock:
             return self._docs.pop(buffer_id, None) is not None
 
     def list_by_tag(self, tag: str) -> list[dict]:
+        """List live documents carrying the given tag as summary dicts."""
         with self._lock:
             return [
                 {"buffer_id": d.buffer_id, "title": d.title,
@@ -104,6 +109,7 @@ class CacheDocumentStore:
             ]
 
     def list_all(self) -> list[dict]:
+        """List all live documents as summary dicts."""
         with self._lock:
             return [
                 {"buffer_id": d.buffer_id, "title": d.title,
@@ -113,6 +119,7 @@ class CacheDocumentStore:
             ]
 
     def stats(self) -> dict:
+        """Return store statistics: entries, tags, max entries, and TTL."""
         with self._lock:
             return {
                 "entries": len(self._docs),
@@ -122,6 +129,7 @@ class CacheDocumentStore:
             }
 
     def archive_ref_count(self) -> int:
+        """Return the number of documents linked to an archive entry."""
         with self._lock:
             return sum(1 for d in self._docs.values() if d.archive_ref)
 
@@ -148,5 +156,6 @@ def get_store() -> CacheDocumentStore:
 
 
 def reset_store() -> None:
+    """Clear the cache documentation store singleton."""
     global _store
     _store = None

@@ -38,11 +38,13 @@ class PagerBridge:
         self._lock = threading.Lock()
 
     def attach_swapper(self, swapper: Any) -> None:
+        """Attach a swapper, wiring the bridge into it for swap notifications."""
         self._swapper = swapper
         swapper._pager_bridge = self
         logger.info("PagerBridge: swapper attached")
 
     def attach_pager(self, pager: Any) -> None:
+        """Attach a context pager, wiring the bridge into it for pin calls."""
         self._pager = pager
         pager._pager_bridge = self
         logger.info("PagerBridge: pager attached")
@@ -80,10 +82,12 @@ class PagerBridge:
                 logger.warning("services/pager_bridge: %s", e)
 
     def is_pinned(self, chunk_id: str) -> bool:
+        """Check whether a chunk is currently pinned against swapping."""
         with self._lock:
             return chunk_id in self._pinned_chunks
 
     def stats(self) -> dict:
+        """Return bridge stats: pinned chunk count and attachment status."""
         with self._lock:
             return {
                 "pinned_chunks": len(self._pinned_chunks),
@@ -96,6 +100,7 @@ _bridge: PagerBridge | None = None
 
 
 def get_pager_bridge() -> PagerBridge:
+    """Get the PagerBridge singleton, creating it on first call."""
     global _bridge
     if _bridge is None:
         _bridge = PagerBridge()
@@ -103,5 +108,6 @@ def get_pager_bridge() -> PagerBridge:
 
 
 def reset_pager_bridge() -> None:
+    """Reset the PagerBridge singleton (for testing)."""
     global _bridge
     _bridge = None

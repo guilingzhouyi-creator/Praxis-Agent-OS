@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # ── Token / Counter handlers ──
 
 def token_stats(body: dict | None = None) -> dict:
+    """Return token rate (optional window) and summary from the counter."""
     try:
         from l3.services.counter import get_counter
         c = get_counter()
@@ -27,6 +28,7 @@ def token_stats(body: dict | None = None) -> dict:
 
 
 def token_cells(body: dict | None = None) -> dict:
+    """Return per-cell token summaries from the central collector."""
     try:
         from l3.cell.peers.central_collector import get_collector
         return {"cells": get_collector().cell_summary()}
@@ -35,6 +37,7 @@ def token_cells(body: dict | None = None) -> dict:
 
 
 def token_global(body: dict | None = None) -> dict:
+    """Return the global token summary from the central collector."""
     try:
         from l3.cell.peers.central_collector import get_collector
         return get_collector().global_summary()
@@ -45,6 +48,7 @@ def token_global(body: dict | None = None) -> dict:
 # ── Communication handlers ──
 
 def comm_stats(body: dict | None = None) -> dict:
+    """Return communication monitor statistics."""
     try:
         from l3.bus.comm_monitor import get_monitor
         return get_monitor().stats()
@@ -53,6 +57,7 @@ def comm_stats(body: dict | None = None) -> dict:
 
 
 def comm_recent(body: dict | None = None) -> dict:
+    """Return the most recent communication events up to the given limit."""
     try:
         limit = int((body or {}).get("limit", 50))
         from l3.bus.comm_monitor import get_monitor
@@ -64,6 +69,7 @@ def comm_recent(body: dict | None = None) -> dict:
 # ── Loop handlers ──
 
 def loop_stats(body: dict | None = None) -> dict:
+    """Return the agent loop summary from the counter."""
     try:
         from l3.services.counter import get_counter
         return get_counter().loop_summary()
@@ -72,6 +78,7 @@ def loop_stats(body: dict | None = None) -> dict:
 
 
 def loops_recent(body: dict | None = None) -> dict:
+    """Return the most recent agent loops up to the given limit."""
     try:
         from l3.services.counter import get_counter
         c = get_counter()
@@ -84,6 +91,7 @@ def loops_recent(body: dict | None = None) -> dict:
 # ── Export handlers ──
 
 def export_counter(body: dict | None = None) -> dict:
+    """Export the full counter state."""
     try:
         from l3.services.counter import get_counter
         return get_counter().export()
@@ -92,6 +100,7 @@ def export_counter(body: dict | None = None) -> dict:
 
 
 def export_metrics(body: dict | None = None) -> dict:
+    """Export the counter metrics collection."""
     try:
         from l3.services.counter import get_counter
         return {"metrics": get_counter().export_metrics()}
@@ -102,6 +111,7 @@ def export_metrics(body: dict | None = None) -> dict:
 # ── Network health ──
 
 def network_health(body: dict | None = None) -> dict:
+    """Return the kernel network health report."""
     try:
         from l1.kernel.net import get_net
         return get_net().health()
@@ -179,6 +189,7 @@ def handle_message_gate_set(body: dict) -> dict:
 def handle_message_gate_remove(body: dict) -> dict:
     """DELETE /api/monitor/gate/<id> — remove a message gate rule."""
     try:
+        from .bus.message_gate import get_gate
         rule_id = body.get("id", "")
         if not rule_id:
             return {"success": False, "error": "rule_id is required"}

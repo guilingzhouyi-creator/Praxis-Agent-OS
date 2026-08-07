@@ -121,7 +121,6 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
         # the discovery path so builtins still load, just behind the override.
         return [env_val, "config/skills"]
 
-    project = Path.cwd()
     base: dict[DeployMode, list[str]] = {
         DeployMode.CLI_PROJECT: [
             "config/skills",     # built-in skills — shipped with the repo (read-only)
@@ -132,7 +131,8 @@ def _get_skill_dirs(mode: DeployMode, data_dir: str) -> list[str]:
         ],
         DeployMode.PIP_PACKAGE: [
             os.path.join(data_dir, "skills"),
-            os.path.join(os.path.dirname(sys.modules.get("l1.kernel", Path()).__file__ or ""), "..", "..", "skills") if "l1.kernel" in sys.modules else "",
+            (lambda _pkg: os.path.join(os.path.dirname(_pkg.__file__), "..", "..", "skills")
+             if _pkg is not None and _pkg.__file__ else "")(sys.modules.get("l1.kernel")),
         ],
         DeployMode.IDE_PLUGIN: [
             os.path.join(data_dir, "skills"),

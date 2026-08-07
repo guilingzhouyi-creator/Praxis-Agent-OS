@@ -123,6 +123,10 @@ class InterruptController:
             return {"success": True, "irq_num": irq_num, "name": name}
 
     def unregister(self, irq_num: int) -> dict:
+        """Unregister the interrupt slot for irq_num.
+
+        Returns success/error dict.
+        """
         with self._lock:
             if irq_num not in self._table:
                 return {"success": False, "error": f"irq {irq_num} not registered"}
@@ -199,6 +203,10 @@ class InterruptController:
     # ── Masking ───────────────────────────────────────────────────
 
     def mask(self, irq_num: int | str) -> dict:
+        """Mask an interrupt so its non-NMI events are dropped.
+
+        Returns success/error dict.
+        """
         with self._lock:
             slot = self._resolve_slot(irq_num)
             if slot is None:
@@ -209,6 +217,10 @@ class InterruptController:
             return {"success": True}
 
     def unmask(self, irq_num: int | str) -> dict:
+        """Unmask the given interrupt so events are queued again.
+
+        Returns success/error dict.
+        """
         with self._lock:
             slot = self._resolve_slot(irq_num)
             if slot is None:
@@ -217,6 +229,10 @@ class InterruptController:
             return {"success": True}
 
     def set_handler(self, irq_num: int | str, handler: Callable) -> dict:
+        """Replace the handler for the given interrupt.
+
+        Returns success/error dict.
+        """
         with self._lock:
             slot = self._resolve_slot(irq_num)
             if slot is None:
@@ -227,6 +243,7 @@ class InterruptController:
     # ── Stats ─────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return interrupt controller statistics as a dict."""
         with self._lock:
             return {
                 "cell_id": self.cell_id,

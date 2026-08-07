@@ -20,7 +20,7 @@ import json
 import logging
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 
 from l1.kernel.device import get_device_manager
 from l1.kernel.discovery import get_tool_config
@@ -129,7 +129,7 @@ class LLMEngine:
         if self.config.use_websocket:
             from .llm_providers import WebSocketProvider
 
-            return WebSocketProvider(self.config.api_url, self.config.model, self.config.api_key)
+            return cast(LLMProvider, WebSocketProvider(self.config.api_url, self.config.model))
 
         registry = get_registry()
         provider = registry.build_provider(
@@ -143,7 +143,7 @@ class LLMEngine:
             return provider
 
         logger.warning("llm: no provider '%s', using MockProvider", p)
-        return MockProvider()
+        return cast(LLMProvider, MockProvider())
 
     def _apply_strategy(self, overrides: dict) -> dict:
         """Apply ModelStrategyEngine filtering: remove params the provider doesn't support.
@@ -385,7 +385,7 @@ class LLMEngine:
 
         tool_defs = [self._tool_def_to_api(t) for t in active_tools]
         tool_map = {t.name: t for t in tools}
-        all_calls = []
+        all_calls: list[dict] = []
         reasoning_trail: list[str] = []
         reasoning_tokens_total = 0
         tools_elapsed_total = 0.0
@@ -552,10 +552,13 @@ class LLMEngine:
         provider = self._provider
         headers = {"Content-Type": "application/json"}
         try:
-            headers.update(provider.get_headers())
+            gh = getattr(provider, "get_headers", None)
+            if gh:
+                headers.update(gh())
         except Exception as e:
             logger.warning("provider get_headers failed: %s", e)
-        url = provider.get_api_url(self.config.api_url)
+        gu = getattr(provider, "get_api_url", None)
+        url = gu(self.config.api_url) if gu else self.config.api_url
 
         # Persistent connection reuse (per-thread) instead of a fresh
         # TCP/TLS handshake on every call.
@@ -605,7 +608,7 @@ class LLMEngine:
                 "tool_calls": [],
                 "cache_hit_tokens": 0,
                 "cache_miss_tokens": 0,
-                "error": f"json decode: {raw[:LOG_TRUNC_200]}",
+                "error": f"json decode: {raw[:LOG_TRUNC_200].decode(errors='replace')}",
             }
 
         # Empty response detection
@@ -689,20 +692,25 @@ def _register_llm_port(engine: LLMEngine) -> None:
             user_id: str = "",
             **model_kwargs: Any,
         ) -> dict:
+            """Run a tool-using turn loop via the engine."""
             return engine.tool_use(prompt, tools, system=system, max_turns=max_turns, user_id=user_id, **model_kwargs)
 
         def generate(self, prompt: str, system: str = "", user_id: str = "", **model_kwargs: Any) -> dict:
+            """Generate a completion via the engine."""
             return engine.generate(prompt, system=system, user_id=user_id, **model_kwargs)
 
         def context_window(self, cell_id: str = "", agent_id: str = "") -> dict:
+            """Return the engine's context window usage for the given scope."""
             cw = engine.context_window(cell_id=cell_id, agent_id=agent_id)
             return {"context_window": cw, "source": "llm"}
 
         def optimize_prompt(self, prompt: str, system: str = "") -> tuple[str, str]:
+            """Return the optimized prompt and system pair."""
             return optimize_prompt(prompt, system)
 
         def provider_status(self) -> dict:
-            return {"status": "ok", "provider": str(engine.provider_name())}
+            """Report the active provider health status."""
+            return {"status": "ok", "provider": engine.provider_name}
 
     register_port("llm", _LLMEngineAdapter())
 

@@ -22,6 +22,7 @@ import logging
 import os
 import threading
 import time
+from typing import Any
 
 from l1.kernel.lifecycle import LifecycleState, get_lifecycle, transition
 from l1.kernel.params.agent import DEFAULT_CELL_ID, TERRITORY_PATHS
@@ -254,7 +255,7 @@ def boot(agent_config: list[tuple[str, str, list[str]]] | None = None, interacti
     lock_registry()
 
     order = resolve_boot_order()
-    results = {}
+    results: dict[str, Any] = {}
     success = True
 
     from .boot_registry import _boot_registry
@@ -378,7 +379,7 @@ def _load_constitution() -> dict:
 
     constitution_path = get_paths().constitution_file
     path = Path(os.environ.get(CONSTITUTION_ENV_VAR, constitution_path))
-    result = {"source": str(path) if path.exists() else "none"}
+    result: dict[str, Any] = {"source": str(path) if path.exists() else "none"}
     try:
         if path.exists():
             c = load_territory(str(path))
@@ -593,6 +594,32 @@ def _init_discovery() -> dict:
         },
     )
 
+    # Register service runtime limits (params → get_config fallback).
+    # Declared declaratively in config/discovery/service_limits.yaml; consumers
+    # read via get_config("service_limits", {}).get(key, params_default).
+    register(
+        "service_limits",
+        {
+            "execution_step_timeout": _ps.EXECUTION_STEP_TIMEOUT,
+            "dialogue_max_turns": _ps.DIALOGUE_MAX_TURNS,
+            "dialogue_max_context_tokens": _ps.DIALOGUE_MAX_CONTEXT_TOKENS,
+            "dialogue_persist_every": _ps.DIALOGUE_PERSIST_EVERY,
+            "transaction_area_max_queue": _ps.TRANSACTION_AREA_MAX_QUEUE,
+            "monitor_bus_max_queued": _ps.MONITOR_BUS_MAX_QUEUED,
+            "error_bus_query_limit": _ps.ERROR_BUS_QUERY_LIMIT,
+            "record_center_default_limit": _ps.RECORD_CENTER_DEFAULT_LIMIT,
+            "record_center_retention_days": _ps.RECORD_CENTER_RETENTION_DAYS,
+            "memory_ring_score_char_weight": _ps.MEMORY_RING_SCORE_CHAR_WEIGHT,
+            "memory_ring_score_tag_weight": _ps.MEMORY_RING_SCORE_TAG_WEIGHT,
+            "memory_ring_score_high_importance": _ps.MEMORY_RING_SCORE_HIGH_IMPORTANCE,
+            "memory_ring_score_moderate_importance": _ps.MEMORY_RING_SCORE_MODERATE_IMPORTANCE,
+            "memory_ring_score_long_tokens": _ps.MEMORY_RING_SCORE_LONG_TOKENS,
+            "memory_ring_score_medium_tokens": _ps.MEMORY_RING_SCORE_MEDIUM_TOKENS,
+            "memory_ring_score_good_threshold": _ps.MEMORY_RING_SCORE_GOOD_THRESHOLD,
+            "memory_ring_score_average_threshold": _ps.MEMORY_RING_SCORE_AVERAGE_THRESHOLD,
+        },
+    )
+
     # Register discovery directory
     from pathlib import Path as _Path
 
@@ -640,7 +667,7 @@ def _init_kernel_and_vfs() -> dict:
     except Exception as e:
         logger.warning("boot: stagnation callback wiring failed: %s", e)
 
-    results = {}
+    results: dict[str, Any] = {}
     for name, fn in [
         ("constitution", get_constitution),
         ("event_bus", get_event_bus),
@@ -718,7 +745,7 @@ def _init_record_center() -> dict:
 
 def _init_skills_and_network() -> dict:
     """Init skills, network kernel, HTN planner, capability detector."""
-    results = {}
+    results: dict[str, Any] = {}
     from l1.kernel.skill import get_skill_manager
 
     n = get_skill_manager().load_builtin()
@@ -753,7 +780,7 @@ def _init_skills_and_network() -> dict:
 
 def _init_memory_and_archive() -> dict:
     """Init MemoryManager, Archive, R4Agent, IssueTable, CredentialVault."""
-    results = {}
+    results: dict[str, Any] = {}
     try:
         from l3.memory.memory import get_memory
 
@@ -837,7 +864,7 @@ def _init_system_bus() -> dict:
     Registers EventBus, StatsCenter, RecordCenter, CentralController
     so they participate in the unified lifecycle and event routing.
     """
-    results = {}
+    results: dict[str, Any] = {}
     try:
         from l1.kernel.bus import get_root_bus
 
@@ -872,7 +899,7 @@ def _init_system_bus() -> dict:
 
 def _init_services() -> dict:
     """Initialize all kernel services."""
-    results = {}
+    results: dict[str, Any] = {}
     for sub_fn in [_init_kernel_and_vfs, _init_skills_and_network, _init_memory_and_archive]:
         try:
             r = sub_fn()
@@ -1012,7 +1039,7 @@ G5: report_decision
 
 def _post_boot_health_check() -> dict:
     """Verify core subsystems are operational after boot. Does not block."""
-    checks = {}
+    checks: dict[str, Any] = {}
     try:
         from l3.memory.memory import get_memory
 

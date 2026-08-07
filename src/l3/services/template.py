@@ -25,8 +25,9 @@ class TemplateService(BaseService):
         return {"success": True}
 
     def render(self, template: str, variables: dict | None = None) -> dict:
+        """Render a Jinja2 template string with the given variables."""
         try:
-            from jinja2 import BaseLoader, Environment, TemplateNotFound
+            from jinja2 import BaseLoader, Environment
             env = Environment(loader=BaseLoader(), autoescape=False)
             tpl = env.from_string(template)
             output = tpl.render(**(variables or {}))
@@ -37,6 +38,7 @@ class TemplateService(BaseService):
             return {"success": False, "error": str(e)}
 
     def render_file(self, template_path: str, variables: dict | None = None, output_path: str = "") -> dict:
+        """Render a template file, optionally writing the output to a path."""
         from pathlib import Path
         p = Path(template_path)
         if not p.exists():
@@ -56,6 +58,7 @@ class TemplateService(BaseService):
             return {"success": False, "error": str(e)}
 
     def list_variables(self, template: str) -> dict:
+        """List undeclared variables referenced by the template string."""
         try:
             from jinja2 import BaseLoader, Environment, meta
             env = Environment(loader=BaseLoader())
@@ -72,6 +75,7 @@ _service: TemplateService | None = None
 
 
 def get_service() -> TemplateService:
+    """Return the TemplateService singleton, creating it if needed."""
     global _service
     if _service is None:
         _service = TemplateService()
@@ -79,6 +83,7 @@ def get_service() -> TemplateService:
 
 
 def reset_service() -> None:
+    """Stop and reset the TemplateService singleton."""
     global _service
     if _service:
         _service.stop()

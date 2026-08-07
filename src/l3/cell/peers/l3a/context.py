@@ -47,9 +47,11 @@ class ContextRegistry:
         self._sources: dict[str, ContextSource] = {}
 
     def register(self, source: ContextSource) -> None:
+        """Register a context source under its key."""
         self._sources[source.key] = source
 
     def get(self, key: str) -> ContextSource | None:
+        """Return the source registered under key, or None when absent."""
         return self._sources.get(key)
 
     def list_sources(self) -> list[str]:
@@ -57,6 +59,7 @@ class ContextRegistry:
         return list(self._sources.keys())
 
     def load_all(self) -> dict[str, Any]:
+        """Load values from all enabled sources, skipping failed loaders, and return a key-value dict."""
         values = {}
         for key, src in self._sources.items():
             if not src.enabled:
@@ -69,6 +72,7 @@ class ContextRegistry:
         return values
 
     def render_baseline(self, values: dict[str, Any]) -> str:
+        """Render the full baseline text from all enabled sources."""
         parts = []
         for key, src in self._sources.items():
             if not src.enabled:
@@ -82,6 +86,7 @@ class ContextRegistry:
 
     def diff(self, snapshot: dict[str, Any],
              values: dict[str, Any]) -> list[MidConversationMessage]:
+        """Compare a snapshot with current values and return messages for changed sources."""
         changes = []
         for key, src in self._sources.items():
             if not src.enabled:
@@ -91,11 +96,11 @@ class ContextRegistry:
             if old == new:
                 continue
             if new is None and src.render_removal:
-                text = src.render_removal()
+                text = src.render_removal() or ""
             elif src.render_update and old is not None and new is not None:
-                text = src.render_update(old, new)
+                text = src.render_update(old, new) or ""
             elif src.render_update and old is None and new is not None:
-                text = src.render_baseline(new)
+                text = src.render_baseline(new) or ""
             else:
                 continue
             if text:
@@ -118,6 +123,7 @@ class ContextEpoch:
 
     @classmethod
     def create(cls, registry: ContextRegistry) -> ContextEpoch:
+        """Create and persist a new epoch with a fresh baseline and snapshot; return it."""
         values = registry.load_all()
         baseline = registry.render_baseline(values)
         snap = {k: v for k, v in values.items() if v is not None}
@@ -134,6 +140,7 @@ class ContextEpoch:
 
     @classmethod
     def restore(cls) -> ContextEpoch | None:
+        """Restore the persisted epoch snapshot, or None when unavailable."""
         try:
             from l3.agent.agent_persist import load_snapshot as _ls
             snap = _ls(_p.AGENT_ID)
@@ -151,6 +158,7 @@ class ContextEpoch:
         return None
 
     def persist(self) -> None:
+        """Persist this epoch's snapshot through the agent persist layer."""
         try:
             from l3.agent.agent_persist import save_snapshot as _ss
             _ss(_p.AGENT_ID, {_p.EPOCH_SNAPSHOT_KEY: {
@@ -177,4 +185,5 @@ class ContextEpoch:
         return changes
 
     def estimate_tokens(self) -> int:
+        """Estimate the baseline token count from characters per token."""
         return len(self.baseline) // TOKEN_CHARS_PER_TOKEN

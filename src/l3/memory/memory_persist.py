@@ -8,16 +8,29 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from l1.kernel.params.system import MEMORY_IMPORTANCE_BASE, MEMORY_PERSIST_FILE_RING3
+
+if TYPE_CHECKING:
+    from l3.memory.memory_ring import RingLayer
 
 logger = logging.getLogger(__name__)
 
 
 class MemoryPersistMixin:
     """MemoryPersistMixin — JSONL (Ring 2) + SQLite FTS5 (Ring 3) persistence."""
+
+    # ── Attributes injected by the concrete MemoryManager (see memory.py) ──
+    _persist_dir: Path | None
+    _lock: threading.Lock
+    _dirty_short: set[str]
+    _dirty_long: set[str]
+    short: RingLayer
+    long: RingLayer
 
     def _jsonl_path(self) -> Path:
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING2

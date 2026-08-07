@@ -266,6 +266,7 @@ class ConventionProtocol:
         return self._build_document()
 
     def status(self) -> dict:
+        """Return a status summary of the discussion."""
         return {
             "card_id": self.issue_card.id,
             "status": self.issue_card.status.name,

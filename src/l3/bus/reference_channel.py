@@ -210,6 +210,7 @@ class ReferenceChannel:
     def human_correction(self, card_id: str, agent_id: str,
                          field: str, old_value: str,
                          new_value: str, reason: str = "") -> None:
+        """Record a human correction signal. Returns None."""
         self.event("human_correction", {
             "card_id": card_id, "agent_id": agent_id,
             "field": field, "old_preview": str(old_value)[:LOG_TRUNC_200],
@@ -218,6 +219,7 @@ class ReferenceChannel:
 
     def anomaly(self, card_id: str, detection: dict,
                 cell_id: str = "") -> None:
+        """Record an anomaly detection event. Returns None."""
         self.event("anomaly", {
             "card_id": card_id, "cell_id": cell_id,
             "detection": detection,
@@ -225,6 +227,7 @@ class ReferenceChannel:
 
     def convention(self, card_id: str, outcome: str,
                    participants: list[str], summary: str = "") -> None:
+        """Record a convention deliberation outcome. Returns None."""
         self.event("convention", {
             "card_id": card_id, "outcome": outcome,
             "participant_count": len(participants),
@@ -258,11 +261,13 @@ class ReferenceChannel:
         return results
 
     def count(self, event_type: str = "") -> int:
+        """Return the event count, optionally filtered by type."""
         if event_type:
             return len(self.export(limit=RC_EXPORT_LIMIT, event_type=event_type))
         return self._total
 
     def stats(self) -> dict:
+        """Return reference channel statistics. Returns a stats dict."""
         with self._lock:
             buffered = len(self._ring)
         return {
@@ -299,6 +304,7 @@ def get_rc() -> ReferenceChannel:
 
 
 def reset_rc() -> None:
+    """Reset the reference channel singleton. Returns None."""
     global _rc
     if _rc is not None:
         _rc.stop()

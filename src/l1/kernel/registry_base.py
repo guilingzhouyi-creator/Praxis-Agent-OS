@@ -54,6 +54,7 @@ class RegisterableSpec:
     version: str = "1.0.0"
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the spec to a plain dict (description truncated)."""
         return {
             "name": self.name,
             "description": self.description[:LOG_TRUNC_200],
@@ -133,6 +134,7 @@ class MapRegistry(Registry[T]):
         self._on_unregister = cb
 
     def register(self, spec: T, *, source: str = "code") -> bool:
+        """Register *spec*; returns False if the name exists and overwrite is disallowed."""
         with self._lock:
             if spec.name in self._items and not self._allow_overwrite:
                 return False
@@ -144,6 +146,7 @@ class MapRegistry(Registry[T]):
         return True
 
     def unregister(self, name: str) -> bool:
+        """Remove *name* from the registry; returns True if it was present."""
         with self._lock:
             if name not in self._items:
                 return False
@@ -155,20 +158,32 @@ class MapRegistry(Registry[T]):
         return True
 
     def get(self, name: str) -> T | None:
+        """Return the spec registered under *name*, or None."""
         with self._lock:
             return self._items.get(name)
 
-    def list(self, category: str = "") -> list[T]:
+    def list_items(self, category: str = "") -> list[T]:
+        """Return all registered specs, optionally filtered by *category*."""
         with self._lock:
             if not category:
                 return list(self._items.values())
             return [s for s in self._items.values() if s.category == category]
 
+    def list(self, category: str = "") -> list[T]:
+        """Return all registered specs, optionally filtered by *category*.
+
+        Compatibility alias of :meth:`list_items` — the Registry ABC requires
+        ``list`` and legacy callers (tests, ToolRegistry) depend on it.
+        """
+        return self.list_items(category=category)
+
     def all_names(self) -> list[str]:
+        """Return the names of all registered specs."""
         with self._lock:
             return list(self._items.keys())
 
     def stats(self) -> dict[str, Any]:
+        """Return registry statistics (total, register/unregister counts, categories)."""
         with self._lock:
             return {
                 "total": len(self._items),
@@ -183,6 +198,7 @@ class MapRegistry(Registry[T]):
         return counts
 
     def clear(self) -> int:
+        """Remove all entries; returns the number of entries cleared."""
         with self._lock:
             n = len(self._items)
             self._items.clear()

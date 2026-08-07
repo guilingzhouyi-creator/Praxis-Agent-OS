@@ -14,6 +14,7 @@ except ImportError:
 
 
 def agent_list(args: dict, agent_id: str) -> dict:
+    """List known peer agents from the cell; returns agents dict."""
     if HAS_CELL:
         try:
             cell = get_cell()
@@ -25,6 +26,7 @@ def agent_list(args: dict, agent_id: str) -> dict:
 
 
 def agent_heartbeat(args: dict, agent_id: str) -> dict:
+    """Ping a peer agent (or self-check) over IPC; returns status dict."""
     target = args.get("target", "")
     if not target:
         return {"success": True, "status": "alive", "agent_id": agent_id}
@@ -40,6 +42,7 @@ def agent_heartbeat(args: dict, agent_id: str) -> dict:
 
 
 def agent_message(args: dict, agent_id: str) -> dict:
+    """Send a direct message to a peer agent over IPC; returns success dict."""
     target = args.get("target", "")
     message = args.get("message", "")
     if not target or not message:

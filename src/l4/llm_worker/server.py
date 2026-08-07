@@ -26,6 +26,7 @@ class LLMWorkerServer:
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
+        """Start the IPC server and begin accepting LLM worker connections."""
         from l1.kernel.platform import create_ipc_server
         self._server, self._address = await create_ipc_server(
             self._handle_client, self._socket_path,
@@ -34,6 +35,7 @@ class LLMWorkerServer:
                      self._address, self._workers)
 
     async def stop(self) -> None:
+        """Shut down the IPC server and remove the socket file."""
         from l1.kernel.platform import remove_ipc_socket
         if self._server:
             self._server.close()
@@ -85,6 +87,7 @@ class LLMWorkerServer:
 
 
 def main() -> None:
+    """CLI entry: run the LLM worker server on the configured socket."""
     socket_path = os.environ.get("PRAXIS_LLM_SOCKET", "")
     if not socket_path and len(sys.argv) > 2 and sys.argv[1] == "--socket":
         socket_path = sys.argv[2]

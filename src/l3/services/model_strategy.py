@@ -110,6 +110,7 @@ class CapabilityDetector:
         return count
 
     def stats(self) -> dict:
+        """Return probe cache/failure counters for the detector."""
         with self._lock:
             resolved = sum(1 for v in self._cache.values() if isinstance(v, dict))
             pending = sum(1 for v in self._cache.values() if isinstance(v, Future))
@@ -126,6 +127,7 @@ _detector: CapabilityDetector | None = None
 
 
 def get_detector() -> CapabilityDetector:
+    """Return the shared CapabilityDetector singleton, creating it on first use."""
     global _detector
     if _detector is None:
         _detector = CapabilityDetector()
@@ -133,6 +135,7 @@ def get_detector() -> CapabilityDetector:
 
 
 def reset_detector() -> None:
+    """Drop the CapabilityDetector singleton (for testing / hot-reload)."""
     global _detector
     _detector = None
 
@@ -159,6 +162,7 @@ class ModelStrategyEngine:
         self._agents: dict[str, dict] = {}
 
     def set_global(self, **kwargs: Any) -> None:
+        """Set global-layer think config keys; unknown keys are logged and ignored."""
         with self._lock:
             for k, v in kwargs.items():
                 if k in ALL_KEYS:
@@ -167,25 +171,30 @@ class ModelStrategyEngine:
                     logger.warning("strategy: unknown key %s", k)
 
     def get_global(self) -> dict[str, Any]:
+        """Return a copy of the global-layer think config."""
         with self._lock:
             return dict(self._global)
 
     def set_cell(self, cell_id: str, **config: Any) -> None:
+        """Set cell-layer think config; None values are ignored."""
         with self._lock:
             entry = self._cells.setdefault(cell_id, {})
             entry.update({k: v for k, v in config.items() if v is not None})
 
     def get_cell(self, cell_id: str) -> dict[str, Any]:
+        """Return a copy of the cell-layer think config for the given Cell."""
         with self._lock:
             return dict(self._cells.get(cell_id, {}))
 
     def set_agent(self, cell_id: str, agent_id: str, **config: Any) -> None:
+        """Set agent-layer think config; None values are ignored."""
         key = f"{cell_id}.{agent_id}"
         with self._lock:
             entry = self._agents.setdefault(key, {})
             entry.update({k: v for k, v in config.items() if v is not None})
 
     def get_agent(self, cell_id: str, agent_id: str) -> dict[str, Any]:
+        """Return a copy of the agent-layer think config for the given agent."""
         key = f"{cell_id}.{agent_id}"
         with self._lock:
             return dict(self._agents.get(key, {}))
@@ -218,6 +227,7 @@ class ModelStrategyEngine:
         return result
 
     def reset(self) -> None:
+        """Clear all three layers of think config."""
         with self._lock:
             self._global = {k: None for k in ALL_KEYS}
             self._cells.clear()
@@ -230,6 +240,7 @@ _engine: ModelStrategyEngine | None = None
 
 
 def get_engine() -> ModelStrategyEngine:
+    """Return the shared ModelStrategyEngine singleton, creating it on first use."""
     global _engine
     if _engine is None:
         _engine = ModelStrategyEngine()
@@ -237,5 +248,6 @@ def get_engine() -> ModelStrategyEngine:
 
 
 def reset_engine() -> None:
+    """Drop the ModelStrategyEngine singleton (for testing / hot-reload)."""
     global _engine
     _engine = None

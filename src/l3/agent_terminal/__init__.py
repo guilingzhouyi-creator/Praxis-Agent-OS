@@ -22,7 +22,6 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_STEPS,
     AGENT_LOOP_DEFAULT_TIMEOUT,
     AGENT_TERMINAL_MAX_SCOUTS,
-    AGENT_TERMINAL_RESULTS_MAX,
     AGENT_TERMINAL_STDERR_MAX,
     AGENT_TERMINAL_STDIN_MAX,
     AGENT_TERMINAL_STDOUT_MAX,
@@ -30,44 +29,29 @@ from l1.kernel.params.agent import (
     CARD_WAIT_TIMEOUT,
     DEFAULT_AGENT_CONFIGS,
     EVENT_REVIEW_REQUESTED,
-    EVENT_TASK_ASSIGN,
     TERMINAL_MAX_WORKERS,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import (
     HASH_TRUNC_SHORT,
-    LOG_TRUNC_40,
-    LOG_TRUNC_60,
     LOG_TRUNC_80,
-    LOG_TRUNC_120,
     LOG_TRUNC_200,
-    LOG_TRUNC_300,
     LOG_TRUNC_500,
-    MEMORY_IMPORTANCE_DECISION,
-    MEMORY_PROMOTION_THRESHOLD,
-    POLL_INTERVAL_FAST,
-    POLL_INTERVAL_PAUSED,
     POLL_INTERVAL_SLOW,
     SCOUT_COLLECT_TIMEOUT,
 )
 from l3.services.model_service import get_service as _get_model_service
 
-from ..agent._term_handlers import get_action_handler
-from ..agent._term_lifecycle import run_cache_keepalive
-from ..agent._term_types import CardMode, CardResult, TerminalCard, TerminalStatus
+from ..agent._term_lifecycle import run_cache_keepalive  # noqa: F401  (re-export)
+from ..agent._term_types import CardMode, CardResult, TerminalCard, TerminalStatus  # noqa: F401  (CardMode re-export)
 from ..agent.scout import get_pool as get_scout_pool
 from ..memory.cache import get_context_register, get_file_cache
-from ..memory.context import get_context as get_context_manager
-from ..tool_system.tool_pipeline import get_pipeline
 from .card_execution import CardExecutionMixin
 from .worker_pool import WorkerPoolMixin
 
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), ".."))
-
-# ── Cache keepalive ──
-from l1.kernel.params.agent import CACHE_KEEPALIVE_INTERVAL, CACHE_KEEPALIVE_PROMPT
 
 _MODEL_SPEC = "peer_agent"
 
@@ -168,9 +152,11 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return {"success": True, "max_workers": self._max_workers}
 
     def set_pmu(self, pmu: Any) -> None:
+        """Attach the PMU reference used for tool injection."""
         self._pmu = pmu
 
     def set_tool_registry(self, registry: dict[str, Any]) -> None:
+        """Attach the tool registry used for tool listing."""
         self._tool_registry = registry
 
     def set_watchdog_pet(self, fn: Any) -> None:
@@ -178,6 +164,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         self._watchdog_pet = fn
 
     def list_tools(self) -> list[dict]:
+        """List tools available to this terminal, filtered by ring and muting."""
         if not self._tool_registry:
             return []
         from l1.kernel.params.kernel import RING_NUM_MAP as _RNM
@@ -208,6 +195,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
 
     def add_todo(self, intent: str, domain: str = "", priority: int = 5,
                  depends_on: list[str] | None = None) -> str:
+        """Add a todo entry; returns the new todo id."""
         tid = self.todo.add(intent, domain, priority, depends_on)
         with self._lock:
             if self.status in (TerminalStatus.IDLE,):
@@ -215,19 +203,23 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return tid
 
     def list_todos(self, status: str = "", limit: int = 20) -> list[dict]:
+        """List todos, optionally filtered by status, up to *limit* entries."""
         from ..services.todo import TodoStatus
         st = TodoStatus[status.upper()] if status else None
         return self.todo.list(st, limit)
 
     def cancel_todo(self, todo_id: str) -> bool:
+        """Cancel a todo entry; returns True on success."""
         return self.todo.cancel(todo_id)
 
     def todo_stats(self) -> dict:
+        """Return todo table statistics."""
         return self.todo.stats()
 
     # ── External API ──
 
     def dispatch(self, card: TerminalCard) -> str:
+        """Queue a card for execution; returns the card id."""
         with self._lock:
             self.add_todo(f"{card.action} {card.target}", priority=3)
             self.stdin.append(card)
@@ -236,6 +228,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return card.card_id
 
     def wait_for_result(self, card_id: str, timeout: float = CARD_WAIT_TIMEOUT) -> CardResult | None:
+        """Block until the card result is ready or *timeout* elapses."""
         event = threading.Event()
         with self._lock:
             if card_id in self._results:
@@ -246,6 +239,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             return self._results.get(card_id)
 
     def read_stdout(self, clear: bool = True) -> list[CardResult]:
+        """Read accumulated stdout results, optionally clearing them."""
         with self._lock:
             r = list(self.stdout)
             if clear:
@@ -253,6 +247,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             return r
 
     def read_stderr(self, clear: bool = True) -> list[str]:
+        """Read accumulated stderr messages, optionally clearing them."""
         with self._lock:
             r = list(self.stderr)
             if clear:
@@ -296,6 +291,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
                           success=True, output=answer)
 
     def spawn_scout_async(self, template: str, scope: dict | None = None) -> dict:
+        """Spawn a scout in the background; returns an ack with scout_id."""
         scout_id = f"async-{self.agent_id}-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             if self._async_scout_count >= self.max_scouts:
@@ -320,6 +316,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             self._async_scout_count = max(0, self._async_scout_count - 1)
 
     def collect_scout(self, scout_id: str, timeout: float = SCOUT_COLLECT_TIMEOUT) -> dict:
+        """Collect an async scout result, waiting up to *timeout* seconds."""
         event = threading.Event()
         with self._lock:
             if scout_id in self._async_scouts:
@@ -330,6 +327,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
             return self._async_scouts.pop(scout_id, {"success": False, "error": "timeout"})
 
     def collect_all_scouts(self, timeout: float = SCOUT_COLLECT_TIMEOUT) -> list[dict]:
+        """Collect all pending async scout results, waiting up to *timeout*."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:
@@ -369,6 +367,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return {"success": True, "card_timeout": timeout}
 
     def set_mode(self, mode: str) -> dict:
+        """Set the loop mode; returns success or a validation error."""
         from l1.kernel.params.agent import TERMINAL_MODE_VALID
         valid = TERMINAL_MODE_VALID
         if mode not in valid:
@@ -377,16 +376,19 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return {"success": True, "mode": mode}
 
     def pause(self) -> dict:
+        """Pause the terminal; blocks card processing."""
         self._paused = True
         self.status = TerminalStatus.BLOCKED
         return {"success": True, "paused": True}
 
     def resume(self) -> dict:
+        """Resume the terminal after a pause."""
         self._paused = False
         self.status = TerminalStatus.IDLE
         return {"success": True, "resumed": True}
 
     def shutdown(self) -> dict:
+        """Stop the terminal, join workers, and emit session_end hooks."""
         self._running = False
         for w in self._workers:
             w.join(timeout=AGENT_TERMINAL_WORKER_JOIN_TIMEOUT)
@@ -435,6 +437,7 @@ class AgentTerminal(CardExecutionMixin, WorkerPoolMixin):
         return {"success": True, "card_id": cid}
 
     def status_report(self) -> dict:
+        """Return a snapshot of terminal status and counters."""
         with self._lock:
             return {
                 "agent_id": self.agent_id, "role": self.role, "ring": self.ring,
@@ -454,6 +457,7 @@ _terminals_lock = threading.Lock()
 def get_terminal(agent_id: str, role: str = "",
                  territory: list[str] | None = None,
                  cell_id: str = "") -> AgentTerminal:
+    """Return the shared terminal for *agent_id*, creating it on first use."""
     with _terminals_lock:
         if agent_id not in _terminals:
             _terminals[agent_id] = AgentTerminal(agent_id, role, territory, cell_id)
@@ -461,11 +465,13 @@ def get_terminal(agent_id: str, role: str = "",
 
 
 def get_terminals() -> dict[str, AgentTerminal]:
+    """Return a copy of all registered terminals keyed by agent id."""
     with _terminals_lock:
         return dict(_terminals)
 
 
 def reset_terminals() -> None:
+    """Shut down and clear all registered terminals."""
     with _terminals_lock:
         for t in list(_terminals.values()):
             t.shutdown()

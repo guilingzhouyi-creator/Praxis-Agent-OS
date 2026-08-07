@@ -59,6 +59,7 @@ class L3ASubAgentPool:
 
     def commission(self, spec: str, task: str, group: str = "",
                    expect: dict | None = None, strategy: str = "") -> dict:
+        """Spawn a subagent task from a spec and return its registration dict."""
         if spec not in _L3A_SPECS:
             return {"success": False, "error": f"unknown spec: {spec}"}
         spec_def = _L3A_SPECS[spec]
@@ -82,6 +83,7 @@ class L3ASubAgentPool:
         return {"success": True, "task_id": tid, "spec": spec, "group": group}
 
     def collect(self, group: str, timeout: float = 30.0) -> dict:
+        """Wait for a task group's futures up to timeout and return its results dict."""
         t0 = time.time()
         with self._lock:
             grp = self._groups.get(group)
@@ -94,7 +96,6 @@ class L3ASubAgentPool:
                 t = self._tasks.get(tid)
                 if t and t.future:
                     futures.append(t.future)
-        remaining = timeout
         deadline = time.time() + timeout
         results = []
         for fut in as_completed(futures):
@@ -105,7 +106,7 @@ class L3ASubAgentPool:
                 fut.result(timeout=deadline - now)
             except Exception as e:
                 # Task failed/timed out — status already recorded on the task object.
-                logger.debug("l3a.subagent: task %s failed/timed out: %s", task_id, e)
+                logger.debug("l3a.subagent: task failed/timed out: %s", e)
         with self._lock:
             for tid in tids:
                 t = self._tasks.get(tid)
@@ -120,6 +121,7 @@ class L3ASubAgentPool:
                 "count": len(results), "elapsed": round(elapsed, 2)}
 
     def peek(self, task_id: str) -> dict:
+        """Return a task's current status and result without waiting."""
         with self._lock:
             t = self._tasks.get(task_id)
         if not t:
@@ -128,6 +130,7 @@ class L3ASubAgentPool:
                 "status": t.status, "result": t.result}
 
     def shutdown(self, wait: bool = True) -> None:
+        """Shut down the executor, optionally waiting for running tasks."""
         self._executor.shutdown(wait=wait)
         logger.debug("l3a subagent pool: shut down")
 
@@ -174,25 +177,28 @@ class L3ASubAgentPool:
                 if handler is None:
                     logger.warning("l3a subagent: tool %s handler not found", tn)
                     continue
-                desc = tn
-                params: dict[str, str] = {}
+                if tn == "cardwrite":
+                    loop.add_tool(
+                        tn,
+                        "Create and submit a structured card.",
+                        {"nature": "string", "title": "string",
+                         "description": "string", "columns": "dict",
+                         "priority": "int", "phases": "list"},
+                        handler,
+                        parallel_safe=False,
+                    )
+                    registered.add(tn)
+                    continue
                 try:
                     from l3.tool_system.tool_spec import get_tool as _gt
-                    spec = _gt(tn)
-                    if spec:
-                        desc = spec.description or tn
-                        if spec.parameters:
-                            params = {p.name: p.type for p in spec.parameters}
+                    tool_spec: Any = _gt(tn)
                 except Exception:
                     capture("l3a subagent: tool spec parse failed", error_code="E_L3A_SA", component="l3a", context={"tool_name": tn})
-                    pass
-                if tn == "cardwrite":
-                    params = {"nature": "string", "title": "string",
-                              "description": "string", "columns": "dict",
-                              "priority": "int", "phases": "list"}
-                    desc = "Create and submit a structured card."
-                loop.add_tool(tn, desc, params, handler,
-                              parallel_safe=(tn != "cardwrite"))
+                    tool_spec = None
+                if tool_spec is None:
+                    loop.add_tool(tn, tn, {}, handler, parallel_safe=True)
+                else:
+                    loop.add_tool_from_spec(tool_spec, handler=handler, parallel_safe=True)
                 registered.add(tn)
 
             model_cfg = self._resolve_model_config(strategy)
@@ -260,6 +266,7 @@ _pool_lock = threading.Lock()
 
 
 def get_pool() -> L3ASubAgentPool:
+    """Return the process-wide subagent pool singleton, creating it on first use."""
     global _pool
     if _pool is None:
         with _pool_lock:
@@ -269,6 +276,7 @@ def get_pool() -> L3ASubAgentPool:
 
 
 def reset_pool() -> None:
+    """Shut down and clear the pool singleton (for testing)."""
     global _pool
     if _pool:
         _pool.shutdown(wait=True)
@@ -279,6 +287,7 @@ def reset_pool() -> None:
 
 
 def l3a_spawn_handler(args: dict, agent_id: str = "") -> dict:
+    """Tool handler that commissions a subagent from tool args."""
     spec = args.get("spec", "investigator")
     task = args.get("task", "")
     group = args.get("group", "")
@@ -287,11 +296,13 @@ def l3a_spawn_handler(args: dict, agent_id: str = "") -> dict:
 
 
 def l3a_collect_handler(args: dict, agent_id: str = "") -> dict:
+    """Tool handler that collects a subagent group's results from tool args."""
     group = args.get("group", "")
     timeout = float(args.get("timeout", 30))
     return get_pool().collect(group=group, timeout=timeout)
 
 
 def l3a_peek_handler(args: dict, agent_id: str = "") -> dict:
+    """Tool handler that peeks a subagent task's status from tool args."""
     task_id = args.get("task_id", "")
     return get_pool().peek(task_id=task_id)

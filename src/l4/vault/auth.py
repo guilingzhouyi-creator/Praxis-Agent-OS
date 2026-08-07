@@ -35,18 +35,22 @@ class KeyVault:
         self._lock = threading.Lock()
 
     def set(self, key: str, value: str) -> None:
+        """Store a secret value under the given key."""
         with self._lock:
             self._keys[key] = value
 
     def get(self, key: str, default: str = "") -> str:
+        """Return the stored value for the key, or the default when absent."""
         with self._lock:
             return self._keys.get(key, default)
 
     def delete(self, key: str) -> bool:
+        """Delete the key; return True when it existed."""
         with self._lock:
             return self._keys.pop(key, None) is not None
 
     def list(self) -> list[str]:
+        """Return all stored key names."""
         with self._lock:
             return list(self._keys.keys())
 
@@ -71,17 +75,20 @@ class AuthService(AuthPort, BaseService):
         return {"success": True}
 
     def sign(self, data: str, key: str | None = None) -> dict:
+        """HMAC-SHA256 sign the data, optionally with an explicit key."""
         k = bytes.fromhex(key) if key else self._sign_key
         sig = hmac.new(k, data.encode(), hashlib.sha256).hexdigest()
         return {"success": True, "signature": sig, "algorithm": "HMAC-SHA256"}
 
     def verify(self, data: str, signature: str, key: str | None = None) -> dict:
+        """Verify the HMAC signature over the data."""
         k = bytes.fromhex(key) if key else self._sign_key
         expected = hmac.new(k, data.encode(), hashlib.sha256).hexdigest()
         valid = hmac.compare_digest(expected, signature)
         return {"success": True, "valid": valid}
 
     def hash(self, data: str, algorithm: str = "sha256") -> dict:
+        """Hash the data with the given algorithm and return the digest."""
         try:
             h = hashlib.new(algorithm, data.encode())
             return {"success": True, "hash": h.hexdigest(), "algorithm": algorithm, "size": h.digest_size}
@@ -127,14 +134,17 @@ class AuthService(AuthPort, BaseService):
             return {"success": False, "error": str(e)}
 
     def vault_set(self, key: str, value: str) -> dict:
+        """Store a secret in the vault under the given key."""
         self._vault.set(key, value)
         return {"success": True}
 
     def vault_get(self, key: str) -> dict:
+        """Fetch a secret from the vault by key."""
         value = self._vault.get(key)
         return {"success": True, "key": key, "found": bool(value), "length": len(value) if value else 0}
 
     def vault_list(self) -> dict:
+        """List all vault keys with their count."""
         keys = self._vault.list()
         return {"success": True, "keys": keys, "count": len(keys)}
 
@@ -213,6 +223,7 @@ _service_lock = threading.Lock()
 
 
 def get_service() -> AuthService:
+    """Return the process-wide AuthService singleton, self-registering the auth port."""
     global _service
     if _service is None:
         with _service_lock:
@@ -231,6 +242,7 @@ def get_service() -> AuthService:
 
 
 def reset_service() -> None:
+    """Stop and clear the AuthService singleton."""
     global _service
     if _service:
         _service.stop()

@@ -23,9 +23,11 @@ class RpcMessage:
     @classmethod
     def response(cls, req: RpcMessage, data: dict,
                  error: str = "") -> RpcMessage:
+        """Build a response message mirroring the request id and method."""
         return cls(id=req.id, method=f"rsp:{req.method}",
                    params=data, error=error)
 
     def to_dict(self) -> dict:
+        """Convert the message to a plain dict for serialization."""
         return {"id": self.id, "method": self.method,
                 "params": self.params, "error": self.error}

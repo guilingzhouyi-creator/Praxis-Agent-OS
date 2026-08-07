@@ -34,6 +34,7 @@ _export_mode: str = MCP_EXPORT_MODE
 
 
 def set_export_mode(mode: str) -> None:
+    """Set the MCP tool export mode, ignoring invalid values."""
     global _export_mode
     if mode not in _valid_modes:
         logger.warning("mcp: invalid export mode %r, keeping %s", mode, _export_mode)
@@ -392,6 +393,7 @@ def _dispatch_tool(name: str, arguments: dict) -> dict:
 # ── HTTP handlers (called by ApiGateway route dispatcher) ──
 
 def handle_mcp_tools_list(body: dict | None = None) -> dict:
+    """List the visible MCP tools with schema, mode, and count."""
     tools = _visible_tools()
     return {
         "tools": [
@@ -405,6 +407,7 @@ def handle_mcp_tools_list(body: dict | None = None) -> dict:
 
 
 def handle_mcp_tools_call(body: dict) -> dict:
+    """Dispatch an MCP tool call by name with the given arguments."""
     name = (body or {}).get("name", "")
     arguments = (body or {}).get("arguments", {})
     if not name:
@@ -415,4 +418,5 @@ def handle_mcp_tools_call(body: dict) -> dict:
 
 
 def handle_mcp_ping(body: dict | None = None) -> dict:
+    """Return a healthy status payload with the current export mode."""
     return {"status": "ok", "mode": _export_mode}

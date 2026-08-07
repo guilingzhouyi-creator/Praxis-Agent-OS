@@ -103,20 +103,20 @@ def append(event: str, payload: dict | None = None) -> int:
             (event, json.dumps(payload or {}, default=str), time.time()),
         )
         db.commit()
-        return cur.lastrowid
+        return cur.lastrowid if cur.lastrowid is not None else 0
 
 
 def append_many(events: list[tuple[str, dict]]) -> list[int]:
     """Append multiple events atomically. Returns list of sequence numbers."""
     db = _get_write_db()
-    seqs = []
+    seqs: list[int] = []
     with _DB_LOCK:
         for event, payload in events:
             cur = db.execute(
                 "INSERT INTO events (event, payload, ts) VALUES (?, ?, ?)",
                 (event, json.dumps(payload or {}, default=str), time.time()),
             )
-            seqs.append(cur.lastrowid)
+            seqs.append(cur.lastrowid if cur.lastrowid is not None else 0)
         db.commit()
     return seqs
 
@@ -142,6 +142,7 @@ def query(event_type: str = "", after_seq: int = 0, limit: int = PERSIST_QUERY_L
 
 
 def count(event_type: str = "") -> int:
+    """Return the number of persisted events, optionally filtered by *event_type*."""
     db = _get_read_db()
     with _DB_LOCK:
         if event_type:
@@ -150,6 +151,7 @@ def count(event_type: str = "") -> int:
 
 
 def last_seq() -> int:
+    """Return the highest persisted event sequence number (0 when empty)."""
     db = _get_read_db()
     with _DB_LOCK:
         r = db.execute("SELECT MAX(seq) FROM events").fetchone()

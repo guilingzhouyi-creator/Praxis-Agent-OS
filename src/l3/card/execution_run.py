@@ -11,9 +11,7 @@ import time
 from typing import Any
 
 from l1.kernel import EVENT_REVIEW_REQUESTED, emit_signal
-from l1.kernel.discovery import get_tool_config
 
-_SANDBOX_EXEC_TIMEOUT = get_tool_config("exec_timeout", 300)
 import contextlib  # noqa: E402  (mid-file import avoids circularity)
 
 from l3.card.models import PhaseMode  # noqa: E402
@@ -203,12 +201,23 @@ def _execute_agent(plan, ps, agent_id: str, timeout: float) -> dict:
     card_scope = getattr(plan.card, "_gate_scope", "") if hasattr(plan, "card") else ""
     if card_scope:
         tc.params["_gate_scope"] = card_scope
+    # Inject card nature/domain for skill linkage: the AgentLoop uses these to
+    # tag-boost skill retrieval (different card types → different skills).
+    try:
+        _nature = getattr(plan.card, "nature", "") or ""
+        if _nature:
+            tc.params["_card_nature"] = _nature
+        _domain = getattr(plan.card, "domain", "") or ""
+        if _domain:
+            tc.params["_card_domain"] = _domain
+    except Exception:
+        logger.debug("execution_run: card nature/domain inject failed")
 
     from l3.agent._term_handlers import get_action_handler
 
     handler = get_action_handler(term, ps.action)
     if handler:
-        phases = []
+        phases: list[str] = []
         output, findings, ok = handler(term, tc, phases)
         return {
             "step": ps.action,

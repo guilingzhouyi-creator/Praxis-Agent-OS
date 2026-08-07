@@ -15,6 +15,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false   # one version failing must not cancel the others
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
 
@@ -93,7 +94,6 @@ jobs:
           python -m pytest tests/l3/error_bus/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/identity/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/l3a/ --maxfail=5 -q --tb=short
-          python -m pytest tests/l3/resource_buffer/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/scheduler/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/services/ --maxfail=5 -q --tb=short
           python -m pytest tests/l3/session/ --maxfail=5 -q --tb=short

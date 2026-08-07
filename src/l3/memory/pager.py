@@ -60,6 +60,7 @@ class ContextChunk:
     shared_with: list[str] = field(default_factory=list)
 
     def token_count(self) -> int:
+        """Estimate token count of the chunk content."""
         return max(1, len(self.data) // 4)
 
 
@@ -100,10 +101,12 @@ class PageTable:
             return results
 
     def count(self) -> int:
+        """Return the number of mapped chunk entries."""
         with self._lock:
             return len(self._entries)
 
     def clear(self) -> None:
+        """Remove all chunk mappings from the page table."""
         with self._lock:
             self._entries.clear()
 
@@ -117,6 +120,7 @@ class WorkingSet:
         self._lock = threading.RLock()
 
     def get(self, chunk_id: str) -> ContextChunk | None:
+        """Get a chunk from the working set, refreshing its LRU position."""
         with self._lock:
             chunk = self._chunks.get(chunk_id)
             if chunk:
@@ -140,22 +144,27 @@ class WorkingSet:
         return evicted
 
     def remove(self, chunk_id: str) -> bool:
+        """Remove a chunk from the working set; returns True if it existed."""
         with self._lock:
             return self._chunks.pop(chunk_id, None) is not None
 
     def list(self) -> list[ContextChunk]:
+        """Return all chunks currently in the working set."""
         with self._lock:
             return list(self._chunks.values())
 
     def count(self) -> int:
+        """Return the number of chunks in the working set."""
         with self._lock:
             return len(self._chunks)
 
     def is_full(self) -> bool:
+        """Check whether the working set has reached capacity."""
         with self._lock:
             return len(self._chunks) >= self.capacity
 
     def clear(self) -> None:
+        """Remove all chunks from the working set."""
         with self._lock:
             self._chunks.clear()
 
@@ -304,6 +313,7 @@ class ContextPager(BaseService):
         return None
 
     def stats(self) -> dict:
+        """Return pager statistics for working set, page table, and operations."""
         with self._lock:
             ws = self.working_set.list()
             return {
@@ -318,6 +328,7 @@ _service: ContextPager | None = None
 
 
 def get_service() -> ContextPager:
+    """Get the ContextPager singleton, creating it on first call."""
     global _service
     if _service is None:
         _service = ContextPager()
@@ -325,6 +336,7 @@ def get_service() -> ContextPager:
 
 
 def reset_service() -> None:
+    """Stop and clear the ContextPager singleton."""
     global _service
     if _service:
         _service.stop()

@@ -22,6 +22,7 @@ def _parse_int(body: dict, key: str, default: int = 0) -> int:
 
 
 def handle_log_errors(body: dict | None = None) -> dict:
+    """Handle error log query. Returns matching log entries."""
     b = body or {}
     from . import get_bus
     bus = get_bus()
@@ -34,6 +35,7 @@ def handle_log_errors(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_detail(body: dict | None = None) -> dict:
+    """Handle error log detail query by fingerprint. Returns the entry."""
     b = body or {}
     fingerprint = b.get("fingerprint", "")
     if not fingerprint:
@@ -46,11 +48,13 @@ def handle_log_errors_detail(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_stats(body: dict | None = None) -> dict:
+    """Handle error log statistics query. Returns the stats dict."""
     from . import get_bus
     return get_bus().stats()
 
 
 def handle_log_errors_trend(body: dict | None = None) -> dict:
+    """Handle error log trend query. Returns the trend buckets."""
     b = body or {}
     window = _parse_int(b, "window", 60)
     bucket = _parse_int(b, "bucket", 10)
@@ -59,6 +63,7 @@ def handle_log_errors_trend(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_clear(body: dict | None = None) -> dict:
+    """Handle error log clear. Returns the removal result."""
     b = body or {}
     before = _parse_float(b, "before")
     from . import get_bus
@@ -66,6 +71,7 @@ def handle_log_errors_clear(body: dict | None = None) -> dict:
 
 
 def handle_log_errors_export(body: dict | None = None) -> dict:
+    """Handle error log export to JSON. Returns the export result."""
     b = body or {}
     path = b.get("path", "")
     from . import get_bus

@@ -56,7 +56,7 @@ def _cmd_model_spec(args: list[str]) -> dict:
         return _ms().clear_strategy(args[1])
     if sub == "caps":
         if len(args) >= 2:
-            caps = {"max_reasoning": args[1]}
+            caps: dict[str, object] = {"max_reasoning": args[1]}
             if len(args) >= 3:
                 try:
                     caps["max_budget"] = int(args[2])

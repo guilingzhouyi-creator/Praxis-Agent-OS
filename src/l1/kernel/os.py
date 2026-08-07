@@ -22,6 +22,7 @@ import threading
 import time
 from collections.abc import Callable
 from enum import Enum, auto
+from typing import Any
 
 from .params.kernel import (
     SHUTDOWN_TIMEOUT,
@@ -118,7 +119,7 @@ class OS:
             was = self.state
             self.state = OSState.STOPPING
 
-        results = {}
+        results: dict[str, Any] = {}
         # Run shutdown hooks (with timeout per hook)
         for i, hook in enumerate(self._shutdown_hooks):
             try:
@@ -131,10 +132,11 @@ class OS:
 
         # Dump state to memories (with timeout, like shutdown hooks)
         try:
-            if self._shutdown_handler:
-                holder: dict = {}
+            handler = self._shutdown_handler
+            if handler:
+                holder: dict[str, Any] = {}
                 def _run() -> None:
-                    holder["r"] = self._shutdown_handler()
+                    holder["r"] = handler()
                 t = threading.Thread(target=_run, daemon=True)
                 t.start()
                 t.join(timeout=SHUTDOWN_TIMEOUT)
@@ -218,8 +220,7 @@ class OS:
         from .process import get_table
 
         pt = get_table()
-        procs = pt.list()
-        now = time.time()
+        procs = pt.list_processes()
 
         # Single pass: count zombies + check idle in one O(N)
         zombie_count = 0
@@ -250,6 +251,7 @@ class OS:
     # ── Status ──
 
     def status(self) -> dict:
+        """Return a status dict (state, uptime, watchdog, hook count)."""
         with self._lock:
             return {
                 "state": self.state.name,
@@ -264,6 +266,7 @@ _os_lock = threading.Lock()
 
 
 def get_os() -> OS:
+    """Get the OS lifecycle singleton (lazily created)."""
     global _os
     if _os is None:
         with _os_lock:
@@ -273,5 +276,6 @@ def get_os() -> OS:
 
 
 def reset_os() -> None:
+    """Reset the OS singleton to None (for tests / hot reset)."""
     global _os
     _os = None

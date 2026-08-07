@@ -7,12 +7,10 @@ Compile-time constants here serve only as structural defaults (identity, paths, 
 from l1.kernel.params.agent import (
     L3A_AGENT_ID,
     L3A_MEMORY_RECALL_LIMIT,
-    L3A_MEMORY_TYPE,
 )
 
 AGENT_ID = L3A_AGENT_ID
 MEMORY_RECALL_LIMIT = L3A_MEMORY_RECALL_LIMIT
-MEMORY_TYPE = L3A_MEMORY_TYPE
 
 MANAGED_OUTPUT_MAX_BYTES: int = 50000
 MANAGED_OUTPUT_DIR: str = "l3a_outputs"

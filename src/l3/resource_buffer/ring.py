@@ -60,6 +60,7 @@ class RingBuffer:
         self._thread.start()
 
     def stop(self) -> None:
+        """Stop the flush loop thread."""
         self._running = False
 
     # ── Hash ──

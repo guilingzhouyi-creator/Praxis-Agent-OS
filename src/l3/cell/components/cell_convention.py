@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def convene(cell: Any, issue_card: Any) -> dict:
+    """Start a convention for an issue card within a cell.
+
+    Returns a summary dict with the negotiation results.
+    """
     from l3.card.issue import IssueCard, IssueCardStatus, get_table
 
     if not isinstance(issue_card, IssueCard):

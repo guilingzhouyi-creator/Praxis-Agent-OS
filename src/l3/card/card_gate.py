@@ -101,6 +101,7 @@ class CardGate(PersistableMixin):
             self._start_auto_save()
 
     def load_config(self, cfg: dict) -> None:
+        """Load thresholds and auto-approval rules from a config dict."""
         if not cfg:
             return
         t = cfg.get("thresholds", {})
@@ -161,6 +162,7 @@ class CardGate(PersistableMixin):
     def classify(self, intent: str = "", domain: str = "",
                  file_count: int = 0, estimated_lines: int = 0,
                  has_conflict: bool = False) -> CardSize:
+        """Classify a card into a size tier based on conflict and work estimate."""
         if has_conflict:
             return CardSize.DISPUTED
         # Architecture-nature cards are always LARGE
@@ -191,6 +193,7 @@ class CardGate(PersistableMixin):
     def evaluate(self, card_id: str, intent: str = "", domain: str = "",
                  file_count: int = 0, estimated_lines: int = 0,
                  has_conflict: bool = False) -> dict:
+        """Evaluate a card and return an approval decision dict."""
         size = self.classify(intent, domain, file_count, estimated_lines, has_conflict)
         size_name = size.name.lower()
         auto_ok = self._auto_approval.get(size_name, False)
@@ -227,6 +230,7 @@ class CardGate(PersistableMixin):
         }
 
     def approve(self, card_id: str, decision: bool = True, response: str = "") -> dict:
+        """Approve or reject a pending card, delegating to PendingQueue."""
         # Delegate to PendingQueue
         from .card.pending_queue import get_queue
         pq = get_queue()
@@ -239,17 +243,19 @@ class CardGate(PersistableMixin):
         return {"success": False, "error": f"card {card_id} not in pending queue"}
 
     def list_pending(self) -> list[dict]:
+        """Return all cards waiting for human approval."""
         from .card.pending_queue import get_queue
         return get_queue().list(status=WitnessStatus.PENDING)
 
     def list_history(self, limit: int = CARD_GATE_HISTORY_LIMIT) -> list[dict]:
+        """Return the most recent approval history entries."""
         with self._lock:
             return list(self._history)[-limit:]
 
     def stats(self) -> dict:
+        """Return gate statistics including pending and history counts."""
         with self._lock:
             return {
-                "pending_human": len(self._human_pending),
                 "history_count": len(self._history),
                 "thresholds": dict(self._thresholds),
                 "auto_approval": dict(self._auto_approval),
@@ -262,6 +268,7 @@ _gate: CardGate | None = None
 
 
 def get_gate() -> CardGate:
+    """Return the CardGate singleton, creating it on first call."""
     global _gate
     if _gate is None:
         _gate = CardGate()
@@ -269,31 +276,38 @@ def get_gate() -> CardGate:
 
 
 def load_config(cfg: dict) -> None:
+    """Load card-gate config into the singleton gate."""
     get_gate().load_config(cfg)
 
 
 def evaluate(card_id: str, intent: str = "", domain: str = "",
              file_count: int = 0, estimated_lines: int = 0,
              has_conflict: bool = False) -> dict:
+    """Evaluate a card via the singleton gate and return the approval decision."""
     return get_gate().evaluate(card_id, intent, domain, file_count, estimated_lines, has_conflict)
 
 
 def approve(card_id: str, decision: bool = True, response: str = "") -> dict:
+    """Approve or reject a pending card via the singleton gate."""
     return get_gate().approve(card_id, decision, response)
 
 
 def list_pending() -> list[dict]:
+    """Return all cards waiting for human approval via the singleton gate."""
     return get_gate().list_pending()
 
 
 def list_history(limit: int = CARD_GATE_HISTORY_LIMIT) -> list[dict]:
+    """Return the recent approval history entries via the singleton gate."""
     return get_gate().list_history(limit)
 
 
 def stats() -> dict:
+    """Return gate statistics from the singleton gate."""
     return get_gate().stats()
 
 
 def reset_gate() -> None:
+    """Reset the singleton gate so the next access re-creates it."""
     global _gate
     _gate = None

@@ -14,9 +14,10 @@ import logging
 import re
 import threading
 import time
+from typing import Any
 
 from l1.kernel.params.kernel import WitnessStatus
-from l1.kernel.params.system import CARD_DEFAULT_PRIORITY, LOG_TRUNC_80, LOG_TRUNC_100
+from l1.kernel.params.system import CARD_DEFAULT_PRIORITY, LOG_TRUNC_80
 from l3.bus.l3b import L3B
 from l3.bus.l3b_bus import get_bus as get_l3b_bus
 from l3.cell.peers.l3a import CardType, TaskCard, get_daemon
@@ -45,6 +46,7 @@ class CentralController:
 
     def register_cell(self, cell_id: str, territory: list[str],
                       agents: list[str] | None = None) -> None:
+        """Register a cell and its territory with the controller."""
         self._routes[territory[0]] = cell_id
         self.b.register(cell_id, territory)
         self._cells.append({"id": cell_id, "territory": territory, "agents": agents or []})
@@ -77,15 +79,17 @@ class CentralController:
             self._cross_cell_active = False
 
     def get_cell_count(self) -> int:
+        """Return the number of registered cells."""
         with self._lock:
             return len(self._cells)
 
     def is_cross_cell_active(self) -> bool:
+        """Return True when multi-cell routing is active."""
         return bool(getattr(self, '_cross_cell_active', False))
 
     def remove_cell(self, cell_id: str) -> dict:
+        """Remove a cell from the controller and rebuild the L3B bus."""
         with self._lock:
-            removed = None
             self._cells = [c for c in self._cells if c.get("id") != cell_id]
             from l3.bus.l3b import L3B
             new_l3b = L3B()
@@ -173,7 +177,6 @@ class CentralController:
                     shard_cell = shard["cell_id"]
                     for composite in self.b.composites:
                         if composite.next_cell == shard_cell:
-                            summary = "\n".join(f"[{t.name}] {t.description[:LOG_TRUNC_100]}" for t in shard["tasks"])
                             composite.dispatch_to_next({
                                 "intent": f"{card.intent} — {shard_cell}",
                                 "domain": domain, "task_name": shard_cell, "target_cell": shard_cell,
@@ -218,10 +221,12 @@ class CentralController:
         return card
 
     def get_intent(self, card_id: str) -> dict | None:
+        """Return the intent record for card_id, or None."""
         with self._lock:
             return self._intents.get(card_id)
 
     def update_intent(self, card_id: str, status: str, result: dict | None = None) -> None:
+        """Update the status (and optionally result) of an intent."""
         with self._lock:
             if card_id in self._intents:
                 self._intents[card_id]["status"] = status
@@ -229,6 +234,7 @@ class CentralController:
                     self._intents[card_id]["result"] = result
 
     def list_intents(self, status: str = "") -> list[dict]:
+        """List tracked intents, optionally filtered by status."""
         with self._lock:
             return [
                 {"card_id": i["card_id"],
@@ -266,7 +272,7 @@ class CentralController:
             elif admin_action == "cluster_status":
                 from .cell.components.cell_monitor import get_cell_monitor
                 cm = get_cell_monitor()
-                cells = getattr(cm, 'list_cells', lambda: [])()
+                cells: list[Any] = getattr(cm, 'list_cells', lambda: [])()
                 result = {"success": True, "action": "cluster_status", "cells": cells}
             else:
                 result = {"success": False, "error": f"unknown admin_action: {admin_action}"}
@@ -283,6 +289,7 @@ class CentralController:
                 "intent": intent[:LOG_TRUNC_80], "status": status, "result": result}
 
     def status(self) -> dict:
+        """Return controller status (L3A, L3B, intent counts)."""
         return {
             "L3A": {"sessions": self.l3a.manager.count()},
             "L3B": self.b.status(),
@@ -294,6 +301,7 @@ _coordinator: CentralController | None = None
 
 
 def get_coordinator() -> CentralController:
+    """Return the singleton CentralController, creating it lazily."""
     global _coordinator
     if _coordinator is None:
         _coordinator = CentralController()
@@ -301,5 +309,6 @@ def get_coordinator() -> CentralController:
 
 
 def reset_coordinator() -> None:
+    """Reset the CentralController singleton to None."""
     global _coordinator
     _coordinator = None

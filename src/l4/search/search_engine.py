@@ -57,6 +57,7 @@ class SearchResult:
     symbol_type: str = ""       # function | class | variable | method
 
     def to_dict(self) -> dict:
+        """Convert the search result to a serializable dict."""
         return {
             "path": self.path,
             "line": self.line,
@@ -80,6 +81,7 @@ class DocEntry:
     url: str = ""
 
     def to_dict(self) -> dict:
+        """Convert the doc entry to a serializable dict."""
         return {
             "package": self.package,
             "module": self.module,
@@ -126,8 +128,8 @@ class SemanticSearch:
                 for i, line in enumerate(lines, 1):
                     line_lower = line.lower()
                     # Compute TF-IDF score
-                    score = sum(1 for t in query_terms
-                                if t in line_lower)
+                    score: float = sum(1 for t in query_terms
+                                       if t in line_lower)
                     if score > 0:
                         # IDF weighting: rare terms get higher weight
                         idf_score = sum(
@@ -477,17 +479,21 @@ class SearchEngine:
     def semantic_search(self, query: str, root_dir: str = ".",
                         file_pattern: str = "*.py",
                         max_results: int = SEARCH_DEFAULT_RESULTS) -> dict:
+        """Run a semantic (TF-IDF) keyword search over the directory."""
         return self._semantic.search(query, root_dir, file_pattern, max_results)
 
     def symbol_search(self, name: str, kind: str = "",
                root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
+        """Search for code symbols by name, optionally filtered by kind."""
         return self._symbol.search(name, kind, root_dir, max_results)
 
     def doc_search(self, query: str, max_results: int = DOC_SEARCH_RESULTS) -> dict:
+        """Search the indexed API documentation entries."""
         return self._docs.search(query, max_results)
 
     def index_doc(self, package: str, module: str, name: str,
                   signature: str = "", docstring: str = "", url: str = "") -> dict:
+        """Index an API documentation entry for doc search."""
         return self._docs.index(package, module, name, signature, docstring, url)
 
 
@@ -500,6 +506,7 @@ _engine_lock = threading.Lock()
 
 
 def get_engine() -> SearchEngine:
+    """Return the process-wide SearchEngine singleton."""
     global _engine
     if _engine is None:
         with _engine_lock:

@@ -48,6 +48,7 @@ class TfIdfSkillRetriever(SkillRetriever):
     def rank(
         self, query: str, candidates: list[dict], limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE
     ) -> list[dict]:
+        """Rank candidates by tf-idf cosine similarity; returns top ``limit``."""
         q_tok = self._tokens(query)
         if not q_tok or not candidates:
             return []
@@ -89,6 +90,7 @@ class EmbeddingSkillRetriever(SkillRetriever):
     def rank(
         self, query: str, candidates: list[dict], limit: int, min_score: float = R4_RETRIEVAL_MIN_SCORE
     ) -> list[dict]:
+        """Rank candidates by embedding cosine similarity; returns top ``limit``."""
         if not query or not candidates:
             return []
         texts = [query] + [f"{c.get('description', '')} {c.get('prompt', '')}" for c in candidates]

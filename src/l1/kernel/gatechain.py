@@ -124,6 +124,7 @@ class ToolHistoryLedger:
         return f"{agent_id}|{tool}"
 
     def record(self, entry: LedgerEntry) -> None:
+        """Append *entry* to the ledger and update its index buckets."""
         with self._lock:
             self._entries.append(entry)
             if len(self._entries) > self._max:
@@ -139,13 +140,13 @@ class ToolHistoryLedger:
         with self._lock:
             if agent_id and tool:
                 key = self._bucket_key(agent_id, tool)
-                bucket = self._by_agent_tool.get(key, [])
+                bucket: deque[LedgerEntry] = self._by_agent_tool.get(key, deque(maxlen=self._max))
                 return list(bucket)[-limit:]
             if agent_id:
-                bucket = self._by_agent.get(agent_id, [])
+                bucket = self._by_agent.get(agent_id, deque(maxlen=self._max))
                 return list(bucket)[-limit:]
             if tool:
-                bucket = self._by_tool.get(tool, [])
+                bucket = self._by_tool.get(tool, deque(maxlen=self._max))
                 return list(bucket)[-limit:]
             return self._entries[-limit:]
 
@@ -155,16 +156,17 @@ class ToolHistoryLedger:
         with self._lock:
             if agent_id and tool:
                 key = self._bucket_key(agent_id, tool)
-                bucket = self._by_agent_tool.get(key, [])
+                bucket: deque[LedgerEntry] = self._by_agent_tool.get(key, deque(maxlen=self._max))
             elif agent_id:
-                bucket = self._by_agent.get(agent_id, [])
+                bucket = self._by_agent.get(agent_id, deque(maxlen=self._max))
             elif tool:
-                bucket = self._by_tool.get(tool, [])
+                bucket = self._by_tool.get(tool, deque(maxlen=self._max))
             else:
-                bucket = self._entries
+                bucket = deque(self._entries, maxlen=self._max)
             return sum(1 for e in bucket if (now - e.timestamp) <= window)
 
     def clear(self) -> None:
+        """Clear all ledger entries and index buckets."""
         with self._lock:
             self._entries.clear()
             self._by_agent.clear()
@@ -189,10 +191,12 @@ class GateChain:
         self._gates: list[tuple[str, Callable]] = list(_BUILTIN_GATES)
 
     def register_tools(self, tool_names: list[str]) -> None:
+        """Add *tool_names* to the set of known tools."""
         with self._lock:
             self._known_tools.update(tool_names)
 
     def set_territories(self, territories: dict[str, list[str]]) -> None:
+        """Merge *territories* (agent → tool list) into the gate chain map."""
         with self._lock:
             self._territories.update(territories)
 
@@ -399,5 +403,6 @@ def get_gatechain() -> GateChain:
 
 
 def reset_gatechain() -> None:
+    """Reset the GateChain singleton to None (for tests / hot reset)."""
     global _gatechain
     _gatechain = None

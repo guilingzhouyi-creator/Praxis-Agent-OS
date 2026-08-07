@@ -9,13 +9,14 @@ except ImportError:
 
 
 def check_version(args: dict, agent_id: str) -> dict:
+    """Check whether a package is installed and return its version; returns dict."""
     package = args.get("package", "")
     if not package:
         return {"success": False, "error": "package is required"}
     if not HAS_PKG:
         return {"success": False, "error": "package metadata not available"}
     try:
-        dist = _get_dist(package)
+        _get_dist(package)
         return {"success": True, "package": package, "version": _get_version(package)}
     except Exception:
         return {"success": True, "package": package, "installed": False}

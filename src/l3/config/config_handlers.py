@@ -21,6 +21,7 @@ from l1.kernel.params.agent import (  # noqa: E402
 
 
 def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
+    """Apply kernel: section (allocator/swapper/process/syscall) to params and L2 settings."""
     # Consumers (allocator, process table, syscall audit) read params
     # constants directly — setattr on the authoritative modules AND the
     # params.kernel re-export layer, then mirror into SettingsCenter L2.
@@ -57,6 +58,7 @@ def cfg_kernel(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_cell(cfg: dict, s: Any, results: dict) -> None:
+    """Apply cell: section (terminal/scout/card) to params and L2 settings."""
     # Consumers (agent_terminal, scout pool) read the params constants
     # directly, so setattr them in addition to mirroring into SettingsCenter L2.
     import l1.kernel.params.agent as _agent_mod
@@ -91,6 +93,7 @@ def cfg_cell(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_llm(cfg: dict, s: Any, results: dict) -> None:
+    """Apply llm: section (provider/model/cache) to L2 settings and the LLM prefix cache config."""
     for k in ("provider", "model", "api_url", "api_key", "max_tokens", "temperature", "rate_limit"):
         if k in cfg:
             s.set_l2(f"llm.{k}", cfg[k])
@@ -149,6 +152,7 @@ def cfg_constitution(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_gatechain(cfg: dict, s: Any, results: dict) -> None:
+    """Apply gatechain: section (danger levels/scalar thresholds) to params and discovery registry."""
     import l1.kernel.params.gatechain as _gatechain_mod
     import l1.kernel.params.kernel as _kernel_mod
     from l1.kernel.discovery import set_config as _set_cfg
@@ -316,6 +320,7 @@ def cfg_card_pool(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_htn(cfg: dict, s: Any, results: dict) -> None:
+    """Apply htn: section (domain prefix, default tools) to params/tool.py constants."""
     import l1.kernel.params.tool as _tool_mod
 
     if "domain_prefix" in cfg:
@@ -327,6 +332,7 @@ def cfg_htn(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_cache(cfg: dict, s: Any, results: dict) -> None:
+    """Apply cache: section (file/context cache limits) to params/system.py constants."""
     import l1.kernel.params.system as _sys_mod
 
     if "max_entries" in cfg:
@@ -355,6 +361,7 @@ def cfg_memory(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_network(cfg: dict, s: Any, results: dict) -> None:
+    """Apply network section: ports, timeouts into env, params, and settings."""
     import os as _os
 
     import l1.kernel.params.api as _api_mod
@@ -378,6 +385,7 @@ def cfg_network(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_api(cfg: dict, s: Any, results: dict) -> None:
+    """Apply api section: start the API gateway and load external routes."""
     from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
     from l4.api.api_gateway import start_api
 
@@ -583,8 +591,10 @@ def cfg_api_routes(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_devices(cfg: dict, s: Any, results: dict) -> None:
+    """Load device definitions into the device manager and record the count."""
     dm = get_device_manager()
-    for d in cfg if isinstance(cfg, list) else []:
+    devices: list[dict] = cfg if isinstance(cfg, list) else []
+    for d in devices:
         name = d.get("name", "")
         dtype_name = d.get("type", "CUSTOM").upper()
         try:
@@ -592,10 +602,11 @@ def cfg_devices(cfg: dict, s: Any, results: dict) -> None:
         except Exception:
             dtype = DeviceType.CUSTOM
         dm.register(name, dtype, rate_limit=d.get("rate_limit", 10), description=d.get("description", ""))
-    results["devices"] = len(cfg) if isinstance(cfg, list) else 0
+    results["devices"] = len(devices)
 
 
 def cfg_territories(cfg: dict, s: Any, results: dict) -> None:
+    """Load role-to-path territory maps and rebuild the path→role lookup."""
     TERRITORY_MAP.clear()
     TERRITORY_PATHS.clear()
     for role, paths in cfg.items():
@@ -606,6 +617,7 @@ def cfg_territories(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_clearance(cfg: dict, s: Any, results: dict) -> None:
+    """Load agent clearance rules into the global clearance map."""
     AGENT_CLEARANCE.clear()
     AGENT_CLEARANCE.update(cfg)
     results["clearance"] = len(cfg)
@@ -650,6 +662,7 @@ def cfg_agent_priority(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_agents(cfg: dict, s: Any, results: dict) -> None:
+    """Load per-role agent defaults into the global agent config map."""
     from l1.kernel.params.agent import AgentDefaults
 
     for role, cdict in cfg.items():
@@ -776,6 +789,7 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
 
 
 def cfg_diff(cfg: dict, s: Any, results: dict) -> None:
+    """Load diff view settings: mode, heavy API flag, and color scheme."""
     from l3.config.settings_center import get_center
 
     center = get_center()

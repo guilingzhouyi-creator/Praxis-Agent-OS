@@ -61,25 +61,28 @@ class SessionHistory:
         self._lock = threading.RLock()
 
     def append(self, msg: Message) -> None:
+        """Append one message to the history."""
         with self._lock:
             self._messages.append(msg)
 
     def extend(self, msgs: list[Message]) -> None:
+        """Append a list of messages to the history."""
         with self._lock:
             self._messages.extend(msgs)
 
     def project(self, max_tokens: int = _p.SESSION_HISTORY_MAX_TOKENS,
                 keep_last: int = _p.SESSION_HISTORY_TRUNC) -> list[dict]:
+        """Project recent messages into a token-bounded list of dicts, newest-first."""
         with self._lock:
             msgs = self._messages[-keep_last:]
         tokens = 0
-        projected = []
+        projected: list[dict[str, Any]] = []
         for m in reversed(msgs):
             est = len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
             if tokens + est > max_tokens and projected:
                 break
             tokens += est
-            entry = {"role": m.role, "content": m.content}
+            entry: dict[str, Any] = {"role": m.role, "content": m.content}
             if m.tool_calls:
                 entry["tool_calls"] = m.tool_calls
             if m.reasoning_content:
@@ -89,14 +92,17 @@ class SessionHistory:
         return projected
 
     def to_context_trail(self) -> list[dict]:
+        """Return a double-budget context trail of the history for archiving."""
         return self.project(max_tokens=_p.SESSION_HISTORY_MAX_TOKENS * 2)
 
     def count(self) -> int:
+        """Return the total number of stored messages."""
         with self._lock:
             return len(self._messages)
 
     def messages_page(self, cursor: str | None = None,
                       limit: int = _p.SESSION_PAGE_SIZE) -> Page:
+        """Return a Page of messages starting after cursor with at most limit items."""
         with self._lock:
             msgs = list(self._messages)
         start = 0
@@ -115,6 +121,7 @@ class SessionHistory:
         return Page(items=items, cursor=next_cursor, total=len(msgs))
 
     def clear(self) -> None:
+        """Remove all stored messages."""
         with self._lock:
             self._messages.clear()
 
@@ -161,6 +168,7 @@ class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
                model_config: L3AModelConfig | None = None,
                registry: ContextRegistry | None = None,
                user_id: str = "") -> Session:
+        """Create a new session with a fresh epoch and reloaded inbox; return it."""
         sid = f"l3a-{uuid.uuid4().hex[:_p.SID_LENGTH]}"
         title = title or f"Session {time.strftime('%Y-%m-%d %H:%M')}"
         inst = cls(session_id=sid, title=title,
@@ -254,6 +262,7 @@ class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
 
 
     def set_pmu(self, pmu: Any) -> None:
+        """Attach the PMU instance used for session metrics."""
         self._pmu = pmu
 
 
@@ -263,12 +272,12 @@ class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
 
 
     def close(self) -> dict:
+        """Close the session, archive it, and return the close result dict."""
         with self._lock:
             if self.status != "active":
                 return {"success": False, "error": "already closed"}
             sid = self.id
             title = self.title
-            status = self.status
             self.status = "closed"
             self.closed_at = time.time()
             self.last_active_at = time.time()
@@ -317,6 +326,7 @@ class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
 
     def messages(self, cursor: str | None = None,
                  limit: int = _p.SESSION_PAGE_SIZE) -> Page:
+        """Return a Page of session messages after the given cursor."""
         return self.history.messages_page(cursor=cursor, limit=limit)
 
     # ── Session TODO table (LLM task list via todowrite tool) ──
@@ -350,6 +360,7 @@ class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
 
 
     def info(self) -> dict:
+        """Return the session state as a dict for display."""
         with self._lock:
             epoch_info = {}
             if self.epoch:
@@ -733,6 +744,7 @@ class SessionManager:
                model_config: L3AModelConfig | None = None,
                registry: ContextRegistry | None = None,
                user_id: str = "") -> Session:
+        """Create a session, register it as active, and return it."""
         s = Session.create(title=title, model_config=model_config,
                            registry=registry, user_id=user_id)
         with self._lock:
@@ -740,10 +752,12 @@ class SessionManager:
         return s
 
     def get(self, session_id: str) -> Session | None:
+        """Return the active session by id, or None when absent."""
         with self._lock:
             return self._sessions.get(session_id)
 
     def close(self, session_id: str) -> dict:
+        """Close and deregister a session by id, returning the close result."""
         s = self.get(session_id)
         if not s:
             return {"success": False, "error": f"unknown session: {session_id}"}
@@ -753,10 +767,12 @@ class SessionManager:
         return r
 
     def list_active(self) -> list[dict]:
+        """Return info dicts for all sessions with active status."""
         with self._lock:
             return [s.info() for s in self._sessions.values()
                     if s.status == "active"]
 
     def count(self) -> int:
+        """Return the number of active sessions."""
         with self._lock:
             return len(self._sessions)

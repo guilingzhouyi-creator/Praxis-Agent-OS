@@ -57,6 +57,7 @@ class ConfigService(BaseService):
         }
 
     def load_file(self, path: str) -> dict:
+        """Load a JSON config file and deep-merge it into the runtime config; returns result dict."""
         p = Path(path).resolve()
         if not p.exists():
             return {"success": False, "error": "file not found"}
@@ -70,9 +71,10 @@ class ConfigService(BaseService):
             return {"success": False, "error": str(e)}
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Read a dotted-key config value, returning default when absent."""
         keys = key.split(".")
         with self._lock:
-            val = self._data
+            val: Any = self._data
             for k in keys:
                 if isinstance(val, dict):
                     val = val.get(k)
@@ -81,6 +83,7 @@ class ConfigService(BaseService):
             return val if val is not None else default
 
     def set(self, key: str, value: Any) -> dict:
+        """Set a dotted-key config value at runtime; returns result dict."""
         keys = key.split(".")
         with self._lock:
             target = self._data
@@ -90,6 +93,7 @@ class ConfigService(BaseService):
         return {"success": True, "key": key, "value": value}
 
     def all(self) -> dict:
+        """Return a shallow copy of the effective config dict."""
         with self._lock:
             return dict(self._data)
 
@@ -105,6 +109,7 @@ _service: ConfigService | None = None
 
 
 def get_service() -> ConfigService:
+    """Get the ConfigService singleton, creating it on first call."""
     global _service
     if _service is None:
         _service = ConfigService()
@@ -112,6 +117,7 @@ def get_service() -> ConfigService:
 
 
 def reset_service() -> None:
+    """Stop and reset the ConfigService singleton."""
     global _service
     if _service:
         _service.stop()

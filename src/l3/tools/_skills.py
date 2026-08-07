@@ -34,7 +34,7 @@ def list_skills(args: dict, agent_id: str) -> dict:
         results = sm.list_by_allowed_tools(tool)
     else:
         tags = [tag] if tag else None
-        results = sm.list(tags=tags, limit=limit)
+        results = sm.list_skills(tags=tags, limit=limit)
 
     from l1.kernel.skill import skill_visible
     visible = [s for s in results if skill_visible(s, agent_id)]

@@ -46,6 +46,7 @@ class CentralCollector:
         logger.info("CentralCollector started")
 
     def stop(self) -> None:
+        """Unsubscribe from the event bus."""
         bus = get_event_bus()
         bus.off(SignalType.TOKEN_USAGE, self._on_token_usage)
 
@@ -155,6 +156,7 @@ _collector: CentralCollector | None = None
 
 
 def get_collector() -> CentralCollector:
+    """Return the singleton CentralCollector, creating it lazily."""
     global _collector
     if _collector is None:
         _collector = CentralCollector()
@@ -162,9 +164,11 @@ def get_collector() -> CentralCollector:
 
 
 def start_collector() -> None:
+    """Start the CentralCollector event bus subscription."""
     get_collector().start()
 
 
 def stop_collector() -> None:
+    """Stop the CentralCollector if it is running."""
     if _collector:
         _collector.stop()

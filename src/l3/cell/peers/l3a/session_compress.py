@@ -8,8 +8,10 @@ module is fully loaded.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
+from typing import TYPE_CHECKING, Any
 
 from l1.kernel.params.system import (
     LOG_TRUNC_200,
@@ -20,11 +22,25 @@ from l1.kernel.params.system import (
 
 from . import params as _p
 
+if TYPE_CHECKING:
+    from l3.cell.peers.l3a.session import Message, SessionHistory
+
 logger = logging.getLogger(__name__)
 
 
 class SessionCompressMixin:
     """SessionCompressMixin — rate-distortion-aware history compression."""
+
+    # ── Attributes injected by the concrete Session (see session.py) ──
+    id: str
+    turn_count: int
+    status: str
+    _lock: threading.RLock
+    history: SessionHistory
+
+    def context_stats(self) -> dict:
+        """Compute session context pressure (provided by SessionPromptMixin)."""
+        raise NotImplementedError
 
     @staticmethod
     def _message_value(m: Message) -> int:
@@ -260,7 +276,7 @@ class SessionCompressMixin:
             since = now - window
             recent = mem.recall(agent_id=_p.AGENT_ID, rings=[1, 2, 3],
                                 limit=500)
-            ingress = {"count": 0, "by_type": {}}
+            ingress: dict[str, Any] = {"count": 0, "by_type": {}}
             for e in recent:
                 if getattr(e, "timestamp", 0) >= since:
                     ingress["count"] += 1
@@ -279,6 +295,6 @@ class SessionCompressMixin:
                 "count": ingress["count"],
                 "per_hour": round(ingress["count"] / max(window / 3600.0, 0.001), 2),
                 "by_type": dict(sorted(ingress["by_type"].items(),
-                                       key=lambda x: -x[1])),
+                                       key=lambda x: x[1], reverse=True)),
             },
         }

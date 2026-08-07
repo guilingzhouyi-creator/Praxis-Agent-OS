@@ -98,6 +98,7 @@ class Mutex:
                         adjacency[mtx._owner].append(w[0])
 
         def dfs(node: str, depth: int = 0) -> list[str] | None:
+            """Recursive depth-first search for a cycle from *node*; returns the cycle path or None."""
             if depth > max_depth:
                 return None
             if node in stack:
@@ -143,6 +144,7 @@ class Mutex:
 
     def acquire(self, agent_id: str, priority: float = MUTEX_DEFAULT_PRIORITY,
                 blocking: bool = True) -> dict:
+        """Acquire the mutex, applying priority inheritance and deadlock detection. Returns a result dict with success flag and owner."""
         deadline = time.time() + self.timeout
 
         with self._lock:
@@ -211,6 +213,7 @@ class Mutex:
                 "waited": round(waited, 3), "cycle_detected": cycle_reported}
 
     def release(self, agent_id: str) -> dict:
+        """Release the mutex if *agent_id* holds it; restores base priority and wakes a waiter. Returns a result dict."""
         with self._lock:
             if self._owner != agent_id:
                 return {"success": False, "error": "not the owner", "owner": self._owner}
@@ -239,6 +242,7 @@ class Mutex:
         return {"success": True}
 
     def status(self) -> dict:
+        """Return a snapshot dict of mutex state (owner, recursion, priorities, waiters)."""
         with self._lock:
             return {
                 "name": self.name,
@@ -264,6 +268,7 @@ class Semaphore:
         self._waiters: list[str] = []
 
     def acquire(self, agent_id: str, blocking: bool = True) -> dict:
+        """Acquire a permit if capacity remains; blocks or fails with timeout otherwise. Returns a result dict."""
         deadline = time.time() + SEMAPHORE_DEFAULT_TIMEOUT
         while True:
             with self._lock:
@@ -280,6 +285,7 @@ class Semaphore:
             self._cond.wait(timeout=min(remaining, SEMAPHORE_POLL_INTERVAL * 10))
 
     def release(self, agent_id: str) -> dict:
+        """Return one permit to the semaphore and wake a waiting agent. Returns a result dict."""
         with self._lock:
             if self._count < self.max_count:
                 self._count += 1
@@ -289,6 +295,7 @@ class Semaphore:
             return {"success": True, "remaining": self._count}
 
     def status(self) -> dict:
+        """Return a snapshot dict of semaphore state (count, max, waiters)."""
         with self._lock:
             return {"name": self.name, "count": self._count, "max": self.max_count, "waiters": len(self._waiters)}
 
@@ -304,6 +311,7 @@ class Barrier:
         self._event = threading.Event()
 
     def wait(self, agent_id: str) -> dict:
+        """Mark *agent_id* as arrived; the last arriver releases all waiters. Returns a result dict with role."""
         with self._lock:
             self._arrived.add(agent_id)
             if len(self._arrived) >= self.count:
@@ -313,6 +321,7 @@ class Barrier:
         return {"success": True, "role": "waiter", "arrived": len(self._arrived)}
 
     def reset(self) -> dict:
+        """Clear all arrived agents and the release event. Returns a success dict."""
         with self._lock:
             self._arrived.clear()
             self._event.clear()
@@ -334,6 +343,7 @@ class Condition:
         self._pending_signals: int = 0
 
     def wait(self, agent_id: str, timeout: float = BARRIER_DEFAULT_TIMEOUT) -> dict:
+        """Wait until signalled or *timeout* elapses. Returns a result dict with timed_out flag."""
         with self._lock:
             self._waiters.add(agent_id)
             if self._pending_signals > 0:
@@ -347,6 +357,7 @@ class Condition:
         return {"success": ok, "agent_id": agent_id, "timed_out": not ok}
 
     def signal(self, agent_id: str) -> dict:
+        """Wake one waiting agent, or buffer a pending signal if none wait. Returns a success dict."""
         with self._lock:
             if self._waiters:
                 self._event.set()
@@ -355,10 +366,12 @@ class Condition:
         return {"success": True, "signaler": agent_id, "wakeup": len(self._waiters)}
 
     def broadcast(self, agent_id: str) -> dict:
+        """Wake all waiting agents. Returns a success dict with wakeup count."""
         self._event.set()
         return {"success": True, "signaler": agent_id, "broadcast": len(self._waiters)}
 
     def status(self) -> dict:
+        """Return a snapshot dict of condition state (name, waiters)."""
         with self._lock:
             return {"name": self.name, "waiters": len(self._waiters)}
 
@@ -375,6 +388,7 @@ class RWLock:
         self._cond = threading.Condition(self._lock)
 
     def read_lock(self, agent_id: str, timeout: float = RWLOCK_DEFAULT_TIMEOUT) -> dict:
+        """Acquire a shared read lock, waiting while a writer holds the lock. Returns a result dict."""
         deadline = time.time() + timeout
         with self._lock:
             while self._writer and self._writer != agent_id:
@@ -386,6 +400,7 @@ class RWLock:
             return {"success": True, "mode": "read", "readers": self._readers}
 
     def write_lock(self, agent_id: str, timeout: float = RWLOCK_DEFAULT_TIMEOUT) -> dict:
+        """Acquire an exclusive write lock, waiting while readers or another writer hold it. Returns a result dict."""
         deadline = time.time() + timeout
         self._write_waiters += 1
         with self._lock:
@@ -400,6 +415,7 @@ class RWLock:
             return {"success": True, "mode": "write"}
 
     def unlock(self, agent_id: str) -> dict:
+        """Release the lock held by *agent_id* (write or one read). Returns a result dict."""
         with self._lock:
             if self._writer == agent_id:
                 self._writer = ""
@@ -414,6 +430,7 @@ class RWLock:
                     "readers": self._readers}
 
     def status(self) -> dict:
+        """Return a snapshot dict of RWLock state (readers, writer, write_waiters)."""
         with self._lock:
             return {"name": self.name, "readers": self._readers, "writer": self._writer, "write_waiters": self._write_waiters}
 
@@ -433,22 +450,27 @@ def _get_or_create(name: str, factory) -> Any:
 
 def get_mutex(name: str, timeout: float = MUTEX_DEFAULT_TIMEOUT,
               ipc_enabled: bool = False) -> Mutex:
+    """Return the named Mutex, creating it on first use."""
     return _get_or_create(name, lambda: Mutex(name, timeout, ipc_enabled=ipc_enabled))
 
 
 def get_semaphore(name: str, max_count: int = SEMAPHORE_DEFAULT_MAX) -> Semaphore:
+    """Return the named Semaphore, creating it on first use."""
     return _get_or_create(name, lambda: Semaphore(name, max_count))
 
 
 def get_barrier(name: str, count: int = BARRIER_DEFAULT_COUNT) -> Barrier:
+    """Return the named Barrier, creating it on first use."""
     return _get_or_create(name, lambda: Barrier(name, count))
 
 
 def get_rwlock(name: str) -> RWLock:
+    """Return the named RWLock, creating it on first use."""
     return _get_or_create(name, lambda: RWLock(name))
 
 
 def get_condition(name: str) -> Condition:
+    """Return the named Condition, creating it on first use."""
     return _get_or_create(name, lambda: Condition(name))
 
 
@@ -459,5 +481,6 @@ def reset_registry() -> None:
 
 
 def registry_status() -> dict:
+    """Return status snapshots for every registered sync object."""
     with _registry_lock:
         return {name: obj.status() for name, obj in list(_registry.items())}

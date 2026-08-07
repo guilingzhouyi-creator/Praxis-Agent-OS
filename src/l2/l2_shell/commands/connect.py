@@ -26,7 +26,7 @@ def _cmd_help(args: list[str]) -> dict:
                 lines.append("  examples:")
                 for e in cmd["examples"]: lines.append(f"    {e}")
             lines.append(f"  category: {cmd.get('category', 'other')}"); return {"success": True, "output": "\n".join(lines), "format": "table"}
-        cmds = list_commands(); groups = {}
+        cmds = list_commands(); groups: dict[str, list] = {}
         for c in cmds: groups.setdefault(c.get("category", "other"), []).append(c)
         cat_labels = {"session": "Session", "control": "Central Control", "memory": "Memory", "system": "System", "agent": "Agent / Cell", "audit": "Audit / Config", "ext": "Extensions"}
         lines = ["Available commands:", ""]

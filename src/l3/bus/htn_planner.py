@@ -68,6 +68,7 @@ class Task:
     created_at: float = field(default_factory=time.time)
 
     def is_primitive(self) -> bool:
+        """Return True if this task is a primitive action."""
         return self.task_type == TaskType.PRIMITIVE
 
 
@@ -178,6 +179,7 @@ class HTNPlanner(BaseService):
         primitives = []
 
         def collect(t: Task, visited: set[str] | None = None) -> None:
+            """Collect primitive tasks depth-first. Returns None."""
             if visited is None:
                 visited = set()
             if t.id in visited:
@@ -451,6 +453,7 @@ class HTNPlanner(BaseService):
         return "default"
 
     def stats(self) -> dict:
+        """Return HTNPlanner statistics. Returns a dict with method count."""
         with self._lock:
             return {"methods": len(self._methods)}
 
@@ -459,6 +462,7 @@ _service: HTNPlanner | None = None
 
 
 def get_service() -> HTNPlanner:
+    """Get the HTNPlanner singleton service. Returns the shared planner."""
     global _service
     if _service is None:
         _service = HTNPlanner()
@@ -466,6 +470,7 @@ def get_service() -> HTNPlanner:
 
 
 def reset_service() -> None:
+    """Reset the HTNPlanner singleton service. Returns None."""
     global _service
     if _service:
         _service.stop()

@@ -50,6 +50,7 @@ class TLB:
         self._misses = 0
 
     def lookup(self, path: str) -> bool | None:
+        """Look up a cached territory decision; None on miss."""
         result = self._cache.get(path)
         if result is not None:
             self._hits += 1
@@ -58,6 +59,7 @@ class TLB:
         return result
 
     def fill(self, path: str, allowed: bool) -> None:
+        """Cache a territory decision, evicting the first quarter on overflow."""
         self._cache[path] = allowed
         if len(self._cache) > self._capacity:
             # Simple LRU: remove first quarter
@@ -65,12 +67,14 @@ class TLB:
                 self._cache.pop(next(iter(self._cache)), None)
 
     def invalidate(self, path: str = "") -> None:
+        """Drop one cached entry, or the whole cache when no path is given."""
         if path:
             self._cache.pop(path, None)
         else:
             self._cache.clear()
 
     def stats(self) -> dict:
+        """Return TLB hit/miss counters and cache occupancy."""
         total = self._hits + self._misses
         return {
             "hits": self._hits,
@@ -270,6 +274,7 @@ class SpaceManager:
         self._lock = threading.Lock()
 
     def create_space(self, agent_id: str) -> dict:
+        """Allocate a virtual space for an agent; fails when it already exists."""
         with self._lock:
             if agent_id in self._spaces:
                 return {"success": False, "error": "space already exists"}
@@ -278,6 +283,7 @@ class SpaceManager:
             return {"success": True, "agent_id": agent_id, "territory": space.territory}
 
     def get_space(self, agent_id: str) -> ProjectSpace | None:
+        """Return the agent's space (None when not allocated)."""
         with self._lock:
             return self._spaces.get(agent_id)
 
@@ -300,6 +306,7 @@ class SpaceManager:
         }
 
     def status(self) -> dict:
+        """Return a snapshot of every allocated space."""
         with self._lock:
             return {aid: space.snapshot() for aid, space in self._spaces.items()}
 
@@ -310,6 +317,7 @@ _manager: SpaceManager | None = None
 
 
 def get_manager(project_root: str = ".", sandbox_root: str = "") -> SpaceManager:
+    """Return the shared SpaceManager singleton, creating it on first use."""
     global _manager
     if _manager is None:
         _manager = SpaceManager(project_root, sandbox_root or _VSPACE_SANDBOX)
@@ -317,6 +325,7 @@ def get_manager(project_root: str = ".", sandbox_root: str = "") -> SpaceManager
 
 
 def reset_manager() -> None:
+    """Drop the SpaceManager singleton and clear sandbox dirs (testing)."""
     global _manager
     if _manager:
         import shutil
