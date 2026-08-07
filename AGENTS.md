@@ -134,8 +134,32 @@ Key conventions:
 - **Commit messages MUST be written in English** (CJK characters are rejected).
 - **Every commit MUST carry a `Co-Authored-By` trailer** naming the authoring agent/model for attribution:
   `Co-Authored-By: OpenCode (deepseek-v4-flash) <noreply@opencode.ai>`
-- Merge/revert commits are exempt (git-generated messages).
-- Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1`.
+- Merge/revert commits are exempt from the two rules above (git-generated
+  messages), BUT a merge that brings in a dependabot branch is gated on its
+  diff scope — see `## Dependency management`.
+- Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1` (message checks only — the
+  dependabot merge gate still runs unless `git commit --no-verify` is used).
+- **Hook mechanics (read before trusting the gate)**: `commit-msg` runs
+  BEFORE the commit object exists, so `HEAD` still points at the previous
+  commit. The dependabot gate therefore reads the incoming branch from
+  `.git/MERGE_HEAD` during `git merge` (git removes it after commit), falling
+  back to `HEAD^2` only for manual post-merge commits, and diffs that tip
+  against `HEAD`. Detection triggers on the merged-tip **author**
+  (`dependabot[bot]`) OR the message, so a hand-typed message cannot bypass
+  it. It is NOT triggered by ordinary feature-branch merges.
+- **Explicit bypass paths (forbidden unless justified)**: `git merge
+  --no-verify` / `git commit --no-verify` skip ALL hooks, and
+  `PRAXIS_SKIP_AUTHOR_CHECK=1` skips the message checks. These are deliberate
+  escape hatches for broken-hook recovery, not routine workflows. The
+  remaining enforcement on such merges is GitCode's server-side GPG hook and
+  the deps.yml PR gate — but a `--no-verify` dependabot merge that drags in
+  code WILL slip through locally. Do not do it; if you did, the merge must be
+  reviewed by a second agent before push.
+- **GPG signing is mandatory for main**: GitCode's pre-receive hook rejects
+  unsigned commits. `commit.gpgsign` is `true` globally; if a local
+  `commit.gpgsign=false` override exists (it has happened), remove it —
+  otherwise the push will be rejected and the commit must be re-signed
+  (`git reset --soft HEAD~1 && git commit` with signing restored).
 
 ## Remote strategy & CI
 
@@ -168,6 +192,18 @@ Key conventions:
 - **CI gate**: `.github/workflows/deps.yml` runs on any PR that touches
   dependency files — it enforces the dependency-only diff scope and runs
   the full test suite, so a dependabot PR mixing code+dep changes fails.
+- **Allowed dependency files** (the exact whitelist shared by the hook, the
+  verify script, and deps.yml): `pyproject.toml`, `requirements*.txt`,
+  `uv.lock`, `poetry.lock` — at the repo root only. Anything else in a
+  dependabot merge is a violation.
+- **Known limitation (read before relying on the gate)**: the local
+  commit-msg gate only guards `git merge`/`git commit` runs; `--no-verify`
+  skips it entirely, and the deps.yml gate only applies to GitHub PRs, not
+  to local merges. A dependabot merge performed with `--no-verify` that
+  drags in code changes will pass locally. The server-side backstops are
+  GitCode's GPG requirement and, on GitHub, branch protection (currently
+  NOT configured — the PR must be reviewed by a human or agent who runs
+  `verify-deps-merge.sh`). Treat the local gate as a guardrail, not a wall.
 
 ## Branching workflow (see `docs/workflow/branching.md`)
 
@@ -229,7 +265,8 @@ make hooks           # git config core.hooksPath .githooks
 Ruff (line-length 120, double quotes) and mypy configs live in `pyproject.toml`; pre-commit hooks in `.pre-commit-config.yaml`.
 
 **Two hook systems — know which one runs what:**
-- `make hooks` installs the self-built bash hooks (`.githooks/`, set as `core.hooksPath`): `pre-commit` runs full-tree `ruff check --fix` + `ruff format` + the size check (`scripts/pre-commit-size-check`) and the **mainline whitelist gate** (only `docs/ config/ locales/ .githooks/ scripts/` etc. may be committed directly on `main`); `commit-msg` enforces English messages + `Co-Authored-By`; `post-checkout` warns on dirty-tree branch switches. These are the load-bearing governance gates.
+- `make hooks` installs the self-built bash hooks (`.githooks/`, set as `core.hooksPath`): `pre-commit` runs full-tree `ruff check --fix` + `ruff format` + the size check (`scripts/pre-commit-size-check`) and the **mainline whitelist gate** (only `docs/ config/ locales/ .githooks/ scripts/` etc. may be committed directly on `main`); `commit-msg` enforces English messages + `Co-Authored-By` + the dependabot merge gate; `post-checkout` warns on dirty-tree branch switches. These are the load-bearing governance gates.
+- **`ruff --fix` side effect**: the pre-commit hook runs `ruff check --fix` over the WHOLE tree and aborts the commit (`--exit-non-zero-on-fix`) when it auto-fixes anything. On a dirty tree this silently edits files outside your commit — recover with `git checkout -- <unrelated files>` before committing. This is why commits on `main` that touch only `AGENTS.md`/`.github/` are done with `git commit --no-verify` (governance files are excluded from the whitelist's code gate but not from ruff's fix pass).
 - `make precommit` runs the pre-commit framework (`.pre-commit-config.yaml`: whitespace/EOF/YAML/JSON/large-file/merge-conflict/private-key checks + ruff + mypy). It is a style lint pass, NOT a governance gate — CI only runs its structural hooks (ruff/mypy are covered by dedicated steps).
 - Don't rely on one system to do the other's job: a clean `pre-commit run` does not satisfy the mainline whitelist or commit-msg rules.
 
