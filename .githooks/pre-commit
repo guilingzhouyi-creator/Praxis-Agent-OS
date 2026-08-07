@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
 # Pre-commit hook — lint + format + size check + mainline whitelist gate.
+#
+# Ruff passes are scoped to STAGED .py files only (never the whole tree):
+# a whole-tree pass silently reformats files outside the commit and pollutes
+# the working tree on every commit. Lint may auto-fix a staged file (aborting
+# the commit so the agent re-stages); format is a verify-only gate — the agent
+# must run `ruff format <files>` before staging.
 set -euo pipefail
 
-echo "--- pre-commit: ruff check ---"
-ruff check --fix --exit-non-zero-on-fix src/ tests/
+echo "--- pre-commit: ruff check (staged .py only) ---"
+STAGED_PY="$(git diff --cached --name-only --diff-filter=ACMR -- '*.py' || true)"
+if [ -n "$STAGED_PY" ]; then
+  # Auto-fixes abort the commit (--exit-non-zero-on-fix): re-stage the fixed
+  # files and retry. Files outside the staged set are never touched.
+  printf '%s\n' "$STAGED_PY" | xargs ruff check --fix --exit-non-zero-on-fix
 
-echo "--- pre-commit: ruff format ---"
-ruff format src/ tests/
+  echo "--- pre-commit: ruff format --check (staged .py only) ---"
+  printf '%s\n' "$STAGED_PY" | xargs ruff format --check
+else
+  echo "no staged Python files — ruff skipped"
+fi
 
 echo "--- pre-commit: size check ---"
 python scripts/pre-commit-size-check
