@@ -349,7 +349,7 @@ class ApiGateway(ApiHandlers):
 
         class _Handler(http.server.BaseHTTPRequestHandler):
             """_Handler — _ handler record (gateway)."""
-            gateway: "ApiGateway | None" = None  # set after class definition (class-body scoping)
+            gateway: ApiGateway | None = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):
                 """Suppress default http.server request logging."""

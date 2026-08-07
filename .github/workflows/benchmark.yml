@@ -56,6 +56,7 @@ jobs:
           WALL: ${{ steps.bench.outputs.wall_time }}
           STEPS: ${{ steps.bench.outputs.steps_per_sec }}
         run: |
+          mkdir -p benchmarks
           printf '{"wall_time": %s, "steps_per_sec": %s, "updated": "%s"}\n' \
             "$WALL" "$STEPS" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > benchmarks/baseline.json
           git config user.name "github-actions[bot]"
