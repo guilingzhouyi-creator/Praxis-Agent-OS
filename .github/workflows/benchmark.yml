@@ -7,9 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# The baseline-update commit (main only) is signed by the GITHUB_TOKEN and
-# carries a [skip ci] message so the update push does not re-trigger this
-# workflow. Fork PRs cannot push and are unaffected by the write scope.
+# The baseline-update commit (main only) is created with the GITHUB_TOKEN
+# and carries a [skip ci] message so it does not re-trigger this workflow.
+# It is committed locally but NOT pushed: the GitCode pre-receive hook
+# rejects unsigned commits, so an auto-pushed baseline would diverge the
+# dual remotes. Maintainers sync it to origin with a signed commit.
 permissions:
   contents: write
 
@@ -56,6 +58,12 @@ jobs:
           WALL: ${{ steps.bench.outputs.wall_time }}
           STEPS: ${{ steps.bench.outputs.steps_per_sec }}
         run: |
+          # NOTE: deliberately NO `git push` here. The GitHub-Actions bot
+          # commit is unsigned, and the GitCode pre-receive hook rejects
+          # unsigned commits — an auto-pushed baseline would diverge the
+          # dual remotes (origin clean-signed, github with a bot chain).
+          # Maintainers sync the baseline to origin with a signed commit:
+          #   git show <sha>:benchmarks/baseline.json > benchmarks/baseline.json
           mkdir -p benchmarks
           printf '{"wall_time": %s, "steps_per_sec": %s, "updated": "%s"}\n' \
             "$WALL" "$STEPS" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > benchmarks/baseline.json
@@ -63,4 +71,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add benchmarks/baseline.json
           git commit -m "chore(bench): update baseline [skip ci]" || echo "baseline unchanged"
-          git push
+          echo "baseline committed locally on GitHub; sync to origin via a signed commit."
