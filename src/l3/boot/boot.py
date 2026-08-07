@@ -631,6 +631,9 @@ def _init_discovery() -> dict:
             "grep_timeout": _pt.TOOL_GREP_TIMEOUT,
             "exec_timeout": _ps.SANDBOX_EXEC_TIMEOUT,
             "exec_token_budget": _pt.TOOL_EXEC_TOKEN_BUDGET,
+            "harness_mode": _pt.HARNESS_MODE_DEFAULT,
+            "loop.auto_test": _pt.AUTO_TEST_DEFAULT_MODE,
+            "format_auto": _pt.TOOL_FORMAT_AUTO,
         },
     )
 

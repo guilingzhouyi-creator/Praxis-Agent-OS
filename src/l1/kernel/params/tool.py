@@ -148,6 +148,11 @@ AUTO_TEST_MODES: Final[tuple[str, ...]] = (
 AUTO_TEST_TIMEOUT: Final[int] = 300  # background test run timeout (s)
 AUTO_TEST_MAX_FAILURES: Final[int] = 20  # failure detail entries parsed per run
 AUTO_TEST_FEEDBACK_MAX: Final[int] = 20  # pending feedback entries kept per agent
+
+
+# ── Code formatting ──
+# Auto-format source after write tools (create_file/file_patch/file_append)
+TOOL_FORMAT_AUTO: Final[bool] = True
 AUTO_TEST_CACHE_KEY: Final[str] = "auto_test"  # Cell L2 cache key prefix
 
 

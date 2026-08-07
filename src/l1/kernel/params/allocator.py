@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Final
 
+from .system import RING1_CAPACITY, RING2_CAPACITY, RING3_CAPACITY
+
 # ── Allocator ──
 
 
@@ -11,9 +13,9 @@ class AllocatorDefaults:
     """AllocatorDefaults — allocator defaults record (tokens, ring1, ring2, ring3, sandbox_kb)."""
 
     tokens: int = 4096
-    ring1: int = 32
-    ring2: int = 200
-    ring3: int = 1000
+    ring1: int = RING1_CAPACITY
+    ring2: int = RING2_CAPACITY
+    ring3: int = RING3_CAPACITY
     sandbox_kb: int = 10240
 
 

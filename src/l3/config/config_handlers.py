@@ -229,6 +229,13 @@ def cfg_tool(cfg: dict, s: Any, results: dict) -> None:
             setattr(_tool_mod, attr, cfg[yaml_key])
             _set_cfg("tool", yaml_key, cfg[yaml_key])
             s.set_l2(f"tool.{yaml_key}", cfg[yaml_key])
+    # Auto-format switch: code_format.py reads get_tool_config("format_auto"),
+    # so the YAML value must land in the discovery "tool" registry (not just
+    # params/L2) or it silently falls back to the default.
+    if "format_auto" in cfg:
+        _tool_mod.TOOL_FORMAT_AUTO = bool(cfg["format_auto"])
+        _set_cfg("tool", "format_auto", bool(cfg["format_auto"]))
+        s.set_l2("tool.format_auto", bool(cfg["format_auto"]))
     # Build/test detectors: praxis.yaml uses list-of-lists; discovery uses
     # {name: {cmd: [...]}}. Convert for get_config("build_detectors").
     for yaml_key, params_attr in (("build_detectors", "BUILD_DETECTORS"), ("test_detectors", "TEST_DETECTORS")):
@@ -716,7 +723,29 @@ def cfg_loop_control(cfg: dict, s: Any, results: dict) -> None:
         center.set_l2("loop.scope", cfg["scope"])
     if "enabled" in cfg:
         center.set_l2("loop.enabled", bool(cfg["enabled"]))
+    # Auto-test switch: auto_test.py reads get_tool_config("loop.auto_test"),
+    # so the YAML value must land in the discovery "tool" registry too.
+    # YAML 1.1 parses bare `off` as boolean False — map booleans back to the
+    # canonical string modes.
+    if "auto_test" in cfg:
+        from l1.kernel.discovery import set_config as _set_cfg
+
+        raw = cfg["auto_test"]
+        mode = ("async" if raw else "off") if isinstance(raw, bool) else str(raw).lower()
+        _set_cfg("tool", "loop.auto_test", mode)
+        center.set_l2("loop.auto_test", mode)
     results["loop_control"] = True
+
+
+def cfg_harness(cfg: dict, s: Any, results: dict) -> None:
+    """Load harness: section (harness.py reads get_tool_config("harness_mode"))."""
+    from l1.kernel.discovery import set_config as _set_cfg
+
+    if isinstance(cfg, dict) and "mode" in cfg:
+        mode = str(cfg["mode"]).lower()
+        _set_cfg("tool", "harness_mode", mode)
+        s.set_l2("harness.mode", mode)
+    results["harness"] = True
 
 
 def cfg_l3a(cfg: dict, s: Any, results: dict) -> None:
@@ -760,6 +789,8 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
 
     center = get_center()
     if isinstance(cfg, dict):
+        if "auto_activate_builtin" in cfg:
+            center.set_l2("skill.auto_activate_builtin", bool(cfg["auto_activate_builtin"]))
         if "write_min_ring" in cfg:
             try:
                 center.set_l2("skill.write_min_ring", int(cfg["write_min_ring"]))

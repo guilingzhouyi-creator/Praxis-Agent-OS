@@ -168,7 +168,11 @@ class CiReviewService(BaseService):
         self._persist_path = persist_path
         # Bounded worker pool: CI_REVIEW_MAX_CONCURRENT daemon workers consume
         # the bounded queue — both concurrency and queued work are capped.
-        for _ in range(CI_REVIEW_MAX_CONCURRENT):
+        # Deployment override: praxis.yaml ci.review.max_concurrent (settings).
+        max_concurrent = int(
+            self._effective("max_concurrent", "", "", CI_REVIEW_MAX_CONCURRENT) or CI_REVIEW_MAX_CONCURRENT
+        )
+        for _ in range(max_concurrent):
             threading.Thread(target=self._process, daemon=True, name="ci-review-worker").start()
 
     # ── BaseService lifecycle ──
@@ -471,15 +475,18 @@ class CiReviewService(BaseService):
         from l4.ci import get_service as _get_ci
 
         agent_id = str(result.get("agent_id") or result.get("agent") or "")
+        # Per-card pipeline timeout; deployment override: praxis.yaml
+        # ci.review.timeout (settings), default CI_REVIEW_TIMEOUT.
+        timeout = int(self._effective("timeout", "", "", CI_REVIEW_TIMEOUT) or CI_REVIEW_TIMEOUT)
         r = _get_ci().run_pipeline(
             name=f"card-{card_id}",
             steps=steps,
             agent_id=agent_id,
-            timeout=CI_REVIEW_TIMEOUT,
+            timeout=timeout,
             card_id=card_id,
         )
         run_id = r.get("run_id", "")
-        deadline = time.time() + CI_REVIEW_TIMEOUT + 10
+        deadline = time.time() + timeout + 10
         error = ""
         while time.time() < deadline:
             time.sleep(0.5)
@@ -498,7 +505,7 @@ class CiReviewService(BaseService):
                     error = st.get("error", status)
                 break
         else:
-            error = f"timed out waiting for CI pipeline ({CI_REVIEW_TIMEOUT}s)"
+            error = f"timed out waiting for CI pipeline ({timeout}s)"
             gates = [{"action": s.get("action"), "exit_code": None, "status": "unknown"} for s in steps]
         return run_id, gates, error
 

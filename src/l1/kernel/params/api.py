@@ -6,6 +6,7 @@ from typing import Final
 
 from ..paths import get_paths as _gp
 from ..platform import IS_NT as _IS_WIN
+from .tool import TOOL_GIT_TIMEOUT
 
 # ── PAL Router (cost-optimized LLM routing) ──
 PAL_FRUGAL_COST: Final[int] = 1
@@ -201,7 +202,8 @@ TRANSPORT_SOCKET_FAMILY: Final[int] = _socket.AF_INET  # AF_INET6 for dual-stack
 
 # ── Service-level timeouts ──
 CI_SHELL_TIMEOUT: Final[int] = 30
-GIT_TIMEOUT: Final[int] = 30
+# Timeout for git commands (s) — aliased to the tool-domain source of truth
+GIT_TIMEOUT: Final[int] = TOOL_GIT_TIMEOUT
 # HTTP timeout for full LLM generate calls (s)
 LLM_HTTP_TIMEOUT: Final[int] = 60
 # HTTP timeout for lightweight LLM calls (s)
@@ -249,7 +251,8 @@ HTTP_USER_AGENT: Final[str] = "Praxis/1.0"
 
 
 # ── Notify / webhook ──
-NOTIFY_WEBHOOK_TIMEOUT: Final[int] = 15
+# Aliased to the tool-domain webhook timeout (single source of truth)
+NOTIFY_WEBHOOK_TIMEOUT: Final[int] = TOOL_WEBHOOK_TIMEOUT
 
 
 # ── I18n (ports.I18nPort defaults) ──
@@ -324,10 +327,6 @@ MCP_EXPORT_MODE: Final[str] = "full"
 # MCP server export mode: normal (base tools only) | selected (L3A only) | full (both).
 # Concurrent workers for search operations
 SEARCH_MAX_WORKERS: Final[int] = 8
-
-
-# ── API gateway default port ──
-API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 
 
 # ── IPC / RPC ──
