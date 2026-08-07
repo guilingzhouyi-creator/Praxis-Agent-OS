@@ -675,3 +675,66 @@ class TestRejectionSampling:
         n = r4._generalize_lean_cases(sm)
         assert n >= 1
         assert calls["n"] == samples, f"expected {samples} samples, got {calls['n']}"
+
+
+class TestSemanticClustering:
+    """Batch 4 — shingle clustering + curriculum digest sampling."""
+
+    def _mk_lean(self, sm, name, error, tool="shingletool"):
+        sm.create(
+            name=name, description="d", prompt=f"failed {error}",
+            tags=["lean_case", "failure", name, tool],
+            allowed_tools=[tool],
+            knowledge={"tool": tool, "error": error, "domain": "", "nature": "",
+                       "turn_count": 1, "pattern_hint": "h"},
+            internal=True,
+        )
+
+    def test_similar_errors_cluster_together(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        r4 = R4Agent()
+        # Two near-identical permission errors + one distinct error.
+        self._mk_lean(sm, "c1", "permission denied on config file")
+        self._mk_lean(sm, "c2", "permission denied on config file path")
+        self._mk_lean(sm, "c3", "network timeout connecting to host")
+        cases = [sm.get("c1"), sm.get("c2"), sm.get("c3")]
+        clusters = r4._cluster_lean_cases(cases)
+        # c1+c2 share the "permission denied on config" shingles → one cluster.
+        sizes = sorted(len(c) for c in clusters)
+        assert sizes == [1, 2], f"expected [1,2] cluster sizes, got {sizes}"
+
+    def test_digest_frequency_and_difficulty(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        r4 = R4Agent()
+        # 3 identical frequent errors + 1 complex one.
+        self._mk_lean(sm, "d1", "permission denied on config file")
+        self._mk_lean(sm, "d2", "permission denied on config file")
+        self._mk_lean(sm, "d3", "permission denied on config file")
+        self._mk_lean(sm, "d4", "exception escalated across multiple boundary layers with retry exhaustion")
+        cases = [sm.get(f"d{i}") for i in range(1, 5)]
+        digest = r4._sample_digest(cases, "shingletool")
+        # Frequent cluster (permission denied) appears first and more than once.
+        assert digest.index("permission denied") < digest.index("exception escalated")
+        # Complex case gets the [complex] marker.
+        assert "[complex]" in digest
+
+    def test_digest_bounds_samples_per_cluster(self):
+        from l1.kernel.params.agent import R4_CLUSTER_SAMPLE_MAX
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        r4 = R4Agent()
+        # 10 identical errors → cluster capped at R4_CLUSTER_SAMPLE_MAX lines.
+        for i in range(10):
+            self._mk_lean(sm, f"e{i}", "permission denied on config file")
+        cases = [sm.get(f"e{i}") for i in range(10)]
+        digest = r4._sample_digest(cases, "shingletool")
+        count = digest.count("permission denied on config file")
+        assert count == R4_CLUSTER_SAMPLE_MAX, f"expected {R4_CLUSTER_SAMPLE_MAX}, got {count}"

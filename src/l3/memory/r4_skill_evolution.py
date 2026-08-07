@@ -20,9 +20,12 @@ from typing import Any
 
 from l1.kernel.params.agent import (
     R4_CARD_TAG_MAX,
+    R4_CLUSTER_SAMPLE_MAX,
+    R4_CLUSTER_SIMILARITY,
     R4_CONTRIB_MIN_RATIO,
     R4_CONTRIB_MIN_TRIALS,
     R4_CURATION_ENABLED,
+    R4_DIFFICULTY_WORDS,
     R4_DISTILL_COOLDOWN,
     R4_DISTILL_SAMPLES,
     R4_EVOLVED_SKILLS_DEFAULT,
@@ -814,6 +817,78 @@ class SkillEvolutionMixin:
         # preserving the seed-first order that recall already emits.
         return [n for n in nodes if n not in seeds][:limit]
 
+    def _cluster_lean_cases(self, cases: list[dict]) -> list[list[dict]]:
+        """Semantic clustering of lean cases by error text (batch 4).
+
+        Uses 3-gram shingle Jaccard similarity on the case's error text
+        (from structured knowledge when present, else the prompt). Cases
+        whose shingle similarity exceeds ``R4_CLUSTER_SIMILARITY`` are
+        merged into one cluster — same-root-cause failures written
+        differently no longer split across distillations.
+        """
+        import re as _re
+
+        def _error_text(c: dict) -> str:
+            kn = c.get("knowledge") or {}
+            err = kn.get("error", "") if isinstance(kn, dict) else ""
+            if not err:
+                err = c.get("prompt", "") or ""
+            return err.lower()
+
+        def _shingles(text: str) -> set[str]:
+            words = _re.split(r"[\s,;:._\-/]+", text)
+            words = [w for w in words if len(w) > 2]
+            return {f"{words[i]}_{words[i+1]}_{words[i+2]}" for i in range(len(words) - 2)}
+
+        cache = {id(c): _shingles(_error_text(c)) for c in cases}
+        clusters: list[list[dict]] = []
+        for c in cases:
+            c_sh = cache[id(c)]
+            placed = False
+            for cl in clusters:
+                rep_sh = cache[id(cl[0])]
+                union = c_sh | rep_sh
+                if union and len(c_sh & rep_sh) / len(union) >= R4_CLUSTER_SIMILARITY:
+                    cl.append(c)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([c])
+        return clusters
+
+    def _sample_digest(self, cases: list[dict], tool: str) -> str:
+        """Build a distillation digest with frequency weighting + difficulty order.
+
+        Batch 4 curriculum-style sampling: clusters are ordered by size
+        (frequent failure modes first), each cluster contributes up to
+        ``R4_CLUSTER_SAMPLE_MAX`` representative cases, and within a cluster
+        simpler patterns (short error text) come before complex ones (long
+        error text, ``R4_DIFFICULTY_WORDS``+ words).
+        """
+        clusters = self._cluster_lean_cases(cases)
+        clusters.sort(key=len, reverse=True)
+        lines: list[str] = []
+        for cl in clusters:
+            # Representative sampling within the cluster: shortest (simplest)
+            # first, then progressively longer (difficulty ramp). Complex
+            # patterns (>= R4_DIFFICULTY_WORDS words in the error text) get a
+            # marker so the LLM treats them as edge cases, not the norm.
+            def _err_len(c: dict) -> int:
+                kn = c.get("knowledge") or {}
+                if isinstance(kn, dict) and kn.get("error"):
+                    return len(str(kn["error"]).split())
+                return len((c.get("prompt") or "").split())
+
+            sub = sorted(cl, key=_err_len)
+            for c in sub[:R4_CLUSTER_SAMPLE_MAX]:
+                kn = c.get("knowledge") or {}
+                if isinstance(kn, dict) and kn.get("error"):
+                    marker = "[complex]" if _err_len(c) >= R4_DIFFICULTY_WORDS else ""
+                    lines.append(f"- {marker}{tool}: {kn['error'][:LOG_TRUNC_200]}")
+                else:
+                    lines.append(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}")
+        return "\n".join(lines) if lines else "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+
     def _generalize_lean_cases(self, sm: Any) -> int:
         """Merge per-tool lean cases into one generalized lessons skill.
 
@@ -847,7 +922,11 @@ class SkillEvolutionMixin:
             if len(cases) < R4_LEAN_GENERALIZE_THRESHOLD:
                 continue
             gen_name = f"lean_{tool}_lessons"
-            lessons = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+            # Batch 4: curriculum-style digest — semantic clustering
+            # (shingle), frequency ordering and difficulty ramp via
+            # _sample_digest; the fingerprint is computed over the sampled
+            # digest so a stable case set stays idempotent.
+            lessons = self._sample_digest(cases, tool)
             baseline = f"Known failure patterns when using {tool}:\n{lessons}"
             # Deterministic case fingerprint — idempotency is independent of
             # whether the stored prompt is LLM-summarized or rule-based, so a
