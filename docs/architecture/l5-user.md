@@ -1,6 +1,6 @@
 # L5 — User Layer
 
-Entry points and user-facing contract. 2 files / 489 lines.
+Entry points and user-facing contract. 2 files / 514 lines.
 
 ## CLI entry (`main.py` → `l5/cli.py`)
 

@@ -9,7 +9,7 @@ import logging
 import tempfile
 from pathlib import Path
 
-from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+from l1.kernel.params.system import LOG_TRUNC_500, MEMORY_PERSIST_FILE_RING3
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def search_long_term(mem, query: str, agent_id: str | None = None, limit: int = 
         rows = conn.execute(sql, params).fetchall()
         conn.close()
         return [
-            {"id": r[0], "agent_id": r[1], "entry_type": r[2], "content": r[3][:500],
+            {"id": r[0], "agent_id": r[1], "entry_type": r[2], "content": r[3][:LOG_TRUNC_500],
              "tags": r[4].split(","), "importance": r[5], "timestamp": r[6]}
             for r in rows
         ]

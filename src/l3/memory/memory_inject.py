@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import logging
 
+from l1.kernel.params.system import HASH_TRUNC_SHORT
+
 logger = logging.getLogger(__name__)
 
 # ── Task types ────────────────────────────────────────────
@@ -153,7 +155,7 @@ class MemoryInjector:
             for ed in gr.get("edges", []):
                 key = ed.get("relation", "related")
                 by_rel.setdefault(key, []).append(
-                    f"{ed.get('from_id', '')[:8]}→{ed.get('to_id', '')[:8]}")
+                    f"{ed.get('from_id', '')[:HASH_TRUNC_SHORT]}→{ed.get('to_id', '')[:HASH_TRUNC_SHORT]}")
             lines = ["=== Memory Relations (Mer) ==="]
             for rel, pairs in by_rel.items():
                 lines.append(f"- {rel}: {', '.join(pairs[:_MER_MAX_NODES])}")

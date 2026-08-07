@@ -15,7 +15,7 @@ flowchart TB
         TUI["TUI (contract-ready, not yet built)"]
     end
     subgraph L4["L4 Bridge"]
-        GW["API gateway 274 routes /api/v2/"]
+        GW["API gateway 334 routes /api/v2/"]
         SSE["SSE /api/events"]
         WS["WS bridge :8081 subscribe/rpc"]
         RPC["RPC server :42110"]
@@ -33,7 +33,7 @@ flowchart TB
         BUS["buses / scheduler / services"]
     end
     subgraph L2["L2 Shell"]
-        SH["46 commands / i18n / completer"]
+        SH["49 YAML commands + 2 code / i18n / completer"]
     end
     subgraph L1["L1 Kernel"]
         EVT["EventBus"]
@@ -41,7 +41,7 @@ flowchart TB
         GATE["GateChain G1-G5"]
         CONST["Constitution"]
         PORTS["Ports (12 ABC abstractions)"]
-        PARAMS["params: 961 constants"]
+        PARAMS["params: 1,027 constants"]
     end
 
     CLI --> GW
@@ -71,18 +71,18 @@ flowchart TB
 | Layer | Document | Responsibility |
 |-------|----------|----------------|
 | L5 | [l5-user.md](l5-user.md) | CLI entry, user-facing contract, TUI surface |
-| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (274 routes), WS/SSE/RPC channels, sandbox, auth, fs |
+| L4 | [l4-bridge.md](l4-bridge.md) | API gateway (334 routes), WS/SSE/RPC channels, sandbox, auth, fs |
 | L4 | [l4-llm.md](l4-llm.md) | LLM providers, effort tiers, strategy packs, model_spec cascade |
 | L3 | [l3-card-lifecycle.md](l3-card-lifecycle.md) | Card end-to-end: produce → execute → approve → archive |
 | L3 | [l3-memory.md](l3-memory.md) | 4-ring memory + side-channels (Mer / R5 / User Profile) + injection |
 | L3 | [l3a-central.md](l3a-central.md) | L3A decision layer: the central office (sessions, ask, cardwrite, profile) |
-| L3 | [l3-tools.md](l3-tools.md) | 19 tool implementations + tool system (spec/registry/policy/pipeline) |
+| L3 | [l3-tools.md](l3-tools.md) | 20 tool implementations + tool system (spec/registry/policy/pipeline) |
 | L3 | [l3-bus.md](l3-bus.md) | IPC protocol (20+ message types) + buses + ReferenceChannel causal recorder |
 | L3 | [l3-cell-os.md](l3-cell-os.md) | Cell SoC components (ICache/MMU/PMU/Watchdog/…), boot, lifecycle |
 | L3 | [l3-scheduler.md](l3-scheduler.md) | 5D scheduler (route/pool/time/rate/scope) + safety layers |
 | L3 | [l3-routing.md](l3-routing.md) | HTN intent decomposition + L3B cross-cell routing |
 | L3 | [l3-convention.md](l3-convention.md) | cross-cell deliberation (orchestrator/answers/aggregate/report) |
-| L2 | [l2-shell.md](l2-shell.md) | 46-command shell, i18n, completer, agent selector |
+| L2 | [l2-shell.md](l2-shell.md) | 49-command shell, i18n, completer, agent selector |
 | L1 | [l1-kernel.md](l1-kernel.md) | Process table, sync, event bus, constitution, GateChain, ports, params |
 | — | [cross-cutting.md](cross-cutting.md) | Governance, events, injection switches, testing/QA, skills, collaboration |
 
@@ -90,21 +90,21 @@ flowchart TB
 
 | Metric | Value |
 |--------|-------|
-| L1 Kernel | 46 files / 12,739 lines |
-| L2 Shell | 20 files / 2,993 lines |
-| L3 Cell | 236 files / 52,962 lines |
-| L4 Bridge | 70 files / 15,645 lines |
-| L5 User | 2 files / 489 lines |
-| L3A (peers) | 19 files / 4,496 lines |
-| L3 Memory | 24 files / 5,956 lines |
-| L3 Card | 23 files / 5,664 lines |
-| L3 Services | 35 files / 9,159 lines |
-| L3 Bus | 15 files / 3,584 lines |
-| L3 Agent | 24 files / 4,865 lines |
-| L4 Handlers | 18 files / 3,763 lines |
-| API routes | 274 (`/api/v2/*` versioned) |
-| Route domains | 44 (largest: provider=17, approval=14, fs=14, card=11, memory=11, subagent=11, agent=10) |
-| Params modules / constants | 9 / 961 |
+| L1 Kernel | 46 files / 14,137 lines |
+| L2 Shell | 22 files / 3,384 lines |
+| L3 Cell | 242 files / 56,993 lines |
+| L4 Bridge | 72 files / 16,853 lines |
+| L5 User | 2 files / 514 lines |
+| L3A (peers) | 19 files / 4,990 lines |
+| L3 Memory | 24 files / 6,777 lines |
+| L3 Card | 23 files / 6,004 lines |
+| L3 Services | 34 files / 9,488 lines |
+| L3 Bus | 15 files / 3,948 lines |
+| L3 Agent | 24 files / 5,175 lines |
+| L4 Handlers | 18 files / 4,067 lines |
+| API routes | 334 (`/api/v2/*` versioned) |
+| Route domains | 43 (largest: fs=24, subagent=18, provider=17, log=14, approval=14, skill=13, session=13) |
+| Params modules / constants | 8 / 1,027 |
 
 ## Reading path
 

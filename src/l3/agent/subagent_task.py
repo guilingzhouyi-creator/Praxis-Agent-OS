@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.agent import SUBAGENT_MAX_TOKENS, SUBAGENT_SESSION_TTL
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_2000
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_1000, LOG_TRUNC_2000
 
 from .subagent_spec import SubAgentSpec
 
@@ -109,7 +109,7 @@ class SubAgentTask:
     def _exec_post_scout(self, prompt_template: str) -> dict:
         prompt = prompt_template.format(
             result=str(self.result)[:LOG_TRUNC_2000],
-            answer=str(self.result.get("answer", ""))[:1000],
+            answer=str(self.result.get("answer", ""))[:LOG_TRUNC_1000],
             task_id=self.id,
         )
         try:

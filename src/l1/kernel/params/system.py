@@ -142,6 +142,8 @@ ERROR_BUS_QUERY_LIMIT: Final[int] = 50
 RECORD_CENTER_DEFAULT_LIMIT: Final[int] = 50
 # Days records are kept before archival
 RECORD_CENTER_RETENTION_DAYS: Final[int] = 30
+# Auto-export cadence for the RecordCenter (seconds between JSONL exports)
+RECORD_CENTER_AUTO_EXPORT_INTERVAL: Final[float] = 300.0
 
 # ── Memory ring quality scoring (quality_note) ──
 MEMORY_RING_SCORE_CHAR_WEIGHT: Final[float] = 0.3

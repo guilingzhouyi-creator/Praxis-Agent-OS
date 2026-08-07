@@ -18,7 +18,7 @@ import threading
 import time
 import uuid
 
-from l1.kernel.params.system import LOG_TRUNC_50
+from l1.kernel.params.system import LOG_TRUNC_40, LOG_TRUNC_50
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class MerTransformer:
             nid[e.get("id", "")] = key
             etype = e.get("entry_type", "?")
             label = (etype + ": "
-                     + str(e.get("content", ""))[:40].replace('"', "'"))
+                     + str(e.get("content", ""))[:LOG_TRUNC_40].replace('"', "'"))
             imp = e.get("importance")
             if imp is not None:
                 try:

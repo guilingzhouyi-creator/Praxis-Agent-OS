@@ -27,7 +27,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
-from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_1000, LOG_TRUNC_2000
+from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500, LOG_TRUNC_1000, LOG_TRUNC_2000
 from l3.agent.subagent_pool import SubAgentPool
 from l3.agent.subagent_spec import SubAgentSpec
 
@@ -196,7 +196,7 @@ class SubAgentOrchestrator:
                 verified.append(
                     {
                         "spec": spec,
-                        "result_summary": str(b1.get("result", {}).get("answer", ""))[:200],
+                        "result_summary": str(b1.get("result", {}).get("answer", ""))[:LOG_TRUNC_200],
                     }
                 )
 

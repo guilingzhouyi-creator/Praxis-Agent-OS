@@ -8,7 +8,7 @@ import sqlite3
 import time
 from typing import Any
 
-from l1.kernel.params.system import LOG_TRUNC_500
+from l1.kernel.params.system import HASH_TRUNC_SHORT, LOG_TRUNC_500
 from l1.kernel.paths import get_paths as _gp
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def _purge_expired() -> int:
 
 def _next_ref_code(conn: sqlite3.Connection, fonds: str, series: str) -> str:
     """Build a record number: fonds_code-series_code-seq (Chinese archive style)."""
-    fonds_code = re.sub(r"[^a-z0-9]", "", fonds)[:8] or "default"
+    fonds_code = re.sub(r"[^a-z0-9]", "", fonds)[:HASH_TRUNC_SHORT] or "default"
     series_code = re.sub(r"[^a-z0-9]", "", series)[:6] or "general"
     row = conn.execute(
         "SELECT COUNT(*) FROM archive WHERE fonds = ? AND series = ?",

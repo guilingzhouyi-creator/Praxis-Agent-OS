@@ -24,6 +24,7 @@ from pathlib import Path
 from l1.kernel.discovery import get_service_limit
 from l1.kernel.params.system import (
     ERROR_BUS_EXPORT_LIMIT,
+    RECORD_CENTER_AUTO_EXPORT_INTERVAL,
     RECORD_CENTER_DEFAULT_LIMIT,
     RECORD_CENTER_RETENTION_DAYS,
     RECORDS_EXPORT_FILE,
@@ -63,7 +64,7 @@ class RecordCenter:
     def __init__(
         self,
         export_dir: str = "",
-        auto_export_interval: float = 300.0,
+        auto_export_interval: float = RECORD_CENTER_AUTO_EXPORT_INTERVAL,
         retention_days: int | None = None,
     ):
         self._export_dir = export_dir or str(_LOG_DIR / "exports")

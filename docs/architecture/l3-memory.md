@@ -1,7 +1,7 @@
 # L3 — Memory System (4 rings + side-channels)
 
 How agents remember: operational rings, lossless archive, and the bypass
-side-channels (Mer / R5 / User Profile). 24 files / 5,956 lines.
+side-channels (Mer / R5 / User Profile). 24 files / 6,777 lines.
 
 ## Four-ring architecture
 

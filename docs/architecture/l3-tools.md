@@ -1,7 +1,7 @@
-# L3 — Tool Layer (19 implementations + tool system)
+# L3 — Tool Layer (20 implementations + tool system)
 
-The tool layer is what agents can do. 19 handlers in `l3/tools/` produce
-structured dicts for the 9-step pipeline; `l3/tool_system/` (8 files)
+The tool layer is what agents can do. 20 handlers in `l3/tools/` produce
+structured dicts for the 9-step pipeline; `l3/tool_system/` (10 files)
 defines how tools are declared, registered, gated, and executed.
 
 ## Tool inventory (by domain)

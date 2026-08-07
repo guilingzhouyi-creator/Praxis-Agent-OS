@@ -1,6 +1,6 @@
 # L3 — Cell Runtime (SoC components + boot + lifecycle)
 
-A Cell is an agent's "system on a chip": 19 components in
+A Cell is an agent's "system on a chip": 20 components in
 `src/l3/cell/components/` map classic OS hardware onto the agent domain.
 Boot brings the machine up; lifecycle takes it down cleanly.
 

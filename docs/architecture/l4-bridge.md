@@ -1,7 +1,7 @@
 # L4 — Bridge Layer
 
-The boundary: HTTP API (274 routes), LLM engine, realtime channels,
-sandbox, auth, filesystem, RPC. 69 files / 13,989 lines; 17 handler
+The boundary: HTTP API (334 routes), LLM engine, realtime channels,
+sandbox, auth, filesystem, RPC. 72 files / 16,853 lines; 17 handler
 modules.
 
 ## Responsibility boundary
@@ -15,7 +15,7 @@ modules.
 
 | Subsystem | Files | Role |
 |-----------|-------|------|
-| `api/` | gateway (route index + signature cache), routes (274), middleware, endpoints manifest (validate) | HTTP surface |
+| `api/` | gateway (route index + signature cache), routes (334), middleware, endpoints manifest (validate) | HTTP surface |
 | `api_handlers/` | 17 modules | dict-in/dict-out handlers per domain |
 | `llm/` | engine + providers (OpenAI/Anthropic/DeepSeek/Ollama/mock), `http_pool` keep-alive | model calls, effort-tier normalization, capability probes |
 | `sse/` | `sse_bridge.py` | one-way event stream (`/api/events`, event-type filter) |
