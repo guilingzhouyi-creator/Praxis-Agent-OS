@@ -58,6 +58,13 @@ src/l1/kernel/ports.py — 12 `*Port(ABC)` abstractions; adapters wired at boot 
 - **Register tools** via `ToolSpec` with ring/danger/parameters in `config/tools.yaml`
 - **No bare `except:`** — use `except Exception:`
 - **Double quotes** for strings (ruff `quote-style = "double"`), line-length 120
+- **Generalized constants rule (covers the specific entries below)**: any
+  value with a fixed meaning — numbers, truncation/hash lengths, timeouts,
+  file-path strings, memory weights — goes in `params/` and is referenced
+  by name. The per-domain constants that follow are the most-used instances:
+  `LOG_TRUNC_*`/`HASH_TRUNC_*` (truncation), `MEMORY_IMPORTANCE_*`/
+  `MEMORY_PRESSURE_*` (weights), `TOOL_PACKAGE_MANAGER_TIMEOUT`/
+  `TOOL_PIP_INSTALL_TIMEOUT` (timeouts), plus `paths.py` for path strings.
 
 ## Skill system (L1 kernel + L3 R4Agent)
 
@@ -114,12 +121,9 @@ Key conventions:
 - **Use `l1.kernel.platform` abstractions** for all OS-specific operations: `grep_cmd()`, `run_shell()`, `IS_WINDOWS`, `IS_POSIX`. Never self-implement platform-specific subprocess calls (e.g., `rg` → `grep` fallback with `shell=True`).
 - **ConfigDiscovery** — structural configuration goes in `config/discovery/*.yaml`, auto-discovered at boot. See `docs/configuration/overview.md`.
 - **Three-layer config**: `params/*.py` (compile-time defaults) ← `config/discovery/*.yaml` (structural overrides) ← `config/praxis.yaml` (deployment config).
-- **Truncation literals**: use `LOG_TRUNC_*` constants from `params/system.py` (`LOG_TRUNC_40` through `LOG_TRUNC_10000`). Never write `[:40]`, `[:3000]` etc. directly.
-- **Hash truncation**: use `HASH_TRUNC_SHORT` (8), `HASH_TRUNC_MEDIUM` (12), `HASH_TRUNC_LONG` (16).
-- **Memory importance weights**: use `MEMORY_IMPORTANCE_*` and `MEMORY_PRESSURE_*` constants from `params/system.py`.
-- **Timeout defaults in function signatures**: reference `params/tool.py` or `params/system.py` constants, not raw numbers.
-- **File path strings**: centralize in `params/system.py` or `paths.py`. Avoid `"*.json"`, `"foo/bar.yaml"` in implementation code.
-- **Package manager timeouts**: use `TOOL_PACKAGE_MANAGER_TIMEOUT`, `TOOL_PIP_INSTALL_TIMEOUT`, etc. from `params/tool.py`.
+- **Constants**: per-domain magic values (`LOG_TRUNC_*`, `HASH_TRUNC_*`,
+  memory weights, timeouts, path strings) follow the generalized rule in
+  `## Key conventions` — reference them by name, never inline.
 
 ## Comment conventions
 
@@ -137,23 +141,21 @@ Key conventions:
 - Merge/revert commits are exempt from the two rules above (git-generated
   messages), BUT a merge that brings in a dependabot branch is gated on its
   diff scope — see `## Dependency management`.
-- Temporary bypass: `PRAXIS_SKIP_AUTHOR_CHECK=1` (message checks only — the
-  dependabot merge gate still runs unless `git commit --no-verify` is used).
 - **Hook mechanics (read before trusting the gate)**: `commit-msg` runs
   BEFORE the commit object exists, so `HEAD` still points at the previous
-  commit. The dependabot gate therefore reads the incoming branch from
-  `.git/MERGE_HEAD` during `git merge` (git removes it after commit), falling
-  back to `HEAD^2` only for manual post-merge commits, and diffs that tip
-  against `HEAD`. Detection triggers on the merged-tip **author**
-  (`dependabot[bot]`) OR the message, so a hand-typed message cannot bypass
-  it. It is NOT triggered by ordinary feature-branch merges.
+  commit. Any merge gate must therefore read the incoming branch from
+  `.git/MERGE_HEAD` during `git merge` (git removes it after commit),
+  falling back to `HEAD^2` only for manual post-merge commits. Detection
+  triggers on the merged-tip **author** (`dependabot[bot]`) OR the message,
+  so a hand-typed message cannot bypass it. It is NOT triggered by ordinary
+  feature-branch merges.
 - **Explicit bypass paths (forbidden unless justified)**: `git merge
   --no-verify` / `git commit --no-verify` skip ALL hooks, and
-  `PRAXIS_SKIP_AUTHOR_CHECK=1` skips the message checks. These are deliberate
-  escape hatches for broken-hook recovery, not routine workflows. The
-  remaining enforcement on such merges is GitCode's server-side GPG hook and
-  the deps.yml PR gate — but a `--no-verify` dependabot merge that drags in
-  code WILL slip through locally. Do not do it; if you did, the merge must be
+  `PRAXIS_SKIP_AUTHOR_CHECK=1` skips the message checks only. These are
+  deliberate escape hatches for broken-hook recovery, not routine
+  workflows. A `--no-verify` dependabot merge that drags in code WILL slip
+  through the local gate — server-side backstops are GitCode's GPG hook and
+  the deps.yml PR gate. Do not do it; if you did, the merge must be
   reviewed by a second agent before push.
 - **GPG signing is mandatory for main**: GitCode's pre-receive hook rejects
   unsigned commits. `commit.gpgsign` is `true` globally; if a local
@@ -178,32 +180,19 @@ Key conventions:
   `pyproject.toml` run `pip install -e ".[test]"` then the full suite
   (`python -m pytest tests/`). A green PR CI is not sufficient — the merge
   commit itself must also pass locally and be pushed to BOTH remotes.
-- **Dependabot/GitHub bot commits are unsigned**; GitCode's pre-receive hook
-  rejects unsigned commits. Never merge a dependabot branch directly on
-  GitHub — merge locally (GPG-signed) and push both remotes via
+- **Merge locally, never on GitHub**: dependabot bot commits are unsigned
+  and GitCode rejects them — `git merge` locally (GPG-signed) then
   `bash scripts/push-both.sh main`.
-- **Before merging a dependabot branch, run**
-  `bash scripts/verify-deps-merge.sh <branch>` — it checks the diff scope
-  (dependency files only, mixing code changes fails) and runs the full
-  suite when `pyproject.toml` changed.
-- **The commit-msg hook gates dependabot merges**: a `Merge` commit that
-  brings in a dependabot branch is rejected when its diff touches
-  non-dependency files, and reminds you to run `verify-deps-merge.sh`.
-- **CI gate**: `.github/workflows/deps.yml` runs on any PR that touches
-  dependency files — it enforces the dependency-only diff scope and runs
-  the full test suite, so a dependabot PR mixing code+dep changes fails.
-- **Allowed dependency files** (the exact whitelist shared by the hook, the
-  verify script, and deps.yml): `pyproject.toml`, `requirements*.txt`,
-  `uv.lock`, `poetry.lock` — at the repo root only. Anything else in a
-  dependabot merge is a violation.
-- **Known limitation (read before relying on the gate)**: the local
-  commit-msg gate only guards `git merge`/`git commit` runs; `--no-verify`
-  skips it entirely, and the deps.yml gate only applies to GitHub PRs, not
-  to local merges. A dependabot merge performed with `--no-verify` that
-  drags in code changes will pass locally. The server-side backstops are
-  GitCode's GPG requirement and, on GitHub, branch protection (currently
-  NOT configured — the PR must be reviewed by a human or agent who runs
-  `verify-deps-merge.sh`). Treat the local gate as a guardrail, not a wall.
+- **Before merging, run** `bash scripts/verify-deps-merge.sh <branch>`:
+  diff-scope check + full-suite run when dependency files changed. The
+  commit-msg hook rejects a dependabot merge that drags in non-dependency
+  files (see `## Commit conventions` for its mechanics and bypass limits).
+- **CI gate**: `.github/workflows/deps.yml` runs on any PR touching
+  dependency files — enforces the dependency-only diff scope + full suite.
+- **Allowed dependency files** (shared whitelist of hook / verify script /
+  deps.yml, repo root only): `pyproject.toml`, `requirements*.txt`,
+  `uv.lock`, `poetry.lock`. Anything else in a dependabot merge is a
+  violation.
 
 ## Branching workflow (see `docs/workflow/branching.md`)
 
@@ -305,76 +294,23 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
-- `src/l3/cell/peers/l3a/` — **L3A session system (19 modules):**
-  - `__init__.py` — L3ADaemon lifecycle + singleton
-  - `session.py` — Session, SessionHistory, SessionManager
-  - `session_ask.py` — session-scoped ask-state helpers (shared with `ask.py`)
-  - `session_compress.py` — session transcript compression for summary/archive
-  - `session_prompt.py` — session prompt assembly (cardwrite context, role blocks)
-  - `subagent.py` — L3ASubAgentPool + spawn/collect/peek tool handlers
-  - `summaries.py` — session summary generation (L3A/R4 archive glue)
-  - `context.py` — ContextEpoch, ContextSource, ContextRegistry
-  - `inbox.py` — PromptInbox (durable admission/promotion)
-  - `model.py` — L3AModelConfig (model provider config, inheritance chain)
-  - `archive.py` — R4 archive store/restore helpers
-  - `pipeline.py` — ManagedToolOutput (oversized tool result spill)
-  - `task_table.py` — SessionTaskTable (per-session card task monitor buffer)
-  - `helpers.py` — cardwrite handler, prompt builder, convergence
-  - `api.py` — L2 Shell command routing
-  - `agents_md.py` — AGENTS.md handbook generator (structural facts → markdown)
-  - `types.py` — shared enums and dataclasses
-  - `params.py` — structural constants (paths, sizes)
-  - `ask.py` — l3a_ask clarification state machine (awaiting flow)
+- `src/l3/cell/peers/l3a/` — **L3A session system (19 modules):** `__init__` (daemon+singleton), `session` (Session/History/Manager), `session_ask` (ask-state), `session_compress` (transcript compression), `session_prompt` (prompt assembly), `subagent` (L3ASubAgentPool), `summaries` (summary+R4 glue), `context` (ContextEpoch/Registry), `inbox` (PromptInbox), `model` (L3AModelConfig), `archive` (R4 store/restore), `pipeline` (ManagedToolOutput), `task_table` (task monitor), `helpers` (cardwrite/convergence), `api` (L2 routing), `agents_md` (AGENTS.md generator), `types` (enums/dataclasses), `params` (constants), `ask` (clarification state machine)
 - `src/l3/cell/peers/l3.py` — CentralController (L3A+L3B+CardRegistry)
 
 ## Sandbox / Structured Diff System
 
-### Per-hunk attribution
-Each sandbox entry records `agent_id`, `tool_name`, `task_id`, and `modified_at` (ISO 8601 timestamp) per hunk, enabling precise attribution of every edit.
-
-### Multi-Agent Entry Storage
-Entries are keyed by `path::agent_id`. Multiple agents can independently modify the same file; each gets a separate entry. The sandbox returns all entries for a given path, allowing cross-review to see all parallel edits.
-
-### Summary Cache (L1+L2+L3)
-Three-level summary cache:
-- **L1** — in-memory per-sandbox entry stats (`additions`, `deletions`, `hunks`)
-- **L2** — Cell-level shared cache aggregated across agents
-- **L3** — Persistent cache flushed to `.praxis_sandbox_state.json`
-
-### Color Scheme
-Configurable via `config/praxis.yaml` `diff.colors`:
-```yaml
-diff:
-  mode: auto                       # auto|human|summary|colored
-  colors:
-    logic_change: "\033[31m"       # red
-    reformat: "\033[34m"           # blue
-    comment_only: "\033[32m"       # green
-    import_change: "\033[33m"      # yellow
-    import_added: "\033[33m"       # yellow
-    rename: "\033[36m"             # cyan
-    structural: "\033[90m"         # bright black
-    mixed: "\033[35m"              # magenta
-    added: "\033[32m"              # green
-    removed: "\033[31m"            # red
-```
-
-### Diff views
-| Mode | Description |
-|------|-------------|
-| `agent` | Per-agent diff with attribution |
-| `human` | Simplified, human-readable diff |
-| `summary` | Stats-only diff (additions/deletions/hunks) |
-| `colored` | Semantic-colorized diff |
-
-### Diff API endpoints
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/diff/colors` | Get/set/reset diff color scheme |
-
-### Flow (per-hunk attribution)
-1. Agent writes file → sandbox creates entry with per-hunk `agent_id`, `tool_name`, `task_id`
-2. Cross-review calls `_get_sandbox_entries(cell, target)` → retrieves all entries for the file
-3. Each entry's `hunks` list includes per-hunk attribution metadata
-4. Message built from all entries shows agent, tool, stats per entry
-5. Reviewer sees exactly who changed what, with which tool, and when
+- **Per-hunk attribution**: each sandbox entry records `agent_id`,
+  `tool_name`, `task_id`, `modified_at` (ISO 8601) per hunk — every edit is
+  attributable.
+- **Multi-agent entries**: keyed by `path::agent_id`; parallel agents can
+  edit the same file independently, and the sandbox returns all entries for
+  a path so cross-review sees every parallel edit.
+- **Summary cache (L1→L3)**: in-memory per-entry stats → Cell-level shared
+  cache → persistent `.praxis_sandbox_state.json`.
+- **Diff views**: `agent` (attribution), `human` (readable), `summary`
+  (stats-only), `colored` (semantic colorization). Colors configurable via
+  `config/praxis.yaml` `diff.colors` (see `docs/architecture/` for the
+  scheme); API: `POST /api/diff/colors` get/set/reset.
+- **Flow**: agent writes → entry with per-hunk attribution → cross-review
+  reads all entries for the file → message shows who changed what, with
+  which tool, and when.
