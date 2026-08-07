@@ -213,18 +213,18 @@ class TestList:
         pt.spawn("agent-a")
         pt.spawn("agent-b")
         # + PID 0 (kernel init)
-        assert len(pt.list()) >= 3
+        assert len(pt.list_processes()) >= 3
 
     def test_list_by_state(self, pt):
         pt.spawn("agent-a")
         pcb = pt.spawn("agent-b")
         pt.set_state(pcb.pid, ProcessState.RUNNING)
-        running = pt.list(state=ProcessState.RUNNING)
+        running = pt.list_processes(state=ProcessState.RUNNING)
         assert all(p["state"] == "RUNNING" for p in running)
 
     def test_list_returns_snapshots(self, pt):
         pcb = pt.spawn("agent-a")
-        items = pt.list()
+        items = pt.list_processes()
         snap = [i for i in items if i["pid"] == pcb.pid][0]
         assert snap["name"] == "agent-a"
         assert "pid" in snap

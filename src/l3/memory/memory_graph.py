@@ -513,8 +513,11 @@ class MemoryGraph:
                 pairs.append((a, b))
         return pairs[:max_pairs]
 
-    def _ask_relation(self, engine, a: dict, b: dict) -> str:
-        """One LLM call: what is the semantic relation between A and B?"""
+    def _ask_relation(self, engine, a: dict, b: dict) -> str | None:
+        """One LLM call: what is the semantic relation between A and B?
+
+        Returns a relation keyword, "" (no relation), or None (engine fault).
+        """
         prompt = (
             "Compare these two memory entries from an agent deliberation "
             "history and answer with EXACTLY ONE word:\n"
@@ -532,7 +535,7 @@ class MemoryGraph:
                     return rel
             return ""
         except Exception:
-            return ""  # engine exception (distinct from "none" = no relation)
+            return None  # engine failure (None = fault; "" = no relation)
 
     # ── Query / Maintenance ─────────────────────────────────────────
 

@@ -16,7 +16,7 @@ class TestSessionTaskTable:
         t.track("card-2", title="two", turn=1)
         assert t.pending_count() == 2
         assert len(t.all()) == 2
-        items = t.list()
+        items = t.list_tasks()
         assert items[0]["card_id"] == "card-1"
         assert items[0]["status"] == "queued"
 
@@ -37,10 +37,10 @@ class TestSessionTaskTable:
         t.track("card-1", turn=0)
         t.track("card-2", turn=1)
         t.update("card-2", "failed", {"error": "boom"})
-        done = t.list(status="failed")
+        done = t.list_tasks(status="failed")
         assert len(done) == 1
         assert done[0]["card_id"] == "card-2"
-        assert t.list(status="queued")[0]["card_id"] == "card-1"
+        assert t.list_tasks(status="queued")[0]["card_id"] == "card-1"
 
     def test_persist_roundtrip(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable

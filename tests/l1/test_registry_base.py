@@ -118,7 +118,7 @@ def test_list_returns_all() -> None:
     reg.register(RegisterableSpec(name="a", category="cat1"))
     reg.register(RegisterableSpec(name="b", category="cat2"))
     reg.register(RegisterableSpec(name="c", category="cat1"))
-    all_specs = reg.list()
+    all_specs = reg.list_items()
     assert len(all_specs) == 3
     assert {s.name for s in all_specs} == {"a", "b", "c"}
 
@@ -128,7 +128,7 @@ def test_list_filters_by_category() -> None:
     reg: MapRegistry[RegisterableSpec] = MapRegistry()
     reg.register(RegisterableSpec(name="a", category="cat1"))
     reg.register(RegisterableSpec(name="b", category="cat2"))
-    cat1 = reg.list(category="cat1")
+    cat1 = reg.list_items(category="cat1")
     assert len(cat1) == 1
     assert cat1[0].name == "a"
 
@@ -162,7 +162,7 @@ def test_clear_empties_registry() -> None:
     reg.register(RegisterableSpec(name="b"))
     n = reg.clear()
     assert n == 2
-    assert reg.list() == []
+    assert reg.list_items() == []
 
 
 def test_get_returns_none_for_missing() -> None:

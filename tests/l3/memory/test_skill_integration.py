@@ -49,7 +49,7 @@ class TestSkillCatalogHook:
         """SkillCatalogHook injects at most 5 skill lines, truncated desc."""
         from l3.services.hook import SkillCatalogHook
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = [
+        mock_sm.return_value.list_skills.return_value = [
             {"name": f"skill-{i}", "description": "d" * 200} for i in range(8)
         ]
         hook = SkillCatalogHook()
@@ -64,7 +64,7 @@ class TestSkillCatalogHook:
         """Hook leaves task unchanged when no skills exist."""
         from l3.services.hook import SkillCatalogHook
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = []
+        mock_sm.return_value.list_skills.return_value = []
         hook = SkillCatalogHook()
         assert hook.session_start("task", "agent") == "task"
 

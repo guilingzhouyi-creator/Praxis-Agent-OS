@@ -89,7 +89,7 @@ class Registry(ABC, Generic[T]):
         ...
 
     @abstractmethod
-    def list(self, category: str = "") -> list[T]:
+    def list_items(self, category: str = "") -> list[T]:
         """List all registered specs, optionally filtered by category."""
         ...
 
@@ -168,14 +168,6 @@ class MapRegistry(Registry[T]):
             if not category:
                 return list(self._items.values())
             return [s for s in self._items.values() if s.category == category]
-
-    def list(self, category: str = "") -> list[T]:
-        """Return all registered specs, optionally filtered by *category*.
-
-        Compatibility alias of :meth:`list_items` — the Registry ABC requires
-        ``list`` and legacy callers (tests, ToolRegistry) depend on it.
-        """
-        return self.list_items(category=category)
 
     def all_names(self) -> list[str]:
         """Return the names of all registered specs."""

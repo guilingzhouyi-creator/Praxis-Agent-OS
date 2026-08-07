@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 def _clear_tools():
     """Remove all tools from the shared TOOL_REGISTRY."""
     from l3.tool_system.tool_spec import TOOL_REGISTRY
-    for spec in TOOL_REGISTRY.list():
+    for spec in TOOL_REGISTRY.list_tools():
         TOOL_REGISTRY.unregister(spec.name)
 
 
@@ -111,7 +111,7 @@ class TestRegister:
                         ring="RING_1", danger=0, handler=lambda a, b: {})
         register(spec)
         register(spec)  # should not raise
-        names = [t.name for t in TOOL_REGISTRY.list()]
+        names = [t.name for t in TOOL_REGISTRY.list_tools()]
         assert names.count("dup") == 1
 
 

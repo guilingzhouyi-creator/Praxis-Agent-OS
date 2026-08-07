@@ -17,12 +17,12 @@ from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolRing
 @pytest.fixture(autouse=True)
 def _clean_registry():
     """Each test starts with an empty TOOL_REGISTRY."""
-    saved = TOOL_REGISTRY.list()
+    saved = TOOL_REGISTRY.list_tools()
     for spec in saved:
         TOOL_REGISTRY.unregister(spec.name)
     ToolConfig._loaded = False
     yield
-    for spec in TOOL_REGISTRY.list():
+    for spec in TOOL_REGISTRY.list_tools():
         TOOL_REGISTRY.unregister(spec.name)
     for spec in saved:
         TOOL_REGISTRY.register(spec)

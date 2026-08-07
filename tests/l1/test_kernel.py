@@ -66,7 +66,7 @@ class TestProcessTable:
         t = get_table()
         t.spawn("list-a")
         t.spawn("list-b")
-        items = t.list()
+        items = t.list_processes()
         pids = [i["pid"] for i in items]
         assert len(pids) >= 3  # pid0 + 2 spawned
 

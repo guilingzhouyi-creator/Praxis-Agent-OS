@@ -280,7 +280,7 @@ class TestCmdObserve:
 class TestCmdSkills:
     def test_skills_list_default(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = [
+        mock_sm.return_value.list_skills.return_value = [
             {"name": "s1"}, {"name": "s2"}, {"name": "s3"},
         ]
 
@@ -291,7 +291,7 @@ class TestCmdSkills:
 
     def test_skills_lean(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = [{"name": "s1"}]
+        mock_sm.return_value.list_skills.return_value = [{"name": "s1"}]
 
         from l2.l2_shell import _cmd_skills
         r = _cmd_skills(["lean"])
@@ -300,7 +300,7 @@ class TestCmdSkills:
 
     def test_skills_evolve(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = []
+        mock_sm.return_value.list_skills.return_value = []
         mock_sm.return_value.authorize_write.return_value = (True, "l3")
         mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         mock_r4.return_value.evolve_skill.return_value = {"success": True, "skill": "x"}
@@ -311,7 +311,7 @@ class TestCmdSkills:
 
     def test_skills_evolve_without_method(self, mocker):
         mock_sm = mocker.patch("l1.kernel.skill.get_skill_manager")
-        mock_sm.return_value.list.return_value = []
+        mock_sm.return_value.list_skills.return_value = []
         mock_sm.return_value.authorize_write.return_value = (True, "l3")
         mock_r4 = mocker.patch("l3.memory.r4_agent.get_r4_agent")
         mock_r4.return_value.evolve_skill.return_value = {"success": True, "skill": "x"}

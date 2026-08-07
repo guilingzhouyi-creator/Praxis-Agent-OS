@@ -169,7 +169,7 @@ class TestToolSpec:
 
     def test_register_and_get(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, get_tool, register
-        saved = TOOL_REGISTRY.list()
+        saved = TOOL_REGISTRY.list_tools()
         for spec in saved:
             TOOL_REGISTRY.unregister(spec.name)
         try:
@@ -177,14 +177,14 @@ class TestToolSpec:
             assert get_tool("t1") is not None
             assert get_tool("nonexistent") is None
         finally:
-            for spec in TOOL_REGISTRY.list():
+            for spec in TOOL_REGISTRY.list_tools():
                 TOOL_REGISTRY.unregister(spec.name)
             for spec in saved:
                 TOOL_REGISTRY.register(spec)
 
     def test_list_by_category(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, list_tools, register
-        saved = TOOL_REGISTRY.list()
+        saved = TOOL_REGISTRY.list_tools()
         for spec in saved:
             TOOL_REGISTRY.unregister(spec.name)
         try:
@@ -193,7 +193,7 @@ class TestToolSpec:
             assert len(list_tools(category="alpha")) == 1
             assert len(list_tools()) >= 2
         finally:
-            for spec in TOOL_REGISTRY.list():
+            for spec in TOOL_REGISTRY.list_tools():
                 TOOL_REGISTRY.unregister(spec.name)
             for spec in saved:
                 TOOL_REGISTRY.register(spec)

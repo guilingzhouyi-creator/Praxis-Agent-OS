@@ -130,8 +130,37 @@ def _est_tokens(text: str) -> int:
     return len(text) // TOKEN_CHARS_PER_TOKEN
 
 
-class Session(SessionAskMixin, SessionPromptMixin, SessionCompressMixin):
-    """Live L3A session — history, inbox, task table, ask state, model config."""
+class Session(SessionPromptMixin, SessionAskMixin, SessionCompressMixin):
+    """Live L3A session — history, inbox, task table, ask state, model config.
+
+    Cross-mixin protocol methods are delegated explicitly on the concrete
+    class so real implementations always win over the ``NotImplementedError``
+    protocol stubs declared on the mixins (mypy sees the concrete
+    delegations; the runtime never hits a stub).
+    """
+
+    # ── Cross-mixin delegation ──
+
+    def _continue_after_ask(self, text: str) -> dict:
+        """Resume the loop after clarification answers (SessionAskMixin)."""
+        return SessionAskMixin._continue_after_ask(self, text)
+
+    def _report_stats(self) -> None:
+        """Emit token/pressure/turn metrics (SessionPromptMixin)."""
+        SessionPromptMixin._report_stats(self)
+
+    def _resolve_limits(self) -> dict:
+        """Resolve step/time/turn limits (SessionPromptMixin)."""
+        return SessionPromptMixin._resolve_limits(self)
+
+    def _resolve_model_config(self) -> dict:
+        """Resolve effective model config (SessionPromptMixin)."""
+        return SessionPromptMixin._resolve_model_config(self)
+
+    def context_stats(self) -> dict:
+        """Compute session context pressure (SessionPromptMixin)."""
+        return SessionPromptMixin.context_stats(self)
+
     def __init__(self, session_id: str, title: str,
                  model_config: L3AModelConfig | None = None,
                  registry: ContextRegistry | None = None,
