@@ -29,8 +29,12 @@ python scripts/pre-commit-size-check
 # (src/ code, tests/, shared files) MUST go through a feature branch and the
 # double-green merge flow.  This turns the "semi-finished work never enters
 # mainline" rule into a hard gate.
+#
+# In-progress merges (MERGE_HEAD present) are exempt: a --no-ff feature
+# merge is the sanctioned path for code to reach main, and its staged set
+# is the whole merged diff. The gate covers direct commits only.
 BRANCH="$(git branch --show-current 2>/dev/null || echo "")"
-if [ "$BRANCH" = "main" ]; then
+if [ "$BRANCH" = "main" ] && [ ! -f "$(git rev-parse --git-path MERGE_HEAD 2>/dev/null || echo /nonexistent)" ]; then
   STAGED="$(git diff --cached --name-only 2>/dev/null || true)"
   if [ -n "$STAGED" ]; then
     VIOLATIONS="$(printf '%s\n' "$STAGED" | grep -vE '^(docs/|README\.md$|config/|locales/|\.githooks/|scripts/|\.pre-commit-config\.yaml$|\.praxis-rules\.md$|coverage\.xml$)' || true)"
