@@ -722,7 +722,7 @@ def capture_exception(
 
 # ── Re-export API handlers from sub-module ──
 
-from .api import (  # noqa: F401
+from .api import (  # noqa: F401, E402  (deferred re-export after mixin class)
     handle_log_errors,
     handle_log_errors_clear,
     handle_log_errors_detail,

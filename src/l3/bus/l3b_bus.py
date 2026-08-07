@@ -220,9 +220,8 @@ class L3BBus:
         for cid in list(self._mailboxes.keys()):
             cid_cells = set(cid.split("-")[1:3]) if len(cid.split("-")) >= 3 else set()
             # Find an intermediate composite that shares a Cell with both sender and target
-            if cid != sender and cid != target:
-                if cid_cells & sender_cells and cid_cells & target_cells:
-                    return cid
+            if cid != sender and cid != target and cid_cells & sender_cells and cid_cells & target_cells:
+                return cid
         return None
 
     def stats(self) -> dict:

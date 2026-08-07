@@ -29,11 +29,10 @@ from l1.kernel.params.system import (
     LOG_ROTATE_GLOB,
     LOG_TRUNC_500,
 )
+from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
-
-from l1.kernel.paths import get_paths as _gp
 
 _LOG_DIR = Path(_gp().config_dir) / "logs"
 
