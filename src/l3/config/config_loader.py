@@ -72,6 +72,7 @@ def register_config_handler(section: str, handler: Callable, override: bool = Fa
 
 
 def list_config_handlers() -> list[str]:
+    """Return the sorted names of all registered config section handlers."""
     return sorted(_CONFIG_HANDLERS.keys())
 
 
@@ -343,7 +344,7 @@ def config_category(prefix: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def watch_config(interval: float = 30.0, callback: callable | None = None) -> dict:
+def watch_config(interval: float = 30.0, callback: Callable | None = None) -> dict:
     """Start watching config file for changes. Calls callback on change."""
     import threading
     import time

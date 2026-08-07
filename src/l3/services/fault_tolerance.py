@@ -30,13 +30,10 @@ CHECKPOINT_DIR = Path(get_config_dir()) / "checkpoints"
 from l1.kernel.params.system import (
     CHECKPOINT_JSON_FILE,
     CRASH_TIMEOUT,
-    FAULT_AUTONOMOUS_RECONNECT_INTERVAL,
     FAULT_CHECK_INTERVAL,
     FAULT_RETRY_INTERVAL,
     HEARTBEAT_TIMEOUT,
 )
-
-AUTONOMOUS_RECONNECT_INTERVAL = FAULT_AUTONOMOUS_RECONNECT_INTERVAL  # Autonomous mode reconnect interval
 
 
 @dataclass
@@ -57,10 +54,12 @@ class Checkpoint:
     created_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
+        """Serialize the checkpoint to a dict."""
         return {k: v for k, v in self.__dict__.items()}
 
     @classmethod
     def from_dict(cls, data: dict) -> Checkpoint:
+        """Rebuild a checkpoint from a dict, ignoring unknown keys."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -324,6 +323,7 @@ class FaultToleranceService(BaseService):
     # ── Stats ──
 
     def stats(self) -> dict:
+        """Return heartbeat/checkpoint/autonomous-mode status overview."""
         with self._lock:
             agents = {}
             for agent_id, hb in self._heartbeats.items():
@@ -344,6 +344,7 @@ _service: FaultToleranceService | None = None
 
 
 def get_service() -> FaultToleranceService:
+    """Return the shared FaultToleranceService singleton, creating it on first use."""
     global _service
     if _service is None:
         _service = FaultToleranceService()
@@ -351,6 +352,7 @@ def get_service() -> FaultToleranceService:
 
 
 def reset_service() -> None:
+    """Stop and drop the FaultToleranceService singleton (for testing / hot-reload)."""
     global _service
     if _service:
         _service.stop()

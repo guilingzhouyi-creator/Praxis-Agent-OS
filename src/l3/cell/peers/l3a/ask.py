@@ -11,6 +11,7 @@ answers are injected into the session history and the loop resumes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from . import params as _p
 
@@ -26,6 +27,7 @@ class AskQuestion:
     answer: str = ""
 
     def to_dict(self) -> dict:
+        """Serialize the question to a dict for transport or storage."""
         d = {"id": self.id, "question": self.question, "required": self.required}
         if self.options:
             d["options"] = self.options
@@ -45,6 +47,7 @@ class AskState:
 
     @classmethod
     def from_questions(cls, raw_questions: list) -> AskState:
+        """Build an AskState from raw LLM question data, capped at ASK_MAX_QUESTIONS."""
         qs = []
         for i, raw in enumerate(raw_questions[: _p.ASK_MAX_QUESTIONS], start=1):
             if isinstance(raw, dict):
@@ -61,9 +64,11 @@ class AskState:
         return cls(questions=qs)
 
     def missing(self) -> list[str]:
+        """Return ids of required questions that still lack an answer."""
         return [q.id for q in self.questions if q.required and not q.answer]
 
     def to_dict(self) -> dict:
+        """Serialize the full pending ask state to a dict."""
         return {
             "status": self.status,
             "questions": [q.to_dict() for q in self.questions],
@@ -73,6 +78,7 @@ class AskState:
 
     @classmethod
     def from_dict(cls, d: dict) -> AskState:
+        """Rebuild an AskState from a previously serialized dict."""
         qs = []
         for raw in d.get("questions", []):
             qs.append(
@@ -91,7 +97,7 @@ class AskState:
         return st
 
 
-def ask_handler(session: object, args: dict, agent_id: str = "") -> dict:
+def ask_handler(session: Any, args: dict, agent_id: str = "") -> dict:
     """Handler for the ``l3a_ask`` tool (registered on the AgentLoop).
 
     The LLM passes a list of questions; the session records them as pending
@@ -110,7 +116,7 @@ def ask_handler(session: object, args: dict, agent_id: str = "") -> dict:
     }
 
 
-def submit_answers(session: object, answers: dict, free_form: str = "") -> dict:
+def submit_answers(session: Any, answers: dict, free_form: str = "") -> dict:
     """Fill answers into the pending question state.
 
     ``answers`` maps question id -> answer text; ``free_form`` carries the

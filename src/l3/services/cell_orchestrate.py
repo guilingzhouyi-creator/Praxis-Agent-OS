@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from l1.kernel.params.api import SUBAGENT_RUN_TIMEOUT
 from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_1000, LOG_TRUNC_2000
@@ -103,7 +104,7 @@ class SubAgentOrchestrator:
             self.buffer_2 = [{"error": "scout pool unavailable"}]
             return {"success": False, "error": "scout pool unavailable"}
 
-        deadline = time.time() + timeout
+        deadline = time.time() + (timeout if timeout is not None else 0)
         for item in self.buffer_1:
             spec = item.get("spec", "?")
             answer = str(item.get("result", {}).get("answer", ""))
@@ -114,15 +115,11 @@ class SubAgentOrchestrator:
                 result=result_str[:LOG_TRUNC_2000],
             )
             try:
-                session = scout_pool.get(self.parent_agent_id)
-                if session is None:
-                    self.buffer_2.append({"spec": spec, "error": "no scout available"})
-                    continue
-                scout_result = session.run(prompt)
-                scout_pool.put(session)
+                scout_result = scout_pool.commission(self.parent_agent_id, prompt)
                 self.buffer_2.append({
                     "spec": spec,
-                    "result": str(scout_result)[:LOG_TRUNC_2000],
+                    "result": str(scout_result.get("output") or scout_result)[:LOG_TRUNC_2000],
+                    "success": bool(scout_result.get("success")),
                 })
             except Exception as e:
                 self.buffer_2.append({"spec": spec, "error": str(e)})
@@ -238,7 +235,7 @@ class SubAgentOrchestrator:
 
         Returns structured result ready for Peer Agent self-correction.
         """
-        result = {"success": True, "phases": []}
+        result: dict[str, Any] = {"success": True, "phases": []}
 
         # Phase 1+2: Fork-Join
         fj = self.fork_join(sub_tasks, timeout=fork_timeout)

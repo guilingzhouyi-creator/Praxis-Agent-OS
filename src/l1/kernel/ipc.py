@@ -148,5 +148,6 @@ def get_lock_bus() -> LockBus:
 
 
 def reset_lock_bus() -> None:
+    """Reset the lock bus singleton to None (for tests / hot reset)."""
     global _lock_bus
     _lock_bus = None

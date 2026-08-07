@@ -76,6 +76,7 @@ class L3BComposite:
             return {"success": True, "composite_id": self.composite_id}
 
     def shutdown(self) -> dict:
+        """Shut down this composite. Returns a result dict."""
         with self._lock:
             self._active = False
             self._pending_cards.clear()
@@ -146,6 +147,7 @@ class L3BComposite:
     # ── Status ──
 
     def status(self) -> dict:
+        """Return composite status. Returns a status dict."""
         with self._lock:
             return {
                 "composite_id": self.composite_id,
@@ -240,6 +242,7 @@ class L3B:
                 "tier": self.tier, "reason": f"score {score_a:.2f} vs {score_b:.2f}"}
 
     def status(self) -> dict:
+        """Return L3B coordinator status. Returns a status dict."""
         return {
             "tier": self.tier,
             "cells": {c.id: {"load": c.load, "agents": c.agents, "status": c.status}
@@ -273,6 +276,7 @@ class L3B:
         return results[:limit]
 
     def cache_lookup(self, key: str, cell_id: str) -> dict:
+        """Look up a cache entry by key in a specific Cell. Returns a result dict."""
         try:
             from l3.cell import get_cell as _get_cell
             cell = _get_cell(cell_id)
@@ -284,7 +288,8 @@ class L3B:
             return {"success": False, "error": str(e)}
 
     def cache_stats(self) -> dict:
-        total = {"hot": 0, "index": 0, "kv": 0, "hits": 0, "misses": 0}
+        """Aggregate cache stats across all registered Cells. Returns a totals dict."""
+        total: dict[str, Any] = {"hot": 0, "index": 0, "kv": 0, "hits": 0, "misses": 0}
         per_cell = {}
         for cell_id in list(self._cells.keys()):
             try:

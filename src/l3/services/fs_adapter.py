@@ -28,6 +28,7 @@ class FsAdapter(FilesystemPort):
         self._lock = threading.Lock()
 
     def read(self, path: str) -> dict:
+        """Read a text file (UTF-8); returns content or an error dict."""
         try:
             p = Path(path).resolve()
             if not p.exists():
@@ -40,6 +41,7 @@ class FsAdapter(FilesystemPort):
             return {"success": False, "error": str(e)}
 
     def write(self, path: str, content: str) -> dict:
+        """Write text content (UTF-8), creating parent dirs; returns size."""
         try:
             p = Path(path).resolve()
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +51,7 @@ class FsAdapter(FilesystemPort):
             return {"success": False, "error": str(e)}
 
     def list_tree(self, root: str) -> dict:
+        """Recursively list all entries under root with relative paths."""
         try:
             p = Path(root).resolve()
             if not p.exists():
@@ -72,6 +75,7 @@ class FsAdapter(FilesystemPort):
             return {"success": False, "error": str(e)}
 
     def watch(self, root: str, callback: Callable) -> dict:
+        """Start mtime-polling a directory, invoking callback on change."""
         try:
             p = Path(root).resolve()
             if not p.exists():

@@ -1,0 +1,37 @@
+# Service runtime limits — auto-discovered by ConfigDiscovery.
+# Overlays src/l1/kernel/params/system.py defaults (see _init_discovery in
+# src/l3/boot/boot.py, section "service_limits").
+#
+# The values below are the params/system.py defaults, kept commented out so
+# this file carries no duplicated truth. Uncomment + edit a key to override
+# the default at deployment time — e.g. raise a dialogue turn cap or a
+# retention window without touching code.
+#
+# Consumers (get_config("service_limits", {})):
+#   - transaction_area.py   — transaction_area_max_queue
+#   - record_center.py      — record_center_default_limit, record_center_retention_days
+#   - dialogue_session.py   — dialogue_max_turns, dialogue_max_context_tokens,
+#                             dialogue_persist_every
+#   - execution_engine.py   — execution_step_timeout
+#   - monitor_bus.py        — monitor_bus_max_queued
+#   - error_bus             — error_bus_query_limit
+#   - memory_ring.py        — memory_ring_score_* (quality_note scoring weights)
+
+service_limits:
+  # execution_step_timeout: 30.0
+  # dialogue_max_turns: 20
+  # dialogue_max_context_tokens: 4096
+  # dialogue_persist_every: 5
+  # transaction_area_max_queue: 100
+  # monitor_bus_max_queued: 200
+  # error_bus_query_limit: 50
+  # record_center_default_limit: 50
+  # record_center_retention_days: 30
+  # memory_ring_score_char_weight: 0.3
+  # memory_ring_score_tag_weight: 5
+  # memory_ring_score_high_importance: 20
+  # memory_ring_score_moderate_importance: 10
+  # memory_ring_score_long_tokens: 15
+  # memory_ring_score_medium_tokens: 5
+  # memory_ring_score_good_threshold: 40
+  # memory_ring_score_average_threshold: 15

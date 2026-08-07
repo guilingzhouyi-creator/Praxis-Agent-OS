@@ -19,7 +19,8 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, TRANSACTION_AREA_AUTO_SAVE
+from l1.kernel.discovery import get_service_limit
+from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, TRANSACTION_AREA_AUTO_SAVE, TRANSACTION_AREA_MAX_QUEUE
 from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
@@ -73,12 +74,18 @@ class TransactionArea(BaseService, PersistableMixin):
 
     persistence_kind = "transaction_area"
 
-    def __init__(self, max_queue: int = 100, persist_path: str = ""):
+    def __init__(self, max_queue: int | None = None, persist_path: str = ""):
         super().__init__("transaction_area")
         self._queue: dict[str, TransactionCard] = {}
         self._history: list[TransactionCard] = []
         self._lock = threading.RLock()
-        self._max_queue = max_queue
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        self._max_queue = (
+            max_queue
+            if max_queue is not None
+            else get_service_limit("transaction_area_max_queue", TRANSACTION_AREA_MAX_QUEUE)
+        )
         self._dispatched_count = 0
         self._init_persistence(persist_path or _gp().transaction_area, TRANSACTION_AREA_AUTO_SAVE)
         self._restore()
@@ -310,6 +317,7 @@ class TransactionArea(BaseService, PersistableMixin):
         }
 
     def stats(self) -> dict:
+        """Return queue and history statistics."""
         with self._lock:
             pending = sum(1 for c in self._queue.values() if c.status == CardStatus.PENDING)
             approved = sum(1 for c in self._queue.values() if c.status == CardStatus.APPROVED)
@@ -326,6 +334,7 @@ _service: TransactionArea | None = None
 
 
 def get_service() -> TransactionArea:
+    """Return the TransactionArea singleton, creating it if needed."""
     global _service
     if _service is None:
         _service = TransactionArea()
@@ -333,6 +342,7 @@ def get_service() -> TransactionArea:
 
 
 def reset_service() -> None:
+    """Stop and reset the TransactionArea singleton."""
     global _service
     if _service:
         _service.stop()

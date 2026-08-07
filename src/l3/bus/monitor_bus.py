@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from l1.kernel.params.agent import MONITOR_RING_SIZE
+from l1.kernel.params.system import MONITOR_BUS_MAX_QUEUED
 from l3._daemon_pool import DaemonPool
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class MonitorEvent:
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
+        """Serialize the event to a dict."""
         return {
             "type": self.type, "source": self.source, "severity": self.severity,
             "agent_id": self.agent_id, "cell_id": self.cell_id, "card_id": self.card_id,
@@ -126,7 +128,7 @@ class MonitorBus:
         for cb in list(self._sse_listeners):
             self._bounded_submit(self._safe_sse, cb, event)
 
-    _MAX_QUEUED = 200
+    _MAX_QUEUED = MONITOR_BUS_MAX_QUEUED
     """Max pending tasks in the executor queue. Beyond this, new tasks are dropped
     to prevent unbounded memory growth under high event load."""
 
@@ -157,7 +159,7 @@ class MonitorBus:
               source: str = "", since: float = 0.0,
               limit: int = 100) -> list[dict]:
         """Query events with filters. type_prefix supports glob: "kernel.*", "network.*"."""
-        results = []
+        results: list[dict] = []
         with self._lock:
             for ev in reversed(self._ring):
                 if len(results) >= limit:
@@ -206,10 +208,12 @@ class MonitorBus:
     # ── SSE ──
 
     def subscribe_sse(self, callback: _SseCallback) -> None:
+        """Register an SSE listener callback. Returns None."""
         with self._lock:
             self._sse_listeners.append(callback)
 
     def unsubscribe_sse(self, callback: _SseCallback) -> None:
+        """Remove an SSE listener callback. Returns None."""
         with self._lock:
             try:
                 self._sse_listeners.remove(callback)
@@ -233,6 +237,7 @@ _bus: MonitorBus | None = None
 
 
 def get_bus() -> MonitorBus:
+    """Get the MonitorBus singleton. Returns the shared bus."""
     global _bus
     if _bus is None:
         try:
@@ -245,6 +250,7 @@ def get_bus() -> MonitorBus:
 
 
 def reset_bus() -> None:
+    """Reset the MonitorBus singleton. Returns None."""
     global _bus
     _bus = None
 

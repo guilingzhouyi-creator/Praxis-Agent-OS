@@ -152,12 +152,15 @@ class CentralScheduler:
                 evicted += 1
 
     def poll(self) -> Task | None:
+        """Dequeue the next ready task from the request pool."""
         return self.pool.dequeue()
 
     def schedule(self, agent_ids: list[str]) -> str | None:
+        """Pick the next agent to run via time-slice scheduling."""
         return self.time_scheduler.schedule(agent_ids)
 
     def status(self, task_id: str) -> dict:
+        """Get the current status of a task."""
         with self._lock:
             t = self._tasks.get(task_id)
         if not t:
@@ -171,6 +174,7 @@ class CentralScheduler:
         }
 
     def stats(self) -> dict:
+        """Aggregate scheduler stats across all matrix dimensions."""
         return {
             "agents": self.router.agents(),
             "pool": self.pool.stats(),
@@ -188,6 +192,7 @@ _scheduler: CentralScheduler | None = None
 
 
 def get_scheduler() -> CentralScheduler:
+    """Get the central scheduler singleton."""
     global _scheduler
     if _scheduler is None:
         _scheduler = CentralScheduler()
@@ -195,5 +200,6 @@ def get_scheduler() -> CentralScheduler:
 
 
 def reset_scheduler() -> None:
+    """Reset the central scheduler singleton."""
     global _scheduler
     _scheduler = None

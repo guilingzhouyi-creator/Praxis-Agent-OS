@@ -97,9 +97,11 @@ class AgentProof:
     public_key: str = ""
 
     def is_expired(self) -> bool:
+        """Return whether the proof timestamp exceeds the TTL."""
         return time.time() - self.timestamp > PROOF_TTL
 
     def to_dict(self) -> dict:
+        """Serialize the proof to a dict."""
         return {k: v for k, v in self.__dict__.items()}
 
 
@@ -127,7 +129,7 @@ class IdentityService(BaseService):
 
     def __init__(self):
         super().__init__("identity")
-        self._keys: dict[str, dict] = {}         # agent_id → public_key (hex)
+        self._keys: dict[str, str] = {}         # agent_id → public_key (hex)
         self._secrets: dict[str, bytes] = {}      # agent_id → private_key (bytes, in-memory only)
         # nonce → insertion timestamp; a nonce is only valid within PROOF_TTL
         # of when it was first seen. We absorb a nonce only *after* the
@@ -369,6 +371,7 @@ class IdentityService(BaseService):
     # ── Stats ──
 
     def stats(self) -> dict:
+        """Return key/trust-anchor/nonce counts."""
         with self._lock:
             return {
                 "agents_with_keys": len(self._keys),
@@ -381,6 +384,7 @@ _service: IdentityService | None = None
 
 
 def get_service() -> IdentityService:
+    """Return the shared IdentityService singleton, creating it on first use."""
     global _service
     if _service is None:
         _service = IdentityService()
@@ -388,6 +392,7 @@ def get_service() -> IdentityService:
 
 
 def reset_service() -> None:
+    """Stop and drop the IdentityService singleton (for testing / hot-reload)."""
     global _service
     if _service:
         _service.stop()

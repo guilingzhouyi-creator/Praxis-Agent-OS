@@ -40,6 +40,7 @@ class _Worker(threading.Thread):
         self._idx = idx
 
     def run(self) -> None:
+        """Main worker loop — execute queued tasks until retired or shut down."""
         pool = self._pool
         while True:
             try:
@@ -158,6 +159,7 @@ class ThreadPoolWorker(WorkerPort):
         return Result.ok(shutdown=True)
 
     def stats(self) -> dict:
+        """Return pool sizing, activity, and throughput counters."""
         with self._lock:
             return {
                 "pool_size": len(self._workers),

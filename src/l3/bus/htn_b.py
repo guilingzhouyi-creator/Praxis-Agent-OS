@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import logging
 
-from l1.kernel.params.system import LOG_TRUNC_200
-
 from .htn_planner import HTNPlanner, Task, TaskType
 
 logger = logging.getLogger(__name__)
@@ -141,14 +139,7 @@ def route_from_htn_a(
     Returns:
         List of decomposed primitive tasks
     """
-    # Build a compound task that includes the previous summary context
-    route_task = Task(
-        id=f"route-{subtask.id}",
-        name=subtask.name,
-        task_type=TaskType.COMPOUND,
-        domain=subtask.domain,
-        agent_id=next_cell,
-        description=f"Route: {subtask.name} → {next_cell} | Prev summary: {prev_summary[:LOG_TRUNC_200]}",
-    )
+    # Decompose the routing task; the compound context is carried by the
+    # description passed to decompose, not a separate unused Task object.
     decomposed = htn_b.decompose(f"route {subtask.name} to {next_cell}", subtask.domain)
     return decomposed.sub_tasks if decomposed.sub_tasks else []

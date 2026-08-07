@@ -87,6 +87,7 @@ class TodoTracker:
             logger.warning("todo restore: %s", e)
 
     def load(self, items: list[dict]) -> None:
+        """Replace the task list with normalized copies of the given items."""
         self._items = [dict(item) for item in items]
         for t in self._items:
             t.setdefault("status", "pending")
@@ -96,6 +97,7 @@ class TodoTracker:
         self._persist()
 
     def update(self, content: str, status: str) -> str:
+        """Transition a task's status; returns the new status or an error string."""
         if status not in self.TASK_STATUSES:
             return f"error: invalid status '{status}'"
         status = self._STATUS_ALIASES.get(status, status)
@@ -132,6 +134,7 @@ class TodoTracker:
 
     def record_attempt(self, content: str, phase: str, exit_code: int,
                        evidence: str = "") -> dict:
+        """Record an execute/verify attempt; returns the next action to take."""
         task = self._find(content)
         if task is None:
             return {"action": "error", "detail": f"unknown task: {content[:LOG_TRUNC_40]}"}
@@ -179,6 +182,7 @@ class TodoTracker:
                 "detail": f"attempt {task['attempts']}/{self._max_attempts} failed"}
 
     def waive(self, content: str, reason: str = "") -> dict:
+        """Mark a task as waived with an optional reason."""
         task = self._find(content)
         if task is None:
             return {"action": "error", "detail": f"unknown task: {content[:LOG_TRUNC_40]}"}
@@ -188,15 +192,18 @@ class TodoTracker:
         return {"action": "waived", "task": content[:LOG_TRUNC_40], "detail": reason}
 
     def can_close(self) -> tuple[bool, list[str]]:
+        """Return whether every task is verified/waived, plus blockers."""
         blocked = [t["content"][:60] for t in self._items
                    if t["status"] not in ("verified", "waived")]
         return len(blocked) == 0, blocked
 
     def has_open_items(self) -> bool:
+        """Return whether any task is still pending/in-progress/verifying/escalated."""
         return any(t["status"] in ("pending", "in_progress", "verifying", "escalated")
                    for t in self._items)
 
     def reminder(self) -> str | None:
+        """Build a progress reminder/next-action prompt, or None when idle."""
         if self._status == "closed" or not self._items:
             return None
         in_progress = [t for t in self._items if t["status"] == "in_progress"]
@@ -232,6 +239,7 @@ class TodoTracker:
         return None
 
     def stats(self) -> dict:
+        """Return loop status, iteration, and per-status task counts."""
         by_status: dict[str, int] = {}
         for t in self._items:
             by_status[t["status"]] = by_status.get(t["status"], 0) + 1
@@ -242,6 +250,7 @@ class TodoTracker:
         }
 
     def reset(self) -> None:
+        """Clear all tasks/state and remove the persisted state file."""
         self._items.clear()
         self._iteration = 0
         self._status = "open"

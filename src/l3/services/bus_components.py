@@ -30,18 +30,21 @@ class CellPmuComponent(Component):
         super().__init__()
         self.cell_id = cell_id
         self._pmu_kwargs = pmu_kwargs
-        self._pmu = None
+        self._pmu: Any = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the CellPmu and attach the bus reference."""
         from l3.cell.components.cell_pmu import CellPmu
         self._pmu = CellPmu(self.cell_id, **self._pmu_kwargs)
         self._bus = bus
 
     def increment(self, name: str, delta: int = 1) -> None:
+        """Increment a PMU counter by delta."""
         if self._pmu:
             self._pmu.increment(name, delta)
 
     def snapshot(self, force: bool = False):
+        """Capture a PMU snapshot, emit pmu.snapshot, and ingest it into stats; returns the snapshot."""
         from .services.stats_center import get_center
         snap = self._pmu.snapshot(force=force)
         if snap:
@@ -53,11 +56,13 @@ class CellPmuComponent(Component):
         return snap
 
     def bus_health(self) -> dict:
+        """Return health status of the PMU component."""
         if not self._pmu:
             return {"status": "not_inited"}
         return {"status": "ok", "uptime": self._pmu.stats().get("uptime", 0)}
 
     def bus_stats(self) -> dict:
+        """Return the PMU counter map (empty when not inited)."""
         if not self._pmu:
             return {}
         return self._pmu.stats().get("counters", {})
@@ -86,9 +91,10 @@ class CellWatchdogComponent(Component):
         super().__init__()
         self.cell_id = cell_id
         self._wd_kwargs = wd_kwargs
-        self._watchdog = None
+        self._watchdog: Any = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize CellWatchdog and bridge its callbacks to bus events."""
         from l3.cell.components.cell_watchdog import CellWatchdog
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
@@ -99,26 +105,32 @@ class CellWatchdogComponent(Component):
         self._bus = bus
 
     def register(self, agent_id: str, timeout: float = 0) -> None:
+        """Register an agent with the watchdog using the given timeout."""
         if self._watchdog:
             self._watchdog.register(agent_id, timeout)
 
     def unregister(self, agent_id: str) -> None:
+        """Unregister an agent from the watchdog."""
         if self._watchdog:
             self._watchdog.unregister(agent_id)
 
     def pet(self, agent_id: str) -> None:
+        """Pet the watchdog for an agent to reset its timeout."""
         if self._watchdog:
             self._watchdog.pet(agent_id)
 
     def bus_start(self) -> None:
+        """Start the watchdog background thread."""
         if self._watchdog:
             self._watchdog.start()
 
     def bus_stop(self) -> None:
+        """Stop the watchdog background thread."""
         if self._watchdog:
             self._watchdog.stop()
 
     def bus_health(self) -> dict:
+        """Return health status of the watchdog component."""
         if not self._watchdog:
             return {"status": "not_inited"}
         return {"status": "ok", "running": self._watchdog._running}
@@ -144,19 +156,23 @@ class CellICacheComponent(Component):
         self._icache = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the ICache, wiring the PMU from the bus."""
         from l3.cell.components.cell_icache import ICache
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._icache = ICache(self.cell_id, pmu=pmu, **self._ic_kwargs)
 
     def store(self, key: str, value: Any, **kw: Any) -> None:
+        """Store a key/value entry in the ICache."""
         if self._icache:
             self._icache.store(key, value, **kw)
 
     def load(self, key: str) -> Any | None:
+        """Load a value by key from the ICache (None when missing)."""
         return self._icache.load(key) if self._icache else None
 
     def bus_health(self) -> dict:
+        """Return health status of the ICache component."""
         if not self._icache:
             return {"status": "not_inited"}
         return {"status": "ok"}
@@ -183,6 +199,7 @@ class CellMmuComponent(Component):
         self._tlb = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the CellTlb and CellMmu, wiring PMU/ICache from the bus."""
         from l3.cell.components.cell_mmu import CellMmu, CellTlb
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
@@ -193,15 +210,18 @@ class CellMmuComponent(Component):
         self._bus = bus
 
     def flush_agent(self, agent_id: str) -> int:
+        """Flush all TLB/MMU mappings for an agent; returns the number flushed."""
         if self._mmu:
             return self._mmu.flush_agent(agent_id)
         return 0
 
     def warm_from_agents(self, agents: dict) -> None:
+        """Pre-populate MMU mappings from a dict of agents."""
         if self._mmu:
             self._mmu.warm_from_agents(agents)
 
     def bus_health(self) -> dict:
+        """Return health status of the MMU component."""
         if not self._mmu:
             return {"status": "not_inited"}
         return {"status": "ok", "tlb_entries": len(self._mmu.tlb._entries) if self._mmu.tlb else 0}
@@ -235,12 +255,14 @@ class CellInterruptComponent(Component):
         self._interrupt = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the InterruptController, wiring the PMU from the bus."""
         from l3.cell.components.cell_interrupt import InterruptController
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._interrupt = InterruptController(self.cell_id, pmu=pmu, **self._ic_kwargs)
 
     def trigger(self, irq: int | str, data: Any = None) -> dict:
+        """Trigger an interrupt and emit interrupt.triggered; returns the dispatch result."""
         if self._interrupt:
             r = self._interrupt.trigger(irq, data)
             self._bus.emit("interrupt.triggered", {"irq": irq, "data": data})
@@ -248,11 +270,13 @@ class CellInterruptComponent(Component):
         return {"success": False, "error": "not inited"}
 
     def dispatch_pending(self, max_per: int = 5) -> int:
+        """Dispatch up to max_per pending interrupts; returns the number dispatched."""
         if self._interrupt:
             return self._interrupt.dispatch_pending(max_per)
         return 0
 
     def bus_health(self) -> dict:
+        """Return health status of the interrupt component."""
         if not self._interrupt:
             return {"status": "not_inited"}
         return {"status": "ok", "registered_irqs": len(self._interrupt._table)}
@@ -278,25 +302,30 @@ class CellCacheComponent(Component):
         self._cache = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the CellCache, wiring the PMU from the bus."""
         from l3.cell.components.cell_cache import CellCache
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._cache = CellCache(self.cell_id, pmu=pmu, **self._cache_kwargs)
 
     def inject(self, key: str, value: Any, **kw: Any) -> dict:
+        """Inject a key/value into the CellCache; returns the inject result."""
         if self._cache:
             return self._cache.inject(key, value, **kw)
         return {"success": False, "error": "not inited"}
 
     def lookup(self, key: str):
+        """Look up a key in the CellCache (None when missing)."""
         return self._cache.lookup(key) if self._cache else None
 
     def flush(self) -> int:
+        """Flush the CellCache; returns the number of entries flushed."""
         if self._cache:
             return self._cache.flush()
         return 0
 
     def bus_health(self) -> dict:
+        """Return health status of the cache component."""
         if not self._cache:
             return {"status": "not_inited"}
         return {"status": "ok"}
@@ -321,6 +350,7 @@ class CellPermissionComponent(Component):
         self._permission = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the SubAgentRegistry for the Cell."""
         from l3.cell.components.cell_permission import SubAgentRegistry
         self._permission = SubAgentRegistry(self.cell_id)
 

@@ -77,6 +77,7 @@ class Signal:
     timestamp: float = field(default_factory=_time.time)
 
     def to_dict(self) -> dict:
+        """Serialize the signal to a plain dict."""
         return {"type": self.type.name, "data": self.data, "sender": self.sender,
                 "target": self.target, "timestamp": self.timestamp}
 
@@ -95,10 +96,12 @@ class EventBus:
         """Max pending tasks in executor queue; beyond this, new tasks are dropped."""
 
     def on(self, st: SignalType, cb: Callable) -> None:
+        """Subscribe a callback to a signal type."""
         with self._lock:
             self._listeners.setdefault(st, []).append(cb)
 
     def on_any(self, cb: Callable) -> None:
+        """Subscribe a callback to all signal types."""
         with self._lock:
             self._wildcard_listeners.append(cb)
 
@@ -109,6 +112,7 @@ class EventBus:
                 self._wildcard_listeners.remove(cb)
 
     def off(self, st: SignalType, cb: Callable | None = None) -> None:
+        """Unsubscribe a callback, or all callbacks, for a signal type."""
         with self._lock:
             if cb:
                 self._listeners[st] = [l for l in self._listeners.get(st, []) if l != cb]
@@ -186,6 +190,7 @@ class EventBus:
 
     def history(self, signal_type: SignalType | None = None,
                 limit: int = EVENT_QUERY_LIMIT) -> list[dict]:
+        """Return recent emitted signals as dicts, optionally filtered by type."""
         with self._lock:
             safe_slice = list(self._history)[-limit * 2:]
         if signal_type:
@@ -193,6 +198,7 @@ class EventBus:
         return [s.to_dict() for s in safe_slice[-limit:]]
 
     def stats(self) -> dict:
+        """Return event bus listener and queue counters."""
         with self._lock:
             return {
                 "signal_types": len(self._listeners),

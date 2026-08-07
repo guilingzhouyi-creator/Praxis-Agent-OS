@@ -408,3 +408,127 @@ class TestLessonSummarization:
             arch.assert_not_called()
         assert sm.get("lean_toolp3d_lessons")["prompt"] == refined  # NOT downgraded
         shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "lean_toolp3d_lessons"), ignore_errors=True)
+
+
+class TestCardLinkage:
+    """Card→skill linkage — card:nature tags bias retrieval and lean-case evolution."""
+
+    def _mk_evolved(self, name, tags, prompt="work-instr"):
+        from l1.kernel.skill import get_skill_manager
+
+        sm = get_skill_manager()
+        sm.create(
+            name=name,
+            description=f"desc {name}",
+            prompt=prompt,
+            tags=tags,
+            internal=True,
+        )
+
+    def test_evolved_retrieval_filters_by_card_tag(self):
+        from l1.kernel.skill import get_skill_manager
+        from l3.memory.r4_agent import R4Agent
+
+        _reset()
+        sm = get_skill_manager()
+        self._mk_evolved("skill_review", ["evolved", "card:review"], prompt="review steps")
+        self._mk_evolved("skill_deploy", ["evolved", "card:deploy"], prompt="deploy steps")
+        r4 = R4Agent()
+        # Card type = review → only the review skill surfaces.
+        got = r4.get_evolved_skills(tags=["card:review"])
+        names = [g["name"] for g in got]
+        assert "skill_review" in names
+        assert "skill_deploy" not in names
+        # Untagged skill stays universal.
+        self._mk_evolved("skill_common", ["evolved"], prompt="common")
+        got2 = r4.get_evolved_skills(tags=["card:review"])
+        assert "skill_common" in [g["name"] for g in got2]
+        # No tags → no filter.
+        got3 = r4.get_evolved_skills()
+        assert "skill_deploy" in [g["name"] for g in got3]
+        assert "skill_review" in [g["name"] for g in got3]
+
+    def test_retrieve_skills_forwards_card_tags(self, mocker):
+        from l1.kernel.skill import get_skill_manager
+        from l3.memory.r4_agent import R4Agent
+
+        _reset()
+        sm = get_skill_manager()
+        self._mk_evolved("skill_audit", ["evolved", "card:audit"], prompt="audit steps")
+        r4 = R4Agent()
+        got = r4.retrieve_skills(query="run the audit", agent_id="", cell_id="", tags=["card:audit"])
+        names = [g["name"] for g in got]
+        assert "skill_audit" in names
+        self._mk_evolved("skill_other", ["evolved", "card:other"], prompt="other")
+        got2 = r4.retrieve_skills(query="run the audit", tags=["card:audit"])
+        assert "skill_other" not in [g["name"] for g in got2]
+
+    def test_lean_case_gets_card_tags(self, mocker, tmp_path):
+        import json
+        import shutil
+
+        from l1.kernel.paths import get_paths as _gp
+        from l1.kernel.skill import get_skill_manager
+        from l3.memory.r4_agent import R4Agent
+
+        _reset()
+        sm = get_skill_manager()
+        r4 = R4Agent()
+        # Point lean dir at a temp location to avoid polluting the repo.
+        mocker.patch.object(_gp(), "skill_lean_dir", tmp_path)
+        trace = {
+            "agent_id": "agent-1",
+            "tool": "file_editor",
+            "args": {"path": "x"},
+            "error": "permission denied",
+            "turn_count": 2,
+            "resolved": False,
+            "domain": "auth",
+            "nature": "review",
+        }
+        fp = tmp_path / "lean_agent-1_file_editor.json"
+        fp.write_text(json.dumps(trace), encoding="utf-8")
+        r4._process_failure_traces()
+        names = [s["name"] for s in sm.list_skills(tags=["lean_case"])]
+        assert len(names) >= 1
+        rec = sm.get(names[0])
+        assert "card:review" in (rec.get("tags") or [])
+        assert "card:auth" in (rec.get("tags") or [])
+
+    def test_agent_loop_card_tags_boost_query(self):
+        from l3.agent.agent_loop import AgentLoop
+
+        loop = AgentLoop(task="write the deployment")
+        loop.set_card_tags(["card:deploy", "card:ops"])
+        boost = loop._card_query_boost()
+        assert "card:deploy" in boost and "card:ops" in boost
+        assert "write the deployment" not in boost  # task stays separate
+
+    def test_evolve_skill_accepts_extra_tags(self, mocker):
+        import shutil
+
+        from l1.kernel.paths import get_paths as _gp
+        from l1.kernel.skill import get_skill_manager
+        from l3.memory.r4_agent import R4Agent
+
+        _reset()
+        sm = get_skill_manager()
+        payload = json.dumps(
+            {
+                "name": "evolved_cardskill",
+                "description": "card-linked skill",
+                "prompt": "do the thing",
+                "tags": ["evolved"],
+                "rules": [],
+                "procedures": [],
+            }
+        )
+        mock_engine = mocker.patch("l4.llm.llm.get_engine")
+        mock_engine.return_value.generate.return_value = {"content": payload}
+        r4 = R4Agent()
+        r4.evolve_skill("evolve a card skill", extra_tags=["card:review", "card:auth"])
+        rec = sm.get("evolved_cardskill")
+        assert rec is not None
+        tags = rec.get("tags") or []
+        assert "card:review" in tags and "card:auth" in tags
+        shutil.rmtree(os.path.join(_gp().skill_project_evolved_dir, "evolved_cardskill"), ignore_errors=True)

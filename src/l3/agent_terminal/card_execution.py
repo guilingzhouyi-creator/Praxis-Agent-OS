@@ -8,7 +8,9 @@ lazily from the parent module to avoid a circular import.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Any
 
+from l1.kernel.params.agent import R4_CARD_TAG_PREFIX
 from l1.kernel.params.system import (
     HASH_TRUNC_SHORT,
     LOG_TRUNC_60,
@@ -18,13 +20,37 @@ from l1.kernel.params.system import (
     MEMORY_PROMOTION_THRESHOLD,
 )
 
+if TYPE_CHECKING:
+    from l3.agent._term_types import CardResult, TerminalCard
+    from l3.memory.cache import ContextRegister
+
 logger = logging.getLogger(__name__)
 
 
 class CardExecutionMixin:
     """CardExecutionMixin — single/batch card execution with context cycle."""
 
-    def _process_card(self, card) -> dict:
+    # ── Attributes injected by the concrete AgentTerminal (see agent_terminal/__init__.py) ──
+    agent_id: str
+    cell_id: str
+    context: ContextRegister
+    _persistent_loop: bool
+    _active_loop: Any
+    _active_loop_lock: Any
+
+    def _convention_handler(self, card: TerminalCard) -> CardResult:
+        """Handle a convention card (implemented by AgentTerminal)."""
+        raise NotImplementedError
+
+    def _handle_direct(self, card: TerminalCard) -> CardResult:
+        """Handle a direct message (implemented by AgentTerminal)."""
+        raise NotImplementedError
+
+    def _issue_card(self, card: TerminalCard) -> CardResult:
+        """Route an issue card (implemented by AgentTerminal)."""
+        raise NotImplementedError
+
+    def _process_card(self, card: TerminalCard) -> CardResult:
         """Route a terminal card to its execution path."""
         from l3.agent_terminal import CardMode
         if card.action == "convention":
@@ -47,6 +73,21 @@ class CardExecutionMixin:
         from l3.agent_terminal import CardResult
         t0 = _time.time()
         task = card.params.get("prompt", card.target)
+        # Card→skill linkage for persistent loops: the loop is reused across
+        # cards, so re-bias its skill retrieval to the current card's
+        # nature/domain before continuing.
+        try:
+            _ptags = []
+            _nature = card.params.get("_card_nature", "") if hasattr(card, "params") else ""
+            _domain = card.params.get("_card_domain", "") if hasattr(card, "params") else ""
+            if _nature:
+                _ptags.append(f"{R4_CARD_TAG_PREFIX}{_nature}")
+            if _domain:
+                _ptags.append(f"{R4_CARD_TAG_PREFIX}{_domain}")
+            if _ptags and self._active_loop is not None:
+                self._active_loop.update_card_context(tags=_ptags, nature=_nature)
+        except Exception:
+            logger.debug("agent_terminal: card context refresh failed")
         # Restore context_trail from snapshot if loop has none (e.g. after restart)
         if self._active_loop and not self._active_loop._context_trail:
             try:
@@ -184,7 +225,9 @@ class CardExecutionMixin:
                 _executor=_handler_executor,
             )
 
-        phases.extend(pr.get("steps", []))
+        steps = pr.get("steps", []) or []
+        if isinstance(steps, list):
+            phases.extend(x for x in steps if isinstance(x, str))
         if not pr.get("success"):
             ctx.end(success=False, summary=pr.get("error", "pipeline rejected"))
             return CardResult(card_id=card.card_id, action=card.action,

@@ -49,6 +49,7 @@ class Request:
         self.locale: str = I18N_DEFAULT_LOCALE
         self.user_id: str = ""
         self.params: dict = {}           # route path params
+        self.deadline: float = 0.0       # middleware-set execution deadline marker
         self._extra: dict = kwargs
 
     def __getattr__(self, name: str) -> Any:
@@ -66,14 +67,17 @@ class Response:
 
     @staticmethod
     def ok(data: Any = None) -> Response:
+        """Build a 200 response carrying the given data payload."""
         return Response(data=data or {}, status=200)
 
     @staticmethod
     def error(msg: str, status: int = 400) -> Response:
+        """Build an error response with the given message and status code."""
         return Response(data={"error": msg}, status=status)
 
     @staticmethod
     def json(data: Any, status: int = 200) -> Response:
+        """Build a JSON-typed response with the given data and status code."""
         return Response(data=data, status=status,
                         headers={"Content-Type": "application/json"})
 
@@ -202,6 +206,7 @@ class LocaleMiddleware(Middleware):
     """
 
     def process(self, request: Request) -> Request:
+        """Resolve and apply the request locale from query, header, or I18nPort default."""
         raw = (
             request.query.get("locale", "")
             or _parse_accept_language(request.headers.get("Accept-Language", ""))
@@ -259,6 +264,7 @@ class BodyParserMiddleware(Middleware):
         self._max_bytes = max_bytes
 
     def process(self, request: Request) -> Request | Response:
+        """Parse the JSON body, enforcing the size limit; return error response on failure."""
         if not request.raw_body:
             return request
         if len(request.raw_body) > self._max_bytes:
@@ -284,11 +290,13 @@ class RequestLogMiddleware(Middleware):
     """
 
     def process(self, request: Request) -> Request:
+        """Record the request start time and method in thread-local storage."""
         _request_local.start_time = time.time()
         _request_local.method = request.method
         return request
 
     def process_response(self, response: Response) -> Response:
+        """Log method, status, and elapsed time for the completed request."""
         started = getattr(_request_local, "start_time", None)
         if started:
             elapsed = time.time() - started
@@ -311,5 +319,6 @@ class TimeoutMiddleware(Middleware):
         self._timeout = timeout
 
     def process(self, request: Request) -> Request:
+        """Set the request deadline marker to now plus the configured timeout."""
         request.deadline = time.time() + self._timeout
         return request

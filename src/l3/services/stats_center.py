@@ -62,6 +62,7 @@ class MetricBucket:
     window_start: float = 0.0
 
     def ingest(self, value: float) -> None:
+        """Accumulate one value into the bucket aggregates."""
         self.sum += value
         self.count += 1
         self.min_val = min(self.min_val, value)
@@ -69,9 +70,11 @@ class MetricBucket:
         self.last = value
 
     def avg(self) -> float:
+        """Return the mean of the ingested values."""
         return self.sum / max(self.count, 1)
 
     def to_dict(self) -> dict:
+        """Serialize the bucket aggregates to a dict."""
         return {
             "name": self.name,
             "tags_key": self.tags_key,
@@ -85,6 +88,7 @@ class MetricBucket:
         }
 
     def reset(self) -> None:
+        """Zero out all bucket aggregates."""
         self.sum = 0.0
         self.count = 0
         self.min_val = float("inf")
@@ -249,6 +253,7 @@ class StatsCenter:
         return lambda: self.unsubscribe_sse(callback)
 
     def unsubscribe_sse(self, callback: _SseCallback) -> None:
+        """Remove an SSE callback from the listener set."""
         with self._lock:
             try:
                 self._sse_listeners.remove(callback)
@@ -258,6 +263,7 @@ class StatsCenter:
     # ── Stats ────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return center-wide counters: points, buckets, history, subscribers."""
         with self._lock:
             metric_count = len(self._buckets)
             bucket_count = sum(len(tb) for tb in self._buckets.values())
@@ -331,6 +337,7 @@ _center_lock = threading.Lock()
 
 
 def get_center() -> StatsCenter:
+    """Return the shared StatsCenter singleton, creating it on first use."""
     global _center
     if _center is None:
         with _center_lock:
@@ -340,5 +347,6 @@ def get_center() -> StatsCenter:
 
 
 def reset_center() -> None:
+    """Drop the StatsCenter singleton (for testing / hot-reload)."""
     global _center
     _center = None

@@ -92,6 +92,7 @@ class RingChannel(ChannelPort):
             return item
 
     def size(self) -> int:
+        """Return the number of buffered items."""
         with self._lock:
             return self._count
 
@@ -99,6 +100,7 @@ class RingChannel(ChannelPort):
         return self._capacity
 
     def close(self) -> None:
+        """Close the channel, waking any blocked producers/consumers."""
         with self._lock:
             self._closed = True
             self._not_empty.notify_all()
@@ -138,5 +140,6 @@ class RingChannel(ChannelPort):
             return self._count / self._capacity if self._capacity else 0.0
 
     def is_closed(self) -> bool:
+        """Return True once the channel has been closed."""
         with self._lock:
             return self._closed

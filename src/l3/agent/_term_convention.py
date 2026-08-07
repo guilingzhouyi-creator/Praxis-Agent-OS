@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def convention_handler(term: Any, card: TerminalCard) -> CardResult:
+    """Route a convention card to the matching handler by message type."""
     msg_type = card.params.get("msg_type", "")
     payload = card.params.get("payload", {})
     conv_id = card.target

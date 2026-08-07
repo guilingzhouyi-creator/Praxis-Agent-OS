@@ -30,6 +30,9 @@ from enum import Enum, auto
 
 from l1.kernel.params.system import (
     DIALOGUE_IDLE_TIMEOUT,
+    DIALOGUE_MAX_CONTEXT_TOKENS,
+    DIALOGUE_MAX_TURNS,
+    DIALOGUE_PERSIST_EVERY,
     DIALOGUE_SESSION_AUTO_SAVE,
     HASH_TRUNC_SHORT,
     LOG_TRUNC_60,
@@ -67,10 +70,10 @@ class TurnRecord:
 @dataclass
 class SessionConfig:
     """SessionConfig — session config record (max_turns, max_context_tokens, idle_timeout, persist_after)."""
-    max_turns: int = 20
-    max_context_tokens: int = 4096
+    max_turns: int = DIALOGUE_MAX_TURNS
+    max_context_tokens: int = DIALOGUE_MAX_CONTEXT_TOKENS
     idle_timeout: float = DIALOGUE_IDLE_TIMEOUT  # 5 min
-    persist_after: int = 5       # persist to memory every N turns
+    persist_after: int = DIALOGUE_PERSIST_EVERY  # persist to memory every N turns
 
 
 class DialogueSession:
@@ -194,6 +197,7 @@ class DialogueSession:
             } for t in self._turns]
 
     def stats(self) -> dict:
+        """Return a stats summary of the session."""
         with self._lock:
             return {
                 "session_id": self.session_id,
@@ -321,16 +325,19 @@ def create_session(agent_id: str, task: str = "",
 
 
 def get_session(session_id: str) -> DialogueSession | None:
+    """Return the session with the given ID, or None if not found."""
     with _sessions_lock:
         return _sessions.get(session_id)
 
 
 def list_sessions(agent_id: str = "") -> list[dict]:
+    """Return stats for all sessions, optionally filtered by agent."""
     with _sessions_lock:
         return [s.stats() for s in _sessions.values()
                 if not agent_id or s.agent_id == agent_id]
 
 
 def close_session(session_id: str) -> None:
+    """Close and remove the session with the given ID."""
     with _sessions_lock:
         _sessions.pop(session_id, None)

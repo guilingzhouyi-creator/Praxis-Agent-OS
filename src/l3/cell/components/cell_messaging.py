@@ -5,17 +5,30 @@ Extracted from cell/__init__.py to reduce the 1091-line Cell class."""
 from __future__ import annotations
 
 import logging
+import threading
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from l1.kernel import Signal, SignalType
 from l1.kernel.params.agent import CELL_MAILBOX_MAX_PER_AGENT, CELL_MAILBOX_TTL
+
+if TYPE_CHECKING:
+    from l3.cell.components.cell_types import AgentInfo, CellMessage
 
 logger = logging.getLogger(__name__)
 
 
 class CellMessagingMixin:
     """Mixin providing Cell messaging methods — send, read, liveness, direct."""
+
+    # ── Attributes injected by the concrete Cell (see cell/__init__.py) ──
+    cell_id: str
+    territory: list[str]
+    _lock: threading.RLock
+    _agents: dict[str, AgentInfo]
+    _mailbox: dict[str, list[CellMessage]]
+    _bus: Any
+    _pmu: Any
 
     # ── Agent-to-Agent Messaging ──
 

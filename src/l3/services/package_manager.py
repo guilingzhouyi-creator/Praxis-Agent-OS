@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import subprocess
 import threading
+from typing import Any
 from dataclasses import dataclass
 
 from l1.kernel.params.system import LOG_TRUNC_500, LOG_TRUNC_2000
@@ -76,10 +77,12 @@ class PackageManager(BaseService):
     # ── Pip ──
 
     def pip_install(self, package: str, version: str = "") -> dict:
+        """Install a Python package with pip (optionally pinned to a version); returns the run result."""
         cmd = ["pip", "install"] + ([f"{package}=={version}"] if version else [package])
         return self._run(cmd, TOOL_PIP_INSTALL_TIMEOUT)
 
     def pip_list(self) -> dict:
+        """List installed pip packages; returns a dict with the parsed packages."""
         r = self._run(["pip", "list", "--format=columns"], TOOL_PACKAGE_LIST_TIMEOUT)
         if r["success"]:
             lines = r["stdout"].splitlines()
@@ -92,11 +95,13 @@ class PackageManager(BaseService):
         return r
 
     def pip_uninstall(self, package: str) -> dict:
+        """Uninstall a Python package with pip; returns the run result."""
         return self._run(["pip", "uninstall", "-y", package], TOOL_PACKAGE_LIST_TIMEOUT)
 
     # ── Npm ──
 
     def npm_install(self, package: str, global_install: bool = False) -> dict:
+        """Install an npm package (optionally globally); returns the run result."""
         cmd = ["npm", "install"]
         if global_install:
             cmd.append("-g")
@@ -104,23 +109,28 @@ class PackageManager(BaseService):
         return self._run(cmd, TOOL_NPM_INSTALL_TIMEOUT)
 
     def npm_list(self, depth: int = 0) -> dict:
+        """List npm packages up to the given dependency depth; returns the run result."""
         cmd = ["npm", "list", f"--depth={depth}"]
         return self._run(cmd, TOOL_PACKAGE_LIST_TIMEOUT)
 
     # ── Apt ──
 
     def apt_install(self, package: str) -> dict:
+        """Install an apt package; returns the run result."""
         return self._run(["apt-get", "install", "-y", package], TOOL_APT_INSTALL_TIMEOUT)
 
     def apt_update(self) -> dict:
+        """Update the apt package index; returns the run result."""
         return self._run(["apt-get", "update"], TOOL_APT_INSTALL_TIMEOUT)
 
     def apt_search(self, pattern: str) -> dict:
+        """Search apt packages matching the pattern; returns the run result."""
         return self._run(["apt-cache", "search", pattern], TOOL_APT_SEARCH_TIMEOUT)
 
     # ── Cargo ──
 
     def cargo_install(self, package: str) -> dict:
+        """Install a crate with cargo; returns the run result."""
         return self._run(["cargo", "install", package], TOOL_CARGO_INSTALL_TIMEOUT)
 
     # ── Unified ──
@@ -141,7 +151,7 @@ class PackageManager(BaseService):
 
     def list_packages(self, manager: str = "pip") -> dict:
         """List installed packages from the specified manager."""
-        handlers = {
+        handlers: dict[str, Any] = {
             "pip": self.pip_list,
             "npm": self.npm_list,
         }
@@ -161,6 +171,7 @@ class PackageManager(BaseService):
         return handler()
 
     def stats(self) -> dict:
+        """Return operation counters for the package manager."""
         with self._lock:
             return {
                 "total_operations": self._total_operations,
@@ -173,6 +184,7 @@ _service: PackageManager | None = None
 
 
 def get_service() -> PackageManager:
+    """Return the shared PackageManager singleton, creating it on first use."""
     global _service
     if _service is None:
         _service = PackageManager()
@@ -180,6 +192,7 @@ def get_service() -> PackageManager:
 
 
 def reset_service() -> None:
+    """Stop and drop the PackageManager singleton (for testing / hot-reload)."""
     global _service
     if _service:
         _service.stop()

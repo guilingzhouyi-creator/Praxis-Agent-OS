@@ -72,6 +72,7 @@ class LifecycleRegistry:
         self._loaded = False
 
     def load(self) -> LifecycleRecord:
+        """Load the persisted record from disk once, then return the cached record."""
         with self._lock:
             if self._loaded:
                 return self._record
@@ -94,6 +95,7 @@ class LifecycleRegistry:
             return self._record
 
     def save(self) -> None:
+        """Atomically persist the current record to disk via a temp-file replace."""
         with self._lock:
             self._record.lifecycle_state = self._state.value
             try:
@@ -106,10 +108,12 @@ class LifecycleRegistry:
                 logger.warning("lifecycle: save failed: %s", e)
 
     def state(self) -> LifecycleState:
+        """Return the current lifecycle state."""
         with self._lock:
             return self._state
 
     def transition(self, target: LifecycleState) -> bool:
+        """Validate and apply a state transition; persists on success. Returns True if applied."""
         with self._lock:
             current = self._state
             allowed = _VALID_TRANSITIONS.get(current, set())
@@ -123,6 +127,7 @@ class LifecycleRegistry:
         return True
 
     def should_install(self) -> bool:
+        """Return True when an install is needed (version mismatch or unclean shutdown)."""
         rec = self.load()
         if rec.install_version == 0:
             return True
@@ -136,6 +141,7 @@ class LifecycleRegistry:
         return rec.boot_count > 0
 
     def record_boot_success(self) -> None:
+        """Record a successful boot (increments boot_count) and persist."""
         self.load()
         self._record.boot_count += 1
         self._record.last_boot = datetime.now(UTC).isoformat()
@@ -143,12 +149,14 @@ class LifecycleRegistry:
         self.save()
 
     def record_boot_failure(self) -> None:
+        """Record a failed boot attempt and persist."""
         self.load()
         self._record.last_boot = datetime.now(UTC).isoformat()
         self._record.last_boot_success = False
         self.save()
 
     def record_shutdown(self, clean: bool = True) -> None:
+        """Record a shutdown with its cleanliness flag and persist."""
         self.load()
         self._record.last_shutdown = datetime.now(UTC).isoformat()
         self._record.last_shutdown_clean = clean
@@ -172,11 +180,13 @@ def get_lifecycle() -> LifecycleRegistry:
 
 
 def reset_lifecycle() -> None:
+    """Reset the lifecycle singleton to None (for tests / hot reset)."""
     global _lifecycle
     _lifecycle = None
 
 
 def state() -> LifecycleState:
+    """Return the current system lifecycle state."""
     return get_lifecycle().state()
 
 

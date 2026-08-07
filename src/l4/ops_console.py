@@ -94,6 +94,7 @@ class OpsConsole:
         return {"success": True}
 
     def stop(self) -> None:
+        """Stop the background health monitor."""
         self._running = False
         if hasattr(self, '_monitor_event'):
             self._monitor_event.set()
@@ -109,6 +110,7 @@ class OpsConsole:
                 self._cells[cell_id].agents.update(agents)
 
     def unregister_cell(self, cell_id: str) -> None:
+        """Remove a cell from the monitoring registry."""
         with self._lock:
             self._cells.pop(cell_id, None)
 
@@ -117,6 +119,7 @@ class OpsConsole:
     def report_agent_status(self, cell_id: str, agent_id: str,
                             status: str, cards: int = 0,
                             uptime: float = 0.0) -> None:
+        """Record the latest status, card count, and uptime for an agent."""
         with self._lock:
             cell = self._cells.get(cell_id)
             if not cell:
@@ -128,6 +131,7 @@ class OpsConsole:
 
     def report_agent_crash(self, cell_id: str, agent_id: str,
                            reason: str = "") -> None:
+        """Mark an agent as crashed, flag the cell unhealthy, and raise a critical alert."""
         with self._lock:
             cell = self._cells.get(cell_id)
             if cell:
@@ -220,6 +224,7 @@ class OpsConsole:
                      data={"alert": level, "source": source, "message": message})
 
     def recent_alerts(self, level: str = "", limit: int = 20) -> list[dict]:
+        """Return the most recent alerts, optionally filtered by level."""
         with self._lock:
             result = [{"level": a.level, "source": a.source,
                         "message": a.message, "timestamp": a.timestamp}
@@ -256,6 +261,7 @@ class OpsConsole:
             }
 
     def cell_summary(self, cell_id: str) -> dict | None:
+        """Return the monitoring summary for one cell, or None if unknown."""
         with self._lock:
             cell = self._cells.get(cell_id)
             if not cell:
@@ -286,6 +292,7 @@ _ops_lock = threading.Lock()
 
 
 def get_ops() -> OpsConsole:
+    """Return the process-wide OpsConsole singleton."""
     global _ops
     if _ops is None:
         with _ops_lock:
@@ -295,6 +302,7 @@ def get_ops() -> OpsConsole:
 
 
 def reset_ops() -> None:
+    """Stop and clear the OpsConsole singleton."""
     global _ops
     if _ops:
         _ops.stop()

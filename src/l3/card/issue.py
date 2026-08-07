@@ -265,7 +265,7 @@ class IssueTable(PersistableMixin):
     def summary(self) -> dict:
         """Return aggregate counts of cards, items, and resolved items."""
         with self._lock:
-            statuses = {}
+            statuses: dict[str, int] = {}
             for c in self._cards.values():
                 statuses[c.status.name] = statuses.get(c.status.name, 0) + 1
             total_items = sum(len(c.items) for c in self._cards.values())

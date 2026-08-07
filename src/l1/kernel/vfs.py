@@ -177,7 +177,7 @@ class VFS:
         except Exception as e:
             return {"success": False, "error": f"EIO: {e}", "error_code": "EIO"}
 
-    def list(self, path: str, agent_ring: int = VFS_DEFAULT_MIN_RING) -> dict:
+    def list_dir(self, path: str, agent_ring: int = VFS_DEFAULT_MIN_RING) -> dict:
         """List directory contents through VFS."""
         mp, rel, real = self._resolve(path)
         if not mp:
@@ -199,6 +199,7 @@ class VFS:
             return {"success": False, "error": f"EIO: {e}", "error_code": "EIO"}
 
     def invalidate_cache(self, path: str) -> None:
+        """Drop cached entries for *path* and everything beneath it."""
         with self._lock:
             self._cache.pop(path, None)
             for k in list(self._cache):
@@ -206,6 +207,7 @@ class VFS:
                     self._cache.pop(k, None)
 
     def mounts(self) -> list[dict]:
+        """List all registered mounts as dicts."""
         with self._lock:
             return [{"name": m.name, "type": m.mount_type.name,
                      "real_path": m.real_path, "min_ring": m.min_ring,
@@ -259,8 +261,8 @@ class VFS:
         if "syscalls" in parts:
             sc = r.syscalls()
             content = "Registered Syscalls\n" + "=" * 40 + "\n"
-            for s in sc:
-                content += f"  {s}\n"
+            for sc_name in sc:
+                content += f"  {sc_name}\n"
             return {"success": True, "content": content}
         return {"success": False, "error": "ENOENT", "error_code": "ENOENT"}
 
@@ -306,7 +308,7 @@ class VFS:
         parts = path.strip("/").split("/")
         if len(parts) == 1 and parts[0] == "proc":
             table = get_table()
-            procs = table.list()
+            procs = table.list_processes()
             content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
                 f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
                 for p in procs
@@ -321,7 +323,7 @@ class VFS:
                 return {"success": True, "content": content}
             if parts[1] == "processes":
                 table = get_table()
-                procs = table.list()
+                procs = table.list_processes()
                 content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
                     f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
                     for p in procs
@@ -346,6 +348,7 @@ _vfs_lock = threading.Lock()
 
 
 def get_vfs() -> VFS:
+    """Get the VFS singleton (lazily created)."""
     global _vfs
     if _vfs is None:
         with _vfs_lock:
@@ -355,5 +358,6 @@ def get_vfs() -> VFS:
 
 
 def reset_vfs() -> None:
+    """Reset the VFS singleton to None (for tests / hot reset)."""
     global _vfs
     _vfs = None

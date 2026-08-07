@@ -53,6 +53,7 @@ class MerTransformer:
         return self._enabled
 
     def set_enabled(self, flag: bool) -> None:
+        """Enable or disable the Mer transformer, emitting a switch event."""
         changed = self._enabled != bool(flag)
         self._enabled = bool(flag)
         logger.info("memory_mer: enabled=%s", self._enabled)
@@ -238,6 +239,7 @@ class MerTransformer:
             return {"success": False, "archived": 0, "error": str(e)}
 
     def stats(self) -> dict:
+        """Return transformer stats: enabled flag and operation counters."""
         with self._lock:
             return {"enabled": self._enabled, **dict(self._stats)}
 
@@ -258,6 +260,7 @@ _mer_lock = threading.Lock()
 
 
 def get_mer() -> MerTransformer:
+    """Get the MerTransformer singleton, creating it on first call."""
     global _mer
     if _mer is None:
         with _mer_lock:
@@ -267,6 +270,7 @@ def get_mer() -> MerTransformer:
 
 
 def reset_mer() -> None:
+    """Reset the MerTransformer singleton (for testing)."""
     global _mer
     with _mer_lock:
         _mer = None

@@ -8,8 +8,8 @@ continues to work after the monolithic commands.py was split.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
-from l1.kernel.commands import get_handler as _gh
 from l1.kernel.commands import get_registry
 from l3.error_bus import capture
 
@@ -110,7 +110,7 @@ def _pipeline(segments: list[str]) -> dict:
 # This must run AFTER all sub-modules are imported.
 import sys as _sys
 
-_SYSTEM_COMMANDS: list[tuple[str, callable, dict]] = []
+_SYSTEM_COMMANDS: list[tuple[str, Callable, dict]] = []
 
 for _module_name in ("common", "connect", "system", "memory", "model", "extra",
                      "harness", "l3a", "test_auto", "ci"):
@@ -142,3 +142,58 @@ for _name, _fn, _meta in _SYSTEM_COMMANDS:
         _reg.register_system(_name, _fn, metadata=_meta or None)
     except Exception as _e:
         logger.warning("command registration failed: %s: %s", _name, _e)
+
+# ── Public re-export surface (backward-compatible) ──
+__all__ = [
+    "preconnect_enhanced",
+    "list_commands",
+    "resolve_agents",
+    "resolve_scope",
+    "_coerce",
+    "_list_defs",
+    "_parse_agent_ref",
+    "_register_handler",
+    "_cmd_agents",
+    "_cmd_connect",
+    "_cmd_disconnect",
+    "_cmd_mode",
+    "_cmd_buffer",
+    "_cmd_cells",
+    "_cmd_cluster",
+    "_cmd_cross",
+    "_cmd_htn",
+    "_cmd_mcp",
+    "_cmd_security",
+    "_cmd_l3a",
+    "_cmd_agent_refresh",
+    "_cmd_agent_restart",
+    "_cmd_audit",
+    "_cmd_card",
+    "_cmd_cell_create",
+    "_cmd_destroy",
+    "_cmd_emergency",
+    "_cmd_kill",
+    "_cmd_memory",
+    "_cmd_plugins",
+    "_cmd_spawn",
+    "_cmd_tokens",
+    "_cmd_config",
+    "_cmd_cron",
+    "_cmd_model",
+    "_cmd_settings",
+    "_cmd_cache",
+    "_cmd_clear",
+    "_cmd_devices",
+    "_cmd_help",
+    "_cmd_history",
+    "_cmd_intents",
+    "_cmd_lang",
+    "_cmd_observe",
+    "_cmd_process",
+    "_cmd_scheduler",
+    "_cmd_skills",
+    "_cmd_status",
+    "_cmd_sysinfo",
+    "_cmd_tools",
+    "_cmd_vfs",
+]

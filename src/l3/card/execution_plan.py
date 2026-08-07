@@ -17,9 +17,9 @@ import time
 from typing import Any
 
 from l1.kernel.discovery import get_tool_config
-from l1.kernel.params.system import LOG_TRUNC_80
+from l1.kernel.params.system import LOG_TRUNC_80, MEMORY_PRESSURE_INTERVAL
 
-from .execution_run import _execute_agent, _execute_step, _run_phase
+from .execution_run import _execute_agent as _run_execute_agent, _execute_step, _run_phase
 from .execution_run import execute as _execute
 from .models import Card, CardMode
 from .plan_step_types import PlanStep, StepState
@@ -56,7 +56,7 @@ class ExecutionPlan:
     """
 
     def __init__(self, card: Card, agent_map: dict[str, str], user_id: str = ""):
-        self.card = card
+        self.card: Any = card  # may be CardUnified (new model) or legacy Card
         self.plan_id = card.id  # alias for ExecutionEngine compatibility
         self.agent_map = agent_map
         self.user_id = user_id
@@ -69,12 +69,13 @@ class ExecutionPlan:
         self._cancelled = False
         self._approval_requests: list = []
         self._turn_log: list[dict] = []
+        self._last_compact: float = 0.0
         # Detect if card is CardUnified (new model) or old Card
         self._is_unified = type(card).__name__ == "CardUnified"
         # Dynamic step budget via ScopeScheduler
         if self._is_unified:
             n_phases = len(card.phases)
-            n_steps = sum(len(p.tasks) for p in card.phases)
+            n_steps = sum(len(getattr(p, "tasks", [])) for p in card.phases)
         else:
             n_phases = len(card.phases)
             n_steps = sum(len(p.steps) for p in card.phases)
@@ -183,7 +184,7 @@ class ExecutionPlan:
 
         Called between sequential phases.  Never raises.
         """
-        if time.time() - self._last_compact < self.MEMORY_PRESSURE_INTERVAL:
+        if time.time() - self._last_compact < MEMORY_PRESSURE_INTERVAL:
             return
         try:
             from .memory.memory import get_memory
@@ -252,7 +253,9 @@ class ExecutionPlan:
 
     def _execute_agent(self, ps: PlanStep, timeout: float) -> dict:
         """Execute a step on an AgentTerminal. Delegates to execution_run.py."""
-        return _execute_agent(self._plan_context, ps, timeout) if hasattr(self, '_plan_context') else _execute_agent(self, ps, timeout)
+        return _run_execute_agent(self, ps, ps.agent, timeout)
+
+    @staticmethod
     def _derive_action_scope(action: str) -> list[str]:
         """Derive allowed tool names from a step action.
 
@@ -285,9 +288,11 @@ class ExecutionPlan:
         return sorted(all_tools)  # unknown action: full access (conservative)
 
     def cancel(self) -> None:
+        """Mark the plan as cancelled."""
         self._cancelled = True
 
     def progress(self) -> dict:
+        """Return execution progress counters and percentage."""
         done = sum(1 for s in self.steps if s.state == StepState.DONE)
         failed = sum(1 for s in self.steps if s.state == StepState.FAILED)
         running = sum(1 for s in self.steps if s.state == StepState.RUNNING)
@@ -301,6 +306,7 @@ class ExecutionPlan:
         }
 
     def summary(self) -> dict:
+        """Return a summary of the plan and its progress."""
         return {
             "card_id": self.card.id,
             "intent": self._card_intent()[:LOG_TRUNC_80],

@@ -35,7 +35,7 @@ class TestTaskBusCore:
         bus = get_task_bus()
         bus.register("a", "http://a.com/hook")
         bus.register("b", "http://b.com/hook")
-        hooks = bus.list()
+        hooks = bus.list_subscribers()
         assert len(hooks) == 2
 
     def test_unregister(self):
@@ -45,7 +45,7 @@ class TestTaskBusCore:
         bus.register("x", "http://x.com/hook")
         r = bus.unregister("x")
         assert r["success"]
-        assert len(bus.list()) == 0
+        assert len(bus.list_subscribers()) == 0
 
     def test_dispatch_no_subscribers(self):
         from l3.bus.task_bus import get_task_bus, reset_task_bus
@@ -367,7 +367,7 @@ class TestTaskBusConcurrency:
         with ThreadPoolExecutor(max_workers=4) as ex:
             list(ex.map(dispatch_all, range(20)))
         # No crash = pass. Verify state is intact.
-        assert len(bus.list()) == 3
+        assert len(bus.list_subscribers()) == 3
 
     def test_concurrent_register_unregister(self):
         """Concurrent register/unregister should not corrupt internal state."""
@@ -387,7 +387,7 @@ class TestTaskBusConcurrency:
         with ThreadPoolExecutor(max_workers=4) as ex:
             list(ex.map(add_remove, range(20)))
         # Verify no crash, list still works
-        assert isinstance(bus.list(), list)
+        assert isinstance(bus.list_subscribers(), list)
 
 
 class TestCronSchedulerConcurrency:

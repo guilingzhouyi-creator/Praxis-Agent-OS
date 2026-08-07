@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from l1.kernel.params.agent import (
+    R4_CARD_TAG_PREFIX,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_CASES_DEFAULT,
     R4_REFLECTION_COOLDOWN,
@@ -25,6 +27,7 @@ from l1.kernel.params.agent import (
 )
 from l1.kernel.params.system import (
     LOG_TRUNC_30,
+    LOG_TRUNC_40,
     LOG_TRUNC_60,
     LOG_TRUNC_200,
     LOG_TRUNC_2000,
@@ -33,11 +36,65 @@ from l1.kernel.params.system import (
 logger = logging.getLogger(__name__)
 
 
+def _passes_card_tags(skill: dict, tags: list[str] | None) -> bool:
+    """Card-tag gate: untagged skills are universal; tagged skills must match.
+
+    ``tags`` are OR-matched against the skill's ``card:*`` tags.  A skill
+    carrying no ``card:*`` tag passes regardless (system knowledge stays
+    visible to every card type); a skill tagged for another card type is
+    excluded from this card's retrieval.
+    """
+    if not tags:
+        return True
+    skill_tags = set(skill.get("tags") or [])
+    tagged = {t for t in skill_tags if t.startswith(R4_CARD_TAG_PREFIX)}
+    if not tagged:
+        return True
+    return bool(tagged & set(tags))
+
+
 class SkillFeedbackMixin:
     """SkillFeedbackMixin — lean-case retrieval and failure-trace intake."""
 
-    def _track_failure(self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict]) -> None:
-        """Record a tool call failure for later analysis and lean case generation."""
+    # ── Attributes injected by the concrete R4Agent (see r4_agent.py) ──
+    _skill_cache: dict[tuple, tuple]
+    _last_reflect: dict[str, float]
+    _pmu: Any
+
+    def _generalize_lean_cases(self, sm: Any) -> int:
+        """Generalize lean cases into skills (provided by SkillEvolutionMixin)."""
+        raise NotImplementedError
+
+    def _graph_diffuse_evolved(self, limit: int = R4_EVOLVED_SKILLS_DEFAULT) -> list[str]:
+        """Diffuse evolved skills through the R5 graph (provided by SkillEvolutionMixin)."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _atomic_write(fp: str, data: dict) -> None:
+        """Write JSON atomically (provided by R4Agent)."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _link_lean_graph_edge(tool: str, skill_name: str) -> None:
+        """Link a lean case into the R5 graph (provided by SkillEvolutionMixin)."""
+        raise NotImplementedError
+
+    def _track_failure(
+        self,
+        agent_id: str,
+        tool_name: str,
+        args: dict,
+        error: str,
+        turn_log: list[dict],
+        domain: str = "",
+        nature: str = "",
+    ) -> None:
+        """Record a tool call failure for later analysis and lean case generation.
+
+        ``domain``/``nature`` are the driving card's context (from the tool
+        pipeline's gate scope / card nature); they are persisted so the
+        generated lean case can carry card-linkage tags.
+        """
         try:
             import json
             import os
@@ -54,6 +111,8 @@ class SkillFeedbackMixin:
                 "timestamp": time.time(),
                 "turn_count": len(turn_log),
                 "resolved": False,
+                "domain": domain[:LOG_TRUNC_40],
+                "nature": nature[:LOG_TRUNC_40],
             }
             os.makedirs(lean_dir, exist_ok=True)
             fp = os.path.join(
@@ -77,9 +136,12 @@ class SkillFeedbackMixin:
         except Exception as e:
             logger.warning("R4Agent: track failure failed: %s", e)
 
-    def track_tool_failure(self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict]) -> None:
+    def track_tool_failure(
+        self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict],
+        domain: str = "", nature: str = "",
+    ) -> None:
         """Public entry point for tool-pipeline failure recording."""
-        self._track_failure(agent_id, tool_name, args, error, turn_log)
+        self._track_failure(agent_id, tool_name, args, error, turn_log, domain=domain, nature=nature)
 
     def _process_failure_traces(self) -> int:
         """Scan pending failure traces and generate lean case Skill entries.
@@ -104,7 +166,7 @@ class SkillFeedbackMixin:
             sm = get_skill_manager()
             # Collect existing lean case names for dedup
             existing = set()
-            for s in sm.list(tags=["lean_case"]):
+            for s in sm.list_skills(tags=["lean_case"]):
                 existing.add(s.get("name", ""))
 
             for fn in os.listdir(lean_dir):
@@ -139,11 +201,21 @@ class SkillFeedbackMixin:
                     skill_name = dedup_key
                     if error_stem:
                         skill_name = f"{dedup_key}_{error_stem}"
+                    # Card linkage: carry the originating card's nature/domain
+                    # as card: prefixed tags so retrieval can surface this case
+                    # when a card of the same nature/domain executes.
+                    case_tags = ["lean_case", "failure", agent, tool]
+                    _nature = str(entry.get("nature", "") or "")
+                    _domain = str(entry.get("domain", "") or "")
+                    if _nature:
+                        case_tags.append(f"{R4_CARD_TAG_PREFIX}{_nature}")
+                    if _domain:
+                        case_tags.append(f"{R4_CARD_TAG_PREFIX}{_domain}")
                     sm.create(
                         name=skill_name,
                         description=f"Failure case: {tool} — {entry['error'][:LOG_TRUNC_60]}",
                         prompt=lean_text,
-                        tags=["lean_case", "failure", agent, tool],
+                        tags=case_tags,
                         allowed_tools=[tool],
                         internal=True,
                     )
@@ -294,7 +366,7 @@ class SkillFeedbackMixin:
             tags.append(agent_id)
         if tool_name:
             tags.append(tool_name)
-        skills = sm.list(tags=tags, limit=limit * 2, sort_by="loaded_at")
+        skills = sm.list_skills(tags=tags, limit=limit * 2, sort_by="loaded_at")
         allow = sm.skills_for_cell(cell_id) if cell_id else set()
         result = []
         names = []
@@ -339,18 +411,21 @@ class SkillFeedbackMixin:
         cell_id: str = "",
         limit: int = R4_EVOLVED_SKILLS_DEFAULT,
         graph_diffusion: bool = False,
+        tags: list[str] | None = None,
     ) -> list[dict]:
         """Retrieve evolved skills for injection into AgentLoop prompts.
 
         Filters by agent_id if provided (strict tag membership, not OR-match).
         When ``cell_id`` has a bound white-list, only white-listed skills are
-        returned (unbound cells fall back to the global pool).  Returns most
-        recently loaded skills first.
+        returned (unbound cells fall back to the global pool).  ``tags`` are
+        OR-matched against the skill's tags (card-nature linkage: skills
+        tagged ``card:<nature>`` surface only for cards of that nature).
+        Returns most recently loaded skills first.
         """
         from l1.kernel.skill import get_skill_manager
 
         sm = get_skill_manager()
-        cache_key = ("evolved", agent_id, cell_id, limit, graph_diffusion)
+        cache_key = ("evolved", agent_id, cell_id, limit, graph_diffusion, tuple(tags or ()))
         rev = sm.revision()
         cached = self._skill_cache.get(cache_key)
         if cached and cached[0] == rev:
@@ -366,6 +441,8 @@ class SkillFeedbackMixin:
                         if s and s.get("prompt"):
                             if allow and name not in allow:
                                 continue
+                            if not _passes_card_tags(s, tags):
+                                continue
                             evolved.append(
                                 {
                                     "name": s["name"],
@@ -377,12 +454,14 @@ class SkillFeedbackMixin:
                         return evolved[:limit]
             except Exception as e:
                 logger.debug("R4Agent: graph diffusion fallback to linear: %s", e)
-        skills = sm.list(tags=["evolved"], limit=limit * 2, sort_by="loaded_at")
+        skills = sm.list_skills(tags=["evolved"], limit=limit * 2, sort_by="loaded_at")
         evolved = []
         for s in skills:
             if agent_id and agent_id not in s.get("tags", []):
                 continue
             if allow and s["name"] not in allow:
+                continue
+            if not _passes_card_tags(s, tags):
                 continue
             if s.get("prompt"):
                 evolved.append(
@@ -403,6 +482,7 @@ class SkillFeedbackMixin:
         cell_id: str = "",
         limit: int = R4_EVOLVED_SKILLS_DEFAULT,
         graph_diffusion: bool = False,
+        tags: list[str] | None = None,
     ) -> list[dict]:
         """Retrieve evolved skills ranked by task-text similarity.
 
@@ -411,13 +491,14 @@ class SkillFeedbackMixin:
         ``R4_RETRIEVAL_ENABLED``; when disabled, query is empty, or no
         candidate clears the similarity floor, it falls back to
         ``get_evolved_skills`` ordering (most recently loaded first).
+        ``tags`` are forwarded as an OR-match filter (card-nature linkage).
         """
         if not R4_RETRIEVAL_ENABLED or not query:
             return self.get_evolved_skills(
-                agent_id=agent_id, cell_id=cell_id, limit=limit, graph_diffusion=graph_diffusion
+                agent_id=agent_id, cell_id=cell_id, limit=limit, graph_diffusion=graph_diffusion, tags=tags
             )
         base = self.get_evolved_skills(
-            agent_id=agent_id, cell_id=cell_id, limit=limit * 4, graph_diffusion=graph_diffusion
+            agent_id=agent_id, cell_id=cell_id, limit=limit * 4, graph_diffusion=graph_diffusion, tags=tags
         )
         if not base:
             return []

@@ -56,10 +56,12 @@ class Result:
 
     @staticmethod
     def ok(**data: Any) -> Result:
+        """Build a success Result carrying the given *data* fields."""
         return Result(success=True, data=data)
 
     @staticmethod
     def fail(msg: str, **data: Any) -> Result:
+        """Build a failure Result with error *msg* and optional *data* fields."""
         return Result(success=False, error=msg, data=data)
 
 

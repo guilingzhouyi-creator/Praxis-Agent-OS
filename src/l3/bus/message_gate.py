@@ -43,6 +43,7 @@ class MessageGateRule:
     created_at: float = field(default_factory=time.time)
 
     def matches(self, event: MonitorEvent) -> bool:
+        """Return True if the event matches this rule's pattern."""
         from .monitor_bus import _match_type
         for key in ("type", "severity", "agent_id", "cell_id", "source"):
             val = self.pattern.get(key, "")
@@ -72,11 +73,13 @@ class MessageGateEngine(PersistableMixin):
     # ── Rule management ──
 
     def add(self, rule: MessageGateRule) -> None:
+        """Add or replace a rule in the engine. Returns None."""
         with self._lock:
             self._rules[rule.id] = rule
             self._persist()
 
     def remove(self, rule_id: str) -> bool:
+        """Remove a rule by id. Returns True if the rule was removed."""
         with self._lock:
             if rule_id not in self._rules:
                 return False
@@ -86,6 +89,7 @@ class MessageGateEngine(PersistableMixin):
             return True
 
     def list_rules(self) -> list[dict]:
+        """Return all rules as a list of dicts."""
         with self._lock:
             return [{"id": r.id, "pattern": r.pattern, "action": r.action,
                      "depends_on": r.depends_on, "priority": r.priority,
@@ -150,6 +154,7 @@ class MessageGateEngine(PersistableMixin):
         return True
 
     def to_dict(self) -> dict:
+        """Return the gate state as a dict."""
         return {"rules": self.list_rules(), "triggered_count": len(self._triggered)}
 
 
@@ -159,6 +164,7 @@ _gate: MessageGateEngine | None = None
 
 
 def get_gate() -> MessageGateEngine:
+    """Get the MessageGateEngine singleton. Returns the shared engine."""
     global _gate
     if _gate is None:
         _gate = MessageGateEngine()
@@ -166,5 +172,6 @@ def get_gate() -> MessageGateEngine:
 
 
 def reset_gate() -> None:
+    """Reset the MessageGateEngine singleton. Returns None."""
     global _gate
     _gate = None

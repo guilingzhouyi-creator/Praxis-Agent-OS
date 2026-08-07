@@ -121,15 +121,18 @@ class ReportService:
             logger.warning("report SSE: %s", e)
 
     def get_report(self, report_id: str) -> dict | None:
+        """Return the report with *report_id*, or None."""
         with self._lock:
             return self._reports.get(report_id)
 
     def get_reports_by_session(self, session_id: str) -> list[dict]:
+        """Return all reports belonging to *session_id*."""
         with self._lock:
             return [r for r in self._reports.values()
                     if r.get("session_id") == session_id]
 
     def list_reports(self, status: str = "") -> list[dict]:
+        """List reports, optionally filtered by status, newest first."""
         with self._lock:
             reports = list(self._reports.values())
         if status:
@@ -143,6 +146,7 @@ _service: ReportService | None = None
 
 
 def get_service() -> ReportService:
+    """Return the shared ReportService singleton."""
     global _service
     if _service is None:
         _service = ReportService()
@@ -150,5 +154,6 @@ def get_service() -> ReportService:
 
 
 def reset_service() -> None:
+    """Reset the ReportService singleton to None."""
     global _service
     _service = None

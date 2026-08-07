@@ -45,6 +45,7 @@ class SessionExport:
     tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Serialize the export to a dict."""
         return {
             "version": self.version,
             "session_id": self.session_id,
@@ -58,10 +59,12 @@ class SessionExport:
         }
 
     def to_json(self, indent: int = 2) -> str:
+        """Serialize the export to a JSON string."""
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False, default=str)
 
     @classmethod
     def from_json(cls, raw: str) -> SessionExport:
+        """Rebuild an export from a JSON string, migrating old versions."""
         data = json.loads(raw)
         version = data.get("version", 1)
         if version > 2:
@@ -89,10 +92,12 @@ class Snapshot:
     data: SessionExport = field(default_factory=SessionExport)
 
     def file_path(self) -> Path:
+        """Return the snapshot's on-disk path, creating the dir if needed."""
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
         return _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=self.id)
 
     def save(self) -> dict:
+        """Persist the snapshot to disk; returns success or an error dict."""
         path = self.file_path()
         payload = {
             "id": self.id,
@@ -110,6 +115,7 @@ class Snapshot:
 
     @classmethod
     def load(cls, snapshot_id: str) -> Snapshot | None:
+        """Load a snapshot from disk by id; returns None when missing."""
         path = _SNAPSHOT_DIR / SNAPSHOT_PATH_TEMPLATE.format(snapshot_id=snapshot_id)
         if not path.exists():
             return None
@@ -143,9 +149,9 @@ class SessionExportManager:
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
     def export_session(self, session_id: str = "",
-                       agent_id: str = "", messages: list[dict] = None,
-                       tags: list[str] = None,
-                       metadata: dict = None) -> dict:
+                       agent_id: str = "", messages: list[dict] | None = None,
+                       tags: list[str] | None = None,
+                       metadata: dict | None = None) -> dict:
         """Export session as shareable JSON."""
         export = SessionExport(
             session_id=session_id or f"session-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}",
@@ -184,7 +190,7 @@ class SessionExportManager:
     # ── Snapshots ──
 
     def create_snapshot(self, session_id: str = "",
-                        messages: list[dict] = None,
+                        messages: list[dict] | None = None,
                         agent_id: str = "",
                         label: str = "") -> dict:
         """Create a snapshot of the current session."""
@@ -258,6 +264,7 @@ _manager_lock = threading.Lock()
 
 
 def get_manager() -> SessionExportManager:
+    """Return the shared SessionExportManager singleton, creating it on first use."""
     global _manager
     if _manager is None:
         with _manager_lock:

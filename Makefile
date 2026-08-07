@@ -1,4 +1,4 @@
-.PHONY: install test test-fast test-extended test-all lint typecheck clean dev hooks precommit
+.PHONY: install test test-fast test-extended test-all lint typecheck clean dev hooks precommit push-both bump-version changelog
 
 install:
 	pip install -e ".[test]"
@@ -44,3 +44,14 @@ clean:
 
 dev:
 	python src/main.py boot
+
+push-both:
+	bash scripts/push-both.sh
+
+bump-version:
+	python scripts/bump-version.py
+
+changelog:
+	@git log $$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD)..HEAD --pretty=%s --no-merges | sed 's/^/  /'
+	@echo "--- 按类型统计 ---"
+	@git log $$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD)..HEAD --pretty=%s --no-merges | grep -oE '^(feat|fix|perf|refactor|docs|style|test|chore|build|ci|revert)' | sort | uniq -c | sort -rn

@@ -44,6 +44,7 @@ class PromptInbox:
         self._persisted_ids: set[str] = set()
 
     def admit(self, text: str, mode: str = "steer") -> Admission:
+        """Admit a prompt entry into the inbox and return the created Admission."""
         a = Admission(
             id=uuid.uuid4().hex[:_p.SID_LENGTH],
             session_id=self._session_id,
@@ -80,6 +81,7 @@ class PromptInbox:
         return None
 
     def peek(self) -> Admission | None:
+        """Return the first pending admission without promoting it, or None."""
         with self._lock:
             for a in self._entries:
                 if a.status == "pending":
@@ -87,6 +89,7 @@ class PromptInbox:
         return None
 
     def pending(self) -> list[Admission]:
+        """Return all admissions that are still pending."""
         with self._lock:
             return [a for a in self._entries if a.status == "pending"]
 
@@ -96,6 +99,7 @@ class PromptInbox:
             return sum(1 for a in self._entries if a.status == "pending")
 
     def cancel(self, admission_id: str) -> bool:
+        """Cancel a pending admission by id, returning True when cancelled."""
         with self._lock:
             for a in self._entries:
                 if a.id == admission_id and a.status == "pending":
@@ -105,6 +109,7 @@ class PromptInbox:
         return False
 
     def reload(self) -> None:
+        """Reload persisted inbox entries for this session from central memory."""
         try:
             from l3.memory.central_memory import get_l3a_memory as _gm
             entries = _gm().recall(

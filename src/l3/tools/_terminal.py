@@ -8,6 +8,7 @@ from l1.kernel.platform import run_shell
 
 
 def run_in_terminal(args: dict, agent_id: str) -> dict:
+    """Run a shell command with a timeout; returns output dict."""
     command = args.get("command", "")
     timeout = args.get("timeout", get_tool_config("terminal_timeout", 30))
     if not command:

@@ -39,15 +39,19 @@ class ToolRing:
         self._records: deque[ToolCallRecord] = deque(maxlen=capacity)
 
     def record(self, entry: ToolCallRecord):
+        """Append a tool call record to the ring."""
         self._records.append(entry)
 
     def recent(self, n: int = 10) -> list[ToolCallRecord]:
+        """Return the n most recent tool call records."""
         return list(self._records)[-n:]
 
     def count(self) -> int:
+        """Return the number of recorded tool calls."""
         return len(self._records)
 
     def gate_stats(self) -> dict:
+        """Tally gate results (pass/warn/block/report) across recorded calls."""
         total = len(self._records)
         if total == 0:
             return {GateStatus.PASS: 0, GateStatus.WARN: 0, GateStatus.BLOCK: 0, GateStatus.REPORT: 0}

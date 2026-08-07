@@ -132,13 +132,15 @@ class NetKernel:
         result = self._transport.start(self._node_id, config)
         logger.info("net started: %s on transport=%s port=%d",
                      self._node_id, self._transport.name, self._port)
-        return result
+        return {"success": result.success, "error": result.error, **result.data}
 
     def stop(self) -> None:
+        """Stop the net kernel and its transport."""
         self._running = False
         self._transport.stop()
 
     def register_handler(self, msg_type: str, handler: Callable) -> None:
+        """Register a handler for incoming messages of *msg_type*."""
         with self._lock:
             self._handlers[msg_type] = handler
 
@@ -193,6 +195,7 @@ class NetKernel:
         return {"success": r.success, "error": r.error}
 
     def broadcast_remote(self, payload: dict) -> list[dict]:
+        """Send *payload* to all alive peers. Returns a per-peer result list."""
         results = []
         with self._lock:
             peers = list(self._peers.values())
@@ -203,6 +206,7 @@ class NetKernel:
         return results
 
     def list_peers(self) -> list[dict]:
+        """List known peers as dicts, most recently seen first."""
         with self._lock:
             return [{"id": p.id, "host": p.host, "port": p.port,
                      "alive": p.alive, "cells": p.cell_count,
@@ -277,6 +281,7 @@ _net_lock = threading.Lock()
 
 
 def get_net() -> NetKernel:
+    """Get the net kernel singleton (lazily created)."""
     global _net
     if _net is None:
         with _net_lock:
@@ -286,6 +291,7 @@ def get_net() -> NetKernel:
 
 
 def reset_net() -> None:
+    """Reset the net kernel singleton, stopping it first (for tests / hot reset)."""
     global _net
     if _net:
         _net.stop()

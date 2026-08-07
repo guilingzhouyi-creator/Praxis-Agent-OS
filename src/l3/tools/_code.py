@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def symbol_search(args: dict, agent_id: str) -> dict:
+    """Search for symbol definitions (def/class/function) under path; returns matches."""
     symbol = args.get("symbol", "")
     path = args.get("path", ".")
     if not symbol:
@@ -39,6 +40,7 @@ def symbol_search(args: dict, agent_id: str) -> dict:
 
 
 def find_imports(args: dict, agent_id: str) -> dict:
+    """Scan Python files under path for import statements; returns matches."""
     path = args.get("path", ".")
     results = []
     for root, dirs, files in os.walk(path):
@@ -57,6 +59,7 @@ def find_imports(args: dict, agent_id: str) -> dict:
 
 
 def review_code(args: dict, agent_id: str) -> dict:
+    """Lint a file for line length, TODO, and bare except issues; returns issues."""
     path = args.get("path", "")
     if not path:
         return {"success": False, "error": "path is required"}
@@ -106,7 +109,7 @@ def ast_parse(args: dict, agent_id: str) -> dict:
             tree = ast.parse(f.read(), filename=path)
         nodes = []
         for node in ast.iter_child_nodes(tree):
-            entry = {"type": type(node).__name__, "line": node.lineno}
+            entry = {"type": type(node).__name__, "line": getattr(node, "lineno", 0)}
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 entry["name"] = node.name
             nodes.append(entry)
@@ -131,6 +134,7 @@ def find_callees(args: dict, agent_id: str) -> dict:
             def __init__(self):
                 self.calls = []
             def visit_Call(self, node):  # noqa: N802
+                """Record a function call node and continue the traversal."""
                 if isinstance(node.func, ast.Name):
                     self.calls.append({"name": node.func.id, "line": node.lineno})
                 elif isinstance(node.func, ast.Attribute):

@@ -34,12 +34,14 @@ class TimeScheduler:
         self._preemptions = 0
 
     def register(self, agent_id: str, priority: int = 5, quantum: float = DEFAULT_QUANTUM) -> None:
+        """Register an agent with a priority and time quantum."""
         with self._lock:
             self._slices[agent_id] = TimeSlice(
                 agent_id=agent_id, quantum=quantum, priority=priority,
             )
 
     def tick(self, agent_id: str, elapsed: float) -> dict:
+        """Report elapsed time; returns status ok/preempt/timeout."""
         with self._lock:
             self._total_ticks += 1
             ts = self._slices.get(agent_id)
@@ -63,6 +65,7 @@ class TimeScheduler:
                     "used": round(ts.used, 1), "remaining": round(ts.quantum - ts.used, 1)}
 
     def schedule(self, available: list[str]) -> str | None:
+        """Pick the next agent to run by priority and wait score."""
         with self._lock:
             candidates = []
             now = time.time()
@@ -90,6 +93,7 @@ class TimeScheduler:
             return chosen
 
     def reset(self, agent_id: str) -> None:
+        """Reset an agent's time slice to defaults."""
         with self._lock:
             ts = self._slices.get(agent_id)
             if ts:
@@ -99,6 +103,7 @@ class TimeScheduler:
                 ts.wait_since = time.time()
 
     def stats(self) -> dict:
+        """Return time scheduler stats."""
         with self._lock:
             return {
                 "total_ticks": self._total_ticks,
@@ -115,6 +120,7 @@ _time_scheduler: TimeScheduler | None = None
 
 
 def get_time_scheduler() -> TimeScheduler:
+    """Get the time scheduler singleton."""
     global _time_scheduler
     if _time_scheduler is None:
         _time_scheduler = TimeScheduler()
@@ -122,5 +128,6 @@ def get_time_scheduler() -> TimeScheduler:
 
 
 def reset_time_scheduler() -> None:
+    """Reset the time scheduler singleton."""
     global _time_scheduler
     _time_scheduler = None

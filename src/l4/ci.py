@@ -212,8 +212,9 @@ class CIService(BaseService):
         }
 
     def stats(self) -> dict:
+        """Return aggregate CI run statistics by status."""
         with self._lock:
-            statuses = {}
+            statuses: dict[str, int] = {}
             for r in self._runs.values():
                 statuses[r.status] = statuses.get(r.status, 0) + 1
             return {
@@ -228,6 +229,7 @@ _service_lock = threading.Lock()
 
 
 def get_service() -> CIService:
+    """Return the process-wide CIService singleton."""
     global _service
     if _service is None:
         with _service_lock:
@@ -237,6 +239,7 @@ def get_service() -> CIService:
 
 
 def reset_service() -> None:
+    """Stop and clear the CIService singleton."""
     global _service
     if _service:
         _service.stop()

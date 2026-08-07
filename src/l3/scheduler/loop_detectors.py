@@ -68,6 +68,7 @@ class ToolLoopDetector:
         return "continue"
 
     def reset(self) -> None:
+        """Clear recorded fingerprints."""
         self._fingerprints.clear()
 
     def _load_history(self) -> None:
@@ -132,6 +133,7 @@ class CoarseRepeatDetector:
             self._load_history()
 
     def check(self, tool_name: str) -> str:
+        """Check a tool name; returns 'continue', 'nudge', or 'stop'."""
         self._names.append(tool_name)
         if self._cell_id:
             self._persist_name(tool_name)
@@ -147,6 +149,7 @@ class CoarseRepeatDetector:
         return "continue"
 
     def reset(self) -> None:
+        """Clear recorded tool name history."""
         self._names.clear()
 
     def _load_history(self) -> None:

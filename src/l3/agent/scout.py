@@ -253,7 +253,7 @@ class ScoutPool(BaseService):
             self._total_commissioned += 1
 
         # Execute in thread pool (replaces per-task threading.Thread)
-        future = self._executor.submit(self._run_scout, scout_id)
+        self._executor.submit(self._run_scout, scout_id)
 
         # Wait for result with timeout
         scout._done.wait(timeout=self.session_timeout)
@@ -281,10 +281,12 @@ class ScoutPool(BaseService):
                 from l3.cell import get_cell as _get_cell
                 cell = _get_cell(cell_id)
                 findings_text = str(result["findings"])[:SCOUT_FINDING_TRUNC]
+                findings = result["findings"]
+                findings_count = len(findings) if isinstance(findings, list) else 0
                 cell.cache.inject(
                     key=f"scout:{agent_id}:{task[:LOG_TRUNC_40]}",
-                    value=result["findings"],
-                    summary=f"Scout [{agent_id}]: {len(result['findings'])} findings — {findings_text[:LOG_TRUNC_150]}",
+                    value=findings,
+                    summary=f"Scout [{agent_id}]: {findings_count} findings — {findings_text[:LOG_TRUNC_150]}",
                     agent_id=agent_id,
                     entry_type="scout_result",
                     importance=0.5,
@@ -310,9 +312,10 @@ class ScoutPool(BaseService):
                 self._active.pop(scout_id, None)
 
     def get(self, scout_id: str) -> dict:
+        """Look up a scout by id; returns its status or an error dict."""
         with self._lock:
-            for s in self._idle:
-                if s.scout_id == scout_id:
+            for idle in self._idle:
+                if idle.scout_id == scout_id:
                     return {"success": True, "scout_id": scout_id, "status": "idle"}
             s = self._active.get(scout_id)
             if s:
@@ -321,6 +324,7 @@ class ScoutPool(BaseService):
         return {"success": False, "error": "scout not found"}
 
     def stats(self) -> dict:
+        """Return pool and cache statistics."""
         with self._lock:
             return {
                 "idle": len(self._idle), "active": len(self._active),
@@ -364,7 +368,7 @@ class ScoutPool(BaseService):
 _pool: ScoutPool | None = None
 
 
-def scout_cache_get(template: str, scope: dict | None, ttl: float = 30.0) -> dict | None:
+def scout_cache_get(template: str, scope: dict | None, ttl: float = SCOUT_CACHE_TTL) -> dict | None:
     """Module-level cache lookup — delegates to pool's cache."""
     import hashlib
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
@@ -372,7 +376,7 @@ def scout_cache_get(template: str, scope: dict | None, ttl: float = 30.0) -> dic
     return get_pool()._get_cached(key)
 
 
-def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float = 30.0) -> None:
+def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float = SCOUT_CACHE_TTL) -> None:
     """Module-level cache store — delegates to pool's cache."""
     import hashlib
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
@@ -381,10 +385,12 @@ def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float 
 
 
 def scout_cache_clear() -> None:
+    """Clear the shared scout result cache."""
     get_pool()._cache.clear()
 
 
 def scout_cache_stats() -> dict:
+    """Return shared scout cache statistics."""
     pool = get_pool()
     total = pool._cache_hits + pool._cache_misses
     return {
@@ -405,6 +411,7 @@ def get_pool() -> ScoutPool:
 
 
 def reset_pool() -> None:
+    """Stop and reset the shared scout pool singleton."""
     global _pool
     if _pool:
         _pool.stop()

@@ -92,14 +92,16 @@ class IPCMessage:
     signature: str = ""  # AgentProof signature (§6.1)
 
     def expired(self) -> bool:
+        """Check whether the message exceeded its TTL. Returns True if expired."""
         return self.ttl > 0 and (time.time() - self.timestamp) > self.ttl
 
     def to_dict(self) -> dict:
+        """Serialize the message to a dict."""
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
 
 # Communication constraint matrix (§2.3)
-COMM_CONSTRAINTS: dict[str, dict[str, bool]] = {
+COMM_CONSTRAINTS: dict[str, bool] = {
     # path:                    allowed?
     "l3_to_agent":             True,
     "agent_to_l3":             True,
@@ -267,29 +269,35 @@ class IpcBus(BaseService):
     # ── Convenience senders ──
 
     def send_task(self, agent_id: str, task_data: dict, sender: str = "l3") -> dict:
+        """Send a task assignment to an agent and return the send result."""
         return self.send(IPCMessage(sender=sender, receiver=agent_id,
                                     msg_type=MessageType.TASK_ASSIGN, payload=task_data))
 
     def send_review(self, from_agent: str, to_agent: str, task_id: str) -> dict:
+        """Send a cross-review request between agents and return the send result."""
         return self.send(IPCMessage(sender=from_agent, receiver=to_agent,
                                     msg_type=MessageType.CROSS_REVIEW_REQ,
                                     payload={"task_id": task_id}))
 
     def send_scout_report(self, scout_id: str, agent_id: str, findings: list) -> dict:
+        """Send a scout report to an agent and return the send result."""
         return self.send(IPCMessage(sender=scout_id, receiver=agent_id,
                                     msg_type=MessageType.SCOUT_REPORT,
                                     payload={"findings": findings}))
 
     def send_heartbeat(self, agent_id: str) -> dict:
+        """Send a heartbeat from an agent to L3 and return the send result."""
         return self.send(IPCMessage(sender=agent_id, receiver="l3",
                                     msg_type=MessageType.HEARTBEAT))
 
     def send_dispute(self, from_agent: str, against: str, reason: str) -> dict:
+        """Send a dispute raise to L3 and return the send result."""
         return self.send(IPCMessage(sender=from_agent, receiver="l3",
                                     msg_type=MessageType.DISPUTE_RAISE,
                                     payload={"against": against, "reason": reason}))
 
     def send_direct(self, agent_id: str, message: str, sender: str = "human") -> dict:
+        """Send a direct human message to an agent and return the send result."""
         return self.send(IPCMessage(sender=sender, receiver=agent_id,
                                     msg_type=MessageType.DIRECT_MESSAGE,
                                     payload={"text": message}))
@@ -297,6 +305,7 @@ class IpcBus(BaseService):
     # ── Stats ──
 
     def stats(self) -> dict:
+        """Return IPC bus statistics (totals, agents, channels, subscriber counts)."""
         with self._lock:
             return {
                 "total_messages": self._total_messages,
@@ -320,6 +329,7 @@ def get_bus() -> IpcBus:
 
 
 def reset_bus() -> None:
+    """Stop and reset the IPC bus singleton."""
     global _bus
     if _bus:
         _bus.stop()

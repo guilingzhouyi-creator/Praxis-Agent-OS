@@ -71,6 +71,7 @@ class ConfigCacheStrategy:
 
     def optimize(self, prompt: str, system: str,
                  user_id: str = "") -> tuple[str, str, dict[str, Any]]:
+        """Optimize prompt/system per provider flags; return updated prompt, system, and extra options."""
         extra: dict[str, Any] = {}
         if self._opts.get("forward_user_id", False) and user_id:
             extra["user_id"] = user_id

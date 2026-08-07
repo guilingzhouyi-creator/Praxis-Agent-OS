@@ -29,6 +29,7 @@ class StatsCenterComponent(Component):
     meta = ComponentMeta(name="stats_center", depends_on=[], tags=["global", "monitor"])
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Attach the StatsCenter singleton and auto-ingest on stats.heartbeat."""
         from l3.services.stats_center import get_center
         self._center = get_center()
         self._bus = bus
@@ -37,11 +38,13 @@ class StatsCenterComponent(Component):
         bus.on("stats.heartbeat", lambda e: self._collect(bus))
 
     def bus_start(self) -> None:
+        """Start the stats heartbeat collection thread."""
         self._running = True
         self._thread = threading.Thread(target=self._heartbeat_loop, name="stats-heartbeat", daemon=True)
         self._thread.start()
 
     def bus_stop(self) -> None:
+        """Stop the stats heartbeat thread and wait for it to exit."""
         self._running = False
         if self._thread:
             self._thread.join(timeout=THREAD_JOIN_TIMEOUT)
@@ -83,6 +86,7 @@ class StatsCenterComponent(Component):
             logger.debug("global_components: pmu snapshot failed for one cell, skipped", exc_info=True)
 
     def bus_health(self) -> dict:
+        """Return health status of the StatsCenter component."""
         if not self._center:
             return {"status": "not_inited"}
         s = self._center.stats()
@@ -103,13 +107,16 @@ class RecordCenterComponent(Component):
     meta = ComponentMeta(name="record_center", depends_on=["stats_center"], tags=["global", "logging"])
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Attach the RecordCenter singleton."""
         from l3.services.record_center import get_record_center
         self._center = get_record_center()
 
     def bus_start(self) -> None:
+        """Bridge RecordCenter stats into StatsCenter."""
         self._center.bridge_stats()
 
     def bus_health(self) -> dict:
+        """Return health status of the RecordCenter component."""
         s = self._center.stats()
         return {"status": "ok", "errors": s.get("errors", {}).get("total", 0)}
 
@@ -132,10 +139,12 @@ class EventBusComponent(Component):
     meta = ComponentMeta(name="event_bus", depends_on=[], tags=["kernel", "transport"])
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Attach the kernel EventBus singleton."""
         from l1.kernel import get_event_bus
         self._bus_impl = get_event_bus()
 
     def bus_health(self) -> dict:
+        """Return health status of the EventBus component."""
         if not self._bus_impl:
             return {"status": "not_inited"}
         return {"status": "ok"}
@@ -151,13 +160,16 @@ class CentralControllerComponent(Component):
     meta = ComponentMeta(name="central_controller", depends_on=["event_bus"], tags=["global", "control"])
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Attach the CentralController singleton."""
         from l3.cell.peers.l3 import get_coordinator
         self._controller = get_coordinator()
 
     def bus_start(self) -> None:
+        """No-op start for the controller component."""
         pass
 
     def bus_health(self) -> dict:
+        """Return health status of the CentralController component."""
         return {"status": "ok"}
 
     @property
@@ -183,18 +195,22 @@ class L3BComponent(Component):
         self._composite = None
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lazy-initialize the L3BComposite bridging two Cells."""
         from l3.bus.l3b import L3BComposite
         self._composite = L3BComposite(self.composite_id, self.prev_cell, self.next_cell)
 
     def bus_start(self) -> None:
+        """Boot the L3BComposite."""
         if self._composite:
             self._composite.boot()
 
     def bus_stop(self) -> None:
+        """Shut down the L3BComposite."""
         if self._composite:
             self._composite.shutdown()
 
     def bus_health(self) -> dict:
+        """Return health status of the L3B composite component."""
         if not self._composite:
             return {"status": "not_inited"}
         return {"status": "ok", "active": self._composite.active}
@@ -206,8 +222,10 @@ class L3BBusComponent(Component):
     meta = ComponentMeta(name="l3b_bus", depends_on=[], tags=["cross-cell", "transport"])
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Attach the L3BBus singleton."""
         from l3.bus.l3b_bus import get_bus
         self._bus_impl = get_bus()
 
     def bus_health(self) -> dict:
+        """Return health status of the L3BBus component."""
         return {"status": "ok"}

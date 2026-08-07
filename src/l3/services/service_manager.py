@@ -192,8 +192,9 @@ class ServiceManager(BaseService):
                     "all_healthy": healthy == total}
 
     def stats(self) -> dict:
+        """Return service count, state distribution, and healthy count."""
         with self._lock:
-            states = {}
+            states: dict[str, int] = {}
             for info in self._services.values():
                 states[info.state] = states.get(info.state, 0) + 1
             return {
@@ -207,6 +208,7 @@ _service: ServiceManager | None = None
 
 
 def get_service() -> ServiceManager:
+    """Return the shared ServiceManager singleton, creating it on first use."""
     global _service
     if _service is None:
         _service = ServiceManager()
@@ -214,7 +216,9 @@ def get_service() -> ServiceManager:
 
 
 def reset_service() -> None:
+    """Stop all services and drop the ServiceManager singleton."""
     global _service
     if _service:
-        _service.stop()
+        for name in list(_service._services.keys()):
+            _service.stop(name)
     _service = None

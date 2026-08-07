@@ -42,6 +42,7 @@ class Step:
     verify: dict | None = field(default=None)
 
     def with_agent(self, agent: str) -> Step:
+        """Assign an agent to this step and return self."""
         self.agent = agent
         return self
 
@@ -69,15 +70,19 @@ class Card:
     created_at: float = field(default_factory=__import__("time").time)
 
     def all_steps(self) -> list[Step]:
+        """Return all steps flattened across phases."""
         return [step for phase in self.phases for step in phase.steps]
 
     def step_count(self) -> int:
+        """Return the total number of steps."""
         return len(self.all_steps())
 
     def phase_names(self) -> list[str]:
+        """Return the list of phase names in order."""
         return [p.name for p in self.phases]
 
     def to_dict(self) -> dict:
+        """Serialize the card to a dictionary."""
         return {
             "id": self.id,
             "intent": self.intent,

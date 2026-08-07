@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def read_file(args: dict, agent_id: str) -> dict:
+    """Read a file through the resource buffer; returns content dict."""
     path = args.get("path", "")
     if not path:
         return {"success": False, "error": "path is required"}
@@ -24,6 +25,7 @@ def read_file(args: dict, agent_id: str) -> dict:
 
 
 def list_dir(args: dict, agent_id: str) -> dict:
+    """List directory entries with name and is_dir flags; returns items dict."""
     path = args.get("path", ".")
     try:
         entries = sorted(os.listdir(path))
@@ -37,6 +39,7 @@ def list_dir(args: dict, agent_id: str) -> dict:
 
 
 def file_stat(args: dict, agent_id: str) -> dict:
+    """Return stat metadata (size, mode, mtime) for a path."""
     path = args.get("path", "")
     if not path:
         return {"success": False, "error": "path is required"}
@@ -48,6 +51,7 @@ def file_stat(args: dict, agent_id: str) -> dict:
 
 
 def create_file(args: dict, agent_id: str) -> dict:
+    """Create a file with content through the resource buffer; returns buffer dict."""
     path = args.get("path", "")
     content = args.get("content", "")
     if not path:
@@ -61,6 +65,7 @@ def create_file(args: dict, agent_id: str) -> dict:
 
 
 def file_append(args: dict, agent_id: str) -> dict:
+    """Append content to a file through the resource buffer; returns success dict."""
     path = args.get("path", "")
     content = args.get("content", "")
     if not path:
@@ -75,6 +80,7 @@ def file_append(args: dict, agent_id: str) -> dict:
 
 
 def file_move(args: dict, agent_id: str) -> dict:
+    """Move a file via buffer staging; returns buffered result dict."""
     src = args.get("source", "")
     dst = args.get("destination", "")
     if not src or not dst:
@@ -90,6 +96,7 @@ def file_move(args: dict, agent_id: str) -> dict:
 
 
 def file_copy(args: dict, agent_id: str) -> dict:
+    """Copy a file via buffer staging; returns buffered result dict."""
     src = args.get("source", "")
     dst = args.get("destination", "")
     if not src or not dst:
@@ -104,6 +111,7 @@ def file_copy(args: dict, agent_id: str) -> dict:
 
 
 def file_delete(args: dict, agent_id: str) -> dict:
+    """Delete a file or directory through the buffer; returns deleted dict."""
     path = args.get("path", "")
     if not path:
         return {"success": False, "error": "path is required"}
@@ -137,6 +145,7 @@ def destroy_file(args: dict, agent_id: str) -> dict:
 
 
 def file_mkdir(args: dict, agent_id: str) -> dict:
+    """Create a directory, optionally with parents; returns created dict."""
     path = args.get("path", "")
     parents = args.get("parents", False)
     if not path:
@@ -250,8 +259,6 @@ def _apply_unified_diff(original: list[str], diff_text: str) -> list[str]:
                 i += 1
                 continue
             orig_start = int(m.group(1)) - 1
-            orig_count = int(m.group(2) or 1)
-            new_start = int(m.group(3)) - 1
             i += 1
             removed = 0
             added = 0

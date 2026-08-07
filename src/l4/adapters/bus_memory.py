@@ -70,6 +70,7 @@ class MemoryBusAdapter(EventBusPort):
         return sub_id
 
     def unsubscribe(self, sub_id: str) -> bool:
+        """Remove the subscription *sub_id*. Returns True if it existed."""
         with self._lock:
             if sub_id in self._subscribers:
                 del self._subscribers[sub_id]
@@ -77,6 +78,7 @@ class MemoryBusAdapter(EventBusPort):
             return False
 
     def stats(self) -> dict:
+        """Return subscriber and event counters."""
         with self._lock:
             return {
                 "subscribers": len(self._subscribers),

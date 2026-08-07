@@ -26,6 +26,7 @@ def _ensure_dir() -> str:
 
 
 def bound(result: dict, max_bytes: int = _p.MANAGED_OUTPUT_MAX_BYTES) -> dict:
+    """Bound a tool result to max_bytes, spilling the full JSON to disk when oversized; return the result or a truncation marker dict."""
     text = json.dumps(result, ensure_ascii=False, default=str)
     if len(text.encode("utf-8")) <= max_bytes:
         return result
@@ -40,6 +41,7 @@ def bound(result: dict, max_bytes: int = _p.MANAGED_OUTPUT_MAX_BYTES) -> dict:
 
 
 def spill(content: str) -> str:
+    """Write content to a managed spill file and return its path."""
     name = f"{uuid.uuid4().hex}.json"
     path = os.path.join(_ensure_dir(), name)
     try:
@@ -52,6 +54,7 @@ def spill(content: str) -> str:
 
 
 def read(path: str) -> str | None:
+    """Read a spill file's content, or None when the read fails."""
     try:
         with open(path, encoding="utf-8") as f:
             return f.read()

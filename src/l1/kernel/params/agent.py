@@ -452,6 +452,8 @@ R4_RETRIEVAL_BACKEND_DEFAULT: Final[str] = (
 )
 R4_RETRIEVAL_TOP_K: Final[int] = 3  # top-K skills injected by similarity (fallback: loaded_at order)
 R4_RETRIEVAL_MIN_SCORE: Final[float] = 0.05  # similarity floor below which fallback order is used
+R4_CARD_TAG_PREFIX: Final[str] = "card:"  # skill tag prefix for card-nature/domain linkage
+R4_CARD_TAG_MAX: Final[int] = 8  # max card-derived tags appended to a retrieval query
 
 # ── R4Agent curation (Critic + contribution + retirement) ──
 R4_CURATION_ENABLED: Final[bool] = True  # evaluate evolved skills by contribution, retire under-performers
@@ -511,6 +513,7 @@ Activated by convene(), restored to isolated by close_convention()."""
 
 
 def role_for_domain(domain: str, fallback: str = "default") -> str:
+    """Map a domain string to its territory role via prefix match, or *fallback*."""
     for prefix, role in TERRITORY_MAP.items():
         if domain.startswith(prefix):
             return role
@@ -528,6 +531,7 @@ PRIORITY_GRADIENT: Final[dict[str, int]] = {
 
 
 def resolve_priority(value: Any, default: int = 5) -> int:
+    """Resolve a priority from an int (clamped 1-10) or gradient name, else *default*."""
     if isinstance(value, int):
         return max(1, min(10, value))
     if isinstance(value, str):

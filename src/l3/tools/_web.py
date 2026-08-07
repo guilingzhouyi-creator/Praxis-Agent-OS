@@ -1,7 +1,6 @@
 """Web tool handlers."""
 
 try:
-    import urllib.error
     import urllib.request as req
     HAS_URLLIB = True
 except ImportError:
@@ -12,6 +11,7 @@ from l1.kernel.params.system import LOG_TRUNC_10000, TOOL_WEB_RESULTS_LIMIT
 
 
 def web_fetch(args: dict, agent_id: str) -> dict:
+    """Fetch a URL and return its text content (truncated); returns data dict."""
     url = args.get("url", "")
     if not url:
         return {"success": False, "error": "url is required"}
@@ -26,6 +26,7 @@ def web_fetch(args: dict, agent_id: str) -> dict:
 
 
 def web_search(args: dict, agent_id: str) -> dict:
+    """Search the web via DuckDuckGo and return result links; returns items dict."""
     query = args.get("query", "")
     if not query:
         return {"success": False, "error": "query is required"}
@@ -33,7 +34,8 @@ def web_search(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "urllib not available"}
     try:
         # Delegate to web_fetch instead of inline DuckDuckGo HTML parsing
-        fetch = web_fetch({"url": "https://duckduckgo.com/html/?q=" + req.quote(query)}, agent_id)
+        import urllib.parse as _up
+        fetch = web_fetch({"url": "https://duckduckgo.com/html/?q=" + _up.quote(query)}, agent_id)
         if not fetch.get("success"):
             return fetch
         content = fetch.get("data", "")

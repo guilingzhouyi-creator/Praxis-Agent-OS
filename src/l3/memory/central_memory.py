@@ -81,10 +81,12 @@ class CentralMemory:
             self._instances[scope_id] = mem
 
     def get(self, scope_id: str) -> Any | None:
+        """Get a registered memory instance by scope id, or None."""
         with self._lock:
             return self._instances.get(scope_id)
 
     def list_instances(self) -> list[dict]:
+        """List all registered scopes with their stats."""
         with self._lock:
             return [{"scope": sid, "stats": self._stats_of(m)}
                     for sid, m in sorted(self._instances.items())]
@@ -192,6 +194,7 @@ class CentralMemory:
 
     def compact(self, agent_id: str = "", ring: int = 0,
                 scope_id: str = "") -> dict:
+        """Trigger compaction on the target scope's memory instance."""
         self._stats["compactions"] += 1
         target = scope_id or "l3a"
         try:
@@ -227,6 +230,7 @@ class CentralMemory:
         }
 
     def archive_ring3(self, mem_any: Any | None = None) -> dict:
+        """Archive ring-3 entries of a memory instance (or all) to disk."""
         self._stats["archives"] += 1
         try:
             from .archive_orchestrator import archive_ring3
@@ -236,7 +240,8 @@ class CentralMemory:
             return {"success": False, "error": str(e)}
 
     def stats(self) -> dict:
-        base = dict(self._stats)
+        """Return cumulative dispatch stats plus per-instance and R4 stats."""
+        base: dict[str, Any] = dict(self._stats)
         base["instances"] = self.list_instances()
         try:
             from .r4_agent import get_r4_agent

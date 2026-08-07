@@ -121,7 +121,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         # get_evolved_skills results are cached until SkillManager structurally
         # mutates (revision bump), so AgentLoop._inject_extra_context skips the
         # O(N) registry scan + sort on every agent run.
-        self._skill_cache: dict[tuple, tuple[int, list]] = {}
+        self._skill_cache: dict[tuple, tuple] = {}
         # P3 lesson-summarization gates: per-tool cooldown + global throttle.
         self._last_summarize: dict[str, float] = {}
         self._last_summarize_any: float = 0.0
@@ -251,6 +251,7 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         return results
 
     def status(self) -> dict:
+        """Return R4Agent runtime status: loop state, counters, and timestamps."""
         return {
             "running": self._running,
             "interval": self.interval,
@@ -388,6 +389,7 @@ _r4_agent: R4Agent | None = None
 
 
 def get_r4_agent() -> R4Agent:
+    """Get the R4Agent singleton, creating it on first call."""
     global _r4_agent
     if _r4_agent is None:
         _r4_agent = R4Agent()
@@ -395,8 +397,10 @@ def get_r4_agent() -> R4Agent:
 
 
 def start_r4_agent() -> dict:
+    """Start the R4Agent singleton loop."""
     return get_r4_agent().start()
 
 
 def stop_r4_agent() -> dict:
+    """Stop the R4Agent singleton loop."""
     return get_r4_agent().stop()

@@ -44,6 +44,7 @@ def get_htn_a() -> HTNPlanner:
 
 
 def reset_htn_a() -> None:
+    """Reset the HTN-A singleton. Returns None."""
     global _htn_a
     _htn_a = None
 

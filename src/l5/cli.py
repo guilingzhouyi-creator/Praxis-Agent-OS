@@ -5,6 +5,7 @@ import time
 
 
 def cmd_boot(args) -> dict:
+    """Boot the kernel + Cell, restoring the previous agent topology if available; prints boot results."""
     from l1.kernel.os import get_os
     from l1.kernel.params.agent import TERRITORY_MAP, TERRITORY_PATHS
     from l3.boot.boot import boot as l3_boot
@@ -44,6 +45,7 @@ def cmd_boot(args) -> dict:
 
 
 def cmd_health(args) -> dict:
+    """Run the kernel health self-test and print per-module status results."""
     from l1.kernel import health
     h = health()
     print(f"Kernel health: {h['status']} ({h['module_count']} modules)")
@@ -56,8 +58,9 @@ def cmd_health(args) -> dict:
 
 
 def cmd_ps(args) -> dict:
+    """List kernel processes from the process table, printing a formatted table."""
     from l1.kernel.process import get_table
-    procs = get_table().list()
+    procs = get_table().list_processes()
     if not procs:
         print("No processes")
         return {"processes": []}
@@ -69,6 +72,7 @@ def cmd_ps(args) -> dict:
 
 
 def cmd_card(args) -> dict:
+    """Dispatch a card for an intent; execute its steps and print the result summary."""
     if not args:
         print("Usage: card <intent> [domain]")
         return {"success": False, "error": "intent required"}
@@ -91,6 +95,7 @@ def cmd_card(args) -> dict:
 
 
 def cmd_tools(args) -> dict:
+    """List an agent's tools (or all terminals) with ring, danger and description."""
     from l3.agent_terminal import get_terminals
     agent_id = args[0] if args else ""
     terms = get_terminals()
@@ -112,6 +117,7 @@ def cmd_tools(args) -> dict:
 
 
 def cmd_audit(args) -> dict:
+    """Show the syscall audit log (optionally filtered by agent), printing a table."""
     from l1.kernel import get_audit_log
     from l1.kernel.params.kernel import SYSCALL_AUDIT_CLI_LIMIT
     agent_filter = args[0] if args else ""
@@ -129,6 +135,7 @@ def cmd_audit(args) -> dict:
 
 
 def cmd_chain(args) -> dict:
+    """Verify a tool call chain by call_id and print the verification steps."""
     if not args:
         print("Usage: chain <call_id>")
         return {"success": False, "error": "call_id required"}
@@ -142,6 +149,7 @@ def cmd_chain(args) -> dict:
 
 
 def cmd_interrupts(args) -> dict:
+    """Show interrupt counts and the most recent interrupt records."""
     from l1.kernel.interrupt import get_table
     t = get_table()
     counts = t.counts()
@@ -158,6 +166,7 @@ def cmd_interrupts(args) -> dict:
 
 
 def cmd_devices(args) -> dict:
+    """Show registered devices with name, type, health and usage counters."""
     from l1.kernel.device import get_device_manager
     dm = get_device_manager()
     devices = dm.list()
@@ -172,6 +181,7 @@ def cmd_devices(args) -> dict:
 
 
 def cmd_shutdown(args) -> dict:
+    """Shut down the kernel and Cell, printing uptime and per-module results."""
     from l1.kernel.os import get_os
     r = get_os().shutdown()
     if r.get("success"):
@@ -184,6 +194,7 @@ def cmd_shutdown(args) -> dict:
 
 
 def cmd_status(args) -> dict:
+    """Show full system status: health, interrupts, processes, ops console and summary counts."""
     cmd_health(args)
     cmd_interrupts(args)
     cmd_ps(args)
@@ -205,7 +216,7 @@ def cmd_status(args) -> dict:
     from l1.kernel.params.kernel import SYSCALL_AUDIT_MAX
     print("\nSummary:")
     print(f"  Kernel: {cmd_health([])['status']}")
-    print(f"  Processes: {len(get_table().list())}")
+    print(f"  Processes: {len(get_table().list_processes())}")
     print(f"  Terminals: {len(get_terminals())}")
     print(f"  Syscalls audited: {len(get_audit_log(limit=SYSCALL_AUDIT_MAX))}")
     print(f"  Devices: {len(get_device_manager().list())}")
@@ -213,6 +224,7 @@ def cmd_status(args) -> dict:
 
 
 def cmd_sys(args) -> dict:
+    """Read and print a VFS /sys path, exposing kernel pseudo-files."""
     from l1.kernel.vfs import get_vfs
     path = args[0] if args else "/sys"
     r = get_vfs().read(path)
@@ -224,6 +236,7 @@ def cmd_sys(args) -> dict:
 
 
 def cmd_dev(args) -> dict:
+    """Read and print a VFS /dev path, exposing device nodes."""
     from l1.kernel.vfs import get_vfs
     path = args[0] if args else "/dev"
     r = get_vfs().read(path)
@@ -235,6 +248,7 @@ def cmd_dev(args) -> dict:
 
 
 def cmd_setting(args) -> dict:
+    """Get one/all kernel settings or set one, printing the resulting values."""
     from l1.kernel.settings import get_settings
     s = get_settings()
     if not args:
@@ -248,6 +262,7 @@ def cmd_setting(args) -> dict:
         return {args[0]: v}
     key = args[0]
     raw = " ".join(args[1:])
+    val: int | float | str = 0
     try:
         val = int(raw)
     except ValueError:
@@ -261,6 +276,7 @@ def cmd_setting(args) -> dict:
 
 
 def cmd_card_list(args) -> dict:
+    """List recent cards from the registry, printing a summary table."""
     from l3.card.card_registry import get_registry
     cr = get_registry()
     cards = cr.list(state=None)
@@ -275,6 +291,7 @@ def cmd_card_list(args) -> dict:
 
 
 def cmd_card_submit(args) -> dict:
+    """Submit a new card to the registry and print the assigned card id."""
     if not args:
         print("Usage: card-submit <intent> [domain]")
         return {"success": False}
@@ -287,6 +304,7 @@ def cmd_card_submit(args) -> dict:
 
 
 def cmd_card_cancel(args) -> dict:
+    """Cancel a card by id and print the cancellation outcome."""
     if not args:
         print("Usage: card-cancel <card_id>")
         return {"success": False}

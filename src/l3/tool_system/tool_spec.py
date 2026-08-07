@@ -85,6 +85,7 @@ class ParamSpec:
     description: str = ""
 
     def validate(self, value: Any) -> str | None:
+        """Validate a value against this param spec; returns an error string or None."""
         if value is None and not self.required:
             return None
         type_map = {"string": str, "int": int, "bool": bool, "list": list, "dict": dict}
@@ -213,6 +214,7 @@ class ToolSpecBase(RegisterableSpec):
                 self.gates = RING_GATE_MAP.get(self.ring, ["G1", "G2"])
 
     def validate(self, args: dict) -> list[str]:
+        """Validate parameters against spec. Returns list of errors."""
         errors = []
         for p in self.parameters:
             val = args.get(p.name)
@@ -225,6 +227,7 @@ class ToolSpecBase(RegisterableSpec):
         return errors
 
     def to_api_format(self) -> dict:
+        """Convert to OpenAI-style function-calling API format."""
         properties = {}
         required = []
         for p in self.parameters:
@@ -268,6 +271,7 @@ def tool(name: str = "", description: str = "", category: str = "",
     The original handler function is returned (not wrapped).
     """
     def decorator(handler: Callable) -> Callable:
+        """Wrap a handler, register its ToolSpec, and return the original handler."""
         spec = ToolSpec(
             name=name or handler.__name__,
             description=description,

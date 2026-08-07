@@ -26,6 +26,7 @@ class SandboxServer:
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
+        """Start the IPC server and begin accepting sandbox connections."""
         from l1.kernel.platform import create_ipc_server
         self._server, self._address = await create_ipc_server(
             self._handle_client, self._socket_path,
@@ -33,6 +34,7 @@ class SandboxServer:
         logger.info("SandboxServer listening on %s", self._address)
 
     async def stop(self) -> None:
+        """Shut down the IPC server and remove the socket file."""
         from l1.kernel.platform import remove_ipc_socket
         if self._server:
             self._server.close()
@@ -70,6 +72,7 @@ class SandboxServer:
 
 
 def main() -> None:
+    """CLI entry: run the sandbox execution server on the configured socket."""
     import sys
     socket_path = os.environ.get("PRAXIS_SANDBOX_SOCKET", "")
     if not socket_path and len(sys.argv) > 2 and sys.argv[1] == "--socket":

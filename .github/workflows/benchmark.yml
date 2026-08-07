@@ -3,7 +3,15 @@ name: Benchmark
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+# The baseline-update commit (main only) is signed by the GITHUB_TOKEN and
+# carries a [skip ci] message so the update push does not re-trigger this
+# workflow. Fork PRs cannot push and are unaffected by the write scope.
+permissions:
+  contents: write
 
 jobs:
   bench-card:
@@ -15,4 +23,43 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[test]"
       - name: Run card benchmark
-        run: python tests/benchmarks/bench_card.py
+        id: bench
+        run: |
+          OUT=$(python tests/benchmarks/bench_card.py)
+          echo "$OUT"
+          WALL=$(printf '%s\n' "$OUT" | grep -oE 'Wall time: [0-9.]+s' | grep -oE '[0-9.]+')
+          STEPS=$(printf '%s\n' "$OUT" | grep -oE 'Steps/s: +[0-9.]+' | grep -oE '[0-9.]+')
+          echo "wall_time=$WALL" >> "$GITHUB_OUTPUT"
+          echo "steps_per_sec=$STEPS" >> "$GITHUB_OUTPUT"
+      - name: Compare against baseline
+        if: always()
+        env:
+          WALL: ${{ steps.bench.outputs.wall_time }}
+        run: |
+          BASELINE="benchmarks/baseline.json"
+          if [ ! -f "$BASELINE" ]; then
+            echo "No baseline yet — skipping comparison (first run)."
+            exit 0
+          fi
+          BASE_WALL=$(python -c "import json;print(json.load(open('$BASELINE'))['wall_time'])")
+          REGRESSION_LIMIT=10
+          WORSE_PCT=$(awk "BEGIN{print ($WALL-$BASE_WALL)/$BASE_WALL*100}")
+          echo "baseline wall_time=$BASE_WALL, current=$WALL (${WORSE_PCT}% worse)"
+          if awk "BEGIN{exit !($WORSE_PCT > $REGRESSION_LIMIT)}"; then
+            echo "❌ Wall time regressed by ${WORSE_PCT}% (> ${REGRESSION_LIMIT}% limit)"
+            exit 1
+          fi
+          echo "✅ Within ${REGRESSION_LIMIT}% of baseline."
+      - name: Update baseline (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          WALL: ${{ steps.bench.outputs.wall_time }}
+          STEPS: ${{ steps.bench.outputs.steps_per_sec }}
+        run: |
+          printf '{"wall_time": %s, "steps_per_sec": %s, "updated": "%s"}\n' \
+            "$WALL" "$STEPS" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > benchmarks/baseline.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/baseline.json
+          git commit -m "chore(bench): update baseline [skip ci]" || echo "baseline unchanged"
+          git push

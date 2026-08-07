@@ -181,6 +181,7 @@ class SequenceMonitor:
         ]
 
     def stats(self) -> dict:
+        """Return monitor statistics (sequences, calls, contexts)."""
         with self._lock:
             return {
                 "cell_id": self.cell_id,
@@ -193,6 +194,7 @@ class SequenceMonitor:
             }
 
     def reset(self) -> None:
+        """Clear all tracked transitions and remove the persist file."""
         with self._lock:
             self._transitions.clear()
             self._total_sequences = 0
@@ -247,6 +249,7 @@ _instances_lock = threading.Lock()
 def get_monitor(cell_id: str = "default",
                 ngram: int = 0, min_samples: int = 0,
                 anomaly_threshold: float = 0.0) -> SequenceMonitor:
+    """Return the shared monitor for *cell_id*, creating it on first use."""
     with _instances_lock:
         if cell_id not in _instances:
             _instances[cell_id] = SequenceMonitor(
@@ -259,6 +262,7 @@ def get_monitor(cell_id: str = "default",
 
 
 def reset_monitor(cell_id: str = "") -> None:
+    """Reset and drop monitors; all of them if *cell_id* is empty."""
     with _instances_lock:
         if cell_id:
             inst = _instances.pop(cell_id, None)

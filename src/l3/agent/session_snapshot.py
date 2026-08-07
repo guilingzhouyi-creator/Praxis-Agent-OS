@@ -31,10 +31,12 @@ class SessionSnapshot:
     metadata: dict = field(default_factory=dict)
 
     def to_json(self, indent: int = 2) -> str:
+        """Serialize this snapshot to a JSON string."""
         return json.dumps(asdict(self), indent=indent, ensure_ascii=False, default=str)
 
     @classmethod
     def from_json(cls, raw: str) -> SessionSnapshot:
+        """Deserialize a snapshot from JSON, migrating older versions."""
         data = json.loads(raw)
         version = data.get("version", 0)
         if version > SNAPSHOT_VERSION:

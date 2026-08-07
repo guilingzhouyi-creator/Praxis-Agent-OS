@@ -13,6 +13,7 @@ Protocol:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +33,15 @@ EXECUTION_RESULT_VERSION: int = 1
 # ── Migration entries: target_version -> (label, migrator_fn) ──
 # Migrators are registered here. Each takes data dict, returns data dict.
 
-_SNAPSHOT_MIGRATIONS: dict[int, tuple[str, callable]] = {}
+_SNAPSHOT_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
-_CHECKPOINT_MIGRATIONS: dict[int, tuple[str, callable]] = {}
+_CHECKPOINT_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
-_CARD_REGISTRY_MIGRATIONS: dict[int, tuple[str, callable]] = {}
+_CARD_REGISTRY_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
-_TODO_TABLE_MIGRATIONS: dict[int, tuple[str, callable]] = {}
+_TODO_TABLE_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
-_TRANSACTION_AREA_MIGRATIONS: dict[int, tuple[str, callable]] = {}
+_TRANSACTION_AREA_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
 _REGISTRY: dict[str, dict] = {
     "snapshot": {"version": SNAPSHOT_VERSION, "migrations": _SNAPSHOT_MIGRATIONS},
@@ -57,7 +58,8 @@ for _entry in _REGISTRY.values():
         _entry["migrations"].setdefault(_v, ("identity", _noop))
 
 
-def register_migration(kind: str, from_version: int, label: str, fn: callable) -> None:
+def register_migration(kind: str, from_version: int, label: str, fn: Callable) -> None:
+    """Register a migration step for *kind* from *from_version*; raises for unknown kinds."""
     entry = _REGISTRY.get(kind)
     if entry is None:
         raise ValueError(f"unknown kind: {kind}")

@@ -25,3 +25,47 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+  lint-full-tree:
+    # Full-tree ruff gate: PR lint (ci.yml) only checks changed files, so
+    # pre-existing debt in untouched files could rot silently. The weekly run
+    # enforces the whole src/ + tests/ tree stays clean — matches the local
+    # .githooks/pre-commit, which already runs full-tree ruff on every commit.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -e ".[test]"
+      - name: ruff check (full tree)
+        run: ruff check src/ tests/
+      - name: ruff format (full tree)
+        run: ruff format --check src/ tests/
+
+  mypy-debt:
+    # mypy no-new-debt gate: type checking stays non-gating in PR CI, but the
+    # finding count must never grow. Baseline cleared to 0 on 2026-08-07 after
+    # the debt-clearance pass; keep it at 0 so any new finding fails nightly.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: |
+          pip install -e ".[test]"
+          pip install mypy==1.15.0 types-PyYAML  # pinned to pre-commit version
+      - name: Count mypy findings vs baseline
+        run: |
+          BASELINE=0
+          COUNT=$(mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators 2>&1 | grep -cE "error:" || true)
+          echo "mypy findings: $COUNT (baseline $BASELINE)"
+          if [ "$COUNT" -gt "$BASELINE" ]; then
+            echo "❌ mypy debt GREW: $COUNT > $BASELINE — fix or raise the baseline deliberately."
+            exit 1
+          fi
+          echo "✅ no new mypy debt (<= $BASELINE)"
+        timeout-minutes: 10

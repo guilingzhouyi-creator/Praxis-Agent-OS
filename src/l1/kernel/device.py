@@ -129,6 +129,7 @@ class DeviceManager:
         self._health_running = False
 
     def start_health_checks(self, interval: float = DEVICE_HEALTH_INTERVAL) -> None:
+        """Start a background thread that periodically re-evaluates device health."""
         if self._health_running:
             return
         self._health_running = True
@@ -140,6 +141,7 @@ class DeviceManager:
         self._health_thread.start()
 
     def stop_health_checks(self) -> None:
+        """Stop the background health-check thread; no-op if not running."""
         self._health_running = False
 
     def _check_all_health(self) -> None:
@@ -157,6 +159,7 @@ class DeviceManager:
                  rate_limit: int | None = None, rate_window: float = 1.0,
                  description: str = "", capabilities: list[str] | None = None,
                  version: str = "") -> dict:
+        """Register a device, deriving rate limit and capabilities from settings. Returns a result dict."""
         with self._lock:
             if name in self._devices:
                 return {"success": False, "error": f"device '{name}' already registered"}
@@ -176,6 +179,7 @@ class DeviceManager:
             return {"success": True, "device": name}
 
     def check_rate(self, name: str) -> dict:
+        """Check whether *name* may call now under its rate window. Returns a result dict with remaining budget."""
         with self._lock:
             dev = self._devices.get(name)
             if not dev:
@@ -197,6 +201,7 @@ class DeviceManager:
             return self._devices.get(name)
 
     def record_call(self, name: str, success: bool = True) -> None:
+        """Record a call on *name*, updating last_used, counters, and the rate window. No-op for unknown devices."""
         with self._lock:
             dev = self._devices.get(name)
             if not dev:
@@ -208,6 +213,7 @@ class DeviceManager:
             self._call_timestamps.setdefault(name, []).append(time.time())
 
     def set_health(self, name: str, health: DeviceHealth) -> bool:
+        """Set the health status of *name*. Returns True if the device exists."""
         with self._lock:
             dev = self._devices.get(name)
             if not dev:
@@ -216,6 +222,7 @@ class DeviceManager:
             return True
 
     def list(self, device_type: DeviceType | None = None) -> list[dict]:
+        """List registered devices as dicts, optionally filtered by *device_type*."""
         with self._lock:
             return [{
                 "name": d.name, "type": d.device_type.name,
@@ -228,6 +235,7 @@ class DeviceManager:
                if device_type is None or d.device_type == device_type]
 
     def stats(self) -> dict:
+        """Return aggregate device statistics (total, by type, healthy, down)."""
         with self._lock:
             return {
                 "total_devices": len(self._devices),
@@ -241,6 +249,7 @@ class DeviceManager:
             }
 
     def unregister(self, name: str) -> bool:
+        """Remove the device *name* and its call history. Returns True if it existed."""
         with self._lock:
             if name not in self._devices:
                 return False
@@ -264,5 +273,6 @@ def get_device_manager() -> DeviceManager:
 
 
 def reset_device_manager() -> None:
+    """Reset the device manager singleton to None (for tests / hot reset)."""
     global _manager
     _manager = None

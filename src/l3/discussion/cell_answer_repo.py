@@ -246,6 +246,7 @@ class CellAnswerRepo:
     # ── Stats ─────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return repository statistics (answers, phases, checkpoints)."""
         with self._lock:
             total = sum(len(v) for v in self._answers.values())
             return {

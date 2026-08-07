@@ -59,6 +59,7 @@ class PolicyRule:
     reason: str = ""
 
     def key(self) -> str:
+        """Return the unique rule key: scope:scope_id:tool."""
         return f"{self.scope.value}:{self.scope_id}:{self.tool}"
 
 
@@ -76,6 +77,7 @@ class ToolPolicy:
 
     @classmethod
     def register_agent(cls, agent_id: str, role: str, cell_id: str = "") -> None:
+        """Record an agent's role and cell for policy evaluation."""
         cls._agent_role[agent_id] = role
         cls._agent_cell[agent_id] = cell_id
 
@@ -91,6 +93,7 @@ class ToolPolicy:
 
     @classmethod
     def add(cls, rule: PolicyRule) -> None:
+        """Add or replace a policy rule (same key replaced) and clear the cache."""
         with cls._lock:
             # Remove existing rule with same key
             cls._rules = [r for r in cls._rules if r.key() != rule.key()]
@@ -101,6 +104,7 @@ class ToolPolicy:
 
     @classmethod
     def remove(cls, tool: str, scope: PolicyScope, scope_id: str = "") -> bool:
+        """Remove a policy rule by key; returns True if a rule was removed."""
         key = f"{scope.value}:{scope_id}:{tool}"
         with cls._lock:
             before = len(cls._rules)
@@ -110,12 +114,14 @@ class ToolPolicy:
 
     @classmethod
     def clear(cls) -> None:
+        """Remove all policy rules and clear the evaluation cache."""
         with cls._lock:
             cls._rules.clear()
             cls._agent_cache.clear()
 
     @classmethod
     def list_rules(cls) -> list[dict]:
+        """Return all policy rules as dicts."""
         with cls._lock:
             return [
                 {"scope": r.scope.value, "scope_id": r.scope_id,
@@ -127,11 +133,13 @@ class ToolPolicy:
 
     @classmethod
     def is_allowed(cls, agent_id: str, tool_name: str) -> bool:
+        """Return whether the agent is allowed to use the tool."""
         _, allowed = cls._evaluate(agent_id, tool_name)
         return allowed
 
     @classmethod
     def requires_approval(cls, agent_id: str, tool_name: str) -> bool:
+        """Return whether the tool requires human approval for the agent."""
         needs_approval, _ = cls._evaluate(agent_id, tool_name)
         return needs_approval
 
@@ -198,6 +206,7 @@ class ToolPolicy:
 
     @classmethod
     def to_dict(cls) -> dict:
+        """Serialize rules to the persisted dict format (blacklist/approval_required/overrides)."""
         rules = cls.list_rules()
         return {
             "blacklist": [r for r in rules if r["action"] == "disable"],

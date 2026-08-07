@@ -6,7 +6,8 @@ import logging
 
 from l3.card.card_unified import CardSummary, CardUnified, PhaseMode, list_card_types
 from l3.error_bus import capture
-from l3.services.assembly import AssemblyMode
+
+from .types import AssemblyMode
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ def build_l3a_prompt(user_id: str = "") -> str:
 
 
 def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
+    """Submit a CardUnified built from L3A tool args and return the submission result dict."""
     from l3.card.card_registry import get_registry
     nature = args.get("nature", "execution")
     title = args.get("title", args.get("intent", ""))
@@ -119,11 +121,11 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
 
 
 def wrapped_cardwrite(args: dict, agent_id: str = "") -> dict:
+    """Thin wrapper around cardwrite_handler for tool registration."""
     return cardwrite_handler(args, agent_id)
 
 
 def _route_to_assembly(card: CardUnified) -> AssemblyMode:
-    from .types import AssemblyMode
     try:
         from l3.card.card_gate import evaluate as _gate_evaluate
         r = _gate_evaluate(card_id=card.id,
@@ -145,6 +147,7 @@ def _route_to_assembly(card: CardUnified) -> AssemblyMode:
 
 
 def get_convergence_queue(cell_id: str) -> list[dict]:
+    """Return the convergence answer queue for a cell as a list of dicts."""
     try:
         from l3.cell import get_cell
         from l3.discussion.cell_answer_repo import CellAnswerRepo
@@ -241,7 +244,10 @@ def _read_convention_doc(issue_id: str) -> str | None:
 
 
 def _build_index(content: str) -> dict:
-    issues, decisions, participants, rounds = [], [], [], 0
+    issues: list[dict[str, str]] = []
+    decisions: list[dict[str, str]] = []
+    participants: list[str] = []
+    rounds = 0
     for line in content.splitlines():
         if line.startswith("### [I-"):
             issues.append({"anchor": f"I-{len(issues) + 1}",

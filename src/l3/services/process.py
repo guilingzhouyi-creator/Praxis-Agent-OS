@@ -36,6 +36,7 @@ class ProcessHandle:
         return self.process.poll() if self.process else None
 
     def kill(self) -> None:
+        """Terminate the process, escalating to kill on timeout."""
         if self.process:
             self.process.terminate()
             try:
@@ -53,6 +54,7 @@ class ProcessManager:
 
     def start(self, name: str, cmd: list[str], cwd: str | None = None,
               env: dict[str, str] | None = None) -> dict:
+        """Start a background process and return its handle id."""
         pid = f"proc-{self._next_id}"
         self._next_id += 1
         try:
@@ -73,6 +75,7 @@ class ProcessManager:
         return {"success": True, "id": pid, "pid": proc.pid}
 
     def get(self, pid: str) -> dict:
+        """Return the current status and recent output for a process."""
         with self._lock:
             h = self._processes.get(pid)
         if not h:
@@ -85,12 +88,14 @@ class ProcessManager:
         }
 
     def list(self) -> dict:
+        """List all managed background processes with their alive state."""
         with self._lock:
             procs = [{"id": h.id, "name": h.name, "alive": h.is_alive}
                      for h in self._processes.values()]
         return {"success": True, "processes": procs, "count": len(procs)}
 
     def kill(self, pid: str) -> dict:
+        """Terminate and remove a managed background process."""
         with self._lock:
             h = self._processes.pop(pid, None)
         if not h:
@@ -99,6 +104,7 @@ class ProcessManager:
         return {"success": True, "id": pid, "name": h.name}
 
     def killall(self) -> dict:
+        """Terminate all managed background processes."""
         killed = []
         with self._lock:
             pids = list(self._processes.keys())
@@ -128,6 +134,7 @@ _manager: ProcessManager | None = None
 
 
 def get_manager() -> ProcessManager:
+    """Return the ProcessManager singleton, creating it if needed."""
     global _manager
     if _manager is None:
         _manager = ProcessManager()
@@ -135,6 +142,7 @@ def get_manager() -> ProcessManager:
 
 
 def reset_manager() -> None:
+    """Kill all processes and reset the ProcessManager singleton."""
     global _manager
     if _manager:
         _manager.killall()

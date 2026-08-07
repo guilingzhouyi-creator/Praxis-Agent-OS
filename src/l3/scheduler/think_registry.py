@@ -77,6 +77,7 @@ class ThinkQuotaRegistry:
                     logger.warning("think_registry: unknown key %s", k)
 
     def get_global(self) -> dict[str, Any]:
+        """Return the global think config as a copy."""
         with self._lock:
             return dict(self._global)
 
@@ -94,10 +95,12 @@ class ThinkQuotaRegistry:
             entry["distribution"] = distribution
 
     def get_cell(self, cell_id: str) -> dict[str, Any]:
+        """Return the Cell-level think config as a copy."""
         with self._lock:
             return dict(self._cells.get(cell_id, {}))
 
     def remove_cell(self, cell_id: str) -> bool:
+        """Remove the Cell-level config; returns True if it existed."""
         with self._lock:
             if cell_id in self._cells:
                 del self._cells[cell_id]
@@ -114,11 +117,13 @@ class ThinkQuotaRegistry:
             entry.update({k: v for k, v in config.items() if v is not None})
 
     def get_agent(self, cell_id: str, agent_id: str) -> dict[str, Any]:
+        """Return the per-agent think config as a copy."""
         key = f"{cell_id}.{agent_id}"
         with self._lock:
             return dict(self._agents.get(key, {}))
 
     def remove_agent(self, cell_id: str, agent_id: str) -> bool:
+        """Remove the per-agent override; returns True if it existed."""
         key = f"{cell_id}.{agent_id}"
         with self._lock:
             if key in self._agents:
@@ -257,6 +262,7 @@ class ThinkQuotaRegistry:
     # ── Stats ─────────────────────────────────────────────────────────────
 
     def stats(self) -> dict:
+        """Return registry statistics (global/cell/agent configs)."""
         with self._lock:
             return {
                 "global": dict(self._global),
@@ -281,6 +287,7 @@ _registry: ThinkQuotaRegistry | None = None
 
 
 def get_think_registry() -> ThinkQuotaRegistry:
+    """Return the shared ThinkQuotaRegistry singleton."""
     global _registry
     if _registry is None:
         _registry = ThinkQuotaRegistry()
@@ -288,6 +295,7 @@ def get_think_registry() -> ThinkQuotaRegistry:
 
 
 def reset_think_registry() -> None:
+    """Reset overrides and drop the registry singleton."""
     global _registry
     if _registry:
         _registry.reset()

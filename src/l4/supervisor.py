@@ -141,7 +141,7 @@ class Supervisor:
 
     def _resolve_deps(self) -> list[str]:
         """Topological sort: start processes without dependencies first."""
-        ordered = []
+        ordered: list[str] = []
         remaining = set(self.PROCESSES.keys())
         while remaining:
             ready = {r for r in remaining
@@ -219,6 +219,7 @@ _supervisor_lock = threading.Lock()
 
 
 def get_supervisor() -> Supervisor:
+    """Return the process-wide Supervisor singleton."""
     global _supervisor
     if _supervisor is None:
         with _supervisor_lock:
@@ -228,6 +229,7 @@ def get_supervisor() -> Supervisor:
 
 
 def reset_supervisor() -> None:
+    """Clear the Supervisor singleton."""
     global _supervisor
     _supervisor = None
 

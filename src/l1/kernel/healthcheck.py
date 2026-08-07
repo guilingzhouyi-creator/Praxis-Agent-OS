@@ -109,7 +109,7 @@ def safe_system_check() -> dict[str, Any]:
 def _check_process_table(results: dict) -> tuple[bool, str]:
     try:
         from .process import get_table
-        procs = get_table().list()
+        procs = get_table().list_processes()
         cnt = len(procs) if procs else 0
         results["kernel.process[table]"] = {"status": "OK", "detail": f"{cnt} processes"}
         return True, f"{cnt} procs"

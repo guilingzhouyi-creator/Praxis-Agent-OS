@@ -137,7 +137,7 @@ class TestVfsList:
             open(os.path.join(td, "b.txt"), "w").close()
             vfs = VFS()
             vfs.mount("/project", MountType.PROJECT, real_path=td)
-            r = vfs.list("/project")
+            r = vfs.list_dir("/project")
             assert r["success"]
             names = r.get("entries", [])
             assert "a.txt" in names
@@ -146,7 +146,7 @@ class TestVfsList:
     def test_list_virtual_dir(self):
         vfs = VFS()
         vfs.mount("/virtual", MountType.VIRTUAL)
-        r = vfs.list("/virtual")
+        r = vfs.list_dir("/virtual")
         # Virtual root can be listed
         assert isinstance(r, dict)
 

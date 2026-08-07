@@ -337,6 +337,7 @@ class ApiGateway(ApiHandlers):
         return {"success": True, "host": self.host, "port": self.port}
 
     def stop(self) -> None:
+        """Stop the HTTP server and release the bound port."""
         if self._server:
             self._server.shutdown()
 
@@ -348,14 +349,16 @@ class ApiGateway(ApiHandlers):
 
         class _Handler(http.server.BaseHTTPRequestHandler):
             """_Handler — _ handler record (gateway)."""
-            gateway: ApiGateway = None  # set after class definition (class-body scoping)
+            gateway: "ApiGateway | None" = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):
+                """Suppress default http.server request logging."""
                 pass  # Suppress default http.server logging
 
             def _auth_ok(self) -> bool:
                 """Delegate to the module-level auth check (see ``_auth_ok``)."""
-                return _auth_ok(self.headers, self.gateway.auth_token)
+                gw = self.gateway
+                return _auth_ok(self.headers, gw.auth_token if gw else "")
 
             def _check_auth(self) -> bool:
                 if not self._auth_ok():
@@ -421,15 +424,20 @@ class ApiGateway(ApiHandlers):
                 # Read body for POST/PUT/DELETE (must happen once, before build_request)
                 body = self._read_body() if method in ("POST", "PUT", "DELETE") else {}
                 req = self._build_request(method, self.path, body=body)
-                handler, params = self.gateway._match_route(method, path)
+                gw = self.gateway
+                if gw is None:
+                    self._json({"error": "gateway not initialized"}, 503)
+                    return
+                handler, params = gw._match_route(method, path)
                 req.params = params
 
                 def route_handler(r: Request) -> dict:
-                    return self.gateway._route_dispatch(
+                    """Dispatch the matched route handler for request *r*."""
+                    return gw._route_dispatch(
                         handler, r.body, r.query, params, r.user_id)
 
                 t0 = time.time()
-                resp = self.gateway._middleware.handle(req, route_handler)
+                resp = gw._middleware.handle(req, route_handler)
                 latency_ms = round((time.time() - t0) * 1000, 2)
                 self._json(resp.data, resp.status)
                 self._expose_request_stats(method, path, resp, req, latency_ms)
@@ -505,18 +513,23 @@ class ApiGateway(ApiHandlers):
                         logger.debug("api_gateway: sse unsubscribe failed")
 
             def do_POST(self):
+                """Serve a POST request through the middleware chain."""
                 self._handle_via_middleware("POST")
 
             def do_PUT(self):
+                """Serve a PUT request through the middleware chain."""
                 self._handle_via_middleware("PUT")
 
             def do_GET(self):
+                """Serve a GET request through the middleware chain."""
                 self._handle_via_middleware("GET")
 
             def do_DELETE(self):
+                """Serve a DELETE request through the middleware chain."""
                 self._handle_via_middleware("DELETE")
 
             def do_OPTIONS(self):
+                """Serve a CORS preflight OPTIONS request."""
                 self.send_response(204)
                 self.send_header("Access-Control-Allow-Origin", API_CORS_ORIGIN)
                 self.send_header("Access-Control-Allow-Methods", API_CORS_ALLOW_METHODS)
@@ -543,6 +556,7 @@ _gateway_lock = threading.Lock()
 
 def start_api(host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT,
               auth_token: str = "") -> ApiGateway:
+    """Start the module-level gateway singleton and return it."""
     global _gateway
     if _gateway is None:
         with _gateway_lock:
@@ -553,6 +567,7 @@ def start_api(host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT,
 
 
 def stop_api() -> None:
+    """Stop the module-level gateway singleton and drop the reference."""
     global _gateway
     if _gateway:
         _gateway.stop()
@@ -594,7 +609,7 @@ def load_routes_from_yaml(routes_cfg: list[dict]) -> dict:
     return {"success": True, "loaded": loaded, "errors": errors}
 
 
-def _resolve_handler(path: str) -> callable:
+def _resolve_handler(path: str) -> Callable:
     """Resolve 'module.attr:subattr' to a callable."""
     module_path, _, attr_path = path.partition(":")
     if not attr_path:

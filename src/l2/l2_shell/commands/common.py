@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import shlex
 from typing import Any
 
@@ -13,9 +12,6 @@ from l1.kernel.params.agent import DEFAULT_CELL_ID
 logger = logging.getLogger(__name__)
 
 _registry = get_registry()
-
-# ── Pre-compiled regex patterns ──
-_PIPELINE_SUBST_RE = re.compile(r"\{\.(\w+)\}")
 
 
 def _coerce(value: str) -> Any:
@@ -52,6 +48,7 @@ def _list_defs() -> list[dict]:
 
 
 def preconnect_enhanced(cell_id: str, agent_id: str, message: str = "") -> dict:
+    """Run a preconnect check that also verifies the LLM provider status."""
     from l2.selector import preconnect as _preconnect
     checks = {}
     basic = _preconnect(cell_id, agent_id, message)
@@ -78,12 +75,14 @@ def preconnect_enhanced(cell_id: str, agent_id: str, message: str = "") -> dict:
 
 
 def list_commands() -> list[dict]:
+    """Return all registered commands formatted for shell autocomplete/help."""
     return [{"command": f"/{c['name']}", "help": c["help"], "aliases": c.get("aliases", []),
              "category": c.get("category", "other"), "args": c.get("args", []),
              "examples": c.get("examples", [])} for c in _list_defs()]
 
 
 def resolve_scope(args: list[str]) -> tuple[str, str, list[str]]:
+    """Resolve the leading scope (global/cell/agent) from shell arguments."""
     if not args:
         return ("global", "", [])
     head = args[0]
@@ -97,6 +96,7 @@ def resolve_scope(args: list[str]) -> tuple[str, str, list[str]]:
 
 
 def resolve_agents(scope: str, scope_id: str) -> list[str]:
+    """Resolve the agent ids matching a scope (agent/cell/global)."""
     from l3.agent_terminal import get_terminals
     terms = get_terminals()
     if scope == "agent":
@@ -113,7 +113,7 @@ def resolve_agents(scope: str, scope_id: str) -> list[str]:
 
 def _pipeline(segments: list[str]) -> dict:
     """Execute a command pipeline: cmd1 | cmd2."""
-    segment_results = []
+    segment_results: list[dict] = []
     for i, segment in enumerate(segments):
         segment = segment.strip()
         parts = shlex.split(segment)

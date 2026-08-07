@@ -49,6 +49,7 @@ class ContextItem:
     tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Serialize the context item to a dict (content truncated)."""
         return {
             "content": self.content[:LOG_TRUNC_200],
             "source": self.source,
@@ -68,6 +69,7 @@ class PromptTemplate:
     tools: str = ""            # Available tool description
 
     def build(self) -> str:
+        """Assemble the layered template into a single prompt string."""
         parts = []
         if self.role:
             parts.append(self.role)
@@ -82,9 +84,11 @@ class PromptTemplate:
         return "\n\n".join(parts)
 
     def estimate_tokens(self) -> int:
+        """Rough token estimate (chars // 4)."""
         return len(self.build()) // 4
 
     def to_dict(self) -> dict:
+        """Serialize the template to a dict (fields truncated)."""
         return {
             "role": self.role[:LOG_TRUNC_100],
             "task": self.task[:LOG_TRUNC_100],
@@ -127,7 +131,7 @@ class ContextAssembler:
             logger.warning("prompt_engine: memory context: %s", e)
         return 0
 
-    def add_file_context(self, file_paths: list[str] = None,
+    def add_file_context(self, file_paths: list[str] | None = None,
                          max_chars_per_file: int = LOG_TRUNC_2000) -> int:
         """Load summary context for specified files."""
         if not file_paths:
@@ -175,7 +179,7 @@ class ContextAssembler:
             logger.debug("prompt_engine: lsp diagnostics: %s", e)
         return 0
 
-    def add_history_context(self, history: list[dict] = None,
+    def add_history_context(self, history: list[dict] | None = None,
                             max_messages: int = 10) -> int:
         """Load context from conversation history."""
         if not history:
@@ -198,7 +202,7 @@ class ContextAssembler:
         return item.tokens
 
     def add_string(self, content: str, source: str = "custom",
-                   priority: float = 0.5, tags: list[str] = None) -> int:
+                   priority: float = 0.5, tags: list[str] | None = None) -> int:
         """Add custom context fragment."""
         item = ContextItem(
             content=content,
@@ -235,6 +239,7 @@ class ContextAssembler:
         return result
 
     def stats(self) -> dict:
+        """Return context item counts, sources, and token estimate."""
         return {
             "total_items": len(self._items),
             "sources": list(set(i.source for i in self._items)),
@@ -242,6 +247,7 @@ class ContextAssembler:
         }
 
     def reset(self) -> None:
+        """Clear all assembled context items."""
         self._items.clear()
 
 
@@ -263,8 +269,8 @@ class PromptBuilder:
 
     def build(self, role: str = "default", task: str = "",
               context: str = "", tools_desc: str = "",
-              constraints: list[str] = None,
-              variables: dict[str, Any] = None) -> PromptTemplate:
+              constraints: list[str] | None = None,
+              variables: dict[str, Any] | None = None) -> PromptTemplate:
         """Build complete layered prompt."""
         vars = variables or {}
         vars.setdefault("version", KERNEL_VERSION)
@@ -298,6 +304,7 @@ class PromptBuilder:
         return {"success": True, "name": name, "preview": template[:LOG_TRUNC_80]}
 
     def list_templates(self) -> dict:
+        """List registered custom system prompt templates."""
         templates = dict(self._custom_templates)
         return {
             "success": True,
@@ -320,9 +327,9 @@ class PromptEngine:
         self._lock = threading.RLock()
 
     def build_prompt(self, task: str = "", role: str = "default",
-                     agent_id: str = "", file_paths: list[str] = None,
-                     history: list[dict] = None,
-                     constraints: list[str] = None,
+                     agent_id: str = "", file_paths: list[str] | None = None,
+                     history: list[dict] | None = None,
+                     constraints: list[str] | None = None,
                      include_diagnostics: bool = False,
                      tools_desc: str = "",
                      max_tokens: int = 0) -> dict:
@@ -371,8 +378,8 @@ class PromptEngine:
         }
 
     def build_context_only(self, agent_id: str = "",
-                           file_paths: list[str] = None,
-                           history: list[dict] = None,
+                           file_paths: list[str] | None = None,
+                           history: list[dict] | None = None,
                            include_diagnostics: bool = False,
                            max_tokens: int = 0) -> dict:
         """Assemble context only, without building full prompt (for frontend preview)."""
@@ -397,9 +404,11 @@ class PromptEngine:
         }
 
     def get_templates(self) -> dict:
+        """Return registered custom templates via the builder."""
         return self._builder.list_templates()
 
     def register_template(self, name: str, template: str) -> dict:
+        """Register a custom system prompt template."""
         return self._builder.register_template(name, template)
 
 
@@ -412,6 +421,7 @@ _engine_lock = threading.Lock()
 
 
 def get_engine() -> PromptEngine:
+    """Return the shared PromptEngine singleton, creating it on first use."""
     global _engine
     if _engine is None:
         with _engine_lock:

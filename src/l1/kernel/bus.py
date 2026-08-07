@@ -77,18 +77,23 @@ class Component(ABC):
             cls.meta.name = cls.__name__.lower().replace("component", "")
 
     def bus_init(self, bus: SystemBus) -> None:
+        """Lifecycle hook: initialize dependencies and register listeners."""
         pass
 
     def bus_start(self) -> None:
+        """Lifecycle hook: start background threads or connections."""
         pass
 
     def bus_stop(self) -> None:
+        """Lifecycle hook: stop background work gracefully."""
         pass
 
     def bus_health(self) -> dict:
+        """Return component health status dict."""
         return {"status": "ok"}
 
     def bus_stats(self) -> dict:
+        """Return component metric dict."""
         return {}
 
 
@@ -109,7 +114,7 @@ class SystemBus:
 
     def __init__(self, parent: SystemBus | None = None, name: str = ""):
         self.parent = parent
-        self.name = name or id(self)
+        self.name = name or str(id(self))
         self.children: dict[str, SystemBus] = {}
         self._components: dict[str, Component] = {}
         self._state: dict[str, str] = {}          # comp_name → lifecycle state
@@ -161,7 +166,7 @@ class SystemBus:
                 return result
         return None
 
-    def list(self, tag: str = "") -> list[Component]:
+    def list_components(self, tag: str = "") -> list[Component]:
         """List all components, optionally filtered by tag."""
         with self._lock:
             comps = list(self._components.values())

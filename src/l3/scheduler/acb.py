@@ -56,6 +56,7 @@ class SlotEntry:
     updated_by: str = ""
 
     def to_dict(self) -> dict:
+        """Serialize this slot entry to a dict."""
         return {
             "name": self.name, "value": self.value,
             "version": self.version, "updated_at": self.updated_at,
@@ -123,14 +124,17 @@ class AgentControlBlock:
         return {"success": True, "slot": name, "value": value, "version": entry.version}
 
     def has(self, name: str) -> bool:
+        """Check whether a slot exists."""
         with self._lock:
             return name in self._slots
 
     def keys(self) -> list[str]:
+        """List all slot names."""
         with self._lock:
             return list(self._slots.keys())
 
     def delete(self, name: str) -> bool:
+        """Delete a slot; returns True if it existed."""
         with self._lock:
             if name in self._slots:
                 del self._slots[name]
@@ -321,6 +325,7 @@ _service: ACBService | None = None
 
 
 def get_service() -> ACBService:
+    """Get the ACB service singleton."""
     global _service
     if _service is None:
         _service = ACBService()
@@ -328,6 +333,7 @@ def get_service() -> ACBService:
 
 
 def reset_service() -> None:
+    """Stop and reset the ACB service singleton."""
     global _service
     if _service:
         _service.stop()

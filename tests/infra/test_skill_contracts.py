@@ -99,7 +99,7 @@ class TestBuiltinReadOnly:
         sm = get_skill_manager()
         sm.load_builtin()
 
-        builtins = [s for s in sm.list() if s.get("builtin")]
+        builtins = [s for s in sm.list_skills() if s.get("builtin")]
         assert builtins, "no builtin skills loaded"
         name = builtins[0]["name"]
 

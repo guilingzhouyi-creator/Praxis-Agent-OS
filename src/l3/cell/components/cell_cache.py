@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from collections import deque
 from typing import Any
@@ -84,6 +85,7 @@ class CellCache:
         self._hot_ttl = hot_ttl
         self._index_ttl = index_ttl
         self._kv_ttl = kv_ttl
+        self._lock = threading.RLock()
         # LRU ordering for index & kv eviction
         self._index_order: list[str] = []
         self._kv_order: list[str] = []

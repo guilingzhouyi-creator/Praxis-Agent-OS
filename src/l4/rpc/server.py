@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Any, Callable
+from typing import Callable
 
 from l1.kernel.params.api import API_GATEWAY_HOST, RPC_SERVER_PORT
 from l1.kernel.ports import RpcServerPort

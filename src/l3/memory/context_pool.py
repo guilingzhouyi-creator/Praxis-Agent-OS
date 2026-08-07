@@ -27,12 +27,14 @@ def register(agent_id: str, cell_id: str = "", max_tokens: int = 4096) -> Contex
 
 
 def unregister(agent_id: str) -> None:
+    """Remove an agent's context pool entry and cell mapping."""
     with _lock:
         _pools.pop(agent_id, None)
         _agent_to_cell.pop(agent_id, None)
 
 
 def get(agent_id: str) -> ContextManager | None:
+    """Get an agent's ContextManager from the pool, or None."""
     return _pools.get(agent_id)
 
 

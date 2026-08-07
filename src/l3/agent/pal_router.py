@@ -51,6 +51,7 @@ def complexity_score(tokens: int = 0, tools: int = 0, depth: int = 0) -> float:
 
 
 def complexity_to_tier(score: float) -> str:
+    """Map a complexity score to the matching router tier name."""
     if score < PAL_FRUGAL_THRESHOLD:
         return "frugal"
     if score < PAL_STANDARD_THRESHOLD:
@@ -155,6 +156,7 @@ class PALRouter:
                         logger.info("PAL escalated %s→%s (%s)", TIERS[current], entry["tier"], task[:LOG_TRUNC_40])
 
     def stats(self) -> dict:
+        """Return cumulative routing statistics with tier distribution."""
         with self._lock:
             return {
                 "total_calls": self._total_calls,
@@ -173,6 +175,7 @@ _router: PALRouter | None = None
 
 
 def get_router() -> PALRouter:
+    """Return the shared PALRouter singleton, creating it on first use."""
     global _router
     if _router is None:
         _router = PALRouter()
@@ -180,5 +183,6 @@ def get_router() -> PALRouter:
 
 
 def reset_router() -> None:
+    """Reset the shared PALRouter singleton and its pattern history."""
     global _router
     _router = None

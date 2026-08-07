@@ -26,10 +26,8 @@ Memory quality rules (aligning with Hermes Agent standards):
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
-import time
 import uuid
 from collections import deque
 from pathlib import Path
@@ -45,7 +43,6 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
     LOG_TRUNC_500,
     MEMORY_IMPORTANCE_BASE,
-    MEMORY_PERSIST_FILE_RING3,
     MEMORY_PRESSURE_HIGH,
     MEMORY_PRESSURE_MEDIUM,
     MEMORY_PROMOTION_THRESHOLD,
@@ -73,7 +70,7 @@ class MemoryManager(MemoryPersistMixin):
     def __init__(self, working_budget: int = MEMORY_RING_WORKING_BUDGET, short_budget: int = MEMORY_RING_SHORT_BUDGET, long_budget: int = MEMORY_RING_LONG_BUDGET):
         self.working = RingLayer("working", working_budget, ttl=MEMORY_RING_WORKING_TTL)
         self.short = RingLayer("short", short_budget, ttl=MEMORY_RING_SHORT_TTL)
-        self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL if MEMORY_RING_LONG_TTL else None)
+        self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL)
         self._persist_dir: Path | None = None
         # Dirty-entry tracking: set of entry IDs changed since last persist
         self._dirty_short: set[str] = set()
@@ -174,7 +171,7 @@ class MemoryManager(MemoryPersistMixin):
             logger.debug("memory: recent memory query failed, returning partial", exc_info=True)
         return recent
 
-    def working(self) -> list[MemEntry]:
+    def working_entries(self) -> list[MemEntry]:
         """Return a snapshot of all Ring 1 (working) entries.
 
         Used by Swapper for pressure-based swap-out decisions.

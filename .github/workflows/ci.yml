@@ -40,3 +40,23 @@ jobs:
           else
             echo "no changed Python files — lint OK"
           fi
+
+  audit:
+    # Dependency vulnerability gate: pip-audit checks the installed tree
+    # (project deps + [test] extras) against the PyPI advisory DB. The
+    # editable install of praxis itself is skipped — it is not on PyPI.
+    # Fails on any known vulnerable package, so upstream CVEs surface on
+    # the PR that introduces them instead of silently shipping to main.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install -e ".[test]"
+          pip install pip-audit
+      - name: Audit dependencies (pip-audit)
+        run: pip-audit --skip-editable
+        timeout-minutes: 5

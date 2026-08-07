@@ -19,6 +19,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.agent import (
+    R4_CARD_TAG_MAX,
     R4_CONTRIB_MIN_RATIO,
     R4_CONTRIB_MIN_TRIALS,
     R4_CURATION_ENABLED,
@@ -45,6 +46,16 @@ logger = logging.getLogger(__name__)
 
 class SkillEvolutionMixin:
     """SkillEvolutionMixin — skill evolution, persistence and summarization."""
+
+    # ── Attributes injected by the concrete R4Agent (see r4_agent.py) ──
+    agent_id: str
+    _last_summarize: dict[str, float]
+    _last_summarize_any: float
+    _pmu: Any
+
+    def reflect_failure(self, tool: str, cases: list[dict]) -> str | None:
+        """Reflexion-style attribution (provided by SkillFeedbackMixin)."""
+        raise NotImplementedError
 
     def _skill_md_path(self, name: str, scope: str = "") -> str:
         """Resolve the SKILL.md path for a skill in the evolved dir.
@@ -93,7 +104,7 @@ class SkillEvolutionMixin:
 
         md_path = self._skill_md_path(name, scope)
         os.makedirs(os.path.dirname(md_path), exist_ok=True)
-        meta = {"name": name, "description": description, "tags": tags}
+        meta: dict[str, Any] = {"name": name, "description": description, "tags": tags}
         if disable_model_invocation:
             meta["disable-model-invocation"] = True
         if dependencies:
@@ -242,7 +253,7 @@ class SkillEvolutionMixin:
         now = _time.time()
         ttl_seconds = SKILL_TTL_DAYS * SECONDS_PER_DAY
         pruned = 0
-        for s in sm.list(tags=["evolved"], sort_by="loaded_at"):
+        for s in sm.list_skills(tags=["evolved"], sort_by="loaded_at"):
             tags = s.get("tags", [])
             # Skip lean cases and built-in skills
             if "lean_case" in tags or "builtin" in tags:
@@ -306,7 +317,7 @@ class SkillEvolutionMixin:
             return 0
         sm = get_skill_manager()
         evolved: list[dict] = []
-        for s in sm.list(tags=["evolved"], sort_by="loaded_at"):
+        for s in sm.list_skills(tags=["evolved"], sort_by="loaded_at"):
             tags = s.get("tags", [])
             if "lean_case" in tags or "builtin" in tags:
                 continue
@@ -348,7 +359,7 @@ class SkillEvolutionMixin:
                 )
                 retired += 1
         if retired:
-            evolved = [e for e in evolved if e["name"] not in {r["name"] for r in []}]  # noqa — filtered below via re-list
+            evolved = [e for e in evolved if e["name"] not in set()]  # noqa — filtered below via re-list
             evolved = [e for e in evolved if sm.get(e["name"]) is not None]
 
         # 2. Enforce the library cap: evict lowest contribution.
@@ -448,7 +459,7 @@ class SkillEvolutionMixin:
         from l1.kernel.skill import get_skill_manager
 
         sm = get_skill_manager()
-        seeds = [s["name"] for s in sm.list(tags=["evolved"], limit=20)]
+        seeds = [s["name"] for s in sm.list_skills(tags=["evolved"], limit=20)]
         if not seeds:
             return []
         try:
@@ -478,7 +489,7 @@ class SkillEvolutionMixin:
         import os
 
         by_tool: dict[str, list[dict]] = {}
-        for s in sm.list(tags=["lean_case"]):
+        for s in sm.list_skills(tags=["lean_case"]):
             tools = s.get("allowed_tools") or []
             tool = tools[0] if tools else (s.get("tags") or [""])[-1]
             if not tool:
@@ -543,7 +554,8 @@ class SkillEvolutionMixin:
             generalized += 1
         return generalized
 
-    def evolve_skill(self, intent: str, cell_id: str = "", scope: str = "") -> dict:
+    def evolve_skill(self, intent: str, cell_id: str = "", scope: str = "",
+                     extra_tags: list[str] | None = None) -> dict:
         """Use LLM to generate a new skill definition from a natural language intent.
 
         Uses the LLM engine to produce a structured skill (name, description, rules,
@@ -554,6 +566,9 @@ class SkillEvolutionMixin:
         Cell's white-list (演化即回灌) so its agents can inject it immediately.
         An explicit ``scope`` ("project"/"global") overrides the configured
         ``skill.evolve_scope`` for this evolution's SKILL.md write.
+        ``extra_tags`` are appended to the LLM-generated tags (card-nature
+        linkage: pass ``card:<nature>`` to make the skill hit cards of that
+        nature).
 
         Invoked via: /skills evolve <intent>
         """
@@ -621,6 +636,10 @@ class SkillEvolutionMixin:
             # response (prompt/description as dict, rules as non-str, …) cannot
             # corrupt the SKILL.md round-trip on reload.
             skill_tags = [str(t) for t in (skill_def.get("tags") or []) if isinstance(t, str)] + ["evolved"]
+            if extra_tags:
+                skill_tags += [t for t in extra_tags if isinstance(t, str) and t not in skill_tags][
+                    :R4_CARD_TAG_MAX
+                ]
             skill_desc = skill_def.get("description")
             skill_desc = skill_desc if isinstance(skill_desc, str) else ""
             skill_prompt = skill_def.get("prompt")

@@ -67,12 +67,14 @@ class ResourceLimiter:
         self._lock = threading.RLock()
 
     def get_profile(self, agent_id: str) -> dict:
+        """Return the resource profile of *agent_id* as a dict (falls back to the default agent)."""
         with self._lock:
             p = self._profiles.get(agent_id, DEFAULT_PROFILES[RESOURCE_FALLBACK_AGENT])
             return {"max_tokens": p.max_tokens, "max_workers": p.max_workers,
                     "max_scouts": p.max_scouts, "max_memory": p.max_memory, "priority": p.priority}
 
     def set_profile(self, agent_id: str, **kwargs) -> dict:
+        """Update known profile fields of *agent_id* with the given kwargs. Returns a success dict."""
         with self._lock:
             p = self._profiles.setdefault(agent_id, ResourceProfile())
             for k, v in kwargs.items():
@@ -81,6 +83,7 @@ class ResourceLimiter:
             return {"success": True}
 
     def check(self, agent_id: str, resource: str, cost: int = RESOURCE_DEFAULT_COST) -> dict:
+        """Reserve *cost* units of *resource* for *agent_id* if within limits. Returns a result dict."""
         with self._lock:
             p = self._profiles.get(agent_id, DEFAULT_PROFILES[RESOURCE_FALLBACK_AGENT])
             usage = self._usage.setdefault(agent_id, {r: 0 for r in RESOURCE_KEYS})
@@ -98,6 +101,7 @@ class ResourceLimiter:
             return {"success": True, "current": usage[resource], "limit": limits[resource]}
 
     def release(self, agent_id: str, resource: str, cost: int = RESOURCE_DEFAULT_COST) -> dict:
+        """Release *cost* units of *resource* back to *agent_id* (floored at zero). Returns a success dict."""
         with self._lock:
             if agent_id not in self._usage:
                 self._usage[agent_id] = {r: 0 for r in RESOURCE_KEYS}
@@ -106,6 +110,7 @@ class ResourceLimiter:
             return {"success": True, "current": u[resource]}
 
     def usage(self, agent_id: str) -> dict:
+        """Return current vs max usage for every resource of *agent_id*."""
         with self._lock:
             p = self._profiles.get(agent_id, DEFAULT_PROFILES[RESOURCE_FALLBACK_AGENT])
             u = self._usage.get(agent_id, {})
@@ -117,6 +122,7 @@ class ResourceLimiter:
             }
 
     def all_usage(self) -> dict:
+        """Return usage snapshots for every known agent profile."""
         with self._lock:
             return {aid: self.usage(aid) for aid in self._profiles}
 
@@ -126,6 +132,7 @@ _limiter_lock = threading.Lock()
 
 
 def get_limiter() -> ResourceLimiter:
+    """Get the resource limiter singleton (lazily created)."""
     global _limiter
     if _limiter is None:
         with _limiter_lock:
@@ -135,5 +142,6 @@ def get_limiter() -> ResourceLimiter:
 
 
 def reset_limiter() -> None:
+    """Reset the resource limiter singleton to None (for tests / hot reset)."""
     global _limiter
     _limiter = None

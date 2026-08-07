@@ -84,6 +84,7 @@ def register_card_type(name: str, definition: dict) -> None:
 
 
 def get_card_type(name: str) -> dict:
+    """Return the registered card type definition dict for a name."""
     with _registry_lock:
         return _card_type_registry.get(name, {})
 
@@ -116,9 +117,11 @@ class CardSummary:
     # columns = {"Domain": "app/auth", "Risk": "low", "Files": "3", ...}
 
     def set_column(self, key: str, value: str) -> None:
+        """Set a summary column value by key."""
         self.columns[key] = value
 
     def to_dict(self) -> dict:
+        """Serialize the summary to a dict with truncated description."""
         return {
             "title": self.title,
             "description": self.description[:LOG_TRUNC_500],
@@ -140,6 +143,7 @@ class CardTask:
     error: str = ""
 
     def to_dict(self) -> dict:
+        """Serialize the task to a dict with truncated error."""
         return {
             "action": self.action,
             "target": self.target,
@@ -163,6 +167,7 @@ class CardPhase:
     state: str = "pending"    # pending | running | done | failed
 
     def to_dict(self) -> dict:
+        """Serialize the phase to a dict with its tasks."""
         return {
             "name": self.name,
             "mode": self.mode.value,
@@ -185,6 +190,7 @@ class CardTimestamps:
     completed_at: float = 0.0    # all phases done
 
     def to_dict(self) -> dict:
+        """Serialize the timestamps to a dict."""
         return {
             "created_at": self.created_at,
             "submitted_at": self.submitted_at,
@@ -212,6 +218,7 @@ class CardExecution:
     success: bool = False
 
     def to_dict(self) -> dict:
+        """Serialize the execution record to a dict with rounded elapsed."""
         return {
             "executor": self.executor,
             "cell_id": self.cell_id,
@@ -232,6 +239,7 @@ class CardModification:
     new_value: Any = None
 
     def to_dict(self) -> dict:
+        """Serialize the modification to a dict with truncated value previews."""
         return {
             "version": self.version,
             "timestamp": self.timestamp,
@@ -253,6 +261,13 @@ class CardUnified:
     summary: CardSummary = field(default_factory=CardSummary)
     phases: list[CardPhase] = field(default_factory=list)
     error: str = ""
+
+    # ── Approval trail (stamped by card_gate; read by L4 API) ──
+    approval_status: str = ""
+    approval_size: str = ""
+    approval_at: float = 0.0
+    approval_by: str = ""
+    lifecycle: str = ""
 
     # ── Card execution scope (visible to Agent, verified by GateChain) ──
     scope: str = ""
@@ -280,21 +295,25 @@ class CardUnified:
         ))
 
     def set_nature(self, nature: str) -> None:
+        """Change the card nature and record the modification."""
         old = self.nature
         self.nature = nature
         self._track_mod("nature", old, nature)
 
     def set_priority(self, priority: int) -> None:
+        """Set the priority clamped to 1-10 and record the modification."""
         old = self.priority
         self.priority = max(1, min(10, priority))
         self._track_mod("priority", old, self.priority)
 
     def set_summary_column(self, key: str, value: str) -> None:
+        """Set a summary column value and record the modification."""
         old = self.summary.columns.get(key, "")
         self.summary.set_column(key, value)
         self._track_mod(f"summary.columns.{key}", old, value)
 
     def update_title(self, title: str) -> None:
+        """Update the summary title and record the modification."""
         old = self.summary.title
         self.summary.title = title
         self._track_mod("summary.title", old, title)
@@ -312,6 +331,7 @@ class CardUnified:
         self.timestamps.dispatched_at = time.time()
 
     def complete(self, summary: str = "", changes: list[dict] | None = None) -> None:
+        """Mark the card as completed, storing the summary and changes."""
         self.state = CardLifecycle.COMPLETED
         self.timestamps.completed_at = time.time()
         self._completion_summary = summary
@@ -319,6 +339,7 @@ class CardUnified:
             self._changes = changes
 
     def fail(self, error: str) -> None:
+        """Mark the card as failed and store the error message."""
         self.state = CardLifecycle.FAILED
         self.timestamps.completed_at = time.time()
         self.error = error
@@ -388,6 +409,7 @@ class CardUnified:
                   agents: list[str] | None = None,
                   review_prompt: str = "",
                   strategy: str = "") -> CardPhase:
+        """Append a new phase to the card and return it."""
         phase = CardPhase(
             name=name, mode=mode,
             agents=agents or [],
@@ -400,6 +422,7 @@ class CardUnified:
 
     def add_task(self, phase_name: str, action: str, target: str = "",
                  params: dict | None = None, agent: str = "") -> CardTask | None:
+        """Append a task to the named phase, or return None if the phase is absent."""
         for phase in self.phases:
             if phase.name == phase_name:
                 task = CardTask(action=action, target=target,
@@ -441,15 +464,18 @@ class CardUnified:
     # ── Review ──
 
     def needs_review(self) -> bool:
+        """Return whether the card's type requires review."""
         td = get_card_type(self.nature)
         return td.get("has_review", False) if td else False
 
     def review_phases(self) -> list[CardPhase]:
+        """Return all phases that carry a review prompt."""
         return [p for p in self.phases if p.review_prompt]
 
     # ── Serialization ──
 
     def to_dict(self, include_hidden: bool = False) -> dict:
+        """Serialize the card to a dict, optionally including hidden fields."""
         base = {
             "id": self.id,
             "nature": self.nature,
@@ -515,6 +541,7 @@ class CardUnified:
 
     @staticmethod
     def from_persist(data: dict) -> CardUnified:
+        """Rebuild a CardUnified from a persisted dict."""
         card = CardUnified(
             id=data.get("id", ""),
             nature=data.get("nature", "execution"),

@@ -12,6 +12,7 @@ except ImportError:
 
 
 def config_get(args: dict, agent_id: str) -> dict:
+    """Read a config value by key from the settings center; returns value dict."""
     key = args.get("key", "")
     if not key:
         return {"success": False, "error": "key is required"}
@@ -25,6 +26,7 @@ def config_get(args: dict, agent_id: str) -> dict:
 
 
 def config_set(args: dict, agent_id: str) -> dict:
+    """Write a config value by key to the settings center; returns value dict."""
     key = args.get("key", "")
     value = args.get("value", "")
     if not key:
@@ -39,6 +41,7 @@ def config_set(args: dict, agent_id: str) -> dict:
 
 
 def config_list(args: dict, agent_id: str) -> dict:
+    """List all config items from the settings center; returns items dict."""
     if not HAS_SETTINGS:
         return {"success": False, "error": "settings not available"}
     try:

@@ -24,7 +24,6 @@ from .params.kernel import (
     SWAPPER_DEFAULT_INTERVAL,
     SWAPPER_PRESSURE_HIGH,
     SWAPPER_PRESSURE_LOW,
-    SWAPPER_RECALL_LIMIT,
     SWAPPER_SWAP_COUNT,
     SWAPPER_SWAP_OUT_IMPORTANCE,
 )
@@ -40,6 +39,7 @@ class Swapper:
         self.interval = interval
         self._running = True
         self._mem = memory_service
+        self._thread: threading.Thread | None = None
         self._total_swapped_out = 0
         self._total_compactions = 0
 
@@ -121,7 +121,7 @@ class Swapper:
     def _swap_out_working(self, count: int = SWAPPER_SWAP_COUNT) -> int:
         if not self._mem or not hasattr(self._mem, "working"):
             return 0
-        entries = self._mem.working()[:count]
+        entries = self._mem.working_entries()[:count]
         for e in entries:
             try:
                 target_ring = 3 if e.importance < SWAPPER_SWAP_OUT_IMPORTANCE else 2
@@ -149,9 +149,11 @@ class Swapper:
         return compacted
 
     def stop(self) -> None:
+        """Stop the background swap loop."""
         self._running = False
 
     def stats(self) -> dict:
+        """Return swap statistics (swapped_out, compactions)."""
         return {"swapped_out": getattr(self, '_total_swapped_out', 0), "compactions": self._total_compactions}
 
 
@@ -160,6 +162,7 @@ _swapper_lock = threading.Lock()
 
 
 def get_swapper(interval: float = SWAPPER_DEFAULT_INTERVAL, memory_service=None) -> Swapper:
+    """Get the swapper singleton (lazily created)."""
     global _swapper
     if _swapper is None:
         with _swapper_lock:
@@ -169,6 +172,7 @@ def get_swapper(interval: float = SWAPPER_DEFAULT_INTERVAL, memory_service=None)
 
 
 def reset_swapper() -> None:
+    """Reset the swapper singleton, stopping it first (for tests / hot reset)."""
     global _swapper
     if _swapper:
         _swapper.stop()

@@ -177,6 +177,7 @@ _context: ContextManager | None = None
 
 
 def get_context(max_tokens: int = MAX_REGISTER_TOKENS) -> ContextManager:
+    """Get the legacy ContextManager singleton, creating it if needed."""
     global _context
     if _context is None:
         _context = ContextManager(max_tokens)
@@ -184,5 +185,6 @@ def get_context(max_tokens: int = MAX_REGISTER_TOKENS) -> ContextManager:
 
 
 def reset_context() -> None:
+    """Reset the legacy ContextManager singleton (for testing)."""
     global _context
     _context = None

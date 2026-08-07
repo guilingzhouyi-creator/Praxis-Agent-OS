@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from l1.kernel.params.system import ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE
+from l1.kernel.discovery import get_service_limit
+from l1.kernel.params.system import ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE, RECORD_CENTER_DEFAULT_LIMIT, RECORD_CENTER_RETENTION_DAYS
 from l1.kernel.platform import get_config_dir
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class RecordQuery:
     since: float = 0.0
     until: float = 0.0
     offset: int = 0
-    limit: int = 50
+    limit: int = RECORD_CENTER_DEFAULT_LIMIT
     keyword: str = ""
 
 
@@ -58,11 +59,17 @@ class RecordCenter:
         self,
         export_dir: str = "",
         auto_export_interval: float = 300.0,
-        retention_days: int = 30,
+        retention_days: int | None = None,
     ):
         self._export_dir = export_dir or str(_LOG_DIR / "exports")
         self._auto_export_interval = auto_export_interval
-        self._retention_days = retention_days
+        # Declarative override via config/discovery/service_limits.yaml,
+        # params constant as fallback (AGENTS.md three-layer config).
+        self._retention_days = (
+            retention_days
+            if retention_days is not None
+            else get_service_limit("record_center_retention_days", RECORD_CENTER_RETENTION_DAYS)
+        )
         self._lock = threading.RLock()
         self._export_counter = 0
         self._last_auto_export = time.time()
@@ -355,5 +362,6 @@ def get_record_center() -> RecordCenter:
 
 
 def reset_record_center() -> None:
+    """Drop the record center singleton (for testing / hot-reload)."""
     global _center
     _center = None

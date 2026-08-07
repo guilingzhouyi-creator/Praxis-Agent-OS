@@ -46,6 +46,7 @@ class BaseService(ABC):
         _registry[name] = self
 
     def start(self) -> dict:
+        """Start the service: transition to RUNNING or report an error."""
         with self._lock:
             if self.state == ServiceState.RUNNING:
                 return {"success": True, "note": "already running"}
@@ -62,6 +63,7 @@ class BaseService(ABC):
                 return {"success": False, "error": str(e)}
 
     def stop(self) -> dict:
+        """Stop the service: transition to STOPPED or report an error."""
         with self._lock:
             if self.state == ServiceState.STOPPED:
                 return {"success": True, "note": "already stopped"}
@@ -77,6 +79,7 @@ class BaseService(ABC):
                 return {"success": False, "error": str(e)}
 
     def health(self) -> dict:
+        """Report service health: name, state, uptime and healthy flag."""
         with self._lock:
             return {
                 "name": self.name,

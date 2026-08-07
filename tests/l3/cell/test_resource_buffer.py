@@ -131,6 +131,26 @@ class TestRingBufferBasic:
         assert isinstance(r, dict)
         assert "success" in r
 
+    # ── read / recover / stop ──
+
+    def test_read_staged(self):
+        """Read should return the staged content."""
+        p = self._path()
+        self.buf.stage(p, "staged content\n")
+        content = self.buf.read(p)
+        assert "staged content" in content
+
+    def test_recover(self):
+        """Recover should return a result dict."""
+        p = self._path()
+        self.buf.stage(p, "recover me\n")
+        r = self.buf.recover()
+        assert isinstance(r, dict)
+
+    def test_stop(self):
+        """Stop should not raise."""
+        self.buf.stop()
+
 
 class TestRingBufferConcurrency:
     """RingBuffer 并发安全测试"""
@@ -225,3 +245,12 @@ class TestRingBufferManager:
         m1 = get_manager()
         m2 = get_manager()
         assert m1 is m2
+
+    def test_manager_reset_singleton(self):
+        """Reset should return a fresh singleton instance."""
+        from l3.resource_buffer.manager import get_manager, reset_manager
+        m1 = get_manager()
+        reset_manager()
+        m2 = get_manager()
+        assert m2 is not None
+        assert m1 is not m2

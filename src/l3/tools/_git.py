@@ -16,6 +16,7 @@ def _git(args_list: list[str], timeout: int | None = None) -> dict:
 
 
 def git_commit(args: dict, agent_id: str) -> dict:
+    """Stage all changes and commit with the given message; returns git result dict."""
     message = args.get("message", "")
     if not message:
         return {"success": False, "error": "message is required"}
@@ -26,10 +27,12 @@ def git_commit(args: dict, agent_id: str) -> dict:
 
 
 def git_push(args: dict, agent_id: str) -> dict:
+    """Push the current branch to its remote; returns git result dict."""
     return _git(["push"])
 
 
 def git_branch(args: dict, agent_id: str) -> dict:
+    """Run branch actions (list/create/switch/delete); returns git result dict."""
     action = args.get("action", "")
     name = args.get("name", "")
     if action == "list":

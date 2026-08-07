@@ -38,15 +38,15 @@ src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP
 src/l3/ — Cell layer (~51K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
-src/l2/ — Shell: 46 commands, i18n, agent selector
+src/l2/ — Shell: 50 commands, i18n, agent selector
 src/l1/kernel/ — Kernel primitives: sync, event, constitution, allocator, gatechain, VFS, IPC
-src/l1/kernel/params/ — 910 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
+src/l1/kernel/params/ — ~950 constants across 8 sub-modules (kernel/allocator/sync/gatechain/agent/tool/api/system)
 src/l1/kernel/ports.py — 12 `*Port(ABC)` abstractions; adapters wired at boot via `register_port()`/`get_port()` in `src/l3/boot/wiring.py`
 ```
 
-### Import rules (enforced by `tests/test_layer_imports.py`)
+### Import rules (enforced by `tests/infra/test_layer_imports.py`)
 - L5 → L4/L3/L2/L1; L4 → L3/L2/L1; L3 → L2/L1; L2 → L1 only; L1 cannot import upper layers
-- 53 pre-existing cross-layer imports are allowlisted in that test
+- 93 pre-existing cross-layer imports are allowlisted in that test
 
 ## Key conventions
 
@@ -188,11 +188,32 @@ below — treat them as load-bearing once any external consumer exists:
   header + `docs/` SOC references in one commit; use patch for contract-safe
   additions, minor for API/behavior changes.
 
+## Lint / format / typecheck (Makefile)
+
+```bash
+make test           # python tests/runner.py --batch 1 (same as test-fast)
+make test-all       # both batches (runner.py)
+make lint           # ruff check src/ tests/
+make lint-fix       # ruff check --fix
+make format         # ruff format src/ tests/
+make format-check   # ruff format --check
+make typecheck       # mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators
+make precommit       # pre-commit run --all-files
+make hooks           # git config core.hooksPath .githooks
+```
+
+Ruff (line-length 120, double quotes) and mypy configs live in `pyproject.toml`; pre-commit hooks in `.pre-commit-config.yaml`.
+
+**Two hook systems — know which one runs what:**
+- `make hooks` installs the self-built bash hooks (`.githooks/`, set as `core.hooksPath`): `pre-commit` runs full-tree `ruff check --fix` + `ruff format` + the size check (`scripts/pre-commit-size-check`) and the **mainline whitelist gate** (only `docs/ config/ locales/ .githooks/ scripts/` etc. may be committed directly on `main`); `commit-msg` enforces English messages + `Co-Authored-By`; `post-checkout` warns on dirty-tree branch switches. These are the load-bearing governance gates.
+- `make precommit` runs the pre-commit framework (`.pre-commit-config.yaml`: whitespace/EOF/YAML/JSON/large-file/merge-conflict/private-key checks + ruff + mypy). It is a style lint pass, NOT a governance gate — CI only runs its structural hooks (ruff/mypy are covered by dedicated steps).
+- Don't rely on one system to do the other's job: a clean `pre-commit run` does not satisfy the mainline whitelist or commit-msg rules.
+
 ## Testing quirks
 
 - **Singleton pollution**: Many services use global `_xxx = None` singletons. `tests/conftest.py` has an `autouse` fixture that resets ~20 known singletons before every test. When writing tests for new services, add their reset function to `_RESETS` in conftest.
 - **Layer import test** (`test_layer_imports.py`) checks all `.py` files. New cross-layer imports must be allowlisted there.
-- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core, ~56s locally with xdist) and Batch 2 (slow extended, ~75s: r4_agent, archive, convention). Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"`, so plain `pytest` already parallelizes — the "pin -n 0" advice below is an explicit-override recommendation, not the default.
+- **Runner batches**: `tests/runner.py` splits into Batch 1 (fast core) and Batch 2 (slow extended, ~75s: r4_agent, archive, convention). `--batch 1|2` selects one. Note: `pyproject.toml` sets `addopts = "-n auto --dist loadfile"` (`testpaths = ["tests"]`, `pythonpath = ["src"]`), so plain `pytest` already parallelizes — the "pin `-n 0`" advice in the CI section is an explicit-override recommendation, not the default.
 - **Windows flaky tests**: `tests/l3/services/test_file_editor*.py` and `tests/l3/cell/test_resource_buffer.py` intermittently fail on Windows with `shutil.move` `FileNotFoundError` between `_hidden/` and `_pending/` dirs (path-timing race). Single-file re-runs pass; before blaming a change, re-run the specific test once.
 
 ## LLM config
@@ -204,8 +225,8 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | Path | Description |
 |------|-------------|
 | `config/praxis.yaml` | Main config (kernel, cell, LLM, constitution, gatechain, API) |
-| `config/commands.yaml` | 46 L2 shell command definitions |
-| `config/tools.yaml` | 68 tool definitions by ring layer |
+| `config/commands.yaml` | 50 L2 shell command definitions |
+| `config/tools.yaml` | 72 tool definitions by ring layer |
 | `.praxis-rules.md` | Constitution rules (parsed by `constitution.py`; repo root) |
 | `config/praxis.yaml` `mcp:` | MCP server definitions |
 | `locales/` | i18n: en, zh-CN, ja, ko |
@@ -223,7 +244,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
-- `src/l3/cell/peers/l3a/` — **L3A session system (18 modules):**
+- `src/l3/cell/peers/l3a/` — **L3A session system (19 modules):**
   - `__init__.py` — L3ADaemon lifecycle + singleton
   - `session.py` — Session, SessionHistory, SessionManager
   - `session_ask.py` — session-scoped ask-state helpers (shared with `ask.py`)
@@ -239,6 +260,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
   - `task_table.py` — SessionTaskTable (per-session card task monitor buffer)
   - `helpers.py` — cardwrite handler, prompt builder, convergence
   - `api.py` — L2 Shell command routing
+  - `agents_md.py` — AGENTS.md handbook generator (structural facts → markdown)
   - `types.py` — shared enums and dataclasses
   - `params.py` — structural constants (paths, sizes)
   - `ask.py` — l3a_ask clarification state machine (awaiting flow)

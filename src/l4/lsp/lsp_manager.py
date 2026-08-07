@@ -275,19 +275,22 @@ class LanguageServer:
 
     def _read_message(self) -> dict | None:
         """Read one JSON-RPC message (Content-Length framed) from stdout."""
+        process = self._process
+        if process is None or process.stdout is None:
+            return None
         try:
             length = 0
-            header = self._process.stdout.readline()
+            header = process.stdout.readline()
             if not header:
                 return None
             while header and header.strip():
                 line = header.strip()
                 if line.lower().startswith("content-length:"):
                     length = int(line.split(":", 1)[1].strip())
-                header = self._process.stdout.readline()
+                header = process.stdout.readline()
             if length <= 0:
                 return None
-            body = self._process.stdout.read(length)
+            body = process.stdout.read(length)
             return json.loads(body) if body else None
         except Exception:
             return None
@@ -306,9 +309,11 @@ class LanguageServer:
         return False
 
     def is_alive(self) -> bool:
+        """Return True when the language server process is still running."""
         return self._running and self._process is not None and self._process.poll() is None
 
     def status(self) -> dict:
+        """Return language, running flag, and process liveness."""
         return {
             "language": self.language,
             "running": self._running,
@@ -334,6 +339,7 @@ class DiagnosticEntry:
     source: str = ""  # "pyright" | "gopls" | etc.
 
     def to_dict(self) -> dict:
+        """Convert the diagnostic entry to a serializable dict."""
         return {
             "file": self.file,
             "line": self.line,
@@ -355,9 +361,11 @@ class FileDiagnostics:
     version: int = 0  # File content version (for incremental updates)
 
     def has_errors(self) -> bool:
+        """Return True when any diagnostic is an error."""
         return any(d.severity == "error" for d in self.diagnostics)
 
     def summary(self) -> dict:
+        """Return error/warning counts for the file snapshot."""
         errors = sum(1 for d in self.diagnostics if d.severity == "error")
         warnings = sum(1 for d in self.diagnostics if d.severity == "warning")
         return {
@@ -388,18 +396,22 @@ class DiagnosticCache:
             return entry
 
     def set(self, diagnostics: FileDiagnostics) -> None:
+        """Store a diagnostics snapshot for its file."""
         with self._lock:
             self._cache[diagnostics.file] = diagnostics
 
     def invalidate(self, file_path: str) -> None:
+        """Drop the cached diagnostics for the given file."""
         with self._lock:
             self._cache.pop(file_path, None)
 
     def clear(self) -> None:
+        """Clear the entire diagnostic cache."""
         with self._lock:
             self._cache.clear()
 
     def stats(self) -> dict:
+        """Return cache size and diagnostic counts."""
         with self._lock:
             return {
                 "cached_files": len(self._cache),
@@ -408,6 +420,7 @@ class DiagnosticCache:
             }
 
     def all_summary(self) -> list[dict]:
+        """Return summaries for every cached file."""
         with self._lock:
             return [d.summary() for d in self._cache.values()]
 
@@ -429,6 +442,7 @@ class LspManager:
     # ── Server Lifecycle ──
 
     def start_server(self, language: str) -> dict:
+        """Start the language server for the language, reusing a live one."""
         with self._lock:
             if language in self._servers:
                 ls = self._servers[language]
@@ -441,6 +455,7 @@ class LspManager:
             return result
 
     def stop_server(self, language: str) -> dict:
+        """Stop and remove the language server for the language."""
         with self._lock:
             ls = self._servers.pop(language, None)
             if not ls:
@@ -448,6 +463,7 @@ class LspManager:
             return ls.stop()
 
     def stop_all(self) -> dict:
+        """Stop every running language server."""
         with self._lock:
             results = {}
             for lang, ls in list(self._servers.items()):
@@ -543,7 +559,7 @@ class LspManager:
                 return {"success": True, "diagnostics": diags}
             except Exception:
                 # Fall back to ast
-                return self._ast_diagnostics(file_path)
+                return {"success": True, "diagnostics": self._ast_diagnostics(file_path), "source": "ast"}
         # Other languages fallback to empty
         return {"success": True, "diagnostics": []}
 
@@ -714,6 +730,7 @@ class LspManager:
     # ── Status ──
 
     def servers_status(self) -> dict:
+        """Return status for all servers plus diagnostic cache stats."""
         with self._lock:
             return {
                 "success": True,
@@ -768,6 +785,7 @@ _manager_lock = threading.Lock()
 
 
 def get_manager() -> LspManager:
+    """Return the process-wide LspManager singleton."""
     global _manager
     if _manager is None:
         with _manager_lock:
@@ -777,6 +795,7 @@ def get_manager() -> LspManager:
 
 
 def reset_manager() -> None:
+    """Stop all servers and clear the LspManager singleton."""
     global _manager
     if _manager:
         _manager.stop_all()

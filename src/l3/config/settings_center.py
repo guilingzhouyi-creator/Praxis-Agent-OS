@@ -234,6 +234,7 @@ class SettingsCenter:
             return self._l1.get(key, default)
 
     def get_int(self, key: str, default: int = 0) -> int:
+        """Read a setting coerced to int, falling back to the default."""
         val = self.get(key, default)
         try:
             return int(val)
@@ -241,6 +242,7 @@ class SettingsCenter:
             return default
 
     def get_float(self, key: str, default: float = 0.0) -> float:
+        """Read a setting coerced to float, falling back to the default."""
         val = self.get(key, default)
         try:
             return float(val)
@@ -248,6 +250,7 @@ class SettingsCenter:
             return default
 
     def get_bool(self, key: str, default: bool = False) -> bool:
+        """Read a setting coerced to bool, falling back to the default."""
         val = self.get(key, default)
         if isinstance(val, bool):
             return val

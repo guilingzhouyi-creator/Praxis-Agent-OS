@@ -46,7 +46,7 @@ def _pool() -> dict:
     return p._conns
 
 
-def _parse_url(url: str) -> tuple[str, str, int, bool]:
+def _parse_url(url: str) -> tuple[str, int, bool, str]:
     parsed = urllib.parse.urlparse(url)
     scheme = parsed.scheme.lower()
     secure = scheme == "https"

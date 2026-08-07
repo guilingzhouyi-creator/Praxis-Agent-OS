@@ -172,17 +172,19 @@ class IssueOrchestrator:
             classified = mgr.classify(supplements)
             for item in classified.get("cross_cell", []):
                 mgr.cross_cell_route(item, session.id)
-            session.supplement_issues = classified
+            session.supplement_issues = classified.get("cross_cell", [])
         except Exception as e:
             logger.warning("orchestrator: supplement routing: %s", e)
 
     # ── Query ─────────────────────────────────────────────────
 
     def get_session(self, session_id: str) -> DiscussionSession | None:
+        """Return the session with *session_id*, or None."""
         with self._lock:
             return self._sessions.get(session_id)
 
     def list_sessions(self, status: str = "") -> list[dict]:
+        """List sessions, optionally filtered by status, newest first."""
         with self._lock:
             sessions = list(self._sessions.values())
         if status:
@@ -197,6 +199,7 @@ class IssueOrchestrator:
         ]
 
     def stats(self) -> dict:
+        """Return session statistics (total, active, completed)."""
         with self._lock:
             return {
                 "total_sessions": len(self._sessions),
@@ -214,6 +217,7 @@ _orch_lock = threading.Lock()
 
 
 def get_orchestrator() -> IssueOrchestrator:
+    """Return the shared IssueOrchestrator singleton."""
     global _orchestrator
     if _orchestrator is None:
         with _orch_lock:
@@ -223,5 +227,6 @@ def get_orchestrator() -> IssueOrchestrator:
 
 
 def reset_orchestrator() -> None:
+    """Reset the orchestrator singleton to None."""
     global _orchestrator
     _orchestrator = None

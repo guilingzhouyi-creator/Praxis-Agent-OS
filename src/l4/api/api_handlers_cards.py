@@ -6,6 +6,7 @@ from l1.kernel.params.gatechain import GATECHAIN_LEDGER_LIMIT
 
 
 def list_cards(body: dict) -> dict:
+    """List registered cards, optionally filtered by state or approval status."""
     try:
         from l3.card.card_registry import get_registry
         state = body.get("state") or body.get("_id")
@@ -19,6 +20,7 @@ def list_cards(body: dict) -> dict:
 
 
 def get_card(body: dict) -> dict:
+    """Fetch a single card by id from the registry or event bus."""
     try:
         from l1.kernel import get_event_bus
         card_id = body.get("_id") or body.get("card_id", "")
@@ -36,6 +38,7 @@ def get_card(body: dict) -> dict:
 
 
 def submit_card(body: dict) -> dict:
+    """Submit a single card intent to the registry and return its id."""
     try:
         intent = body.get("intent") or body.get("_id", "")
         if not intent:
@@ -49,6 +52,7 @@ def submit_card(body: dict) -> dict:
 
 
 def submit_batch(body: dict) -> dict:
+    """Submit a batch of card intents and return the submitted card ids."""
     try:
         cards = body.get("cards", [])
         if not cards:
@@ -64,6 +68,7 @@ def submit_batch(body: dict) -> dict:
 
 
 def card_rollback(body: dict) -> dict:
+    """Roll back the card with the given id on the default cell."""
     try:
         from l3.cell import get_cell
         card_id = body.get("card_id", "")
@@ -74,6 +79,7 @@ def card_rollback(body: dict) -> dict:
 
 
 def card_gate_history(body: dict) -> dict:
+    """Return the gatechain ledger history for the given card id."""
     try:
         from l1.kernel.gatechain import get_gatechain
         card_id = body.get("card_id", "")
@@ -84,6 +90,7 @@ def card_gate_history(body: dict) -> dict:
 
 
 def sideload_dispatch(body: dict) -> dict:
+    """Sideload-dispatch an intent directly on a cell outside the card pipeline."""
     try:
         intent = body.get("intent", "")
         domain = body.get("domain", ".")

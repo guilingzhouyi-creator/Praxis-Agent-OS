@@ -33,6 +33,7 @@ class Settings:
                 self._center.set_l2(_k, _v)
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return the value for a key, or the given default if absent."""
         return self._center.get(key, default)
 
     def set_l2(self, key: str, value: Any) -> dict:
@@ -40,21 +41,27 @@ class Settings:
         return self._center.set_l2(key, value)
 
     def set(self, key: str, value: Any) -> dict:
+        """Write a runtime setting and return the result dict."""
         return self._center.set(key, value)
 
     def set_many(self, pairs: dict[str, Any]) -> dict:
+        """Write multiple runtime settings and return the result dict."""
         return self._center.set_many(pairs)
 
     def all(self) -> dict[str, Any]:
+        """Return all aggregated settings as a flat key-value dict."""
         return self._center.all()
 
     def category(self, prefix: str) -> dict[str, Any]:
+        """Return all settings whose keys start with the given prefix."""
         return {k: v for k, v in self._center.all().items() if k.startswith(prefix)}
 
     def reset(self, key: str) -> dict:
+        """Reset a runtime setting to its defaults and return the result dict."""
         return self._center.reset(key)
 
     def reset_all(self) -> dict:
+        """Reset all runtime settings to their defaults and return the result dict."""
         return self._center.reset_all()
 
 
@@ -62,6 +69,7 @@ _settings: Settings | None = None
 
 
 def get_settings() -> Settings:
+    """Return the Settings singleton, creating it on first call."""
     global _settings
     if _settings is None:
         _settings = Settings()
@@ -69,5 +77,6 @@ def get_settings() -> Settings:
 
 
 def reset_settings() -> None:
+    """Reset the Settings singleton so the next access re-creates it."""
     global _settings
     _settings = None

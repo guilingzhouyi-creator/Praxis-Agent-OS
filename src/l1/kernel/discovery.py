@@ -94,6 +94,13 @@ def discover() -> int:
                     data = yaml.safe_load(f) or {}
                 for section, values in data.items():
                     if section in _sources:
+                        if values is None:
+                            # Empty section (all keys commented out) — keep
+                            # the registered defaults instead of clobbering
+                            # them with None.
+                            logger.info("discovery: %s ← %s (empty section, defaults kept)",
+                                        section, fpath.name)
+                            continue
                         base_dict = _registry.setdefault(section, {})
                         if isinstance(values, dict) and isinstance(base_dict, dict):
                             base_dict.update(values)
@@ -130,6 +137,22 @@ def get_tool_config(key: str, default: Any) -> Any:
     if unavailable, the params-derived default is returned.
     """
     cfg = get_config("tool")
+    if cfg and isinstance(cfg, dict) and key in cfg:
+        return cfg[key]
+    return default
+
+
+def get_service_limit(key: str, default: Any) -> Any:
+    """Read a service runtime limit with params fallback.
+
+    Usage::
+        max_queue = get_service_limit("transaction_area_max_queue", TRANSACTION_AREA_MAX_QUEUE)
+
+    The declarative config layer (config/discovery/service_limits.yaml →
+    discovery registry) is consulted first; if unavailable, the
+    params-derived default is returned.
+    """
+    cfg = get_config("service_limits")
     if cfg and isinstance(cfg, dict) and key in cfg:
         return cfg[key]
     return default

@@ -66,18 +66,21 @@ class _FallbackWorker(WorkerPort):
         self._threads: list[threading.Thread] = []
 
     def submit(self, fn: Callable, *args: Any, **kwargs: Any) -> PortResult:
+        """Run *fn* on a fresh daemon thread. Returns a result dict."""
         t = threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True)
         t.start()
         self._threads.append(t)
         return PortResult.ok(submitted=True)
 
     def shutdown(self, wait: bool = True, timeout: float | None = None) -> PortResult:
+        """Join all spawned threads if *wait*. Returns a result dict."""
         if wait:
             for t in self._threads:
                 t.join(timeout=timeout)
         return PortResult.ok(shutdown=True)
 
     def stats(self) -> dict:
+        """Return worker statistics (total and alive thread count)."""
         alive = sum(1 for t in self._threads if t.is_alive())
         return {"total": len(self._threads), "alive": alive}
 
@@ -93,12 +96,14 @@ class _FallbackChannel(ChannelPort):
         self._closed = False
 
     def put(self, item: Any, timeout: float | None = None) -> bool:
+        """Append *item* to the queue; returns False if the channel is closed."""
         if self._closed:
             return False
         self._queue.append(item)
         return True
 
     def get(self, timeout: float | None = None) -> Any | None:
+        """Pop the oldest item, or None when the queue is empty."""
         # Drain remaining items even after close (matches RingChannel semantics)
         try:
             return self._queue.popleft()
@@ -106,12 +111,14 @@ class _FallbackChannel(ChannelPort):
             return None
 
     def size(self) -> int:
+        """Return the current number of buffered items."""
         return len(self._queue)
 
     def capacity(self) -> int:
         return self._UNBOUNDED_CAPACITY
 
     def close(self) -> None:
+        """Mark the channel closed so put() rejects further items."""
         self._closed = True
 
 
@@ -188,6 +195,7 @@ class TcpAdapter(TransportPort):
     # ── Port lifecycle ───────────────────────────────────────────────────
 
     def start(self, node_id: str, config: Any) -> PortResult:
+        """Start the transport: UDP discovery threads plus a TCP listener. Returns a result dict."""
         self._node_id = node_id
         self._config = config if isinstance(config, TransportConfig) \
             else TransportConfig(port=int(config) if isinstance(config, (int, str)) else PRAXIS_PORT_DEFAULT)
@@ -210,6 +218,7 @@ class TcpAdapter(TransportPort):
                              transport=self.name)
 
     def stop(self) -> PortResult:
+        """Stop the transport: close sockets, channel, and worker. Returns a result dict."""
         self._running = False
         # Close sockets immediately to unblock listener threads
         with self._lock:
@@ -249,6 +258,7 @@ class TcpAdapter(TransportPort):
             return PortResult.fail(str(e))
 
     def register_handler(self, msg_type: str, handler: Callable) -> None:
+        """Register a direct handler for incoming messages of *msg_type*."""
         with self._lock:
             self._handlers[msg_type] = handler
 

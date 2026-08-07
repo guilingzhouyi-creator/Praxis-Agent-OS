@@ -66,6 +66,7 @@ class L3ATask:
     future: Any | None = None
 
     def is_done(self) -> bool:
+        """Return True when the task reached a terminal status."""
         return self.status in ("done", "error", "timeout")
 
 

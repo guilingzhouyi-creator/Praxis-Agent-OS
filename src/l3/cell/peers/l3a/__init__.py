@@ -75,7 +75,7 @@ def _build_default_registry() -> ContextRegistry:
         capture("l3a: constitution source registration skipped", error_code="E_L3A_CTX", component="l3a")
         logger.debug("l3a: constitution source registration skipped")
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     reg.register(ContextSource(
         key="system_time",
         loader=lambda: datetime.now(UTC).isoformat(),
@@ -179,6 +179,7 @@ class L3ADaemon:
         self.registry = _build_default_registry()
         self.model_config = _active_model
         self._pmu: Any = None
+        self._sa_pool: Any = None
         self._init_pmu()
         self._init_subagent_pool()
 
@@ -203,6 +204,7 @@ class L3ADaemon:
             self._sa_pool = None
 
     def create_session(self, title: str = "") -> Session:
+        """Create a new session wired with the daemon's model config and PMU."""
         s = self.manager.create(title=title, model_config=self.model_config,
                                 registry=self.registry)
         if self._pmu:
@@ -210,22 +212,27 @@ class L3ADaemon:
         return s
 
     def get_session(self, session_id: str) -> Session | None:
+        """Fetch an active session by id, or None when unknown."""
         return self.manager.get(session_id)
 
     def dispatch(self, args: list[str]) -> dict:
+        """Route L2 shell args through the L3A command dispatcher and return its result dict."""
         return _api.dispatch(args, self.manager, self.registry,
                              self.model_config)
 
     def archive_search(self, limit: int = 10,
                        session_id: str | None = None) -> dict:
+        """Search archived sessions and return their metadata entries."""
         return _archive.search_sessions(limit=limit, session_id=session_id)
 
     def archive_transcript(self, session_id: str) -> list[dict] | None:
+        """Return the archived transcript for a session id, or None when absent."""
         return _archive.get_transcript(session_id)
 
     # ── Daemon lifecycle ──
 
     def start(self) -> dict:
+        """Start the daemon thread and inject global LLM config, returning a result dict."""
         if self._running:
             return {"success": True, "note": "already running"}
         # Inject global LLM config before first session
@@ -249,6 +256,7 @@ class L3ADaemon:
         return {"success": True}
 
     def stop(self) -> dict:
+        """Stop the daemon thread and subagent pool, returning a result dict."""
         self._running = False
         if self._thread:
             self._thread.join(timeout=_p.DAEMON_STOP_TIMEOUT)
@@ -279,6 +287,7 @@ class L3ADaemon:
                 logger.error("L3A daemon tick failed: %s", e)
 
     def tick(self) -> dict:
+        """Run one maintenance pass (PMU, task sync, auto-compress, idle close) and return a summary dict."""
         results: dict[str, Any] = {}
 
         # Push PMU snapshot to StatsCenter
@@ -392,6 +401,7 @@ _daemon_lock = threading.Lock()
 
 
 def get_daemon() -> L3ADaemon:
+    """Return the process-wide L3ADaemon singleton, creating it on first use."""
     global _daemon
     if _daemon is None:
         with _daemon_lock:
@@ -409,10 +419,12 @@ def reset_daemon() -> None:
 
 
 def start() -> dict:
+    """Start the global L3A daemon and return its start result dict."""
     return get_daemon().start()
 
 
 def stop() -> dict:
+    """Stop and clear the global L3A daemon, returning a result dict."""
     global _daemon
     if _daemon is None:
         return {"success": True, "note": "not running"}
@@ -422,11 +434,11 @@ def stop() -> dict:
 
 
 def dispatch(args: list[str] | None = None) -> dict:
+    """Dispatch L3A shell args through the global daemon and return the result dict."""
     return get_daemon().dispatch(args or [])
 
 
 # ── Re-exports ──
-from . import params as l3a_params
 from .helpers import build_l3a_prompt, cardwrite_handler, get_convergence_queue
 from .model import L3AModelConfig
 from .subagent import L3ASubAgentPool
@@ -438,3 +450,38 @@ from .types import L3ATask, L3ATaskGroup
 
 start_l3a_daemon = start
 stop_l3a_daemon = stop
+
+__all__ = [
+    "L3ADaemon",
+    "Session",
+    "SessionHistory",
+    "SessionManager",
+    "SessionConfig",
+    "ContextEpoch",
+    "ContextRegistry",
+    "ContextSource",
+    "L3AModelConfig",
+    "AssemblyMode",
+    "CardType",
+    "SessionRecord",
+    "TaskCard",
+    "L3ATask",
+    "L3ATaskGroup",
+    "SessionTask",
+    "SessionTaskTable",
+    "L3ASummary",
+    "L3ASummaryStore",
+    "L3ASubAgentPool",
+    "build_l3a_prompt",
+    "cardwrite_handler",
+    "get_convergence_queue",
+    "get_daemon",
+    "get_l3a_pool",
+    "get_summary_store",
+    "reset_daemon",
+    "start",
+    "stop",
+    "dispatch",
+    "start_l3a_daemon",
+    "stop_l3a_daemon",
+]

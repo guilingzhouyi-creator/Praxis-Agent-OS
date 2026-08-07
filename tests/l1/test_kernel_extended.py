@@ -196,7 +196,7 @@ class TestSkillManager:
         from l1.kernel.skill import SkillManager
 
         sm = SkillManager()
-        skills = sm.list()
+        skills = sm.list_skills()
         assert isinstance(skills, list)
 
     def test_load_dir(self):
@@ -333,7 +333,7 @@ class TestSkillManager:
         sm.create(name="old", prompt="p", tags=["evolved"], internal=True)
         time.sleep(0.02)  # ensure distinct timestamps on coarse Windows clocks
         sm.create(name="new", prompt="p", tags=["evolved"], internal=True)
-        items = sm.list(tags=["evolved"], sort_by="loaded_at")
+        items = sm.list_skills(tags=["evolved"], sort_by="loaded_at")
         assert items[0]["name"] == "new"
 
     def test_list_sort_by_last_used(self):
@@ -344,7 +344,7 @@ class TestSkillManager:
         sm.create(name="a", prompt="p", tags=["evolved"], internal=True)
         sm.create(name="b", prompt="p", tags=["evolved"], internal=True)
         sm.update("a", {"last_used": 999.0})
-        items = sm.list(tags=["evolved"], sort_by="last_used")
+        items = sm.list_skills(tags=["evolved"], sort_by="last_used")
         assert items[0]["name"] == "a"
 
     def test_query_keyword_scoring(self):

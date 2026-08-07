@@ -241,9 +241,11 @@ class Decomposer:
                 "slices": plan.total_slices, "converged": True}
 
     def get_plan(self, plan_id: str) -> DecomposePlan | None:
+        """Return the plan with the given ID, or None if not found."""
         return self._plans.get(plan_id)
 
     def list_plans(self, limit: int = 20) -> list[dict]:
+        """Return the most recent plans as summaries, newest first."""
         return [{
             "id": p.id, "intent": p.intent[:LOG_TRUNC_60], "domain": p.domain,
             "state": p.state.name, "slices": p.total_slices,
@@ -257,6 +259,7 @@ _decomposer: Decomposer | None = None
 
 
 def get_decomposer() -> Decomposer:
+    """Return the global Decomposer singleton, creating it if needed."""
     global _decomposer
     if _decomposer is None:
         _decomposer = Decomposer()
@@ -264,5 +267,6 @@ def get_decomposer() -> Decomposer:
 
 
 def reset_decomposer() -> None:
+    """Reset the Decomposer singleton to None."""
     global _decomposer
     _decomposer = None

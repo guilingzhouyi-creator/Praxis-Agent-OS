@@ -10,14 +10,50 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from typing import TYPE_CHECKING, Any
 
 from . import params as _p
+
+if TYPE_CHECKING:
+    from l3.cell.peers.l3a.session import SessionHistory
 
 logger = logging.getLogger(__name__)
 
 
 class SessionAskMixin:
     """SessionAskMixin — pending-clarification state machine."""
+
+    # ── Attributes injected by the concrete Session (see session.py) ──
+    id: str
+    turn_count: int
+    last_active_at: float
+    _ask: Any
+    _loop: Any
+    history: SessionHistory
+
+    def _persist_state(self) -> None:
+        """Persist session state (provided by Session)."""
+        raise NotImplementedError
+
+    def _report_stats(self) -> None:
+        """Emit token/pressure/turn metrics (provided by SessionPromptMixin)."""
+        raise NotImplementedError
+
+    def _ensure_loop(self) -> None:
+        """Create the AgentLoop if absent (provided by Session)."""
+        raise NotImplementedError
+
+    def _resolve_limits(self) -> dict:
+        """Resolve step/time/turn limits (provided by SessionPromptMixin)."""
+        raise NotImplementedError
+
+    def _resolve_model_config(self) -> dict:
+        """Resolve effective model config (provided by SessionPromptMixin)."""
+        raise NotImplementedError
+
+    def _ingest_tool_results(self, result: dict, user_text: str) -> None:
+        """Ingest tool results into memory (provided by Session)."""
+        raise NotImplementedError
 
     def ask_status(self) -> dict:
         """Public status of the pending clarification (empty when none)."""

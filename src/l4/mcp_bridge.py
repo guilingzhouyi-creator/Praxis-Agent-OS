@@ -24,7 +24,6 @@ import os
 import threading
 import time
 import urllib.request as req
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -79,6 +78,7 @@ class McpClient:
         self._opener = req.build_opener()
 
     def list_tools(self) -> list[McpTool]:
+        """Fetch and return the remote server's tool list."""
         url = f"{self.endpoint}/tools/list"
         try:
             r = self._opener.open(req.Request(url, headers=self._headers, method="GET"),
@@ -96,6 +96,7 @@ class McpClient:
         ]
 
     def call_tool(self, name: str, arguments: dict) -> dict:
+        """Invoke a remote MCP tool with the given name and arguments."""
         url = f"{self.endpoint}/tools/call"
         body = json.dumps({"name": name, "arguments": arguments}).encode()
         try:
@@ -106,6 +107,7 @@ class McpClient:
             return {"success": False, "error": str(e)}
 
     def ping(self) -> bool:
+        """Return True when the remote server responds OK to a ping."""
         try:
             r = self._opener.open(req.Request(f"{self.endpoint}/ping", headers=self._headers),
                                   timeout=MCP_TIMEOUT)
@@ -163,14 +165,6 @@ def _load_mcp_state() -> dict[str, dict]:
 # ── MCP Server adapter (exposes Praxis tools as MCP) ──
 
 _default_mcp_tools: dict[str, ToolSpec] = {}  # registered export tools
-
-
-def _mcp_handler(tool_name: str) -> Callable:
-    """Wrap execute_tool_spec as an MCP call handler."""
-    def handler(args: dict, agent_id: str = "") -> dict:
-        from l3.tool_system.tool_spec import execute_tool_spec
-        return execute_tool_spec(tool_name, args, agent_id)
-    return handler
 
 
 # ── MCPBridge ──

@@ -5,11 +5,8 @@ from __future__ import annotations
 
 import logging
 
-from l1.kernel.discovery import get_config as _get_config
 from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
 from l1.kernel.params.system import MAX_SCOUTS_PER_AGENT
-
-_MAX_SCOUTS = _get_config("cell", {}).get("scout", {}).get("max_per_agent", MAX_SCOUTS_PER_AGENT) if _get_config("cell") else MAX_SCOUTS_PER_AGENT
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +40,7 @@ class ScopeScheduler:
         return {"allowed": True, "current": current, "limit": MAX_SCOUTS_PER_AGENT}
 
     def acquire_scout(self, agent_id: str) -> dict:
+        """Acquire a scout quota slot for an agent if available."""
         r = self.check_scout_quota(agent_id)
         if not r["allowed"]:
             return r
@@ -50,12 +48,15 @@ class ScopeScheduler:
         return r
 
     def release_scout(self, agent_id: str) -> None:
+        """Release one scout quota slot for an agent."""
         self._scout_counts[agent_id] = max(0, self._scout_counts.get(agent_id, 0) - 1)
 
     def reset_agent(self, agent_id: str) -> None:
+        """Clear scout counts for an agent."""
         self._scout_counts.pop(agent_id, None)
 
     def stats(self) -> dict:
+        """Return scout quota stats."""
         return {
             "active_scouts": sum(self._scout_counts.values()),
             "agents": len(self._scout_counts),
@@ -66,6 +67,7 @@ _scope_scheduler: ScopeScheduler | None = None
 
 
 def get_scope_scheduler() -> ScopeScheduler:
+    """Get the scope scheduler singleton."""
     global _scope_scheduler
     if _scope_scheduler is None:
         _scope_scheduler = ScopeScheduler()
@@ -73,5 +75,6 @@ def get_scope_scheduler() -> ScopeScheduler:
 
 
 def reset_scope_scheduler() -> None:
+    """Reset the scope scheduler singleton."""
     global _scope_scheduler
     _scope_scheduler = None

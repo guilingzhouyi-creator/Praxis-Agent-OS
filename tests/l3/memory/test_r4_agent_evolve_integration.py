@@ -64,7 +64,7 @@ class TestEvolveSkillLLMFullFlow:
         assert result["rules"] == 2
 
         # Verify SkillManager registration
-        skills = sm.list(tags=["evolved"])
+        skills = sm.list_skills(tags=["evolved"])
         names = [s["name"] for s in skills]
         assert "db-migration-helper" in names
 
@@ -199,7 +199,7 @@ Prompt for {name}.""")
             count = sm.load_dir(td)
             assert count == 3
 
-            loaded = sm.list()
+            loaded = sm.list_skills()
             loaded_names = [s["name"] for s in loaded]
             for n in names:
                 assert n in loaded_names

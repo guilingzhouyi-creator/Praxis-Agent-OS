@@ -16,7 +16,7 @@ def _cmd_status(args: list[str]) -> dict:
     print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
     for name, r in h.get("subsystems", {}).items():
         print(f"  [{r['status']}] {name}")
-    print(f"\nProcesses: {len(get_table().list())}")
+    print(f"\nProcesses: {len(get_table().list_processes())}")
     print(f"Terminals: {len(get_terminals())}")
     try:
         from l1.kernel.lifecycle import get_lifecycle
@@ -106,11 +106,11 @@ def _cmd_skills(args: list[str]) -> dict:
     sub = rest[0] if rest else "list"
 
     if sub in ("list", "ls"):
-        skills = sm.list()
+        skills = sm.list_skills()
         return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT], "count": len(skills)}
 
     if sub == "lean":
-        skills = sm.list(tags=["lean_case"])
+        skills = sm.list_skills(tags=["lean_case"])
         return {"success": True, "skills": skills[:SKILL_LIST_DISPLAY_LIMIT], "count": len(skills)}
 
     if sub == "get":
@@ -176,7 +176,7 @@ def _cmd_skills(args: list[str]) -> dict:
         name, field, value = rest[1], rest[2], rest[3]
         if field not in ("description", "prompt", "rules"):
             return {"success": False, "error": f"unsupported field: {field}"}
-        data = {"rules": [r for r in value.split(";") if r]} if field == "rules" else {field: value}
+        data: dict[str, object] = {"rules": [r for r in value.split(";") if r]} if field == "rules" else {field: value}
         return sm.update(name, data, agent_id=agent_id, role=role)
 
     if sub == "delete":
@@ -204,7 +204,7 @@ def _cmd_process(args: list[str]) -> dict:
 
     if args and args[0] == "audit":
         return {"success": True, "audit": get_table().audit_log()}
-    return {"success": True, "processes": get_table().list()}
+    return {"success": True, "processes": get_table().list_processes()}
 
 
 def _cmd_vfs(args: list[str]) -> dict:
@@ -298,7 +298,7 @@ def _cmd_help(args: list[str]) -> dict:
         lines.append(f"  category: {cmd.get('category', 'other')}")
         return {"success": True, "output": "\n".join(lines), "format": "table"}
     cmds = list_commands()
-    groups = {}
+    groups: dict[str, list] = {}
     for c in cmds:
         cat = c.get("category", "other")
         groups.setdefault(cat, []).append(c)

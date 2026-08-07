@@ -174,8 +174,6 @@ class SandboxEntry:
             }
 
         lines: list[str] = []
-        start_line = 1
-        end_line = 1
 
         for h in self.hunks:
             orig_start = h.get("original_start", 1)
@@ -397,6 +395,7 @@ class CellSandbox:
             logger.warning("sandbox restore failed: %s", e)
 
     def register_agent(self, agent_id: str) -> Path:
+        """Create and return the agent's private sandbox directory."""
         agent_dir = self.sandbox_root / agent_id
         agent_dir.mkdir(parents=True, exist_ok=True)
         with self._lock:
@@ -539,7 +538,6 @@ class CellSandbox:
 
             # 1. Get old content for diff
             old_content, old_source = self._get_old_content(rel_path, agent_id, depends_on)
-            new_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()[:HASH_TRUNC_LONG]
 
             # 2. Compute structured diff with agent/tool attribution
             now = time.time()
@@ -612,6 +610,7 @@ class CellSandbox:
             rw.unlock(agent_id)
 
     def stage(self, agent_id: str) -> dict:
+        """Mark all pending entries of an agent as staged."""
         staged = []
         with self._lock:
             for key, entry in self._entries.items():
@@ -654,6 +653,7 @@ class CellSandbox:
         return {"success": True, "flushed": flushed, "count": len(flushed)}
 
     def discard(self, agent_id: str = "") -> dict:
+        """Discard pending and staged entries, optionally restricted to one agent."""
         agent_dir = self._agent_path(agent_id) if agent_id else self.sandbox_root
         count = 0
         with self._lock:
@@ -787,6 +787,7 @@ class SandboxManager:
         self._lock = threading.Lock()
 
     def create_cell(self, cell_id: str, project_root: str) -> dict:
+        """Create a new CellSandbox instance for the given cell id and project root."""
         with self._lock:
             if cell_id in self._cells:
                 return {"success": False, "error": "cell already exists"}

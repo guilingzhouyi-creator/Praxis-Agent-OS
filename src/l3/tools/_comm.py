@@ -54,7 +54,7 @@ def _route_to_l3a(question: str, options: list, agent_id: str) -> dict | None:
         if best is None:
             return None
         from l3.cell.peers.l3a.ask import ask_handler
-        raw = {"question": question}
+        raw: dict[str, object] = {"question": question}
         if options:
             raw["options"] = [str(o) for o in options]
         return ask_handler(best, {"questions": [raw]})
@@ -110,6 +110,7 @@ def pending_questions(agent_id: str = "") -> list[dict]:
 
 
 def ask_user(args: dict, agent_id: str) -> dict:
+    """Ask the user a question via L3A or fallback notification; returns result dict."""
     question = args.get("question", "")
     if not question:
         return {"success": False, "error": "question is required"}
@@ -130,6 +131,7 @@ def ask_user(args: dict, agent_id: str) -> dict:
 
 
 def confirm(args: dict, agent_id: str) -> dict:
+    """Request user confirmation via L3A or fallback notification; returns result dict."""
     message = args.get("message", "")
     if not message:
         return {"success": False, "error": "message is required"}
@@ -149,6 +151,7 @@ def confirm(args: dict, agent_id: str) -> dict:
 
 
 def notify(args: dict, agent_id: str) -> dict:
+    """Send a notification to the user; returns success dict."""
     message = args.get("message", "")
     if not message:
         return {"success": False, "error": "message is required"}

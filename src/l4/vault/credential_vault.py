@@ -111,7 +111,6 @@ def get_credential_for_provider(provider: str) -> dict[str, str]:
     for env_name in _PROVIDER_ENV_MAP.get(provider, []):
         val = os.environ.get(env_name)
         if val:
-            key = env_name.lower().replace("api_", "").replace("_key", "_key")  # normalize
             if env_name.endswith("_KEY"):
                 result["api_key"] = val
             elif env_name.endswith("_URL"):

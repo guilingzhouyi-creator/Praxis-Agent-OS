@@ -52,9 +52,11 @@ class LifecycleHooks:
         pass
 
     def on_error(self, error: str) -> None:
+        """Handle a loop error (observation-only by default)."""
         pass
 
     def session_end(self, result: dict) -> None:
+        """Called when the loop ends (observation-only by default)."""
         pass
 
 
@@ -103,13 +105,15 @@ class HookChain(LifecycleHooks):
         self._hooks: list[LifecycleHooks] = []
 
     def add(self, hook: LifecycleHooks) -> None:
+        """Append a single hook to the chain."""
         self._hooks.append(hook)
         logger.debug("HookChain: added %s", type(hook).__name__)
 
     def add_all(self, hooks: list[LifecycleHooks]) -> None:
+        """Append multiple hooks to the chain."""
         self._hooks.extend(hooks)
 
-    def _chain(self, method: str, args: list, kw: dict | None = None) -> Any:
+    def _chain(self, method: str, args: tuple[Any, ...], kw: dict | None = None) -> Any:
         """Chain a method across all hooks, passing output as input."""
         kw = kw or {}
         result = None
@@ -129,33 +133,43 @@ class HookChain(LifecycleHooks):
         return result
 
     def session_start(self, task: str, agent_id: str) -> str:
+        """Chain session_start across hooks; returns the (possibly mutated) task."""
         return self._chain("session_start", (task, agent_id)) or task
 
     def user_prompt_submit(self, prompt: str) -> str | None:
+        """Chain user_prompt_submit across hooks; returns the override prompt or None."""
         return self._chain("user_prompt_submit", (prompt,))
 
     def pre_request(self, messages: list[dict], ctx: dict) -> list[dict]:
+        """Chain pre_request across hooks; returns the final messages."""
         return self._chain("pre_request", (messages, ctx)) or messages
 
     def on_text_delta(self, delta: str) -> str:
+        """Chain on_text_delta across hooks; returns the final delta."""
         return self._chain("on_text_delta", (delta,)) or delta
 
     def on_reasoning_delta(self, delta: str) -> str:
+        """Chain on_reasoning_delta across hooks; returns the final delta."""
         return self._chain("on_reasoning_delta", (delta,)) or delta
 
     def on_model_response(self, msg: dict) -> dict:
+        """Chain on_model_response across hooks; returns the final message."""
         return self._chain("on_model_response", (msg,)) or msg
 
     def offer_continuation(self, conversation: list) -> str | None:
+        """Chain offer_continuation across hooks; returns the first continuation or None."""
         return self._chain("offer_continuation", (conversation,))
 
     def turn_complete(self, result: dict, elapsed: float) -> None:
+        """Chain turn_complete across hooks (observation-only)."""
         self._chain("turn_complete", (result, elapsed))
 
     def on_error(self, error: str) -> None:
+        """Chain on_error across hooks (observation-only)."""
         self._chain("on_error", (error,))
 
     def session_end(self, result: dict) -> None:
+        """Chain session_end across hooks (observation-only)."""
         self._chain("session_end", (result,))
 
 
@@ -173,6 +187,7 @@ class SkillCatalogHook(LifecycleHooks):
     """
 
     def session_start(self, task: str, agent_id: str) -> str:
+        """Append an available-skill catalog to the task string."""
         try:
             from l1.kernel.params.system import (
                 LOG_TRUNC_60,
@@ -189,7 +204,7 @@ class SkillCatalogHook(LifecycleHooks):
                 auto_builtin = bool(_sc().get("skill.auto_activate_builtin", auto_builtin))
             except Exception:
                 pass
-            skills = sm.list(sort_by="loaded_at")
+            skills = sm.list_skills(sort_by="loaded_at")
             if auto_builtin:
                 # Built-in (read-only) skills take priority in the catalog.
                 skills.sort(key=lambda s: (not s.get("builtin"), s.get("loaded_at", 0.0)))
@@ -237,6 +252,7 @@ class CadenceHook(LifecycleHooks):
         return msg
 
     def offer_continuation(self, conversation: list) -> str | None:
+        """Return a verification nudge once per edit batch, else None."""
         unverified = [e for e in self._edited if e not in self._nudged]
         if not unverified:
             return None
@@ -252,6 +268,7 @@ class StatusReminderHook(LifecycleHooks):
     """Inject current date/time info per turn."""
 
     def pre_request(self, messages: list[dict], ctx: dict) -> list[dict]:
+        """Append a synthetic system-time reminder message."""
         import time
 
         ts = time.strftime("%Y-%m-%d %H:%M:%S %Z")

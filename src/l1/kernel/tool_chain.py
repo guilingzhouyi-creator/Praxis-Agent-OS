@@ -157,6 +157,7 @@ class ToolChain:
         return self.start(tool_name, agent_id, ring, parent_id=parent)
 
     def get(self, call_id: str) -> CallLink | None:
+        """Return the call link for *call_id*, or None."""
         with self._lock:
             return self._calls.get(call_id)
 
@@ -232,6 +233,7 @@ class ToolChain:
             } for c in calls[-limit:]]
 
     def stats(self) -> dict:
+        """Return call-chain statistics."""
         with self._lock:
             total = len(self._calls)
             by_ring: dict[int, int] = {}
@@ -304,5 +306,6 @@ def get_tool_chain() -> ToolChain:
 
 
 def reset_tool_chain() -> None:
+    """Reset the tool chain singleton to None (for tests / hot reset)."""
     global _chain
     _chain = None

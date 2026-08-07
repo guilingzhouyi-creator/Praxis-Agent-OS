@@ -57,6 +57,7 @@ class DiffEdit:
     case_sensitive: bool = True
 
     def to_dict(self) -> dict:
+        """Serialize the edit to a dict."""
         return {
             "path": self.path,
             "old_str": self.old_str[:LOG_TRUNC_100],
@@ -78,6 +79,7 @@ class EditOperation:
     success: bool = True
 
     def to_dict(self) -> dict:
+        """Serialize the edit operation to a dict."""
         return {
             "id": self.id,
             "timestamp": self.timestamp,
@@ -100,6 +102,7 @@ class Patch:
     reverted: bool = False
 
     def to_dict(self) -> dict:
+        """Serialize the patch to a dict."""
         return {
             "id": self.id,
             "created_at": self.created_at,
@@ -111,10 +114,12 @@ class Patch:
         }
 
     def to_json(self) -> str:
+        """Serialize the patch to a JSON string."""
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
 
     @classmethod
     def from_json(cls, raw: str) -> Patch:
+        """Rebuild a patch from a JSON string, ignoring unknown keys."""
         data = json.loads(raw)
         return cls(**{k: v for k, v in data.items()
                       if k in cls.__dataclass_fields__})
@@ -388,6 +393,7 @@ class EditEngine:
     # ── History Query ──
 
     def history(self, limit: int = 50) -> dict:
+        """Return recent edit operations with undo/redo availability."""
         with self._lock:
             entries = [o.to_dict() for o in self._history[-limit:]]
             entries.reverse()
@@ -502,6 +508,7 @@ class PatchManager:
         return result
 
     def list_patches(self) -> dict:
+        """List all registered patches."""
         with self._lock:
             return {
                 "success": True,
@@ -510,6 +517,7 @@ class PatchManager:
             }
 
     def get_patch(self, patch_id: str) -> dict:
+        """Return the patch with the given id, or an error dict."""
         with self._lock:
             patch = self._patches.get(patch_id)
         if not patch:
@@ -548,6 +556,7 @@ _engine_lock = threading.Lock()
 
 
 def get_engine() -> EditEngine:
+    """Return the shared EditEngine singleton, creating it on first use."""
     global _engine
     if _engine is None:
         with _engine_lock:
@@ -557,6 +566,7 @@ def get_engine() -> EditEngine:
 
 
 def get_patch_manager() -> PatchManager:
+    """Return the shared PatchManager singleton, creating it on first use."""
     global _patch_manager
     if _patch_manager is None:
         with _engine_lock:

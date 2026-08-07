@@ -35,6 +35,7 @@ _dispatcher_lock = threading.Lock()
 
 
 def get_dispatcher() -> SubAgentDispatcher:
+    """Return the shared SubAgentDispatcher singleton (backward compat)."""
     global _dispatcher
     if _dispatcher is None:
         with _dispatcher_lock:

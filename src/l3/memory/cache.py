@@ -159,12 +159,14 @@ class IsolatedCache:
             return len(keys)
 
     def clear(self) -> None:
+        """Clear all cache entries and reset hit/miss counters."""
         with self._lock:
             self._entries.clear()
             self._hits = 0
             self._misses = 0
 
     def stats(self) -> dict:
+        """Return aggregate cache statistics with per-agent hit/miss breakdown."""
         with self._lock:
             by_agent = {}
             for aid in set(list(self._hits_by_agent.keys()) + list(self._misses_by_agent.keys())):
@@ -213,6 +215,7 @@ class ContextRegister:
 
     def store(self, key: str, value: Any, agent_id: str = "",
               entry_type: str = "observation", ttl: float = CACHE_DEFAULT_TTL) -> str:
+        """Store a context entry; returns the assigned context register id."""
         with self._lock:
             self._entries.append({
                 "key": key, "value": value, "agent_id": agent_id,
@@ -224,6 +227,7 @@ class ContextRegister:
             return f"ctx-{len(self._entries)}"
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return the latest unexpired value for key, else the default."""
         now = time.time()
         with self._lock:
             for entry in reversed(self._entries):
@@ -232,6 +236,7 @@ class ContextRegister:
         return default
 
     def recent(self, limit: int = 20) -> list[dict]:
+        """Return the most recent unexpired context entries, up to limit."""
         now = time.time()
         with self._lock:
             return [{"key": e["key"], "value": e["value"], "agent_id": e["agent_id"],
@@ -239,10 +244,12 @@ class ContextRegister:
                     for e in self._entries[-limit:] if now < e.get("expires_at", now)]
 
     def stats(self) -> dict:
+        """Return context register occupancy statistics."""
         with self._lock:
             return {"entries": len(self._entries), "max_entries": self.max_entries}
 
     def clear(self) -> None:
+        """Clear all context entries."""
         with self._lock:
             self._entries.clear()
 
@@ -255,6 +262,7 @@ _lock = threading.Lock()
 
 
 def get_file_cache(cell_id: str = "default") -> IsolatedCache:
+    """Return the per-Cell file cache singleton, creating it if needed."""
     with _lock:
         if cell_id not in _caches:
             _caches[cell_id] = IsolatedCache(cell_id)
@@ -262,6 +270,7 @@ def get_file_cache(cell_id: str = "default") -> IsolatedCache:
 
 
 def get_context_register(cell_id: str = "default") -> ContextRegister:
+    """Return the per-Cell context register singleton, creating it if needed."""
     with _lock:
         if cell_id not in _context_registers:
             _context_registers[cell_id] = ContextRegister()
@@ -269,6 +278,7 @@ def get_context_register(cell_id: str = "default") -> ContextRegister:
 
 
 def reset_caches() -> None:
+    """Reset all per-Cell cache singletons (for testing)."""
     global _caches, _context_registers
     _caches.clear()
     _context_registers.clear()

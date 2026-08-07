@@ -171,20 +171,24 @@ class ToolConfig:
 
     @classmethod
     def all(cls) -> list[ToolSpec]:
+        """Return every registered tool spec."""
         return list_tools()
 
     @classmethod
     def get(cls, name: str) -> ToolSpec | None:
+        """Fetch a tool spec by name, or None if unregistered."""
         return get_tool(name)
 
     @classmethod
     def has(cls, name: str) -> bool:
+        """Return True when a tool with the given name is registered."""
         return get_tool(name) is not None
 
     # ── Filters ──
 
     @classmethod
     def by_ring(cls, ring: str | int) -> list[ToolSpec]:
+        """Return tools in the given ring (accepts ring name or number)."""
         if isinstance(ring, int):
             # single source: kernel.params.RING_NAME_MAP (int→str)
             ring = RING_NAME_MAP.get(ring, RING_1)
@@ -192,19 +196,23 @@ class ToolConfig:
 
     @classmethod
     def by_ring_up_to(cls, max_ring: int) -> list[ToolSpec]:
+        """Return tools whose ring number is at or below max_ring."""
         # single source: kernel.params.RING_NUM_MAP (str→int)
         return [t for t in cls.all() if RING_NUM_MAP.get(t.ring, 0) <= max_ring]
 
     @classmethod
     def by_category(cls, category: str) -> list[ToolSpec]:
+        """Return tools matching the given category."""
         return [t for t in cls.all() if t.category == category]
 
     @classmethod
     def by_danger(cls, min_d: int = 0, max_d: int = 5) -> list[ToolSpec]:
+        """Return tools whose danger level lies within [min_d, max_d]."""
         return [t for t in cls.all() if min_d <= t.danger <= max_d]
 
     @classmethod
     def by_names(cls, names: set[str]) -> list[ToolSpec]:
+        """Return the tool specs for the given set of tool names."""
         name_set = set(names)
         return [t for t in cls.all() if t.name in name_set]
 
@@ -218,6 +226,7 @@ class ToolConfig:
 
     @classmethod
     def write_tool_names(cls) -> frozenset[str]:
+        """Return names of tools that can modify state (danger >= 1 or non-Ring-1)."""
         return frozenset(
             t.name for t in cls.all()
             if t.danger >= 1 or t.ring != ToolRing.RING_1
@@ -225,6 +234,7 @@ class ToolConfig:
 
     @classmethod
     def terminal_tool_names(cls) -> frozenset[str]:
+        """Return names of tools in the terminal category."""
         return frozenset(
             t.name for t in cls.all()
             if t.category == "terminal"
@@ -232,6 +242,7 @@ class ToolConfig:
 
     @classmethod
     def file_tool_names(cls) -> frozenset[str]:
+        """Return names of tools in the file category."""
         return frozenset(
             t.name for t in cls.all()
             if t.category == "file"
@@ -239,18 +250,21 @@ class ToolConfig:
 
     @classmethod
     def completions(cls) -> dict[str, str]:
+        """Return a name → truncated-description map for shell completion."""
         return {t.name: t.description[:LOG_TRUNC_60] for t in cls.all()}
 
     # ── LLM integration ──
 
     @classmethod
     def for_llm(cls, tools: list[ToolSpec]) -> list[dict]:
+        """Convert tool specs into OpenAI-style function-calling API format."""
         return [t.to_api_format() for t in tools]
 
     # ── Utility ──
 
     @classmethod
     def resolve_handler(cls, tool_name: str) -> Any | None:
+        """Look up the executable handler callable for a tool name."""
         spec = cls.get(tool_name)
         if spec and spec.handler:
             return spec.handler

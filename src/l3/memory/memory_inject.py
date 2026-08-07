@@ -26,12 +26,7 @@ logger = logging.getLogger(__name__)
 TASK_EXECUTE = "execute"
 TASK_DECIDE = "decide"
 TASK_RESUME = "resume"
-_TASKS = (TASK_EXECUTE, TASK_DECIDE, TASK_RESUME)
 
-_EXECUTE_KEYWORDS = (
-    "implement", "fix", "build", "write", "create", "refactor",
-    "update", "add", "remove", "delete", "test", "run", "compile",
-)
 _DECIDE_KEYWORDS = (
     "review", "analyze", "compare", "conflict", "converge",
     "discuss", "decide", "evaluate", "assess", "audit", "design",
@@ -86,7 +81,6 @@ def resolve_strategy() -> str:
 # ── Injector ──────────────────────────────────────────────
 
 _MER_MAX_NODES = 30
-_MER_NODE_CHARS = 120
 
 
 class MemoryInjector:

@@ -49,7 +49,6 @@ logger = logging.getLogger(__name__)
 
 # Configurable constitution path — env var override
 _CONSTITUTION_FILE = _os.environ.get(CONSTITUTION_ENV_VAR, CONSTITUTION_DEFAULT_PATH)
-CONSTITUTION_FILE = _CONSTITUTION_FILE
 
 # ── Tag constants for built-in descriptors ──
 TAG_TERRITORY_WRITE = frozenset({"territory", "write"})
@@ -109,6 +108,7 @@ class TerritoryConstitution:
     source: str = ""
 
     def is_blank(self) -> bool:
+        """Return True if no territories are defined."""
         return not self.territories
 
 
@@ -122,11 +122,9 @@ def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: s
     ca = get_config("constitution")
     if ca:
         file_actions = frozenset(ca.get("file_actions", []))
-        modify_actions = frozenset(ca.get("modify_actions", []))
     else:
-        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS
         file_actions = CONSTITUTION_FILE_ACTIONS
-        modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action not in file_actions or not target:
         return CheckResult.PASS
     if territory and not any(target.startswith(t) for t in territory):
@@ -137,11 +135,9 @@ def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: s
 def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     ca = get_config("constitution")
     if ca:
-        file_actions = frozenset(ca.get("file_actions", []))
         modify_actions = frozenset(ca.get("modify_actions", []))
     else:
-        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
-        file_actions = CONSTITUTION_FILE_ACTIONS
+        from l1.kernel.params.agent import CONSTITUTION_MODIFY_ACTIONS
         modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action in modify_actions:
         if rule.severity == RuleSeverity.MUST and target:
@@ -168,11 +164,9 @@ def _check_gate(rule: RuleDescriptor, action: str, agent_id: str, target: str, t
     history, and context. G1 only flags, it does not block."""
     ca = get_config("constitution")
     if ca:
-        file_actions = frozenset(ca.get("file_actions", []))
         modify_actions = frozenset(ca.get("modify_actions", []))
     else:
-        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
-        file_actions = CONSTITUTION_FILE_ACTIONS
+        from l1.kernel.params.agent import CONSTITUTION_MODIFY_ACTIONS
         modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action in CONSTITUTION_GATE_ACTIONS:
         return CheckResult.WARN
@@ -183,11 +177,9 @@ def _check_scout(rule: RuleDescriptor, action: str, agent_id: str, target: str, 
     ca = get_config("constitution")
     if ca:
         file_actions = frozenset(ca.get("file_actions", []))
-        modify_actions = frozenset(ca.get("modify_actions", []))
     else:
-        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS, CONSTITUTION_MODIFY_ACTIONS
+        from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS
         file_actions = CONSTITUTION_FILE_ACTIONS
-        modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if agent_id == CONSTITUTION_SCOUT_AGENT_NAME:
         if action in CONSTITUTION_SCOUT_BLOCKED:
             return CheckResult.BLOCK
@@ -617,6 +609,7 @@ class Constitution:
         return {"success": True, "total": len(self._rules)}
 
     def rules_list(self) -> list[dict]:
+        """Return a summary dict for every loaded rule."""
         with self._lock:
             return [{"id": r.id, "section": r.section,
                      "severity": r.severity.name,
@@ -628,6 +621,7 @@ class Constitution:
 
     def check(self, action: str, agent_id: str, target: str = "",
               territory: list[str] | None = None) -> list[CheckReport]:
+        """Evaluate all rules for an action and return non-pass reports."""
         reports: list[CheckReport] = []
         for rule in self._rules:
             result = self._evaluate(rule, action, agent_id, target, territory or [])
@@ -640,6 +634,7 @@ class Constitution:
 
     def is_allowed(self, action: str, agent_id: str, target: str = "",
                    territory: list[str] | None = None) -> dict:
+        """Check whether the action is allowed; return decision details."""
         reports = self.check(action, agent_id, target, territory)
         blocks = [r for r in reports if r.result == CheckResult.BLOCK]
         return {
@@ -712,5 +707,6 @@ def get_constitution() -> Constitution:
 
 
 def reset_constitution() -> None:
+    """Reset the Constitution singleton for testing."""
     global _constitution
     _constitution = None

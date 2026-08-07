@@ -26,6 +26,7 @@ def _get_test_detectors() -> list[tuple[str, ...]]:
 
 
 def build_project(args: dict, agent_id: str) -> dict:
+    """Detect and run a build command in path; returns success dict with output."""
     path = args.get("path", ".")
     for cmd in _get_build_detectors():
         try:
@@ -38,6 +39,7 @@ def build_project(args: dict, agent_id: str) -> dict:
 
 
 def test_project(args: dict, agent_id: str) -> dict:
+    """Detect and run a test command in path; returns success dict or failure detail."""
     path = args.get("path", ".")
     for cmd in _get_test_detectors():
         try:

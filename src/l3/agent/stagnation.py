@@ -36,7 +36,6 @@ from l1.kernel.params.system import HASH_TRUNC_LONG, HASH_TRUNC_SHORT
 logger = logging.getLogger(__name__)
 
 
-@staticmethod
 def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:HASH_TRUNC_LONG]
 

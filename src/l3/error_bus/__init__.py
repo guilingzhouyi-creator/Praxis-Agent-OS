@@ -27,14 +27,13 @@ from collections import defaultdict, deque
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from l1.kernel.params.system import (
     ERROR_BUS_BUFFER,
-    ERROR_BUS_DEDUP_WINDOW,
-    ERROR_BUS_EXPORT_LIMIT,
+    ERROR_BUS_QUERY_LIMIT,
     ERROR_BUS_TOP_SOURCES,
     ERROR_EXPORT_FILE,
     HASH_TRUNC_LONG,
@@ -45,7 +44,6 @@ from l1.kernel.params.system import (
     LOG_TRUNC_1000,
 )
 from l1.kernel.paths import get_paths as _gp
-from l1.kernel.platform import get_config_dir
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -98,6 +96,7 @@ class ErrorLogEntry:
             )
 
     def to_dict(self) -> dict:
+        """Serialize the entry to a dict."""
         return {
             "id": self.fingerprint[:12],
             "level": self.level,
@@ -404,7 +403,7 @@ class ErrorBus(BaseService):
         since: float | None = None,
         until: float | None = None,
         offset: int = 0,
-        limit: int = 50,
+        limit: int = ERROR_BUS_QUERY_LIMIT,
     ) -> dict:
         """Query error logs by criteria (paginated, descending by time)."""
         with self._lock:
@@ -585,6 +584,7 @@ _bus_lock = threading.Lock()
 
 
 def get_bus() -> ErrorBus:
+    """Get the ErrorBus singleton, starting it on first call. Returns the bus."""
     global _bus
     if _bus is None:
         with _bus_lock:
@@ -595,6 +595,7 @@ def get_bus() -> ErrorBus:
 
 
 def reset_bus() -> None:
+    """Reset the ErrorBus singleton. Returns None."""
     global _bus
     if _bus:
         _bus.stop()

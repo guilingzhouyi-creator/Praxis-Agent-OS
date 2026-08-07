@@ -81,6 +81,9 @@ logger = logging.getLogger(__name__)
 class ApiHandlers:
     """Handler methods for API Gateway. Mixed into ApiGateway."""
 
+    # ── Injected by ApiGateway (see api_gateway.py) ──
+    _routes: list[Any]
+
     # ── Health / System ──
 
     def _health(self, body: dict | None = None) -> dict:
@@ -116,7 +119,7 @@ class ApiHandlers:
         try:
             from l1.kernel.process import get_table
 
-            return {"processes": get_table().list()}
+            return {"processes": get_table().list_processes()}
         except Exception as e:
             return {"error": str(e)}
 

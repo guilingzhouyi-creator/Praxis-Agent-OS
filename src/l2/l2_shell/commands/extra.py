@@ -14,7 +14,7 @@ def _cmd_cluster(args: list[str]) -> dict:
     if not args: return {"success": True, "data": {"state": "single", "cells": []}}
     sub = args[0].lower()
     if sub == "status":
-        cells = getattr(coord, 'list_cells', lambda: [])()
+        cells: list[dict] = getattr(coord, 'list_cells', lambda: [])()
         return {"success": True, "data": {"cells": cells}}
     return {"success": False, "error": "usage: /cluster [status]"}
 

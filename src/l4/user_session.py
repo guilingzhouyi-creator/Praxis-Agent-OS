@@ -122,6 +122,7 @@ class UserSessionManager(BaseService):
         return {"success": True, "session_id": session_id, "agent_id": agent_id}
 
     def stats(self) -> dict:
+        """Return session counts by status."""
         with self._lock:
             active = sum(1 for s in self._sessions.values() if s.status == "active")
             return {
@@ -136,6 +137,7 @@ _service_lock = threading.Lock()
 
 
 def get_service() -> UserSessionManager:
+    """Return the process-wide UserSessionManager singleton."""
     global _service
     if _service is None:
         with _service_lock:
@@ -145,6 +147,7 @@ def get_service() -> UserSessionManager:
 
 
 def reset_service() -> None:
+    """Stop and clear the UserSessionManager singleton."""
     global _service
     if _service:
         _service.stop()

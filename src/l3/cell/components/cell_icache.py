@@ -192,10 +192,12 @@ class ICache:
     # ── Bulk operations ───────────────────────────────────────────
 
     def clear(self) -> None:
+        """Clear all cached entries."""
         with self._lock:
             self._entries.clear()
 
     def stats(self) -> dict:
+        """Return icache statistics (counts, ttl, types)."""
         with self._lock:
             return {
                 "cell_id": self.cell_id,

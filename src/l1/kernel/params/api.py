@@ -252,15 +252,19 @@ API_GATEWAY_DEFAULT_PORT: Final[int] = 8080
 # ── IPC / RPC ──
 IPC_SOCKET_DIR: Final[str] = _gp().socket_dir
 
+IPC_KERNEL_SOCKET: str
+IPC_LLM_SOCKET: str
+IPC_SANDBOX_SOCKET: str
+
 if _IS_WIN:
     # Windows: TCP localhost (Unix sockets not available)
-    IPC_KERNEL_SOCKET: str = "127.0.0.1:42100"
-    IPC_LLM_SOCKET: str = "127.0.0.1:42101"
-    IPC_SANDBOX_SOCKET: str = "127.0.0.1:42102"
+    IPC_KERNEL_SOCKET = "127.0.0.1:42100"
+    IPC_LLM_SOCKET = "127.0.0.1:42101"
+    IPC_SANDBOX_SOCKET = "127.0.0.1:42102"
 else:
-    IPC_KERNEL_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
-    IPC_LLM_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
-    IPC_SANDBOX_SOCKET: str = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
+    IPC_KERNEL_SOCKET = _os.path.join(IPC_SOCKET_DIR, "l1.kernel.sock")
+    IPC_LLM_SOCKET = _os.path.join(IPC_SOCKET_DIR, "llm.sock")
+    IPC_SANDBOX_SOCKET = _os.path.join(IPC_SOCKET_DIR, "sandbox.sock")
 IPC_KEEPALIVE_INTERVAL: Final[float] = 5.0
 IPC_MSG_TTL: Final[float] = 30.0
 IPC_CHANNEL_MAXLEN: Final[int] = 200

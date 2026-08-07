@@ -61,7 +61,6 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
     except ImportError:
         logger.debug("shell: readline unavailable, tab completion disabled")
     history: deque[str] = deque(maxlen=TERMINAL_OUTPUT_MAX_LINES)
-    history_pos = 0
 
     print("Agent OS Terminal — Type 'help' for commands, 'exit' to quit")
     print("  !<intent>              → L3A direct session")
@@ -82,7 +81,6 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
             continue
 
         history.append(line)
-        history_pos = len(history)
 
         if line == "exit" or line == "q":
             break
