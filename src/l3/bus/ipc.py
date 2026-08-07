@@ -133,6 +133,25 @@ class IpcBus(BaseService):
         self._total_dropped = 0
 
     def _on_start(self) -> dict:
+        # G10: wire a default observer so the subscribe() API has a real
+        # consumer — mirror every routed IPC message to the MonitorBus.
+        try:
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
+
+            def _observe(msg: IPCMessage) -> None:
+                try:
+                    get_bus().emit(MonitorEvent(
+                        type="ipc.message", source="ipc", severity="info",
+                        data={"sender": msg.sender, "receiver": msg.receiver,
+                              "msg_type": msg.msg_type.value},
+                    ))
+                except Exception as e:
+                    logger.debug("ipc: monitor emit failed: %s", e)
+
+            for mt in MessageType:
+                self.subscribe(mt, _observe)
+        except Exception as e:
+            logger.warning("ipc: default observer wiring failed: %s", e)
         return {"success": True}
 
     def _on_stop(self) -> dict:

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from ..card.card_unified import CardUnified as Card
     from .components.cell_watchdog import WatchdogState
 
-from l1.kernel import EVENT_TASK_ASSIGN, emit_signal, get_event_bus
+from l1.kernel import EVENT_TASK_ASSIGN, Signal, SignalType, emit_signal, get_event_bus
 from l1.kernel.bus import SystemBus
 from l1.kernel.params.agent import (
     AGENT_LOOP_DEFAULT_TIMEOUT,
@@ -717,6 +717,75 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             self._cell_bus.on("discussion.start", lambda e: self._bus_discussion_start(e))
         except Exception as e:
             logger.warning("cell/__init__: %s", e)
+
+        # Wire SystemBus events that were emitted but had no handlers (G5):
+        # interrupt.triggered, pmu.snapshot, discussion.cell_complete.
+        try:
+            self._cell_bus.on("interrupt.triggered", lambda e: self._bus_interrupt_triggered(e))
+            self._cell_bus.on("pmu.snapshot", lambda e: self._bus_pmu_snapshot(e))
+            self._cell_bus.on("discussion.cell_complete", lambda e: self._bus_discussion_complete(e))
+        except Exception as e:
+            logger.warning("cell/__init__: %s", e)
+
+        # Wire EventBus typed subscriptions (consume orphan signals: TASK_ASSIGN,
+        # REVIEW_REQUESTED, FILE_CHANGED previously had zero subscribers).
+        try:
+            self._bus.on(SignalType.TASK_ASSIGN, self._on_task_assign)
+            self._bus.on(SignalType.REVIEW_REQUESTED, self._on_review_requested)
+            self._bus.on(SignalType.FILE_CHANGED, self._on_file_changed)
+            # G3: internal consumer for hook-emitted string events so they are
+            # not only broadcast to SSE wildcard listeners.
+            self._bus.on_event("agent.turn_complete", self._on_turn_complete)
+        except Exception as e:
+            logger.warning("cell/__init__: event bus subscribe: %s", e)
+
+    def _on_turn_complete(self, sig: Signal) -> None:
+        """EventBus: consume agent.turn_complete string event (G3)."""
+        if self._pmu:
+            self._pmu.increment("bus.turns_complete")
+        logger.debug("cell %s: turn complete: %s", self.cell_id, sig.data)
+
+    def _bus_interrupt_triggered(self, event: dict) -> None:
+        """SystemBus event: an interrupt was triggered on this cell."""
+        if self._pmu:
+            self._pmu.increment("interrupts.received")
+        logger.debug("cell %s: interrupt triggered: %s", self.cell_id, event.get("data", {}))
+
+    def _bus_pmu_snapshot(self, event: dict) -> None:
+        """SystemBus event: a PMU snapshot was published for this cell."""
+        if event.get("data", {}).get("cell_id") not in ("", self.cell_id):
+            return
+        if self._pmu:
+            self._pmu.increment("bus.pmu_snapshots")
+        logger.debug("cell %s: pmu snapshot", self.cell_id)
+
+    def _bus_discussion_complete(self, event: dict) -> None:
+        """SystemBus event: a discussion completed for this cell."""
+        if self._pmu:
+            self._pmu.increment("bus.discussions_complete")
+        logger.debug("cell %s: discussion complete: %s", self.cell_id, event.get("data", {}))
+
+    def _on_task_assign(self, sig: Signal) -> None:
+        """EventBus: consume TASK_ASSIGN targeted at this cell."""
+        if sig.target not in ("", "cell", self.cell_id):
+            return
+        if self._pmu:
+            self._pmu.increment("bus.task_assign_received")
+        logger.debug("cell %s: task assigned: %s", self.cell_id, sig.data)
+
+    def _on_review_requested(self, sig: Signal) -> None:
+        """EventBus: consume REVIEW_REQUESTED (was unsubscribed)."""
+        if self._pmu:
+            self._pmu.increment("bus.reviews_requested")
+        logger.debug("cell %s: review requested: %s", self.cell_id, sig.data)
+
+    def _on_file_changed(self, sig: Signal) -> None:
+        """EventBus: consume FILE_CHANGED from the sandbox (was unsubscribed)."""
+        if sig.data.get("cell_id") not in ("", self.cell_id):
+            return
+        if self._pmu:
+            self._pmu.increment("bus.files_changed")
+        logger.debug("cell %s: file changed: %s", self.cell_id, sig.data.get("path"))
 
     def _bus_discussion_start(self, event: dict) -> None:
         """Bus event: start an AnswerSession for this Cell."""

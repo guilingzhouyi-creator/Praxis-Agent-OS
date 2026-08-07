@@ -244,6 +244,13 @@ class SubAgentTask:
                 self.status = "cancelled"
                 return {"success": True, "task_id": self.id, "status": "cancelled"}
             self.status = "cancelled"
+        # Emit TASK_CANCEL so the owning agent can release resources promptly.
+        try:
+            from l1.kernel import emit_signal
+            emit_signal("TASK_CANCEL", sender=self.parent_agent_id or "subagent",
+                        target=self.id, data={"task_id": self.id})
+        except Exception as e:
+            logger.warning("subagent %s: TASK_CANCEL emit failed: %s", self.id, e)
         return {"success": True, "task_id": self.id, "status": "cancelled"}
 
     def get_result(self) -> dict:

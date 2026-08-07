@@ -89,7 +89,16 @@ class Region(ABC):
 
     def _apply(self, tr, event):
         if self.parent: self.history[self.parent] = self.state
+        from_state = self.state
         self.state = tr.to; tr.ctx = {**event.data, **tr.ctx}
+        # Emit STATE_CHANGE so cross-service loggers can track transitions.
+        try:
+            from l1.kernel import emit_signal
+            emit_signal("STATE_CHANGE", sender=self.name or "statecharts",
+                        data={"region": self.name, "from": from_state,
+                              "to": tr.to, "reason": tr.reason})
+        except Exception as e:
+            logger.debug("statecharts: STATE_CHANGE emit failed: %s", e)
         return tr
 
 

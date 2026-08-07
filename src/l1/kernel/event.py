@@ -45,6 +45,11 @@ class SignalType(Enum):
     CARD_PENDING = auto()      # Card entered the pending queue
     APPROVAL_REQUIRED = auto()  # Card blocked by the approval gate
     APPROVAL_RESPONDED = auto() # Approval response committed
+    # NOTE: several members above (TASK_DONE, TASK_ACCEPT, TASK_ERROR,
+    # AGENT_CRASH, REVIEW_RESULT, DISPUTE_RAISE, CROSS_REVIEW_REQ/RESP,
+    # TERRITORY_QUERY) are reserved/tested API surface — referenced by
+    # tests/l1/test_event.py as generic signals. They have no production
+    # emitter today; do not delete without updating those tests.
 
 
 # Extensible signal type registry — register custom signals by name

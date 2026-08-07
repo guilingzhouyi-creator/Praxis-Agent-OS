@@ -21,7 +21,7 @@ from . import discovery
 from .allocator import get_allocator
 from .constitution import get_constitution
 from .device import DeviceHealth, DeviceType, get_device_manager
-from .event import Signal, SignalType
+from .event import Signal, SignalType, register_signal_type
 from .event import get_bus as get_event_bus
 from .gatechain import get_gatechain
 from .interrupt import Interrupt, InterruptType, fire
@@ -305,10 +305,16 @@ _register_builtin_syscalls()
 
 def emit_signal(signal_type: str, sender: str = "system", target: str = "",
                 data: dict | None = None) -> int:
-    """Emit a typed signal onto the kernel event bus."""
+    """Emit a typed signal onto the kernel event bus.
+
+    Resolves the type against static enum members first (uppercased), then falls
+    back to dynamic registration so string events from emit_event() and
+    emit_signal() share one signal space — a single routing source of truth.
+    """
     bus = get_event_bus()
-    sig = Signal(type=SignalType[signal_type.upper()], sender=sender,
-                 target=target, data=data or {})
+    member = signal_type.upper()
+    st = SignalType[member] if hasattr(SignalType, member) else register_signal_type(signal_type)
+    sig = Signal(type=st, sender=sender, target=target, data=data or {})
     return bus.emit(sig)
 
 
