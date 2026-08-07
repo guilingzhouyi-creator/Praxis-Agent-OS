@@ -22,7 +22,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from l1.kernel.discovery import get_service_limit
-from l1.kernel.params.system import ERROR_BUS_EXPORT_LIMIT, RECORDS_EXPORT_FILE, RECORD_CENTER_DEFAULT_LIMIT, RECORD_CENTER_RETENTION_DAYS
+from l1.kernel.params.system import (
+    ERROR_BUS_EXPORT_LIMIT,
+    RECORD_CENTER_DEFAULT_LIMIT,
+    RECORD_CENTER_RETENTION_DAYS,
+    RECORDS_EXPORT_FILE,
+)
 from l1.kernel.platform import get_config_dir
 
 logger = logging.getLogger(__name__)
@@ -79,6 +84,32 @@ class RecordCenter:
         self._log_service = None
         self._ref_channel = None
         self._stats_center = None
+        # Plug-in extra sources (Phase E): name -> {query_fn, stats_fn, export_fn}.
+        # Registered by boot wiring (e.g. security notifications) so query(),
+        # stats() and export() can cover domains beyond error/log/reference.
+        self._extra_sources: dict[str, dict] = {}
+
+    # ── Plug-in source registry (Phase E) ─────────────────────────
+
+    def register_source(self, name: str, query_fn=None, stats_fn=None, export_fn=None) -> dict:
+        """Register an extra record source so query/stats/export cover it.
+
+        Args:
+            name: source key (e.g. "security").
+            query_fn: callable(limit, since, ...) -> list[dict] entries.
+            stats_fn: callable() -> dict aggregate (merged into stats()).
+            export_fn: callable(limit) -> list[dict] records (merged into export()).
+
+        Returns:
+            {"success": True, "name": name}.
+        """
+        with self._lock:
+            self._extra_sources[name] = {
+                "query_fn": query_fn,
+                "stats_fn": stats_fn,
+                "export_fn": export_fn,
+            }
+        return {"success": True, "name": name}
 
     # ── Lazy accessors ───────────────────────────────────────────
 
@@ -156,6 +187,24 @@ class RecordCenter:
             except Exception:
                 logger.debug("record_center: reference recall failed")
 
+        # Plug-in extra sources (Phase E): query_fn(limit) -> list[dict].
+        with self._lock:
+            extra = dict(self._extra_sources)
+        for name, spec in extra.items():
+            if name not in sources:
+                continue
+            try:
+                fn = spec.get("query_fn")
+                if fn is None:
+                    continue
+                for e in (fn(limit=q.limit) or []):
+                    if isinstance(e, dict):
+                        e = dict(e)
+                        e["_source"] = name
+                    results.append(e)
+            except Exception as exc:
+                logger.debug("record_center: extra source %s query failed: %s", name, exc)
+
         # Keyword filter
         if q.keyword:
             kw = q.keyword.lower()
@@ -190,7 +239,7 @@ class RecordCenter:
         except Exception:
             ref_stats = {}
 
-        return {
+        result = {
             "success": True,
             "errors": {
                 "total": error_stats.get("total", 0),
@@ -206,13 +255,24 @@ class RecordCenter:
                 "total_events": ref_stats.get("total_events", 0),
                 "buffered": ref_stats.get("buffered", 0),
             },
-            "exports": {
-                "total_exports": self._export_counter,
-                "export_dir": self._export_dir,
-                "retention_days": self._retention_days,
-                "last_auto_export_ago": round(time.time() - self._last_auto_export, 1),
-            },
         }
+        # Plug-in extra source aggregates (Phase E).
+        with self._lock:
+            extra = dict(self._extra_sources)
+        for name, spec in extra.items():
+            try:
+                fn = spec.get("stats_fn")
+                if fn is not None:
+                    result[name] = fn()
+            except Exception as exc:
+                logger.debug("record_center: extra source %s stats failed: %s", name, exc)
+        result["exports"] = {
+            "total_exports": self._export_counter,
+            "export_dir": self._export_dir,
+            "retention_days": self._retention_days,
+            "last_auto_export_ago": round(time.time() - self._last_auto_export, 1),
+        }
+        return result
 
     # ── Export ───────────────────────────────────────────────────
 
@@ -259,6 +319,26 @@ class RecordCenter:
                     counts["reference"] = len(r)
             except Exception:
                 logger.debug("record_center: reference aggregate failed")
+
+        # Plug-in extra sources (Phase E): export_fn(limit) -> list[dict].
+        with self._lock:
+            extra = dict(self._extra_sources)
+        for name, spec in extra.items():
+            if name not in sources:
+                continue
+            try:
+                fn = spec.get("export_fn") or spec.get("query_fn")
+                if fn is None:
+                    continue
+                recs = fn(limit=ERROR_BUS_EXPORT_LIMIT) or []
+                for e in recs:
+                    if isinstance(e, dict):
+                        e = dict(e)
+                        e["_source"] = name
+                        all_records.append(e)
+                counts[name] = len(recs)
+            except Exception as exc:
+                logger.debug("record_center: extra source %s export failed: %s", name, exc)
 
         export_data = {
             "exported_at": datetime.now(tz=UTC).isoformat(),

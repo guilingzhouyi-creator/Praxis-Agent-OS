@@ -251,6 +251,22 @@ class MerTransformer:
                            severity="info", data=data))
         except Exception:
             logger.debug("memory_mer: monitor emit failed")
+        # Phase F: MER lifecycle events also land in StatsCenter so RC time
+        # series cover the R4 transformer (switch/transform/archived).
+        try:
+            from l3.services.stats_center import MetricPoint, get_center
+
+            get_center().ingest(
+                MetricPoint(
+                    name=event_type,
+                    value=1.0,
+                    tags={"source": "memory_mer"},
+                    timestamp=__import__("time").time(),
+                    metric_type="counter",
+                )
+            )
+        except Exception:
+            logger.debug("memory_mer: stats ingest failed")
 
 
 # ── Module-level singleton (conftest-resettable) ─────────

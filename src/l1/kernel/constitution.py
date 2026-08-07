@@ -196,6 +196,20 @@ def _check_audit(rule: RuleDescriptor, action: str, agent_id: str, target: str, 
 # Returns the ``get_posture()`` dict {security_mode, harness_mode,
 # classification, full_power, ...} or None when not wired.
 _posture_provider: Callable[[], dict | None] | None = None
+# Metric sink — injected at boot by L3 wiring (kernel never imports L3).
+# Receives (name, value, tags); None when not wired (backward compatible).
+_metric_sink: Callable[[str, float, dict | None], None] | None = None
+
+
+def set_metric_sink(sink: Callable[[str, float, dict | None], None] | None) -> None:
+    """Register the metric sink callback (called at boot from L3 wiring).
+
+    Eliminates the ``from l3.services.stats_center import get_center`` import
+    from the kernel layer — the sink is injected, not imported. Used by the
+    §9.2 posture gate to record BLOCK decisions as security.* counters.
+    """
+    global _metric_sink
+    _metric_sink = sink
 
 
 def set_posture_provider(provider: Callable[[], dict | None] | None) -> None:
@@ -236,6 +250,12 @@ def _check_skill_posture(rule: RuleDescriptor, action: str, agent_id: str, targe
 
         skill = get_skill_manager().get(target)
         if skill and skill.get("posture") == SKILL_POSTURE_OFFENSIVE:
+            sink = _metric_sink
+            if sink is not None:
+                try:
+                    sink("security.gate.skill_use.blocked", 1.0, {"target": target})
+                except Exception:
+                    pass
             return CheckResult.BLOCK
     except Exception:
         pass

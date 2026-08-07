@@ -169,7 +169,7 @@ class MemoryGraph:
                 "from": old}
 
     def _emit_event(self, event_type: str, data: dict) -> None:
-        """Publish graph lifecycle events to the monitoring bus."""
+        """Publish graph lifecycle events to the monitoring bus + StatsCenter."""
         try:
             from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
@@ -177,6 +177,22 @@ class MemoryGraph:
                            severity="info", data=data))
         except Exception:
             logger.debug("memory_graph: monitor emit failed")
+        # Phase F: memory-graph lifecycle events also land in StatsCenter so
+        # RC time series cover the R5 graph (compact/edge_mode/semantic/switch).
+        try:
+            from l3.services.stats_center import MetricPoint, get_center
+
+            get_center().ingest(
+                MetricPoint(
+                    name=event_type,
+                    value=1.0,
+                    tags={"source": "memory_graph"},
+                    timestamp=__import__("time").time(),
+                    metric_type="counter",
+                )
+            )
+        except Exception:
+            logger.debug("memory_graph: stats ingest failed")
 
     # ── Rule-based edges (zero cost, no LLM) ────────────────────────────
 

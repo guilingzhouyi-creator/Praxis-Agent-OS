@@ -382,3 +382,59 @@ class TestRCBridge:
         assert self._q("security.gate.use_skill.blocked") == [
             ("security.gate.use_skill.blocked", 1.0)
         ]
+
+
+class TestRCGapClosure:
+    """Regression tests for the 14-gap closure (Phases A-G)."""
+
+    def _q(self, metric: str):
+        from l3.services.stats_center import get_center
+
+        r = get_center().query(metrics=[metric], window="all", agg="sum")
+        return [(x["name"], x["value"]) for x in r]
+
+    def test_phase_b_bypass_distribution(self):
+        from l3.services.stats_center import reset_center
+        from l3.tool_system.security_mode import set_security_mode
+
+        reset_center()
+        set_security_mode("security-test", confirmed=False)  # denied
+        set_security_mode("security-test", confirmed=True)   # confirmed -> gauge 1.0
+        set_security_mode("productive", confirmed=True)      # back -> gauge 0.0
+        assert self._q("security.bypass.denied") == [("security.bypass.denied", 1.0)]
+        assert len(self._q("security.bypass.confirmed")) >= 1
+        # gauge recorded both for full_power (1.0) and back-to-productive (0.0)
+        assert len(self._q("security.posture.full_power")) >= 2
+
+    def test_phase_c_warrant_issued(self):
+        from l3.services.stats_center import reset_center
+        from l3.tool_system.security_mode import set_security_mode
+
+        reset_center()
+        set_security_mode("security-test", confirmed=True)
+        from l3.cell.peers.l3a.helpers import cardwrite_handler
+
+        cardwrite_handler({"nature": "offensive", "title": "t", "intent": "t", "phases": []}, "l3a")
+        assert self._q("security.warrant.issued") == [("security.warrant.issued", 1.0)]
+
+    def test_phase_f_memory_events(self):
+        from l3.memory.memory_graph import get_graph
+        from l3.memory.memory_mer import get_mer
+        from l3.services.stats_center import reset_center
+
+        reset_center()
+        get_graph()._emit_event("stats.memory.graph.compact", {"n": 1})
+        get_mer()._emit_event("stats.memory.mer.switch", {"enabled": True})
+        assert len(self._q("stats.memory.graph.compact")) == 1
+        assert len(self._q("stats.memory.mer.switch")) == 1
+
+    def test_phase_g_agent_lifecycle(self):
+        from l3.services.hook import EventEmitHook
+        from l3.services.stats_center import reset_center
+
+        reset_center()
+        h = EventEmitHook()
+        h.turn_complete({"ok": True}, 0.5)
+        h.session_end({"ok": True})
+        assert len(self._q("agent.turn_complete")) == 1
+        assert len(self._q("agent.session_end")) == 1

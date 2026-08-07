@@ -469,6 +469,10 @@ class ApiGateway(ApiHandlers):
                     _ts = time.time()
                     _tags = {"endpoint": path, "method": method,
                              "status": str(getattr(resp, "status", 0))}
+                    # Phase E: tag security-domain requests so api.request.*
+                    # metrics can be sliced by domain.
+                    if path.startswith("/api/v2/security"):
+                        _tags["domain"] = "security"
                     _sc2().ingest(MetricPoint(name="api.request.latency", value=latency_ms,
                                               tags=_tags, timestamp=_ts, metric_type="gauge"))
                     _sc2().ingest(MetricPoint(name="api.request.count", value=1.0,
