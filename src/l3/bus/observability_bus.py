@@ -46,8 +46,7 @@ class ObservabilityBus:
         results: dict[str, Any] = {}
 
         if kind == "alert":
-            results["alert"] = self._alert(source, data.get("message", ""),
-                                           data.get("level", "info"), data)
+            results["alert"] = self._alert(source, data.get("message", ""), data.get("level", "info"), data)
         elif kind == "health":
             results["health"] = self._health_report(source, data)
         elif kind == "metric":
@@ -61,10 +60,10 @@ class ObservabilityBus:
 
     # ── Component methods (lazy load) ──
 
-    def _alert(self, source: str, message: str, level: str = "info",
-               data: dict | None = None) -> dict:
+    def _alert(self, source: str, message: str, level: str = "info", data: dict | None = None) -> dict:
         try:
             from l3.ops_console import get_ops
+
             ops = get_ops()
             ops.add_alert(source, message, level, data)
             return {"success": True}
@@ -75,6 +74,7 @@ class ObservabilityBus:
     def _health_report(self, source: str, data: dict) -> dict:
         try:
             from l1.kernel import health
+
             return health()
         except (ImportError, AttributeError) as e:
             return {"success": False, "error": str(e)}
@@ -82,6 +82,7 @@ class ObservabilityBus:
     def _metric(self, source: str, data: dict) -> dict:
         try:
             from l3.services.counter import get_counter
+
             counter = get_counter()
             metric = data.get("metric", "")
             value = data.get("value", 1)
@@ -94,9 +95,10 @@ class ObservabilityBus:
     def _audit(self, source: str, data: dict) -> dict:
         try:
             from l1.kernel import record_audit
-            record_audit(data.get("op", "unknown"), source,
-                         success=data.get("success", True),
-                         detail=data.get("detail", ""))
+
+            record_audit(
+                data.get("op", "unknown"), source, success=data.get("success", True), detail=data.get("detail", "")
+            )
             return {"success": True}
         except (ImportError, AttributeError) as e:
             return {"success": False, "error": str(e)}
@@ -110,24 +112,28 @@ class ObservabilityBus:
 
         try:
             from l3.ops_console import get_ops
+
             result["ops"] = get_ops().summary()
         except (ImportError, AttributeError):
             result["ops"] = {}
 
         try:
             from l1.kernel import health
+
             result["health"] = health()
         except (ImportError, AttributeError):
             result["health"] = {}
 
         try:
             from l3.services.counter import get_counter
+
             result["metrics"] = get_counter().dump()
         except (ImportError, AttributeError):
             result["metrics"] = {}
 
         try:
             from l1.kernel import get_audit_log
+
             result["audit"] = len(get_audit_log(limit=OBS_AUDIT_LIMIT))
         except (ImportError, AttributeError):
             result["audit"] = 0

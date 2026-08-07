@@ -42,11 +42,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CacheMessage:
     """CacheMessage — cache message record (msg_id, msg_type, sender, target, payload)."""
+
     msg_id: str
     msg_type: str
     sender: str
     target: str
-    payload: str                  # JSON-serialized message body
+    payload: str  # JSON-serialized message body
     timestamp: float
     priority: int = 5
     delivered: bool = False
@@ -72,7 +73,7 @@ class L3BMessagePool:
         self._high_watermark = high_watermark
         self._bp_threshold = bp_threshold
         self._bp_cooldown = L3B_BACKPRESSURE_COOLDOWN
-        self._hot: deque[CacheMessage] = deque(maxlen=hot_size)        # Hot Ring
+        self._hot: deque[CacheMessage] = deque(maxlen=hot_size)  # Hot Ring
         self._lock = threading.Lock()
         self._total_pushed = 0
         self._total_popped = 0
@@ -108,8 +109,9 @@ class L3BMessagePool:
 
     # ── Write Path ──
 
-    def push(self, msg_id: str, msg_type: str, sender: str, target: str,
-             payload: Any = None, priority: int = 5) -> dict:
+    def push(
+        self, msg_id: str, msg_type: str, sender: str, target: str, payload: Any = None, priority: int = 5
+    ) -> dict:
         """Write a message into the cache pool.
 
         First enters the Hot Ring (ring buffer).
@@ -136,7 +138,9 @@ class L3BMessagePool:
                 self._persist_one(msg)
                 logger.debug(
                     "L3BMessagePool %s: hot ring at %.0f%%, persisted msg %s",
-                    self.composite_id, usage * 100, msg_id,
+                    self.composite_id,
+                    usage * 100,
+                    msg_id,
                 )
 
         # Backpressure check (outside lock to avoid deadlock)
@@ -146,8 +150,7 @@ class L3BMessagePool:
 
     # ── Read Path ──
 
-    def pop(self, limit: int = L3B_MESSAGE_POOL_DEFAULT_LIMIT, block: bool = False,
-            timeout: float = 1.0) -> list[dict]:
+    def pop(self, limit: int = L3B_MESSAGE_POOL_DEFAULT_LIMIT, block: bool = False, timeout: float = 1.0) -> list[dict]:
         """Read messages from the cache pool.
 
         Reads from the Hot Ring first.
@@ -214,8 +217,16 @@ class L3BMessagePool:
                 "INSERT OR REPLACE INTO messages "
                 "(id, msg_type, sender, target, payload, timestamp, priority, delivered) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (msg.msg_id, msg.msg_type, msg.sender, msg.target,
-                 msg.payload, msg.timestamp, msg.priority, 1 if msg.delivered else 0),
+                (
+                    msg.msg_id,
+                    msg.msg_type,
+                    msg.sender,
+                    msg.target,
+                    msg.payload,
+                    msg.timestamp,
+                    msg.priority,
+                    1 if msg.delivered else 0,
+                ),
             )
             conn.commit()
             conn.close()
@@ -235,9 +246,14 @@ class L3BMessagePool:
             results = []
             for row in rows:
                 msg = CacheMessage(
-                    msg_id=row[0], msg_type=row[1], sender=row[2],
-                    target=row[3], payload=row[4], timestamp=row[5],
-                    priority=row[6], delivered=True,
+                    msg_id=row[0],
+                    msg_type=row[1],
+                    sender=row[2],
+                    target=row[3],
+                    payload=row[4],
+                    timestamp=row[5],
+                    priority=row[6],
+                    delivered=True,
                 )
                 results.append(msg)
                 # Mark as delivered
@@ -266,7 +282,9 @@ class L3BMessagePool:
             hot_usage = self.hot_usage()
             logger.info(
                 "L3BMessagePool %s: BACKPRESSURE (persist=%d, hot=%.0f%%)",
-                self.composite_id, pcount, hot_usage * 100,
+                self.composite_id,
+                pcount,
+                hot_usage * 100,
             )
             return True
         return False
@@ -288,6 +306,7 @@ class L3BMessagePool:
         self._hot.clear()
         try:
             import shutil
+
             shutil.rmtree(str(self._persist_path), ignore_errors=True)
         except Exception:
             logger.debug("l3b_message_pool: persist dir cleanup failed")

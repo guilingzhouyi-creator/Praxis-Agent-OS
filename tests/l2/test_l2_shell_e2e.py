@@ -6,6 +6,7 @@ Follows the test pattern from tests/test_integration.py:
   3. Execute operations and verify results
   4. Use reset_*() to clean up singleton state
 """
+
 from __future__ import annotations
 
 import os
@@ -23,6 +24,7 @@ def _wait_for_agent(agent_id: str, timeout: float = 2.0, poll: float = 0.05) -> 
     """
     from l1.kernel.params.agent import AGENT_STATUS_IDLE
     from l3.agent_terminal import get_terminal
+
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -136,6 +138,7 @@ class TestL2ShellDispatchE2E:
     def test_dispatch_help_returns_commands(self):
         """/help should return command list in any state."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/help")
         assert r.get("success")
@@ -149,6 +152,7 @@ class TestL2ShellDispatchE2E:
     def test_dispatch_unknown_command(self):
         """Unknown command should return error + suggestions."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/xyznonexistent")
         assert not r.get("success")
@@ -158,6 +162,7 @@ class TestL2ShellDispatchE2E:
     def test_dispatch_mode_switch(self):
         """/mode should correctly display and switch tool modes."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/mode")
         assert r.get("mode") == "L3A"
@@ -172,6 +177,7 @@ class TestL2ShellDirectMessageE2E:
     def test_non_slash_routes_to_intent(self):
         """Non-/ text in L3A mode should route to l3 coordinator."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         # L3 coordinator already exists (auto-initialized by service layer)
         r = dispatch("list current directory")
@@ -216,6 +222,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_intents(self):
         """intents command should return data via L3 coordinator."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/intents")
         assert "intents" in r
@@ -223,6 +230,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_scheduler(self):
         """scheduler command should return scheduling status."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/scheduler")
         assert r.get("success")
@@ -230,6 +238,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_observe(self):
         """observe command should return observability data."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/observe")
         assert "health" in r or "alerts" in r or "metrics" in r or r.get("success")
@@ -237,6 +246,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_skills(self):
         """skills command should return R4Agent skill list."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/skills")
         assert "skills" in r or r.get("success")
@@ -244,6 +254,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_cells(self):
         """cells command should list cells."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/cells")
         assert "cells" in r or r.get("success")
@@ -251,6 +262,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_cross(self):
         """cross command should return cross-cell coordination status."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/cross")
         assert "cross_cell" in r or r.get("success")
@@ -258,6 +270,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_security(self):
         """security command should return security stats."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/security")
         assert "stats" in r or r.get("success")
@@ -265,6 +278,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_memory(self):
         """memory command should return memory stats."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/memory")
         assert isinstance(r, dict)
@@ -273,6 +287,7 @@ class TestL2ShellCentralCommandsE2E:
     def test_cmd_plugins(self):
         """plugins command should return plugin list."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/plugins")
         assert "plugins" in r or "stats" in r or r.get("success")

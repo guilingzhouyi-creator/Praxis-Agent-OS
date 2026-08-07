@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestSessionTaskTable:
     def test_track_and_list(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable
+
         t = SessionTaskTable("s1")
         t.track("card-1", title="one", turn=0)
         t.track("card-2", title="two", turn=1)
@@ -22,6 +23,7 @@ class TestSessionTaskTable:
 
     def test_update_status(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable
+
         t = SessionTaskTable("s1")
         t.track("card-1", title="one", turn=0)
         t.update("card-1", "completed", {"summary": "done"})
@@ -33,6 +35,7 @@ class TestSessionTaskTable:
 
     def test_status_filter(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable
+
         t = SessionTaskTable("s1")
         t.track("card-1", turn=0)
         t.track("card-2", turn=1)
@@ -44,6 +47,7 @@ class TestSessionTaskTable:
 
     def test_persist_roundtrip(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable
+
         t1 = SessionTaskTable("s1")
         t1.track("card-1", title="one", turn=0)
         t1.update("card-1", "completed", {"summary": "x"})
@@ -57,6 +61,7 @@ class TestSessionTaskTable:
 
     def test_remove_and_clear(self):
         from l3.cell.peers.l3a.task_table import SessionTaskTable
+
         t = SessionTaskTable("s1")
         t.track("card-1", turn=0)
         t.remove("card-1")

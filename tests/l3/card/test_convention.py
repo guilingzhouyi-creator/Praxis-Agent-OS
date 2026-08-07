@@ -52,8 +52,9 @@ def test_send_convention_message():
         r = cell.convene(card)
         assert r.get("success")
         conv_id = r["convention"]["card_id"]
-        msg_r = cell.send_message("agent-a", "agent-a", MessageType.CONVENE,
-                                  payload={"session_id": conv_id, "card_id": card.id})
+        msg_r = cell.send_message(
+            "agent-a", "agent-a", MessageType.CONVENE, payload={"session_id": conv_id, "card_id": card.id}
+        )
         assert msg_r.get("success"), f"send_message failed: {msg_r}"
     finally:
         reset_cells()

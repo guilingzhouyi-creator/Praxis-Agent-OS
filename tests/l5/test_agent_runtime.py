@@ -13,18 +13,21 @@ class TestAgentRuntime:
 
     def test_create_runtime(self):
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="test-agent")
         assert rt.agent_id == "test-agent"
         assert isinstance(rt.territory, list)
 
     def test_create_with_territory(self):
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="reader", territory=["src/", "docs/"])
         assert rt.agent_id == "reader"
         assert "src/" in rt.territory
 
     def test_idle_tick(self):
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="idle-agent")
         r = rt.tick()
         assert r.get("success")
@@ -32,6 +35,7 @@ class TestAgentRuntime:
 
     def test_status_returns_dict(self):
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="stat-agent")
         st = rt.status()
         assert isinstance(st, dict)
@@ -40,6 +44,7 @@ class TestAgentRuntime:
     def test_on_registers_handler(self):
         from l1.kernel.event import SignalType
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="handler-agent")
         calls = []
 
@@ -52,6 +57,7 @@ class TestAgentRuntime:
     def test_emit_no_error(self):
         from l1.kernel.event import SignalType
         from l5.agent_runtime import AgentRuntime
+
         rt = AgentRuntime(agent_id="emit-agent")
         rt.emit(SignalType.TASK_ASSIGN, target="cell", data={"msg": "hello"})
         # No assertion needed — just verify no exception

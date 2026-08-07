@@ -1,4 +1,5 @@
 """Tests for htn_a.py — Global HTN decomposition service."""
+
 from __future__ import annotations
 
 from l3.bus.htn_a import get_htn_a, get_shards

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 def _get_mgr():
     from l3.services.package_manager import get_service
+
     return get_service()
 
 

@@ -20,6 +20,7 @@ def _read_cfg(key: str, default: int) -> int:
     """Read an integer from settings center, falling back to default."""
     try:
         from l3.config.settings_center import get_center
+
         return get_center().get_int(key, default)
     except Exception:
         return default
@@ -36,8 +37,13 @@ class ToolLoopDetector:
     instances can detect loops across separate run() calls.
     """
 
-    def __init__(self, warn_threshold: int | None = None, stop_threshold: int | None = None,
-                 cell_id: str = "", agent_id: str = ""):
+    def __init__(
+        self,
+        warn_threshold: int | None = None,
+        stop_threshold: int | None = None,
+        cell_id: str = "",
+        agent_id: str = "",
+    ):
         self._fingerprints: list[str] = []
         self._warn = warn_threshold if warn_threshold is not None else _read_cfg("loop.tool_repeat_warn", 3)
         self._stop = stop_threshold if stop_threshold is not None else _read_cfg("loop.tool_repeat_stop", 4)
@@ -75,6 +81,7 @@ class ToolLoopDetector:
         """Load recent tool fingerprints from CellCache."""
         try:
             from .cell import get_cell as _get_cell
+
             cell = _get_cell(self._cell_id)
             hits = cell.cache.search(f"fp:{self._agent_id}:", limit=10)
             for h in hits:
@@ -91,6 +98,7 @@ class ToolLoopDetector:
         """Persist a fingerprint to CellCache so other instances can see it."""
         try:
             from .cell import get_cell as _get_cell
+
             cell = _get_cell(self._cell_id)
             key = f"fp:{self._agent_id}:{fp}"
             cell.cache.inject(
@@ -122,8 +130,7 @@ class CoarseRepeatDetector:
     history is persisted to CellCache for cross-run detection.
     """
 
-    def __init__(self, nudge_at: int | None = None, stop_at: int | None = None,
-                 cell_id: str = "", agent_id: str = ""):
+    def __init__(self, nudge_at: int | None = None, stop_at: int | None = None, cell_id: str = "", agent_id: str = ""):
         self._nudge_at = nudge_at if nudge_at is not None else _read_cfg("loop.coarse_repeat_nudge", 3)
         self._stop_at = stop_at if stop_at is not None else _read_cfg("loop.coarse_repeat_stop", 6)
         self._names: list[str] = []
@@ -139,7 +146,7 @@ class CoarseRepeatDetector:
             self._persist_name(tool_name)
         if len(self._names) < 2:
             return "continue"
-        recent = self._names[-self._stop_at:]
+        recent = self._names[-self._stop_at :]
         if len(recent) >= self._stop_at and len(set(recent)) == 1:
             logger.warning("coarse repeat STOP: %s repeated %d times", tool_name, self._stop_at)
             return "stop"
@@ -156,6 +163,7 @@ class CoarseRepeatDetector:
         """Load recent tool name history from CellCache."""
         try:
             from .cell import get_cell as _get_cell
+
             cell = _get_cell(self._cell_id)
             hits = cell.cache.search(f"coarse:{self._agent_id}:", limit=10)
             for h in hits:
@@ -172,6 +180,7 @@ class CoarseRepeatDetector:
         """Persist tool name to CellCache."""
         try:
             from .cell import get_cell as _get_cell
+
             cell = _get_cell(self._cell_id)
             cell.cache.inject(
                 key=f"coarse:{self._agent_id}:{tool_name}",

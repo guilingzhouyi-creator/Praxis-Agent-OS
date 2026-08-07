@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestNormalizeEffort:
     def _norm(self, effort, provider):
         from l4.llm.llm import LLMEngine
-        return LLMEngine._normalize_effort(
-            {"reasoning_effort": effort}, provider)
+
+        return LLMEngine._normalize_effort({"reasoning_effort": effort}, provider)
 
     def test_anthropic_high_passthrough(self):
         d = self._norm("high", "anthropic")
@@ -52,11 +52,11 @@ class TestNormalizeEffort:
     def test_settings_override_tiers(self):
         from l3.config.settings_center import get_center
         from l4.llm.llm import LLMEngine
+
         sc = get_center()
         sc.set("llm.effort_tiers.anthropic", ["low", "medium"])
         try:
-            d = LLMEngine._normalize_effort(
-                {"reasoning_effort": "high"}, "anthropic")
+            d = LLMEngine._normalize_effort({"reasoning_effort": "high"}, "anthropic")
             assert d["reasoning_effort"] == "medium"
         finally:
             sc.reset("llm.effort_tiers.anthropic")

@@ -21,12 +21,14 @@ class TestArchiveOrchestrator:
 
     def test_classify_agent_entry(self):
         from l3.memory.archive_orchestrator import _classify
+
         fonds, series = _classify({"agent_id": "agent-x", "entry_type": "decision"})
         assert fonds == "AGENT:agent-x"
         assert series == "decision"
 
     def test_classify_unknown(self):
         from l3.memory.archive_orchestrator import _classify
+
         fonds, series = _classify({})
         assert fonds.startswith("AGENT:")
         assert series in ("general", "unknown")
@@ -34,6 +36,7 @@ class TestArchiveOrchestrator:
     def test_archive_ring3_empty(self):
         from l3.memory.archive_orchestrator import archive_ring3
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         n = archive_ring3(mem)
         assert isinstance(n, int)
@@ -42,6 +45,7 @@ class TestArchiveOrchestrator:
     def test_ring3_from_archive_empty(self):
         from l3.memory.archive_orchestrator import ring3_from_archive
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         n = ring3_from_archive(mem)
         assert isinstance(n, int)
@@ -49,10 +53,15 @@ class TestArchiveOrchestrator:
     def test_archive_ring3_with_important_entry(self):
         from l3.memory.archive_orchestrator import archive_ring3
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
-        mem.remember("agent-a", "decision",
-                      "This is an important decision with high importance for archival storage.",
-                      importance=0.8, ring=3)
+        mem.remember(
+            "agent-a",
+            "decision",
+            "This is an important decision with high importance for archival storage.",
+            importance=0.8,
+            ring=3,
+        )
         n = archive_ring3(mem)
         assert isinstance(n, int)
         # May archive 0 or 1 entries (depends on implementation), but should not crash
@@ -64,16 +73,18 @@ class TestR4Agent:
 
     def test_get_r4_agent_returns_instance(self):
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         r4 = get_r4_agent()
         assert r4 is not None
-        assert hasattr(r4, 'tick')
-        assert hasattr(r4, 'status')
-        assert hasattr(r4, 'start')
-        assert hasattr(r4, 'stop')
+        assert hasattr(r4, "tick")
+        assert hasattr(r4, "status")
+        assert hasattr(r4, "start")
+        assert hasattr(r4, "stop")
 
     def test_status_returns_keys(self):
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         r4 = get_r4_agent()
         s = r4.status()
@@ -84,6 +95,7 @@ class TestR4Agent:
         """Verify restore_ring3() method exists and returns structured result (without starting thread)"""
         from l3.memory.memory import reset_memory
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         reset_memory()
         r4 = get_r4_agent()
@@ -98,6 +110,7 @@ class TestR4AgentLeanCases:
 
     def test_get_lean_cases_empty(self):
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         r4 = get_r4_agent()
         cases = r4.get_lean_cases()
@@ -105,6 +118,7 @@ class TestR4AgentLeanCases:
 
     def test_get_lean_cases_by_agent(self):
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         r4 = get_r4_agent()
         cases = r4.get_lean_cases(agent_id="test-agent")
@@ -116,6 +130,7 @@ class TestR4AgentSkills:
 
     def test_get_evolved_skills_empty(self):
         from l3.memory.r4_agent import get_r4_agent, stop_r4_agent
+
         stop_r4_agent()
         r4 = get_r4_agent()
         skills = r4.get_evolved_skills()

@@ -71,12 +71,14 @@ class CellLifecycleMixin:
         self._watchdog.register(agent_id)
         try:
             from l3.agent_terminal import get_terminal
+
             term = get_terminal(agent_id)
             if term:
                 term.set_watchdog_pet(lambda aid: self._watchdog.pet(aid))
         except Exception as e:
             logger.warning("watchdog wire failed: %s", e)
         from l3.cell.components.cell_agent import _boot_agent
+
         return _boot_agent(self, agent_id)
 
     def boot_all(self) -> dict:
@@ -87,8 +89,7 @@ class CellLifecycleMixin:
         for aid in agent_ids:
             results[aid] = self.boot_agent(aid)
         self._watchdog.start()
-        return {"success": all(r.get("success", False) for r in results.values()),
-                "agents": results}
+        return {"success": all(r.get("success", False) for r in results.values()), "agents": results}
 
     def shutdown_all(self) -> dict:
         """Gracefully shut down all agents."""
@@ -99,10 +100,12 @@ class CellLifecycleMixin:
             except Exception as e:
                 logger.warning("shutdown hook %s raised: %s", hook, e)
         from l3.agent_terminal import reset_terminals
+
         reset_terminals()
         with self._lock:
             for info in self._agents.values():
                 from l3.cell.components.cell_types import AgentStatus
+
                 info.status = AgentStatus.IDLE
         return {"success": True}
 
@@ -157,6 +160,7 @@ class CellLifecycleMixin:
             logger.warning("reset_agent_context pause failed: %s", e)
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             mem.compact(agent_id)
             mem.forget_agent(agent_id)
@@ -173,6 +177,7 @@ class CellLifecycleMixin:
     def restart_agent(self, agent_id: str) -> dict:
         """Restart an agent: shutdown terminal → clear memory → re-boot."""
         from ..agent_terminal import get_terminals
+
         with self._lock:
             if agent_id not in self._agents:
                 return {"success": False, "error": f"agent {agent_id} not found"}
@@ -181,6 +186,7 @@ class CellLifecycleMixin:
             term.shutdown()
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             mem.forget_agent(agent_id)
             mem.compact(agent_id)
@@ -188,12 +194,14 @@ class CellLifecycleMixin:
             logger.warning("restart_agent memory clear: %s", e)
         try:
             from l3.memory.context_pool import unregister as _unreg
+
             _unreg(agent_id)
         except Exception as e:
             logger.warning("cell/restart_agent: %s", e)
         self._mmu.flush_agent(agent_id)
         try:
             from l3.memory.context_pool import register as _reg
+
             _reg(agent_id=agent_id, cell_id=self.cell_id, max_tokens=CONTEXT_MAX_REGISTER_TOKENS)
         except Exception as e:
             logger.warning("cell/restart_agent: %s", e)

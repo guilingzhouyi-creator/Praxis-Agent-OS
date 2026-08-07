@@ -11,6 +11,7 @@ class TestFetchConfig:
 
     def test_fetch_known(self):
         from l4.api_handlers.api_handlers_config import _fetch
+
         r = _fetch("API_GATEWAY_PORT")
         assert r["success"]
         assert r["key"] == "API_GATEWAY_PORT"
@@ -18,17 +19,20 @@ class TestFetchConfig:
 
     def test_fetch_unknown(self):
         from l4.api_handlers.api_handlers_config import _fetch
+
         r = _fetch("NONEXISTENT_KEY_XYZ")
         assert not r["success"]
 
     def test_fetch_string_value(self):
         from l4.api_handlers.api_handlers_config import _fetch
+
         r = _fetch("DEFAULT_CELL_ID")
         assert r["success"]
         assert isinstance(r["value"], str)
 
     def test_fetch_override_source(self):
         from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, _fetch
+
         _CONFIG_OVERRIDES.clear()
         # Initially source is "default"
         r = _fetch("API_GATEWAY_PORT")
@@ -36,6 +40,7 @@ class TestFetchConfig:
 
     def test_fetch_with_category(self):
         from l4.api_handlers.api_handlers_config import _fetch
+
         r = _fetch("API_GATEWAY_PORT")
         assert "category" in r
 
@@ -45,6 +50,7 @@ class TestConfigList:
 
     def test_list_all(self):
         from l4.api_handlers.api_handlers_config import handle_config_list
+
         r = handle_config_list({})
         assert r["success"]
         assert r["count"] >= 10
@@ -52,6 +58,7 @@ class TestConfigList:
 
     def test_list_by_category(self):
         from l4.api_handlers.api_handlers_config import handle_config_list
+
         r = handle_config_list({"category": "network"})
         assert r["success"]
         if r["count"] > 0:
@@ -60,6 +67,7 @@ class TestConfigList:
 
     def test_list_category_all(self):
         from l4.api_handlers.api_handlers_config import handle_config_list
+
         r = handle_config_list({"category": ""})
         assert r["success"]
         assert r["category"] == "*"
@@ -70,6 +78,7 @@ class TestConfigGet:
 
     def test_get_known(self):
         from l4.api_handlers.api_handlers_config import handle_config_get
+
         r = handle_config_get({"key": "KERNEL_VERSION"})
         assert r["success"]
         assert r["key"] == "KERNEL_VERSION"
@@ -77,11 +86,13 @@ class TestConfigGet:
 
     def test_get_unknown(self):
         from l4.api_handlers.api_handlers_config import handle_config_get
+
         r = handle_config_get({"key": "NONEXISTENT_KEY_XYZ"})
         assert not r["success"]
 
     def test_get_missing_key(self):
         from l4.api_handlers.api_handlers_config import handle_config_get
+
         r = handle_config_get({})
         assert not r["success"]
 
@@ -91,6 +102,7 @@ class TestConfigSet:
 
     def test_set_and_get(self):
         from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, handle_config_get, handle_config_set
+
         _CONFIG_OVERRIDES.clear()
 
         r = handle_config_set({"key": "TEST_OVERRIDE", "value": "custom_value"})
@@ -104,6 +116,7 @@ class TestConfigSet:
 
     def test_set_int(self):
         from l4.api_handlers.api_handlers_config import _CONFIG_OVERRIDES, handle_config_set
+
         _CONFIG_OVERRIDES.clear()
         r = handle_config_set({"key": "MAX_TEST", "value": 999})
         assert r["success"]
@@ -111,6 +124,7 @@ class TestConfigSet:
 
     def test_set_missing_key(self):
         from l4.api_handlers.api_handlers_config import handle_config_set
+
         r = handle_config_set({})
         assert not r["success"]
 
@@ -120,6 +134,7 @@ class TestConfigCategories:
 
     def test_categories(self):
         from l4.api_handlers.api_handlers_config import handle_config_categories
+
         r = handle_config_categories()
         assert r["success"]
         assert "categories" in r
@@ -129,6 +144,7 @@ class TestConfigCategories:
 
     def test_known_category(self):
         from l4.api_handlers.api_handlers_config import handle_config_categories
+
         r = handle_config_categories()
         cats = r["categories"]
         assert "network" in cats
@@ -141,21 +157,25 @@ class TestSerialize:
 
     def test_serialize_int(self):
         from l4.api_handlers.api_handlers_config import _serialize
+
         assert _serialize(42) == 42
         assert _serialize(3.14) == 3.14
 
     def test_serialize_string(self):
         from l4.api_handlers.api_handlers_config import _serialize
+
         assert _serialize("hello") == "hello"
 
     def test_serialize_list(self):
         from l4.api_handlers.api_handlers_config import _serialize
+
         r = _serialize(["a", "b", "c"])
         assert isinstance(r, list)
         assert "a" in r
 
     def test_serialize_dict(self):
         from l4.api_handlers.api_handlers_config import _serialize
+
         r = _serialize({"key": "val"})
         assert isinstance(r, dict)
         assert r["key"] == "val"

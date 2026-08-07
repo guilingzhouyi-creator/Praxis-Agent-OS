@@ -1,6 +1,7 @@
 """ScopeScheduler — step budget + scout quota management.
 Extracted from ExecutionPlan + ScoutPool for scheduler matrix integration.
 """
+
 from __future__ import annotations
 
 import logging

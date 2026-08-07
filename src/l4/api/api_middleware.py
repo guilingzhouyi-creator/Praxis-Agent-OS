@@ -35,12 +35,16 @@ logger = logging.getLogger(__name__)
 class Request:
     """Immutable request object flowing through middleware chain."""
 
-    def __init__(self, method: str = "GET", path: str = "",
-                 headers: dict | None = None,
-                 body: dict | None = None,
-                 query: dict | None = None,
-                 raw_body: bytes | None = None,
-                 **kwargs: Any) -> None:
+    def __init__(
+        self,
+        method: str = "GET",
+        path: str = "",
+        headers: dict | None = None,
+        body: dict | None = None,
+        query: dict | None = None,
+        raw_body: bytes | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.method = method.upper()
         self.path = path
         self.headers = headers or {}
@@ -49,8 +53,8 @@ class Request:
         self.raw_body = raw_body or b""
         self.locale: str = I18N_DEFAULT_LOCALE
         self.user_id: str = ""
-        self.params: dict = {}           # route path params
-        self.deadline: float = 0.0       # middleware-set execution deadline marker
+        self.params: dict = {}  # route path params
+        self.deadline: float = 0.0  # middleware-set execution deadline marker
         self._extra: dict = kwargs
 
     def __getattr__(self, name: str) -> Any:
@@ -60,8 +64,7 @@ class Request:
 class Response:
     """Response object flowing back through middleware chain."""
 
-    def __init__(self, data: Any = None, status: int = 200,
-                 headers: dict | None = None) -> None:
+    def __init__(self, data: Any = None, status: int = 200, headers: dict | None = None) -> None:
         self.data = data if data is not None else {}
         self.status = status
         self.headers = headers or {}
@@ -79,8 +82,7 @@ class Response:
     @staticmethod
     def json(data: Any, status: int = 200) -> Response:
         """Build a JSON-typed response with the given data and status code."""
-        return Response(data=data, status=status,
-                        headers={"Content-Type": "application/json"})
+        return Response(data=data, status=status, headers={"Content-Type": "application/json"})
 
 
 # ── Middleware base ──
@@ -209,15 +211,14 @@ class LocaleMiddleware(Middleware):
     def process(self, request: Request) -> Request:
         """Resolve and apply the request locale from query, header, or I18nPort default."""
         raw = (
-            request.query.get("locale", "")
-            or _parse_accept_language(request.headers.get("Accept-Language", ""))
-            or ""
+            request.query.get("locale", "") or _parse_accept_language(request.headers.get("Accept-Language", "")) or ""
         )
         if raw:
             locale = _normalize_locale(raw)
         else:
             try:
                 from l1.kernel.ports import get_port as _gp
+
                 locale = _gp("i18n").get_locale()
             except Exception:
                 logger.debug("api_middleware: get_locale failed, falling back to 'en'")
@@ -228,6 +229,7 @@ class LocaleMiddleware(Middleware):
         # Propagate to I18nPort for downstream handlers
         try:
             from l1.kernel.ports import get_port as _gp
+
             _gp("i18n").set_locale(locale)
         except Exception:
             logger.debug("api_middleware: locale set failed")
@@ -241,9 +243,9 @@ class LocaleMiddleware(Middleware):
 class CORSMiddleware(Middleware):
     """Adds CORS headers to every response."""
 
-    def __init__(self, origin: str = "*",
-                 methods: str = "GET,POST,DELETE,OPTIONS",
-                 headers: str = "Content-Type,Authorization") -> None:
+    def __init__(
+        self, origin: str = "*", methods: str = "GET,POST,DELETE,OPTIONS", headers: str = "Content-Type,Authorization"
+    ) -> None:
         self._origin = origin
         self._methods = methods
         self._headers = headers

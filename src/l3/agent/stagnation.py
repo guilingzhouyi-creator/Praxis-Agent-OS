@@ -48,16 +48,18 @@ class StagnationDetector:
         self._lock = threading.Lock()
         self._total_stagnations = 0
 
-    def record(self, agent_id: str, output: str, progress: float = 0.0,
-               iteration: int = 0) -> None:
+    def record(self, agent_id: str, output: str, progress: float = 0.0, iteration: int = 0) -> None:
         """Record an iteration output for an agent."""
         with self._lock:
-            state = self._agents.setdefault(agent_id, {
-                "history": [],        # list of content hashes
-                "progress": [],       # list of progress scores
-                "hash_set": set(),    # for spin detection
-                "last_check": None,
-            })
+            state = self._agents.setdefault(
+                agent_id,
+                {
+                    "history": [],  # list of content hashes
+                    "progress": [],  # list of progress scores
+                    "hash_set": set(),  # for spin detection
+                    "last_check": None,
+                },
+            )
             h = _content_hash(output)
             state["history"].append(h)
             state["hash_set"].add(h)
@@ -89,49 +91,50 @@ class StagnationDetector:
                 last_n = history[-STAGNATION_SPIN_THRESHOLD:]
                 if len(set(last_n)) == 1:
                     self._total_stagnations += 1
-                    self._fire(agent_id, "SPINNING",
-                               f"same output repeated {STAGNATION_SPIN_THRESHOLD}x: {last_n[0]}")
-                    return {"stagnant": True, "pattern": "SPINNING",
-                            "hash": last_n[0], "count": STAGNATION_SPIN_THRESHOLD}
+                    self._fire(agent_id, "SPINNING", f"same output repeated {STAGNATION_SPIN_THRESHOLD}x: {last_n[0]}")
+                    return {
+                        "stagnant": True,
+                        "pattern": "SPINNING",
+                        "hash": last_n[0],
+                        "count": STAGNATION_SPIN_THRESHOLD,
+                    }
 
             # 2. OSCILLATION — A→B→A→B pattern
             if len(history) >= 4:
                 last_4 = history[-4:]
                 if last_4[0] == last_4[2] and last_4[1] == last_4[3] and last_4[0] != last_4[1]:
                     self._total_stagnations += 1
-                    self._fire(agent_id, "OSCILLATION",
-                               f"A→B→A→B pattern: {last_4[0][:HASH_TRUNC_SHORT]}↔{last_4[1][:HASH_TRUNC_SHORT]}")
-                    return {"stagnant": True, "pattern": "OSCILLATION",
-                            "hash_a": last_4[0], "hash_b": last_4[1]}
+                    self._fire(
+                        agent_id,
+                        "OSCILLATION",
+                        f"A→B→A→B pattern: {last_4[0][:HASH_TRUNC_SHORT]}↔{last_4[1][:HASH_TRUNC_SHORT]}",
+                    )
+                    return {"stagnant": True, "pattern": "OSCILLATION", "hash_a": last_4[0], "hash_b": last_4[1]}
 
             # 3. NO_DRIFT — progress flat
             if len(progress) >= 3:
                 recent = progress[-3:]
                 if max(recent) - min(recent) < STAGNATION_NO_DRIFT_EPSILON:
                     self._total_stagnations += 1
-                    self._fire(agent_id, "NO_DRIFT",
-                               f"progress flat: {recent}")
-                    return {"stagnant": True, "pattern": "NO_DRIFT",
-                            "recent_progress": recent}
+                    self._fire(agent_id, "NO_DRIFT", f"progress flat: {recent}")
+                    return {"stagnant": True, "pattern": "NO_DRIFT", "recent_progress": recent}
 
             # 4. DIMINISHING_RETURNS — each step makes less progress
             if len(progress) >= 4:
-                deltas = [progress[i+1] - progress[i] for i in range(len(progress)-1)]
+                deltas = [progress[i + 1] - progress[i] for i in range(len(progress) - 1)]
                 recent_deltas = deltas[-3:]
                 if all(d < STAGNATION_DIMINISHING_RATE for d in recent_deltas) and all(d >= 0 for d in recent_deltas):
                     self._total_stagnations += 1
-                    self._fire(agent_id, "DIMINISHING_RETURNS",
-                               f"progress deltas: {[round(d, 3) for d in recent_deltas]}")
-                    return {"stagnant": True, "pattern": "DIMINISHING_RETURNS",
-                            "deltas": recent_deltas}
+                    self._fire(
+                        agent_id, "DIMINISHING_RETURNS", f"progress deltas: {[round(d, 3) for d in recent_deltas]}"
+                    )
+                    return {"stagnant": True, "pattern": "DIMINISHING_RETURNS", "deltas": recent_deltas}
 
             # 5. MAX_ITERATIONS hard cap
             if len(history) >= STAGNATION_MAX_ITERATIONS:
                 self._total_stagnations += 1
-                self._fire(agent_id, "MAX_ITERATIONS",
-                           f"hit hard cap of {STAGNATION_MAX_ITERATIONS}")
-                return {"stagnant": True, "pattern": "MAX_ITERATIONS",
-                        "iterations": len(history)}
+                self._fire(agent_id, "MAX_ITERATIONS", f"hit hard cap of {STAGNATION_MAX_ITERATIONS}")
+                return {"stagnant": True, "pattern": "MAX_ITERATIONS", "iterations": len(history)}
 
             return {"stagnant": False}
 
@@ -139,8 +142,8 @@ class StagnationDetector:
         """Fire stagnation interrupt and log."""
         try:
             from l1.kernel.interrupt import InterruptType, fire
-            fire(InterruptType.DEADLOCK_DETECTED, agent_id=agent_id,
-                 reason=f"[{pattern}] {reason}")
+
+            fire(InterruptType.DEADLOCK_DETECTED, agent_id=agent_id, reason=f"[{pattern}] {reason}")
         except Exception as e:
             logger.warning("stagnation check: %s", e)
         logger.warning("Stagnation [%s] %s: %s", pattern, agent_id, reason)
@@ -166,17 +169,29 @@ class StagnationDetector:
         """
         pattern = result.get("pattern", "")
         if pattern == "SPINNING":
-            return {"should_break": True, "action": "skip",
-                    "reason": f"same output repeated, skipping current tool for {agent_id}"}
+            return {
+                "should_break": True,
+                "action": "skip",
+                "reason": f"same output repeated, skipping current tool for {agent_id}",
+            }
         if pattern == "OSCILLATION":
-            return {"should_break": True, "action": "switch",
-                    "reason": f"A↔B oscillation detected, switching strategy for {agent_id}"}
+            return {
+                "should_break": True,
+                "action": "switch",
+                "reason": f"A↔B oscillation detected, switching strategy for {agent_id}",
+            }
         if pattern in ("NO_DRIFT", "DIMINISHING_RETURNS"):
-            return {"should_break": True, "action": "escalate",
-                    "reason": f"no progress ({pattern}), escalating for {agent_id}"}
+            return {
+                "should_break": True,
+                "action": "escalate",
+                "reason": f"no progress ({pattern}), escalating for {agent_id}",
+            }
         if pattern == "MAX_ITERATIONS":
-            return {"should_break": True, "action": "escalate",
-                    "reason": f"hit max iterations ({result.get('iterations', '?')})"}
+            return {
+                "should_break": True,
+                "action": "escalate",
+                "reason": f"hit max iterations ({result.get('iterations', '?')})",
+            }
         return {"should_break": False, "action": "", "reason": ""}
 
 

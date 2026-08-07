@@ -95,9 +95,11 @@ def test_multi_step_migration() -> None:
     # todo_table version is 1 by default, so we need to make sure it's at least 2
     # bump to 3 for 2-step migration
     import l1.kernel.versioning as vmod
+
     vmod.TODO_TABLE_VERSION = 3
     # re-run stamp so entry sees the new version
     from l1.kernel.versioning import _REGISTRY
+
     _REGISTRY["todo_table"]["version"] = 3
 
     r = check_and_migrate(d, "todo_table")
@@ -121,5 +123,6 @@ def test_version_constants_are_positive() -> None:
         SETTINGS_VERSION,
         SNAPSHOT_VERSION,
     )
+
     for v in (SNAPSHOT_VERSION, CHECKPOINT_VERSION, SETTINGS_VERSION, LOG_VERSION):
         assert v >= 1

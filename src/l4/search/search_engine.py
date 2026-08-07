@@ -49,14 +49,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SearchResult:
     """A single search result."""
+
     path: str
     line: int = 0
     column: int = 0
     content: str = ""
     score: float = 0.0
-    kind: str = "text"          # text | symbol | doc
-    symbol_name: str = ""       # symbol name (when symbol search)
-    symbol_type: str = ""       # function | class | variable | method
+    kind: str = "text"  # text | symbol | doc
+    symbol_name: str = ""  # symbol name (when symbol search)
+    symbol_type: str = ""  # function | class | variable | method
 
     def to_dict(self) -> dict:
         """Convert the search result to a serializable dict."""
@@ -75,6 +76,7 @@ class SearchResult:
 @dataclass
 class DocEntry:
     """An API documentation entry."""
+
     package: str
     module: str
     name: str
@@ -105,9 +107,14 @@ class SemanticSearch:
     def __init__(self):
         self._lock = threading.Lock()
 
-    def search(self, query: str, root_dir: str = ".",
-               file_pattern: str = "*.py", max_results: int = SEARCH_DEFAULT_RESULTS,
-               include_content: bool = True) -> dict:
+    def search(
+        self,
+        query: str,
+        root_dir: str = ".",
+        file_pattern: str = "*.py",
+        max_results: int = SEARCH_DEFAULT_RESULTS,
+        include_content: bool = True,
+    ) -> dict:
         """Search code content by keyword, ranked by TF-IDF."""
         root = Path(root_dir).resolve()
         if not root.exists():
@@ -130,22 +137,22 @@ class SemanticSearch:
                 for i, line in enumerate(lines, 1):
                     line_lower = line.lower()
                     # Compute TF-IDF score
-                    score: float = sum(1 for t in query_terms
-                                       if t in line_lower)
+                    score: float = sum(1 for t in query_terms if t in line_lower)
                     if score > 0:
                         # IDF weighting: rare terms get higher weight
                         idf_score = sum(
-                            1.0 / (1.0 + self._term_frequency(t, content))
-                            for t in query_terms if t in line_lower
+                            1.0 / (1.0 + self._term_frequency(t, content)) for t in query_terms if t in line_lower
                         )
                         score = score * idf_score
-                        matches.append(SearchResult(
-                            path=str(file_path.relative_to(root)),
-                            line=i,
-                            content=line.strip() if include_content else "",
-                            score=score,
-                            kind="text",
-                        ))
+                        matches.append(
+                            SearchResult(
+                                path=str(file_path.relative_to(root)),
+                                line=i,
+                                content=line.strip() if include_content else "",
+                                score=score,
+                                kind="text",
+                            )
+                        )
             except Exception:
                 continue
 
@@ -163,8 +170,7 @@ class SemanticSearch:
 
     def _is_ignored(self, path: Path) -> bool:
         """Skip .git, node_modules, __pycache__, .venv, etc."""
-        ignored_parts = {".git", "node_modules", "__pycache__",
-                         ".venv", "venv", ".tox", ".egg-info"}
+        ignored_parts = {".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", ".egg-info"}
         return any(p in ignored_parts for p in path.parts)
 
     def _term_frequency(self, term: str, content: str) -> float:
@@ -198,8 +204,7 @@ class SymbolSearch:
         # params constant as fallback (AGENTS.md three-layer config).
         self._cache_max = get_service_limit("search_cache_max", SEARCH_CACHE_MAX)
 
-    def search(self, name: str, kind: str = "",
-               root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
+    def search(self, name: str, kind: str = "", root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
         """Search for code symbols."""
         root = Path(root_dir).resolve()
         if not root.exists():
@@ -235,8 +240,11 @@ class SymbolSearch:
                             path=str(file_path.relative_to(root)),
                             line=node.lineno or 1,
                             content=ast.unparse(node).splitlines()[0][:LOG_TRUNC_200]
-                            if hasattr(ast, 'unparse') else f"def {node.name}(...):",
-                            score=SEARCH_SYMBOL_EXACT_MATCH if node.name.lower() == term else SEARCH_SYMBOL_PARTIAL_MATCH,
+                            if hasattr(ast, "unparse")
+                            else f"def {node.name}(...):",
+                            score=SEARCH_SYMBOL_EXACT_MATCH
+                            if node.name.lower() == term
+                            else SEARCH_SYMBOL_PARTIAL_MATCH,
                             kind="symbol",
                             symbol_name=node.name,
                             symbol_type="method" if self._is_method(node) else "function",
@@ -248,7 +256,9 @@ class SymbolSearch:
                             path=str(file_path.relative_to(root)),
                             line=node.lineno or 1,
                             content=f"class {node.name}:",
-                            score=SEARCH_SYMBOL_EXACT_MATCH if node.name.lower() == term else SEARCH_SYMBOL_PARTIAL_MATCH,
+                            score=SEARCH_SYMBOL_EXACT_MATCH
+                            if node.name.lower() == term
+                            else SEARCH_SYMBOL_PARTIAL_MATCH,
                             kind="symbol",
                             symbol_name=node.name,
                             symbol_type="class",
@@ -318,58 +328,110 @@ class DocSearch:
 
     # Fast reference index for common Python stdlib modules
     STDLIB_INDEX: dict[str, DocEntry] = {
-        "pathlib.Path": DocEntry("stdlib", "pathlib", "Path",
-                                 "Path(*pathsegments)",
-                                 "PurePath subclass for concrete paths.",
-                                 "https://docs.python.org/3/library/pathlib.html"),
-        "os.path.join": DocEntry("stdlib", "os.path", "join",
-                                 "os.path.join(path, *paths)",
-                                 "Join path segments intelligently.",
-                                 "https://docs.python.org/3/library/os.path.html"),
-        "json.dumps": DocEntry("stdlib", "json", "dumps",
-                               "json.dumps(obj, *, ...)",
-                               "Serialize object to JSON string.",
-                               "https://docs.python.org/3/library/json.html"),
-        "json.loads": DocEntry("stdlib", "json", "loads",
-                               "json.loads(s, *, ...)",
-                               "Deserialize JSON string to object.",
-                               "https://docs.python.org/3/library/json.html"),
-        "re.search": DocEntry("stdlib", "re", "search",
-                              "re.search(pattern, string, flags=0)",
-                              "Search string for match to pattern.",
-                              "https://docs.python.org/3/library/re.html"),
-        "subprocess.run": DocEntry("stdlib", "subprocess", "run",
-                                   "subprocess.run(args, *, ...)",
-                                   "Run command with arguments.",
-                                   "https://docs.python.org/3/library/subprocess.html"),
-        "threading.Thread": DocEntry("stdlib", "threading", "Thread",
-                                     "Thread(target=None, ...)",
-                                     "Create a new thread.",
-                                     "https://docs.python.org/3/library/threading.html"),
-        "dataclasses.dataclass": DocEntry("stdlib", "dataclasses", "dataclass",
-                                          "@dataclass(*, ...)",
-                                          "Decorator for data class.",
-                                          "https://docs.python.org/3/library/dataclasses.html"),
-        "logging.getLogger": DocEntry("stdlib", "logging", "getLogger",
-                                      "logging.getLogger(name=None)",
-                                      "Return a logger with the given name.",
-                                      "https://docs.python.org/3/library/logging.html"),
-        "pathlib.Path.read_text": DocEntry("stdlib", "pathlib", "Path.read_text",
-                                           "Path.read_text(encoding=None, ...)",
-                                           "Read file contents as string.",
-                                           "https://docs.python.org/3/library/pathlib.html"),
-        "pathlib.Path.write_text": DocEntry("stdlib", "pathlib", "Path.write_text",
-                                            "Path.write_text(data, encoding=None, ...)",
-                                            "Write string to file.",
-                                            "https://docs.python.org/3/library/pathlib.html"),
-        "hashlib.sha256": DocEntry("stdlib", "hashlib", "sha256",
-                                   "hashlib.sha256(data=b'', ...)",
-                                   "Return SHA-256 hash object.",
-                                   "https://docs.python.org/3/library/hashlib.html"),
-        "os.environ.get": DocEntry("stdlib", "os", "environ.get",
-                                   "os.environ.get(key, default=None)",
-                                   "Get environment variable.",
-                                   "https://docs.python.org/3/library/os.html"),
+        "pathlib.Path": DocEntry(
+            "stdlib",
+            "pathlib",
+            "Path",
+            "Path(*pathsegments)",
+            "PurePath subclass for concrete paths.",
+            "https://docs.python.org/3/library/pathlib.html",
+        ),
+        "os.path.join": DocEntry(
+            "stdlib",
+            "os.path",
+            "join",
+            "os.path.join(path, *paths)",
+            "Join path segments intelligently.",
+            "https://docs.python.org/3/library/os.path.html",
+        ),
+        "json.dumps": DocEntry(
+            "stdlib",
+            "json",
+            "dumps",
+            "json.dumps(obj, *, ...)",
+            "Serialize object to JSON string.",
+            "https://docs.python.org/3/library/json.html",
+        ),
+        "json.loads": DocEntry(
+            "stdlib",
+            "json",
+            "loads",
+            "json.loads(s, *, ...)",
+            "Deserialize JSON string to object.",
+            "https://docs.python.org/3/library/json.html",
+        ),
+        "re.search": DocEntry(
+            "stdlib",
+            "re",
+            "search",
+            "re.search(pattern, string, flags=0)",
+            "Search string for match to pattern.",
+            "https://docs.python.org/3/library/re.html",
+        ),
+        "subprocess.run": DocEntry(
+            "stdlib",
+            "subprocess",
+            "run",
+            "subprocess.run(args, *, ...)",
+            "Run command with arguments.",
+            "https://docs.python.org/3/library/subprocess.html",
+        ),
+        "threading.Thread": DocEntry(
+            "stdlib",
+            "threading",
+            "Thread",
+            "Thread(target=None, ...)",
+            "Create a new thread.",
+            "https://docs.python.org/3/library/threading.html",
+        ),
+        "dataclasses.dataclass": DocEntry(
+            "stdlib",
+            "dataclasses",
+            "dataclass",
+            "@dataclass(*, ...)",
+            "Decorator for data class.",
+            "https://docs.python.org/3/library/dataclasses.html",
+        ),
+        "logging.getLogger": DocEntry(
+            "stdlib",
+            "logging",
+            "getLogger",
+            "logging.getLogger(name=None)",
+            "Return a logger with the given name.",
+            "https://docs.python.org/3/library/logging.html",
+        ),
+        "pathlib.Path.read_text": DocEntry(
+            "stdlib",
+            "pathlib",
+            "Path.read_text",
+            "Path.read_text(encoding=None, ...)",
+            "Read file contents as string.",
+            "https://docs.python.org/3/library/pathlib.html",
+        ),
+        "pathlib.Path.write_text": DocEntry(
+            "stdlib",
+            "pathlib",
+            "Path.write_text",
+            "Path.write_text(data, encoding=None, ...)",
+            "Write string to file.",
+            "https://docs.python.org/3/library/pathlib.html",
+        ),
+        "hashlib.sha256": DocEntry(
+            "stdlib",
+            "hashlib",
+            "sha256",
+            "hashlib.sha256(data=b'', ...)",
+            "Return SHA-256 hash object.",
+            "https://docs.python.org/3/library/hashlib.html",
+        ),
+        "os.environ.get": DocEntry(
+            "stdlib",
+            "os",
+            "environ.get",
+            "os.environ.get(key, default=None)",
+            "Get environment variable.",
+            "https://docs.python.org/3/library/os.html",
+        ),
     }
 
     def __init__(self):
@@ -421,9 +483,9 @@ class DocSearch:
             score += SEARCH_SCORE_DOCSTRING_MATCH
         return score
 
-    def index(self, package: str, module: str, name: str,
-              signature: str = "", docstring: str = "",
-              url: str = "") -> dict:
+    def index(
+        self, package: str, module: str, name: str, signature: str = "", docstring: str = "", url: str = ""
+    ) -> dict:
         """Register a custom API documentation entry."""
         key = f"{package}.{module}.{name}"
         self._custom_index[key] = DocEntry(
@@ -451,8 +513,9 @@ class SearchEngine:
         self._docs = DocSearch()
         self._lock = threading.Lock()
 
-    def search(self, query: str, mode: str = "auto",
-               root_dir: str = ".", max_results: int = SEARCH_DEFAULT_RESULTS) -> dict:
+    def search(
+        self, query: str, mode: str = "auto", root_dir: str = ".", max_results: int = SEARCH_DEFAULT_RESULTS
+    ) -> dict:
         """Unified search entry.
 
         mode:
@@ -469,8 +532,7 @@ class SearchEngine:
             return self._docs.search(query, max_results=max_results)
         # auto: smart selection
         if "." in query or query[0].isupper():
-            sym_r = self._symbol.search(query, root_dir=root_dir,
-                                        max_results=max_results)
+            sym_r = self._symbol.search(query, root_dir=root_dir, max_results=max_results)
             if sym_r.get("total_matches", 0) > 0:
                 return sym_r
             doc_r = self._docs.search(query, max_results=max_results)
@@ -481,14 +543,15 @@ class SearchEngine:
 
         return self._semantic.search(query, root_dir, max_results=max_results)
 
-    def semantic_search(self, query: str, root_dir: str = ".",
-                        file_pattern: str = "*.py",
-                        max_results: int = SEARCH_DEFAULT_RESULTS) -> dict:
+    def semantic_search(
+        self, query: str, root_dir: str = ".", file_pattern: str = "*.py", max_results: int = SEARCH_DEFAULT_RESULTS
+    ) -> dict:
         """Run a semantic (TF-IDF) keyword search over the directory."""
         return self._semantic.search(query, root_dir, file_pattern, max_results)
 
-    def symbol_search(self, name: str, kind: str = "",
-               root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS) -> dict:
+    def symbol_search(
+        self, name: str, kind: str = "", root_dir: str = ".", max_results: int = SYMBOL_SEARCH_RESULTS
+    ) -> dict:
         """Search for code symbols by name, optionally filtered by kind."""
         return self._symbol.search(name, kind, root_dir, max_results)
 
@@ -496,8 +559,9 @@ class SearchEngine:
         """Search the indexed API documentation entries."""
         return self._docs.search(query, max_results)
 
-    def index_doc(self, package: str, module: str, name: str,
-                  signature: str = "", docstring: str = "", url: str = "") -> dict:
+    def index_doc(
+        self, package: str, module: str, name: str, signature: str = "", docstring: str = "", url: str = ""
+    ) -> dict:
         """Index an API documentation entry for doc search."""
         return self._docs.index(package, module, name, signature, docstring, url)
 
@@ -534,8 +598,7 @@ def handle_search(body: dict | None = None) -> dict:
     max_results = b.get("max_results", SEARCH_DEFAULT_RESULTS)
     if not query:
         return {"success": False, "error": "query required"}
-    return get_engine().search(query, mode=mode, root_dir=root,
-                               max_results=max_results)
+    return get_engine().search(query, mode=mode, root_dir=root, max_results=max_results)
 
 
 def handle_search_semantic(body: dict | None = None) -> dict:

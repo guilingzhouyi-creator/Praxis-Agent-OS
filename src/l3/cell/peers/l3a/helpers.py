@@ -28,10 +28,10 @@ def build_l3a_prompt(user_id: str = "") -> str:
     raises, zero impact when disabled.
     """
     from l1.kernel.prompts import get_prompt as _gp
+
     types = list_card_types()
     types_block = "\n".join(
-        f"  - {t['name']}: {t['display']} (phases: {', '.join(t.get('phases', []))})"
-        for t in types
+        f"  - {t['name']}: {t['display']} (phases: {', '.join(t.get('phases', []))})" for t in types
     )
     prompt = _gp("l3a.agentloop_system").format(card_types=types_block)
     if user_id and _inject_enabled("profile"):
@@ -43,8 +43,7 @@ def build_l3a_prompt(user_id: str = "") -> str:
                 snap = prof.get_profile(user_id, kinds=("preference", "trait"))
                 entries = snap.get("entries") or []
                 if entries:
-                    block = "\n".join(
-                        f"  - [{e['kind']}] {e['value']}" for e in entries[:10])
+                    block = "\n".join(f"  - [{e['kind']}] {e['value']}" for e in entries[:10])
                     prompt += f"\n\n[User Profile Reference]\n{block}"
         except Exception:
             pass
@@ -54,6 +53,7 @@ def build_l3a_prompt(user_id: str = "") -> str:
 def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     """Submit a CardUnified built from L3A tool args and return the submission result dict."""
     from l3.card.card_registry import get_registry
+
     nature = args.get("nature", "execution")
     title = args.get("title", args.get("intent", ""))
     description = args.get("description", "")
@@ -84,8 +84,8 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
                 return {
                     "success": False,
                     "error": f"offensive card nature '{nature}' rejected: system posture is not "
-                             "full-power attack (security.mode=security-test + detection-bypass "
-                             "confirmation required)",
+                    "full-power attack (security.mode=security-test + detection-bypass "
+                    "confirmation required)",
                     "posture": posture,
                     "warning": {"code": "OFFENSIVE_WARRANT_DENIED", "nature": nature},
                 }
@@ -103,8 +103,7 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
 
             prof = _prof()
             if prof.enabled:
-                snap = prof.get_profile(
-                    user_id, kinds=("preference", "domain_focus", "trait"))
+                snap = prof.get_profile(user_id, kinds=("preference", "domain_focus", "trait"))
                 if snap.get("entries"):
                     columns["_profile_summary"] = snap
         except Exception:
@@ -115,6 +114,7 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     # match wins; otherwise the oldest pending feedback is attached.
     try:
         from l3.tool_system.auto_test import pop_feedback
+
         fb = pop_feedback(agent_id) or pop_feedback("")
         if fb:
             columns["_test_feedback"] = fb
@@ -127,14 +127,21 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     for pd in phases_data:
         mode_str = pd.get("mode", "single")
         mode = PhaseMode.MULTI if mode_str == "multi" else PhaseMode.SINGLE
-        phase = card.add_phase(name=pd.get("name", ""), mode=mode,
-                               agents=pd.get("agents", []),
-                               review_prompt=pd.get("review_prompt", ""),
-                               strategy=pd.get("strategy", ""))
+        phase = card.add_phase(
+            name=pd.get("name", ""),
+            mode=mode,
+            agents=pd.get("agents", []),
+            review_prompt=pd.get("review_prompt", ""),
+            strategy=pd.get("strategy", ""),
+        )
         for td in pd.get("tasks", []):
-            card.add_task(phase_name=phase.name, action=td.get("action", ""),
-                          target=td.get("target", ""), params=td.get("params", {}),
-                          agent=td.get("agent", ""))
+            card.add_task(
+                phase_name=phase.name,
+                action=td.get("action", ""),
+                target=td.get("target", ""),
+                params=td.get("params", {}),
+                agent=td.get("agent", ""),
+            )
     card.submit()
 
     try:
@@ -155,8 +162,13 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
                 ingest_security_metric("security.warrant.issued", tags={"nature": nature})
         except Exception:
             pass
-        return {"success": True, "card_id": card.id, "nature": nature,
-                "phases": len(phases_data), "message": f"Card {card.id} submitted"}
+        return {
+            "success": True,
+            "card_id": card.id,
+            "nature": nature,
+            "phases": len(phases_data),
+            "message": f"Card {card.id} submitted",
+        }
     except Exception as e:
         return {"success": False, "error": str(e), "card_id": card.id}
 
@@ -169,10 +181,15 @@ def wrapped_cardwrite(args: dict, agent_id: str = "") -> dict:
 def _route_to_assembly(card: CardUnified) -> AssemblyMode:
     try:
         from l3.card.card_gate import evaluate as _gate_evaluate
-        r = _gate_evaluate(card_id=card.id,
-                           intent=card.summary.title if card.summary else "",
-                           domain=getattr(card, "domain", ""),
-                           file_count=0, estimated_lines=0, has_conflict=False)
+
+        r = _gate_evaluate(
+            card_id=card.id,
+            intent=card.summary.title if card.summary else "",
+            domain=getattr(card, "domain", ""),
+            file_count=0,
+            estimated_lines=0,
+            has_conflict=False,
+        )
         size = r.get("size", "small")
         if r.get("auto_approve", False):
             return AssemblyMode.AUTO_APPROVE
@@ -192,16 +209,29 @@ def get_convergence_queue(cell_id: str) -> list[dict]:
     try:
         from l3.cell import get_cell
         from l3.discussion.cell_answer_repo import CellAnswerRepo
+
         cell = get_cell(cell_id)
         if not cell:
             return []
         repo = CellAnswerRepo(cell_id, "")
         answers = repo.get_all()
-        return [{"agent_id": a.agent_id, "phase": a.phase, "type": a.answer_type,
-                 "fingerprint": a.fingerprint, "created_at": a.created_at}
-                for a in answers]
+        return [
+            {
+                "agent_id": a.agent_id,
+                "phase": a.phase,
+                "type": a.answer_type,
+                "fingerprint": a.fingerprint,
+                "created_at": a.created_at,
+            }
+            for a in answers
+        ]
     except Exception:
-        capture("l3a helpers: convergence queue load failed", error_code="E_L3A_HELPERS", component="l3a", context={"cell_id": cell_id})
+        capture(
+            "l3a helpers: convergence queue load failed",
+            error_code="E_L3A_HELPERS",
+            component="l3a",
+            context={"cell_id": cell_id},
+        )
         return []
 
 
@@ -229,32 +259,34 @@ def l3a_convention_handler(args: dict, agent_id: str = "") -> dict:
 
     content = _read_convention_doc(issue_id)
     if content is None:
-        return {"success": False,
-                "error": f"convention doc not found: {issue_id}"}
+        return {"success": False, "error": f"convention doc not found: {issue_id}"}
     size = len(content)
 
     if action == "index":
-        return {"success": True, "issue_id": issue_id, "action": "index",
-                "index": _build_index(content)}
+        return {"success": True, "issue_id": issue_id, "action": "index", "index": _build_index(content)}
 
     if anchor:
         block = _extract_block(content, anchor)
         if block is None:
-            return {"success": False, "error": f"anchor not found: {anchor}",
-                    "valid_anchors": _list_anchors(content)}
-        return {"success": True, "issue_id": issue_id, "anchor": anchor,
-                "content": block, "size": len(block)}
+            return {"success": False, "error": f"anchor not found: {anchor}", "valid_anchors": _list_anchors(content)}
+        return {"success": True, "issue_id": issue_id, "anchor": anchor, "content": block, "size": len(block)}
 
     if agent_filter:
         block = _extract_agent_lines(content, agent_filter)
-        return {"success": True, "issue_id": issue_id, "agent": agent_filter,
-                "content": block, "lines": block.count("\n- ["),
-                "size": len(block)}
+        return {
+            "success": True,
+            "issue_id": issue_id,
+            "agent": agent_filter,
+            "content": block,
+            "lines": block.count("\n- ["),
+            "size": len(block),
+        }
 
     if max_chars > 0 and size > max_chars:
-        content = content[:max_chars] + f"\n... ({size - max_chars} chars elided, use action=index / anchor= to navigate)"
-    return {"success": True, "issue_id": issue_id, "size": size,
-            "content": content}
+        content = (
+            content[:max_chars] + f"\n... ({size - max_chars} chars elided, use action=index / anchor= to navigate)"
+        )
+    return {"success": True, "issue_id": issue_id, "size": size, "content": content}
 
 
 def _read_convention_doc(issue_id: str) -> str | None:
@@ -263,6 +295,7 @@ def _read_convention_doc(issue_id: str) -> str | None:
 
         from l1.kernel.params.agent import CONVENTION_DOC_DIR
         from l1.kernel.paths import get_paths as _gp
+
         path = _os.path.join(_gp().data_dir, CONVENTION_DOC_DIR, f"{issue_id}.md")
         if _os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
@@ -273,6 +306,7 @@ def _read_convention_doc(issue_id: str) -> str | None:
     # fall back to R4 archive
     try:
         from l3.tools._archive import _get_db
+
         conn = _get_db()
         row = conn.execute(
             "SELECT content FROM archive WHERE fonds = ? ORDER BY id DESC LIMIT 1",
@@ -280,7 +314,12 @@ def _read_convention_doc(issue_id: str) -> str | None:
         ).fetchone()
         return row[0] if row else None
     except Exception:
-        capture("l3a helpers: convention doc fetch failed", error_code="E_L3A_HELPERS", component="l3a", context={"issue_id": issue_id})
+        capture(
+            "l3a helpers: convention doc fetch failed",
+            error_code="E_L3A_HELPERS",
+            component="l3a",
+            context={"issue_id": issue_id},
+        )
         return None
 
 
@@ -291,17 +330,20 @@ def _build_index(content: str) -> dict:
     rounds = 0
     for line in content.splitlines():
         if line.startswith("### [I-"):
-            issues.append({"anchor": f"I-{len(issues) + 1}",
-                           "title": line.split("]", 1)[1].strip()})
+            issues.append({"anchor": f"I-{len(issues) + 1}", "title": line.split("]", 1)[1].strip()})
         elif line.startswith("### [D-"):
             decisions.append({"anchor": f"D-{len(decisions) + 1}"})
         elif line.startswith("<!-- issue-id:"):
             if issues:
                 m = _kv(line)
-                issues[-1].update({"status": m.get("status", ""),
-                                   "assigned_to": m.get("assigned_to", ""),
-                                   "domain": m.get("domain", ""),
-                                   "proposed_by": m.get("proposed_by", "")})
+                issues[-1].update(
+                    {
+                        "status": m.get("status", ""),
+                        "assigned_to": m.get("assigned_to", ""),
+                        "domain": m.get("domain", ""),
+                        "proposed_by": m.get("proposed_by", ""),
+                    }
+                )
         elif line.startswith("### Round "):
             rounds += 1
         elif line.startswith("- [") and " → " in line:
@@ -321,8 +363,7 @@ def _build_index(content: str) -> dict:
                 participants = [a for a in agents.split(",") if a]
             rounds = int(m.get("rounds", rounds))
             break
-    return {"issues": issues, "decisions": decisions,
-            "participants": participants, "rounds": rounds}
+    return {"issues": issues, "decisions": decisions, "participants": participants, "rounds": rounds}
 
 
 def _extract_block(content: str, anchor: str) -> str | None:
@@ -336,7 +377,7 @@ def _extract_block(content: str, anchor: str) -> str | None:
     if start is None:
         return None
     block = [lines[start]]
-    for ln in lines[start + 1:]:
+    for ln in lines[start + 1 :]:
         if ln.startswith("### [") or ln.startswith("## "):
             break
         block.append(ln)
@@ -382,14 +423,14 @@ def l3a_summary_handler(args: dict, agent_id: str = "") -> dict:
     (default)                       → store stats
     """
     from .summaries import get_store
+
     store = get_store()
     action = args.get("action", "stats")
     if action == "get":
         issue_id = args.get("issue_id", "")
         s = store.get(issue_id)
         if not s:
-            return {"success": False,
-                    "error": f"summary not found: {issue_id}"}
+            return {"success": False, "error": f"summary not found: {issue_id}"}
         return {"success": True, "data": s.to_dict()}
     if action == "search":
         query = args.get("query", "")
@@ -397,15 +438,16 @@ def l3a_summary_handler(args: dict, agent_id: str = "") -> dict:
             return {"success": False, "error": "query required"}
         limit = int(args.get("limit", 5))
         hits = store.search(query, limit=limit)
-        return {"success": True, "data": [s.to_dict() for s in hits],
-                "count": len(hits)}
+        return {"success": True, "data": [s.to_dict() for s in hits], "count": len(hits)}
     if action == "latest":
         domain = args.get("domain", "")
         limit = int(args.get("limit", 5))
         hits = store.latest(domain=domain, limit=limit)
-        return {"success": True, "data": [s.to_dict() for s in hits],
-                "count": len(hits)}
-    return {"success": True, "data": {
-        "total": store.count(),
-        "recent": [s.to_dict() for s in store.latest(limit=3)],
-    }}
+        return {"success": True, "data": [s.to_dict() for s in hits], "count": len(hits)}
+    return {
+        "success": True,
+        "data": {
+            "total": store.count(),
+            "recent": [s.to_dict() for s in store.latest(limit=3)],
+        },
+    }

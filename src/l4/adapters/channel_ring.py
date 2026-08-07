@@ -38,8 +38,8 @@ class RingChannel(ChannelPort):
         self._capacity: int = capacity
         self._overwrite: bool = overwrite
         self._buffer: list[Any | None] = [None] * capacity
-        self._head: int = 0   # next read position
-        self._tail: int = 0   # next write position
+        self._head: int = 0  # next read position
+        self._tail: int = 0  # next write position
         self._count: int = 0
         self._closed: bool = False
         self._lock = threading.Lock()

@@ -16,6 +16,7 @@ class TestL3AHelpers:
             cardwrite_handler,
             get_convergence_queue,
         )
+
         assert callable(cardwrite_handler)
         assert callable(build_l3a_prompt)
         assert callable(get_convergence_queue)
@@ -23,11 +24,13 @@ class TestL3AHelpers:
 
     def test_build_l3a_prompt(self):
         from l3.cell.peers.l3a.helpers import build_l3a_prompt
+
         prompt = build_l3a_prompt()
         assert isinstance(prompt, str)
         assert len(prompt) > 0
 
     def test_get_convergence_queue_empty(self):
         from l3.cell.peers.l3a.helpers import get_convergence_queue
+
         r = get_convergence_queue("nonexistent-cell")
         assert isinstance(r, list)

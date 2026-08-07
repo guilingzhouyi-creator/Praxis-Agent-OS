@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class TodoStatus(Enum):
     """TodoStatus — enum of PENDING, IN_PROGRESS, DONE, FAILED...."""
+
     PENDING = auto()
     IN_PROGRESS = auto()
     DONE = auto()
@@ -43,10 +44,11 @@ class TodoStatus(Enum):
 @dataclass
 class TodoItem:
     """TodoItem — todo item record (id, intent, domain, priority, status)."""
+
     id: str = ""
     intent: str = ""
     domain: str = ""
-    priority: int = 5          # 1=highest, 5=default, 10=lowest
+    priority: int = 5  # 1=highest, 5=default, 10=lowest
     status: TodoStatus = TodoStatus.PENDING
     depends_on: list[str] = field(default_factory=list)
     result: dict = field(default_factory=dict)
@@ -93,37 +95,48 @@ class TodoTable(PersistableMixin):
     def _serialize(self) -> dict:
         return {
             "agent_id": self.agent_id,
-            "items": {tid: {
-                "id": it.id, "intent": it.intent, "domain": it.domain,
-                "priority": it.priority, "status": it.status.name,
-                "depends_on": it.depends_on, "result": it.result,
-                "error": it.error, "created_at": it.created_at,
-                "started_at": it.started_at, "completed_at": it.completed_at,
-            } for tid, it in self._items.items()},
+            "items": {
+                tid: {
+                    "id": it.id,
+                    "intent": it.intent,
+                    "domain": it.domain,
+                    "priority": it.priority,
+                    "status": it.status.name,
+                    "depends_on": it.depends_on,
+                    "result": it.result,
+                    "error": it.error,
+                    "created_at": it.created_at,
+                    "started_at": it.started_at,
+                    "completed_at": it.completed_at,
+                }
+                for tid, it in self._items.items()
+            },
         }
 
     def _deserialize(self, data: dict) -> bool:
         self._items.clear()
         for tid, d in data.get("items", {}).items():
             self._items[tid] = TodoItem(
-                id=d.get("id", tid), intent=d.get("intent", ""),
-                domain=d.get("domain", ""), priority=d.get("priority", 5),
+                id=d.get("id", tid),
+                intent=d.get("intent", ""),
+                domain=d.get("domain", ""),
+                priority=d.get("priority", 5),
                 status=TodoStatus[d["status"]],
                 depends_on=d.get("depends_on", []),
-                result=d.get("result", {}), error=d.get("error", ""),
+                result=d.get("result", {}),
+                error=d.get("error", ""),
                 created_at=d.get("created_at", 0.0),
                 started_at=d.get("started_at", 0.0),
                 completed_at=d.get("completed_at", 0.0),
             )
         return True
 
-    def add(self, intent: str, domain: str = "", priority: int = 5,
-            depends_on: list[str] | None = None, todo_id: str = "") -> str:
+    def add(
+        self, intent: str, domain: str = "", priority: int = 5, depends_on: list[str] | None = None, todo_id: str = ""
+    ) -> str:
         """Add a todo item; returns its id (unknown deps mark it blocked)."""
         tid = todo_id or f"{self.agent_id}-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
-        item = TodoItem(id=tid, intent=intent, domain=domain,
-                        priority=priority,
-                        depends_on=depends_on or [])
+        item = TodoItem(id=tid, intent=intent, domain=domain, priority=priority, depends_on=depends_on or [])
         # Check if dependencies exist — if not, mark as blocked
         with self._lock:
             for dep in item.depends_on:
@@ -138,8 +151,7 @@ class TodoTable(PersistableMixin):
         """Pop the highest-priority non-blocked PENDING item. Returns None if empty."""
         with self._lock:
             candidates = [
-                it for it in self._items.values()
-                if it.status == TodoStatus.PENDING and not self._is_blocked(it)
+                it for it in self._items.values() if it.status == TodoStatus.PENDING and not self._is_blocked(it)
             ]
             if not candidates:
                 return None
@@ -161,8 +173,9 @@ class TodoTable(PersistableMixin):
         with self._lock:
             return self._items.get(todo_id)
 
-    def update(self, todo_id: str, status: TodoStatus | None = None,
-               result: dict | None = None, error: str = "") -> bool:
+    def update(
+        self, todo_id: str, status: TodoStatus | None = None, result: dict | None = None, error: str = ""
+    ) -> bool:
         """Update a todo item's status/result/error; unblocks dependents; returns success."""
         with self._lock:
             item = self._items.get(todo_id)
@@ -200,14 +213,18 @@ class TodoTable(PersistableMixin):
                     elapsed = round(it.completed_at - it.started_at, 2) if it.started_at else 0.0
                 elif it.started_at:
                     elapsed = round(time.time() - it.started_at, 1)
-                result.append({
-                    "id": it.id, "intent": it.intent[:LOG_TRUNC_50],
-                    "domain": it.domain, "priority": it.priority,
-                    "status": it.status.name,
-                    "depends_on": it.depends_on,
-                    "error": it.error[:LOG_TRUNC_40] if it.error else "",
-                    "elapsed": elapsed,
-                })
+                result.append(
+                    {
+                        "id": it.id,
+                        "intent": it.intent[:LOG_TRUNC_50],
+                        "domain": it.domain,
+                        "priority": it.priority,
+                        "status": it.status.name,
+                        "depends_on": it.depends_on,
+                        "error": it.error[:LOG_TRUNC_40] if it.error else "",
+                        "elapsed": elapsed,
+                    }
+                )
                 if len(result) >= limit:
                     break
             return result
@@ -223,8 +240,11 @@ class TodoTable(PersistableMixin):
     def clear_done(self) -> int:
         """Remove all DONE/FAILED/CANCELLED items; returns the number removed."""
         with self._lock:
-            done = [tid for tid, it in self._items.items()
-                    if it.status in (TodoStatus.DONE, TodoStatus.FAILED, TodoStatus.CANCELLED)]
+            done = [
+                tid
+                for tid, it in self._items.items()
+                if it.status in (TodoStatus.DONE, TodoStatus.FAILED, TodoStatus.CANCELLED)
+            ]
             for tid in done:
                 del self._items[tid]
             return len(done)

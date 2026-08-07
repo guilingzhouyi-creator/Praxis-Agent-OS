@@ -47,12 +47,13 @@ MAX_WORKING_SET = MAX_WORKING_SET_SIZE  # 8 chunks in Register at once
 @dataclass
 class ContextChunk:
     """Context Chunk — basic unit of the paging system."""
+
     chunk_id: str
     data: str = ""
     tokens: int = CHUNK_SIZE_TOKENS
-    mapped: bool = False        # Whether in Register
-    dirty: bool = False         # Whether modified
-    ring: int = 1               # 1/2/3
+    mapped: bool = False  # Whether in Register
+    dirty: bool = False  # Whether modified
+    ring: int = 1  # 1/2/3
     agent_id: str = ""
     tags: list[str] = field(default_factory=list)
     accessed_at: float = field(default_factory=time.time)
@@ -191,6 +192,7 @@ class ContextPager(BaseService):
     def _memory(self):
         if self._mem is None:
             from l3.memory.memory import get_memory
+
             self._mem = get_memory()
         return self._mem
 
@@ -218,8 +220,11 @@ class ContextPager(BaseService):
             return {"success": False, "error": f"chunk {chunk_id} not found in memory or archive"}
 
         chunk = ContextChunk(
-            chunk_id=chunk_id, data=entry["data"], tokens=entry.get("tokens", CHUNK_SIZE_TOKENS),
-            ring=entry.get("ring", 1), agent_id=entry.get("agent_id", agent_id),
+            chunk_id=chunk_id,
+            data=entry["data"],
+            tokens=entry.get("tokens", CHUNK_SIZE_TOKENS),
+            ring=entry.get("ring", 1),
+            agent_id=entry.get("agent_id", agent_id),
             tags=entry.get("tags", []),
         )
 
@@ -267,8 +272,10 @@ class ContextPager(BaseService):
     def _flush(self, chunk: ContextChunk) -> dict:
         """Actual write-back operation."""
         self._memory.remember(
-            agent_id=chunk.agent_id, entry_type="chunk",
-            content=chunk.data, tags=chunk.tags,
+            agent_id=chunk.agent_id,
+            entry_type="chunk",
+            content=chunk.data,
+            tags=chunk.tags,
             ring=chunk.ring,
         )
         chunk.dirty = False
@@ -305,7 +312,13 @@ class ContextPager(BaseService):
         results = self._memory.recall(agent_id=agent_id, limit=PAGER_RECALL_LIMIT)
         for entry in results:
             if chunk_id in entry.tags:
-                return {"data": entry.content, "ring": 1, "agent_id": entry.agent_id, "tags": entry.tags, "tokens": max(1, len(entry.content) // 4)}
+                return {
+                    "data": entry.content,
+                    "ring": 1,
+                    "agent_id": entry.agent_id,
+                    "tags": entry.tags,
+                    "tokens": max(1, len(entry.content) // 4),
+                }
         results = self._memory.recall(agent_id=agent_id, limit=PAGER_RECALL_LIMIT, rings=[2, 3])
         for entry in results:
             if chunk_id in entry.tags:
@@ -317,8 +330,11 @@ class ContextPager(BaseService):
         with self._lock:
             ws = self.working_set.list()
             return {
-                "working_set": {"count": len(ws), "capacity": self.working_set.capacity,
-                                "chunks": [c.chunk_id for c in ws]},
+                "working_set": {
+                    "count": len(ws),
+                    "capacity": self.working_set.capacity,
+                    "chunks": [c.chunk_id for c in ws],
+                },
                 "page_table": {"entries": self.page_table.count()},
                 "operations": dict(self._stats),
             }

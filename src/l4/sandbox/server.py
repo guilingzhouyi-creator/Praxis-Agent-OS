@@ -28,23 +28,26 @@ class SandboxServer:
     async def start(self) -> None:
         """Start the IPC server and begin accepting sandbox connections."""
         from l1.kernel.platform import create_ipc_server
+
         self._server, self._address = await create_ipc_server(
-            self._handle_client, self._socket_path,
+            self._handle_client,
+            self._socket_path,
         )
         logger.info("SandboxServer listening on %s", self._address)
 
     async def stop(self) -> None:
         """Shut down the IPC server and remove the socket file."""
         from l1.kernel.platform import remove_ipc_socket
+
         if self._server:
             self._server.close()
             await self._server.wait_closed()
         remove_ipc_socket(self._socket_path)
 
-    async def _handle_client(self, reader: asyncio.StreamReader,
-                             writer: asyncio.StreamWriter) -> None:
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         from l4.rpc.protocol import RpcMessage
         from l4.rpc.transport import RpcTransport
+
         try:
             raw = await RpcTransport.recv(reader)
             req = RpcMessage(**raw)
@@ -74,11 +77,13 @@ class SandboxServer:
 def main() -> None:
     """CLI entry: run the sandbox execution server on the configured socket."""
     import sys
+
     socket_path = os.environ.get("PRAXIS_SANDBOX_SOCKET", "")
     if not socket_path and len(sys.argv) > 2 and sys.argv[1] == "--socket":
         socket_path = sys.argv[2]
     if not socket_path:
         from l1.kernel.params.api import IPC_SANDBOX_SOCKET
+
         socket_path = IPC_SANDBOX_SOCKET
 
     logging.basicConfig(level=logging.INFO)

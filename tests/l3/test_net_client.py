@@ -37,8 +37,7 @@ class TestNetClientGet:
         assert "invalid JSON" in result["error"]
 
     def test_get_connection_failure(self):
-        with mock.patch.object(nc, "_request",
-                               side_effect=ConnectionError("boom")):
+        with mock.patch.object(nc, "_request", side_effect=ConnectionError("boom")):
             result = NetClient.get("http://example.test/api")
         assert result["success"] is False
         assert "connection failed" in result["error"]
@@ -76,8 +75,7 @@ class TestNetClientDownload:
     def test_download_success(self):
         with mock.patch.object(nc, "_request", return_value=(200, b"raw-yaml")):
             result = NetClient.download("http://example.test/card.yaml")
-        assert result == {"success": True, "content": "raw-yaml",
-                          "status": 200, "url": "http://example.test/card.yaml"}
+        assert result == {"success": True, "content": "raw-yaml", "status": 200, "url": "http://example.test/card.yaml"}
 
     def test_download_failure(self):
         with mock.patch.object(nc, "_request", side_effect=ConnectionError("x")):

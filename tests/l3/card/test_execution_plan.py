@@ -17,6 +17,7 @@ class TestExecutionPlanInit:
     def test_init_with_card(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="test", domain=".")
         plan = ExecutionPlan(card, {"reader": "agent-r"})
         assert plan.card is not None
@@ -25,6 +26,7 @@ class TestExecutionPlanInit:
     def test_init_multi_agent(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="multi test", domain=".")
         amap = {"reader": "r1", "writer": "w1"}
         plan = ExecutionPlan(card, amap)
@@ -37,6 +39,7 @@ class TestExecutionPlanExecute:
     def test_execute_returns_dict(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="exec test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-a"})
         r = plan.execute()
@@ -47,6 +50,7 @@ class TestExecutionPlanExecute:
     def test_execute_multi_step_card(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="multi step", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-b"})
         r = plan.execute()
@@ -60,6 +64,7 @@ class TestExecutionPlanSummary:
     def test_summary_returns_string_or_dict(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="summary test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-c"})
         plan.execute()
@@ -73,6 +78,7 @@ class TestExecutionPlanSteps:
     def test_steps_is_list(self):
         from l3.card.execution_plan import ExecutionPlan
         from l3.card.models import Card
+
         card = Card(intent="steps test", domain=".")
         plan = ExecutionPlan(card, {"reader": "auto-d"})
         plan.execute()
@@ -86,6 +92,7 @@ class TestDeriveActionScope:
     def _derive(self, action: str) -> list[str]:
         """调用ExecutionPlan的_derive_action_scope静态方法"""
         from l3.card.execution_plan import ExecutionPlan
+
         return ExecutionPlan._derive_action_scope(action)
 
     def test_read_action_returns_read_tools(self):

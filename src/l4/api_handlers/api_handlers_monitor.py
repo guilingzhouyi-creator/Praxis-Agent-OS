@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 # ── Token / Counter handlers ──
 
+
 def token_stats(body: dict | None = None) -> dict:
     """Return token rate (optional window) and summary from the counter."""
     try:
         from l3.services.counter import get_counter
+
         c = get_counter()
         window = float(body.get("window", 0)) if body else 0
         if window > 0:
@@ -31,6 +33,7 @@ def token_cells(body: dict | None = None) -> dict:
     """Return per-cell token summaries from the central collector."""
     try:
         from l3.cell.peers.central_collector import get_collector
+
         return {"cells": get_collector().cell_summary()}
     except Exception as e:
         return {"error": str(e)}
@@ -40,6 +43,7 @@ def token_global(body: dict | None = None) -> dict:
     """Return the global token summary from the central collector."""
     try:
         from l3.cell.peers.central_collector import get_collector
+
         return get_collector().global_summary()
     except Exception as e:
         return {"error": str(e)}
@@ -47,10 +51,12 @@ def token_global(body: dict | None = None) -> dict:
 
 # ── Communication handlers ──
 
+
 def comm_stats(body: dict | None = None) -> dict:
     """Return communication monitor statistics."""
     try:
         from l3.bus.comm_monitor import get_monitor
+
         return get_monitor().stats()
     except Exception as e:
         return {"error": str(e)}
@@ -61,6 +67,7 @@ def comm_recent(body: dict | None = None) -> dict:
     try:
         limit = int((body or {}).get("limit", 50))
         from l3.bus.comm_monitor import get_monitor
+
         return {"recent": get_monitor().recent(limit)}
     except Exception as e:
         return {"error": str(e)}
@@ -68,10 +75,12 @@ def comm_recent(body: dict | None = None) -> dict:
 
 # ── Loop handlers ──
 
+
 def loop_stats(body: dict | None = None) -> dict:
     """Return the agent loop summary from the counter."""
     try:
         from l3.services.counter import get_counter
+
         return get_counter().loop_summary()
     except Exception as e:
         return {"error": str(e)}
@@ -81,6 +90,7 @@ def loops_recent(body: dict | None = None) -> dict:
     """Return the most recent agent loops up to the given limit."""
     try:
         from l3.services.counter import get_counter
+
         c = get_counter()
         limit = int((body or {}).get("limit", 20))
         return {"loops": c._all_loops[-limit:]}
@@ -90,10 +100,12 @@ def loops_recent(body: dict | None = None) -> dict:
 
 # ── Export handlers ──
 
+
 def export_counter(body: dict | None = None) -> dict:
     """Export the full counter state."""
     try:
         from l3.services.counter import get_counter
+
         return get_counter().export()
     except Exception as e:
         return {"error": str(e)}
@@ -103,6 +115,7 @@ def export_metrics(body: dict | None = None) -> dict:
     """Export the counter metrics collection."""
     try:
         from l3.services.counter import get_counter
+
         return {"metrics": get_counter().export_metrics()}
     except Exception as e:
         return {"error": str(e)}
@@ -110,10 +123,12 @@ def export_metrics(body: dict | None = None) -> dict:
 
 # ── Network health ──
 
+
 def network_health(body: dict | None = None) -> dict:
     """Return the kernel network health report."""
     try:
         from l1.kernel.net import get_net
+
         return get_net().health()
     except Exception as e:
         return {"error": str(e)}
@@ -121,10 +136,12 @@ def network_health(body: dict | None = None) -> dict:
 
 # ── Monitor event handlers ──
 
+
 def handle_monitor_events(body: dict) -> dict:
     """GET /api/monitor/events — query monitor events with filters."""
     try:
         from .bus.monitor_bus import get_bus
+
         events = get_bus().query(
             type_prefix=body.get("type", ""),
             severity=body.get("severity", ""),
@@ -143,6 +160,7 @@ def handle_monitor_stats(body: dict) -> dict:
     """GET /api/monitor/stats — monitor event statistics."""
     try:
         from .bus.monitor_bus import get_bus
+
         return {"success": True, "stats": get_bus().stats()}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -161,6 +179,7 @@ def handle_message_gate_list(body: dict) -> dict:
     """GET /api/monitor/gate — list all message gate rules."""
     try:
         from .bus.message_gate import get_gate
+
         return {"success": True, **get_gate().to_dict()}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -170,6 +189,7 @@ def handle_message_gate_set(body: dict) -> dict:
     """POST /api/monitor/gate — add or update a message gate rule."""
     try:
         from .bus.message_gate import MessageGateRule, get_gate
+
         rule = MessageGateRule(
             id=body["id"],
             pattern=body.get("pattern", {}),
@@ -190,6 +210,7 @@ def handle_message_gate_remove(body: dict) -> dict:
     """DELETE /api/monitor/gate/<id> — remove a message gate rule."""
     try:
         from .bus.message_gate import get_gate
+
         rule_id = body.get("id", "")
         if not rule_id:
             return {"success": False, "error": "rule_id is required"}

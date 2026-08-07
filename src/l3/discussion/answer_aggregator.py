@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AggregatedReport:
     """Cross-Cell aggregated analysis of all answers."""
+
     session_id: str = ""
-    status: str = ""                  # "converged" | "partial" | "diverged"
+    status: str = ""  # "converged" | "partial" | "diverged"
     total_cells: int = 0
     participating_cells: list[str] = field(default_factory=list)
     answers_by_cell: dict[str, int] = field(default_factory=dict)
@@ -107,9 +108,9 @@ class AnswerAggregator:
         results = []
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
-            recalled = mem.recall(agent_id="", entry_type="discussion.*",
-                                  tags=[session_id], limit=1000)
+            recalled = mem.recall(agent_id="", entry_type="discussion.*", tags=[session_id], limit=1000)
             for r in recalled:
                 content = r.get("content", "")
                 if content:
@@ -120,9 +121,13 @@ class AnswerAggregator:
                             parsed["cell_id"] = r.get("cell_id", "")
                             results.append(parsed)
                     except Exception:
-                        results.append({"content": content[:LOG_TRUNC_200],
-                                        "agent_id": r.get("agent_id", ""),
-                                        "cell_id": r.get("cell_id", "")})
+                        results.append(
+                            {
+                                "content": content[:LOG_TRUNC_200],
+                                "agent_id": r.get("agent_id", ""),
+                                "cell_id": r.get("cell_id", ""),
+                            }
+                        )
         except Exception as e:
             logger.warning("aggregator: load answers: %s", e)
 
@@ -130,6 +135,7 @@ class AnswerAggregator:
             # Fallback: try loading from Archive directly
             try:
                 from l3.tools._archive import archive_search
+
                 search = archive_search
                 # Use fonds pattern
                 fonds_pattern = f"%{session_id}%"
@@ -178,14 +184,12 @@ class AnswerAggregator:
         for s in by_cell.values():
             all_fingerprints.update(s)
 
-        uncovered = [fp for fp in all_fingerprints
-                     if len(by_issue.get(fp, set())) < len(by_cell)]
+        uncovered = [fp for fp in all_fingerprints if len(by_issue.get(fp, set())) < len(by_cell)]
 
         return {
             "total_cells": len(by_cell),
             "total_issues": len(all_fingerprints),
-            "unanswered_issues": [(fp, list(by_issue.get(fp, set())))
-                                  for fp in uncovered],
+            "unanswered_issues": [(fp, list(by_issue.get(fp, set()))) for fp in uncovered],
             "cell_coverage": {c: len(fps) for c, fps in by_cell.items()},
         }
 
@@ -205,34 +209,39 @@ class AnswerAggregator:
             if len(group) < 2:
                 continue
             # Simple heuristic: compare answer lengths and positions
-            positions = [g.get("content", {}).get("answer", "")[:LOG_TRUNC_100]
-                         for g in group]
+            positions = [g.get("content", {}).get("answer", "")[:LOG_TRUNC_100] for g in group]
             if len(set(positions)) >= 2:
-                divergences.append({
-                    "topic": atype,
-                    "cells": list({a.get("cell_id", "?") for a in group}),
-                    "positions": [{
-                        "cell": a.get("cell_id", "?"),
-                        "summary": a.get("content", {}).get("answer", "")[:LOG_TRUNC_100],
-                    } for a in group],
-                    "severity": "high" if len(set(positions)) >= 3 else "medium",
-                })
+                divergences.append(
+                    {
+                        "topic": atype,
+                        "cells": list({a.get("cell_id", "?") for a in group}),
+                        "positions": [
+                            {
+                                "cell": a.get("cell_id", "?"),
+                                "summary": a.get("content", {}).get("answer", "")[:LOG_TRUNC_100],
+                            }
+                            for a in group
+                        ],
+                        "severity": "high" if len(set(positions)) >= 3 else "medium",
+                    }
+                )
 
         return divergences
 
     # ── Consistency ────────────────────────────────────────────
 
-    def _find_consistency(self, answers: list[dict],
-                          dedup_map: dict[str, list[str]]) -> list[dict]:
+    def _find_consistency(self, answers: list[dict], dedup_map: dict[str, list[str]]) -> list[dict]:
         """Identify consistent (agreed) answers across cells."""
         consistent = []
         for fp, cells in dedup_map.items():
             if len(cells) >= 2:
-                consistent.append({
-                    "fingerprint": fp,
-                    "cells": cells,
-                    "consensus": True,
-                })
+                consistent.append(
+                    {
+                        "fingerprint": fp,
+                        "cells": cells,
+                        "consensus": True,
+                    }
+                )
         return consistent
 
     # ── Supplement extraction ─────────────────────────────────
@@ -245,12 +254,14 @@ class AnswerAggregator:
                 content = a.get("content", {})
                 answer_text = content.get("answer", "")
                 if answer_text:
-                    supplements.append({
-                        "source_cell": a.get("cell_id", "?"),
-                        "source_agent": a.get("agent_id", ""),
-                        "title": answer_text[:LOG_TRUNC_80],
-                        "description": answer_text[:LOG_TRUNC_500],
-                    })
+                    supplements.append(
+                        {
+                            "source_cell": a.get("cell_id", "?"),
+                            "source_agent": a.get("agent_id", ""),
+                            "title": answer_text[:LOG_TRUNC_80],
+                            "description": answer_text[:LOG_TRUNC_500],
+                        }
+                    )
         # Dedup by title similarity
         seen_titles = set()
         unique = []
@@ -282,4 +293,5 @@ class AnswerAggregator:
 def hashlib_md5(text: str) -> str:
     """Return a truncated md5 hex digest of *text*."""
     import hashlib
+
     return hashlib.md5(text.encode()).hexdigest()[:HASH_TRUNC_LONG]

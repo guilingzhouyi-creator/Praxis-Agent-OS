@@ -52,11 +52,22 @@ _CATEGORIES: dict[str, str] = {
     "AGENT_REPUTATION_DEFAULTS": "agents",
 }
 
-_EXCLUDED = {"_DEFAULT_DATA_ROOT", "_SANDBOX_DEFAULT", "_DEFAULT_URL",
-             "AllocatorDefaults", "AgentDefaults", "ResourceProfileDefaults",
-             "LLM_PROVIDER_URLS", "AGENT_CLEARANCE", "DEFAULT_AGENT_CONFIGS",
-             "AGENT_REPUTATION_DEFAULTS", "CENTRAL_ROLES", "CENTRAL_DEFAULT_ROLES",
-             "LLM_EMPTY_RESPONSE_WAITS", "PRIORITY_GRADIENT"}
+_EXCLUDED = {
+    "_DEFAULT_DATA_ROOT",
+    "_SANDBOX_DEFAULT",
+    "_DEFAULT_URL",
+    "AllocatorDefaults",
+    "AgentDefaults",
+    "ResourceProfileDefaults",
+    "LLM_PROVIDER_URLS",
+    "AGENT_CLEARANCE",
+    "DEFAULT_AGENT_CONFIGS",
+    "AGENT_REPUTATION_DEFAULTS",
+    "CENTRAL_ROLES",
+    "CENTRAL_DEFAULT_ROLES",
+    "LLM_EMPTY_RESPONSE_WAITS",
+    "PRIORITY_GRADIENT",
+}
 """Keys excluded from GET /api/config listing (complex types that are exposed via dedicated getter)."""
 
 
@@ -94,27 +105,34 @@ def _all_param_keys() -> list[str]:
     for mod in pkgutil.iter_modules(params.__path__):
         module = importlib.import_module(f"{params.__name__}.{mod.name}")
         names.update(n for n in dir(module) if n.isupper())
-    return [
-        name for name in names
-        if name.isupper() and not name.startswith("_") and name not in _EXCLUDED
-    ]
+    return [name for name in names if name.isupper() and not name.startswith("_") and name not in _EXCLUDED]
 
 
 def _fetch(key: str) -> dict:
     """Fetch a config value: override > params module."""
     if key in _CONFIG_OVERRIDES:
-        return {"success": True, "key": key, "value": _CONFIG_OVERRIDES[key],
-                "source": "override", "category": _CATEGORIES.get(key, "misc")}
+        return {
+            "success": True,
+            "key": key,
+            "value": _CONFIG_OVERRIDES[key],
+            "source": "override",
+            "category": _CATEGORIES.get(key, "misc"),
+        }
     value = _find_param(key)
     if value is None:
         return {"success": False, "error": f"unknown config key: {key}"}
-    return {"success": True, "key": key, "value": _serialize(value),
-            "source": "default", "category": _CATEGORIES.get(key, "misc")}
+    return {
+        "success": True,
+        "key": key,
+        "value": _serialize(value),
+        "source": "default",
+        "category": _CATEGORIES.get(key, "misc"),
+    }
 
 
 def _serialize(value: Any) -> Any:
     """Convert Final types to JSON-safe values."""
-    if hasattr(value, "_name"):     # enum
+    if hasattr(value, "_name"):  # enum
         return value._name_
     if hasattr(value, "__dataclass_fields__"):
         return {f: getattr(value, f) for f in value.__dataclass_fields__}

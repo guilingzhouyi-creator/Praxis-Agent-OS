@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestCI:
     def test_importable(self):
         from l4.ci import get_service
+
         assert callable(get_service)
 
     def test_pipeline_uses_platform_shell_adapter(self, monkeypatch):

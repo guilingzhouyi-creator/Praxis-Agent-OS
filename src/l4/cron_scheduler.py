@@ -36,11 +36,11 @@ logger = logging.getLogger(__name__)
 
 # Simple cron field parser — supports: *, */N, N,N, N
 _CRON_PATTERN = re.compile(
-    r"^(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"   # minute
-    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"    # hour
-    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"    # day of month
-    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"    # month
-    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)$"      # day of week
+    r"^(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"  # minute
+    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"  # hour
+    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"  # day of month
+    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)\s+"  # month
+    r"(\*(\/\d+)?|\d+(\/\d+)?(,\d+)*)$"  # day of week
 )
 
 
@@ -68,11 +68,11 @@ def _cron_matches(expression: str, now: time.struct_time | None = None) -> bool:
         return False
     t = now or time.localtime()
     return (
-        _match_cron_field(parts[0], t.tm_min) and
-        _match_cron_field(parts[1], t.tm_hour) and
-        _match_cron_field(parts[2], t.tm_mday) and
-        _match_cron_field(parts[3], t.tm_mon) and
-        _match_cron_field(parts[4], t.tm_wday)
+        _match_cron_field(parts[0], t.tm_min)
+        and _match_cron_field(parts[1], t.tm_hour)
+        and _match_cron_field(parts[2], t.tm_mday)
+        and _match_cron_field(parts[3], t.tm_mon)
+        and _match_cron_field(parts[4], t.tm_wday)
     )
 
 
@@ -96,6 +96,7 @@ class CronScheduler:
         """Load cron entries from praxis.yaml → schedules: section."""
         try:
             from l3.config.config_loader import load as load_config
+
             cfg = load_config()
             schedules = cfg.get("schedules", {})
             if isinstance(schedules, dict):
@@ -103,21 +104,23 @@ class CronScheduler:
                     if isinstance(info, dict) and info.get("cron") and info.get("intent"):
                         cron_expr = info["cron"].strip()
                         if validate_cron(cron_expr):
-                            self._entries.append({
-                                "id": name,
-                                "cron": cron_expr,
-                                "intent": info["intent"],
-                                "domain": info.get("domain", ""),
-                                "priority": info.get("priority", 5),
-                                "cell_id": info.get("cell_id", DEFAULT_CELL_ID),
-                            })
+                            self._entries.append(
+                                {
+                                    "id": name,
+                                    "cron": cron_expr,
+                                    "intent": info["intent"],
+                                    "domain": info.get("domain", ""),
+                                    "priority": info.get("priority", 5),
+                                    "cell_id": info.get("cell_id", DEFAULT_CELL_ID),
+                                }
+                            )
                             logger.info("cron: loaded '%s' → %s", name, cron_expr)
         except Exception as e:
             logger.warning("cron: config load failed: %s", e)
 
-    def add(self, entry_id: str, cron: str, intent: str,
-            domain: str = "", priority: int = 5,
-            cell_id: str = "cell-1") -> dict:
+    def add(
+        self, entry_id: str, cron: str, intent: str, domain: str = "", priority: int = 5, cell_id: str = "cell-1"
+    ) -> dict:
         """Register a cron entry programmatically."""
         if not validate_cron(cron):
             return {"success": False, "error": f"invalid cron expression: {cron}"}
@@ -193,6 +196,7 @@ class CronScheduler:
         """Submit a card for a cron entry."""
         try:
             from l3.card.card_registry import get_registry
+
             reg = get_registry()
             cid = reg.submit(
                 intent=entry["intent"],

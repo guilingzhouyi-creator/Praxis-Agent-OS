@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 def _sanitize_path(p: str) -> str:
     """Remove git-unsafe characters from a filesystem path argument."""
     import os
+
     # Reject path traversal components
     parts = p.replace("\\", "/").split("/")
     cleaned = []
@@ -52,7 +53,9 @@ def _git(args: list[str], cwd: str) -> dict[str, Any]:
     try:
         r = subprocess.run(
             ["git"] + args,
-            capture_output=True, text=True, cwd=cwd,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
             timeout=GIT_TIMEOUT,
         )
         if r.returncode != 0:
@@ -83,11 +86,13 @@ def status(path: str) -> dict[str, Any]:
             # XY filename
             xy = line[:2]
             fname = line[3:]
-            changes.append({
-                "path": fname,
-                "staged": xy[0] != " ",
-                "type": _change_type(xy),
-            })
+            changes.append(
+                {
+                    "path": fname,
+                    "staged": xy[0] != " ",
+                    "type": _change_type(xy),
+                }
+            )
     return {"success": True, "branch": branch, "changes": changes, "count": len(changes)}
 
 

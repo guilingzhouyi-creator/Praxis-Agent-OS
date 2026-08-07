@@ -28,6 +28,7 @@ class TemplateService(BaseService):
         """Render a Jinja2 template string with the given variables."""
         try:
             from jinja2 import BaseLoader, Environment
+
             env = Environment(loader=BaseLoader(), autoescape=False)
             tpl = env.from_string(template)
             output = tpl.render(**(variables or {}))
@@ -40,11 +41,13 @@ class TemplateService(BaseService):
     def render_file(self, template_path: str, variables: dict | None = None, output_path: str = "") -> dict:
         """Render a template file, optionally writing the output to a path."""
         from pathlib import Path
+
         p = Path(template_path)
         if not p.exists():
             return {"success": False, "error": "template not found"}
         try:
             from jinja2 import Environment, FileSystemLoader
+
             env = Environment(loader=FileSystemLoader(str(p.parent)))
             tpl = env.get_template(p.name)
             output = tpl.render(**(variables or {}))
@@ -61,6 +64,7 @@ class TemplateService(BaseService):
         """List undeclared variables referenced by the template string."""
         try:
             from jinja2 import BaseLoader, Environment, meta
+
             env = Environment(loader=BaseLoader())
             ast = env.parse(template)
             variables = meta.find_undeclared_variables(ast)

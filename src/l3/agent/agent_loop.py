@@ -402,9 +402,7 @@ class AgentLoop:
             )
         )
 
-    def add_tool_from_spec(
-        self, spec: Any, handler: Any = None, parallel_safe: bool | None = None
-    ) -> None:
+    def add_tool_from_spec(self, spec: Any, handler: Any = None, parallel_safe: bool | None = None) -> None:
         """Register a tool marshalled from an existing spec.
 
         Shared marshalling point for the Cell SubAgentPool and L3A

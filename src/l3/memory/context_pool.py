@@ -13,7 +13,7 @@ from .context import ContextManager
 
 _lock = threading.Lock()
 _pools: dict[str, ContextManager] = {}  # agent_id → ContextManager
-_agent_to_cell: dict[str, str] = {}     # agent_id → cell_id
+_agent_to_cell: dict[str, str] = {}  # agent_id → cell_id
 
 
 def register(agent_id: str, cell_id: str = "", max_tokens: int = 4096) -> ContextManager:

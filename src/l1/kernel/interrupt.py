@@ -1,4 +1,5 @@
 """Kernel interrupt table — interrupt handling for ops_console."""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class InterruptType(Enum):
     """InterruptType — enum of AGENT_CRASH, RESOURCE_EXHAUSTION, DEADLOCK_DETECTED, OOM_KILL."""
+
     AGENT_CRASH = auto()
     RESOURCE_EXHAUSTION = auto()
     DEADLOCK_DETECTED = auto()
@@ -24,6 +26,7 @@ class InterruptType(Enum):
 @dataclass
 class Interrupt:
     """Interrupt — interrupt record (type, agent_id, reason, data)."""
+
     type: InterruptType
     agent_id: str = ""
     reason: str = ""
@@ -46,22 +49,26 @@ class InterruptTable:
         """Register a callback handler for the given interrupt type."""
         self._handlers.setdefault(itype, []).append(handler)
 
-    def fire(self, itype: InterruptType, agent_id: str = "", reason: str = "",
-             data: dict | None = None) -> None:
+    def fire(self, itype: InterruptType, agent_id: str = "", reason: str = "", data: dict | None = None) -> None:
         """Dispatch an interrupt to all registered handlers and log it to history."""
         name = itype.name
         self._counts[name] = self._counts.get(name, 0) + 1
         intr = Interrupt(type=itype, agent_id=agent_id, reason=reason, data=data or {})
-        self._history.append({
-            "type": name, "agent": agent_id, "reason": reason,
-            "data": data or {}, "seq": self._counts[name],
-        })
+        self._history.append(
+            {
+                "type": name,
+                "agent": agent_id,
+                "reason": reason,
+                "data": data or {},
+                "seq": self._counts[name],
+            }
+        )
         # deque(maxlen=INTERRUPT_MAX_HISTORY) prunes oldest entry automatically
         for cb in self._handlers.get(itype, []):
             try:
                 cb(intr)
             except Exception as e:
-                    logger.warning("kernel/interrupt: %s", e)
+                logger.warning("kernel/interrupt: %s", e)
 
     def counts(self) -> dict[str, int]:
         """Return a copy of per-interrupt-type occurrence counts."""
@@ -87,7 +94,6 @@ def register_handler(itype: InterruptType, handler: Callable) -> None:
     _table.register(itype, handler)
 
 
-def fire(itype: InterruptType, agent_id: str = "", reason: str = "",
-         data: dict | None = None) -> None:
+def fire(itype: InterruptType, agent_id: str = "", reason: str = "", data: dict | None = None) -> None:
     """Fire an interrupt through the singleton interrupt table."""
     _table.fire(itype, agent_id, reason, data)

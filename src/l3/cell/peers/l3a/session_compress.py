@@ -76,16 +76,14 @@ class SessionCompressMixin:
              preservation counts, and the snapshot archive_ref.
         """
         from l3.cell.peers.l3a.session import Message as _Message
+
         with self._lock:
             total = len(self.history._messages)
             if total <= keep_last:
-                return {"success": True, "note": "nothing to compress",
-                        "compressed": 0, "kept": total}
+                return {"success": True, "note": "nothing to compress", "compressed": 0, "kept": total}
             keep = self.history._messages[-keep_last:]
             old = self.history._messages[:-keep_last]
-            before_tokens = sum(
-                len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
-                for m in old)
+            before_tokens = sum(len(m.content) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD for m in old)
 
         # ── 1. Lossless snapshot to R4 (deferred access, not loss) ──
         snapshot_ref = ""
@@ -93,14 +91,20 @@ class SessionCompressMixin:
             import json as _json
 
             from l3.tools._archive import _cmd_archive_store
+
             snapshot = {
                 "session_id": self.id,
                 "turn": self.turn_count,
                 "compressed_at": time.time(),
                 "compressed_count": len(old),
                 "messages": [
-                    {"id": m.id, "role": m.role, "content": m.content,
-                     "created_at": m.created_at, "metadata": m.metadata}
+                    {
+                        "id": m.id,
+                        "role": m.role,
+                        "content": m.content,
+                        "created_at": m.created_at,
+                        "metadata": m.metadata,
+                    }
                     for m in old
                 ],
             }
@@ -142,6 +146,7 @@ class SessionCompressMixin:
         # Persist the summary into L3A's own memory (ring 2) before folding
         try:
             from l3.memory.central_memory import get_l3a_memory
+
             mem = get_l3a_memory()
             mem.remember(
                 agent_id=_p.AGENT_ID,
@@ -157,7 +162,7 @@ class SessionCompressMixin:
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_compression_action",
                 content=f"[session:{self.id}] turn={self.turn_count}: "
-                        f"compressed {len(old)} msgs, snapshot={snapshot_ref}",
+                f"compressed {len(old)} msgs, snapshot={snapshot_ref}",
                 tags=["l3a", "compression", self.id],
                 importance=0.4,
                 ring=1,
@@ -167,8 +172,8 @@ class SessionCompressMixin:
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_compression_index",
                 content=f"[session:{self.id}] turn={self.turn_count}: "
-                        f"compressed {len(old)} msgs | high-value kept "
-                        f"{len(high)} | snapshot: {snapshot_ref or 'n/a'}",
+                f"compressed {len(old)} msgs | high-value kept "
+                f"{len(high)} | snapshot: {snapshot_ref or 'n/a'}",
                 tags=["l3a", "compression", "index", self.id],
                 importance=0.8,
                 ring=3,
@@ -181,28 +186,33 @@ class SessionCompressMixin:
                 id=f"sum-{uuid.uuid4().hex[:4]}",
                 role="system",
                 content=f"[SESSION COMPRESSED at turn {self.turn_count}] {summary_text}",
-                metadata={"compression": True,
-                          "compressed": len(old),
-                          "snapshot_ref": snapshot_ref,
-                          "high_value_preserved": len(high),
-                          "kept": keep_last},
+                metadata={
+                    "compression": True,
+                    "compressed": len(old),
+                    "snapshot_ref": snapshot_ref,
+                    "high_value_preserved": len(high),
+                    "kept": keep_last,
+                },
             )
             self.history._messages = [summary_msg] + keep
         after_tokens = len(summary_text) // TOKEN_CHARS_PER_TOKEN + SESSION_MSG_OVERHEAD
-        logger.info("l3a session %s: compressed %d msgs → summary (+%d kept)",
-                    self.id, len(old), keep_last)
+        logger.info("l3a session %s: compressed %d msgs → summary (+%d kept)", self.id, len(old), keep_last)
         # ── R5 swarm-domain graph linkage: graph reduction after compaction (derived layer, failures non-blocking) ──
         try:
             from l3.memory.memory_graph import get_graph as _gg
+
             g = _gg()
             if g.enabled:
                 g.compact(min_degree=2, dry_run=False)
         except Exception:
             logger.debug("l3a session: graph compact after compress failed")
         return {
-            "success": True, "session_id": self.id,
-            "compressed": len(old), "kept": keep_last,
-            "before_tokens": before_tokens, "after_tokens": after_tokens,
+            "success": True,
+            "session_id": self.id,
+            "compressed": len(old),
+            "kept": keep_last,
+            "before_tokens": before_tokens,
+            "after_tokens": after_tokens,
             "summary": summary_text,
             "snapshot_ref": snapshot_ref,
             "distortion": {
@@ -214,9 +224,9 @@ class SessionCompressMixin:
                     "assistant": sum(1 for m in old if m.role == "assistant"),
                     "system": sum(1 for m in old if m.role == "system"),
                 },
-                "note": ("high-value messages preserved in full; "
-                         "full text recoverable via snapshot_ref")
-                if snapshot_ref else "snapshot unavailable",
+                "note": ("high-value messages preserved in full; full text recoverable via snapshot_ref")
+                if snapshot_ref
+                else "snapshot unavailable",
             },
         }
 
@@ -231,6 +241,7 @@ class SessionCompressMixin:
         """
         try:
             from l3.config.settings_center import get_center
+
             sc = get_center()
             enabled = bool(sc.get("l3a.auto_compress", True))
             threshold = float(sc.get("l3a.auto_compress_threshold", 0.6))
@@ -239,27 +250,27 @@ class SessionCompressMixin:
             enabled, threshold, keep = True, 0.6, 10
 
         if not enabled and not force:
-            return {"success": True, "action": "skipped",
-                    "reason": "auto_compress disabled"}
+            return {"success": True, "action": "skipped", "reason": "auto_compress disabled"}
         if self.status != "active":
-            return {"success": True, "action": "skipped",
-                    "reason": "session closed"}
+            return {"success": True, "action": "skipped", "reason": "session closed"}
 
         stats = self.context_stats()
         pressure = stats.get("pressure_ratio", 0.0)
         if pressure < threshold and not force:
-            return {"success": True, "action": "none",
-                    "pressure": pressure, "threshold": threshold}
+            return {"success": True, "action": "none", "pressure": pressure, "threshold": threshold}
         if self.history.count() <= keep:
-            return {"success": True, "action": "none",
-                    "pressure": pressure, "threshold": threshold,
-                    "reason": "history below keep size"}
+            return {
+                "success": True,
+                "action": "none",
+                "pressure": pressure,
+                "threshold": threshold,
+                "reason": "history below keep size",
+            }
         r = self.compress(keep_last=keep)
         r["action"] = "compressed"
         r["pressure_before"] = pressure
         r["threshold"] = threshold
-        logger.info("l3a session %s: auto-compressed at pressure %.2f "
-                    "(threshold %.2f)", self.id, pressure, threshold)
+        logger.info("l3a session %s: auto-compressed at pressure %.2f (threshold %.2f)", self.id, pressure, threshold)
         return r
 
     def memory_usage(self, window: float = _p.SESSION_MEMORY_WINDOW_SECONDS) -> dict:
@@ -270,12 +281,12 @@ class SessionCompressMixin:
         """
         try:
             from l3.memory.central_memory import get_l3a_memory
+
             mem = get_l3a_memory()
             stats = mem.stats() if hasattr(mem, "stats") else {}
             now = time.time()
             since = now - window
-            recent = mem.recall(agent_id=_p.AGENT_ID, rings=[1, 2, 3],
-                                limit=500)
+            recent = mem.recall(agent_id=_p.AGENT_ID, rings=[1, 2, 3], limit=500)
             ingress: dict[str, Any] = {"count": 0, "by_type": {}}
             for e in recent:
                 if getattr(e, "timestamp", 0) >= since:
@@ -287,14 +298,14 @@ class SessionCompressMixin:
             logger.debug("l3a session: memory_usage failed: %s", e)
             return {"success": False, "error": str(e)}
         return {
-            "success": True, "session_id": self.id,
+            "success": True,
+            "session_id": self.id,
             "window_seconds": window,
             "rings": stats,
             "pressure": pressure,
             "ingress": {
                 "count": ingress["count"],
                 "per_hour": round(ingress["count"] / max(window / 3600.0, 0.001), 2),
-                "by_type": dict(sorted(ingress["by_type"].items(),
-                                       key=lambda x: x[1], reverse=True)),
+                "by_type": dict(sorted(ingress["by_type"].items(), key=lambda x: x[1], reverse=True)),
             },
         }

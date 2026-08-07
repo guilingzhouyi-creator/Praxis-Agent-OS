@@ -1,4 +1,5 @@
 """Tests for subagent_task.py — SubAgentTask execution and model kwargs."""
+
 from __future__ import annotations
 
 from l3.agent.subagent_spec import SubAgentSpec
@@ -25,7 +26,8 @@ def test_subagent_task_resolve_model_kwargs_default():
 def test_subagent_task_resolve_model_kwargs_with_override():
     """resolve_model_kwargs accepts per-spec model_config overrides."""
     spec = SubAgentSpec(
-        name="override-agent", description="Override",
+        name="override-agent",
+        description="Override",
         model_spec="custom_profile",
         model_config={"temperature": 0.5},
     )

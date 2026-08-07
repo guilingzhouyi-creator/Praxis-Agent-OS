@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class PersistableMixin(ABC):
     """PersistableMixin — persistable mixin record (persistence_kind, _persist_path, _auto_save_interval, _lock, _auto_save_stop)."""
+
     persistence_kind: str = ""
     _persist_path: str = ""
     _auto_save_interval: float = 30.0
@@ -42,12 +43,10 @@ class PersistableMixin(ABC):
         self._auto_save_interval = auto_save_interval
 
     @abstractmethod
-    def _serialize(self) -> dict:
-        ...
+    def _serialize(self) -> dict: ...
 
     @abstractmethod
-    def _deserialize(self, data: dict) -> bool:
-        ...
+    def _deserialize(self, data: dict) -> bool: ...
 
     def save(self) -> dict:
         """Public: save current state to disk."""
@@ -90,11 +89,13 @@ class PersistableMixin(ABC):
 
     def _start_auto_save(self) -> None:
         self._auto_save_stop = threading.Event()
+
         def _loop():
             while not self._auto_save_stop.is_set():
                 if self._auto_save_stop.wait(self._auto_save_interval):
                     break
                 self._persist()
+
         t = threading.Thread(target=_loop, daemon=True, name=f"autosave-{self.persistence_kind}")
         t.start()
 

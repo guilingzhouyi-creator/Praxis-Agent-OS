@@ -41,9 +41,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContextItem:
     """Context fragment with priority metadata."""
+
     content: str
-    source: str                # "memory_ring" | "lsp_diag" | "file_summary" | "history"
-    priority: float = 0.5      # 0.0 ~ 1.0
+    source: str  # "memory_ring" | "lsp_diag" | "file_summary" | "history"
+    priority: float = 0.5  # 0.0 ~ 1.0
     tokens: int = 0
     timestamp: float = field(default_factory=time.time)
     tags: list[str] = field(default_factory=list)
@@ -62,11 +63,12 @@ class ContextItem:
 @dataclass
 class PromptTemplate:
     """Layered prompt template."""
-    role: str = ""             # Role prompt: "You are a senior Python engineer..."
-    task: str = ""             # Task prompt: "Fix the bug in login.py..."
-    constraints: str = ""      # Constraint prompt: "Do not modify tests..."
-    context: str = ""          # Assembled context
-    tools: str = ""            # Available tool description
+
+    role: str = ""  # Role prompt: "You are a senior Python engineer..."
+    task: str = ""  # Task prompt: "Fix the bug in login.py..."
+    constraints: str = ""  # Constraint prompt: "Do not modify tests..."
+    context: str = ""  # Assembled context
+    tools: str = ""  # Available tool description
 
     def build(self) -> str:
         """Assemble the layered template into a single prompt string."""
@@ -115,6 +117,7 @@ class ContextAssembler:
         """Load recent context from memory ring."""
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             ring_context = mem.build_context(agent_id, max_tokens=self._max_tokens // 2)
             if ring_context:
@@ -131,8 +134,7 @@ class ContextAssembler:
             logger.warning("prompt_engine: memory context: %s", e)
         return 0
 
-    def add_file_context(self, file_paths: list[str] | None = None,
-                         max_chars_per_file: int = LOG_TRUNC_2000) -> int:
+    def add_file_context(self, file_paths: list[str] | None = None, max_chars_per_file: int = LOG_TRUNC_2000) -> int:
         """Load summary context for specified files."""
         if not file_paths:
             return 0
@@ -140,6 +142,7 @@ class ContextAssembler:
         for path in file_paths[:5]:  # Max 5 files
             try:
                 from pathlib import Path
+
                 p = Path(path)
                 if not p.exists():
                     continue
@@ -162,6 +165,7 @@ class ContextAssembler:
         """Add diagnostics context from LSP."""
         try:
             from l4.lsp.lsp import LocalAnalyzer
+
             analyzer = LocalAnalyzer()
             diag = analyzer.type_check()
             if diag and diag.get("diagnostics"):
@@ -179,8 +183,7 @@ class ContextAssembler:
             logger.debug("prompt_engine: lsp diagnostics: %s", e)
         return 0
 
-    def add_history_context(self, history: list[dict] | None = None,
-                            max_messages: int = 10) -> int:
+    def add_history_context(self, history: list[dict] | None = None, max_messages: int = 10) -> int:
         """Load context from conversation history."""
         if not history:
             return 0
@@ -201,8 +204,9 @@ class ContextAssembler:
         self._items.append(item)
         return item.tokens
 
-    def add_string(self, content: str, source: str = "custom",
-                   priority: float = 0.5, tags: list[str] | None = None) -> int:
+    def add_string(
+        self, content: str, source: str = "custom", priority: float = 0.5, tags: list[str] | None = None
+    ) -> int:
         """Add custom context fragment."""
         item = ContextItem(
             content=content,
@@ -267,10 +271,15 @@ class PromptBuilder:
     def __init__(self):
         self._custom_templates: dict[str, str] = {}
 
-    def build(self, role: str = "default", task: str = "",
-              context: str = "", tools_desc: str = "",
-              constraints: list[str] | None = None,
-              variables: dict[str, Any] | None = None) -> PromptTemplate:
+    def build(
+        self,
+        role: str = "default",
+        task: str = "",
+        context: str = "",
+        tools_desc: str = "",
+        constraints: list[str] | None = None,
+        variables: dict[str, Any] | None = None,
+    ) -> PromptTemplate:
         """Build complete layered prompt."""
         vars = variables or {}
         vars.setdefault("version", KERNEL_VERSION)
@@ -279,14 +288,16 @@ class PromptBuilder:
 
         # Role prompt (from kernel.prompts registry)
         from l1.kernel.prompts import get_prompt as _gp
+
         role_key = role if (role in self._custom_templates or _gp(f"prompt_engine.system.{role}", "")) else "default"
-        role_prompt = (self._custom_templates.get(role)
-                       or _gp(f"prompt_engine.system.{role_key}",
-                              _gp("prompt_engine.system.default", ""))).format(**vars)
+        role_prompt = (
+            self._custom_templates.get(role)
+            or _gp(f"prompt_engine.system.{role_key}", _gp("prompt_engine.system.default", ""))
+        ).format(**vars)
 
         # Constraint prompt (from kernel.prompts registry)
         constraint_parts = []
-        for key in (constraints or []):
+        for key in constraints or []:
             tpl = _gp(f"prompt_engine.constraint.{key}", key)
             constraint_parts.append(tpl.format(**vars))
 
@@ -326,13 +337,18 @@ class PromptEngine:
         self._builder = PromptBuilder()
         self._lock = threading.RLock()
 
-    def build_prompt(self, task: str = "", role: str = "default",
-                     agent_id: str = "", file_paths: list[str] | None = None,
-                     history: list[dict] | None = None,
-                     constraints: list[str] | None = None,
-                     include_diagnostics: bool = False,
-                     tools_desc: str = "",
-                     max_tokens: int = 0) -> dict:
+    def build_prompt(
+        self,
+        task: str = "",
+        role: str = "default",
+        agent_id: str = "",
+        file_paths: list[str] | None = None,
+        history: list[dict] | None = None,
+        constraints: list[str] | None = None,
+        include_diagnostics: bool = False,
+        tools_desc: str = "",
+        max_tokens: int = 0,
+    ) -> dict:
         """One-stop prompt build: assemble context → merge layers → return full prompt."""
         with self._lock:
             self._assembler.reset()
@@ -377,11 +393,14 @@ class PromptEngine:
             "template": pt.to_dict(),
         }
 
-    def build_context_only(self, agent_id: str = "",
-                           file_paths: list[str] | None = None,
-                           history: list[dict] | None = None,
-                           include_diagnostics: bool = False,
-                           max_tokens: int = 0) -> dict:
+    def build_context_only(
+        self,
+        agent_id: str = "",
+        file_paths: list[str] | None = None,
+        history: list[dict] | None = None,
+        include_diagnostics: bool = False,
+        max_tokens: int = 0,
+    ) -> dict:
         """Assemble context only, without building full prompt (for frontend preview)."""
         with self._lock:
             self._assembler.reset()

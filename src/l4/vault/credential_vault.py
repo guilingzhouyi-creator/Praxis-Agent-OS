@@ -47,13 +47,11 @@ def init_vault(vault_dir: str = "") -> dict:
 
         # Load existing vault or create empty
         _load_vault()
-        logger.info("credential vault initialized: %s (%d providers)",
-                    _VAULT_PATH, len(_vault))
+        logger.info("credential vault initialized: %s (%d providers)", _VAULT_PATH, len(_vault))
     return {"success": True, "path": _VAULT_PATH, "providers": len(_vault)}
 
 
-def get_credential(provider: str, key_name: str = "api_key",
-                   env_fallback: str = "") -> str:
+def get_credential(provider: str, key_name: str = "api_key", env_fallback: str = "") -> str:
     """Get a credential value. Checks vault first, then env var.
 
     Args:
@@ -123,10 +121,7 @@ def get_credential_for_provider(provider: str) -> dict[str, str]:
 def list_providers() -> list[dict]:
     """List all providers and their key names (without values)."""
     with _lock:
-        return [
-            {"provider": p, "keys": list(k.keys()), "count": len(k)}
-            for p, k in _vault.items()
-        ]
+        return [{"provider": p, "keys": list(k.keys()), "count": len(k)} for p, k in _vault.items()]
 
 
 def list_credentials(provider: str) -> dict:
@@ -137,9 +132,7 @@ def list_credentials(provider: str) -> dict:
             "provider": provider,
             "keys": list(prov.keys()),
             "count": len(prov),
-            "has_env_fallback": any(
-                os.environ.get(e) for e in _provider_env_map().get(provider, [])
-            ),
+            "has_env_fallback": any(os.environ.get(e) for e in _provider_env_map().get(provider, [])),
         }
 
 
@@ -158,10 +151,10 @@ def export_vault_status() -> dict:
 # ── Internal ──
 
 _PROVIDER_ENV_MAP: dict[str, list[str]] = {
-    "openai":    ["OPENAI_API_KEY", "OPENAI_API_URL", "OPENAI_MODEL"],
+    "openai": ["OPENAI_API_KEY", "OPENAI_API_URL", "OPENAI_MODEL"],
     "anthropic": ["ANTHROPIC_API_KEY", "ANTHROPIC_API_URL", "ANTHROPIC_MODEL"],
-    "deepseek":  ["DEEPSEEK_API_KEY"],
-    "ollama":    ["OLLAMA_URL", "OLLAMA_MODEL"],
+    "deepseek": ["DEEPSEEK_API_KEY"],
+    "ollama": ["OLLAMA_URL", "OLLAMA_MODEL"],
 }
 
 
@@ -198,6 +191,7 @@ def _load_vault() -> None:
         return
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         nonce_len = VAULT_NONCE_LENGTH
         with open(_VAULT_PATH, "rb") as fh:
             data = fh.read()
@@ -218,6 +212,7 @@ def _save_vault() -> bool:
         import os as _os
 
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         nonce = _os.urandom(VAULT_NONCE_LENGTH)
         aesgcm = AESGCM(_VAULT_KEY[:32])
         plain = json.dumps(_vault, indent=2, ensure_ascii=False).encode()

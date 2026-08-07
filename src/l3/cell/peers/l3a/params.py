@@ -46,15 +46,15 @@ L3A_MODEL_MAX_TOKENS: int = 4096
 L3A_MODEL_TEMPERATURE: float = 0.7
 
 # ── ManagedToolOutput spill truncation ratios ──
-OUTPUT_SPILL_HEAD_DIVISOR: int = 2        # keep text[:max_bytes // 2]
-OUTPUT_SPILL_TAIL_DIVISOR: int = 4        # keep text[-(max_bytes // 4):]
+OUTPUT_SPILL_HEAD_DIVISOR: int = 2  # keep text[:max_bytes // 2]
+OUTPUT_SPILL_TAIL_DIVISOR: int = 4  # keep text[-(max_bytes // 4):]
 
 # ── Daemon ──
 DAEMON_STOP_TIMEOUT: float = 5.0
 DAEMON_TICK_INTERVAL: float = 60.0
 IDLE_TIMEOUT_DEFAULT: float = 3600.0
 MEMORY_MAX_TOKENS: int = 4096
-CONTEXT_WINDOW_FALLBACK: int = 128000     # used when LLM port query fails
+CONTEXT_WINDOW_FALLBACK: int = 128000  # used when LLM port query fails
 
 # ── API / Search ──
 DEFAULT_SEARCH_LIMIT: int = 20
@@ -63,19 +63,19 @@ DEFAULT_SEARCH_LIMIT: int = 20
 INBOX_RELOAD_LIMIT: int = 50
 
 # ── Session paging / compression / limits ──
-SESSION_PAGE_SIZE: int = 20                  # default page size for history paging
-SESSION_COMPRESS_KEEP: int = 10              # keep_last default for compress()
+SESSION_PAGE_SIZE: int = 20  # default page size for history paging
+SESSION_COMPRESS_KEEP: int = 10  # keep_last default for compress()
 SESSION_MEMORY_WINDOW_SECONDS: float = 3600.0  # memory_usage() aggregation window
-SESSION_MAX_STEPS_UNLIMITED: int = 999999    # sentinel for "unlimited" step cap
+SESSION_MAX_STEPS_UNLIMITED: int = 999999  # sentinel for "unlimited" step cap
 
 # ── Reasoning trail (thinking-mode ingestion) ──
-REASONING_TRAIL_MAX_TURNS: int = 8           # max thinking rounds folded into one memory entry
+REASONING_TRAIL_MAX_TURNS: int = 8  # max thinking rounds folded into one memory entry
 REASONING_TRAIL_IMPORTANCE: float = 0.6
 
 # ── ASK clarification tool (l3a_ask) ──
-ASK_MAX_QUESTIONS: int = 5                   # max questions per l3a_ask call
-ASK_MAX_ANSWER_CHARS: int = 4000             # per-answer length cap
-ASK_FREE_FORM_KEY: str = "_free"             # free-form custom input key in answers dict
-ASK_STATUS_AWAITING: str = "awaiting"        # session is waiting for user answers
-ASK_STATUS_ANSWERED: str = "answered"        # answers submitted, execution may resume
-ASK_STATUS_EXPIRED: str = "expired"          # answers never arrived before session close
+ASK_MAX_QUESTIONS: int = 5  # max questions per l3a_ask call
+ASK_MAX_ANSWER_CHARS: int = 4000  # per-answer length cap
+ASK_FREE_FORM_KEY: str = "_free"  # free-form custom input key in answers dict
+ASK_STATUS_AWAITING: str = "awaiting"  # session is waiting for user answers
+ASK_STATUS_ANSWERED: str = "answered"  # answers submitted, execution may resume
+ASK_STATUS_EXPIRED: str = "expired"  # answers never arrived before session close

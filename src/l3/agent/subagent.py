@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SubAgentResult:
     """SubAgentResult — sub agent result record (task, findings, error, elapsed, success)."""
+
     task: str = ""
     findings: list[dict] = field(default_factory=list)
     error: str = ""
@@ -82,6 +83,7 @@ class SubAgent:
 
         def _grep(args: dict, agent: str = "") -> dict:
             import subprocess as _sp
+
             pattern = args.get("pattern", "")
             path = args.get("path", ".")
             try:
@@ -106,19 +108,24 @@ class SubAgent:
         loop.add_tool("grep_search", "Search for pattern in files", {"pattern": "string", "path": "string"}, _grep)
         loop.add_tool("list_dir", "List directory contents", {"path": "string"}, _list)
 
-        r = loop.run(max_steps=SUBAGENT_LOOP_STEPS, timeout=SUBAGENT_LOOP_TIMEOUT,
-                      **_get_model_service().resolve_dict(_MODEL_SPEC))
+        r = loop.run(
+            max_steps=SUBAGENT_LOOP_STEPS,
+            timeout=SUBAGENT_LOOP_TIMEOUT,
+            **_get_model_service().resolve_dict(_MODEL_SPEC),
+        )
         answer = r.get("answer", "")
         if answer:
             findings.append({"type": "conclusion", "content": answer[:LOG_TRUNC_500]})
         for step in r.get("steps", []):
             action = step.get("action", "")
             if action.startswith("tool:"):
-                findings.append({
-                    "type": action,
-                    "args": step.get("args", {}),
-                    "result": str(step.get("result", ""))[:LOG_TRUNC_300],
-                })
+                findings.append(
+                    {
+                        "type": action,
+                        "args": step.get("args", {}),
+                        "result": str(step.get("result", ""))[:LOG_TRUNC_300],
+                    }
+                )
         return findings
 
 

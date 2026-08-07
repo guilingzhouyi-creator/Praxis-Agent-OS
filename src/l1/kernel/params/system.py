@@ -162,14 +162,14 @@ MEMORY_RING_SCORE_GOOD_THRESHOLD: Final[int] = 40
 MEMORY_RING_SCORE_AVERAGE_THRESHOLD: Final[int] = 15
 
 # ── Statecharts region thresholds (statecharts.py) ──
-STATECHART_HEALTH_FAIL_THRESHOLD: Final[int] = 3          # ft: consecutive failures → DEGRADED
-STATECHART_HEALTH_SUCCESS_THRESHOLD: Final[int] = 5       # st: consecutive successes → HEALTHY
-STATECHART_HEALTH_TIMEOUT: Final[int] = 15                # hto: heartbeat timeout
-STATECHART_CRASH_TIMEOUT: Final[int] = 30                 # cto: crash timeout
-STATECHART_RESOURCE_TOKEN_BUDGET: Final[int] = 73000      # tb: token budget
-STATECHART_RESOURCE_MEMORY_LIMIT: Final[int] = 500        # ml: memory limit
-STATECHART_COMM_DEGRADE_THRESHOLD: Final[float] = 10.0    # dt: latency degrade threshold
-STATECHART_COMM_DISCONNECT_THRESHOLD: Final[float] = 30.0 # dst: disconnect threshold
+STATECHART_HEALTH_FAIL_THRESHOLD: Final[int] = 3  # ft: consecutive failures → DEGRADED
+STATECHART_HEALTH_SUCCESS_THRESHOLD: Final[int] = 5  # st: consecutive successes → HEALTHY
+STATECHART_HEALTH_TIMEOUT: Final[int] = 15  # hto: heartbeat timeout
+STATECHART_CRASH_TIMEOUT: Final[int] = 30  # cto: crash timeout
+STATECHART_RESOURCE_TOKEN_BUDGET: Final[int] = 73000  # tb: token budget
+STATECHART_RESOURCE_MEMORY_LIMIT: Final[int] = 500  # ml: memory limit
+STATECHART_COMM_DEGRADE_THRESHOLD: Final[float] = 10.0  # dt: latency degrade threshold
+STATECHART_COMM_DISCONNECT_THRESHOLD: Final[float] = 30.0  # dst: disconnect threshold
 
 # ── Model strategy / probe cache (model_strategy.py) ──
 MODEL_STRATEGY_MAX_WORKERS: Final[int] = 4

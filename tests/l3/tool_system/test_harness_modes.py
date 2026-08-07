@@ -20,9 +20,9 @@ from l3.tool_system.tool_spec import ToolSpec
 
 
 def _spec() -> ToolSpec:
-    return ToolSpec(name="read_file", description="r", category="",
-                    ring="RING_1", danger=0,
-                    parameters=[], handler=None)
+    return ToolSpec(
+        name="read_file", description="r", category="", ring="RING_1", danger=0, parameters=[], handler=None
+    )
 
 
 def _run(pipeline: ToolPipeline, mode: str, monkeypatch) -> dict:
@@ -62,11 +62,9 @@ def _run(pipeline: ToolPipeline, mode: str, monkeypatch) -> dict:
         calls["approval"] = calls.get("approval", 0) + 1
         return False  # no real approval request → no wait timeout
 
-    monkeypatch.setattr(tp, "_ToolPolicy", type(
-        "P", (), {"requires_approval": staticmethod(_requires_approval)}))
+    monkeypatch.setattr(tp, "_ToolPolicy", type("P", (), {"requires_approval": staticmethod(_requires_approval)}))
 
-    result = pipeline.execute("read_file", "agent-http",
-                              _registry={}, _executor=lambda *a, **k: {"success": True})
+    result = pipeline.execute("read_file", "agent-http", _registry={}, _executor=lambda *a, **k: {"success": True})
     result["_calls"] = calls
     return result
 
@@ -74,8 +72,7 @@ def _run(pipeline: ToolPipeline, mode: str, monkeypatch) -> dict:
 class TestModeMatrix:
     def test_mode_constants(self):
         assert HARNESS_MODE_DEFAULT == HARNESS_MODE_GOVERNED
-        assert set(HARNESS_MODES) == {HARNESS_MODE_GOVERNED, HARNESS_MODE_SEMI,
-                                      HARNESS_MODE_MINIMAL}
+        assert set(HARNESS_MODES) == {HARNESS_MODE_GOVERNED, HARNESS_MODE_SEMI, HARNESS_MODE_MINIMAL}
         assert HARNESS_MODE_STEPS[HARNESS_MODE_GOVERNED] == ()
         assert "approval" in HARNESS_MODE_STEPS[HARNESS_MODE_SEMI]
         assert {"approval", "rate", "pool"} <= set(HARNESS_MODE_STEPS[HARNESS_MODE_MINIMAL])
@@ -122,6 +119,7 @@ class TestBottomLine:
 
         monkeypatch.setattr(tp, "_get_gatechain", lambda: _Gate())
         monkeypatch.setattr(harness, "get_harness_mode", lambda: HARNESS_MODE_MINIMAL)
+
         # force minimal mode, constitution denies everything — bind the
         # instance attribute directly (bound at construction)
         class _Deny:
@@ -129,11 +127,9 @@ class TestBottomLine:
                 return {"allowed": False, "reason": "denied"}
 
         p.constitution = _Deny()
-        monkeypatch.setattr(tp, "get_tool_config",
-                            lambda k, d=None: True if k == "record_steps" else d)
+        monkeypatch.setattr(tp, "get_tool_config", lambda k, d=None: True if k == "record_steps" else d)
         _spec_obj = _spec()
-        r = p.execute("read_file", "agent-http", _registry={},
-                      _executor=lambda *a, **k: {"success": True})
+        r = p.execute("read_file", "agent-http", _registry={}, _executor=lambda *a, **k: {"success": True})
         assert not r["success"]
         assert "constitution blocked" in r["error"]
 
@@ -151,8 +147,7 @@ class TestBottomLine:
 
         monkeypatch.setattr(tp, "_get_gatechain", lambda: _Gate())
         monkeypatch.setattr(harness, "get_harness_mode", lambda: HARNESS_MODE_MINIMAL)
-        monkeypatch.setattr(tp, "get_tool_config",
-                            lambda k, d=None: True if k == "record_steps" else d)
+        monkeypatch.setattr(tp, "get_tool_config", lambda k, d=None: True if k == "record_steps" else d)
         recorded = []
 
         class _RC:
@@ -160,7 +155,6 @@ class TestBottomLine:
                 recorded.append(a[0])
 
         monkeypatch.setattr(tp, "_get_rc", lambda: _RC())
-        r = p.execute("read_file", "agent-http", _registry={},
-                      _executor=lambda *a, **k: {"success": True})
+        r = p.execute("read_file", "agent-http", _registry={}, _executor=lambda *a, **k: {"success": True})
         assert r.get("harness_mode") == HARNESS_MODE_MINIMAL
         assert "read_file" in recorded

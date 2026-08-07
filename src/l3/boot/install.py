@@ -40,6 +40,7 @@ def install() -> dict:
     # 2. Ensure archive DB (idempotent)
     try:
         from l3.tools._archive import init_archive
+
         arch = init_archive()
         results["archive_init"] = arch.get("success", False)
     except Exception as e:
@@ -49,13 +50,16 @@ def install() -> dict:
     try:
         if lifecycle._record.install_version == 0:
             from l3.tools._archive import _cmd_archive_store
+
             _cmd_archive_store(
                 fonds="SYSTEM",
                 series="lifecycle",
-                content=json.dumps({
-                    "event": "first_install",
-                    "timestamp": time.time(),
-                }),
+                content=json.dumps(
+                    {
+                        "event": "first_install",
+                        "timestamp": time.time(),
+                    }
+                ),
                 tags="system,lifecycle,first_install",
             )
             results["archive_seed"] = True
@@ -65,8 +69,10 @@ def install() -> dict:
     # 4. Seed card types if registry empty
     try:
         from l3.card.card_unified import list_card_types
+
         if not list_card_types():
             from l3.card.card_unified import register_card_type
+
             for name, defn in _CARD_TYPE_DEFAULTS.items():
                 register_card_type(name, defn)
             results["card_types_seeded"] = list(_CARD_TYPE_DEFAULTS.keys())
@@ -80,12 +86,15 @@ def install() -> dict:
 
     lifecycle.transition(LifecycleState.BOOTING)
 
-    logger.info("install complete: version=%d schema=%s",
-                lifecycle._record.install_version,
-                lifecycle._record.schema_version)
-    return {"success": True, "results": results,
-            "install_version": lifecycle._record.install_version,
-            "schema_version": lifecycle._record.schema_version}
+    logger.info(
+        "install complete: version=%d schema=%s", lifecycle._record.install_version, lifecycle._record.schema_version
+    )
+    return {
+        "success": True,
+        "results": results,
+        "install_version": lifecycle._record.install_version,
+        "schema_version": lifecycle._record.schema_version,
+    }
 
 
 _CARD_TYPE_DEFAULTS: dict = {

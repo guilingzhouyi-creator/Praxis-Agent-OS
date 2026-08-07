@@ -52,23 +52,23 @@ logger = logging.getLogger(__name__)
 # surfaces (API / L2 Shell) may mutate these globally or per scope
 # (cell / agent).  Control-plane keys (ci.control.*) are writable too but
 # require an explicit admin confirmation (see _is_control_key).
-CI_SETTING_SUFFIXES: frozenset[str] = frozenset({
-    "enabled",
-    "auto_trigger",
-    "llm_review",
-    "gates",
-    "escalate_reject",
-    "route_convention",
-    "reputation",
-    "lean_trace",
-    "todo_linkage",
-    "notify.enabled",
-})
+CI_SETTING_SUFFIXES: frozenset[str] = frozenset(
+    {
+        "enabled",
+        "auto_trigger",
+        "llm_review",
+        "gates",
+        "escalate_reject",
+        "route_convention",
+        "reputation",
+        "lean_trace",
+        "todo_linkage",
+        "notify.enabled",
+    }
+)
 
 # Back-compat alias: the full ci.review.* key set derived from suffixes.
-CI_SETTING_KEYS: frozenset[str] = frozenset(
-    f"ci.review.{s}" for s in CI_SETTING_SUFFIXES
-)
+CI_SETTING_KEYS: frozenset[str] = frozenset(f"ci.review.{s}" for s in CI_SETTING_SUFFIXES)
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -89,12 +89,11 @@ def _is_allowed_key(key: str) -> bool:
         return True
     if not key.startswith("ci.review."):
         return False
-    rest = key[len("ci.review."):]
+    rest = key[len("ci.review.") :]
     parts = rest.split(".")
     if len(parts) == 1:
         return parts[0] in CI_SETTING_SUFFIXES
-    if (len(parts) >= 3 and parts[0] in ("cell", "agent")
-            and ".".join(parts[2:]) in CI_SETTING_SUFFIXES):
+    if len(parts) >= 3 and parts[0] in ("cell", "agent") and ".".join(parts[2:]) in CI_SETTING_SUFFIXES:
         return bool(_ID_PATTERN.match(parts[1]))
     return False
 
@@ -118,8 +117,8 @@ class CardCiReport:
 
     card_id: str
     run_id: str
-    state: str                      # completed / failed / cancelled
-    verdict: str                    # PASS / NEEDS_CHANGES / REJECT / SKIPPED
+    state: str  # completed / failed / cancelled
+    verdict: str  # PASS / NEEDS_CHANGES / REJECT / SKIPPED
     agent_id: str = ""
     gates: list[dict] = field(default_factory=list)
     changed_files: list[str] = field(default_factory=list)
@@ -133,13 +132,19 @@ class CardCiReport:
     def to_dict(self) -> dict:
         """Serialize to a JSON-safe dict for persistence."""
         return {
-            "card_id": self.card_id, "run_id": self.run_id,
-            "state": self.state, "verdict": self.verdict,
-            "agent_id": self.agent_id, "gates": self.gates,
-            "changed_files": self.changed_files, "review": self.review,
-            "archive_ref": self.archive_ref, "error": self.error,
+            "card_id": self.card_id,
+            "run_id": self.run_id,
+            "state": self.state,
+            "verdict": self.verdict,
+            "agent_id": self.agent_id,
+            "gates": self.gates,
+            "changed_files": self.changed_files,
+            "review": self.review,
+            "archive_ref": self.archive_ref,
+            "error": self.error,
             "context": self.context,
-            "started_at": self.started_at, "completed_at": self.completed_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
         }
 
 
@@ -156,6 +161,7 @@ class CiReviewService(BaseService):
         if not persist_path:
             try:
                 from l1.kernel.paths import get_paths as _gp
+
                 persist_path = os.path.join(_gp().data_dir, CI_REVIEW_PERSIST_FILE)
             except Exception:
                 persist_path = CI_REVIEW_PERSIST_FILE
@@ -163,8 +169,7 @@ class CiReviewService(BaseService):
         # Bounded worker pool: CI_REVIEW_MAX_CONCURRENT daemon workers consume
         # the bounded queue — both concurrency and queued work are capped.
         for _ in range(CI_REVIEW_MAX_CONCURRENT):
-            threading.Thread(target=self._process, daemon=True,
-                             name="ci-review-worker").start()
+            threading.Thread(target=self._process, daemon=True, name="ci-review-worker").start()
 
     # ── BaseService lifecycle ──
 
@@ -188,12 +193,14 @@ class CiReviewService(BaseService):
             return {"success": True, "note": "already registered"}
         try:
             from l3.card.card_registry import get_registry
+
             get_registry().register_completion_listener(self._on_card_completed)
             self._registered = True
             return {"success": True}
         except Exception as e:
-            capture("ci_review: trigger registration failed",
-                    error_code="E_CI_REVIEW_TRIGGER", component="ci_review", exc=e)
+            capture(
+                "ci_review: trigger registration failed", error_code="E_CI_REVIEW_TRIGGER", component="ci_review", exc=e
+            )
             self.logger.warning("ci_review: trigger registration failed: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -201,6 +208,7 @@ class CiReviewService(BaseService):
         """Detach the completion listener."""
         try:
             from l3.card.card_registry import get_registry
+
             get_registry().unregister_completion_listener(self._on_card_completed)
         except Exception:
             pass
@@ -237,8 +245,12 @@ class CiReviewService(BaseService):
             self._queue.put_nowait((card_id, state, dict(result or {})))
             return True
         except queue.Full:
-            capture("ci_review: review queue full", error_code="E_CI_REVIEW_QUEUE_FULL",
-                    component="ci_review", task_id=card_id)
+            capture(
+                "ci_review: review queue full",
+                error_code="E_CI_REVIEW_QUEUE_FULL",
+                component="ci_review",
+                task_id=card_id,
+            )
             logger.warning("ci_review: queue full, dropping card %s", card_id)
             return False
 
@@ -249,14 +261,22 @@ class CiReviewService(BaseService):
             try:
                 self._do_review(card_id, state, result)
             except Exception as e:
-                capture("ci_review: review run failed", error_code="E_CI_REVIEW_RUN",
-                        component="ci_review", exc=e, task_id=card_id)
+                capture(
+                    "ci_review: review run failed",
+                    error_code="E_CI_REVIEW_RUN",
+                    component="ci_review",
+                    exc=e,
+                    task_id=card_id,
+                )
                 logger.warning("ci_review: review failed for card %s: %s", card_id, e)
 
     def _do_review(self, card_id: str, state: str, result: dict) -> None:
         """Collect changes, run gates, build and persist the report."""
         report = CardCiReport(
-            card_id=card_id, run_id="", state=state, verdict="SKIPPED",
+            card_id=card_id,
+            run_id="",
+            state=state,
+            verdict="SKIPPED",
             agent_id=str(result.get("agent_id") or result.get("agent") or ""),
         )
         report.changed_files = self._collect_changes(card_id, result)
@@ -303,13 +323,18 @@ class CiReviewService(BaseService):
             if agent_id and cell_id:
                 try:
                     from l4.sandbox import get_manager as _get_sb
+
                     sb = _get_sb().get_cell(cell_id)
                     if sb is not None:
                         files = [e.path for e in sb.get_entries(agent_id=agent_id)]
                 except Exception as e:
-                    capture("ci_review: sandbox lookup failed",
-                            error_code="E_CI_REVIEW_SANDBOX", component="ci_review",
-                            exc=e, task_id=card_id)
+                    capture(
+                        "ci_review: sandbox lookup failed",
+                        error_code="E_CI_REVIEW_SANDBOX",
+                        component="ci_review",
+                        exc=e,
+                        task_id=card_id,
+                    )
                     logger.debug("ci_review: sandbox lookup failed for card %s", card_id)
         seen: set[str] = set()
         ordered: list[str] = []
@@ -332,6 +357,7 @@ class CiReviewService(BaseService):
             return {}
         try:
             from l3.cell import get_cell as _get_cell
+
             cell = _get_cell(cell_id)
             if cell is None:
                 return {}
@@ -357,8 +383,9 @@ class CiReviewService(BaseService):
                 "summary": (best.summary or "")[:LOG_TRUNC_200],
             }
         except Exception as e:
-            capture("ci_review: autotest context failed",
-                    error_code="E_CI_REVIEW_AUTOTEST", component="ci_review", exc=e)
+            capture(
+                "ci_review: autotest context failed", error_code="E_CI_REVIEW_AUTOTEST", component="ci_review", exc=e
+            )
             logger.debug("ci_review: autotest context failed: %s", e)
             return {}
 
@@ -378,9 +405,11 @@ class CiReviewService(BaseService):
         exclude = spec.get("exclude") or []
         if not include and not exclude:
             return files
-        return [f for f in files
-                if not (exclude and _match_any(f, exclude))
-                and not (include and not _match_any(f, include))]
+        return [
+            f
+            for f in files
+            if not (exclude and _match_any(f, exclude)) and not (include and not _match_any(f, include))
+        ]
 
     def _build_steps(self, files: list[str]) -> list[dict]:
         """Build pipeline steps for the configured gates over changed files."""
@@ -391,32 +420,36 @@ class CiReviewService(BaseService):
         steps: list[dict] = []
         ruff_files = self._apply_matcher("ruff", py_files)
         if "ruff" in gates and ruff_files:
-            steps.append({
-                "action": "ruff",
-                "cmd": CI_REVIEW_RUFF_CMD.format(
-                    files=" ".join(shlex.quote(f) for f in ruff_files)),
-            })
+            steps.append(
+                {
+                    "action": "ruff",
+                    "cmd": CI_REVIEW_RUFF_CMD.format(files=" ".join(shlex.quote(f) for f in ruff_files)),
+                }
+            )
         mypy_files = self._apply_matcher("mypy", py_files)
         if "mypy" in gates and mypy_files:
-            steps.append({
-                "action": "mypy",
-                "cmd": CI_REVIEW_MYPY_CMD.format(
-                    files=" ".join(shlex.quote(f) for f in mypy_files)),
-            })
+            steps.append(
+                {
+                    "action": "mypy",
+                    "cmd": CI_REVIEW_MYPY_CMD.format(files=" ".join(shlex.quote(f) for f in mypy_files)),
+                }
+            )
         if "pytest" in gates:
             tests = self._related_tests(self._apply_matcher("pytest", py_files))
             if tests:
-                steps.append({
-                    "action": "pytest",
-                    "cmd": CI_REVIEW_PYTEST_CMD.format(
-                        files=" ".join(shlex.quote(t) for t in tests)),
-                })
+                steps.append(
+                    {
+                        "action": "pytest",
+                        "cmd": CI_REVIEW_PYTEST_CMD.format(files=" ".join(shlex.quote(t) for t in tests)),
+                    }
+                )
         return steps
 
     @staticmethod
     def _related_tests(py_files: list[str]) -> list[str]:
         """Find likely test modules for changed python files under tests/."""
         import glob as _glob
+
         found: list[str] = []
         for f in py_files:
             stem = os.path.basename(f)
@@ -429,18 +462,21 @@ class CiReviewService(BaseService):
 
     # ── Pipeline execution ──
 
-    def _run_and_wait(self, card_id: str, steps: list[dict],
-                      result: dict) -> tuple[str, list[dict], str]:
+    def _run_and_wait(self, card_id: str, steps: list[dict], result: dict) -> tuple[str, list[dict], str]:
         """Run the gate pipeline via CIService and poll until completion.
 
         Returns (run_id, gates, error) so the report can link back to the
         underlying PipelineRun.
         """
         from l4.ci import get_service as _get_ci
+
         agent_id = str(result.get("agent_id") or result.get("agent") or "")
         r = _get_ci().run_pipeline(
-            name=f"card-{card_id}", steps=steps, agent_id=agent_id,
-            timeout=CI_REVIEW_TIMEOUT, card_id=card_id,
+            name=f"card-{card_id}",
+            steps=steps,
+            agent_id=agent_id,
+            timeout=CI_REVIEW_TIMEOUT,
+            card_id=card_id,
         )
         run_id = r.get("run_id", "")
         deadline = time.time() + CI_REVIEW_TIMEOUT + 10
@@ -463,8 +499,7 @@ class CiReviewService(BaseService):
                 break
         else:
             error = f"timed out waiting for CI pipeline ({CI_REVIEW_TIMEOUT}s)"
-            gates = [{"action": s.get("action"), "exit_code": None, "status": "unknown"}
-                     for s in steps]
+            gates = [{"action": s.get("action"), "exit_code": None, "status": "unknown"} for s in steps]
         return run_id, gates, error
 
     @staticmethod
@@ -480,14 +515,19 @@ class CiReviewService(BaseService):
         """Read a runtime setting from SettingsCenter (best-effort)."""
         try:
             from l3.config.settings_center import get_center
+
             return get_center().get(key, default)
         except Exception as e:
-            capture("ci_review: settings read failed", error_code="E_CI_REVIEW_SETTING",
-                    component="ci_review", exc=e, context={"key": key})
+            capture(
+                "ci_review: settings read failed",
+                error_code="E_CI_REVIEW_SETTING",
+                component="ci_review",
+                exc=e,
+                context={"key": key},
+            )
             return default
 
-    def _effective(self, suffix: str, agent_id: str = "", cell_id: str = "",
-                   default: Any = None) -> Any:
+    def _effective(self, suffix: str, agent_id: str = "", cell_id: str = "", default: Any = None) -> Any:
         """Resolve a setting across scopes: agent > cell > global.
 
         Args:
@@ -521,8 +561,7 @@ class CiReviewService(BaseService):
             degrades to allowed so a broken settings path never silently
             locks the feature).
         """
-        default = (CI_CONTROL_API_WRITABLE if surface == "api"
-                   else CI_CONTROL_SHELL_WRITABLE)
+        default = CI_CONTROL_API_WRITABLE if surface == "api" else CI_CONTROL_SHELL_WRITABLE
         return bool(self._setting(f"ci.control.{surface}.writable", default))
 
     # ── LLM review (optional) ──
@@ -531,13 +570,12 @@ class CiReviewService(BaseService):
         """Run the optional LLM reviewer over the card result (non-blocking)."""
         try:
             from l3.agent.review import perform_review
+
             agent_id = str(result.get("agent_id") or result.get("agent") or "system")
             task = str(result.get("intent") or result.get("task") or "")
-            return perform_review(agent_id=agent_id, reviewer_id="ci",
-                                  task=task, result=result, llm_call=None)
+            return perform_review(agent_id=agent_id, reviewer_id="ci", task=task, result=result, llm_call=None)
         except Exception as e:
-            capture("ci_review: LLM review failed", error_code="E_CI_REVIEW_LLM",
-                    component="ci_review", exc=e)
+            capture("ci_review: LLM review failed", error_code="E_CI_REVIEW_LLM", component="ci_review", exc=e)
             logger.debug("ci_review: LLM review failed: %s", e)
             return {"verdict": "SKIPPED", "reason": str(e)}
 
@@ -551,15 +589,22 @@ class CiReviewService(BaseService):
         self._append_jsonl(payload)
         try:
             from l3.tools._archive import _cmd_archive_store
+
             ar = _cmd_archive_store(
-                fonds=CI_REVIEW_ARCHIVE_FONDS, series=CI_REVIEW_ARCHIVE_SERIES,
-                content=payload, tags=f"card:{report.card_id},verdict:{report.verdict}",
+                fonds=CI_REVIEW_ARCHIVE_FONDS,
+                series=CI_REVIEW_ARCHIVE_SERIES,
+                content=payload,
+                tags=f"card:{report.card_id},verdict:{report.verdict}",
             )
-            report.archive_ref = str(ar.get("ref_code") or ar.get("archive_ref") or "") \
-                if isinstance(ar, dict) else ""
+            report.archive_ref = str(ar.get("ref_code") or ar.get("archive_ref") or "") if isinstance(ar, dict) else ""
         except Exception as e:
-            capture("ci_review: R4 archive failed", error_code="E_CI_REVIEW_ARCHIVE",
-                    component="ci_review", exc=e, task_id=report.card_id)
+            capture(
+                "ci_review: R4 archive failed",
+                error_code="E_CI_REVIEW_ARCHIVE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+            )
             logger.debug("ci_review: R4 archive failed: %s", e)
         self._emit_events(report)
 
@@ -573,43 +618,54 @@ class CiReviewService(BaseService):
                 with open(self._persist_path, "a", encoding="utf-8") as f:
                     f.write(payload + "\n")
         except Exception as e:
-            capture("ci_review: JSONL persist failed", error_code="E_CI_REVIEW_PERSIST",
-                    component="ci_review", exc=e)
+            capture("ci_review: JSONL persist failed", error_code="E_CI_REVIEW_PERSIST", component="ci_review", exc=e)
             logger.warning("ci_review: JSONL persist failed: %s", e)
 
     def _emit_events(self, report: CardCiReport) -> None:
         """Broadcast the review result on EventBus and MonitorBus."""
         try:
             from l1.kernel import get_event_bus
+
             if report.verdict == "PASS":
                 evt = "ci.review.completed"
             elif report.verdict == "SKIPPED":
                 evt = "ci.review.skipped"
             else:
                 evt = "ci.review.failed"
-            get_event_bus().emit_event(evt, {
-                "card_id": report.card_id, "run_id": report.run_id,
-                "verdict": report.verdict, "gates": report.gates,
-                "elapsed": round(report.completed_at - report.started_at, 2),
-            }, source="ci_review")
+            get_event_bus().emit_event(
+                evt,
+                {
+                    "card_id": report.card_id,
+                    "run_id": report.run_id,
+                    "verdict": report.verdict,
+                    "gates": report.gates,
+                    "elapsed": round(report.completed_at - report.started_at, 2),
+                },
+                source="ci_review",
+            )
         except Exception as e:
-            capture("ci_review: event emit failed", error_code="E_CI_REVIEW_EVENT",
-                    component="ci_review", exc=e)
+            capture("ci_review: event emit failed", error_code="E_CI_REVIEW_EVENT", component="ci_review", exc=e)
             logger.debug("ci_review: event emit failed")
         try:
             from l3.bus.monitor_bus import MonitorEvent
             from l3.bus.monitor_bus import get_bus as _get_mbus
-            severity = "info" if report.verdict in ("PASS", "SKIPPED") else (
-                "warn" if report.verdict == "NEEDS_CHANGES" else "crit")
-            _get_mbus().emit(MonitorEvent(
-                type="ci.card.review", source="ci_review", severity=severity,
-                card_id=report.card_id,
-                data={"verdict": report.verdict,
-                      "gates": [g.get("action") for g in report.gates]},
-            ))
+
+            severity = (
+                "info"
+                if report.verdict in ("PASS", "SKIPPED")
+                else ("warn" if report.verdict == "NEEDS_CHANGES" else "crit")
+            )
+            _get_mbus().emit(
+                MonitorEvent(
+                    type="ci.card.review",
+                    source="ci_review",
+                    severity=severity,
+                    card_id=report.card_id,
+                    data={"verdict": report.verdict, "gates": [g.get("action") for g in report.gates]},
+                )
+            )
         except Exception as e:
-            capture("ci_review: monitor emit failed", error_code="E_CI_REVIEW_EVENT",
-                    component="ci_review", exc=e)
+            capture("ci_review: monitor emit failed", error_code="E_CI_REVIEW_EVENT", component="ci_review", exc=e)
             logger.debug("ci_review: monitor emit failed")
 
     # ── Downstream linkages (config-gated, non-blocking) ──
@@ -643,21 +699,29 @@ class CiReviewService(BaseService):
         """Escalate a REJECT verdict to the ApprovalGate (optional)."""
         try:
             from l3.card.approval_gate import get_gate
+
             get_gate().request(
-                "ci.review", report.agent_id or "system",
+                "ci.review",
+                report.agent_id or "system",
                 {"card_id": report.card_id, "run_id": report.run_id},
                 reason=f"CI review {report.verdict}: {report.error}",
             )
         except Exception as e:
-            capture("ci_review: approval linkage failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "approval"})
+            capture(
+                "ci_review: approval linkage failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "approval"},
+            )
             logger.debug("ci_review: approval linkage failed: %s", e)
 
     def _link_convention(self, report: CardCiReport) -> None:
         """Route a NEEDS_CHANGES verdict to cross-agent Convention (optional)."""
         try:
             from l3.card.card_registry import get_registry
+
             reg = get_registry()
             intent = domain = ""
             rec = reg.get(report.card_id)
@@ -667,38 +731,54 @@ class CiReviewService(BaseService):
                 domain = cols.get("domain", "")
             reg._route_to_convention(report.card_id, intent=intent, domain=domain)
         except Exception as e:
-            capture("ci_review: convention linkage failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "convention"})
+            capture(
+                "ci_review: convention linkage failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "convention"},
+            )
             logger.debug("ci_review: convention linkage failed: %s", e)
 
     def _link_reputation(self, report: CardCiReport) -> None:
         """Adjust the executing agent's reputation from an LLM review (optional)."""
         try:
             from l1.kernel.reputation import get_reputation
-            get_reputation().record_review(
-                report.agent_id or "system", approved=report.verdict == "PASS")
+
+            get_reputation().record_review(report.agent_id or "system", approved=report.verdict == "PASS")
         except Exception as e:
-            capture("ci_review: reputation linkage failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "reputation"})
+            capture(
+                "ci_review: reputation linkage failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "reputation"},
+            )
             logger.debug("ci_review: reputation linkage failed: %s", e)
 
     def _link_lean_trace(self, report: CardCiReport) -> None:
         """Archive a failure trace for R4Agent skill evolution (optional)."""
         try:
             from l3.tools._archive import _cmd_archive_store
-            entry = {"card_id": report.card_id, "verdict": report.verdict,
-                     "gates": report.gates, "error": report.error}
+
+            entry = {"card_id": report.card_id, "verdict": report.verdict, "gates": report.gates, "error": report.error}
             _cmd_archive_store(
-                fonds="skills", series="lean_trace",
+                fonds="skills",
+                series="lean_trace",
                 content=json.dumps(entry, ensure_ascii=False),
                 tags=f"ci_review,{report.agent_id or 'system'},failure",
             )
         except Exception as e:
-            capture("ci_review: lean trace failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "lean_trace"})
+            capture(
+                "ci_review: lean trace failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "lean_trace"},
+            )
             logger.debug("ci_review: lean trace failed: %s", e)
 
     def _link_notify(self, report: CardCiReport) -> None:
@@ -712,49 +792,67 @@ class CiReviewService(BaseService):
         """
         try:
             from l4.notify import get_service as _get_notify
+
             channel = str(self._setting("ci.review.notify.channel", "log"))
             message = f"CI review {report.verdict} for card {report.card_id}"
             webhook_url = str(self._setting("ci.review.notify.webhook_url", "") or "")
-            events = self._setting("ci.review.notify.webhook_events",
-                                   ["failed", "rejected"]) or []
+            events = self._setting("ci.review.notify.webhook_events", ["failed", "rejected"]) or []
             if webhook_url and self._verdict_event(report.verdict) in events:
-                payload = json.dumps({
-                    "card_id": report.card_id, "verdict": report.verdict,
-                    "gates": report.gates, "error": report.error,
-                    "agent_id": report.agent_id,
-                    "timestamp": report.completed_at or report.started_at,
-                }, ensure_ascii=False)
-                _get_notify().send(channel="webhook", to=webhook_url,
-                                   subject=message, body=payload)
+                payload = json.dumps(
+                    {
+                        "card_id": report.card_id,
+                        "verdict": report.verdict,
+                        "gates": report.gates,
+                        "error": report.error,
+                        "agent_id": report.agent_id,
+                        "timestamp": report.completed_at or report.started_at,
+                    },
+                    ensure_ascii=False,
+                )
+                _get_notify().send(channel="webhook", to=webhook_url, subject=message, body=payload)
                 return
-            _get_notify().send(channel=channel, to=report.agent_id or "system",
-                               subject="Praxis notification", body=message)
+            _get_notify().send(
+                channel=channel, to=report.agent_id or "system", subject="Praxis notification", body=message
+            )
         except Exception as e:
-            capture("ci_review: notify linkage failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "notify"})
+            capture(
+                "ci_review: notify linkage failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "notify"},
+            )
             logger.debug("ci_review: notify linkage failed: %s", e)
 
     @staticmethod
     def _verdict_event(verdict: str) -> str:
         """Map a verdict to a webhook event name."""
         return {
-            "PASS": "passed", "NEEDS_CHANGES": "failed",
-            "REJECT": "rejected", "SKIPPED": "skipped",
+            "PASS": "passed",
+            "NEEDS_CHANGES": "failed",
+            "REJECT": "rejected",
+            "SKIPPED": "skipped",
         }.get(verdict, "failed")
 
     def _link_todo(self, report: CardCiReport) -> None:
         """Record a fix-up task for a failing verdict (optional)."""
         try:
             from l3.services.todo_tracker import TodoTracker
+
             content = f"ci-review:{report.card_id} ({report.verdict})"
             tracker = TodoTracker()
             tracker.update(content, "add")
             tracker.update(content, "escalated")
         except Exception as e:
-            capture("ci_review: todo linkage failed", error_code="E_CI_REVIEW_LINKAGE",
-                    component="ci_review", exc=e, task_id=report.card_id,
-                    context={"linkage": "todo"})
+            capture(
+                "ci_review: todo linkage failed",
+                error_code="E_CI_REVIEW_LINKAGE",
+                component="ci_review",
+                exc=e,
+                task_id=report.card_id,
+                context={"linkage": "todo"},
+            )
             logger.debug("ci_review: todo linkage failed: %s", e)
 
     # ── Query & stats ──
@@ -770,14 +868,12 @@ class CiReviewService(BaseService):
         with self._lock:
             prev = self._reports.get(card_id)
         if prev is None:
-            return {"success": False,
-                    "error": f"no CI review history for card: {card_id}"}
+            return {"success": False, "error": f"no CI review history for card: {card_id}"}
         result = {"agent_id": prev.agent_id or "", "changes": list(prev.changed_files)}
         self._submit(card_id, prev.state or "completed", result)
         return {"success": True, "card_id": card_id, "queued": True}
 
-    def query(self, card_id: str = "", status: str = "",
-              limit: int = CI_DEFAULT_LIST_LIMIT) -> dict:
+    def query(self, card_id: str = "", status: str = "", limit: int = CI_DEFAULT_LIST_LIMIT) -> dict:
         """Query review reports (in-memory)."""
         with self._lock:
             reports = list(self._reports.values())
@@ -786,9 +882,7 @@ class CiReviewService(BaseService):
         if status:
             reports = [r for r in reports if r.verdict == status]
         reports.sort(key=lambda r: r.completed_at, reverse=True)
-        return {"success": True,
-                "reports": [r.to_dict() for r in reports[:limit]],
-                "count": min(len(reports), limit)}
+        return {"success": True, "reports": [r.to_dict() for r in reports[:limit]], "count": min(len(reports), limit)}
 
     def stats(self) -> dict:
         """Aggregate review stats by verdict."""

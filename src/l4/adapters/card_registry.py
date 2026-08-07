@@ -24,6 +24,7 @@ class CardRegistryAdapter(CardRegistryPort):
         """List registered card type definitions."""
         try:
             from l3.card.card_unified import list_card_types
+
             return list_card_types()
         except Exception as e:
             logger.warning("card_registry: list_types failed: %s", e)
@@ -33,6 +34,7 @@ class CardRegistryAdapter(CardRegistryPort):
         """Install a card definition. Returns True on success."""
         try:
             from l3.card_pool import get_pool
+
             pool = get_pool()
             pool._install_def(cdef, source=source or "peer:unknown")
             return True

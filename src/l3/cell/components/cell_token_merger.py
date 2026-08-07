@@ -48,6 +48,7 @@ class CellTokenMerger:
 
     def _emit(self) -> None:
         from l3.memory.context_pool import cell_total
+
         data = cell_total(self.cell_id)
         total = data.get("total_tokens", 0)
 
@@ -55,19 +56,28 @@ class CellTokenMerger:
         try:
             from l1.kernel import emit_signal
             from l1.kernel.params.agent import EVENT_TOKEN_USAGE
-            emit_signal(EVENT_TOKEN_USAGE, sender="cell_token_merger", target="central_collector",
-                        data={"cell_id": self.cell_id, "input_tokens": total,
-                              "agent_count": len(data.get("per_agent", {}))})
+
+            emit_signal(
+                EVENT_TOKEN_USAGE,
+                sender="cell_token_merger",
+                target="central_collector",
+                data={"cell_id": self.cell_id, "input_tokens": total, "agent_count": len(data.get("per_agent", {}))},
+            )
         except Exception:
             logger.debug("cell_token_merger: emit token usage signal failed")
 
         # → MonitorBus
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
-            get_bus().emit(MonitorEvent(
-                type="token.cell.usage", source="cell_token_merger",
-                severity="info", cell_id=self.cell_id,
-                data={"token_total": total, "per_agent": data.get("per_agent", {})},
-            ))
+
+            get_bus().emit(
+                MonitorEvent(
+                    type="token.cell.usage",
+                    source="cell_token_merger",
+                    severity="info",
+                    cell_id=self.cell_id,
+                    data={"token_total": total, "per_agent": data.get("per_agent", {})},
+                )
+            )
         except Exception:
             logger.debug("cell_token_merger: emit monitor bus event failed")

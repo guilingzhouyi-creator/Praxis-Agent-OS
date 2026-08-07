@@ -1,4 +1,5 @@
 """Kernel event bus — publish/subscribe with history and async dispatch."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class SignalType(Enum):
     """SignalType — enum of TASK_ASSIGN, TASK_CANCEL, REVIEW_RESULT, CONSTITUTION_UPDATE...."""
+
     # L3 → Agent
     TASK_ASSIGN = auto()
     TASK_CANCEL = auto()
@@ -38,13 +40,13 @@ class SignalType(Enum):
     SCOUT_DONE = auto()
     # System
     REVIEW_REQUESTED = auto()
-    TOKEN_USAGE = auto()       # Token usage event (Cell/Agent → CentralCollector)
+    TOKEN_USAGE = auto()  # Token usage event (Cell/Agent → CentralCollector)
     # File change events (Sandbox → Cell/Agent)
-    FILE_CHANGED = auto()      # A file was written to sandbox
+    FILE_CHANGED = auto()  # A file was written to sandbox
     # Card / approval flow events (Card layer → EventBus → SSE/WS push)
-    CARD_PENDING = auto()      # Card entered the pending queue
+    CARD_PENDING = auto()  # Card entered the pending queue
     APPROVAL_REQUIRED = auto()  # Card blocked by the approval gate
-    APPROVAL_RESPONDED = auto() # Approval response committed
+    APPROVAL_RESPONDED = auto()  # Approval response committed
     # NOTE: several members above (TASK_DONE, TASK_ACCEPT, TASK_ERROR,
     # AGENT_CRASH, REVIEW_RESULT, DISPUTE_RAISE, CROSS_REVIEW_REQ/RESP,
     # TERRITORY_QUERY) are reserved/tested API surface — referenced by
@@ -75,6 +77,7 @@ def register_signal_type(name: str) -> SignalType:
 @dataclass
 class Signal:
     """Signal — signal record (type, data, sender, target, timestamp)."""
+
     type: SignalType
     data: dict = field(default_factory=dict)
     sender: str = ""
@@ -83,8 +86,13 @@ class Signal:
 
     def to_dict(self) -> dict:
         """Serialize the signal to a plain dict."""
-        return {"type": self.type.name, "data": self.data, "sender": self.sender,
-                "target": self.target, "timestamp": self.timestamp}
+        return {
+            "type": self.type.name,
+            "data": self.data,
+            "sender": self.sender,
+            "target": self.target,
+            "timestamp": self.timestamp,
+        }
 
 
 class EventBus:
@@ -171,8 +179,7 @@ class EventBus:
 
     # ── String-based convenience API (for extensibility, cross-platform) ──
 
-    def emit_event(self, event_type: str, data: dict | None = None,
-                   source: str = "") -> int:
+    def emit_event(self, event_type: str, data: dict | None = None, source: str = "") -> int:
         """Emit an event by string type name.  Extensible — no enum needed."""
         st = _SIGNAL_TYPE_REGISTRY.get(event_type)
         if st is None:
@@ -193,11 +200,10 @@ class EventBus:
         if st:
             self.off(st, callback)
 
-    def history(self, signal_type: SignalType | None = None,
-                limit: int = EVENT_QUERY_LIMIT) -> list[dict]:
+    def history(self, signal_type: SignalType | None = None, limit: int = EVENT_QUERY_LIMIT) -> list[dict]:
         """Return recent emitted signals as dicts, optionally filtered by type."""
         with self._lock:
-            safe_slice = list(self._history)[-limit * 2:]
+            safe_slice = list(self._history)[-limit * 2 :]
         if signal_type:
             safe_slice = [s for s in safe_slice if s.type == signal_type]
         return [s.to_dict() for s in safe_slice[-limit:]]

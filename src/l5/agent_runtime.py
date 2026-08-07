@@ -44,8 +44,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Action:
     """Action — action record (type, target, params, acquired_locks)."""
-    type: str         # tool_call | read_file | write_file | scout | think
-    target: str       # file path or tool name or domain
+
+    type: str  # tool_call | read_file | write_file | scout | think
+    target: str  # file path or tool name or domain
     params: dict = field(default_factory=dict)
     acquired_locks: list[str] = field(default_factory=list)
 
@@ -120,6 +121,7 @@ class AgentRuntime:
         exec_result = {}
         try:
             from l3.tool_system.tool_pipeline import ToolPipeline
+
             pipeline = ToolPipeline()
             exec_result = pipeline.execute(
                 tool_name=action.target,
@@ -127,11 +129,13 @@ class AgentRuntime:
                 args=action.params,
             )
             result["ticks"].append({"phase": "pipeline", "steps": exec_result.get("steps", [])})
-            result["ticks"].append({
-                "phase": "execute",
-                "result": exec_result.get("result", exec_result),
-                "success": exec_result.get("success", False),
-            })
+            result["ticks"].append(
+                {
+                    "phase": "execute",
+                    "result": exec_result.get("result", exec_result),
+                    "success": exec_result.get("success", False),
+                }
+            )
         except Exception as e:
             exec_result = {"success": False, "error": str(e)}
             result["ticks"].append({"phase": "execute", "result": exec_result, "success": False})
@@ -140,8 +144,7 @@ class AgentRuntime:
 
         if not exec_result.get("success", True):
             self.limiter.release(self.agent_id, "workers")
-            return {"success": False, "error": exec_result.get("error", "execute failed"),
-                    "ticks": result["ticks"]}
+            return {"success": False, "error": exec_result.get("error", "execute failed"), "ticks": result["ticks"]}
 
         # ─── 4. Memory store (auto-store after inference) ───
         if action.type in (_ACTION_TOOL_CALL, _ACTION_THINK, _ACTION_DECISION):
@@ -149,7 +152,7 @@ class AgentRuntime:
                 agent_id=self.agent_id,
                 entry_type="tool_call" if action.type == _ACTION_TOOL_CALL else "observation",
                 content=f"{action.type} {action.target}: {action.params.get('summary', '')}",
-                tags=[action.type, action.target.split('/')[0] if '/' in action.target else action.target],
+                tags=[action.type, action.target.split("/")[0] if "/" in action.target else action.target],
                 ring=1,
             )
             result["ticks"].append({"phase": "memory_store", "ring": 1})

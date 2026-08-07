@@ -16,6 +16,7 @@ from l1.kernel.process import (
 
 # ── Fixtures ──
 
+
 @pytest.fixture
 def pt():
     """Fresh ProcessTable with short GC interval disabled."""
@@ -291,8 +292,9 @@ class TestGcReaper:
         pcb.last_active = time.time() - 600  # older than 300s threshold
         # Manually simulate one GC tick: check if zombie would be reaped
         now = time.time()
-        zombies = [(pid, p) for pid, p in pt._processes.items()
-                   if p.state == ProcessState.ZOMBIE and now - p.last_active > 300]
+        zombies = [
+            (pid, p) for pid, p in pt._processes.items() if p.state == ProcessState.ZOMBIE and now - p.last_active > 300
+        ]
         assert len(zombies) >= 1
         for zpid, _ in zombies:
             pt._processes.pop(zpid, None)

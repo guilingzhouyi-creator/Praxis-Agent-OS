@@ -1,4 +1,5 @@
 """Tool call ring buffer — records and queries tool execution history per ring."""
+
 import time as _time
 from collections import deque
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ from l1.kernel.params.kernel import PraxisRing, RequestPoolConfig
 @dataclass
 class ToolCallRecord:
     """ToolCallRecord — tool call record record (tool_name, agent_id, success, gate_result, fingerprint)."""
+
     tool_name: str
     agent_id: str
     success: bool
@@ -23,9 +25,10 @@ class ToolCallRecord:
 @dataclass
 class ToolRequest:
     """Tool request in the Ring 2.5 request pool."""
+
     tool_name: str
     agent_id: str
-    priority: int = 3           # 1-5, from intent card
+    priority: int = 3  # 1-5, from intent card
     agent_reputation: float = 0.9
     tool_danger: int = 0
     enqueued_at: float = field(default_factory=_time.time)

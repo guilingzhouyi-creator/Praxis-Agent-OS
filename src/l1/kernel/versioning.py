@@ -51,8 +51,12 @@ _REGISTRY: dict[str, dict] = {
     "transaction_area": {"version": TRANSACTION_AREA_VERSION, "migrations": _TRANSACTION_AREA_MIGRATIONS},
 }
 
+
 # Fill missing migration steps with no-op identity migrations
-def _noop(d): return d
+def _noop(d):
+    return d
+
+
 for _entry in _REGISTRY.values():
     for _v in range(1, _entry["version"]):
         _entry["migrations"].setdefault(_v, ("identity", _noop))
@@ -89,7 +93,7 @@ def check_and_migrate(data: dict, kind: str) -> dict:
         mig = migrations.get(v)
         if mig is None:
             logger.error("versioning: no migration path %s v%d -> v%d", kind, v, v + 1)
-            raise ValueError(f"no migration {kind} v{v} -> v{v+1}")
+            raise ValueError(f"no migration {kind} v{v} -> v{v + 1}")
         label, fn = mig
         logger.info("versioning: migrating %s v%d -> v%d (%s)", kind, v, v + 1, label)
         try:

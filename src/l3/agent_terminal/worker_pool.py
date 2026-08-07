@@ -73,6 +73,7 @@ class WorkerPoolMixin:
     def boot(self) -> dict:
         """Boot the agent terminal: constitution check → warm memory → start workers."""
         from l3.agent_terminal import TerminalStatus, run_cache_keepalive
+
         phases = []
         cc = self.constitution.is_allowed("boot", self.agent_id, target=self.role, territory=self.territory)
         phases.append({"phase": "constitution_check", **cc})
@@ -82,13 +83,21 @@ class WorkerPoolMixin:
             return self._boot_result
         try:
             from l3.memory.memory import get_memory
-            get_memory().remember(agent_id=self.agent_id, cell_id=self.cell_id, entry_type="boot",
-                content=f"boot: role={self.role} territory={self.territory}", tags=["boot"], ring=1)
+
+            get_memory().remember(
+                agent_id=self.agent_id,
+                cell_id=self.cell_id,
+                entry_type="boot",
+                content=f"boot: role={self.role} territory={self.territory}",
+                tags=["boot"],
+                ring=1,
+            )
             phases.append({"phase": "memory_warm", "success": True})
         except Exception as e:
             phases.append({"phase": "memory_warm", "success": False, "error": str(e)})
         try:
             from ..memory.context_pool import register as _register_cp
+
             _register_cp(agent_id=self.agent_id, cell_id=self.cell_id, max_tokens=SUBAGENT_MAX_TOKENS)
             phases.append({"phase": "context_pool_register", "success": True})
         except Exception as e:
@@ -97,17 +106,19 @@ class WorkerPoolMixin:
         # ── Full manual loading on first boot ──
         try:
             from l1.kernel.skill import get_skill_manager
+
             sm = get_skill_manager()
             all_s = sm.list_skills(limit=20)
             if all_s:
                 parts = ["=== Agent Manual (boot) ==="]
                 for s in all_s:
-                    n = getattr(s, 'name', '?')
-                    d = getattr(s, 'description', '')[:LOG_TRUNC_120]
-                    p = getattr(s, 'prompt', '')[:LOG_TRUNC_300]
+                    n = getattr(s, "name", "?")
+                    d = getattr(s, "description", "")[:LOG_TRUNC_120]
+                    p = getattr(s, "prompt", "")[:LOG_TRUNC_300]
                     parts.append(f"[{n}] {d}\n{p}")
-                self.context.store(key=f"manual:{self.agent_id}", value="\n\n".join(parts),
-                                   agent_id=self.agent_id, entry_type="manual")
+                self.context.store(
+                    key=f"manual:{self.agent_id}", value="\n\n".join(parts), agent_id=self.agent_id, entry_type="manual"
+                )
                 phases.append({"phase": "manual_loaded", "count": len(all_s)})
                 logger.info("agent %s: loaded %d skills", self.agent_id, len(all_s))
         except Exception as e:
@@ -116,6 +127,7 @@ class WorkerPoolMixin:
         # ── Persistence session — load snapshot / init hooks ──
         try:
             from l3.agent.agent_persist import SnapshotHook, load_snapshot
+
             self._snapshot_hook = SnapshotHook(self.agent_id)
             snapshot = load_snapshot(self.agent_id)
             if snapshot:
@@ -127,8 +139,12 @@ class WorkerPoolMixin:
             self._snapshot_hook = None
             phases.append({"phase": "persist_init", "error": str(e)})
 
-        emit_signal(EVENT_TASK_ASSIGN, sender=self.agent_id, target="cell",
-                     data={"event": "agent_boot", "role": self.role, "ring": self.ring})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender=self.agent_id,
+            target="cell",
+            data={"event": "agent_boot", "role": self.role, "ring": self.ring},
+        )
         self._running = True
         for i in range(self._max_workers):
             w = threading.Thread(target=self._worker, daemon=True, name=f"term-{self.agent_id}-w{i}")
@@ -137,14 +153,14 @@ class WorkerPoolMixin:
         self.status = TerminalStatus.IDLE
         self._boot_result = {"success": True, "phases": phases}
 
-        kt = threading.Thread(target=run_cache_keepalive, args=(self,), daemon=True,
-                              name=f"keepalive-{self.agent_id}")
+        kt = threading.Thread(target=run_cache_keepalive, args=(self,), daemon=True, name=f"keepalive-{self.agent_id}")
         kt.start()
         return self._boot_result
 
     def _worker(self) -> None:
         from l3.agent_terminal import CardResult, TerminalStatus
         from l3.scheduler.scheduler_time import get_time_scheduler as _get_ts
+
         while self._running:
             if self._paused:
                 time.sleep(POLL_INTERVAL_PAUSED)
@@ -155,11 +171,17 @@ class WorkerPoolMixin:
                 with self._lock:
                     stuck_id = self._current_card
                     if stuck_id:
-                        logger.warning("agent %s: card %s timed out (%.1fs), cancelling",
-                                       self.agent_id, stuck_id, self._card_timeout)
+                        logger.warning(
+                            "agent %s: card %s timed out (%.1fs), cancelling",
+                            self.agent_id,
+                            stuck_id,
+                            self._card_timeout,
+                        )
                         self._results[stuck_id] = CardResult(
-                            card_id=stuck_id, action="timeout",
-                            success=False, error=f"card timed out after {self._card_timeout}s",
+                            card_id=stuck_id,
+                            action="timeout",
+                            success=False,
+                            error=f"card timed out after {self._card_timeout}s",
                         )
                         ev = self._pending.pop(stuck_id, None)
                         if ev:
@@ -181,6 +203,7 @@ class WorkerPoolMixin:
                 self._current_card = card.card_id
                 self._loop_state = f"processing {card.action} on {card.target[:LOG_TRUNC_40]}"
             from l3.error_bus import error_boundary
+
             result = None  # error_boundary consumes exceptions; keep it defined
             with error_boundary("worker card failed", component="services", agent_id=self.agent_id):
                 result = self._process_card(card)
@@ -188,14 +211,19 @@ class WorkerPoolMixin:
                 result = CardResult(card_id=card.card_id, action=card.action, success=False, error="unknown")
             with self._lock:
                 from l1.kernel.params.agent import TERMINAL_STATE_DEFAULT
+
                 self._loop_state = TERMINAL_STATE_DEFAULT
                 self._current_card = ""
             result.elapsed = time.time() - card.timestamp
             try:
                 tick_r = _get_ts().tick(self.agent_id, result.elapsed)
                 if tick_r.get("status") in ("preempt", "timeout"):
-                    logger.warning("agent %s preempted: %.1fs used (quantum=%.1f)",
-                                   self.agent_id, tick_r.get("used", 0), tick_r.get("quantum", 0))
+                    logger.warning(
+                        "agent %s preempted: %.1fs used (quantum=%.1f)",
+                        self.agent_id,
+                        tick_r.get("used", 0),
+                        tick_r.get("quantum", 0),
+                    )
             except Exception as e:
                 logger.warning("services/agent_terminal: %s", e)
             with self._lock:
@@ -213,11 +241,11 @@ class WorkerPoolMixin:
                     self._cards_since_pressure_check = 0
                     try:
                         from ..memory.memory import get_memory
+
                         p = get_memory().pressure(self.agent_id)
                         if p.get("level") == "high":
                             get_memory().stub_compact(self.agent_id)
-                            logger.info("periodic compact for %s: pressure=%s",
-                                        self.agent_id, p.get("level"))
+                            logger.info("periodic compact for %s: pressure=%s", self.agent_id, p.get("level"))
                     except Exception:
                         logger.debug("agent_terminal: memory pressure check failed")
                 ev = self._pending.pop(card.card_id, None)

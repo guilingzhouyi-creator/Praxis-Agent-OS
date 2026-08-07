@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContextSource:
     """ContextSource — context source record (key, loader, render_baseline, render_update, render_removal)."""
+
     key: str
     loader: Callable[[], Any]
     render_baseline: Callable[[Any], str]
@@ -36,6 +37,7 @@ class ContextSource:
 @dataclass
 class MidConversationMessage:
     """MidConversationMessage — mid conversation message record (key, text, created_at)."""
+
     key: str
     text: str
     created_at: float = field(default_factory=time.time)
@@ -43,6 +45,7 @@ class MidConversationMessage:
 
 class ContextRegistry:
     """Registry of context sources with loaders and renderers."""
+
     def __init__(self):
         self._sources: dict[str, ContextSource] = {}
 
@@ -67,7 +70,12 @@ class ContextRegistry:
             try:
                 values[key] = src.loader()
             except Exception as e:
-                capture("l3a context: source loader failed", error_code="E_L3A_CONTEXT", component="l3a", context={"source_key": key})
+                capture(
+                    "l3a context: source loader failed",
+                    error_code="E_L3A_CONTEXT",
+                    component="l3a",
+                    context={"source_key": key},
+                )
                 logger.debug("l3a context: %s loader failed: %s", key, e)
         return values
 
@@ -84,8 +92,7 @@ class ContextRegistry:
                 parts.append(src.render_removal())
         return "\n\n".join(parts)
 
-    def diff(self, snapshot: dict[str, Any],
-             values: dict[str, Any]) -> list[MidConversationMessage]:
+    def diff(self, snapshot: dict[str, Any], values: dict[str, Any]) -> list[MidConversationMessage]:
         """Compare a snapshot with current values and return messages for changed sources."""
         changes = []
         for key, src in self._sources.items():
@@ -108,12 +115,10 @@ class ContextRegistry:
         return changes
 
 
-
-
 class ContextEpoch:
     """Epoch-scoped context snapshot with turn tracking."""
-    def __init__(self, eid: str, baseline: str, snapshot: dict,
-                 created_at: float, turn_count: int = 0):
+
+    def __init__(self, eid: str, baseline: str, snapshot: dict, created_at: float, turn_count: int = 0):
         self.id = eid
         self.baseline = baseline
         self.snapshot = snapshot
@@ -128,14 +133,13 @@ class ContextEpoch:
         baseline = registry.render_baseline(values)
         snap = {k: v for k, v in values.items() if v is not None}
         inst = cls(
-            eid=uuid.uuid4().hex[:_p.SID_LENGTH],
+            eid=uuid.uuid4().hex[: _p.SID_LENGTH],
             baseline=baseline,
             snapshot=snap,
             created_at=time.time(),
         )
         inst.persist()
-        logger.debug("l3a epoch: created %s (%d chars baseline)",
-                     inst.id, len(baseline))
+        logger.debug("l3a epoch: created %s (%d chars baseline)", inst.id, len(baseline))
         return inst
 
     @classmethod
@@ -143,11 +147,13 @@ class ContextEpoch:
         """Restore the persisted epoch snapshot, or None when unavailable."""
         try:
             from l3.agent.agent_persist import load_snapshot as _ls
+
             snap = _ls(_p.AGENT_ID)
             if snap and _p.EPOCH_SNAPSHOT_KEY in snap:
                 data = snap[_p.EPOCH_SNAPSHOT_KEY]
                 return cls(
-                    eid=data["id"], baseline=data["baseline"],
+                    eid=data["id"],
+                    baseline=data["baseline"],
                     snapshot=data["snapshot"],
                     created_at=data["created_at"],
                     turn_count=data.get("turn_count", 0),
@@ -161,12 +167,19 @@ class ContextEpoch:
         """Persist this epoch's snapshot through the agent persist layer."""
         try:
             from l3.agent.agent_persist import save_snapshot as _ss
-            _ss(_p.AGENT_ID, {_p.EPOCH_SNAPSHOT_KEY: {
-                "id": self.id, "baseline": self.baseline,
-                "snapshot": self.snapshot,
-                "created_at": self.created_at,
-                "turn_count": self.turn_count,
-            }})
+
+            _ss(
+                _p.AGENT_ID,
+                {
+                    _p.EPOCH_SNAPSHOT_KEY: {
+                        "id": self.id,
+                        "baseline": self.baseline,
+                        "snapshot": self.snapshot,
+                        "created_at": self.created_at,
+                        "turn_count": self.turn_count,
+                    }
+                },
+            )
             self._persisted = True
         except Exception:
             capture("l3a epoch: persist failed", error_code="E_L3A_CONTEXT", component="l3a")

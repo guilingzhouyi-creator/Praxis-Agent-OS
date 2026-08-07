@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 # ── Fallback implementations (no L4 dependency) ──────────────────────────────
 
+
 class _FallbackWorker(WorkerPort):
     """Minimal thread-per-task worker — fallback when l4.adapters unavailable."""
 
@@ -92,6 +93,7 @@ class _FallbackChannel(ChannelPort):
 
     def __init__(self) -> None:
         from collections import deque
+
         self._queue: deque = deque()
         self._closed = False
 
@@ -124,9 +126,11 @@ class _FallbackChannel(ChannelPort):
 
 # ── TransportConfig ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class TransportConfig:
     """Transport-layer configuration, injected at start()."""
+
     host: str = "0.0.0.0"
     port: int = PRAXIS_PORT_DEFAULT
     discovery_port: int = DISCOVERY_PORT_DEFAULT
@@ -140,6 +144,7 @@ class TransportConfig:
 
 # ── TcpAdapter (TransportPort implementation) ────────────────────────────────
 
+
 class TcpAdapter(TransportPort):
     """TCP-socket transport implementing ``TransportPort``.
 
@@ -150,14 +155,13 @@ class TcpAdapter(TransportPort):
 
     name = "tcp"
 
-    def __init__(self,
-                 worker_pool: WorkerPort | None = None,
-                 msg_channel: ChannelPort | None = None):
+    def __init__(self, worker_pool: WorkerPort | None = None, msg_channel: ChannelPort | None = None):
         if worker_pool:
             self._worker: WorkerPort = worker_pool
         else:
             try:
                 from l4.adapters.worker_thread import ThreadPoolWorker
+
                 self._worker = ThreadPoolWorker()
             except ImportError:
                 # Fallback: basic thread-per-task worker (no L4 dependency)
@@ -168,6 +172,7 @@ class TcpAdapter(TransportPort):
         else:
             try:
                 from l4.adapters.channel_ring import RingChannel
+
                 self._channel = RingChannel()
             except ImportError:
                 # Fallback: simple deque-based channel (no L4 dependency)
@@ -197,25 +202,23 @@ class TcpAdapter(TransportPort):
     def start(self, node_id: str, config: Any) -> PortResult:
         """Start the transport: UDP discovery threads plus a TCP listener. Returns a result dict."""
         self._node_id = node_id
-        self._config = config if isinstance(config, TransportConfig) \
+        self._config = (
+            config
+            if isinstance(config, TransportConfig)
             else TransportConfig(port=int(config) if isinstance(config, (int, str)) else PRAXIS_PORT_DEFAULT)
+        )
         self._running = True
         cfg = self._config
 
         # UDP discovery threads
-        threading.Thread(target=self._udp_listener, daemon=True,
-                         name="tcp-udp-listen").start()
-        threading.Thread(target=self._udp_announcer, daemon=True,
-                         name="tcp-udp-announce").start()
+        threading.Thread(target=self._udp_listener, daemon=True, name="tcp-udp-listen").start()
+        threading.Thread(target=self._udp_announcer, daemon=True, name="tcp-udp-announce").start()
 
         # TCP listener — connections submitted to worker pool
-        threading.Thread(target=self._tcp_listener, daemon=True,
-                         name="tcp-listen").start()
+        threading.Thread(target=self._tcp_listener, daemon=True, name="tcp-listen").start()
 
-        logger.info("TcpAdapter started: %s port=%d discovery=%d",
-                     node_id, cfg.port, cfg.discovery_port)
-        return PortResult.ok(node_id=node_id, port=cfg.port,
-                             transport=self.name)
+        logger.info("TcpAdapter started: %s port=%d discovery=%d", node_id, cfg.port, cfg.discovery_port)
+        return PortResult.ok(node_id=node_id, port=cfg.port, transport=self.name)
 
     def stop(self) -> PortResult:
         """Stop the transport: close sockets, channel, and worker. Returns a result dict."""
@@ -285,8 +288,7 @@ class TcpAdapter(TransportPort):
         try:
             sock.bind(("", config.discovery_port))
         except OSError:
-            logger.warning("TcpAdapter: discovery port %d in use",
-                           config.discovery_port)
+            logger.warning("TcpAdapter: discovery port %d in use", config.discovery_port)
             return
         with self._lock:
             self._sockets.append(sock)
@@ -308,10 +310,15 @@ class TcpAdapter(TransportPort):
                 with self._lock:
                     handler = self._handlers.get("_peer_announce")
                 if handler:
-                    handler({"peer_id": peer_id, "host": addr[0],
-                             "port": announcement.get("port", 0),
-                             "cells": announcement.get("cells", 0),
-                             "version": announcement.get("version", "")})
+                    handler(
+                        {
+                            "peer_id": peer_id,
+                            "host": addr[0],
+                            "port": announcement.get("port", 0),
+                            "cells": announcement.get("cells", 0),
+                            "version": announcement.get("version", ""),
+                        }
+                    )
         except Exception:
             logger.warning("discovery: failed to parse announcement from %s:%d", addr[0], addr[1])
 
@@ -346,34 +353,37 @@ class TcpAdapter(TransportPort):
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         except OSError:
-            logger.warning("TcpAdapter: SO_BROADCAST not allowed (permissions), "
-                           "peer discovery disabled")
+            logger.warning("TcpAdapter: SO_BROADCAST not allowed (permissions), peer discovery disabled")
             sock.close()
             return
         with self._lock:
             self._sockets.append(sock)
-        announcement = json.dumps({
-            "id": self._node_id, "port": config.port,
-            "cells": 0, "version": TRANSPORT_VERSION,
-        }).encode()
+        announcement = json.dumps(
+            {
+                "id": self._node_id,
+                "port": config.port,
+                "cells": 0,
+                "version": TRANSPORT_VERSION,
+            }
+        ).encode()
 
         broadcast_addr = "255.255.255.255"
         while self._running:
             try:
                 sock.sendto(announcement, (broadcast_addr, config.discovery_port))
             except PermissionError:
-                logger.warning("TcpAdapter: UDP broadcast on %s requires "
-                               "admin privileges — peer discovery disabled",
-                               broadcast_addr)
+                logger.warning(
+                    "TcpAdapter: UDP broadcast on %s requires admin privileges — peer discovery disabled",
+                    broadcast_addr,
+                )
                 break
             except OSError as e:
                 # EPERM, EACCES, or WSAEACCES on Windows; WSAEADDRNOTAVAIL
-                if getattr(e, 'winerror', None) in (10013, 10049, 10051):
-                    logger.debug("TcpAdapter: UDP broadcast blocked "
-                                 "(winerror=%s)", getattr(e, 'winerror', '?'))
+                if getattr(e, "winerror", None) in (10013, 10049, 10051):
+                    logger.debug("TcpAdapter: UDP broadcast blocked (winerror=%s)", getattr(e, "winerror", "?"))
                     break
                 # Invalid argument (e.g. non-/24 subnet with directed bcast)
-                if getattr(e, 'errno', None) in (22,):
+                if getattr(e, "errno", None) in (22,):
                     # Try subnet-directed broadcast if not already tried
                     if broadcast_addr == "255.255.255.255":
                         detected = self._detect_broadcast_addr()
@@ -426,13 +436,15 @@ class TcpAdapter(TransportPort):
             msg_type = msg.get("type", "message")
 
             # Buffer via ChannelPort for backpressure-aware consumption
-            self._channel.put(Message(
-                type=msg_type,
-                source=msg.get("from", addr[0]),
-                payload=msg.get("payload", msg),
-                timestamp=msg.get("timestamp", time.time()),
-                headers={"remote_addr": addr[0]},
-            ))
+            self._channel.put(
+                Message(
+                    type=msg_type,
+                    source=msg.get("from", addr[0]),
+                    payload=msg.get("payload", msg),
+                    timestamp=msg.get("timestamp", time.time()),
+                    headers={"remote_addr": addr[0]},
+                )
+            )
 
             # Legacy direct handler dispatch (kept during migration; remove after
             # ALL consumers switch to ChannelPort consumption. Both paths fire

@@ -10,12 +10,14 @@ class TestParseAgentRef:
 
     def test_cell_dot_agent(self):
         from l2.l2_shell.commands import _parse_agent_ref
+
         cell, agent = _parse_agent_ref("cell-1.agent-a")
         assert cell == "cell-1"
         assert agent == "agent-a"
 
     def test_bare_agent(self):
         from l2.l2_shell.commands import _parse_agent_ref
+
         cell, agent = _parse_agent_ref("agent-a")
         # Without cell prefix, it uses the current session cell
         assert isinstance(cell, str)
@@ -49,6 +51,7 @@ class TestCmdHelp:
 
     def test_help_returns_commands(self):
         from l2.l2_shell.commands import _cmd_help
+
         r = _cmd_help([])
         assert r.get("success")
         assert "output" in r  # help returns formatted text output, not structured commands
@@ -59,11 +62,13 @@ class TestCmdEcho:
 
     def test_echo_message(self):
         from l2.l2_shell import dispatch
+
         r = dispatch("/echo hello world")
         assert isinstance(r, dict)
 
     def test_echo_empty(self):
         from l2.l2_shell import dispatch
+
         r = dispatch("/echo")
         assert isinstance(r, dict)
 
@@ -73,11 +78,13 @@ class TestCmdLocale:
 
     def test_locale_list_available(self):
         from l2.l2_shell import dispatch
+
         r = dispatch("/lang")
         assert isinstance(r, dict)
 
     def test_locale_set_unknown(self):
         from l2.l2_shell import dispatch
+
         r = dispatch("/lang nonexistent_locale")
         assert isinstance(r, dict)
 
@@ -87,11 +94,13 @@ class TestCmdHistory:
 
     def test_history_returns_list(self):
         from l2.l2_shell.commands import _cmd_history
+
         r = _cmd_history([])
         assert r.get("success")
 
     def test_history_with_limit(self):
         from l2.l2_shell.commands import _cmd_history
+
         r = _cmd_history(["5"])
         assert r.get("success")
 
@@ -101,11 +110,13 @@ class TestCmdThink:
 
     def test_think_global(self):
         from l2.l2_shell.commands.extra import _cmd_think
+
         r = _cmd_think(["global"])
         assert isinstance(r, dict)
 
     def test_think_global_set(self):
         from l2.l2_shell.commands.extra import _cmd_think
+
         r = _cmd_think(["global", "reasoning_effort=high"])
         assert isinstance(r, dict)
 
@@ -115,12 +126,14 @@ class TestCmdVfs:
 
     def test_vfs_mounts(self):
         from l2.l2_shell.commands import _cmd_vfs
+
         r = _cmd_vfs(["--mounts"])
         assert isinstance(r, dict)
         assert isinstance(r.get("mounts"), list) if "mounts" in r else r.get("error")
 
     def test_vfs_root(self):
         from l2.l2_shell.commands import _cmd_vfs
+
         r = _cmd_vfs(["/"])
         assert isinstance(r, dict)
 
@@ -130,11 +143,13 @@ class TestCmdMode:
 
     def test_mode_default(self):
         from l2.l2_shell.commands import _cmd_mode
+
         r = _cmd_mode([])
         assert r.get("mode") in ("L3A", "DIRECT")
 
     def test_mode_switch(self):
         from l2.l2_shell.commands import _cmd_mode
+
         r = _cmd_mode(["tool", "read"])
         assert "current_tool_mode" in r or r.get("success")
 
@@ -144,6 +159,7 @@ class TestCmdCells:
 
     def test_cells_list(self):
         from l2.l2_shell.commands import _cmd_cells
+
         r = _cmd_cells(["list"])
         assert isinstance(r, dict)
         assert "cells" in r or r.get("success")
@@ -154,11 +170,13 @@ class TestCmdCron:
 
     def test_cron_list(self):
         from l2.l2_shell.commands import _cmd_cron
+
         r = _cmd_cron(["list"])
         assert isinstance(r, dict)
 
     def test_cron_remove_no_args(self):
         from l2.l2_shell.commands import _cmd_cron
+
         r = _cmd_cron(["remove"])
         assert not r.get("success")
 
@@ -168,6 +186,7 @@ class TestCmdTools:
 
     def test_tools_list(self):
         from l2.l2_shell.commands import _cmd_tools
+
         r = _cmd_tools([])
         assert isinstance(r, dict)
 
@@ -177,6 +196,7 @@ class TestCmdDebug:
 
     def test_debug_health(self):
         from l2.l2_shell import dispatch
+
         r = dispatch("/dev health")
         assert isinstance(r, dict)
 
@@ -186,6 +206,7 @@ class TestCmdStatus:
 
     def test_status_returns_dict(self):
         from l2.l2_shell.commands import _cmd_status
+
         r = _cmd_status([])
         assert isinstance(r, dict)
 
@@ -195,6 +216,7 @@ class TestCmdSkills:
 
     def test_skills_returns_dict(self):
         from l2.l2_shell.commands import _cmd_skills
+
         r = _cmd_skills([])
         assert isinstance(r, dict)
 
@@ -204,5 +226,6 @@ class TestCmdAgents:
 
     def test_agents_list(self):
         from l2.l2_shell.commands import _cmd_agents
+
         r = _cmd_agents([])
         assert isinstance(r, dict)

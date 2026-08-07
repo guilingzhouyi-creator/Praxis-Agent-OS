@@ -1,4 +1,5 @@
 """API Gateway 集成测试 — HTTP route→handler→middleware→response。"""
+
 from __future__ import annotations
 
 import os
@@ -11,13 +12,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestAPIGatewayInit:
     def test_create_instance(self):
         from l4.api.api_gateway import ApiGateway
+
         gw = ApiGateway()
         assert gw is not None
-        assert hasattr(gw, 'register_route')
-        assert hasattr(gw, '_routes')
+        assert hasattr(gw, "register_route")
+        assert hasattr(gw, "_routes")
 
     def test_default_host_port(self):
         from l1.kernel.params.api import API_GATEWAY_HOST, API_GATEWAY_PORT
+
         assert API_GATEWAY_HOST == "127.0.0.1"
         assert API_GATEWAY_PORT == 8080
 
@@ -25,6 +28,7 @@ class TestAPIGatewayInit:
 class TestAPIRouteRegistration:
     def test_register_route(self):
         from l4.api.api_gateway import ApiGateway
+
         gw = ApiGateway()
         gw._routes.clear()
         gw.register_route("GET", "/api/health", lambda b: {"status": "ok"}, "health check")
@@ -32,6 +36,7 @@ class TestAPIRouteRegistration:
 
     def test_register_multiple_routes(self):
         from l4.api.api_gateway import ApiGateway
+
         gw = ApiGateway()
         gw._routes.clear()
         routes = [("GET", "/api/a"), ("POST", "/api/b"), ("GET", "/api/c")]
@@ -43,11 +48,13 @@ class TestAPIRouteRegistration:
 class TestAPIRoutesInit:
     def test_api_routes_importable(self):
         from l4.api.api_routes import API_ROUTES
+
         assert isinstance(API_ROUTES, list)
         assert len(API_ROUTES) >= 100
 
     def test_route_structure(self):
         from l4.api.api_routes import API_ROUTES
+
         for route in API_ROUTES[:10]:
             assert len(route) >= 3
             assert route[0] in ("GET", "POST", "PUT", "DELETE", "PATCH")
@@ -57,12 +64,14 @@ class TestAPIRoutesInit:
 class TestMiddlewareIntegration:
     def test_middleware_chain_importable(self):
         from l4.api.api_middleware import MiddlewareChain
+
         chain = MiddlewareChain()
         assert chain is not None
 
     def test_cors_middleware(self):
         from l1.kernel.params.api import API_CORS_ORIGIN
         from l4.api.api_middleware import CORSMiddleware
+
         mw = CORSMiddleware()
         assert mw is not None
         assert API_CORS_ORIGIN == "*"
@@ -88,9 +97,11 @@ class TestHttpParamLink:
         gw = ApiGateway(port=0, auth_token="")
         gw._routes.clear()
         gw.register_route(
-            "GET", "/api/v2/card/{id}",
+            "GET",
+            "/api/v2/card/{id}",
             lambda b: {"ok": True, "_id": b.get("_id")},
-            "get card (param-confusion regression)")
+            "get card (param-confusion regression)",
+        )
         gw.start()
         try:
             deadline = time.time() + 5.0
@@ -107,7 +118,6 @@ class TestHttpParamLink:
                         raise
                     time.sleep(0.05)
             assert data.get("ok") is True
-            assert data.get("_id") == "abc", (
-                f"path id must win over query, got {data.get('_id')!r}")
+            assert data.get("_id") == "abc", f"path id must win over query, got {data.get('_id')!r}"
         finally:
             gw.stop()

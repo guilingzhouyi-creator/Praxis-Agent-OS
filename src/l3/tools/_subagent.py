@@ -17,13 +17,20 @@ logger = logging.getLogger(__name__)
 # Tool restriction profiles
 _PROFILES = {
     "review": {
-        "allowed_tools": {"read_file", "grep", "glob", "list_dir", "file_stat",
-                          "file_search", "list_skills", "use_skill"},
+        "allowed_tools": {
+            "read_file",
+            "grep",
+            "glob",
+            "list_dir",
+            "file_stat",
+            "file_search",
+            "list_skills",
+            "use_skill",
+        },
         "read_only": True,
     },
     "deploy": {
-        "allowed_tools": {"read_file", "write_file", "file_stat", "bash",
-                          "git", "list_dir"},
+        "allowed_tools": {"read_file", "write_file", "file_stat", "bash", "git", "list_dir"},
         "read_only": False,
     },
     "scout": {
@@ -62,8 +69,7 @@ def subagent_tool(args: dict, agent_id: str) -> dict:
     return _run_sync(mode, task, agent_id, timeout, profile, extra_tools)
 
 
-def _run_sync(mode: str, task: str, agent_id: str,
-              timeout: float, profile: dict, extra_tools: list[str]) -> dict:
+def _run_sync(mode: str, task: str, agent_id: str, timeout: float, profile: dict, extra_tools: list[str]) -> dict:
     """Run a synchronous SubAgent with restricted tools."""
     try:
         import time as _time
@@ -74,10 +80,12 @@ def _run_sync(mode: str, task: str, agent_id: str,
         # Build middleware chain for confinement
         mw_chain = MiddlewareChain()
         if profile["read_only"]:
-            mw_chain.add(ConfineMiddleware(
-                allowed_roots=None,  # no path restriction
-                read_only=True,
-            ))
+            mw_chain.add(
+                ConfineMiddleware(
+                    allowed_roots=None,  # no path restriction
+                    read_only=True,
+                )
+            )
 
         agent = SubAgent(caller_id=agent_id)
         t0 = _time.time()
@@ -126,6 +134,7 @@ def _run_scout(task: str, agent_id: str, timeout: float) -> dict:
         # Wait for result with timeout
         t0 = __import__("time").time()
         import threading
+
         event = threading.Event()
         result_container = []
 

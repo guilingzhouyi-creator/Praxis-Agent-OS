@@ -49,8 +49,7 @@ def get_dispatcher() -> SubAgentDispatcher:
 # ══════════════════════════════════════════════════════════════════════
 
 
-def handle_subagent_dispatch(body: dict | None = None,
-                              cell=None) -> dict:
+def handle_subagent_dispatch(body: dict | None = None, cell=None) -> dict:
     """POST /api/subagent/dispatch — Dispatch subagent"""
     b = body or {}
     spec_name = b.get("spec", "")

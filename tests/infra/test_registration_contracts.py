@@ -67,9 +67,7 @@ class TestToolsYamlContract:
                     broken.append(f"{name} ({handler_path}): not callable")
             except (ImportError, AttributeError) as e:
                 broken.append(f"{name} ({handler_path}): {e}")
-        assert not broken, (
-            "Broken tool handlers (tool would be skipped at boot):\n" + "\n".join(broken)
-        )
+        assert not broken, "Broken tool handlers (tool would be skipped at boot):\n" + "\n".join(broken)
 
     def test_tool_catalog_non_trivial(self):
         """Sanity guard — a truncated tools.yaml must fail loudly."""
@@ -96,13 +94,11 @@ class TestCommandsYamlContract:
         data = _load_yaml("config/commands.yaml")
         load_command_defs()
         missing = [
-            k for k, v in data.items()
-            if isinstance(v, dict) and any(f in v for f in _COMMAND_FEATURES)
-            and get_command(k) is None
+            k
+            for k, v in data.items()
+            if isinstance(v, dict) and any(f in v for f in _COMMAND_FEATURES) and get_command(k) is None
         ]
-        assert not missing, (
-            "commands.yaml keys unknown to registry:\n" + "\n".join(missing)
-        )
+        assert not missing, "commands.yaml keys unknown to registry:\n" + "\n".join(missing)
 
     def test_command_catalog_non_trivial(self):
         """Sanity guard — a truncated commands.yaml must fail loudly."""

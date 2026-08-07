@@ -13,6 +13,7 @@ from __future__ import annotations
 def handle_commands_list(body: dict | None = None) -> dict:
     """GET /api/v1/commands — list all registered commands with metadata."""
     from l1.kernel.commands import get_registry
+
     reg = get_registry()
     category = (body or {}).get("category", "") if body else ""
     return {
@@ -40,18 +41,23 @@ def handle_commands_register(body: dict | None = None) -> dict:
         return {"success": False, "error": "name and help required"}
 
     from l1.kernel.commands import get_registry
+
     reg = get_registry()
 
     # Build a simple passthrough handler
     def _handler(args: list[str]) -> dict:
         return {"success": True, "output": f"{name}: executed with {args}"}
 
-    return reg.register_user(name, _handler, {
-        "help": help_text,
-        "category": b.get("category", "custom"),
-        "aliases": b.get("aliases", []),
-        "args": b.get("args", []),
-    })
+    return reg.register_user(
+        name,
+        _handler,
+        {
+            "help": help_text,
+            "category": b.get("category", "custom"),
+            "aliases": b.get("aliases", []),
+            "args": b.get("args", []),
+        },
+    )
 
 
 def handle_commands_remove(name: str = "") -> dict:
@@ -59,6 +65,7 @@ def handle_commands_remove(name: str = "") -> dict:
     if not name:
         return {"success": False, "error": "name required"}
     from l1.kernel.commands import get_registry
+
     return get_registry().unregister(name)
 
 
@@ -68,6 +75,7 @@ def handle_commands_update(name: str = "", body: dict | None = None) -> dict:
         return {"success": False, "error": "name required"}
     b = body or {}
     from l1.kernel.commands import get_registry
+
     reg = get_registry()
 
     if reg.is_system(name):
@@ -83,9 +91,13 @@ def handle_commands_update(name: str = "", body: dict | None = None) -> dict:
         return {"success": False, "error": f"no handler for: {name}"}
 
     reg.unregister(name)
-    return reg.register_user(name, handler, {
-        "help": b.get("help", existing.help),
-        "category": b.get("category", existing.category),
-        "aliases": b.get("aliases", existing.aliases),
-        "args": b.get("args", existing.args),
-    })
+    return reg.register_user(
+        name,
+        handler,
+        {
+            "help": b.get("help", existing.help),
+            "category": b.get("category", existing.category),
+            "aliases": b.get("aliases", existing.aliases),
+            "args": b.get("args", existing.args),
+        },
+    )

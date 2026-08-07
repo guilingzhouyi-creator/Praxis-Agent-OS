@@ -1,4 +1,5 @@
 """Boot sequence tests — constitution loading, service init, boot step registry."""
+
 from __future__ import annotations
 
 import os
@@ -10,21 +11,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestBoot:
     def test_boot_status_before_boot(self):
         from l3.boot.boot import boot_status
+
         r = boot_status()
         assert not r.get("success")
 
     def test_boot_summary_before_boot(self):
         from l3.boot.boot import boot_summary
+
         s = boot_summary()
         assert "not booted" in s
 
     def test_load_constitution(self):
         from l3.boot.boot import _load_constitution
+
         r = _load_constitution()
         assert r.get("success")
 
     def test_load_config(self):
         from l3.boot.boot import _load_config
+
         r = _load_config()
         assert r.get("success")
 
@@ -46,16 +51,17 @@ class TestBoot:
             "sys.exit(0 if r.get('success') and isinstance(svc, list) "
             "and len(svc) >= 1 else 1)"
         )
-        rc = subprocess.run([sys.executable, "-c", code], cwd=str(repo),
-                            capture_output=True, timeout=120)
+        rc = subprocess.run([sys.executable, "-c", code], cwd=str(repo), capture_output=True, timeout=120)
         assert rc.returncode == 0, f"init_services subprocess failed: {rc.stderr.decode(errors='replace')[:500]}"
 
     def test_boot_steps_list(self):
         from l3.boot.boot import _BOOT_STEPS
+
         assert isinstance(_BOOT_STEPS, list)
 
     def test_boot_result_structure(self):
         from l3.boot.boot import _BOOT_RESULT
+
         # Before boot, result is None
         assert _BOOT_RESULT is None
 
@@ -66,6 +72,7 @@ class TestBootExecWithTimeout:
     def _get_fn(self):
         """Lazy import to avoid boot side-effects at module level."""
         from l3.boot.boot_registry import _get_executor, exec_step_with_timeout
+
         return exec_step_with_timeout, _get_executor
 
     def test_exec_normal(self):
@@ -95,6 +102,7 @@ class TestBootExecWithTimeout:
 
         def _raise():
             raise ValueError("test error")
+
         r = exec_ft(_raise, timeout=5.0)
         assert not r.get("success")
         assert "test error" in r.get("error", "")
@@ -105,8 +113,9 @@ class TestBootExecWithTimeout:
 
         def _slow():
             import time
+
             time.sleep(1.0)  # longer than timeout; keep short so the leaked
-                             # background thread does not block process exit
+            # background thread does not block process exit
             return {"success": True}
 
         r = exec_ft(_slow, timeout=0.1)

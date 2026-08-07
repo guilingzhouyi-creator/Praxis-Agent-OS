@@ -68,14 +68,12 @@ class AnswerSession:
         self._current_phase = phase_start
         for phase in range(phase_start, 6):
             phase_name = _PHASE_NAMES[phase]
-            logger.info("answer_session %s: phase %d/%d (%s)",
-                        self.session_id, phase, 5, phase_name)
+            logger.info("answer_session %s: phase %d/%d (%s)", self.session_id, phase, 5, phase_name)
             try:
                 result = self._execute_phase(phase)
                 self._phase_results[phase] = result
             except Exception as e:
-                logger.error("answer_session %s phase %d failed: %s",
-                             self.session_id, phase, e)
+                logger.error("answer_session %s phase %d failed: %s", self.session_id, phase, e)
                 return {"success": False, "error": str(e), "phase": phase}
 
         return {"success": True, "phases": self._phase_results}
@@ -111,12 +109,15 @@ class AnswerSession:
             r = self.repo.store_answer(answer)
             results.append(r)
             completed.append(agent_id)
-            self.repo.save_checkpoint(AnswerCheckpoint(
-                session_id=self.session_id,
-                phase=1, phase_name="answer",
-                completed_agents=list(completed),
-                pending_agents=[a for a in self._agent_ids if a not in completed],
-            ))
+            self.repo.save_checkpoint(
+                AnswerCheckpoint(
+                    session_id=self.session_id,
+                    phase=1,
+                    phase_name="answer",
+                    completed_agents=list(completed),
+                    pending_agents=[a for a in self._agent_ids if a not in completed],
+                )
+            )
         return {"success": True, "answers": len(results)}
 
     def _phase_cross_examine(self) -> dict:
@@ -138,12 +139,15 @@ class AnswerSession:
                     r = self.repo.store_answer(exam)
                     results.append(r)
             completed.append(examiner)
-            self.repo.save_checkpoint(AnswerCheckpoint(
-                session_id=self.session_id,
-                phase=2, phase_name="cross_examine",
-                completed_agents=list(completed),
-                pending_agents=[a for a in self._agent_ids if a not in completed],
-            ))
+            self.repo.save_checkpoint(
+                AnswerCheckpoint(
+                    session_id=self.session_id,
+                    phase=2,
+                    phase_name="cross_examine",
+                    completed_agents=list(completed),
+                    pending_agents=[a for a in self._agent_ids if a not in completed],
+                )
+            )
         return {"success": True, "examinations": len(results)}
 
     def _phase_supplement(self) -> dict:
@@ -159,13 +163,16 @@ class AnswerSession:
                 r = self.repo.store_answer(supp)
                 results.append(r)
             completed.append(agent_id)
-            self.repo.save_checkpoint(AnswerCheckpoint(
-                session_id=self.session_id,
-                phase=3, phase_name="supplement",
-                completed_agents=list(completed),
-                pending_agents=[a for a in self._agent_ids if a not in completed],
-                supplement_count=len(results),
-            ))
+            self.repo.save_checkpoint(
+                AnswerCheckpoint(
+                    session_id=self.session_id,
+                    phase=3,
+                    phase_name="supplement",
+                    completed_agents=list(completed),
+                    pending_agents=[a for a in self._agent_ids if a not in completed],
+                    supplement_count=len(results),
+                )
+            )
         return {"success": True, "supplements": len(results)}
 
     def _phase_converge(self) -> dict:
@@ -184,12 +191,15 @@ class AnswerSession:
             },
         )
         r = self.repo.store_answer(composite_answer)
-        self.repo.save_checkpoint(AnswerCheckpoint(
-            session_id=self.session_id,
-            phase=4, phase_name="converge",
-            status="completed",
-            completed_agents=list(self._agent_ids),
-        ))
+        self.repo.save_checkpoint(
+            AnswerCheckpoint(
+                session_id=self.session_id,
+                phase=4,
+                phase_name="converge",
+                status="completed",
+                completed_agents=list(self._agent_ids),
+            )
+        )
         return {"success": True, **r}
 
     def _phase_report(self) -> dict:
@@ -198,20 +208,26 @@ class AnswerSession:
         supplements = [a for a in all_answers if a.answer_type == "supplement"]
         # Notify IssueOrchestrator via Cell bus
         try:
-            self.cell._cell_bus.emit("discussion.cell_complete", {
-                "session_id": self.session_id,
-                "cell_id": self.cell_id,
-                "answer_count": len(all_answers),
-                "supplement_count": len(supplements),
-            })
+            self.cell._cell_bus.emit(
+                "discussion.cell_complete",
+                {
+                    "session_id": self.session_id,
+                    "cell_id": self.cell_id,
+                    "answer_count": len(all_answers),
+                    "supplement_count": len(supplements),
+                },
+            )
         except Exception as e:
             logger.warning("answer_session: report emit failed: %s", e)
-        self.repo.save_checkpoint(AnswerCheckpoint(
-            session_id=self.session_id,
-            phase=5, phase_name="report",
-            status="completed",
-            completed_agents=list(self._agent_ids),
-        ))
+        self.repo.save_checkpoint(
+            AnswerCheckpoint(
+                session_id=self.session_id,
+                phase=5,
+                phase_name="report",
+                status="completed",
+                completed_agents=list(self._agent_ids),
+            )
+        )
         return {"success": True, "answers": len(all_answers)}
 
     # ── Agent interaction helpers ─────────────────────────────
@@ -226,10 +242,7 @@ class AnswerSession:
     def _agent_answer(self, agent_id: str) -> CellAnswer:
         """Ask agent to answer all issues via AgentLoop."""
         issues = getattr(self.issue_card, "items", [])
-        items_text = "\n".join(
-            f"{i.id}: {i.question} (domain: {i.domain})"
-            for i in issues
-        )
+        items_text = "\n".join(f"{i.id}: {i.question} (domain: {i.domain})" for i in issues)
         prompt = (
             f"Answer the following issues for your territory.\n\n"
             f"Cell: {self.cell_id}\n"
@@ -241,17 +254,18 @@ class AnswerSession:
         )
         result = self._run_agent_loop(agent_id, prompt)
         return CellAnswer(
-            cell_id=self.cell_id, session_id=self.session_id,
-            agent_id=agent_id, phase=1, answer_type="answer",
+            cell_id=self.cell_id,
+            session_id=self.session_id,
+            agent_id=agent_id,
+            phase=1,
+            answer_type="answer",
             content=result,
         )
 
     def _agent_examine(self, examiner: str, target: str) -> CellAnswer | None:
         """Ask examiner to question target's answers."""
         target_answers = self.repo.get_answers(phase=1)
-        target_content = [
-            a.content for a in target_answers if a.agent_id == target
-        ]
+        target_content = [a.content for a in target_answers if a.agent_id == target]
         if not target_content:
             return None
         prompt = (
@@ -262,8 +276,11 @@ class AnswerSession:
         )
         result = self._run_agent_loop(examiner, prompt)
         return CellAnswer(
-            cell_id=self.cell_id, session_id=self.session_id,
-            agent_id=examiner, phase=2, answer_type="examination",
+            cell_id=self.cell_id,
+            session_id=self.session_id,
+            agent_id=examiner,
+            phase=2,
+            answer_type="examination",
             content=result,
         )
 
@@ -283,8 +300,11 @@ class AnswerSession:
         if not content or len(content.strip()) < 20:
             return None
         return CellAnswer(
-            cell_id=self.cell_id, session_id=self.session_id,
-            agent_id=agent_id, phase=3, answer_type="supplement",
+            cell_id=self.cell_id,
+            session_id=self.session_id,
+            agent_id=agent_id,
+            phase=3,
+            answer_type="supplement",
             content=result,
         )
 

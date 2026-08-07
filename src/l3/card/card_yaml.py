@@ -1,4 +1,5 @@
 """YAML card loader — reads snake_card.yaml into a structured CardUnified."""
+
 from __future__ import annotations
 
 from .card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMode
@@ -7,6 +8,7 @@ from .card_unified import CardPhase, CardSummary, CardTask, CardUnified, PhaseMo
 def load_card(path: str) -> dict:
     """Load a card definition from YAML file. Returns {"success": bool, "card": CardUnified}."""
     import yaml
+
     try:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -32,12 +34,14 @@ def load_card(path: str) -> dict:
 
         tasks: list[CardTask] = []
         for sd in pd.get("steps", []):
-            tasks.append(CardTask(
-                action=sd.get("action", "think"),
-                target=sd.get("target", ""),
-                params=sd.get("params", {}),
-                agent=sd.get("agent", ""),
-            ))
+            tasks.append(
+                CardTask(
+                    action=sd.get("action", "think"),
+                    target=sd.get("target", ""),
+                    params=sd.get("params", {}),
+                    agent=sd.get("agent", ""),
+                )
+            )
 
         phases.append(CardPhase(name=pd.get("name", ""), mode=pm, tasks=tasks))
 

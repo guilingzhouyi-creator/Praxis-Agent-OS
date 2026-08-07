@@ -1,4 +1,5 @@
 """Tests for CellMonitor — Cell event ring buffer and status tracking."""
+
 from __future__ import annotations
 
 import os
@@ -9,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 def test_register_cell():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     r = cm.register_cell("cell-1", ["src"], {"agent-a": "reader"})
     assert r.get("success")
@@ -18,6 +20,7 @@ def test_register_cell():
 
 def test_get_cell():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-2", ["docs"], {"agent-b": "writer"})
     cell = cm.get_cell("cell-2")
@@ -27,6 +30,7 @@ def test_get_cell():
 
 def test_get_events():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-3", ["test"])
     events = cm.get_events(limit=10)
@@ -36,6 +40,7 @@ def test_get_events():
 
 def test_report_agent():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-4", ["app"])
     cm.report_agent("cell-4", "agent-x", role="reader", status="IDLE")
@@ -46,6 +51,7 @@ def test_report_agent():
 
 def test_report_crash():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-5", ["data"])
     cm.report_agent_crash("cell-5", "agent-y", "OOM")
@@ -55,6 +61,7 @@ def test_report_crash():
 
 def test_report_card_result():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-6", ["web"])
     cm.report_card_result("cell-6", "agent-z", "card-001", success=True)
@@ -66,6 +73,7 @@ def test_report_card_result():
 
 def test_stats():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     s = cm.stats()
     assert "cells" in s
@@ -74,6 +82,7 @@ def test_stats():
 
 def test_unregister():
     from l3.cell.components.cell_monitor import CellMonitor
+
     cm = CellMonitor()
     cm.register_cell("cell-7", ["tmp"])
     cm.unregister_cell("cell-7")
@@ -83,6 +92,7 @@ def test_unregister():
 
 def test_get_module():
     from l3.cell.components.cell_monitor import get_cell_monitor, reset_cell_monitor
+
     reset_cell_monitor()
     m1 = get_cell_monitor()
     m2 = get_cell_monitor()

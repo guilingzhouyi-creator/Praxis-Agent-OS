@@ -33,11 +33,13 @@ logger = logging.getLogger(__name__)
 
 # ── Lifecycle ──
 
+
 class CardLifecycle(Enum):
     """CardLifecycle — enum of card lifecycle variants."""
+
     DRAFT = "draft"
     QUEUED = "queued"
-    HOLD = "hold"           # held for approval / awaiting human decision
+    HOLD = "hold"  # held for approval / awaiting human decision
     DISPATCHED = "dispatched"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -47,10 +49,12 @@ class CardLifecycle(Enum):
 
 # ── Phase execution mode ──
 
+
 class PhaseMode(Enum):
     """PhaseMode — enum of phase mode variants."""
-    SINGLE = "single"       # one agent handles all tasks
-    MULTI = "multi"         # tasks distributed to multiple agents
+
+    SINGLE = "single"  # one agent handles all tasks
+    MULTI = "multi"  # tasks distributed to multiple agents
 
 
 # ── Card type definition (config-driven, YAML-extensible) ──
@@ -92,10 +96,7 @@ def get_card_type(name: str) -> dict:
 def list_card_types() -> list[dict]:
     """List all registered card types (metadata dicts)."""
     with _registry_lock:
-        return [
-            {"name": k, **v}
-            for k, v in _card_type_registry.items()
-        ]
+        return [{"name": k, **v} for k, v in _card_type_registry.items()]
 
 
 def load_card_types(cfg: dict) -> None:
@@ -108,9 +109,11 @@ def load_card_types(cfg: dict) -> None:
 
 # ── Summary: multi-column expandable metadata ──
 
+
 @dataclass
 class CardSummary:
     """CardSummary — card summary record (title, description, columns)."""
+
     title: str = ""
     description: str = ""
     columns: dict[str, str] = field(default_factory=dict)
@@ -131,14 +134,16 @@ class CardSummary:
 
 # ── Task ──
 
+
 @dataclass
 class CardTask:
     """CardTask — card task record (action, target, params, agent, state)."""
+
     action: str = ""
     target: str = ""
     params: dict = field(default_factory=dict)
-    agent: str = ""          # resolved agent_id; "" = auto-assign
-    state: str = "pending"   # pending | running | done | failed | skipped
+    agent: str = ""  # resolved agent_id; "" = auto-assign
+    state: str = "pending"  # pending | running | done | failed | skipped
     result: dict = field(default_factory=dict)
     error: str = ""
 
@@ -155,16 +160,18 @@ class CardTask:
 
 # ── Phase ──
 
+
 @dataclass
 class CardPhase:
     """CardPhase — card phase record (name, mode, agents, tasks, review_prompt)."""
+
     name: str = ""
     mode: PhaseMode = PhaseMode.SINGLE
     agents: list[str] = field(default_factory=list)  # assigned agents; empty=auto
     tasks: list[CardTask] = field(default_factory=list)
-    review_prompt: str = ""   # configurable, from YAML or API
-    strategy: str = ""        # named model_spec strategy pack for this phase (opusplan-style)
-    state: str = "pending"    # pending | running | done | failed
+    review_prompt: str = ""  # configurable, from YAML or API
+    strategy: str = ""  # named model_spec strategy pack for this phase (opusplan-style)
+    state: str = "pending"  # pending | running | done | failed
 
     def to_dict(self) -> dict:
         """Serialize the phase to a dict with its tasks."""
@@ -181,13 +188,15 @@ class CardPhase:
 
 # ── Timestamps (hidden, auto-managed) ──
 
+
 @dataclass
 class CardTimestamps:
     """CardTimestamps — card timestamps record (created_at, submitted_at, dispatched_at, completed_at)."""
-    created_at: float = field(default_factory=time.time)      # L3A creates card
-    submitted_at: float = 0.0    # registered in queue
-    dispatched_at: float = 0.0   # sent to Cell
-    completed_at: float = 0.0    # all phases done
+
+    created_at: float = field(default_factory=time.time)  # L3A creates card
+    submitted_at: float = 0.0  # registered in queue
+    dispatched_at: float = 0.0  # sent to Cell
+    completed_at: float = 0.0  # all phases done
 
     def to_dict(self) -> dict:
         """Serialize the timestamps to a dict."""
@@ -201,6 +210,7 @@ class CardTimestamps:
 
 # ── Modification record (hidden, versioned) ──
 
+
 @dataclass
 class CardExecution:
     """One executor's wall-time contribution to a card.
@@ -209,9 +219,10 @@ class CardExecution:
       cell-level:  executor == "<cell>" (whole Cell.execute_card elapsed)
       agent-level: executor == agent_id (one Peer Agent step, from ExecutionPlan)
     """
+
     executor: str = ""
     cell_id: str = ""
-    phase: str = ""          # phase/step label
+    phase: str = ""  # phase/step label
     started_at: float = 0.0
     finished_at: float = 0.0
     elapsed: float = 0.0
@@ -229,12 +240,14 @@ class CardExecution:
             "success": self.success,
         }
 
+
 @dataclass
 class CardModification:
     """CardModification — card modification record (version, timestamp, field, old_value, new_value)."""
+
     version: int = 0
     timestamp: float = 0.0
-    field: str = ""            # "summary.title", "phases[0].tasks", "priority", etc.
+    field: str = ""  # "summary.title", "phases[0].tasks", "priority", etc.
     old_value: Any = None
     new_value: Any = None
 
@@ -251,12 +264,14 @@ class CardModification:
 
 # ── Unified Card ──
 
+
 @dataclass
 class CardUnified:
     """CardUnified — card unified record (id, nature, priority, state, summary)."""
+
     id: str = field(default_factory=lambda: f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}")
-    nature: str = "execution"           # card type name from registry
-    priority: int = 5                   # 1-10, 1=highest
+    nature: str = "execution"  # card type name from registry
+    priority: int = 5  # 1-10, 1=highest
     state: CardLifecycle = CardLifecycle.DRAFT
     summary: CardSummary = field(default_factory=CardSummary)
     phases: list[CardPhase] = field(default_factory=list)
@@ -280,19 +295,21 @@ class CardUnified:
     _gate_scope: str = ""
     """GateChain enforcement scope — NOT exposed to LLM context. Passed to GateChain."""
     _completion_summary: str = ""
-    _changes: list[dict] = field(default_factory=list)   # actual file/system changes
+    _changes: list[dict] = field(default_factory=list)  # actual file/system changes
     _depends_on: list[str] = field(default_factory=list)  # dependency card IDs
 
     # ── Modification tracking ──
 
     def _track_mod(self, field: str, old: Any, new: Any) -> None:
-        self.modifications.append(CardModification(
-            version=len(self.modifications) + 1,
-            timestamp=time.time(),
-            field=field,
-            old_value=old,
-            new_value=new,
-        ))
+        self.modifications.append(
+            CardModification(
+                version=len(self.modifications) + 1,
+                timestamp=time.time(),
+                field=field,
+                old_value=old,
+                new_value=new,
+            )
+        )
 
     def set_nature(self, nature: str) -> None:
         """Change the card nature and record the modification."""
@@ -377,18 +394,22 @@ class CardUnified:
         for phase in self.phases:
             old_steps = []
             for task in phase.tasks:
-                old_steps.append(OldStep(
-                    action=task.action,
-                    target=task.target,
-                    params=dict(task.params),
-                    agent=task.agent,
-                ))
+                old_steps.append(
+                    OldStep(
+                        action=task.action,
+                        target=task.target,
+                        params=dict(task.params),
+                        agent=task.agent,
+                    )
+                )
             old_mode_phase = phase_mode_map.get(phase.mode, OldPhaseMode.SEQUENTIAL)
-            old_phases.append(OldPhase(
-                name=phase.name,
-                steps=old_steps,
-                mode=old_mode_phase,
-            ))
+            old_phases.append(
+                OldPhase(
+                    name=phase.name,
+                    steps=old_steps,
+                    mode=old_mode_phase,
+                )
+            )
 
         domain = self.summary.columns.get("domain", self.nature)
         cell_id = self.summary.columns.get("cell_id", "")
@@ -405,13 +426,18 @@ class CardUnified:
 
     # ── Phase management ──
 
-    def add_phase(self, name: str, mode: PhaseMode = PhaseMode.SINGLE,
-                  agents: list[str] | None = None,
-                  review_prompt: str = "",
-                  strategy: str = "") -> CardPhase:
+    def add_phase(
+        self,
+        name: str,
+        mode: PhaseMode = PhaseMode.SINGLE,
+        agents: list[str] | None = None,
+        review_prompt: str = "",
+        strategy: str = "",
+    ) -> CardPhase:
         """Append a new phase to the card and return it."""
         phase = CardPhase(
-            name=name, mode=mode,
+            name=name,
+            mode=mode,
             agents=agents or [],
             review_prompt=review_prompt,
             strategy=strategy,
@@ -420,19 +446,18 @@ class CardUnified:
         self._track_mod("phases.add", None, name)
         return phase
 
-    def add_task(self, phase_name: str, action: str, target: str = "",
-                 params: dict | None = None, agent: str = "") -> CardTask | None:
+    def add_task(
+        self, phase_name: str, action: str, target: str = "", params: dict | None = None, agent: str = ""
+    ) -> CardTask | None:
         """Append a task to the named phase, or return None if the phase is absent."""
         for phase in self.phases:
             if phase.name == phase_name:
-                task = CardTask(action=action, target=target,
-                                params=params or {}, agent=agent)
+                task = CardTask(action=action, target=target, params=params or {}, agent=agent)
                 phase.tasks.append(task)
                 return task
         return None
 
-    def resolve_agents(self, agent_map: dict[str, str],
-                       default_agent: str = "") -> None:
+    def resolve_agents(self, agent_map: dict[str, str], default_agent: str = "") -> None:
         """Resolve role → agent_id for all phases and tasks.
 
         Single mode: all tasks go to the first available agent.
@@ -506,18 +531,28 @@ class CardUnified:
                 "description": self.summary.description,
                 "columns": dict(self.summary.columns),
             },
-            "phases": [{
-                "name": p.name, "mode": p.mode.value,
-                "agents": list(p.agents), "state": p.state,
-                "review_prompt": p.review_prompt,
-                "strategy": p.strategy,
-                "tasks": [{
-                    "action": t.action, "target": t.target,
-                    "params": dict(t.params),
-                    "agent": t.agent, "state": t.state,
-                    "error": t.error,
-                } for t in p.tasks],
-            } for p in self.phases],
+            "phases": [
+                {
+                    "name": p.name,
+                    "mode": p.mode.value,
+                    "agents": list(p.agents),
+                    "state": p.state,
+                    "review_prompt": p.review_prompt,
+                    "strategy": p.strategy,
+                    "tasks": [
+                        {
+                            "action": t.action,
+                            "target": t.target,
+                            "params": dict(t.params),
+                            "agent": t.agent,
+                            "state": t.state,
+                            "error": t.error,
+                        }
+                        for t in p.tasks
+                    ],
+                }
+                for p in self.phases
+            ],
             "error": self.error,
             "timestamps": {
                 "created_at": self.timestamps.created_at,
@@ -526,15 +561,26 @@ class CardUnified:
                 "completed_at": self.timestamps.completed_at,
             },
             "depends_on": list(self._depends_on),
-            "modifications": [{
-                "version": m.version, "timestamp": m.timestamp,
-                "field": m.field,
-            } for m in self.modifications],
-            "executions": [{
-                "executor": e.executor, "cell_id": e.cell_id, "phase": e.phase,
-                "started_at": e.started_at, "finished_at": e.finished_at,
-                "elapsed": e.elapsed, "success": e.success,
-            } for e in self.executions],
+            "modifications": [
+                {
+                    "version": m.version,
+                    "timestamp": m.timestamp,
+                    "field": m.field,
+                }
+                for m in self.modifications
+            ],
+            "executions": [
+                {
+                    "executor": e.executor,
+                    "cell_id": e.cell_id,
+                    "phase": e.phase,
+                    "started_at": e.started_at,
+                    "finished_at": e.finished_at,
+                    "elapsed": e.elapsed,
+                    "success": e.success,
+                }
+                for e in self.executions
+            ],
             "_completion_summary": self._completion_summary,
             "_changes": list(self._changes)[-50:],
         }
@@ -565,14 +611,16 @@ class CardUnified:
                 strategy=pd.get("strategy", ""),
             )
             for td in pd.get("tasks", []):
-                phase.tasks.append(CardTask(
-                    action=td.get("action", ""),
-                    target=td.get("target", ""),
-                    params=dict(td.get("params", {})),
-                    agent=td.get("agent", ""),
-                    state=td.get("state", "pending"),
-                    error=td.get("error", ""),
-                ))
+                phase.tasks.append(
+                    CardTask(
+                        action=td.get("action", ""),
+                        target=td.get("target", ""),
+                        params=dict(td.get("params", {})),
+                        agent=td.get("agent", ""),
+                        state=td.get("state", "pending"),
+                        error=td.get("error", ""),
+                    )
+                )
             card.phases.append(phase)
         ts = data.get("timestamps", {})
         card.timestamps = CardTimestamps(
@@ -583,21 +631,25 @@ class CardUnified:
         )
         card._depends_on = list(data.get("depends_on", []))
         for md in data.get("modifications", []):
-            card.modifications.append(CardModification(
-                version=md.get("version", 0),
-                timestamp=md.get("timestamp", 0.0),
-                field=md.get("field", ""),
-            ))
+            card.modifications.append(
+                CardModification(
+                    version=md.get("version", 0),
+                    timestamp=md.get("timestamp", 0.0),
+                    field=md.get("field", ""),
+                )
+            )
         for ed in data.get("executions", []):
-            card.executions.append(CardExecution(
-                executor=ed.get("executor", ""),
-                cell_id=ed.get("cell_id", ""),
-                phase=ed.get("phase", ""),
-                started_at=ed.get("started_at", 0.0),
-                finished_at=ed.get("finished_at", 0.0),
-                elapsed=ed.get("elapsed", 0.0),
-                success=ed.get("success", False),
-            ))
+            card.executions.append(
+                CardExecution(
+                    executor=ed.get("executor", ""),
+                    cell_id=ed.get("cell_id", ""),
+                    phase=ed.get("phase", ""),
+                    started_at=ed.get("started_at", 0.0),
+                    finished_at=ed.get("finished_at", 0.0),
+                    elapsed=ed.get("elapsed", 0.0),
+                    success=ed.get("success", False),
+                )
+            )
         card._completion_summary = data.get("_completion_summary", "")
         card._changes = list(data.get("_changes", []))
         return card
@@ -605,46 +657,59 @@ class CardUnified:
 
 # ── Built-in card type registration ──
 
+
 def _register_builtins() -> None:
-    register_card_type("execution", {
-        "display": "Execution Card",
-        "has_review": True,
-        "phases": ["plan", "implement", "review"],
-        "default_prompts": {
-            "review": "Verify all changes implement the intent correctly.",
+    register_card_type(
+        "execution",
+        {
+            "display": "Execution Card",
+            "has_review": True,
+            "phases": ["plan", "implement", "review"],
+            "default_prompts": {
+                "review": "Verify all changes implement the intent correctly.",
+            },
+            "metadata_schema": {
+                "domain": {"type": "string", "default": "."},
+                "risk": {"type": "choice", "options": ["low", "medium", "high"]},
+            },
         },
-        "metadata_schema": {
-            "domain": {"type": "string", "default": "."},
-            "risk": {"type": "choice", "options": ["low", "medium", "high"]},
+    )
+    register_card_type(
+        "issue",
+        {
+            "display": "Issue Card",
+            "has_review": False,
+            "phases": ["discuss", "converge"],
+            "default_prompts": {},
+            "metadata_schema": {
+                "domain": {"type": "string", "default": "."},
+            },
         },
-    })
-    register_card_type("issue", {
-        "display": "Issue Card",
-        "has_review": False,
-        "phases": ["discuss", "converge"],
-        "default_prompts": {},
-        "metadata_schema": {
-            "domain": {"type": "string", "default": "."},
+    )
+    register_card_type(
+        "review",
+        {
+            "display": "Review Card",
+            "has_review": True,
+            "phases": ["review"],
+            "default_prompts": {
+                "review": "Review the code for correctness, security, and style.",
+            },
+            "metadata_schema": {},
         },
-    })
-    register_card_type("review", {
-        "display": "Review Card",
-        "has_review": True,
-        "phases": ["review"],
-        "default_prompts": {
-            "review": "Review the code for correctness, security, and style.",
+    )
+    register_card_type(
+        "inspection",
+        {
+            "display": "Inspection Card",
+            "has_review": False,
+            "phases": ["inspect"],
+            "default_prompts": {},
+            "metadata_schema": {
+                "target": {"type": "string"},
+            },
         },
-        "metadata_schema": {},
-    })
-    register_card_type("inspection", {
-        "display": "Inspection Card",
-        "has_review": False,
-        "phases": ["inspect"],
-        "default_prompts": {},
-        "metadata_schema": {
-            "target": {"type": "string"},
-        },
-    })
+    )
 
 
 _register_builtins()

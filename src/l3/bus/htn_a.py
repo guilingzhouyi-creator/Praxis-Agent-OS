@@ -100,13 +100,23 @@ def _decompose_pipeline_dev(root: Task) -> list[Task]:
             domain=root.domain,
             agent_id="cell-1",
             sub_tasks=[
-                Task(id=f"{tid}-design-req", name="Analyze requirements",
-                     task_type=TaskType.PRIMITIVE, tool="read_file",
-                     domain=root.domain, agent_id="cell-1"),
-                Task(id=f"{tid}-design-doc", name="Write design doc",
-                     task_type=TaskType.PRIMITIVE, tool="write_file",
-                     domain=root.domain, agent_id="cell-1",
-                     depends_on=[f"{tid}-design-req"]),
+                Task(
+                    id=f"{tid}-design-req",
+                    name="Analyze requirements",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="read_file",
+                    domain=root.domain,
+                    agent_id="cell-1",
+                ),
+                Task(
+                    id=f"{tid}-design-doc",
+                    name="Write design doc",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="write_file",
+                    domain=root.domain,
+                    agent_id="cell-1",
+                    depends_on=[f"{tid}-design-req"],
+                ),
             ],
         ),
         Task(
@@ -117,13 +127,23 @@ def _decompose_pipeline_dev(root: Task) -> list[Task]:
             agent_id="cell-2",
             depends_on=[f"{tid}-design"],
             sub_tasks=[
-                Task(id=f"{tid}-impl-code", name="Write code",
-                     task_type=TaskType.PRIMITIVE, tool="create_file",
-                     domain=root.domain, agent_id="cell-2"),
-                Task(id=f"{tid}-impl-test", name="Write tests",
-                     task_type=TaskType.PRIMITIVE, tool="create_file",
-                     domain=root.domain, agent_id="cell-2",
-                     depends_on=[f"{tid}-impl-code"]),
+                Task(
+                    id=f"{tid}-impl-code",
+                    name="Write code",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="create_file",
+                    domain=root.domain,
+                    agent_id="cell-2",
+                ),
+                Task(
+                    id=f"{tid}-impl-test",
+                    name="Write tests",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="create_file",
+                    domain=root.domain,
+                    agent_id="cell-2",
+                    depends_on=[f"{tid}-impl-code"],
+                ),
             ],
         ),
         Task(
@@ -134,13 +154,23 @@ def _decompose_pipeline_dev(root: Task) -> list[Task]:
             agent_id="cell-3",
             depends_on=[f"{tid}-impl"],
             sub_tasks=[
-                Task(id=f"{tid}-verify-build", name="Build",
-                     task_type=TaskType.PRIMITIVE, tool="build_project",
-                     domain=root.domain, agent_id="cell-3"),
-                Task(id=f"{tid}-verify-test", name="Test",
-                     task_type=TaskType.PRIMITIVE, tool="test_project",
-                     domain=root.domain, agent_id="cell-3",
-                     depends_on=[f"{tid}-verify-build"]),
+                Task(
+                    id=f"{tid}-verify-build",
+                    name="Build",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="build_project",
+                    domain=root.domain,
+                    agent_id="cell-3",
+                ),
+                Task(
+                    id=f"{tid}-verify-test",
+                    name="Test",
+                    task_type=TaskType.PRIMITIVE,
+                    tool="test_project",
+                    domain=root.domain,
+                    agent_id="cell-3",
+                    depends_on=[f"{tid}-verify-build"],
+                ),
             ],
         ),
     ]
@@ -225,7 +255,4 @@ def get_shards(root: Task) -> list[dict]:
     for pt in primitives:
         cid = pt.agent_id or DEFAULT_CELL_ID
         shards.setdefault(cid, []).append(pt)
-    return [
-        {"cell_id": cid, "tasks": tasks}
-        for cid, tasks in shards.items()
-    ]
+    return [{"cell_id": cid, "tasks": tasks} for cid, tasks in shards.items()]

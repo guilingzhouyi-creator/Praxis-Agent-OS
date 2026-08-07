@@ -15,6 +15,7 @@ class TestRingBufferBasic:
     def _fresh_buffer(self):
         """每个测试使用独立临时目录，避免互相污染。"""
         from l3.resource_buffer.ring import RingBuffer
+
         with tempfile.TemporaryDirectory() as tmpdir:
             self._root = tmpdir
             self.buf = RingBuffer(root=self._root)
@@ -160,6 +161,7 @@ class TestRingBufferConcurrency:
         import threading
 
         from l3.resource_buffer.ring import RingBuffer
+
         with tempfile.TemporaryDirectory() as tmpdir:
             buf = RingBuffer(root=tmpdir)
             p = os.path.join(tmpdir, "concurrent.txt")
@@ -194,9 +196,11 @@ class TestRingBufferManager:
     @pytest.fixture(autouse=True)
     def _fresh_manager(self):
         from l3.resource_buffer.manager import ResourceBufferManager
+
         self.mgr = ResourceBufferManager()
         # 重置根目录到临时目录
         import tempfile
+
         self._tmpdir = tempfile.mkdtemp()
         self.mgr._ring = __import__("l3.resource_buffer.ring", fromlist=["RingBuffer"]).RingBuffer(root=self._tmpdir)
         yield
@@ -241,6 +245,7 @@ class TestRingBufferManager:
     def test_manager_singleton(self):
         """get_manager() 返回单例。"""
         from l3.resource_buffer.manager import get_manager, reset_manager
+
         reset_manager()
         m1 = get_manager()
         m2 = get_manager()
@@ -249,6 +254,7 @@ class TestRingBufferManager:
     def test_manager_reset_singleton(self):
         """Reset should return a fresh singleton instance."""
         from l3.resource_buffer.manager import get_manager, reset_manager
+
         m1 = get_manager()
         reset_manager()
         m2 = get_manager()

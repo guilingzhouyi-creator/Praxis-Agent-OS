@@ -29,10 +29,8 @@ def _make_engine(tmp_obj) -> MessageGateEngine:
     return MessageGateEngine(persist_path=path)
 
 
-def _ev(type_: str = "network.peer.loss", severity: str = "crit",
-        agent_id: str = "") -> MonitorEvent:
-    return MonitorEvent(type=type_, source="t", severity=severity,
-                        agent_id=agent_id)
+def _ev(type_: str = "network.peer.loss", severity: str = "crit", agent_id: str = "") -> MonitorEvent:
+    return MonitorEvent(type=type_, source="t", severity=severity, agent_id=agent_id)
 
 
 class TestRuleMatching:
@@ -44,21 +42,27 @@ class TestRuleMatching:
 
     def test_type_glob_match(self):
         rule = MessageGateRule(
-            id="r1", pattern={"type": "network.*"}, action="block",
+            id="r1",
+            pattern={"type": "network.*"},
+            action="block",
         )
         assert rule.matches(_ev(type_="network.peer.loss"))
         assert not rule.matches(_ev(type_="l1.kernel.interrupt"))
 
     def test_severity_exact_match(self):
         rule = MessageGateRule(
-            id="r1", pattern={"severity": "crit"}, action="block",
+            id="r1",
+            pattern={"severity": "crit"},
+            action="block",
         )
         assert rule.matches(_ev(severity="crit"))
         assert not rule.matches(_ev(severity="warn"))
 
     def test_agent_id_match(self):
         rule = MessageGateRule(
-            id="r1", pattern={"agent_id": "writer-1"}, action="block",
+            id="r1",
+            pattern={"agent_id": "writer-1"},
+            action="block",
         )
         assert rule.matches(_ev(agent_id="writer-1"))
         assert not rule.matches(_ev(agent_id="writer-2"))
@@ -84,34 +88,50 @@ class TestEvaluate:
     def test_block_rule_blocks_matching_event(self):
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="block-net", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="block-net",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "block"
 
     def test_priority_highest_wins(self):
         """Higher priority rule wins over lower."""
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="low-allow", pattern={"type": "network.*"},
-                action="allow", priority=1,
-            ))
-            gate.add(MessageGateRule(
-                id="high-block", pattern={"type": "network.*"},
-                action="block", priority=10,
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="low-allow",
+                    pattern={"type": "network.*"},
+                    action="allow",
+                    priority=1,
+                )
+            )
+            gate.add(
+                MessageGateRule(
+                    id="high-block",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=10,
+                )
+            )
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "block"
 
     def test_evaluate_records_triggered(self):
         """S3 fix: _triggered updated within single lock, then persisted."""
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="r1", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="r1",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
             gate.evaluate(_ev(type_="network.peer.loss"))
             assert "r1" in gate._triggered
 
@@ -123,14 +143,23 @@ class TestDependencyChain:
         """Rule B depends on Rule A; A not triggered → B not applied."""
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="A", pattern={"type": "kernel.*"},
-                action="block", priority=5,
-            ))
-            gate.add(MessageGateRule(
-                id="B", pattern={"type": "network.*"},
-                action="block", priority=10, depends_on=["A"],
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="A",
+                    pattern={"type": "kernel.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
+            gate.add(
+                MessageGateRule(
+                    id="B",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=10,
+                    depends_on=["A"],
+                )
+            )
             # Network event: B matches pattern but deps unmet → allow
             assert gate.evaluate(_ev(type_="network.peer.loss")) == "allow"
 
@@ -138,14 +167,23 @@ class TestDependencyChain:
         """Trigger A first, then B's dependency is satisfied."""
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="A", pattern={"type": "kernel.*"},
-                action="block", priority=5,
-            ))
-            gate.add(MessageGateRule(
-                id="B", pattern={"type": "network.*"},
-                action="block", priority=10, depends_on=["A"],
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="A",
+                    pattern={"type": "kernel.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
+            gate.add(
+                MessageGateRule(
+                    id="B",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=10,
+                    depends_on=["A"],
+                )
+            )
             # Trigger A
             gate.evaluate(_ev(type_="kernel.interrupt"))
             assert "A" in gate._triggered
@@ -156,14 +194,24 @@ class TestDependencyChain:
         """After hold_timeout, triggered A no longer satisfies B's dep."""
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="A", pattern={"type": "kernel.*"},
-                action="block", priority=5, hold_timeout=0.01,
-            ))
-            gate.add(MessageGateRule(
-                id="B", pattern={"type": "network.*"},
-                action="block", priority=10, depends_on=["A"],
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="A",
+                    pattern={"type": "kernel.*"},
+                    action="block",
+                    priority=5,
+                    hold_timeout=0.01,
+                )
+            )
+            gate.add(
+                MessageGateRule(
+                    id="B",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=10,
+                    depends_on=["A"],
+                )
+            )
             gate.evaluate(_ev(type_="kernel.interrupt"))
             time.sleep(0.05)  # exceed hold_timeout
             # A's triggered record is stale → B dep not met → allow
@@ -177,20 +225,28 @@ class TestPersistence:
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "gate.json")
             gate = MessageGateEngine(persist_path=path)
-            gate.add(MessageGateRule(
-                id="r1", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="r1",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
             assert os.path.exists(path)
 
     def test_restore_reloads_rules(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "gate.json")
             gate1 = MessageGateEngine(persist_path=path)
-            gate1.add(MessageGateRule(
-                id="r1", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate1.add(
+                MessageGateRule(
+                    id="r1",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
 
             gate2 = MessageGateEngine(persist_path=path)
             rules = gate2.list_rules()
@@ -201,10 +257,14 @@ class TestPersistence:
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "gate.json")
             gate1 = MessageGateEngine(persist_path=path)
-            gate1.add(MessageGateRule(
-                id="r1", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate1.add(
+                MessageGateRule(
+                    id="r1",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
             gate1.remove("r1")
 
             gate2 = MessageGateEngine(persist_path=path)
@@ -217,10 +277,14 @@ class TestToDict:
     def test_to_dict_keys(self):
         with tempfile.TemporaryDirectory() as d:
             gate = _make_engine(d)
-            gate.add(MessageGateRule(
-                id="r1", pattern={"type": "network.*"},
-                action="block", priority=5,
-            ))
+            gate.add(
+                MessageGateRule(
+                    id="r1",
+                    pattern={"type": "network.*"},
+                    action="block",
+                    priority=5,
+                )
+            )
             d_out = gate.to_dict()
             assert "rules" in d_out
             assert "triggered_count" in d_out

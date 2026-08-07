@@ -54,8 +54,7 @@ class MemoryBusAdapter(EventBusPort):
             except Exception as e:
                 logger.warning("event handler error: %s (type=%s)", e, event.type)
 
-    def subscribe(self, handler: Callable | None = None,
-                  pattern: str | None = None) -> str:
+    def subscribe(self, handler: Callable | None = None, pattern: str | None = None) -> str:
         """Subscribe *handler* to events matching *pattern* (glob).
 
         If *pattern* is None, subscribes to ALL events.

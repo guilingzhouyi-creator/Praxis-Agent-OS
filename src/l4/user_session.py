@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class UserSession:
     """UserSession — user session record (id, user_id, agent_id, cell_id, status)."""
+
     id: str
     user_id: str
     agent_id: str = ""
@@ -45,20 +46,21 @@ class UserSessionManager(BaseService):
             self._sessions.clear()
         return {"success": True}
 
-    def login(self, user_id: str, agent_id: str = "",
-              cell_id: str = "", metadata: dict | None = None) -> dict:
+    def login(self, user_id: str, agent_id: str = "", cell_id: str = "", metadata: dict | None = None) -> dict:
         """Create a new user session."""
         sid = f"session-{self._next_id}"
         self._next_id += 1
         session = UserSession(
-            id=sid, user_id=user_id, agent_id=agent_id,
-            cell_id=cell_id, metadata=metadata or {},
+            id=sid,
+            user_id=user_id,
+            agent_id=agent_id,
+            cell_id=cell_id,
+            metadata=metadata or {},
         )
         with self._lock:
             self._sessions[sid] = session
         logger.info("session created: %s for %s", sid, user_id)
-        return {"success": True, "session_id": sid, "user_id": user_id,
-                "agent_id": agent_id, "status": "active"}
+        return {"success": True, "session_id": sid, "user_id": user_id, "agent_id": agent_id, "status": "active"}
 
     def logout(self, session_id: str) -> dict:
         """Close a user session."""
@@ -76,15 +78,20 @@ class UserSessionManager(BaseService):
             session = self._sessions.get(session_id)
             if not session:
                 return {"success": False, "error": "session not found"}
-            return {"success": True, "session": {
-                "id": session.id, "user_id": session.user_id,
-                "agent_id": session.agent_id, "cell_id": session.cell_id,
-                "status": session.status, "created_at": session.created_at,
-                "last_active": session.last_active,
-            }}
+            return {
+                "success": True,
+                "session": {
+                    "id": session.id,
+                    "user_id": session.user_id,
+                    "agent_id": session.agent_id,
+                    "cell_id": session.cell_id,
+                    "status": session.status,
+                    "created_at": session.created_at,
+                    "last_active": session.last_active,
+                },
+            }
 
-    def list_sessions(self, user_id: str | None = None,
-                      status: str | None = None) -> dict:
+    def list_sessions(self, user_id: str | None = None, status: str | None = None) -> dict:
         """List all sessions, optionally filtered."""
         with self._lock:
             sessions = list(self._sessions.values())
@@ -92,11 +99,20 @@ class UserSessionManager(BaseService):
             sessions = [s for s in sessions if s.user_id == user_id]
         if status:
             sessions = [s for s in sessions if s.status == status]
-        return {"success": True, "sessions": [
-            {"id": s.id, "user_id": s.user_id, "agent_id": s.agent_id,
-             "status": s.status, "created_at": s.created_at}
-            for s in sessions
-        ], "count": len(sessions)}
+        return {
+            "success": True,
+            "sessions": [
+                {
+                    "id": s.id,
+                    "user_id": s.user_id,
+                    "agent_id": s.agent_id,
+                    "status": s.status,
+                    "created_at": s.created_at,
+                }
+                for s in sessions
+            ],
+            "count": len(sessions),
+        }
 
     def active_sessions(self) -> list[str]:
         """Get list of active session IDs."""

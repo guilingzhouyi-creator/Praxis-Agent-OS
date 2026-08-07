@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from l4.notify import send_notification
+
     HAS_NOTIFY = True
 except ImportError:
     HAS_NOTIFY = False
@@ -42,20 +43,21 @@ def _route_to_l3a(question: str, options: list, agent_id: str) -> dict | None:
     """
     try:
         from l1.kernel.params.agent import L3A_AGENT_ID
+
         if agent_id != L3A_AGENT_ID:
             return None
         from l3.cell.peers.l3a import get_daemon
+
         mgr = get_daemon().manager
         best = None
         with mgr._lock:
             for s in mgr._sessions.values():
-                if s.status == "active" and (
-                    best is None or s.last_active_at > best.last_active_at
-                ):
+                if s.status == "active" and (best is None or s.last_active_at > best.last_active_at):
                     best = s
         if best is None:
             return None
         from l3.cell.peers.l3a.ask import ask_handler
+
         raw: dict[str, object] = {"question": question}
         if options:
             raw["options"] = [str(o) for o in options]
@@ -69,15 +71,19 @@ def _log_pending_question(question: str, agent_id: str) -> None:
     try:
         from l1.kernel.params.agent import L3A_AGENT_ID
         from l3.memory.central_memory import get_l3a_memory
+
         mem = get_l3a_memory()
         mem.remember(
             agent_id=L3A_AGENT_ID,
             entry_type="user_pending_question",
-            content=json.dumps({
-                "agent_id": agent_id,
-                "question": question,
-                "asked_at": time.time(),
-            }, default=str),
+            content=json.dumps(
+                {
+                    "agent_id": agent_id,
+                    "question": question,
+                    "asked_at": time.time(),
+                },
+                default=str,
+            ),
             tags=["l3a", "pending_question", agent_id],
             importance=0.7,
             ring=2,
@@ -91,6 +97,7 @@ def pending_questions(agent_id: str = "") -> list[dict]:
     try:
         from l1.kernel.params.agent import L3A_AGENT_ID
         from l3.memory.central_memory import get_l3a_memory
+
         mem = get_l3a_memory()
         entries = mem.recall(
             agent_id=L3A_AGENT_ID,

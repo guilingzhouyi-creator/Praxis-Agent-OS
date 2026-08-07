@@ -57,25 +57,27 @@ class ReportService:
             },
             # ── Consistency (agreed points) ──
             "consistency": [
-                {"fingerprint": c.get("fingerprint", ""),
-                 "cells": c.get("cells", []),
-                 "consensus": True}
+                {"fingerprint": c.get("fingerprint", ""), "cells": c.get("cells", []), "consensus": True}
                 for c in consistency
             ],
             # ── Divergences (disputed points) ──
             "divergences": [
-                {"topic": d.get("topic", "?"),
-                 "cells": d.get("cells", []),
-                 "severity": d.get("severity", "medium"),
-                 "positions": d.get("positions", []),
-                 "resolution": None}
+                {
+                    "topic": d.get("topic", "?"),
+                    "cells": d.get("cells", []),
+                    "severity": d.get("severity", "medium"),
+                    "positions": d.get("positions", []),
+                    "resolution": None,
+                }
                 for d in divergences
             ],
             # ── Supplement issues raised ──
             "supplements": [
-                {"title": s.get("title", ""),
-                 "source_cell": s.get("source_cell", ""),
-                 "description": s.get("description", "")[:LOG_TRUNC_200]}
+                {
+                    "title": s.get("title", ""),
+                    "source_cell": s.get("source_cell", ""),
+                    "description": s.get("description", "")[:LOG_TRUNC_200],
+                }
                 for s in supplements
             ],
             # ── Coverage & merged answer ──
@@ -92,6 +94,7 @@ class ReportService:
         """Push a structured report to L3A via CentralController."""
         try:
             from l3.cell.peers.l3 import get_coordinator
+
             coord = get_coordinator()
             result = coord.process_intent(
                 f"Discussion completed: {report.get('session_id', '')}\n"
@@ -108,15 +111,19 @@ class ReportService:
         """Emit SSE event for frontend consumption."""
         try:
             from l1.kernel import get_event_bus
+
             bus = get_event_bus()
-            bus.emit_event("discussion.report", data={
-                "report_id": report.get("id", ""),
-                "session_id": report.get("session_id", ""),
-                "status": report.get("status", ""),
-                "divergences": len(report.get("divergences", [])),
-                "supplements": len(report.get("supplements", [])),
-                "consistency": len(report.get("consistency", [])),
-            })
+            bus.emit_event(
+                "discussion.report",
+                data={
+                    "report_id": report.get("id", ""),
+                    "session_id": report.get("session_id", ""),
+                    "status": report.get("status", ""),
+                    "divergences": len(report.get("divergences", [])),
+                    "supplements": len(report.get("supplements", [])),
+                    "consistency": len(report.get("consistency", [])),
+                },
+            )
         except Exception as e:
             logger.warning("report SSE: %s", e)
 
@@ -128,8 +135,7 @@ class ReportService:
     def get_reports_by_session(self, session_id: str) -> list[dict]:
         """Return all reports belonging to *session_id*."""
         with self._lock:
-            return [r for r in self._reports.values()
-                    if r.get("session_id") == session_id]
+            return [r for r in self._reports.values() if r.get("session_id") == session_id]
 
     def list_reports(self, status: str = "") -> list[dict]:
         """List reports, optionally filtered by status, newest first."""

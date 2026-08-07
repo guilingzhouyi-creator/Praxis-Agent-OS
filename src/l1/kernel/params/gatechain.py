@@ -13,10 +13,19 @@ LEDGER_COUNT_WINDOW: Final[float] = 60.0
 GATECHAIN_DEFAULT_DANGER: Final[int] = 1
 # Tool-name → danger level map used for G3/G5 risk scoring
 GATECHAIN_DANGER_LEVELS: Final[dict[str, int]] = {
-    "deploy": 5, "db_migrate": 4, "user_delete": 5,
-    "destroy": 5, "rollback": 4, "migrate": 4,
-    "exec": 4, "run_in_terminal": 3, "execute": 3,
-    "delete": 3, "write": 2, "replace": 2, "format": 2,
+    "deploy": 5,
+    "db_migrate": 4,
+    "user_delete": 5,
+    "destroy": 5,
+    "rollback": 4,
+    "migrate": 4,
+    "exec": 4,
+    "run_in_terminal": 3,
+    "execute": 3,
+    "delete": 3,
+    "write": 2,
+    "replace": 2,
+    "format": 2,
 }
 # Territory-map key holding the known-tool set for gatechain lookup
 GATECHAIN_TOOLS_KEY: Final[str] = "_tools"
@@ -58,6 +67,7 @@ GATECHAIN_REP_LOW_THRESHOLD: Final[float] = 0.7
 
 class GateStatus:
     """GateStatus — gate status record (PASS, WARN, BLOCK, REPORT)."""
+
     # Gate verdict: call cleared
     PASS: str = "PASS"
     # Gate verdict: cleared with a warning
@@ -70,6 +80,7 @@ class GateStatus:
 
 class WitnessStatus:
     """WitnessStatus — witness status record (PENDING, AWAITING, STILL_WAITING, APPROVED, REJECTED)."""
+
     # Witness request: submitted, awaiting a review slot
     PENDING: str = "PENDING"
     # Witness request: review assigned, waiting for the witness

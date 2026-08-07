@@ -27,12 +27,14 @@ logger = logging.getLogger(__name__)
 
 # ── Data types ──
 
+
 @dataclass
 class CommSample:
     """A single communication event sample."""
-    channel: str          # "ipc", "cell_mailbox", "event_bus", "signal"
-    msg_type: str = ""    # "send", "receive", "broadcast", "signal", "emit"
-    direction: str = ""   # "in", "out", "internal"
+
+    channel: str  # "ipc", "cell_mailbox", "event_bus", "signal"
+    msg_type: str = ""  # "send", "receive", "broadcast", "signal", "emit"
+    direction: str = ""  # "in", "out", "internal"
     agent_id: str = ""
     target: str = ""
     latency_ms: float = 0.0
@@ -43,6 +45,7 @@ class CommSample:
 @dataclass
 class CommStats:
     """Aggregated communication statistics."""
+
     total_messages: int = 0
     total_dropped: int = 0
     total_broadcasts: int = 0
@@ -55,6 +58,7 @@ class CommStats:
 
 
 # ── CommMonitor ──
+
 
 class CommMonitor:
     """Centralized communication monitoring bus.
@@ -72,13 +76,23 @@ class CommMonitor:
 
     # ── Record API ──
 
-    def record_message(self, channel: str, msg_type: str = "send",
-                       direction: str = "out", agent_id: str = "",
-                       target: str = "", latency_ms: float = 0.0) -> None:
+    def record_message(
+        self,
+        channel: str,
+        msg_type: str = "send",
+        direction: str = "out",
+        agent_id: str = "",
+        target: str = "",
+        latency_ms: float = 0.0,
+    ) -> None:
         """Record a communication event (called by IPC/Cell/EventBus)."""
         sample = CommSample(
-            channel=channel, msg_type=msg_type, direction=direction,
-            agent_id=agent_id, target=target, latency_ms=latency_ms,
+            channel=channel,
+            msg_type=msg_type,
+            direction=direction,
+            agent_id=agent_id,
+            target=target,
+            latency_ms=latency_ms,
         )
         with self._lock:
             self._stats.total_messages += 1
@@ -97,14 +111,23 @@ class CommMonitor:
         # observability stream (was in-memory only, lost on restart).
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
-            get_bus().emit(MonitorEvent(
-                type="comm.message", source="comm_monitor", severity="info",
-                agent_id=agent_id,
-                message=f"{channel} {msg_type} {direction}",
-                data={"channel": channel, "msg_type": msg_type,
-                      "direction": direction, "target": target,
-                      "latency_ms": latency_ms},
-            ))
+
+            get_bus().emit(
+                MonitorEvent(
+                    type="comm.message",
+                    source="comm_monitor",
+                    severity="info",
+                    agent_id=agent_id,
+                    message=f"{channel} {msg_type} {direction}",
+                    data={
+                        "channel": channel,
+                        "msg_type": msg_type,
+                        "direction": direction,
+                        "target": target,
+                        "latency_ms": latency_ms,
+                    },
+                )
+            )
         except Exception as e:
             logger.debug("comm_monitor: monitor emit failed: %s", e)
 
@@ -133,10 +156,7 @@ class CommMonitor:
             cutoff = now - PMU_SNAPSHOT_INTERVAL
             recent = [t for t in self._timestamps if t > cutoff]
             rate = len(recent)
-            avg_latency = (
-                sum(self._stats.latency_samples[-100:])
-                / max(len(self._stats.latency_samples[-100:]), 1)
-            )
+            avg_latency = sum(self._stats.latency_samples[-100:]) / max(len(self._stats.latency_samples[-100:]), 1)
             return {
                 "total_messages": self._stats.total_messages,
                 "total_dropped": self._stats.total_dropped,
@@ -157,9 +177,12 @@ class CommMonitor:
         with self._lock:
             return [
                 {
-                    "channel": s.channel, "type": s.msg_type,
-                    "direction": s.direction, "agent": s.agent_id,
-                    "target": s.target, "latency": s.latency_ms,
+                    "channel": s.channel,
+                    "type": s.msg_type,
+                    "direction": s.direction,
+                    "agent": s.agent_id,
+                    "target": s.target,
+                    "latency": s.latency_ms,
                     "ts": s.timestamp,
                 }
                 for s in self._history[-limit:]
@@ -169,15 +192,11 @@ class CommMonitor:
         """Return communication health status."""
         with self._lock:
             now = time.time()
-            recent_msg = (
-                sum(1 for t in self._timestamps if t > now - PMU_SNAPSHOT_INTERVAL)
-            )
+            recent_msg = sum(1 for t in self._timestamps if t > now - PMU_SNAPSHOT_INTERVAL)
             return {
                 "status": "ok" if recent_msg > 0 or now - self._started_at < AGENT_LOOP_DEFAULT_TIMEOUT else "idle",
                 "msg_rate_per_min": recent_msg,
-                "dropped_rate": round(
-                    self._stats.total_dropped / max(self._stats.total_messages, 1) * 100, 2
-                ),
+                "dropped_rate": round(self._stats.total_dropped / max(self._stats.total_messages, 1) * 100, 2),
                 "active_sessions": self._stats.active_sessions,
             }
 

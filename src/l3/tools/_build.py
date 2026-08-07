@@ -13,6 +13,7 @@ def _get_build_detectors() -> list[tuple[str, ...]]:
     if cfg:
         return [tuple(v["cmd"]) for v in cfg.values()]
     from l1.kernel.params.tool import BUILD_DETECTORS
+
     return BUILD_DETECTORS
 
 
@@ -22,6 +23,7 @@ def _get_test_detectors() -> list[tuple[str, ...]]:
     if cfg:
         return [tuple(v["cmd"]) for v in cfg.values()]
     from l1.kernel.params.tool import TEST_DETECTORS
+
     return TEST_DETECTORS
 
 
@@ -49,12 +51,16 @@ def test_project(args: dict, agent_id: str) -> dict:
             # Framework ran but tests failed: parse failure detail so the
             # caller (agent or AutoTestGate) can act on exact failing tests.
             from l3.tool_system.auto_test import parse_pytest_failures
+
             output = f"{r.stdout}\n{r.stderr}"
             failures = parse_pytest_failures(output)
-            return {"success": False, "command": " ".join(cmd),
-                    "failures": failures,
-                    "stdout": r.stdout[:LOG_TRUNC_2000],
-                    "stderr": r.stderr[:LOG_TRUNC_2000]}
+            return {
+                "success": False,
+                "command": " ".join(cmd),
+                "failures": failures,
+                "stdout": r.stdout[:LOG_TRUNC_2000],
+                "stderr": r.stderr[:LOG_TRUNC_2000],
+            }
         except Exception:
             continue
     return {"success": False, "error": "no supported test framework found"}
@@ -63,6 +69,7 @@ def test_project(args: dict, agent_id: str) -> dict:
 def execute_shell(args: dict, agent_id: str) -> dict:
     """Run a command via terminal tool with structured error handling."""
     from ._terminal import run_in_terminal
+
     return run_in_terminal(args, agent_id)
 
 

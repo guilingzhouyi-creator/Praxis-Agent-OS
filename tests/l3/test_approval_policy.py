@@ -8,6 +8,7 @@ class TestApprovalPolicy:
 
     def _make(self):
         from l3.services.approval_policy import ApprovalPolicy
+
         return ApprovalPolicy()
 
     def test_resolve_global_default(self):

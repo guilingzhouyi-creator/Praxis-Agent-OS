@@ -20,29 +20,37 @@ class MonitorBusAdapter(MonitorBusPort):
     emits monitor events through a Port interface.
     """
 
-    def emit(self, type_: str, source: str, severity: str,
-             message: str, data: dict | None = None) -> None:
+    def emit(self, type_: str, source: str, severity: str, message: str, data: dict | None = None) -> None:
         """Route a monitor event to the bus; best-effort on failure."""
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
+
             bus = get_bus()
-            bus.emit(MonitorEvent(
-                type=type_, source=source,
-                severity=severity, message=message,
-                data=data or {},
-            ))
+            bus.emit(
+                MonitorEvent(
+                    type=type_,
+                    source=source,
+                    severity=severity,
+                    message=message,
+                    data=data or {},
+                )
+            )
         except Exception as e:
             logger.debug("monitor_bus: emit skipped: %s", e)
 
-    def query(self, type_prefix: str = "", severity: str = "",
-              source: str = "", since: float = 0.0,
-              limit: int = 100) -> list[dict]:
+    def query(
+        self, type_prefix: str = "", severity: str = "", source: str = "", since: float = 0.0, limit: int = 100
+    ) -> list[dict]:
         """Query recent monitor events matching the filters."""
         try:
             from l3.bus.monitor_bus import get_bus
+
             return get_bus().query(
-                type_prefix=type_prefix, severity=severity,
-                source=source, since=since, limit=limit,
+                type_prefix=type_prefix,
+                severity=severity,
+                source=source,
+                since=since,
+                limit=limit,
             )
         except Exception as e:
             logger.debug("monitor_bus: query skipped: %s", e)

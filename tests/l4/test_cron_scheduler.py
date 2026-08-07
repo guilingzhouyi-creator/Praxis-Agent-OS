@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestCronScheduler:
     def test_importable(self):
         from l4.cron_scheduler import CronScheduler
+
         assert callable(CronScheduler)

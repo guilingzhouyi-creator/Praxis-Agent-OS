@@ -350,7 +350,7 @@ class SkillEvolutionMixin:
         # Batch 2: rules carry DPO-style preference metadata so downstream
         # card signals can weight them (verified/hit/preferred/deprecated).
         rules = []
-        for r in (data.get("rules") or []):
+        for r in data.get("rules") or []:
             if isinstance(r, str):
                 rules.append({"rule": r, "verified": 0, "hit": 0, "preferred": 1.0, "deprecated": False})
             elif isinstance(r, dict) and r.get("rule"):
@@ -589,12 +589,12 @@ class SkillEvolutionMixin:
         # list_skills returns summary dicts (rules = count); fetch full
         # records for rule-level analysis.
         skills = [
-            sm.get(s["name"]) for s in sm.list_skills(tags=["evolved"], limit=SKILL_CONFLICT_SCAN_LIMIT)
+            sm.get(s["name"])
+            for s in sm.list_skills(tags=["evolved"], limit=SKILL_CONFLICT_SCAN_LIMIT)
             if sm.get(s["name"])
         ]
         skills = [
-            s for s in skills
-            if "lean_case" not in (s.get("tags") or []) and "builtin" not in (s.get("tags") or [])
+            s for s in skills if "lean_case" not in (s.get("tags") or []) and "builtin" not in (s.get("tags") or [])
         ]
         by_tool: dict[str, list[dict]] = {}
         for s in skills:
@@ -854,7 +854,7 @@ class SkillEvolutionMixin:
         def _shingles(text: str) -> set[str]:
             words = _re.split(r"[\s,;:._\-/]+", text)
             words = [w for w in words if len(w) > 2]
-            return {f"{words[i]}_{words[i+1]}_{words[i+2]}" for i in range(len(words) - 2)}
+            return {f"{words[i]}_{words[i + 1]}_{words[i + 2]}" for i in range(len(words) - 2)}
 
         cache = {id(c): _shingles(_error_text(c)) for c in cases}
         clusters: list[list[dict]] = []
@@ -996,9 +996,8 @@ class SkillEvolutionMixin:
                         elif isinstance(r, dict) and not r.get("deprecated") and r.get("rule"):
                             keep.append(r["rule"])
                     if keep:
-                        verified_context = (
-                            "\nAlready-verified rules to KEEP (do not contradict):\n"
-                            + "\n".join(f"- {r}" for r in keep)
+                        verified_context = "\nAlready-verified rules to KEEP (do not contradict):\n" + "\n".join(
+                            f"- {r}" for r in keep
                         )
             # P3: LLM semantic summary (gated: threshold + per-tool cooldown +
             # per-tick throttle); any failure degrades to the rule-based baseline.
@@ -1047,8 +1046,9 @@ class SkillEvolutionMixin:
             generalized += 1
         return generalized
 
-    def evolve_skill(self, intent: str, cell_id: str = "", scope: str = "",
-                     extra_tags: list[str] | None = None) -> dict:
+    def evolve_skill(
+        self, intent: str, cell_id: str = "", scope: str = "", extra_tags: list[str] | None = None
+    ) -> dict:
         """Use LLM to generate a new skill definition from a natural language intent.
 
         Uses the LLM engine to produce a structured skill (name, description, rules,
@@ -1130,9 +1130,7 @@ class SkillEvolutionMixin:
             # corrupt the SKILL.md round-trip on reload.
             skill_tags = [str(t) for t in (skill_def.get("tags") or []) if isinstance(t, str)] + ["evolved"]
             if extra_tags:
-                skill_tags += [t for t in extra_tags if isinstance(t, str) and t not in skill_tags][
-                    :R4_CARD_TAG_MAX
-                ]
+                skill_tags += [t for t in extra_tags if isinstance(t, str) and t not in skill_tags][:R4_CARD_TAG_MAX]
             skill_desc = skill_def.get("description")
             skill_desc = skill_desc if isinstance(skill_desc, str) else ""
             skill_prompt = skill_def.get("prompt")
@@ -1158,12 +1156,16 @@ class SkillEvolutionMixin:
             if violations:
                 logger.warning(
                     "R4Agent: evolved skill '%s' violates content contract, scrubbing: %s",
-                    name, "; ".join(violations),
+                    name,
+                    "; ".join(violations),
                 )
                 skill_prompt = _scrub_skill_prompt(skill_prompt, violations)
                 skill_desc = skill_desc if _validate_content(skill_prompt, skill_desc) == [] else ""
                 if not skill_prompt.strip():
-                    return {"success": False, "error": f"skill '{name}' rejected: content contract violations: {violations}"}
+                    return {
+                        "success": False,
+                        "error": f"skill '{name}' rejected: content contract violations: {violations}",
+                    }
             sm.create(
                 name=name,
                 description=skill_desc,

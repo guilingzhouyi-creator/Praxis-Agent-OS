@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class BeforeOutcome:
     """BeforeOutcome — before outcome."""
+
     PROCEED = "proceed"
     ALLOW = "allow"
     ASK = "ask"
@@ -23,6 +24,7 @@ class BeforeOutcome:
 
 class AfterOutcome:
     """AfterOutcome — after outcome."""
+
     PROCEED = "proceed"
     BLOCK = "block"
 
@@ -30,13 +32,11 @@ class AfterOutcome:
 class ToolMiddleware:
     """Base class for tool-level middleware."""
 
-    def before(self, tool_name: str, args: dict,
-               agent_id: str, ctx: dict | None = None) -> str:
+    def before(self, tool_name: str, args: dict, agent_id: str, ctx: dict | None = None) -> str:
         """Called before tool execution. Returns a BeforeOutcome."""
         return BeforeOutcome.PROCEED
 
-    def after(self, tool_name: str, result: dict,
-              agent_id: str) -> str:
+    def after(self, tool_name: str, result: dict, agent_id: str) -> str:
         """Called after tool execution. Returns an AfterOutcome."""
         return AfterOutcome.PROCEED
 
@@ -51,8 +51,7 @@ class MiddlewareChain:
         """Append a middleware to the chain."""
         self._middlewares.append(mw)
 
-    def before(self, tool_name: str, args: dict,
-               agent_id: str, ctx: dict | None = None) -> str:
+    def before(self, tool_name: str, args: dict, agent_id: str, ctx: dict | None = None) -> str:
         """Run all middlewares' before hooks; returns the first DENY/ASK outcome."""
         for mw in self._middlewares:
             outcome = mw.before(tool_name, args, agent_id, ctx)
@@ -83,11 +82,11 @@ class ApprovalMiddleware(ToolMiddleware):
     def __init__(self):
         self._auto_approved: set[str] = set()
 
-    def before(self, tool_name: str, args: dict,
-               agent_id: str, ctx: dict | None = None) -> str:
+    def before(self, tool_name: str, args: dict, agent_id: str, ctx: dict | None = None) -> str:
         """Gate dangerous tools behind approval; returns ASK or PROCEED."""
         try:
             from l3.tool_system.tool_policy import ToolPolicy
+
             if not ToolPolicy.requires_approval(agent_id, tool_name):
                 return BeforeOutcome.PROCEED
         except Exception:
@@ -101,12 +100,14 @@ class ApprovalMiddleware(ToolMiddleware):
         # Auto-approve if not dangerous
         try:
             from l3.config.settings_center import get_center
+
             threshold = get_center().get_int("approval.danger_threshold", 3)
         except Exception:
             threshold = 3
 
         try:
             from l3.tool_system.tool_spec import get_tool
+
             spec = get_tool(tool_name)
             if spec and getattr(spec, "danger", 0) < threshold:
                 return BeforeOutcome.PROCEED
@@ -116,6 +117,7 @@ class ApprovalMiddleware(ToolMiddleware):
         # Request approval
         try:
             from l3.card.approval_gate import get_gate
+
             gate = get_gate()
             gate.request(
                 tool_name=tool_name,
@@ -139,13 +141,11 @@ class ConfineMiddleware(ToolMiddleware):
     Used by review/deploy sub-agents to prevent writes outside their scope.
     """
 
-    def __init__(self, allowed_roots: list[str] | None = None,
-                 read_only: bool = False):
+    def __init__(self, allowed_roots: list[str] | None = None, read_only: bool = False):
         self._allowed_roots = allowed_roots or []
         self._read_only = read_only
 
-    def before(self, tool_name: str, args: dict,
-               agent_id: str, ctx: dict | None = None) -> str:
+    def before(self, tool_name: str, args: dict, agent_id: str, ctx: dict | None = None) -> str:
         """Deny tool calls whose path falls outside the allowed roots."""
         if not self._allowed_roots:
             return BeforeOutcome.PROCEED
@@ -170,8 +170,7 @@ class ArgRepairMiddleware(ToolMiddleware):
     - Strips leading/trailing quotes
     """
 
-    def before(self, tool_name: str, args: dict,
-               agent_id: str, ctx: dict | None = None) -> str:
+    def before(self, tool_name: str, args: dict, agent_id: str, ctx: dict | None = None) -> str:
         """Normalize string argument values (trim, quote-strip, bool coercion)."""
         for k, v in list(args.items()):
             if isinstance(v, str):

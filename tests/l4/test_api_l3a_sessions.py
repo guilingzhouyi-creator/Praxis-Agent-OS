@@ -99,10 +99,13 @@ class TestMessagesPaging:
 
         s = get_daemon().manager.get(session_id)
         for i in range(count):
-            s.history.append(Message(
-                id=f"m-{i:04d}", role="user" if i % 2 == 0 else "assistant",
-                content=f"message {i}",
-            ))
+            s.history.append(
+                Message(
+                    id=f"m-{i:04d}",
+                    role="user" if i % 2 == 0 else "assistant",
+                    content=f"message {i}",
+                )
+            )
 
     def test_paging_walks_whole_history(self):
         s = _fresh_session("paging")

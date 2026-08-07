@@ -11,6 +11,7 @@ class TestToolRing:
 
     def test_record_and_count(self):
         from tool_ring import ToolCallRecord, ToolRing
+
         ring = ToolRing(capacity=5)
         assert ring.count() == 0
         ring.record(ToolCallRecord(tool_name="read_file", agent_id="a", success=True))
@@ -18,6 +19,7 @@ class TestToolRing:
 
     def test_record_capped(self):
         from tool_ring import ToolCallRecord, ToolRing
+
         ring = ToolRing(capacity=3)
         for i in range(5):
             ring.record(ToolCallRecord(tool_name=f"t{i}", agent_id="a", success=True))
@@ -26,6 +28,7 @@ class TestToolRing:
 
     def test_recent_returns_n(self):
         from tool_ring import ToolCallRecord, ToolRing
+
         ring = ToolRing(capacity=20)
         for i in range(10):
             ring.record(ToolCallRecord(tool_name=f"t{i}", agent_id="a", success=True))
@@ -35,12 +38,14 @@ class TestToolRing:
 
     def test_gate_stats_empty(self):
         from tool_ring import ToolRing
+
         ring = ToolRing()
         stats = ring.gate_stats()
         assert stats["PASS"] == 0 and stats["BLOCK"] == 0
 
     def test_gate_stats_tracks_results(self):
         from tool_ring import GateStatus, ToolCallRecord, ToolRing
+
         ring = ToolRing()
         ring.record(ToolCallRecord("t1", "a", True, gate_result=GateStatus.PASS))
         ring.record(ToolCallRecord("t2", "a", False, gate_result=GateStatus.BLOCK))
@@ -54,11 +59,13 @@ class TestRequestPool:
 
     def test_empty_dequeue(self):
         from tool_ring import RequestPool
+
         pool = RequestPool(capacity=5)
         assert pool.dequeue() is None
 
     def test_enqueue_dequeue_fifo_when_same_priority(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         pool.enqueue(ToolRequest("read", "a", priority=5))
         pool.enqueue(ToolRequest("write", "b", priority=5))
@@ -68,6 +75,7 @@ class TestRequestPool:
 
     def test_higher_priority_dequeued_first(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         pool.enqueue(ToolRequest("low", "a", priority=1))
         pool.enqueue(ToolRequest("high", "b", priority=5))
@@ -77,6 +85,7 @@ class TestRequestPool:
 
     def test_pool_capacity_enforce(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=3)
         for i in range(3):
             assert pool.enqueue(ToolRequest(f"t{i}", "a", priority=1))
@@ -85,6 +94,7 @@ class TestRequestPool:
 
     def test_pending_for(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         pool.enqueue(ToolRequest("t1", "agent-a"))
         pool.enqueue(ToolRequest("t2", "agent-b"))
@@ -95,6 +105,7 @@ class TestRequestPool:
 
     def test_remove_for(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         pool.enqueue(ToolRequest("t1", "agent-a"))
         pool.enqueue(ToolRequest("t2", "agent-b"))
@@ -104,6 +115,7 @@ class TestRequestPool:
 
     def test_len(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         assert len(pool) == 0
         pool.enqueue(ToolRequest("t1", "a"))
@@ -111,6 +123,7 @@ class TestRequestPool:
 
     def test_peek_returns_sorted(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=10)
         pool.enqueue(ToolRequest("low", "a", priority=1))
         pool.enqueue(ToolRequest("high", "b", priority=5))
@@ -125,6 +138,7 @@ class TestRequestPoolWeightedScore:
 
     def test_score_prefers_higher_reputation(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=5)
         r_high = ToolRequest("t1", "a", priority=3, agent_reputation=1.0, tool_danger=0)
         r_low = ToolRequest("t2", "b", priority=3, agent_reputation=0.1, tool_danger=0)
@@ -136,6 +150,7 @@ class TestRequestPoolWeightedScore:
 
     def test_score_prefers_lower_danger(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=5)
         r_safe = ToolRequest("t1", "a", priority=3, agent_reputation=0.9, tool_danger=0)
         r_risk = ToolRequest("t2", "b", priority=3, agent_reputation=0.9, tool_danger=5)
@@ -151,6 +166,7 @@ class TestRequestPoolEviction:
 
     def test_evict_lowest_score(self):
         from tool_ring import RequestPool, ToolRequest
+
         pool = RequestPool(capacity=3)
         pool.enqueue(ToolRequest("t1", "a", priority=1))
         pool.enqueue(ToolRequest("t2", "b", priority=1))
@@ -168,6 +184,7 @@ class TestGlobalSingletons:
 
     def test_get_request_pool_singleton(self):
         from tool_ring import get_request_pool
+
         p1 = get_request_pool()
         p2 = get_request_pool()
         assert p1 is p2

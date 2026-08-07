@@ -45,18 +45,26 @@ class NotifyService(BaseService):
         if not handler:
             return {"success": False, "error": f"unknown channel: {channel}"}
         result = handler(to, subject, body)
-        self._history.append({
-            "channel": channel, "to": to, "subject": subject,
-            "success": result.get("success", False), "timestamp": time.time(),
-        })
+        self._history.append(
+            {
+                "channel": channel,
+                "to": to,
+                "subject": subject,
+                "success": result.get("success", False),
+                "timestamp": time.time(),
+            }
+        )
         return result
 
     def _webhook(self, url: str, subject: str, body: str) -> dict:
         payload = json.dumps({"subject": subject, "body": body, "ts": time.time()}).encode()
         try:
-            req = urllib.request.Request(url, data=payload, method="POST",
-                                         headers={"Content-Type": "application/json",
-                                                  "User-Agent": HTTP_USER_AGENT})
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                method="POST",
+                headers={"Content-Type": "application/json", "User-Agent": HTTP_USER_AGENT},
+            )
             with urllib.request.urlopen(req, timeout=NOTIFY_WEBHOOK_TIMEOUT) as resp:
                 return {"success": True, "channel": "webhook", "status": resp.status}
         except Exception as e:
@@ -118,5 +126,4 @@ def send_notification(agent_id: str, message: str, channel: str = "log") -> dict
     (no SMTP/webhook configuration required); richer channels can be
     configured per deployment.
     """
-    return get_service().send(channel=channel, to=agent_id,
-                              subject="Praxis notification", body=message)
+    return get_service().send(channel=channel, to=agent_id, subject="Praxis notification", body=message)

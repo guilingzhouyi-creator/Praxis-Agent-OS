@@ -45,8 +45,9 @@ def _drop_conn(scheme: str, host: str, port: int) -> None:
         pool.pop((scheme, host, port), None)
 
 
-def http_post(url: str, body: bytes, headers: dict, timeout: float,
-              redirects: int = _MAX_REDIRECTS) -> tuple[int, bytes, dict]:
+def http_post(
+    url: str, body: bytes, headers: dict, timeout: float, redirects: int = _MAX_REDIRECTS
+) -> tuple[int, bytes, dict]:
     """POST *body* to *url* reusing a persistent per-thread connection.
 
     Returns ``(status, body_bytes, headers_dict)`` with lower-cased response

@@ -34,6 +34,7 @@ from enum import Enum, auto
 
 class RuleSeverity(Enum):
     """RuleSeverity — enum of MUST, SHOULD, MAY."""
+
     MUST = auto()
     SHOULD = auto()
     MAY = auto()
@@ -41,6 +42,7 @@ class RuleSeverity(Enum):
 
 class CheckResult(Enum):
     """CheckResult — enum of PASS, WARN, BLOCK."""
+
     PASS = auto()
     WARN = auto()
     BLOCK = auto()
@@ -48,9 +50,7 @@ class CheckResult(Enum):
 
 def str_to_severity(s: str) -> RuleSeverity:
     """Convert string 'MUST'|'SHOULD'|'MAY' to RuleSeverity enum."""
-    return {"MUST": RuleSeverity.MUST,
-            "SHOULD": RuleSeverity.SHOULD,
-            "MAY": RuleSeverity.MAY}.get(s, RuleSeverity.MAY)
+    return {"MUST": RuleSeverity.MUST, "SHOULD": RuleSeverity.SHOULD, "MAY": RuleSeverity.MAY}.get(s, RuleSeverity.MAY)
 
 
 # Type alias for check functions: (rule, action, agent_id, target, territory) → CheckResult | None
@@ -84,8 +84,7 @@ class RuleDescriptor:
     tags: frozenset[str] = field(default_factory=frozenset)
     created_at: float = field(default_factory=time.time)
 
-    def evaluate(self, action: str, agent_id: str, target: str = "",
-                 territory: list[str] | None = None) -> CheckResult:
+    def evaluate(self, action: str, agent_id: str, target: str = "", territory: list[str] | None = None) -> CheckResult:
         """Evaluate this rule against an action. Returns CheckResult.
 
         If ``check_fn`` is *None* the rule always passes.

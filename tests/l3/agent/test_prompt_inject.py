@@ -52,18 +52,21 @@ class TestAgentLoopGating:
                 captured.append(system)
                 return {"content": "ok", "tool_calls": []}
 
-            def tool_use(self, prompt: str = "", system: str = "", tools=None,
-                         **kwargs) -> dict:
+            def tool_use(self, prompt: str = "", system: str = "", tools=None, **kwargs) -> dict:
                 captured.append(system)
-                return {"content": "done", "tool_call_results": [],
-                        "turns": 1, "finish_reason": "stop",
-                        "context_trail": [], "tools_elapsed": 0.001}
+                return {
+                    "content": "done",
+                    "tool_call_results": [],
+                    "turns": 1,
+                    "finish_reason": "stop",
+                    "context_trail": [],
+                    "tools_elapsed": 0.001,
+                }
 
         register_port("llm", _StubLLM())
         from l3.agent.agent_loop import AgentLoop
 
-        loop = AgentLoop(task="probe task", agent_id="agent-t",
-                         role="tester", system=system)
+        loop = AgentLoop(task="probe task", agent_id="agent-t", role="tester", system=system)
         loop.run(max_steps=1, timeout=10)
         return captured
 

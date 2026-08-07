@@ -20,8 +20,7 @@ class _MockLLMEngine:
     def context_window(self, cell_id="", agent_id=""):
         return 32_000
 
-    def tool_use(self, prompt, tools, system="", max_turns=5,
-                 user_id="", **overrides):
+    def tool_use(self, prompt, tools, system="", max_turns=5, user_id="", **overrides):
         return {
             "content": "",
             "tool_calls": [],

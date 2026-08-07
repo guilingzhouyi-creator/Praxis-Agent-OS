@@ -32,7 +32,9 @@ class AIService(BaseService):
         try:
             tree = ast.parse(code)
             classes = sum(1 for n in ast.iter_child_nodes(tree) if isinstance(n, ast.ClassDef))
-            functions = sum(1 for n in ast.iter_child_nodes(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)))
+            functions = sum(
+                1 for n in ast.iter_child_nodes(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            )
             imports = sum(1 for n in ast.iter_child_nodes(tree) if isinstance(n, (ast.Import, ast.ImportFrom)))
             calls = sum(1 for n in ast.walk(tree) if isinstance(n, ast.Call))
             lines = code.count("\n") + 1
@@ -40,8 +42,12 @@ class AIService(BaseService):
             return {
                 "success": True,
                 "data": {
-                    "file": filename, "lines": lines, "classes": classes,
-                    "functions": functions, "imports": imports, "calls": calls,
+                    "file": filename,
+                    "lines": lines,
+                    "classes": classes,
+                    "functions": functions,
+                    "imports": imports,
+                    "calls": calls,
                     "complexity": complexity,
                 },
             }
@@ -59,7 +65,9 @@ class AIService(BaseService):
             for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.FunctionDef):
                     docstring = ast.get_docstring(node) or ""
-                    summary_parts.append(f"function `{node.name}`: {docstring[:LOG_TRUNC_80] if docstring else f'{len(node.body)} statements'}")
+                    summary_parts.append(
+                        f"function `{node.name}`: {docstring[:LOG_TRUNC_80] if docstring else f'{len(node.body)} statements'}"
+                    )
                 elif isinstance(node, ast.ClassDef):
                     methods = [n.name for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
                     summary_parts.append(f"class `{node.name}`: {len(methods)} methods")
@@ -73,7 +81,11 @@ class AIService(BaseService):
                     "file": filename,
                     "summary": summary_parts[:10],
                     "line_count": len(lines),
-                    "has_docstring": any(ast.get_docstring(n) for n in ast.iter_child_nodes(tree) if isinstance(n, (ast.FunctionDef, ast.ClassDef))),
+                    "has_docstring": any(
+                        ast.get_docstring(n)
+                        for n in ast.iter_child_nodes(tree)
+                        if isinstance(n, (ast.FunctionDef, ast.ClassDef))
+                    ),
                 },
             }
         except SyntaxError as e:
@@ -88,9 +100,21 @@ class AIService(BaseService):
             tree = ast.parse(code)
             for node in ast.walk(tree):
                 if isinstance(node, ast.ExceptHandler) and node.type is None:
-                    suggestions.append({"line": node.lineno, "severity": "warn", "message": "bare except, use except Exception: instead"})
+                    suggestions.append(
+                        {
+                            "line": node.lineno,
+                            "severity": "warn",
+                            "message": "bare except, use except Exception: instead",
+                        }
+                    )
                     if isinstance(node, ast.FunctionDef) and len(node.body) > 50:
-                        suggestions.append({"line": node.lineno, "severity": "info", "message": f"function {node.name} too long ({len(node.body)} statements), consider splitting"})
+                        suggestions.append(
+                            {
+                                "line": node.lineno,
+                                "severity": "info",
+                                "message": f"function {node.name} too long ({len(node.body)} statements), consider splitting",
+                            }
+                        )
             for i, line in enumerate(code.splitlines(), 1):
                 if len(line) > 100:
                     suggestions.append({"line": i, "severity": "info", "message": f"line too long ({len(line)} > 100)"})

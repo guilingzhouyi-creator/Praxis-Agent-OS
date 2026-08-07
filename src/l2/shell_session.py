@@ -71,6 +71,7 @@ class TerminalManager:
     Each session runs in a background daemon thread (``_reader``) that
     captures stdout into a bounded ``deque`` buffer.
     """
+
     def __init__(self) -> None:
         self._sessions: dict[str, TerminalSession] = {}
         self._lock = threading.Lock()
@@ -164,7 +165,7 @@ class TerminalManager:
                     while b"\n" in buf:
                         idx = buf.index(b"\n")
                         line = buf[:idx].decode("utf-8", errors="replace") + "\n"
-                        del buf[:idx + 1]
+                        del buf[: idx + 1]
                         s.output_buffer.append(line)
             except (BlockingIOError, OSError):
                 # No data available yet — check for idle timeout (30s)

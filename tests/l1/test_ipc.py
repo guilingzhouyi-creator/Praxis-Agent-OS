@@ -52,8 +52,10 @@ def test_handler_called_on_send() -> None:
 
 def test_handler_reply_is_stored() -> None:
     ch = LockChannel("ch")
+
     def handler(m: LockMessage) -> dict:
         return {"accepted": True}
+
     ch.register_handler(handler)
     msg = _msg()
     ch.send(msg)
@@ -63,8 +65,10 @@ def test_handler_reply_is_stored() -> None:
 
 def test_handler_error_does_not_crash() -> None:
     ch = LockChannel("ch")
+
     def broken(m: LockMessage) -> dict:
         raise RuntimeError("oops")
+
     ch.register_handler(broken)
     ch.send(_msg())  # should not raise
 
@@ -74,8 +78,10 @@ def test_handler_error_does_not_crash() -> None:
 
 def test_request_gets_response() -> None:
     ch = LockChannel("ch")
+
     def handler(m: LockMessage) -> dict:
         return {"ok": True}
+
     ch.register_handler(handler)
     msg = _msg()
     # send + respond via handler (which calls respond internally)

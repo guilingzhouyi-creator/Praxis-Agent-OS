@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProcessHandle:
     """ProcessHandle — process handle record (id, name, process, output, started_at)."""
+
     id: str
     name: str
     process: subprocess.Popen | None = None
@@ -47,20 +48,23 @@ class ProcessHandle:
 
 class ProcessManager:
     """ProcessManager — process manager."""
+
     def __init__(self):
         self._processes: dict[str, ProcessHandle] = {}
         self._lock = threading.Lock()
         self._next_id = 0
 
-    def start(self, name: str, cmd: list[str], cwd: str | None = None,
-              env: dict[str, str] | None = None) -> dict:
+    def start(self, name: str, cmd: list[str], cwd: str | None = None, env: dict[str, str] | None = None) -> dict:
         """Start a background process and return its handle id."""
         pid = f"proc-{self._next_id}"
         self._next_id += 1
         try:
             proc = subprocess.Popen(
-                cmd, cwd=cwd, env=env,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                cmd,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         except FileNotFoundError:
             return {"success": False, "error": f"command not found: {cmd[0]}"}
@@ -81,8 +85,11 @@ class ProcessManager:
         if not h:
             return {"success": False, "error": "process not found"}
         return {
-            "success": True, "id": h.id, "name": h.name,
-            "alive": h.is_alive, "exit_code": h.exit_code,
+            "success": True,
+            "id": h.id,
+            "name": h.name,
+            "alive": h.is_alive,
+            "exit_code": h.exit_code,
             "output": h.output[-50:],
             "uptime": time.time() - h.started_at,
         }
@@ -90,8 +97,7 @@ class ProcessManager:
     def list(self) -> dict:
         """List all managed background processes with their alive state."""
         with self._lock:
-            procs = [{"id": h.id, "name": h.name, "alive": h.is_alive}
-                     for h in self._processes.values()]
+            procs = [{"id": h.id, "name": h.name, "alive": h.is_alive} for h in self._processes.values()]
         return {"success": True, "processes": procs, "count": len(procs)}
 
     def kill(self, pid: str) -> dict:

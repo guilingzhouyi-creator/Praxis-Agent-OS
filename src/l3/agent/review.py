@@ -21,8 +21,7 @@ from l1.kernel.prompts import get_prompt
 logger = logging.getLogger(__name__)
 
 
-def request_review(cell: Any, agent_id: str, reviewer_id: str,
-                   task: str, result: dict) -> dict:
+def request_review(cell: Any, agent_id: str, reviewer_id: str, task: str, result: dict) -> dict:
     """Request a peer review from another agent.
 
     Returns:
@@ -31,21 +30,24 @@ def request_review(cell: Any, agent_id: str, reviewer_id: str,
     review_id = f"review-{agent_id}-{int(time.time())}"
 
     from l3.cell.components.cell_types import MessageType
-    cell.send_message(agent_id, reviewer_id, MessageType.REVIEW_REQUEST, {
-        "review_id": review_id,
-        "agent_id": agent_id,
-        "reviewer_id": reviewer_id,
-        "task": task,
-        "result": result,
-    })
 
-    return {"success": True, "review_id": review_id,
-            "agent": agent_id, "reviewer": reviewer_id}
+    cell.send_message(
+        agent_id,
+        reviewer_id,
+        MessageType.REVIEW_REQUEST,
+        {
+            "review_id": review_id,
+            "agent_id": agent_id,
+            "reviewer_id": reviewer_id,
+            "task": task,
+            "result": result,
+        },
+    )
+
+    return {"success": True, "review_id": review_id, "agent": agent_id, "reviewer": reviewer_id}
 
 
-def perform_review(agent_id: str, reviewer_id: str,
-                   task: str, result: dict,
-                   llm_call: Any | None = None) -> dict:
+def perform_review(agent_id: str, reviewer_id: str, task: str, result: dict, llm_call: Any | None = None) -> dict:
     """Perform a review and return the verdict.
 
     Uses config-driven prompt from kernel.prompts.
@@ -82,22 +84,25 @@ def perform_review(agent_id: str, reviewer_id: str,
     }
 
 
-def submit_review(cell: Any, reviewer_id: str, target_agent: str,
-                  review_id: str, verdict: dict) -> dict:
+def submit_review(cell: Any, reviewer_id: str, target_agent: str, review_id: str, verdict: dict) -> dict:
     """Submit a review result back to the original agent."""
     from l3.cell.components.cell_types import MessageType
-    cell.send_message(reviewer_id, target_agent, MessageType.REVIEW_RESPONSE, {
-        "review_id": review_id,
-        "verdict": verdict.get("verdict", "NEEDS_CHANGES"),
-        "reason": verdict.get("reason", ""),
-        "suggestions": verdict.get("suggestions", []),
-    })
+
+    cell.send_message(
+        reviewer_id,
+        target_agent,
+        MessageType.REVIEW_RESPONSE,
+        {
+            "review_id": review_id,
+            "verdict": verdict.get("verdict", "NEEDS_CHANGES"),
+            "reason": verdict.get("reason", ""),
+            "suggestions": verdict.get("suggestions", []),
+        },
+    )
     return {"success": True, "review_id": review_id}
 
 
-def handle_review_response(verdict: str, reason: str,
-                           suggestions: list[str],
-                           retry_count: int = 0) -> dict:
+def handle_review_response(verdict: str, reason: str, suggestions: list[str], retry_count: int = 0) -> dict:
     """Process a review response and decide next action.
 
     Returns:

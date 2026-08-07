@@ -21,8 +21,7 @@ class ShellState:
         with self._lock:
             return self.mode == "DIRECT" and bool(self.agent_id)
 
-    def switch_to_direct(self, cell_id: str, agent_id: str,
-                         session_id: str = "") -> None:
+    def switch_to_direct(self, cell_id: str, agent_id: str, session_id: str = "") -> None:
         """Switch shell to Direct mode, targeting a specific Cell/Agent."""
         with self._lock:
             self.mode = "DIRECT"

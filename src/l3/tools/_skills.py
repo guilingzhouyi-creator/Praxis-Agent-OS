@@ -22,6 +22,7 @@ def list_skills(args: dict, agent_id: str) -> dict:
     """
     try:
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
     except Exception as e:
         return {"success": False, "error": f"skill manager unavailable: {e}"}
@@ -37,15 +38,16 @@ def list_skills(args: dict, agent_id: str) -> dict:
         results = sm.list_skills(tags=tags, limit=limit)
 
     from l1.kernel.skill import skill_visible
+
     visible = [s for s in results if skill_visible(s, agent_id)]
 
-    return {"success": True, "skills": visible, "count": len(visible),
-            "audience": _audience_label(agent_id)}
+    return {"success": True, "skills": visible, "count": len(visible), "audience": _audience_label(agent_id)}
 
 
 def _audience_label(agent_id: str) -> str:
     """Human label of the agent's audience domain."""
     from l1.kernel.skill import audience_of
+
     return audience_of(agent_id)
 
 
@@ -66,6 +68,7 @@ def use_skill(args: dict, agent_id: str) -> dict:
 
     try:
         from l1.kernel.skill import get_skill_manager
+
         sm = get_skill_manager()
     except Exception as e:
         return {"success": False, "error": f"skill manager unavailable: {e}"}
@@ -75,9 +78,9 @@ def use_skill(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": f"skill '{name}' not found"}
 
     from l1.kernel.skill import skill_visible
+
     if not skill_visible(skill_data, agent_id):
-        return {"success": False,
-                "error": f"skill '{name}' is not in the {_audience_label(agent_id)} domain"}
+        return {"success": False, "error": f"skill '{name}' is not in the {_audience_label(agent_id)} domain"}
 
     # Posture gate (default-deny, runtime policy): offensive-posture skills
     # require the SkillManager offensive policy to authorize the driving card
@@ -90,14 +93,14 @@ def use_skill(args: dict, agent_id: str) -> dict:
             try:
                 from l3.tool_system.security_mode import ingest_security_metric
 
-                ingest_security_metric(
-                    "security.gate.use_skill.blocked", tags={"skill": name, "nature": nature}
-                )
+                ingest_security_metric("security.gate.use_skill.blocked", tags={"skill": name, "nature": nature})
             except Exception:
                 pass
-            return {"success": False,
-                    "error": f"skill '{name}' is offensive-posture and requires card authorization"
-                             f" (nature '{nature}' not allowed by offensive policy)"}
+            return {
+                "success": False,
+                "error": f"skill '{name}' is offensive-posture and requires card authorization"
+                f" (nature '{nature}' not allowed by offensive policy)",
+            }
 
     prompt = skill_data.get("prompt", "")
     variables = skill_data.get("variables", [])

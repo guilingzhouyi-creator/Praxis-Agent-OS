@@ -34,8 +34,7 @@ logger = logging.getLogger(__name__)
 class Swapper:
     """Background memory pressure manager."""
 
-    def __init__(self, interval: float = SWAPPER_DEFAULT_INTERVAL,
-                 memory_service=None):
+    def __init__(self, interval: float = SWAPPER_DEFAULT_INTERVAL, memory_service=None):
         self.interval = interval
         self._running = True
         self._mem = memory_service
@@ -107,14 +106,17 @@ class Swapper:
                 ring=1,
             )
             self._total_swapped_out -= 1
-            return {"success": True, "entry": {
-                "id": new_id,
-                "agent_id": entry.agent_id,
-                "entry_type": entry.entry_type,
-                "content": entry.content[:LOG_TRUNC_100],
-                "cell_id": entry.cell_id,
-                "importance": entry.importance,
-            }}
+            return {
+                "success": True,
+                "entry": {
+                    "id": new_id,
+                    "agent_id": entry.agent_id,
+                    "entry_type": entry.entry_type,
+                    "content": entry.content[:LOG_TRUNC_100],
+                    "cell_id": entry.cell_id,
+                    "importance": entry.importance,
+                },
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -129,7 +131,7 @@ class Swapper:
                 self._total_swapped_out += 1
                 logger.debug("swapped %s ring1 → ring%d (importance=%.2f)", e.id, target_ring, e.importance)
             except Exception as err:
-                logger.warning("swap out %s failed: %s", getattr(e, 'id', '?'), err)
+                logger.warning("swap out %s failed: %s", getattr(e, "id", "?"), err)
         return len(entries)
 
     def _compact_short_term(self) -> int:
@@ -145,7 +147,7 @@ class Swapper:
                     self._total_compactions += 1
                     logger.debug("compacted %s ring2 → ring3", e.id)
             except Exception as err:
-                logger.warning("compact %s failed: %s", getattr(e, 'id', '?'), err)
+                logger.warning("compact %s failed: %s", getattr(e, "id", "?"), err)
         return compacted
 
     def stop(self) -> None:
@@ -154,7 +156,7 @@ class Swapper:
 
     def stats(self) -> dict:
         """Return swap statistics (swapped_out, compactions)."""
-        return {"swapped_out": getattr(self, '_total_swapped_out', 0), "compactions": self._total_compactions}
+        return {"swapped_out": getattr(self, "_total_swapped_out", 0), "compactions": self._total_compactions}
 
 
 _swapper: Swapper | None = None

@@ -1,4 +1,5 @@
 """SubAgent task execution — lifecycle management for delegated tasks."""
+
 from __future__ import annotations
 
 import logging
@@ -26,13 +27,18 @@ class SubAgentTask:
     busy, the message is queued in the Cell's mailbox (TTL-managed).
     """
 
-    def __init__(self, task_id: str, spec: SubAgentSpec,
-                 prompt: str, parent_agent_id: str = "",
-                 context: dict | None = None,
-                 cell=None,
-                 territory: list[str] | None = None,
-                 session_id: str = "",
-                 ttl: float = SUBAGENT_SESSION_TTL):
+    def __init__(
+        self,
+        task_id: str,
+        spec: SubAgentSpec,
+        prompt: str,
+        parent_agent_id: str = "",
+        context: dict | None = None,
+        cell=None,
+        territory: list[str] | None = None,
+        session_id: str = "",
+        ttl: float = SUBAGENT_SESSION_TTL,
+    ):
         self.id = task_id
         self.spec = spec
         self.prompt = prompt
@@ -114,6 +120,7 @@ class SubAgentTask:
         )
         try:
             from ..agent.scout import get_pool
+
             pool = get_pool()
             scout_result = pool.commission(self.parent_agent_id or self.id, prompt)
             return {"type": "scout", "result": str(scout_result.get("output") or scout_result)[:LOG_TRUNC_2000]}
@@ -124,6 +131,7 @@ class SubAgentTask:
         """Resolve model kwargs from spec's model_spec name + overrides."""
         try:
             from l3.services.model_service import get_service as _ms
+
             spec_name = self.spec.model_spec or "subagent"
             overrides = self.spec.model_config or {}
             kwargs = _ms().resolve_dict(spec_name, overrides=overrides)
@@ -131,8 +139,7 @@ class SubAgentTask:
                 # Apply the named strategy pack on top (stage-level reasoning switch)
                 strategy_defn = _ms().resolve_strategy_pack(self.spec.strategy)
                 if strategy_defn:
-                    kwargs.update({k: v for k, v in strategy_defn.items()
-                                   if k in kwargs})
+                    kwargs.update({k: v for k, v in strategy_defn.items() if k in kwargs})
             return kwargs
         except Exception:
             return {}
@@ -140,12 +147,14 @@ class SubAgentTask:
     def _run_generate(self) -> None:
         """Fast path — single LLM call, no tools."""
         from l4.llm.llm import get_engine
+
         engine = get_engine()
         model_kwargs = self.resolve_model_kwargs()
         from l1.kernel.prompts import get_prompt as _gpr
-        system = self.spec.system_prompt or _gpr(
-            "subagent.fallback", "You are {name}. {description}"
-        ).format(name=self.spec.name, description=self.spec.description)
+
+        system = self.spec.system_prompt or _gpr("subagent.fallback", "You are {name}. {description}").format(
+            name=self.spec.name, description=self.spec.description
+        )
 
         result = engine.generate(
             prompt=self.prompt,
@@ -170,9 +179,9 @@ class SubAgentTask:
         )
         from l1.kernel.prompts import get_prompt as _gpr
 
-        system = self.spec.system_prompt or _gpr(
-            "subagent.fallback", "You are {name}. {description}"
-        ).format(name=self.spec.name, description=self.spec.description)
+        system = self.spec.system_prompt or _gpr("subagent.fallback", "You are {name}. {description}").format(
+            name=self.spec.name, description=self.spec.description
+        )
 
         from .agent_loop import AgentLoop
         from .tool_system.tool_spec import get_tool
@@ -193,7 +202,9 @@ class SubAgentTask:
             if handler is None:
                 continue
             parallel = getattr(spec, "parallel_safe", False) or tool_name in (
-                "read_file", "grep_search", "list_dir",
+                "read_file",
+                "grep_search",
+                "list_dir",
             )
             loop.add_tool_from_spec(spec, handler=handler, parallel_safe=parallel)
 
@@ -222,6 +233,7 @@ class SubAgentTask:
             return
         try:
             from l3.cell.components.cell_types import MessageType
+
             self.cell.send_message(
                 sender=self.id,
                 target=self.parent_agent_id,
@@ -247,8 +259,10 @@ class SubAgentTask:
         # Emit TASK_CANCEL so the owning agent can release resources promptly.
         try:
             from l1.kernel import emit_signal
-            emit_signal("TASK_CANCEL", sender=self.parent_agent_id or "subagent",
-                        target=self.id, data={"task_id": self.id})
+
+            emit_signal(
+                "TASK_CANCEL", sender=self.parent_agent_id or "subagent", target=self.id, data={"task_id": self.id}
+            )
         except Exception as e:
             logger.warning("subagent %s: TASK_CANCEL emit failed: %s", self.id, e)
         return {"success": True, "task_id": self.id, "status": "cancelled"}
@@ -282,13 +296,16 @@ def _resolve_tool_handler(tool_name: str) -> Any:
         return _HANDLER_CACHE[tool_name]
     try:
         from ._term_handlers import _HANDLER_MAP
+
         handler = _HANDLER_MAP.get(tool_name)
         if handler:
             _HANDLER_CACHE[tool_name] = handler
             return handler
     except Exception:
         logger.debug("subagent_task: handler cache failed")
+
     def _generic(tool_name, args, agent_id):
         return {"success": True, "output": f"executed {tool_name}"}
+
     _HANDLER_CACHE[tool_name] = _generic
     return _generic

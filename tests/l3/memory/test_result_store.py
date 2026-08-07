@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestResultStore:
     def test_importable(self):
         from l3.memory.result_store import get_result_store
+
         assert callable(get_result_store)

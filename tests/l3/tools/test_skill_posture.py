@@ -157,8 +157,12 @@ class TestAgentLoopPostureGate:
     def test_offensive_skill_not_injected_by_default(self, _skills):
         sm = _skills
         sm.create(
-            name="rev-helper", description="d", prompt="attack helper",
-            tags=["evolved", "agent-x"], posture="offensive", internal=True,
+            name="rev-helper",
+            description="d",
+            prompt="attack helper",
+            tags=["evolved", "agent-x"],
+            posture="offensive",
+            internal=True,
         )
         out = self._mk_loop(nature="")._inject_extra_context("base")
         assert "rev-helper" not in out
@@ -166,8 +170,12 @@ class TestAgentLoopPostureGate:
     def test_offensive_skill_injected_when_card_nature_authorizes(self, _skills):
         sm = _skills
         sm.create(
-            name="rev-helper2", description="d", prompt="attack helper",
-            tags=["evolved", "agent-x"], posture="offensive", internal=True,
+            name="rev-helper2",
+            description="d",
+            prompt="attack helper",
+            tags=["evolved", "agent-x"],
+            posture="offensive",
+            internal=True,
         )
         out = self._mk_loop(nature=SKILL_OFFENSIVE_AUTHORIZED_NATURES[0])._inject_extra_context("base")
         assert "rev-helper2" in out
@@ -175,8 +183,12 @@ class TestAgentLoopPostureGate:
     def test_productive_skill_injected_regardless(self, _skills):
         sm = _skills
         sm.create(
-            name="plain-helper", description="d", prompt="build helper",
-            tags=["evolved", "agent-x"], posture="productive", internal=True,
+            name="plain-helper",
+            description="d",
+            prompt="build helper",
+            tags=["evolved", "agent-x"],
+            posture="productive",
+            internal=True,
         )
         out = self._mk_loop(nature="")._inject_extra_context("base")
         assert "plain-helper" in out
@@ -188,10 +200,20 @@ class TestSkillCatalogHookPosture:
 
         sm = _skills
         sm.create(
-            name="rev-cat", description="d", prompt="p", tags=["evolved"], posture="offensive", internal=True,
+            name="rev-cat",
+            description="d",
+            prompt="p",
+            tags=["evolved"],
+            posture="offensive",
+            internal=True,
         )
         sm.create(
-            name="plain-cat", description="d", prompt="p", tags=["evolved"], posture="productive", internal=True,
+            name="plain-cat",
+            description="d",
+            prompt="p",
+            tags=["evolved"],
+            posture="productive",
+            internal=True,
         )
         out = SkillCatalogHook().session_start("task", "agent-x")
         assert "rev-cat" not in out
@@ -247,16 +269,24 @@ class TestRuntimeToggle:
 
     def test_offensive_blocked_when_enabled(self, _skills):
         _skills.create(
-            name="rev-t", description="d", prompt="attack helper",
-            tags=["evolved", "agent-x"], posture="offensive", internal=True,
+            name="rev-t",
+            description="d",
+            prompt="attack helper",
+            tags=["evolved", "agent-x"],
+            posture="offensive",
+            internal=True,
         )
         out = self._mk_loop(nature="")._inject_extra_context("base")
         assert "rev-t" not in out
 
     def test_offensive_injected_when_disabled(self, _skills):
         _skills.create(
-            name="rev-t2", description="d", prompt="attack helper",
-            tags=["evolved", "agent-x"], posture="offensive", internal=True,
+            name="rev-t2",
+            description="d",
+            prompt="attack helper",
+            tags=["evolved", "agent-x"],
+            posture="offensive",
+            internal=True,
         )
         _skills.set_offensive_policy(enabled=False)
         out = self._mk_loop(nature="")._inject_extra_context("base")

@@ -25,8 +25,8 @@ class ApprovalPolicy:
 
     def __init__(self):
         self._lock = threading.RLock()
-        self._cell_overrides: dict[str, dict[str, int]] = {}    # {cell_id: {tool: danger}}
-        self._agent_overrides: dict[str, dict[str, int]] = {}   # {f"{cell}.{agent}": {tool: danger}}
+        self._cell_overrides: dict[str, dict[str, int]] = {}  # {cell_id: {tool: danger}}
+        self._agent_overrides: dict[str, dict[str, int]] = {}  # {f"{cell}.{agent}": {tool: danger}}
 
     def resolve(self, cell_id: str, agent_id: str, tool_name: str) -> int:
         """Resolve effective danger level: Agent > Cell > Global."""

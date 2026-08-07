@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 class PluginInfo:
     """Metadata for a registered plugin."""
 
-    def __init__(self, name: str, kind: str, enabled: bool = True,
-                 description: str = "", version: str = "0.1.0"):
+    def __init__(self, name: str, kind: str, enabled: bool = True, description: str = "", version: str = "0.1.0"):
         self.name = name
         self.kind = kind  # "tool" | "service" | "mcp"
         self.enabled = enabled
@@ -42,10 +41,10 @@ class CentralPlugin:
 
     # ── Tool plugins ──
 
-    def install_tool_plugin(self, name: str, tools: list[Any],
-                            description: str = "", version: str = "0.1.0") -> dict:
+    def install_tool_plugin(self, name: str, tools: list[Any], description: str = "", version: str = "0.1.0") -> dict:
         """Register a tool plugin via tool_spec.register_plugin()."""
         from .tool_system.tool_spec import get_tool, register_plugin
+
         try:
             register_plugin(name, tools)
             count = sum(1 for t in tools if get_tool(t.name) is not None)
@@ -61,6 +60,7 @@ class CentralPlugin:
     def remove_tool_plugin(self, name: str) -> dict:
         """Unregister a tool plugin via tool_spec.unregister_plugin()."""
         from .tool_system.tool_spec import list_tools, unregister_plugin
+
         try:
             before = len(list_tools())
             unregister_plugin(name)
@@ -73,10 +73,10 @@ class CentralPlugin:
 
     # ── MCP server plugins ──
 
-    def install_mcp(self, server_name: str, endpoint: str,
-                    api_key: str = "", description: str = "") -> dict:
+    def install_mcp(self, server_name: str, endpoint: str, api_key: str = "", description: str = "") -> dict:
         """Import an MCP server as a plugin."""
         from .mcp_bridge import McpClient, get_bridge
+
         try:
             client = McpClient(endpoint, api_key)
             r = get_bridge().import_server(server_name, client)
@@ -92,6 +92,7 @@ class CentralPlugin:
     def remove_mcp(self, server_name: str) -> dict:
         """Remove an MCP server plugin."""
         from .mcp_bridge import get_bridge
+
         try:
             r = get_bridge().remove_server(server_name)
             with self._lock:
@@ -109,10 +110,15 @@ class CentralPlugin:
         if kind:
             items = [p for p in items if p.kind == kind]
         return [
-            {"name": p.name, "kind": p.kind, "enabled": p.enabled,
-             "description": p.description, "version": p.version,
-             "tool_count": p.tool_count,
-             "installed_at": getattr(p, 'installed_at', 0)}
+            {
+                "name": p.name,
+                "kind": p.kind,
+                "enabled": p.enabled,
+                "description": p.description,
+                "version": p.version,
+                "tool_count": p.tool_count,
+                "installed_at": getattr(p, "installed_at", 0),
+            }
             for p in sorted(items, key=lambda x: x.name)
         ]
 
@@ -122,9 +128,14 @@ class CentralPlugin:
             pi = self._plugins.get(name)
         if not pi:
             return None
-        return {"name": pi.name, "kind": pi.kind, "enabled": pi.enabled,
-                "description": pi.description, "version": pi.version,
-                "tool_count": pi.tool_count}
+        return {
+            "name": pi.name,
+            "kind": pi.kind,
+            "enabled": pi.enabled,
+            "description": pi.description,
+            "version": pi.version,
+            "tool_count": pi.tool_count,
+        }
 
     def stats(self) -> dict:
         """Return plugin counts by kind and the full plugin name list."""

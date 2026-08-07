@@ -21,7 +21,9 @@ from .tool_spec import ParamSpec, ReturnSpec, ToolRing, ToolSpec, get_tool, list
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_YAML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), TOOLS_CONFIG_PATH)
+_DEFAULT_YAML_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), TOOLS_CONFIG_PATH
+)
 
 
 def _resolve_handler(handler_path: str) -> Any:
@@ -98,12 +100,19 @@ class ToolConfig:
                         logger.warning("tool_config: skip '%s': %s", name, e)
 
         cls._loaded = True
-        total = sum(1 for d in data.values() if isinstance(d, dict)
-                    for v in d.values() if isinstance(v, dict)
-                    for _ in v.values() if isinstance(_, dict))
+        total = sum(
+            1
+            for d in data.values()
+            if isinstance(d, dict)
+            for v in d.values()
+            if isinstance(v, dict)
+            for _ in v.values()
+            if isinstance(_, dict)
+        )
         if count < total:
-            logger.warning("tool_config: loaded %d/%d tools (%d skipped — check handler paths)",
-                           count, total, total - count)
+            logger.warning(
+                "tool_config: loaded %d/%d tools (%d skipped — check handler paths)", count, total, total - count
+            )
         logger.info("tool_config: loaded %d tools from %s", count, path)
         return count
 
@@ -111,6 +120,7 @@ class ToolConfig:
     def reload(cls, yaml_path: str = "") -> int:
         """Hot-reload tools.yaml (dev). Clears registry first."""
         from .tool_registry import get_registry as _get_tr
+
         _get_tr()._registry.clear()
         cls._loaded = False
         return cls.load(yaml_path)
@@ -144,9 +154,14 @@ class ToolConfig:
         returns = ReturnSpec(
             type=returns_raw.get("type", "object"),
             description=returns_raw.get("description", ""),
-            properties=returns_raw.get("properties", {
-                "success": "bool", "data": "any", "error": "string?",
-            }),
+            properties=returns_raw.get(
+                "properties",
+                {
+                    "success": "bool",
+                    "data": "any",
+                    "error": "string?",
+                },
+            ),
         )
 
         return ToolSpec(
@@ -220,6 +235,7 @@ class ToolConfig:
     def available_for(cls, agent_id: str) -> list[ToolSpec]:
         """ToolPolicy-filtered tool list."""
         from .tool_policy import ToolPolicy
+
         return [t for t in cls.all() if ToolPolicy.is_allowed(agent_id, t.name)]
 
     # ── Derivative data sets ──
@@ -227,26 +243,17 @@ class ToolConfig:
     @classmethod
     def write_tool_names(cls) -> frozenset[str]:
         """Return names of tools that can modify state (danger >= 1 or non-Ring-1)."""
-        return frozenset(
-            t.name for t in cls.all()
-            if t.danger >= 1 or t.ring != ToolRing.RING_1
-        )
+        return frozenset(t.name for t in cls.all() if t.danger >= 1 or t.ring != ToolRing.RING_1)
 
     @classmethod
     def terminal_tool_names(cls) -> frozenset[str]:
         """Return names of tools in the terminal category."""
-        return frozenset(
-            t.name for t in cls.all()
-            if t.category == "terminal"
-        )
+        return frozenset(t.name for t in cls.all() if t.category == "terminal")
 
     @classmethod
     def file_tool_names(cls) -> frozenset[str]:
         """Return names of tools in the file category."""
-        return frozenset(
-            t.name for t in cls.all()
-            if t.category == "file"
-        )
+        return frozenset(t.name for t in cls.all() if t.category == "file")
 
     @classmethod
     def completions(cls) -> dict[str, str]:

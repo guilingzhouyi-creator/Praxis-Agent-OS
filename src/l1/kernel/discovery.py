@@ -83,6 +83,7 @@ def discover() -> int:
     Returns the number of files loaded.
     """
     import yaml
+
     loaded = 0
     for d in _DISCOVERY_DIRS:
         base = Path(d)
@@ -98,23 +99,27 @@ def discover() -> int:
                             # Empty section (all keys commented out) — keep
                             # the registered defaults instead of clobbering
                             # them with None.
-                            logger.info("discovery: %s ← %s (empty section, defaults kept)",
-                                        section, fpath.name)
+                            logger.info("discovery: %s ← %s (empty section, defaults kept)", section, fpath.name)
                             continue
                         base_dict = _registry.setdefault(section, {})
                         if isinstance(values, dict) and isinstance(base_dict, dict):
                             base_dict.update(values)
                         else:
                             _registry[section] = values
-                        logger.info("discovery: %s ← %s (%d keys)", section, fpath.name,
-                                    len(values) if isinstance(values, dict) else 1)
+                        logger.info(
+                            "discovery: %s ← %s (%d keys)",
+                            section,
+                            fpath.name,
+                            len(values) if isinstance(values, dict) else 1,
+                        )
                     else:
                         # Unregistered section — silently dropped before this
                         # fix. Warn so dead YAML config is discoverable.
                         logger.warning(
                             "discovery: %s has unregistered section '%s' — ignored "
                             "(register it in boot._init_discovery or remove from YAML)",
-                            fpath.name, section,
+                            fpath.name,
+                            section,
                         )
                 loaded += 1
             except Exception as e:
@@ -171,10 +176,7 @@ def set_config(name: str, key: str, value: Any) -> None:
 def reset() -> None:
     """Reset registry to defaults (for testing)."""
     _registry.clear()
-    _registry.update({
-        k: dict(v) if isinstance(v, dict) else v
-        for k, v in _sources.items()
-    })
+    _registry.update({k: dict(v) if isinstance(v, dict) else v for k, v in _sources.items()})
 
 
 # ── Declarative registration helpers ──────────────────────────────

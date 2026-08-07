@@ -53,6 +53,7 @@ class CardExecutionMixin:
     def _process_card(self, card: TerminalCard) -> CardResult:
         """Route a terminal card to its execution path."""
         from l3.agent_terminal import CardMode
+
         if card.action == "convention":
             return self._convention_handler(card)
         if card.action == "direct_message":
@@ -71,6 +72,7 @@ class CardExecutionMixin:
         import time as _time
 
         from l3.agent_terminal import CardResult
+
         t0 = _time.time()
         task = card.params.get("prompt", card.target)
         # Card→skill linkage for persistent loops: the loop is reused across
@@ -92,6 +94,7 @@ class CardExecutionMixin:
         if self._active_loop and not self._active_loop._context_trail:
             try:
                 from ..agent.agent_persist import load_snapshot
+
                 snap = load_snapshot(self.agent_id)
                 if snap and "context_trail" in snap:
                     self._active_loop._context_trail = snap["context_trail"]
@@ -100,6 +103,7 @@ class CardExecutionMixin:
         ar: dict = {}
         try:
             from ..agent.agent_persist import append_transcript
+
             ar = self._active_loop.continue_run(task=task)
         except Exception as e:
             ar = {"success": False, "error": str(e), "answer": ""}
@@ -112,34 +116,54 @@ class CardExecutionMixin:
             logger.debug("agent_terminal: inject loop result failed")
         try:
             from l1.kernel.params.agent import LOG_TRUNC_200 as _T200
-            append_transcript(self.agent_id, {
-                "task": task[:_T200],
-                "success": success,
-                "elapsed": round(_time.time() - t0, 2),
-                "summary": answer[:_T200],
-            })
+
+            append_transcript(
+                self.agent_id,
+                {
+                    "task": task[:_T200],
+                    "success": success,
+                    "elapsed": round(_time.time() - t0, 2),
+                    "summary": answer[:_T200],
+                },
+            )
         except Exception:
             logger.debug("agent_terminal: append transcript failed")
         return CardResult(
-            card_id=card.card_id, action=card.action,
-            success=success, output=answer, error=ar.get("error", ""),
+            card_id=card.card_id,
+            action=card.action,
+            success=success,
+            output=answer,
+            error=ar.get("error", ""),
             elapsed=round(_time.time() - t0, 3),
         )
 
     def _inject_loop_result(self, card, answer: str, success: bool) -> None:
         """Inject AgentLoop result into Cell L2 cache for cross-agent sharing."""
         from l3.cell import get_cell as _get_cell
+
         cell = _get_cell(self.cell_id)
         import hashlib as _hl
+
         key = f"persistent:{self.agent_id}:{_hl.sha256(answer.encode()).hexdigest()[:HASH_TRUNC_SHORT]}"
         summary = answer.strip()[:LOG_TRUNC_200]
         if success and answer:
-            cell.cache.inject(key=key, value=answer, summary=summary,
-                              agent_id=self.agent_id, entry_type="decision", importance=MEMORY_PROMOTION_THRESHOLD)
+            cell.cache.inject(
+                key=key,
+                value=answer,
+                summary=summary,
+                agent_id=self.agent_id,
+                entry_type="decision",
+                importance=MEMORY_PROMOTION_THRESHOLD,
+            )
         elif not success:
-            cell.cache.inject(key=key, value=answer,
-                              summary=f"FAIL [{self.agent_id}]: {summary}",
-                              agent_id=self.agent_id, entry_type="failure", importance=MEMORY_IMPORTANCE_DECISION)
+            cell.cache.inject(
+                key=key,
+                value=answer,
+                summary=f"FAIL [{self.agent_id}]: {summary}",
+                agent_id=self.agent_id,
+                entry_type="failure",
+                importance=MEMORY_IMPORTANCE_DECISION,
+            )
 
     def _execute_card(self, card) -> dict:
         """Execute a terminal card through the tool pipeline (single or batch)."""
@@ -153,13 +177,14 @@ class CardExecutionMixin:
         from l3.agent_terminal import CardResult
         from l3.memory.context import get_context as _get_context_manager
         from l3.tool_system.tool_pipeline import get_pipeline
+
         phases = ["start"]
         result_output = ""
         result_findings: list[dict] = []
 
         # Begin context cycle: load working memory into register
         ctx = _get_context_manager()
-        ctx.begin(self.agent_id, task=getattr(card, 'intent', '') or card.action)
+        ctx.begin(self.agent_id, task=getattr(card, "intent", "") or card.action)
         phases.append("context_begin")
 
         # Build toolkit args from card params
@@ -190,6 +215,7 @@ class CardExecutionMixin:
         # ── Batch execution: multiple tools in parallel (Agent internal parallelism) ──
         if card.batch:
             import concurrent.futures
+
             batch_results: list[dict] = []
             batch_errors: list[str] = []
 
@@ -198,8 +224,7 @@ class CardExecutionMixin:
                 ba = dict(batch_item.get("input", {}))
                 ba.setdefault("path", ba.get("path", ba.get("target", card.target or "")))
                 ba.setdefault("target", ba.get("target", ba.get("path", card.target or "")))
-                return pipeline.execute(tool_name=bn, agent_id=self.agent_id,
-                                        args=ba, _executor=_handler_executor)
+                return pipeline.execute(tool_name=bn, agent_id=self.agent_id, args=ba, _executor=_handler_executor)
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(card.batch)) as ex:
                 futures = {ex.submit(_exec_one, item): item for item in card.batch}
@@ -214,8 +239,12 @@ class CardExecutionMixin:
 
             phases.append(f"batch_done:{len(batch_results)}")
             success = len(batch_errors) == 0
-            pr = {"success": success, "error": "; ".join(batch_errors) if batch_errors else "",
-                  "steps": phases, "batch_results": batch_results}
+            pr = {
+                "success": success,
+                "error": "; ".join(batch_errors) if batch_errors else "",
+                "steps": phases,
+                "batch_results": batch_results,
+            }
         else:
             # ── Single tool execution (original path) ──
             pr = pipeline.execute(
@@ -230,15 +259,26 @@ class CardExecutionMixin:
             phases.extend(x for x in steps if isinstance(x, str))
         if not pr.get("success"):
             ctx.end(success=False, summary=pr.get("error", "pipeline rejected"))
-            return CardResult(card_id=card.card_id, action=card.action,
-                              success=False, error=pr.get("error", "pipeline rejected"),
-                              output=result_output, findings=result_findings, phase=phases)
+            return CardResult(
+                card_id=card.card_id,
+                action=card.action,
+                success=False,
+                error=pr.get("error", "pipeline rejected"),
+                output=result_output,
+                findings=result_findings,
+                phase=phases,
+            )
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
-            mem.remember(agent_id=self.agent_id, entry_type="card_result",
+            mem.remember(
+                agent_id=self.agent_id,
+                entry_type="card_result",
                 content=f"{card.action} {card.target}: {result_output[:LOG_TRUNC_200]}",
-                tags=[card.action], ring=1)
+                tags=[card.action],
+                ring=1,
+            )
             phases.append("memory_store")
 
             # ── Auto-compact on high memory pressure after think actions ──
@@ -255,25 +295,40 @@ class CardExecutionMixin:
                             entry_type="restored",
                         )
                     phases.append(f"compact:{compact_r.get('merged', 0)}")
-                    logger.info("auto-compact for %s: merged=%d tokens=%d",
-                                self.agent_id, compact_r.get("merged", 0),
-                                compact_r.get("saved_tokens", 0))
+                    logger.info(
+                        "auto-compact for %s: merged=%d tokens=%d",
+                        self.agent_id,
+                        compact_r.get("merged", 0),
+                        compact_r.get("saved_tokens", 0),
+                    )
         except Exception:
             phases.append("memory_store:skip")
         try:
             from l1.kernel import record_audit
-            record_audit(f"card.{card.action}", self.agent_id, success=True,
-                         detail=f"{card.target}:{result_output[:LOG_TRUNC_60]}")
+
+            record_audit(
+                f"card.{card.action}",
+                self.agent_id,
+                success=True,
+                detail=f"{card.target}:{result_output[:LOG_TRUNC_60]}",
+            )
         except Exception as e:
             logger.warning("agent terminal keepalive: %s", e)
 
         if card.action in ("write_file",) and result_output:
             try:
-                emit_signal(EVENT_REVIEW_REQUESTED, sender=self.agent_id,
-                            target=self.cell_id or "cell",
-                            data={"type": "cross_review", "action": card.action,
-                                  "target": card.target, "created_by": self.agent_id,
-                                  "output_snippet": result_output[:LOG_TRUNC_200]})
+                emit_signal(
+                    EVENT_REVIEW_REQUESTED,
+                    sender=self.agent_id,
+                    target=self.cell_id or "cell",
+                    data={
+                        "type": "cross_review",
+                        "action": card.action,
+                        "target": card.target,
+                        "created_by": self.agent_id,
+                        "output_snippet": result_output[:LOG_TRUNC_200],
+                    },
+                )
                 phases.append("cross_review→signal")
             except Exception:
                 phases.append("cross_review:skip")
@@ -281,5 +336,11 @@ class CardExecutionMixin:
         ctx.end(success=True, summary=f"{card.action} {card.target}: {result_output[:LOG_TRUNC_200]}")
         phases.append("context_end")
 
-        return CardResult(card_id=card.card_id, action=card.action,
-                          success=True, output=result_output, findings=result_findings, phase=phases)
+        return CardResult(
+            card_id=card.card_id,
+            action=card.action,
+            success=True,
+            output=result_output,
+            findings=result_findings,
+            phase=phases,
+        )

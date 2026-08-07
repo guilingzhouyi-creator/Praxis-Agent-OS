@@ -33,14 +33,16 @@ logger = logging.getLogger(__name__)
 
 # ── Data types ───────────────────────────────────────────────
 
+
 @dataclass
 class CellAnswer:
     """A structured answer from one agent in one Cell."""
+
     cell_id: str = ""
     session_id: str = ""
     agent_id: str = ""
     phase: int = 0
-    answer_type: str = "answer"       # "answer"|"examination"|"rebuttal"|"supplement"|"resolution"
+    answer_type: str = "answer"  # "answer"|"examination"|"rebuttal"|"supplement"|"resolution"
     content: dict = field(default_factory=dict)
     fingerprint: str = ""
     tags: list[str] = field(default_factory=list)
@@ -57,11 +59,12 @@ class CellAnswer:
 @dataclass
 class AnswerCheckpoint:
     """Snapshot of AnswerSession phase state for crash recovery."""
+
     session_id: str = ""
     cell_id: str = ""
     phase: int = 0
     phase_name: str = ""
-    status: str = "in_progress"       # "in_progress" | "completed" | "failed"
+    status: str = "in_progress"  # "in_progress" | "completed" | "failed"
     completed_agents: list[str] = field(default_factory=list)
     pending_agents: list[str] = field(default_factory=list)
     answer_count: int = 0
@@ -74,6 +77,7 @@ class AnswerCheckpoint:
 
 
 # ── Repository ────────────────────────────────────────────────
+
 
 class CellAnswerRepo:
     """Per-Cell answer persistence with checkpoints.
@@ -121,8 +125,7 @@ class CellAnswerRepo:
 
         return {"success": True, "fingerprint": answer.fingerprint}
 
-    def get_answers(self, phase: int = 0,
-                    answer_type: str = "") -> list[CellAnswer]:
+    def get_answers(self, phase: int = 0, answer_type: str = "") -> list[CellAnswer]:
         """Get answers for a given phase, optionally filtered by type."""
         with self._lock:
             phase_key = str(phase)
@@ -182,6 +185,7 @@ class CellAnswerRepo:
         """Store answer in Archive SQLite with tags."""
         try:
             from l3.tools._archive import archive_store
+
             tags = [
                 f"cell:{self.cell_id}",
                 f"session:{self.session_id}",
@@ -189,13 +193,17 @@ class CellAnswerRepo:
                 f"phase:{answer.phase}",
                 f"type:{answer.answer_type}",
             ] + (answer.tags or [])
-            archive_store("answer_repo", "answer", {
-                "fonds": f"CELL:{self.cell_id}:{self.session_id}",
-                "series": f"phase:{answer.phase}",
-                "title": f"{answer.agent_id}/{answer.answer_type}",
-                "content": json.dumps(answer.content, default=str)[:LOG_TRUNC_5000],
-                "tags": ",".join(tags),
-            })
+            archive_store(
+                "answer_repo",
+                "answer",
+                {
+                    "fonds": f"CELL:{self.cell_id}:{self.session_id}",
+                    "series": f"phase:{answer.phase}",
+                    "title": f"{answer.agent_id}/{answer.answer_type}",
+                    "content": json.dumps(answer.content, default=str)[:LOG_TRUNC_5000],
+                    "tags": ",".join(tags),
+                },
+            )
         except Exception:
             raise
 
@@ -203,6 +211,7 @@ class CellAnswerRepo:
         """Store answer in Ring 3 for FTS5 searchability."""
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             mem.remember(
                 agent_id=answer.agent_id,
@@ -211,8 +220,10 @@ class CellAnswerRepo:
                 content=json.dumps(answer.content, default=str)[:LOG_TRUNC_2000],
                 ring=3,
                 importance=MEMORY_IMPORTANCE_HIGH,
-                tags=list(answer.tags or []) + [
-                    "discussion", self.session_id,
+                tags=list(answer.tags or [])
+                + [
+                    "discussion",
+                    self.session_id,
                     f"phase:{answer.phase}",
                 ],
             )
@@ -223,19 +234,23 @@ class CellAnswerRepo:
         """Persist checkpoint to Ring 3 for crash recovery."""
         try:
             from l3.memory.memory import get_memory
+
             mem = get_memory()
             mem.remember(
                 agent_id="system",
                 cell_id=self.cell_id,
                 entry_type="discussion.checkpoint",
-                content=json.dumps({
-                    "session_id": cp.session_id,
-                    "phase": cp.phase,
-                    "phase_name": cp.phase_name,
-                    "status": cp.status,
-                    "completed_agents": cp.completed_agents,
-                    "pending_agents": cp.pending_agents,
-                }, default=str)[:LOG_TRUNC_2000],
+                content=json.dumps(
+                    {
+                        "session_id": cp.session_id,
+                        "phase": cp.phase,
+                        "phase_name": cp.phase_name,
+                        "status": cp.status,
+                        "completed_agents": cp.completed_agents,
+                        "pending_agents": cp.pending_agents,
+                    },
+                    default=str,
+                )[:LOG_TRUNC_2000],
                 ring=3,
                 importance=MEMORY_IMPORTANCE_CRITICAL,
                 tags=["discussion", "checkpoint", self.session_id],

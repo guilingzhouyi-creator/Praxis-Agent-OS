@@ -32,10 +32,12 @@ _ENV_PATTERN = re.compile(r"\$\{([^}:]+)(?::([^}]*))?\}")
 def _interpolate_env(value: Any) -> Any:
     """Replace ${VAR_NAME:-default} patterns with env var values."""
     if isinstance(value, str):
+
         def _replace(m: re.Match) -> str:
             var = m.group(1)
             default = m.group(2) or ""
             return os.environ.get(var, default)
+
         return _ENV_PATTERN.sub(_replace, value)
     if isinstance(value, dict):
         return {k: _interpolate_env(v) for k, v in value.items()}
@@ -80,9 +82,11 @@ class ModelService:
         if self._settings is None:
             try:
                 from l3.config.settings_center import get_center
+
                 self._settings = get_center()
             except Exception:
                 from unittest.mock import MagicMock
+
                 self._settings = MagicMock()
                 self._settings.get.return_value = None
         return self._settings
@@ -91,6 +95,7 @@ class ModelService:
         if self._vault is None:
             try:
                 from l4.vault.credential_vault import get_credential
+
                 self._vault_vault = get_credential
             except Exception:
                 self._vault_vault = lambda p, k: None
@@ -99,8 +104,7 @@ class ModelService:
 
     # ── Public API ──────────────────────────────────────────────
 
-    def resolve(self, spec_name: str = "",
-                overrides: dict | None = None) -> LLMConfig:
+    def resolve(self, spec_name: str = "", overrides: dict | None = None) -> LLMConfig:
         """Resolve a named model spec to an LLMConfig.
 
         Resolution cascade (higher priority wins):
@@ -164,6 +168,7 @@ class ModelService:
         """
         try:
             from l1.kernel.params.api import THINK_MAX_BUDGET, THINK_MAX_REASONING
+
             max_budget = int(sc.get("think.max_budget", THINK_MAX_BUDGET))
             max_reasoning = str(sc.get("think.max_reasoning", THINK_MAX_REASONING))
         except Exception:
@@ -173,19 +178,20 @@ class ModelService:
             if merged["thinking_budget"] > max_budget:
                 logger.warning(
                     "model_service: thinking_budget %d clamped to %d (think.max_budget)",
-                    merged["thinking_budget"], max_budget)
+                    merged["thinking_budget"],
+                    max_budget,
+                )
                 merged["thinking_budget"] = max_budget
         effort = merged.get("reasoning_effort", "none")
         rank = {"none": 0, "low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
         current = rank.get(str(effort), 0)
         if current > rank.get(max_reasoning, 5):
             logger.warning(
-                "model_service: reasoning_effort %r clamped to %r (think.max_reasoning)",
-                effort, max_reasoning)
+                "model_service: reasoning_effort %r clamped to %r (think.max_reasoning)", effort, max_reasoning
+            )
             merged["reasoning_effort"] = max_reasoning
 
-    def resolve_dict(self, spec_name: str = "",
-                     overrides: dict | None = None) -> dict:
+    def resolve_dict(self, spec_name: str = "", overrides: dict | None = None) -> dict:
         """Resolve and return a raw dict (for passing as **model_kwargs)."""
         cfg = self.resolve(spec_name, overrides)
         return {
@@ -196,9 +202,9 @@ class ModelService:
             "thinking_budget": cfg.thinking_budget,
         }
 
-    def resolve_dict_with_strategy(self, spec_name: str = "",
-                                   strategy: str = "",
-                                   overrides: dict | None = None) -> dict:
+    def resolve_dict_with_strategy(
+        self, spec_name: str = "", strategy: str = "", overrides: dict | None = None
+    ) -> dict:
         """Resolve a spec dict and layer a named strategy pack on top.
 
         Shared by scout / L3A-subagent / cell-subagent executors so every
@@ -221,15 +227,14 @@ class ModelService:
         strategy is unknown or disabled.
         """
         sc = self._settings_center()
-        defn = self._read_dict(
-            sc, "model_spec.strategies." + strategy_name, leaf_only=True)
+        defn = self._read_dict(sc, "model_spec.strategies." + strategy_name, leaf_only=True)
         if not defn:
             return None
         if defn.get("enabled") is False:
             return None
-        return {k: v for k, v in defn.items()
-                if k in ("reasoning_effort", "thinking_budget",
-                         "max_tokens", "temperature")}
+        return {
+            k: v for k, v in defn.items() if k in ("reasoning_effort", "thinking_budget", "max_tokens", "temperature")
+        }
 
     def apply_strategy(self, spec_name: str, strategy_name: str) -> dict:
         """Apply a named strategy pack to an executor.
@@ -242,15 +247,13 @@ class ModelService:
         sc = self._settings_center()
         defn = self.resolve_strategy_pack(strategy_name)
         if defn is None:
-            return {"success": False,
-                    "error": f"unknown or disabled strategy: {strategy_name}"}
+            return {"success": False, "error": f"unknown or disabled strategy: {strategy_name}"}
         written = []
         for key, value in defn.items():
             sc.set(f"model_spec.{spec_name}.{key}", value)
             written.append(key)
         sc.set(f"model_spec.{spec_name}.strategy", strategy_name)
-        return {"success": True, "spec": spec_name, "strategy": strategy_name,
-                "applied": written}
+        return {"success": True, "spec": spec_name, "strategy": strategy_name, "applied": written}
 
     def clear_strategy(self, spec_name: str) -> dict:
         """Remove a strategy's exact-layer overrides, restoring defaults."""
@@ -266,8 +269,7 @@ class ModelService:
                 continue
             sc.reset(key)
             removed.append(key)
-        return {"success": True, "spec": spec_name,
-                "cleared": removed, "restored": "defaults"}
+        return {"success": True, "spec": spec_name, "cleared": removed, "restored": "defaults"}
 
     def current_strategy(self, spec_name: str) -> dict:
         """Report the active strategy and exact-layer overrides for a spec."""
@@ -275,14 +277,14 @@ class ModelService:
         active = sc.get(f"model_spec.{spec_name}.strategy", "")
         exact = self._read_dict(sc, "model_spec." + spec_name, leaf_only=True)
         exact = {k: v for k, v in (exact or {}).items() if k != "strategy"}
-        return {"spec": spec_name, "strategy": active or "defaults",
-                "overrides": exact or {}}
+        return {"spec": spec_name, "strategy": active or "defaults", "overrides": exact or {}}
 
     def health_check(self, provider_name: str) -> dict:
         """Quick health check for a provider by name."""
         try:
             config = self.resolve(overrides={"provider": provider_name})
             from l4.llm.llm import get_engine
+
             engine = get_engine(config)
             if hasattr(engine._provider, "health"):
                 return engine._provider.health()
@@ -315,15 +317,13 @@ class ModelService:
 
         # 2. Try model_spec.{prefix}.specs.{name}
         if len(parts) >= 2:
-            full = self._read_dict(
-                sc, f"model_spec.{parts[0]}.specs.{parts[-1]}", leaf_only=True)
+            full = self._read_dict(sc, f"model_spec.{parts[0]}.specs.{parts[-1]}", leaf_only=True)
             if full:
                 return full
 
         # 3. Try platform defaults: model_spec.{prefix}.defaults
         if len(parts) >= 1:
-            defaults = self._read_dict(
-                sc, "model_spec." + parts[0] + ".defaults", leaf_only=True)
+            defaults = self._read_dict(sc, "model_spec." + parts[0] + ".defaults", leaf_only=True)
             if defaults:
                 return defaults
 
@@ -343,7 +343,7 @@ class ModelService:
             all_ = sc.all() if hasattr(sc, "all") else {}
             for key, value in all_.items():
                 if key.startswith(prefix + "."):
-                    sub_key = key[len(prefix) + 1:]
+                    sub_key = key[len(prefix) + 1 :]
                     if leaf_only and "." in sub_key:
                         continue
                     result[sub_key] = value

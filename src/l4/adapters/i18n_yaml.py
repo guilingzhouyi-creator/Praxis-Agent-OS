@@ -50,8 +50,7 @@ class YamlI18nAdapter(I18nPort):
             try:
                 msg = msg.format(**kwargs)
             except KeyError as e:
-                logger.warning("i18n[%s]: missing format key %s for '%s'",
-                               self._locale, e, key)
+                logger.warning("i18n[%s]: missing format key %s for '%s'", self._locale, e, key)
         return msg
 
     def set_locale(self, locale: str) -> None:
@@ -75,11 +74,9 @@ class YamlI18nAdapter(I18nPort):
         if not d:
             return ["en"]
         try:
-            return sorted({
-                f.replace(".yaml", "").replace(".yml", "")
-                for f in os.listdir(d)
-                if f.endswith((".yaml", ".yml"))
-            })
+            return sorted(
+                {f.replace(".yaml", "").replace(".yml", "") for f in os.listdir(d) if f.endswith((".yaml", ".yml"))}
+            )
         except Exception:
             logger.warning("i18n_yaml: list_locales failed, falling back to ['en']")
             return ["en"]
@@ -95,6 +92,7 @@ class YamlI18nAdapter(I18nPort):
         """Load a single YAML file as translations for *locale*."""
         try:
             import yaml
+
             with open(path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             if not isinstance(data, dict):
@@ -147,8 +145,7 @@ class YamlI18nAdapter(I18nPort):
                 return
         logger.info("i18n: no file for '%s', key fallback", locale)
 
-    def _flatten_and_store(self, locale: str, data: dict,
-                           prefix: str = "") -> None:
+    def _flatten_and_store(self, locale: str, data: dict, prefix: str = "") -> None:
         """Flatten nested dict into dot-notation keys and store."""
         for key, value in data.items():
             full_key = f"{prefix}.{key}" if prefix else key

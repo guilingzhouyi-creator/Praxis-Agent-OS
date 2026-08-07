@@ -12,6 +12,7 @@ from typing import Any
 @dataclass
 class ParamSpec:
     """Tool parameter specification."""
+
     name: str
     type: str = "string"
     required: bool = False
@@ -32,8 +33,13 @@ class ParamSpec:
 @dataclass
 class ReturnSpec:
     """Tool return value specification."""
+
     type: str = "object"
     description: str = ""
-    properties: dict[str, str] = field(default_factory=lambda: {
-        "success": "bool", "data": "any", "error": "string?",
-    })
+    properties: dict[str, str] = field(
+        default_factory=lambda: {
+            "success": "bool",
+            "data": "any",
+            "error": "string?",
+        }
+    )

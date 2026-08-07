@@ -24,8 +24,12 @@ class TestAgentIdentity:
 
     def test_full_init(self):
         ident = AgentIdentity(
-            agent_id="agent-b", role="writer", ring=2,
-            cell_id="cell-1", territory=["src/"], status="online",
+            agent_id="agent-b",
+            role="writer",
+            ring=2,
+            cell_id="cell-1",
+            territory=["src/"],
+            status="online",
         )
         assert ident.agent_id == "agent-b"
         assert ident.ring == 2

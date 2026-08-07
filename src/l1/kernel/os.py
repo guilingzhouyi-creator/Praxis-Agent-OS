@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 class OSState(Enum):
     """OSState — enum of DOWN, STARTING, RUNNING, STOPPING...."""
+
     DOWN = auto()
     STARTING = auto()
     RUNNING = auto()
@@ -135,8 +136,10 @@ class OS:
             handler = self._shutdown_handler
             if handler:
                 holder: dict[str, Any] = {}
+
                 def _run() -> None:
                     holder["r"] = handler()
+
                 t = threading.Thread(target=_run, daemon=True)
                 t.start()
                 t.join(timeout=SHUTDOWN_TIMEOUT)
@@ -201,7 +204,9 @@ class OS:
             return
         self._watchdog_running = True
         self._watchdog_thread = threading.Thread(
-            target=self._watchdog_loop, args=(interval,), daemon=True,
+            target=self._watchdog_loop,
+            args=(interval,),
+            daemon=True,
         )
         self._watchdog_thread.start()
         logger.info("watchdog started (every %.0fs)", interval)

@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestMemorySearch:
     def test_importable(self):
         from l3.memory.memory_search import search_long_term
+
         assert callable(search_long_term)

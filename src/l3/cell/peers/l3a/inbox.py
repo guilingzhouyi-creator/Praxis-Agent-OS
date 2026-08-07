@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Admission:
     """Admission — admission record (id, session_id, text, mode, status)."""
+
     id: str
     session_id: str
     text: str
@@ -37,6 +38,7 @@ class Admission:
 
 class PromptInbox:
     """PromptInbox — prompt inbox."""
+
     def __init__(self, session_id: str):
         self._session_id = session_id
         self._entries: list[Admission] = []
@@ -46,7 +48,7 @@ class PromptInbox:
     def admit(self, text: str, mode: str = "steer") -> Admission:
         """Admit a prompt entry into the inbox and return the created Admission."""
         a = Admission(
-            id=uuid.uuid4().hex[:_p.SID_LENGTH],
+            id=uuid.uuid4().hex[: _p.SID_LENGTH],
             session_id=self._session_id,
             text=text,
             mode=mode,
@@ -112,6 +114,7 @@ class PromptInbox:
         """Reload persisted inbox entries for this session from central memory."""
         try:
             from l3.memory.central_memory import get_l3a_memory as _gm
+
             entries = _gm().recall(
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_inbox",
@@ -120,7 +123,12 @@ class PromptInbox:
                 limit=_p.INBOX_RELOAD_LIMIT,
             )
         except Exception:
-            capture("l3a inbox: reload failed", error_code="E_L3A_INBOX", component="l3a", context={"session_id": self._session_id})
+            capture(
+                "l3a inbox: reload failed",
+                error_code="E_L3A_INBOX",
+                component="l3a",
+                context={"session_id": self._session_id},
+            )
             logger.warning("l3a inbox: reload failed, starting fresh")
             return
         with self._lock:
@@ -136,22 +144,34 @@ class PromptInbox:
     def _persist(self) -> None:
         try:
             from l3.memory.central_memory import get_l3a_memory as _gm
+
             for a in self._entries:
                 if a.status != "pending" or a.id in self._persisted_ids:
                     continue
                 _gm().remember(
                     agent_id=_p.AGENT_ID,
                     entry_type="l3a_inbox",
-                    content=json.dumps({
-                        "id": a.id, "session_id": a.session_id,
-                        "text": a.text, "mode": a.mode, "status": a.status,
-                        "created_at": a.created_at,
-                    }, default=str),
+                    content=json.dumps(
+                        {
+                            "id": a.id,
+                            "session_id": a.session_id,
+                            "text": a.text,
+                            "mode": a.mode,
+                            "status": a.status,
+                            "created_at": a.created_at,
+                        },
+                        default=str,
+                    ),
                     tags=["l3a", "inbox", f"session:{self._session_id}"],
                     importance=_p.INBOX_IMPORTANCE,
                     ring=2,
                 )
                 self._persisted_ids.add(a.id)
         except Exception:
-            capture("l3a inbox: persist failed", error_code="E_L3A_INBOX", component="l3a", context={"session_id": self._session_id})
+            capture(
+                "l3a inbox: persist failed",
+                error_code="E_L3A_INBOX",
+                component="l3a",
+                context={"session_id": self._session_id},
+            )
             logger.warning("l3a inbox: persist failed")

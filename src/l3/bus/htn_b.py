@@ -47,13 +47,17 @@ def create_htn_b(prev_cell_id: str, next_cell_id: str) -> HTNPlanner:
 
     logger.info(
         "HTN-B created for %s → %s (%d methods)",
-        prev_cell_id, next_cell_id, len(planner._methods),
+        prev_cell_id,
+        next_cell_id,
+        len(planner._methods),
     )
     return planner
 
 
 def _decompose_route_forward(
-    root: Task, prev_cell: str, next_cell: str,
+    root: Task,
+    prev_cell: str,
+    next_cell: str,
 ) -> list[Task]:
     """Decompose an HTN-A subtask into an execution plan for "routing to the next cell".
 
@@ -95,7 +99,9 @@ def _decompose_route_forward(
 
 
 def _decompose_merge_result(
-    root: Task, prev_cell: str, next_cell: str,
+    root: Task,
+    prev_cell: str,
+    next_cell: str,
 ) -> list[Task]:
     """Aggregate the result returned by the successor cell and prepare it for the next composite or HTN-A."""
     tid = root.id

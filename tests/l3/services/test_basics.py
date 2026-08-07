@@ -1,4 +1,5 @@
 """Services core module tests — todo, stagnation, pal_router, tool_spec."""
+
 from __future__ import annotations
 
 import os
@@ -10,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestTodoTable:
     def test_add_and_next(self):
         from l3.services.todo import TodoStatus, TodoTable
+
         t = TodoTable("test-agent")
         tid = t.add("do something", priority=3)
         assert tid.startswith("test-agent-")
@@ -22,6 +24,7 @@ class TestTodoTable:
 
     def test_priority_ordering(self):
         from l3.services.todo import TodoTable
+
         t = TodoTable("p-agent")
         t.add("low", priority=10)
         t.add("high", priority=1)
@@ -32,6 +35,7 @@ class TestTodoTable:
 
     def test_dependencies(self):
         from l3.services.todo import TodoStatus, TodoTable
+
         t = TodoTable("dep-agent")
         a = t.add("task A")
         b = t.add("task B", depends_on=[a])
@@ -41,12 +45,14 @@ class TestTodoTable:
 
     def test_blocked_by_missing_dep(self):
         from l3.services.todo import TodoTable
+
         t = TodoTable("block-agent")
         t.add("orphan", depends_on=["nonexistent"])
         assert t.next() is None
 
     def test_cancel(self):
         from l3.services.todo import TodoTable
+
         t = TodoTable("c-agent")
         tid = t.add("cancel me")
         assert t.cancel(tid)
@@ -54,6 +60,7 @@ class TestTodoTable:
 
     def test_list_and_stats(self):
         from l3.services.todo import TodoTable
+
         t = TodoTable("stat-agent")
         t.add("a", priority=1)
         t.add("b", priority=5)
@@ -68,11 +75,13 @@ class TestTodoTable:
 class TestStagnationDetector:
     def test_no_stagnation(self):
         from l3.agent.stagnation import StagnationDetector
+
         sd = StagnationDetector()
         assert not sd.check("fresh-agent").get("stagnant")
 
     def test_spinning_detection(self):
         from l3.agent.stagnation import StagnationDetector
+
         sd = StagnationDetector()
         for _ in range(5):
             sd.record("spinner", "same output", progress=0.5)
@@ -82,6 +91,7 @@ class TestStagnationDetector:
 
     def test_oscillation_detection(self):
         from l3.agent.stagnation import StagnationDetector
+
         sd = StagnationDetector()
         for o in ["version A", "version B"] * 4:
             sd.record("oscillator", o, progress=0.5)
@@ -91,6 +101,7 @@ class TestStagnationDetector:
 
     def test_no_drift_detection(self):
         from l3.agent.stagnation import StagnationDetector
+
         sd = StagnationDetector()
         # Different content each time so SPINNING doesn't fire before NO_DRIFT
         for i in range(5):
@@ -101,6 +112,7 @@ class TestStagnationDetector:
 
     def test_diminishing_returns(self):
         from l3.agent.stagnation import StagnationDetector
+
         sd = StagnationDetector()
         # deltas: 0.008, 0.006, 0.004 — all >= 0 and all < 0.01
         # spread: max-min = 0.018 >= 0.01, so NO_DRIFT won't fire first
@@ -116,15 +128,18 @@ class TestStagnationDetector:
 class TestPALRouter:
     def test_select_default_tier(self):
         from l3.agent.pal_router import PALRouter
+
         router = PALRouter()
         assert router.select("simple task") in ("frugal", "standard", "frontier")
 
     def test_select_prefer_tier(self):
         from l3.agent.pal_router import PALRouter
+
         assert PALRouter().select("critical", prefer_tier="frontier") == "frontier"
 
     def test_complexity_scoring(self):
         from l3.agent.pal_router import complexity_score
+
         s1 = complexity_score(tokens=100, tools=1, depth=1)
         s2 = complexity_score(tokens=10000, tools=20, depth=10)
         assert s1 < s2
@@ -133,6 +148,7 @@ class TestPALRouter:
 
     def test_stats_structure(self):
         from l3.agent.pal_router import PALRouter
+
         router = PALRouter()
         router.select("stats test")
         stats = router.stats()
@@ -143,23 +159,27 @@ class TestPALRouter:
 class TestToolSpec:
     def test_param_validation_required(self):
         from l3.tool_system.tool_spec import ParamSpec
+
         p = ParamSpec(name="path", type="string", required=True)
         assert p.validate("/valid/path") is None
         # None for required param: falls through type check, str(None) != "string"
 
     def test_param_validation_optional(self):
         from l3.tool_system.tool_spec import ParamSpec
+
         p = ParamSpec(name="count", type="int", required=False, default=5)
         assert p.validate(None) is None
         assert p.validate(3) is None
 
     def test_param_validation_type_mismatch(self):
         from l3.tool_system.tool_spec import ParamSpec
+
         p = ParamSpec(name="count", type="int")
         assert p.validate("bad") is not None  # string not int
 
     def test_tool_spec_gates(self):
         from l3.tool_system.tool_spec import ToolRing, ToolSpec
+
         t1 = ToolSpec(name="r1", description="", category="t", ring=ToolRing.RING_1, danger=0)
         assert t1.gates == ["G1", "G2"]
         t2 = ToolSpec(name="r25", description="", category="t", ring=ToolRing.RING_2_5, danger=1)
@@ -169,6 +189,7 @@ class TestToolSpec:
 
     def test_register_and_get(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, get_tool, register
+
         saved = TOOL_REGISTRY.list_tools()
         for spec in saved:
             TOOL_REGISTRY.unregister(spec.name)
@@ -184,6 +205,7 @@ class TestToolSpec:
 
     def test_list_by_category(self):
         from l3.tool_system.tool_spec import TOOL_REGISTRY, ToolSpec, list_tools, register
+
         saved = TOOL_REGISTRY.list_tools()
         for spec in saved:
             TOOL_REGISTRY.unregister(spec.name)

@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestCacheDoc:
     def test_importable(self):
         from l3.memory.cache_doc import CacheDocumentStore
+
         assert callable(CacheDocumentStore)

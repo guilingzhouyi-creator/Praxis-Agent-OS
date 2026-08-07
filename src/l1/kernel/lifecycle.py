@@ -30,6 +30,7 @@ _LIFECYCLE_FILE = LIFECYCLE_STATE_FILE
 
 class LifecycleState(Enum):
     """LifecycleState — enum of HALTED, INSTALLING, BOOTING, ACTIVE...."""
+
     HALTED = "halted"
     INSTALLING = "installing"
     BOOTING = "booting"
@@ -51,6 +52,7 @@ _VALID_TRANSITIONS: dict[LifecycleState, set[LifecycleState]] = {
 @dataclass
 class LifecycleRecord:
     """LifecycleRecord — lifecycle record record (install_version, schema_version, last_boot, last_boot_success, last_shutdown)."""
+
     install_version: int = 0
     schema_version: str = ""
     last_boot: str = ""
@@ -132,6 +134,7 @@ class LifecycleRegistry:
         if rec.install_version == 0:
             return True
         from l1.kernel.migration import SCHEMA_VERSION
+
         if rec.schema_version != SCHEMA_VERSION:
             return True
         # Unclean shutdown → reinstall

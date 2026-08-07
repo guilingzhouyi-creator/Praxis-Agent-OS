@@ -24,14 +24,13 @@ _boot_registry_locked: bool = False
 @dataclass
 class BootStep:
     """BootStep — boot step record (name, fn, depends_on)."""
+
     name: str = ""
     fn: Callable = lambda: {}
     depends_on: list[str] = field(default_factory=list)
 
 
-def register_boot_step(name: str, fn: Callable,
-                       depends_on: list[str] | None = None,
-                       override: bool = False) -> None:
+def register_boot_step(name: str, fn: Callable, depends_on: list[str] | None = None, override: bool = False) -> None:
     """Register a boot step. Steps are ordered by dependency before execution.
 
     Args:

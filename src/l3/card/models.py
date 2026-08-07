@@ -20,6 +20,7 @@ logger.warning("DEPRECATED: import from services.card — use services.card_unif
 
 class CardMode(Enum):
     """CardMode — enum of EXECUTE, ISSUE, PARALLEL_ALL."""
+
     EXECUTE = auto()
     ISSUE = auto()
     PARALLEL_ALL = auto()
@@ -27,6 +28,7 @@ class CardMode(Enum):
 
 class PhaseMode(Enum):
     """PhaseMode — enum of SEQUENTIAL, PARALLEL."""
+
     SEQUENTIAL = auto()
     PARALLEL = auto()
 
@@ -34,6 +36,7 @@ class PhaseMode(Enum):
 @dataclass
 class Step:
     """DEPRECATED: use CardTask instead."""
+
     action: str = ""
     target: str = ""
     params: dict = field(default_factory=dict)
@@ -50,6 +53,7 @@ class Step:
 @dataclass
 class Phase:
     """DEPRECATED: use CardPhase instead."""
+
     name: str = ""
     steps: list[Step] = field(default_factory=list)
     mode: PhaseMode = PhaseMode.SEQUENTIAL
@@ -59,6 +63,7 @@ class Phase:
 @dataclass
 class Card:
     """DEPRECATED: use CardUnified instead."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     intent: str = ""
     domain: str = ""
@@ -88,24 +93,30 @@ class Card:
             "intent": self.intent,
             "domain": self.domain,
             "mode": self.mode.name,
-            "phases": [{
-                "name": p.name,
-                "mode": p.mode.name,
-                "steps": [{
-                    "action": s.action, "target": s.target,
-                    "agent": s.agent, "depends_on": s.depends_on,
-                } for s in p.steps],
-            } for p in self.phases],
+            "phases": [
+                {
+                    "name": p.name,
+                    "mode": p.mode.name,
+                    "steps": [
+                        {
+                            "action": s.action,
+                            "target": s.target,
+                            "agent": s.agent,
+                            "depends_on": s.depends_on,
+                        }
+                        for s in p.steps
+                    ],
+                }
+                for p in self.phases
+            ],
             "priority": self.priority,
             "step_count": self.step_count(),
         }
 
 
-def make_card(intent: str, domain: str = "",
-              steps: list[tuple[str, str, str]] | None = None,
-              mode: CardMode = CardMode.EXECUTE) -> Card:
+def make_card(
+    intent: str, domain: str = "", steps: list[tuple[str, str, str]] | None = None, mode: CardMode = CardMode.EXECUTE
+) -> Card:
     """DEPRECATED: construct CardUnified directly instead."""
-    phases = [Phase(name="work", steps=[
-        Step(action=a, target=t, agent=ag) for a, t, ag in (steps or [])
-    ])]
+    phases = [Phase(name="work", steps=[Step(action=a, target=t, agent=ag) for a, t, ag in (steps or [])])]
     return Card(intent=intent, domain=domain, mode=mode, phases=phases)

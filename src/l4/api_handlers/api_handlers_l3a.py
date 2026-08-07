@@ -109,8 +109,7 @@ def handle_l3a_session_get(body: dict | None = None, session_id: str = "") -> di
     return {"success": True, "session": info}
 
 
-def handle_l3a_session_messages(body: dict | None = None,
-                                session_id: str = "") -> dict:
+def handle_l3a_session_messages(body: dict | None = None, session_id: str = "") -> dict:
     """GET /api/v2/l3a/sessions/{session_id}/messages — cursor-paged history.
 
     Query params: cursor (last message id from previous page), limit
@@ -134,12 +133,10 @@ def handle_l3a_session_messages(body: dict | None = None,
         page = s.messages(cursor=cursor, limit=limit)
     except Exception as e:
         return {"success": False, "error": f"messages failed: {e}"}
-    return {"success": True, "items": page.items, "next_cursor": page.cursor,
-            "total": page.total}
+    return {"success": True, "items": page.items, "next_cursor": page.cursor, "total": page.total}
 
 
-def handle_l3a_session_send(body: dict | None = None,
-                            session_id: str = "") -> dict:
+def handle_l3a_session_send(body: dict | None = None, session_id: str = "") -> dict:
     """POST /api/v2/l3a/sessions/{session_id}/send — send intent / continue."""
     s, err = _require_session(session_id)
     if err:
@@ -158,8 +155,7 @@ def handle_l3a_session_send(body: dict | None = None,
     return {"success": True, "session_id": s.id, "result": r}
 
 
-def handle_l3a_session_close(body: dict | None = None,
-                             session_id: str = "") -> dict:
+def handle_l3a_session_close(body: dict | None = None, session_id: str = "") -> dict:
     """POST /api/v2/l3a/sessions/{session_id}/close — close and archive."""
     s, err = _require_session(session_id)
     if err:
@@ -171,8 +167,7 @@ def handle_l3a_session_close(body: dict | None = None,
     return {"success": True, "closed": r.get("success", True), "detail": r}
 
 
-def handle_l3a_session_compress(body: dict | None = None,
-                                session_id: str = "") -> dict:
+def handle_l3a_session_compress(body: dict | None = None, session_id: str = "") -> dict:
     """POST /api/v2/l3a/sessions/{session_id}/compress — compress history.
 
     Body: keep (optional, number of trailing messages to keep).

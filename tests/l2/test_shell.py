@@ -1,4 +1,5 @@
 """Tests for shell service — session management and terminal operations."""
+
 from __future__ import annotations
 
 import os
@@ -10,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestTerminalSession:
     def test_session_dataclass(self):
         from l2.shell_session import TerminalSession
+
         sess = TerminalSession(id="test-session", pid=12345)
         assert sess.id == "test-session"
         assert sess.pid == 12345
@@ -17,6 +19,7 @@ class TestTerminalSession:
 
     def test_kill_no_process(self):
         from l2.shell_session import TerminalSession
+
         sess = TerminalSession(id="no-proc", pid=0)
         sess.kill()
 
@@ -24,6 +27,7 @@ class TestTerminalSession:
 class TestTerminalManager:
     def test_create_and_list(self):
         from l2.shell_session import get_manager, reset_manager
+
         reset_manager()
         mgr = get_manager()
         r = mgr.create(cwd=".")
@@ -32,6 +36,7 @@ class TestTerminalManager:
 
     def test_get_session(self):
         from l2.shell_session import get_manager, reset_manager
+
         reset_manager()
         mgr = get_manager()
         r = mgr.create()
@@ -42,6 +47,7 @@ class TestTerminalManager:
 
     def test_get_manager_singleton(self):
         from l2.shell_session import get_manager, reset_manager
+
         reset_manager()
         m1 = get_manager()
         m2 = get_manager()
@@ -49,5 +55,6 @@ class TestTerminalManager:
 
     def test_shell_helpers_import(self):
         from l2.shell import direct_session, start_repl
+
         assert callable(direct_session)
         assert callable(start_repl)

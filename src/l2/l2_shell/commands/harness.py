@@ -24,6 +24,5 @@ def _cmd_harness(args: list[str]) -> dict:
         confirm = "--confirm" in args or "-y" in args
         return set_harness_mode(sub, confirmed=confirm, source="shell")
     if sub in ("--confirm", "-y"):
-        return {"success": False,
-                "error": "usage: /harness <governed|semi|minimal> [--confirm]"}
+        return {"success": False, "error": "usage: /harness <governed|semi|minimal> [--confirm]"}
     return {"success": False, "error": f"unknown harness mode: {sub}"}

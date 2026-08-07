@@ -1,4 +1,5 @@
 """Tests for cell_rollback.py — Card rollback logic."""
+
 from __future__ import annotations
 
 from l3.cell import get_cell, reset_cells

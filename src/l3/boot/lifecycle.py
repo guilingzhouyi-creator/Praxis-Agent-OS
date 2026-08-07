@@ -63,6 +63,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     # 1. Persist MemoryManager rings
     try:
         from l3.memory.memory_init import persist_all
+
         results["persist"] = persist_all()
     except Exception as e:
         results["persist"] = f"error: {e}"
@@ -70,6 +71,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     # 2. Archive Ring 3 high-importance entries
     try:
         from l3.memory.memory_init import archive_ring3
+
         n = archive_ring3()
         results["archive"] = f"{n} entries"
     except Exception as e:
@@ -78,6 +80,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     # 3. Snapshot cells + agents
     try:
         from l3.memory.memory_init import snapshot_cells
+
         results["snapshot"] = snapshot_cells()
     except Exception as e:
         results["snapshot"] = f"error: {e}"
@@ -85,6 +88,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     # 4. Save kernel state
     try:
         from l1.kernel.persist import save
+
         save()
         results["kernel_state"] = "ok"
     except Exception as e:
@@ -93,11 +97,13 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     # 5. Stop background daemons
     try:
         from l3.memory.r4_agent import stop_r4_agent
+
         results["r4_agent"] = stop_r4_agent().get("archived", "stopped")
     except Exception as e:
         results["r4_agent"] = f"error: {e}"
     try:
         from l3.cell.peers.l3a import stop_l3a_daemon
+
         r = stop_l3a_daemon()
         results["l3a_daemon"] = "ok" if r.get("success") else f"error: {r.get('error', 'stop failed')}"
     except Exception as e:
@@ -117,6 +123,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
             # so SkillManager is not left empty.
             try:
                 from l1.kernel.skill import get_skill_manager
+
                 n = get_skill_manager().load_builtin()
                 if n:
                     results["skills_reloaded"] = n
@@ -142,6 +149,7 @@ def shutdown(wipe: bool = False, cold_boot: bool = False) -> dict:
     if cold_boot:
         try:
             from .boot import boot
+
             results["cold_boot"] = boot()
         except Exception as e:
             results["cold_boot"] = f"error: {e}"
@@ -236,7 +244,7 @@ def wipe_disk_state(wipe_config: bool = False) -> dict[str, str]:
             except Exception as e:
                 results[path] = f"error: {e}"
     if wipe_config:
-        config_path = _gp().config_file if hasattr(_gp(), 'config_file') else "config/praxis.yaml"
+        config_path = _gp().config_file if hasattr(_gp(), "config_file") else "config/praxis.yaml"
         try:
             _os.remove(config_path)
             results[config_path] = "deleted"

@@ -1,4 +1,5 @@
 """Tests for cell_execute.py — Cell execute_card, decompose, snapshot logic."""
+
 from __future__ import annotations
 
 from l3.cell import get_cell, reset_cells
@@ -19,6 +20,7 @@ def test_execute_card_handles_issue():
     reset_cells()
     cell = get_cell("test-cell-2", territory=["src"])
     from l3.card.issue import IssueCard
+
     card = IssueCard(title="test issue", intent="fix bug", domain="src")
     result = execute_card(cell, card)
     assert isinstance(result, dict)

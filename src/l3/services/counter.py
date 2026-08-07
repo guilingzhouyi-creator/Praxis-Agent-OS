@@ -43,35 +43,54 @@ class CellCounter:
 
     # ── Record ──
 
-    def record_token(self, agent_id: str, input_tokens: int = 0,
-                     output_tokens: int = 0, cache_hit: int = 0,
-                     cache_miss: int = 0, model: str = "") -> None:
+    def record_token(
+        self,
+        agent_id: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cache_hit: int = 0,
+        cache_miss: int = 0,
+        model: str = "",
+    ) -> None:
         """Record a token usage entry for an agent."""
         entry = {
             "ts": time.time(),
-            "input": input_tokens, "output": output_tokens,
+            "input": input_tokens,
+            "output": output_tokens,
             "total": input_tokens + output_tokens,
-            "cache_hit": cache_hit, "cache_miss": cache_miss, "model": model,
+            "cache_hit": cache_hit,
+            "cache_miss": cache_miss,
+            "model": model,
         }
         with self._lock:
             self._tokens[agent_id].append(entry)
 
-    def record_tool(self, agent_id: str, tool: str,
-                    success: bool, elapsed: float = 0.0) -> None:
+    def record_tool(self, agent_id: str, tool: str, success: bool, elapsed: float = 0.0) -> None:
         """Record a tool call entry for an agent."""
-        entry = {"ts": time.time(), "tool": tool,
-                 "success": success, "elapsed": round(elapsed, 3)}
+        entry = {"ts": time.time(), "tool": tool, "success": success, "elapsed": round(elapsed, 3)}
         with self._lock:
             self._tools[agent_id].append(entry)
 
-    def record_loop(self, agent_id: str, turns: int,
-                    steps: int, elapsed: float = 0.0,
-                    loop_id: str = "", trace: list[dict] | None = None,
-                    side: dict | None = None) -> None:
+    def record_loop(
+        self,
+        agent_id: str,
+        turns: int,
+        steps: int,
+        elapsed: float = 0.0,
+        loop_id: str = "",
+        trace: list[dict] | None = None,
+        side: dict | None = None,
+    ) -> None:
         """Record an AgentLoop execution with optional trace details."""
-        entry = {"ts": time.time(), "turns": turns, "loop_id": loop_id or "",
-                 "steps": steps, "elapsed": round(elapsed, 3),
-                 "trace": trace or [], "side": side or {}}
+        entry = {
+            "ts": time.time(),
+            "turns": turns,
+            "loop_id": loop_id or "",
+            "steps": steps,
+            "elapsed": round(elapsed, 3),
+            "trace": trace or [],
+            "side": side or {},
+        }
         with self._lock:
             self._loops[agent_id].append(entry)
             self._all_loops.append(entry)
@@ -104,8 +123,9 @@ class CellCounter:
             "window_s": window,
             "tokens_per_min": round(total / max(minutes, 0.01)),
             "calls_in_window": len(recent),
-            "by_agent": {aid: {"tokens": v, "tokens_per_min": round(v / max(minutes, 0.01))}
-                         for aid, v in by_agent.items()},
+            "by_agent": {
+                aid: {"tokens": v, "tokens_per_min": round(v / max(minutes, 0.01))} for aid, v in by_agent.items()
+            },
         }
 
     def token_summary(self, agent_id: str = "") -> dict:
@@ -158,8 +178,10 @@ class CellCounter:
                 s["total_elapsed"] += e["elapsed"]
             result[aid] = {
                 "total": len(entries),
-                "by_tool": {t: {**s, "avg_elapsed": round(s["total_elapsed"] / max(s["calls"], 1), 3)}
-                            for t, s in by_tool.items()},
+                "by_tool": {
+                    t: {**s, "avg_elapsed": round(s["total_elapsed"] / max(s["calls"], 1), 3)}
+                    for t, s in by_tool.items()
+                },
             }
         return result if not agent_id else result.get(agent_id, {"total": 0})
 
@@ -223,9 +245,7 @@ class CellCounter:
                 "loop_records": sum(len(v) for v in self._loops.values()),
             }
 
-    def export_json(self, agent_id: str = "",
-                    window: float = 0.0,
-                    include_raw: bool = False) -> dict:
+    def export_json(self, agent_id: str = "", window: float = 0.0, include_raw: bool = False) -> dict:
         """Export all counters as a structured JSON blob.
 
         Args:
@@ -313,27 +333,47 @@ class CellCounter:
         metrics = []
         with self._lock:
             for aid, records in self._tokens.items():
-                metrics.append({"name": "praxis_tokens_input_total",
-                                "labels": {"agent": aid},
-                                "value": sum(e.get("input", 0) for e in records)})
-                metrics.append({"name": "praxis_tokens_output_total",
-                                "labels": {"agent": aid},
-                                "value": sum(e.get("output", 0) for e in records)})
+                metrics.append(
+                    {
+                        "name": "praxis_tokens_input_total",
+                        "labels": {"agent": aid},
+                        "value": sum(e.get("input", 0) for e in records),
+                    }
+                )
+                metrics.append(
+                    {
+                        "name": "praxis_tokens_output_total",
+                        "labels": {"agent": aid},
+                        "value": sum(e.get("output", 0) for e in records),
+                    }
+                )
             for aid, records in self._tools.items():
                 by_tool: dict[str, list[dict]] = {}
                 for e in records:
                     by_tool.setdefault(e.get("tool", "?"), []).append(e)
                 for tname, tevents in by_tool.items():
-                    metrics.append({"name": "praxis_tool_calls_total",
-                                    "labels": {"agent": aid, "tool": tname},
-                                    "value": len(tevents)})
-                    metrics.append({"name": "praxis_tool_failures_total",
-                                    "labels": {"agent": aid, "tool": tname},
-                                    "value": sum(1 for e in tevents if not e.get("success"))})
+                    metrics.append(
+                        {
+                            "name": "praxis_tool_calls_total",
+                            "labels": {"agent": aid, "tool": tname},
+                            "value": len(tevents),
+                        }
+                    )
+                    metrics.append(
+                        {
+                            "name": "praxis_tool_failures_total",
+                            "labels": {"agent": aid, "tool": tname},
+                            "value": sum(1 for e in tevents if not e.get("success")),
+                        }
+                    )
             for aid, records in self._loops.items():
-                metrics.append({"name": "praxis_loop_turns_total",
-                                "labels": {"agent": aid},
-                                "value": sum(e.get("turns", 0) for e in records)})
+                metrics.append(
+                    {
+                        "name": "praxis_loop_turns_total",
+                        "labels": {"agent": aid},
+                        "value": sum(e.get("turns", 0) for e in records),
+                    }
+                )
         return metrics
 
 

@@ -13,6 +13,7 @@ from l1.kernel.params.system import DEFAULT_QUANTUM, SCHEDULER_BACKGROUND_PRIORI
 
 class TaskPriority(Enum):
     """TaskPriority — enum of task priority variants."""
+
     CRITICAL = 1
     HIGH = 3
     NORMAL = 5
@@ -23,6 +24,7 @@ class TaskPriority(Enum):
 @dataclass
 class Task:
     """Task — task record (id, agent_id, command, args, priority)."""
+
     id: str
     agent_id: str
     command: str
@@ -40,6 +42,7 @@ class Task:
 @dataclass
 class AgentInfo:
     """AgentInfo — agent info record (id, territory, reputation, load, active_tasks)."""
+
     id: str
     territory: list[str]
     reputation: float = REP_DEFAULT_REPUTATION
@@ -52,6 +55,7 @@ class AgentInfo:
 @dataclass
 class TimeSlice:
     """TimeSlice — time slice record (agent_id, quantum, used, deadline, preempted)."""
+
     agent_id: str
     quantum: float = DEFAULT_QUANTUM
     used: float = 0.0

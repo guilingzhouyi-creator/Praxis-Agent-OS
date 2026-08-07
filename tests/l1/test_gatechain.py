@@ -159,8 +159,7 @@ class TestGateChainCheck:
 
     def test_check_with_territory(self):
         gc = get_gatechain()
-        r = gc.check("read_file", "agent-a", target="/project/foo.py",
-                      territory=["/project"])
+        r = gc.check("read_file", "agent-a", target="/project/foo.py", territory=["/project"])
         assert isinstance(r, dict)
 
 

@@ -50,6 +50,7 @@ class CentralScheduler:
     def _get_acb(self):
         if self._acb is None:
             from .acb import get_service as ga
+
             self._acb = ga()
         return self._acb
 
@@ -64,10 +65,15 @@ class CentralScheduler:
         decisions["scope"] = self.scope.check_scout_quota(agent_id)
         return decisions
 
-    def submit(self, domain: str, command: str, args: dict | None = None,
-               intent_tags: list[str] | None = None,
-               preferred_agent: str | None = None,
-               priority: int = TaskPriority.NORMAL.value) -> dict:
+    def submit(
+        self,
+        domain: str,
+        command: str,
+        args: dict | None = None,
+        intent_tags: list[str] | None = None,
+        preferred_agent: str | None = None,
+        priority: int = TaskPriority.NORMAL.value,
+    ) -> dict:
         """Route + enqueue through all matrix dimensions."""
         route = self.router.route(domain, intent_tags, preferred_agent)
         if not route.get("success", True) and "error" in route:
@@ -83,8 +89,7 @@ class CentralScheduler:
         tid = f"task-{self._next_id}"
         self._next_id += 1
 
-        task = Task(id=tid, agent_id=agent_id, command=command,
-                    args=args or {}, priority=priority)
+        task = Task(id=tid, agent_id=agent_id, command=command, args=args or {}, priority=priority)
         with self._lock:
             self._tasks[tid] = task
             self._prune_tasks_locked()
@@ -95,8 +100,7 @@ class CentralScheduler:
 
         self.router.update_load(agent_id, 0.1)
         acb.set_slot(agent_id, "task_state", "QUEUED")
-        return {"success": True, "task_id": tid, "agent_id": agent_id,
-                "score": round(self.pool._score(task), 3)}
+        return {"success": True, "task_id": tid, "agent_id": agent_id, "score": round(self.pool._score(task), 3)}
 
     def execute(self, task_id: str, executor: Callable) -> dict:
         """Execute with time-slice monitoring + ACB state sync."""
@@ -116,8 +120,7 @@ class CentralScheduler:
             tick_result = self.time_scheduler.tick(agent_id, elapsed)
             task.completed_at = time.time()
             if tick_result.get("status") in ("preempt", "timeout"):
-                logger.warning("task %s: agent %s used %.1fs — %s",
-                               task_id, agent_id, elapsed, tick_result["status"])
+                logger.warning("task %s: agent %s used %.1fs — %s", task_id, agent_id, elapsed, tick_result["status"])
         except Exception as e:
             task.error = str(e)
             task.result = None
@@ -130,8 +133,13 @@ class CentralScheduler:
         self.time_scheduler.reset(agent_id)
         with self._lock:
             self._prune_tasks_locked()
-        return {"success": not task.error, "task_id": task_id,
-                "result": task.result, "error": task.error, "elapsed": round(elapsed, 3)}
+        return {
+            "success": not task.error,
+            "task_id": task_id,
+            "result": task.result,
+            "error": task.error,
+            "elapsed": round(elapsed, 3),
+        }
 
     def _prune_tasks_locked(self) -> None:
         """Drop oldest completed tasks beyond the retention cap (bounded memory).
@@ -166,11 +174,16 @@ class CentralScheduler:
         if not t:
             return {"success": False, "error": "task not found"}
         return {
-            "success": True, "id": t.id, "agent_id": t.agent_id, "command": t.command,
-            "priority": t.priority, "submitted_at": t.submitted_at, "started_at": t.started_at,
-            "completed_at": t.completed_at, "error": t.error,
-            "state": "running" if t.started_at and not t.completed_at
-                     else "done" if t.completed_at else "queued",
+            "success": True,
+            "id": t.id,
+            "agent_id": t.agent_id,
+            "command": t.command,
+            "priority": t.priority,
+            "submitted_at": t.submitted_at,
+            "started_at": t.started_at,
+            "completed_at": t.completed_at,
+            "error": t.error,
+            "state": "running" if t.started_at and not t.completed_at else "done" if t.completed_at else "queued",
         }
 
     def stats(self) -> dict:
@@ -180,7 +193,7 @@ class CentralScheduler:
             "pool": self.pool.stats(),
             "rate": self.rate.stats(),
             "scope": self.scope.stats(),
-            "time": self.time_scheduler.stats() if hasattr(self.time_scheduler, 'stats') else {},
+            "time": self.time_scheduler.stats() if hasattr(self.time_scheduler, "stats") else {},
         }
 
 

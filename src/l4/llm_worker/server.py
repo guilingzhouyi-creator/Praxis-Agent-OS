@@ -28,24 +28,26 @@ class LLMWorkerServer:
     async def start(self) -> None:
         """Start the IPC server and begin accepting LLM worker connections."""
         from l1.kernel.platform import create_ipc_server
+
         self._server, self._address = await create_ipc_server(
-            self._handle_client, self._socket_path,
+            self._handle_client,
+            self._socket_path,
         )
-        logger.info("LLMWorkerServer listening on %s (%d workers)",
-                     self._address, self._workers)
+        logger.info("LLMWorkerServer listening on %s (%d workers)", self._address, self._workers)
 
     async def stop(self) -> None:
         """Shut down the IPC server and remove the socket file."""
         from l1.kernel.platform import remove_ipc_socket
+
         if self._server:
             self._server.close()
             await self._server.wait_closed()
         remove_ipc_socket(self._socket_path)
 
-    async def _handle_client(self, reader: asyncio.StreamReader,
-                             writer: asyncio.StreamWriter) -> None:
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         from l4.rpc.protocol import RpcMessage
         from l4.rpc.transport import RpcTransport
+
         try:
             raw = await RpcTransport.recv(reader)
             req = RpcMessage(**raw)
@@ -64,26 +66,36 @@ class LLMWorkerServer:
 
     async def _generate(self, params: dict) -> dict:
         from l4.llm.llm import get_engine
+
         engine = get_engine()
         prompt = params.get("prompt", "")
         system = params.get("system", "")
-        result = engine.generate(prompt, system=system,
-                                 max_tokens=params.get("max_tokens", LLM_PROVIDER_MAX_TOKENS),
-                                 user_id=params.get("user_id", ""))
+        result = engine.generate(
+            prompt,
+            system=system,
+            max_tokens=params.get("max_tokens", LLM_PROVIDER_MAX_TOKENS),
+            user_id=params.get("user_id", ""),
+        )
         return {"content": result.get("content", ""), "tokens": result.get("tokens", 0)}
 
     async def _tool_use(self, params: dict) -> dict:
         from l4.llm.llm import get_engine
+
         engine = get_engine()
         prompt = params.get("prompt", "")
         system = params.get("system", "")
-        result = engine.tool_use(prompt, tools=params.get("tools", []),
-                                 system=system,
-                                 max_turns=params.get("max_turns", 5),
-                                 user_id=params.get("user_id", ""))
-        return {"content": result.get("content", ""),
-                "tool_calls": result.get("tool_calls", []),
-                "turns": result.get("turns", 0)}
+        result = engine.tool_use(
+            prompt,
+            tools=params.get("tools", []),
+            system=system,
+            max_turns=params.get("max_turns", 5),
+            user_id=params.get("user_id", ""),
+        )
+        return {
+            "content": result.get("content", ""),
+            "tool_calls": result.get("tool_calls", []),
+            "turns": result.get("turns", 0),
+        }
 
 
 def main() -> None:
@@ -93,6 +105,7 @@ def main() -> None:
         socket_path = sys.argv[2]
     if not socket_path:
         from l1.kernel.params.api import IPC_LLM_SOCKET
+
         socket_path = IPC_LLM_SOCKET
 
     logging.basicConfig(level=logging.INFO)

@@ -48,16 +48,18 @@ logger = logging.getLogger(__name__)
 
 class SessionState(Enum):
     """SessionState — enum of IDLE, ACTIVE, WAITING, COMPLETED...."""
-    IDLE = auto()        # Created, not started
-    ACTIVE = auto()      # In multi-turn dialogue
-    WAITING = auto()     # Awaiting external tool result
-    COMPLETED = auto()   # Task finished successfully
-    FAILED = auto()      # Task failed or aborted
+
+    IDLE = auto()  # Created, not started
+    ACTIVE = auto()  # In multi-turn dialogue
+    WAITING = auto()  # Awaiting external tool result
+    COMPLETED = auto()  # Task finished successfully
+    FAILED = auto()  # Task failed or aborted
 
 
 @dataclass
 class TurnRecord:
     """A single turn in the dialogue session."""
+
     turn: int
     prompt: str = ""
     response: str = ""
@@ -70,6 +72,7 @@ class TurnRecord:
 @dataclass
 class SessionConfig:
     """SessionConfig — session config record (max_turns, max_context_tokens, idle_timeout, persist_after)."""
+
     max_turns: int = DIALOGUE_MAX_TURNS
     max_context_tokens: int = DIALOGUE_MAX_CONTEXT_TOKENS
     idle_timeout: float = DIALOGUE_IDLE_TIMEOUT  # 5 min
@@ -79,9 +82,7 @@ class SessionConfig:
 class DialogueSession:
     """Multi-turn dialogue session with state machine and dual persistence."""
 
-    def __init__(self, agent_id: str, task: str = "",
-                 config: SessionConfig | None = None,
-                 persist_path: str = ""):
+    def __init__(self, agent_id: str, task: str = "", config: SessionConfig | None = None, persist_path: str = ""):
         self.session_id = f"session-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         self.agent_id = agent_id
         self.task = task
@@ -107,8 +108,7 @@ class DialogueSession:
             self._turns = []
             self._context_entries = []
             self._last_activity = time.time()
-        logger.info("session %s started: agent=%s task=%s",
-                    self.session_id, self.agent_id, self.task[:LOG_TRUNC_60])
+        logger.info("session %s started: agent=%s task=%s", self.session_id, self.agent_id, self.task[:LOG_TRUNC_60])
         return {"success": True, "session_id": self.session_id}
 
     def complete(self, summary: str = "") -> dict:
@@ -129,8 +129,7 @@ class DialogueSession:
 
     # ── Turn management ──
 
-    def record_turn(self, prompt: str = "", response: str = "",
-                    tool_calls: list[dict] | None = None) -> TurnRecord:
+    def record_turn(self, prompt: str = "", response: str = "", tool_calls: list[dict] | None = None) -> TurnRecord:
         """Record one inference turn and return the snapshot."""
         with self._lock:
             turn_num = len(self._turns) + 1
@@ -138,9 +137,10 @@ class DialogueSession:
                 turn=turn_num,
                 prompt=prompt[:LOG_TRUNC_500],
                 response=response[:LOG_TRUNC_1000],
-                tool_calls=[{"name": tc.get("name", ""),
-                             "args": str(tc.get("args", {}))[:LOG_TRUNC_200]}
-                            for tc in (tool_calls or [])],
+                tool_calls=[
+                    {"name": tc.get("name", ""), "args": str(tc.get("args", {}))[:LOG_TRUNC_200]}
+                    for tc in (tool_calls or [])
+                ],
                 context_snapshot=list(self._context_entries[-10:]),
                 timestamp=time.time(),
             )
@@ -153,18 +153,15 @@ class DialogueSession:
             self._persist()
         return record
 
-    def push_context(self, role: str, content: str,
-                     source: str = "") -> dict:
+    def push_context(self, role: str, content: str, source: str = "") -> dict:
         """Inject context for the next inference turn."""
-        entry = {"role": role, "content": content[:LOG_TRUNC_500],
-                 "source": source, "ts": time.time()}
+        entry = {"role": role, "content": content[:LOG_TRUNC_500], "source": source, "ts": time.time()}
         with self._lock:
             est_tokens = max(1, len(content) // 4)
             if self._token_budget - est_tokens < 0:
                 # Evict oldest non-tool entries
                 before = len(self._context_entries)
-                self._context_entries = [e for e in self._context_entries
-                                         if e["role"] == "tool"][-5:]
+                self._context_entries = [e for e in self._context_entries if e["role"] == "tool"][-5:]
                 evicted = before - len(self._context_entries)
                 self._token_budget = self.config.max_context_tokens - sum(
                     max(1, len(e["content"]) // 4) for e in self._context_entries
@@ -187,14 +184,17 @@ class DialogueSession:
     def turn_summary(self) -> list[dict]:
         """Return summary of all turns (for UI / reporting)."""
         with self._lock:
-            return [{
-                "turn": t.turn,
-                "tool_calls": len(t.tool_calls),
-                "elapsed": round(t.elapsed, 2),
-                "ts": t.timestamp,
-                "prompt_preview": t.prompt[:LOG_TRUNC_60],
-                "response_preview": t.response[:LOG_TRUNC_60],
-            } for t in self._turns]
+            return [
+                {
+                    "turn": t.turn,
+                    "tool_calls": len(t.tool_calls),
+                    "elapsed": round(t.elapsed, 2),
+                    "ts": t.timestamp,
+                    "prompt_preview": t.prompt[:LOG_TRUNC_60],
+                    "response_preview": t.response[:LOG_TRUNC_60],
+                }
+                for t in self._turns
+            ]
 
     def stats(self) -> dict:
         """Return a stats summary of the session."""
@@ -216,14 +216,22 @@ class DialogueSession:
     def _json_persist(self) -> dict:
         """Save full session state to JSON file."""
         data = {
-            "session_id": self.session_id, "agent_id": self.agent_id,
-            "task": self.task, "state": self.state.name,
-            "turns": [{
-                "turn": t.turn, "prompt": t.prompt, "response": t.response,
-                "tool_calls": t.tool_calls,
-                "context_snapshot": t.context_snapshot,
-                "elapsed": t.elapsed, "timestamp": t.timestamp,
-            } for t in self._turns],
+            "session_id": self.session_id,
+            "agent_id": self.agent_id,
+            "task": self.task,
+            "state": self.state.name,
+            "turns": [
+                {
+                    "turn": t.turn,
+                    "prompt": t.prompt,
+                    "response": t.response,
+                    "tool_calls": t.tool_calls,
+                    "context_snapshot": t.context_snapshot,
+                    "elapsed": t.elapsed,
+                    "timestamp": t.timestamp,
+                }
+                for t in self._turns
+            ],
             "context_entries": list(self._context_entries),
             "token_budget": self._token_budget,
             "created_at": self._created_at,
@@ -242,8 +250,7 @@ class DialogueSession:
             return {"success": False, "error": str(e)}
 
     @staticmethod
-    def restore_from_json(agent_id: str, session_id: str,
-                          persist_path: str = "") -> DialogueSession | None:
+    def restore_from_json(agent_id: str, session_id: str, persist_path: str = "") -> DialogueSession | None:
         """Restore a session from its JSON file."""
         base = persist_path or _gp().dialogue_session
         path = base.replace(".json", f"_{session_id}.json")
@@ -272,30 +279,40 @@ class DialogueSession:
         session._persist_path = persist_path or _gp().dialogue_session
         session._auto_save_interval = DIALOGUE_SESSION_AUTO_SAVE
         for td in data.get("turns", []):
-            session._turns.append(TurnRecord(
-                turn=td["turn"], prompt=td.get("prompt", ""),
-                response=td.get("response", ""),
-                tool_calls=td.get("tool_calls", []),
-                context_snapshot=td.get("context_snapshot", []),
-                elapsed=td.get("elapsed", 0.0),
-                timestamp=td.get("timestamp", 0.0),
-            ))
+            session._turns.append(
+                TurnRecord(
+                    turn=td["turn"],
+                    prompt=td.get("prompt", ""),
+                    response=td.get("response", ""),
+                    tool_calls=td.get("tool_calls", []),
+                    context_snapshot=td.get("context_snapshot", []),
+                    elapsed=td.get("elapsed", 0.0),
+                    timestamp=td.get("timestamp", 0.0),
+                )
+            )
         return session
 
     def _persist(self, summary: str = "") -> None:
         """Save session state to memory for recovery across restarts."""
         try:
             from .memory.memory import get_memory
+
             mem = get_memory()
             data = {
                 "session_id": self.session_id,
                 "agent_id": self.agent_id,
                 "task": self.task,
                 "state": self.state.name,
-                "turns": [{
-                    "turn": t.turn, "prompt": t.prompt, "response": t.response,
-                    "tool_calls": t.tool_calls, "elapsed": t.elapsed,
-                } for t in self._turns[-self.config.persist_after:]],
+                "turns": [
+                    {
+                        "turn": t.turn,
+                        "prompt": t.prompt,
+                        "response": t.response,
+                        "tool_calls": t.tool_calls,
+                        "elapsed": t.elapsed,
+                    }
+                    for t in self._turns[-self.config.persist_after :]
+                ],
                 "summary": summary[:LOG_TRUNC_500],
             }
             mem.remember(
@@ -315,8 +332,7 @@ _sessions: dict[str, DialogueSession] = {}
 _sessions_lock = threading.Lock()
 
 
-def create_session(agent_id: str, task: str = "",
-                   config: SessionConfig | None = None) -> DialogueSession:
+def create_session(agent_id: str, task: str = "", config: SessionConfig | None = None) -> DialogueSession:
     """Create and register a new dialogue session."""
     session = DialogueSession(agent_id, task, config)
     with _sessions_lock:
@@ -333,8 +349,7 @@ def get_session(session_id: str) -> DialogueSession | None:
 def list_sessions(agent_id: str = "") -> list[dict]:
     """Return stats for all sessions, optionally filtered by agent."""
     with _sessions_lock:
-        return [s.stats() for s in _sessions.values()
-                if not agent_id or s.agent_id == agent_id]
+        return [s.stats() for s in _sessions.values() if not agent_id or s.agent_id == agent_id]
 
 
 def close_session(session_id: str) -> None:

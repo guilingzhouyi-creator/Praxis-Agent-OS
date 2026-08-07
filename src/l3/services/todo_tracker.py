@@ -29,15 +29,25 @@ class TodoTracker:
       waived      - human explicitly waived verification
     """
 
-    TASK_STATUSES = frozenset({
-        "pending", "in_progress", "verifying", "verified", "escalated", "waived",
-        "add", "completed",
-    })
+    TASK_STATUSES = frozenset(
+        {
+            "pending",
+            "in_progress",
+            "verifying",
+            "verified",
+            "escalated",
+            "waived",
+            "add",
+            "completed",
+        }
+    )
 
     _STATUS_ALIASES = {"add": "pending", "completed": "verified"}
 
     def __init__(self, state_path: str = ""):
-        self._state_path = state_path or os.environ.get("PRAXIS_TODO_STATE") or os.path.join(_gp().data_dir, "todo_state.json")
+        self._state_path = (
+            state_path or os.environ.get("PRAXIS_TODO_STATE") or os.path.join(_gp().data_dir, "todo_state.json")
+        )
         self._items: list[dict] = []
         self._read_cfg()
         self._iteration: int = 0
@@ -47,6 +57,7 @@ class TodoTracker:
     def _read_cfg(self) -> None:
         try:
             from l3.config.settings_center import get_center
+
             center = get_center()
             self._max_iterations = center.get_int("loop.max_iterations", 50)
             self._max_attempts = center.get_int("loop.max_attempts", 3)
@@ -105,10 +116,15 @@ class TodoTracker:
         if task is None:
             if status != "pending" and status != "add":
                 return "error: new task must start as 'pending' or 'add'"
-            self._items.append({
-                "content": content, "status": "pending" if status == "add" else status,
-                "attempts": 0, "evidence": [], "checks": [],
-            })
+            self._items.append(
+                {
+                    "content": content,
+                    "status": "pending" if status == "add" else status,
+                    "attempts": 0,
+                    "evidence": [],
+                    "checks": [],
+                }
+            )
             self._persist()
             return "pending"
         old = task["status"]
@@ -132,8 +148,7 @@ class TodoTracker:
         self._persist()
         return status
 
-    def record_attempt(self, content: str, phase: str, exit_code: int,
-                       evidence: str = "") -> dict:
+    def record_attempt(self, content: str, phase: str, exit_code: int, evidence: str = "") -> dict:
         """Record an execute/verify attempt; returns the next action to take."""
         task = self._find(content)
         if task is None:
@@ -147,8 +162,7 @@ class TodoTracker:
             self._status = "closed"
             self._persist()
             return {"action": "escalate", "detail": "global iteration cap reached"}
-        entry = {"phase": phase, "exit_code": exit_code, "evidence": evidence,
-                 "attempt": task["attempts"] + 1}
+        entry = {"phase": phase, "exit_code": exit_code, "evidence": evidence, "attempt": task["attempts"] + 1}
         task["evidence"].append(entry)
         ok = exit_code == 0
         if phase == "execute":
@@ -174,12 +188,18 @@ class TodoTracker:
         if task["attempts"] >= self._max_attempts:
             task["status"] = "escalated"
             self._persist()
-            return {"action": "escalate", "task": task["content"][:LOG_TRUNC_40],
-                    "detail": f"exhausted {self._max_attempts} attempts"}
+            return {
+                "action": "escalate",
+                "task": task["content"][:LOG_TRUNC_40],
+                "detail": f"exhausted {self._max_attempts} attempts",
+            }
         task["status"] = "pending"
         self._persist()
-        return {"action": "retry", "task": task["content"][:LOG_TRUNC_40],
-                "detail": f"attempt {task['attempts']}/{self._max_attempts} failed"}
+        return {
+            "action": "retry",
+            "task": task["content"][:LOG_TRUNC_40],
+            "detail": f"attempt {task['attempts']}/{self._max_attempts} failed",
+        }
 
     def waive(self, content: str, reason: str = "") -> dict:
         """Mark a task as waived with an optional reason."""
@@ -193,14 +213,12 @@ class TodoTracker:
 
     def can_close(self) -> tuple[bool, list[str]]:
         """Return whether every task is verified/waived, plus blockers."""
-        blocked = [t["content"][:LOG_TRUNC_60] for t in self._items
-                   if t["status"] not in ("verified", "waived")]
+        blocked = [t["content"][:LOG_TRUNC_60] for t in self._items if t["status"] not in ("verified", "waived")]
         return len(blocked) == 0, blocked
 
     def has_open_items(self) -> bool:
         """Return whether any task is still pending/in-progress/verifying/escalated."""
-        return any(t["status"] in ("pending", "in_progress", "verifying", "escalated")
-                   for t in self._items)
+        return any(t["status"] in ("pending", "in_progress", "verifying", "escalated") for t in self._items)
 
     def reminder(self) -> str | None:
         """Build a progress reminder/next-action prompt, or None when idle."""
@@ -223,8 +241,14 @@ class TodoTracker:
             lines.append("")
             lines.append("Task list:")
             for t in self._items:
-                marks = {"pending": "[ ]", "in_progress": "[->]", "verifying": "[?]",
-                         "verified": "[V]", "escalated": "[!]", "waived": "[-]"}
+                marks = {
+                    "pending": "[ ]",
+                    "in_progress": "[->]",
+                    "verifying": "[?]",
+                    "verified": "[V]",
+                    "escalated": "[!]",
+                    "waived": "[-]",
+                }
                 mark = marks.get(t["status"], "[?]")
                 att = f" (x{t['attempts']})" if t.get("attempts") else ""
                 lines.append(f"  {mark} {t['content'][:70]}{att}")
@@ -244,9 +268,11 @@ class TodoTracker:
         for t in self._items:
             by_status[t["status"]] = by_status.get(t["status"], 0) + 1
         return {
-            "status": self._status, "iteration": self._iteration,
+            "status": self._status,
+            "iteration": self._iteration,
             "max_iterations": self._max_iterations,
-            "total_tasks": len(self._items), "by_status": by_status,
+            "total_tasks": len(self._items),
+            "by_status": by_status,
         }
 
     def reset(self) -> None:

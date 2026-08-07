@@ -51,15 +51,14 @@ from l3.services.model_service import get_service as _get_model_service
 logger = logging.getLogger(__name__)
 
 
-
-
 @dataclass
 class ScoutReport:
     """ScoutReport — scout report record (scout_id, agent_id, task, status, findings)."""
+
     scout_id: str
     agent_id: str
     task: str = ""
-    status: str = "running"   # running | done | timeout | error
+    status: str = "running"  # running | done | timeout | error
     findings: list[dict] = field(default_factory=list)
     output: list[str] = field(default_factory=list)
     error: str = ""
@@ -74,12 +73,11 @@ class ScoutSession:
     It receives a natural language task, executes tool calls, and produces a report.
     """
 
-    def __init__(self, scout_id: str, agent_id: str, task: str,
-                 strategy: str = ""):
+    def __init__(self, scout_id: str, agent_id: str, task: str, strategy: str = ""):
         self.scout_id = scout_id
         self.agent_id = agent_id
         self.task = task
-        self.strategy = strategy      # named model_spec strategy pack (fast/balanced/deep/xhigh)
+        self.strategy = strategy  # named model_spec strategy pack (fast/balanced/deep/xhigh)
         self.report = ScoutReport(scout_id=scout_id, agent_id=agent_id, task=task)
         self._done = threading.Event()
 
@@ -100,19 +98,21 @@ class ScoutSession:
     def _investigate_autonomous(self) -> dict:
         """LLM-driven autonomous investigation via AgentLoop."""
         from .agent_loop import AgentLoop
+
         loop = AgentLoop(task=self.task, agent_id=self.agent_id, prompt_key="scout.system")
 
         # Register Ring 1 tools with real implementations
-        loop.add_tool("read_file", "Read file contents", {"path": "string"},
-                      self._tool_read)
-        loop.add_tool("grep_search", "Search for pattern in files",
-                      {"pattern": "string", "path": "string"}, self._tool_grep)
-        loop.add_tool("list_dir", "List directory contents", {"path": "string"},
-                      self._tool_list)
+        loop.add_tool("read_file", "Read file contents", {"path": "string"}, self._tool_read)
+        loop.add_tool(
+            "grep_search", "Search for pattern in files", {"pattern": "string", "path": "string"}, self._tool_grep
+        )
+        loop.add_tool("list_dir", "List directory contents", {"path": "string"}, self._tool_list)
 
-        result = loop.run(max_steps=SCOUT_LOOP_STEPS, timeout=SCOUT_LOOP_TIMEOUT,
-                          **_get_model_service().resolve_dict_with_strategy(
-                              _MODEL_SPEC, strategy=self.strategy))
+        result = loop.run(
+            max_steps=SCOUT_LOOP_STEPS,
+            timeout=SCOUT_LOOP_TIMEOUT,
+            **_get_model_service().resolve_dict_with_strategy(_MODEL_SPEC, strategy=self.strategy),
+        )
         findings = []
 
         # Extract answer
@@ -124,12 +124,14 @@ class ScoutSession:
         for step in result.get("steps", []):
             action = step.get("action", "")
             if action.startswith("tool:"):
-                findings.append({
-                    "type": action,
-                    "args": step.get("args", {}),
-                    "result": str(step.get("result", ""))[:SCOUT_RESULT_TRUNC],
-                    "elapsed": step.get("elapsed", 0),
-                })
+                findings.append(
+                    {
+                        "type": action,
+                        "args": step.get("args", {}),
+                        "result": str(step.get("result", ""))[:SCOUT_RESULT_TRUNC],
+                        "elapsed": step.get("elapsed", 0),
+                    }
+                )
 
         return {"success": True, "findings": findings, "steps": result.get("steps", [])}
 
@@ -148,6 +150,7 @@ class ScoutSession:
 
     def _tool_grep(self, args: dict, agent_id: str = "") -> dict:
         import subprocess as _sp
+
         pattern = args.get("pattern", "")
         path = args.get("path", ".")
         try:
@@ -162,13 +165,13 @@ class ScoutSession:
 
     def _tool_list(self, args: dict, agent_id: str = "") -> dict:
         import os as _os
+
         path = args.get("path", ".")
         try:
             entries = _os.listdir(path)
-            return {"success": True, "data": entries[:SCOUT_FILE_READ_TRUNC // 40], "count": len(entries)}
+            return {"success": True, "data": entries[: SCOUT_FILE_READ_TRUNC // 40], "count": len(entries)}
         except Exception as e:
             return {"success": False, "error": str(e)}
-
 
 
 # Lazy import to avoid circular import with services._base
@@ -187,9 +190,14 @@ class ScoutPool(BaseService):
       scouts are idle-warmed, but only activate LLM session on commission
     """
 
-    def __init__(self, min_idle: int = 2, max_total: int = SCOUT_POOL_MAX,
-                 max_per_agent: int = MAX_SCOUTS_PER_AGENT,
-                 idle_timeout: float = SCOUT_POOL_IDLE_TIMEOUT, session_timeout: float = SCOUT_TIMEOUT):
+    def __init__(
+        self,
+        min_idle: int = 2,
+        max_total: int = SCOUT_POOL_MAX,
+        max_per_agent: int = MAX_SCOUTS_PER_AGENT,
+        idle_timeout: float = SCOUT_POOL_IDLE_TIMEOUT,
+        session_timeout: float = SCOUT_TIMEOUT,
+    ):
         super().__init__("scout")
         self.min_idle = min_idle
         self.max_total = max_total
@@ -217,6 +225,7 @@ class ScoutPool(BaseService):
         # Consume SCOUT_DONE emitted by tool_pipeline (previously unsubscribed).
         try:
             from l1.kernel import SignalType, get_event_bus
+
             get_event_bus().on(SignalType.SCOUT_DONE, self._on_scout_done)
         except Exception as e:
             logger.warning("scout: SCOUT_DONE subscribe failed: %s", e)
@@ -230,8 +239,9 @@ class ScoutPool(BaseService):
         self._running = False
         return {"success": True}
 
-    def commission(self, agent_id: str, task: str, scope: dict | None = None,
-                   cell_id: str = "", strategy: str = "") -> dict:
+    def commission(
+        self, agent_id: str, task: str, scope: dict | None = None, cell_id: str = "", strategy: str = ""
+    ) -> dict:
         """Commission a scout with a natural language investigation task.
 
         The scout gets its own LLM session, investigates using Ring 1 tools,
@@ -289,6 +299,7 @@ class ScoutPool(BaseService):
         if cell_id and result.get("success") and result.get("findings"):
             try:
                 from l3.cell import get_cell as _get_cell
+
                 cell = _get_cell(cell_id)
                 findings_text = str(result["findings"])[:SCOUT_FINDING_TRUNC]
                 findings = result["findings"]
@@ -329,16 +340,23 @@ class ScoutPool(BaseService):
                     return {"success": True, "scout_id": scout_id, "status": "idle"}
             s = self._active.get(scout_id)
             if s:
-                return {"success": True, "scout_id": scout_id, "status": s.report.status,
-                        "findings": s.report.findings, "elapsed": s.report.elapsed}
+                return {
+                    "success": True,
+                    "scout_id": scout_id,
+                    "status": s.report.status,
+                    "findings": s.report.findings,
+                    "elapsed": s.report.elapsed,
+                }
         return {"success": False, "error": "scout not found"}
 
     def stats(self) -> dict:
         """Return pool and cache statistics."""
         with self._lock:
             return {
-                "idle": len(self._idle), "active": len(self._active),
-                "max_total": self.max_total, "max_per_agent": self.max_per_agent,
+                "idle": len(self._idle),
+                "active": len(self._active),
+                "max_total": self.max_total,
+                "max_per_agent": self.max_per_agent,
                 "per_agent": dict(self._agent_active),
                 "total_commissioned": self._total_commissioned,
                 "cache": {
@@ -381,6 +399,7 @@ _pool: ScoutPool | None = None
 def scout_cache_get(template: str, scope: dict | None, ttl: float = SCOUT_CACHE_TTL) -> dict | None:
     """Module-level cache lookup — delegates to pool's cache."""
     import hashlib
+
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
     key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     return get_pool()._get_cached(key)
@@ -389,6 +408,7 @@ def scout_cache_get(template: str, scope: dict | None, ttl: float = SCOUT_CACHE_
 def scout_cache_set(template: str, scope: dict | None, result: dict, ttl: float = SCOUT_CACHE_TTL) -> None:
     """Module-level cache store — delegates to pool's cache."""
     import hashlib
+
     raw = template + "|" + json.dumps(scope or {}, sort_keys=True)
     key = hashlib.sha256(raw.encode()).hexdigest()[:HASH_TRUNC_LONG]
     get_pool()._set_cached(key, result)

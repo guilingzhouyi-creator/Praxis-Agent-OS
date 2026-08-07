@@ -8,14 +8,19 @@ class TestSupplementManager:
 
     def _make_mgr(self):
         from l3.discussion.supplement_manager import SupplementManager
+
         return SupplementManager()
 
     def test_classify_within_cell(self):
         """普通内容应分类为 within_cell。"""
         mgr = self._make_mgr()
         supplements = [
-            {"title": "Fix typo in docs", "description": "Correct spelling error",
-             "source_cell": "cell-1", "source_agent": "agent-a"},
+            {
+                "title": "Fix typo in docs",
+                "description": "Correct spelling error",
+                "source_cell": "cell-1",
+                "source_agent": "agent-a",
+            },
         ]
         r = mgr.classify(supplements)
         assert r["total"] == 1
@@ -27,8 +32,12 @@ class TestSupplementManager:
         """包含 coordination 关键词应分类为 cross_cell。"""
         mgr = self._make_mgr()
         supplements = [
-            {"title": "Coordination needed", "description": "Cross-cell coordination for shared resource",
-             "source_cell": "cell-1", "source_agent": "agent-a"},
+            {
+                "title": "Coordination needed",
+                "description": "Cross-cell coordination for shared resource",
+                "source_cell": "cell-1",
+                "source_agent": "agent-a",
+            },
         ]
         r = mgr.classify(supplements)
         assert r["total"] == 1
@@ -39,8 +48,12 @@ class TestSupplementManager:
         """包含 approval/security 关键词应分类为 human_only。"""
         mgr = self._make_mgr()
         supplements = [
-            {"title": "Security approval", "description": "Needs security policy approval before deploy",
-             "source_cell": "cell-1", "source_agent": "agent-a"},
+            {
+                "title": "Security approval",
+                "description": "Needs security policy approval before deploy",
+                "source_cell": "cell-1",
+                "source_agent": "agent-a",
+            },
         ]
         r = mgr.classify(supplements)
         assert r["total"] == 1
@@ -86,6 +99,7 @@ class TestAnswerAggregatorCollect:
 
     def _make_agg(self):
         from l3.discussion.answer_aggregator import AnswerAggregator
+
         return AnswerAggregator()
 
     def test_collect_no_answers(self):

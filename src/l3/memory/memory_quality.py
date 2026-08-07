@@ -2,6 +2,7 @@
 
 Auto-scores memory importance 0.0-1.0 and validates memory quality.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,8 @@ _ALWAYS_SAVE = {"decision", "pattern", "summary", "fingerprint"}
 _VAGUE_PATTERNS = re.compile(
     r"(user has a project|agent note:|i have a|there is a|"
     r"python lists are|the sky is|water is wet|"
-    r"^\s*\w+\s+is\s+\w+\s*$)", re.IGNORECASE
+    r"^\s*\w+\s+is\s+\w+\s*$)",
+    re.IGNORECASE,
 )
 
 # Minimum content length for actionable memory
@@ -45,9 +47,11 @@ def _score_importance(content: str, entry_type: str) -> float:
     base = MEMORY_IMPORTANCE_BASE
 
     type_bonus = {
-        "decision": MEMORY_IMPORTANCE_DECISION, "pattern": MEMORY_IMPORTANCE_PATTERN,
+        "decision": MEMORY_IMPORTANCE_DECISION,
+        "pattern": MEMORY_IMPORTANCE_PATTERN,
         "summary": MEMORY_IMPORTANCE_SUMMARY,
-        "observation": MEMORY_IMPORTANCE_OBSERVATION, "tool_call": 0.0,
+        "observation": MEMORY_IMPORTANCE_OBSERVATION,
+        "tool_call": 0.0,
     }
     base += type_bonus.get(entry_type, 0.0)
 
@@ -55,13 +59,13 @@ def _score_importance(content: str, entry_type: str) -> float:
     if re.search(r"[\\/][\w.\-]+[\\/]", content):
         specifics += 0.15  # has path-like content
     if re.search(r"\b\d+\.\d+\.\d+\b", content):
-        specifics += 0.1   # has version number
+        specifics += 0.1  # has version number
     if re.search(r"port\s+\d+|:\d{2,5}\b", content):
-        specifics += 0.1   # has port number
+        specifics += 0.1  # has port number
     if len(content) > 100:
         specifics += 0.05  # substantive
     if len(content) > 500:
-        specifics -= 0.1   # too verbose
+        specifics -= 0.1  # too verbose
     if len(content) < MEMORY_MIN_CONTENT_LEN:
         specifics -= 0.2
 
@@ -91,12 +95,14 @@ def _suggest_compact(entries: list) -> list[dict]:
     suggestions = []
     for group in groups.values():
         if len(group) >= 3:
-            total_tokens = sum(getattr(e, 'tokens', 0) or len(e.content) // 4 for e in group)
-            suggestions.append({
-                "entries": [e.id for e in group],
-                "total_tokens": total_tokens,
-                "agent_id": group[0].agent_id,
-                "tags": list(set(t for e in group for t in e.tags)),
-            })
+            total_tokens = sum(getattr(e, "tokens", 0) or len(e.content) // 4 for e in group)
+            suggestions.append(
+                {
+                    "entries": [e.id for e in group],
+                    "total_tokens": total_tokens,
+                    "agent_id": group[0].agent_id,
+                    "tags": list(set(t for e in group for t in e.tags)),
+                }
+            )
     suggestions.sort(key=lambda x: x["total_tokens"], reverse=True)
     return suggestions

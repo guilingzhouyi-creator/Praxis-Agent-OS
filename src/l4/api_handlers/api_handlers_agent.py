@@ -11,6 +11,7 @@ from __future__ import annotations
 def agent_list(body: dict | None = None) -> dict:
     """List all registered agents and their config."""
     from l1.kernel.params.agent import AGENT_CLEARANCE, DEFAULT_AGENT_CONFIGS
+
     agents = {}
     for role, clearance in AGENT_CLEARANCE.items():
         cfg = DEFAULT_AGENT_CONFIGS.get(role)
@@ -26,6 +27,7 @@ def agent_select(body: dict | None = None) -> dict:
     agent_id = (body or {}).get("agent_id", "")
     if not agent_id:
         from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS
+
         roles = list(DEFAULT_AGENT_CONFIGS.keys())
         return {"success": True, "agents": [{"agent_id": r, "role": r} for r in roles]}
     return {"success": True, "agent_id": agent_id}
@@ -39,40 +41,47 @@ def agent_select_by(body: dict | None = None) -> dict:
     return {"success": True, "agents": [], "note": "no role specified"}
 
 
-
 def agent_preconnect(body: dict | None = None) -> dict:
     """Pre-connect verification (stub)."""
     agent_id = (body or {}).get("agent_id", "")
     return {"success": True, "agent_id": agent_id, "allowed": True}
+
 
 def agent_reachable(body: dict | None = None) -> dict:
     """Check if agent is reachable (stub)."""
     agent_id = (body or {}).get("agent_id", "")
     return {"success": True, "agent_id": agent_id, "reachable": True}
 
+
 def agent_direct(body: dict | None = None) -> dict:
     """Start direct session (stub)."""
     return {"success": True, "session_id": ""}
+
 
 def agent_direct_close(body: dict | None = None) -> dict:
     """Close direct session (stub)."""
     return {"success": True}
 
+
 def agent_review_message(body: dict | None = None) -> dict:
     """Review message (stub)."""
     return {"success": True, "approved": True}
+
 
 def _shell_dispatch(body: dict | None = None) -> dict:
     """Shell command dispatch (stub)."""
     return {"success": False, "error": "shell dispatch not available"}
 
+
 def _shell_autocomplete(body: dict | None = None) -> dict:
     """Shell autocomplete (stub)."""
     return {"success": True, "suggestions": []}
 
+
 def _shell_commands(body: dict | None = None) -> dict:
     """Shell commands list (stub)."""
     return {"success": True, "commands": []}
+
 
 def handle_agent_config_get(body: dict | None = None) -> dict:
     """GET /api/v1/agents/config — return current agent config."""
@@ -84,6 +93,7 @@ def handle_agent_config_get(body: dict | None = None) -> dict:
         CENTRAL_ROLES,
         DEFAULT_AGENT_CONFIGS,
     )
+
     return {
         "success": True,
         "central_roles": list(CENTRAL_ROLES),
@@ -117,6 +127,7 @@ def handle_agent_config_set(body: dict | None = None) -> dict:
 
     if "agent_role_map" in b:
         from l1.kernel.params.agent import AGENT_ROLE_MAP
+
         AGENT_ROLE_MAP.clear()
         for k, v in b["agent_role_map"].items():
             AGENT_ROLE_MAP[int(k)] = str(v)
@@ -124,23 +135,29 @@ def handle_agent_config_set(body: dict | None = None) -> dict:
 
     if "agent_priority" in b:
         from l1.kernel.params.agent import AGENT_PRIORITY
+
         AGENT_PRIORITY.clear()
         AGENT_PRIORITY.update(b["agent_priority"])
         results["agent_priority"] = len(AGENT_PRIORITY)
 
     if "clearance" in b:
         from l1.kernel.params.agent import AGENT_CLEARANCE
+
         AGENT_CLEARANCE.clear()
         AGENT_CLEARANCE.update(b["clearance"])
         results["clearance"] = len(AGENT_CLEARANCE)
 
     if "default_roles" in b:
         from l1.kernel.params.agent import CENTRAL_DEFAULT_ROLES
+
         CENTRAL_DEFAULT_ROLES.clear()
         CENTRAL_DEFAULT_ROLES.extend(str(r) for r in b["default_roles"])
         results["default_roles"] = len(CENTRAL_DEFAULT_ROLES)
 
     if not results:
-        return {"success": False, "error": "no supported fields in body; try agent_role_map, agent_priority, clearance, or default_roles"}
+        return {
+            "success": False,
+            "error": "no supported fields in body; try agent_role_map, agent_priority, clearance, or default_roles",
+        }
 
     return {"success": True, "updated": results}

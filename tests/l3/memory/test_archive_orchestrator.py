@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestArchiveOrchestrator:
     def test_importable(self):
         from l3.memory.archive_orchestrator import archive_ring3
+
         assert callable(archive_ring3)

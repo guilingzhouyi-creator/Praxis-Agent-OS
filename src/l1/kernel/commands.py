@@ -32,15 +32,16 @@ SRC_OVERRIDE = "override"
 @dataclass
 class CommandDef:
     """Internal command definition."""
+
     name: str = ""
     help: str = ""
     category: str = "other"
     aliases: list[str] = field(default_factory=list)
     args: list[dict] = field(default_factory=list)
     examples: list[str] = field(default_factory=list)
-    system: bool = False          # True = protected, cannot be removed/modified
+    system: bool = False  # True = protected, cannot be removed/modified
     handler: Callable | None = None
-    source: str = SRC_DEFAULT       # SRC_DEFAULT | "yaml" | "api" | "config"
+    source: str = SRC_DEFAULT  # SRC_DEFAULT | "yaml" | "api" | "config"
 
 
 class CommandRegistry:
@@ -61,8 +62,8 @@ class CommandRegistry:
         self._user_handlers: dict[str, Callable] = {}
         self._user_defs: dict[str, CommandDef] = {}
         # Metadata layers (loaded from YAML, overlaid in order)
-        self._defaults: dict[str, dict] = {}      # from commands.yaml
-        self._overrides: dict[str, dict] = {}     # from praxis.yaml
+        self._defaults: dict[str, dict] = {}  # from commands.yaml
+        self._overrides: dict[str, dict] = {}  # from praxis.yaml
         self._loaded = False
         self._revision = 0  # bumped on every mutation; consumers derive indexes from it
 
@@ -97,8 +98,7 @@ class CommandRegistry:
 
     # ── Registration ────────────────────────────────────────────
 
-    def register_system(self, name: str, handler: Callable,
-                        metadata: dict | None = None) -> None:
+    def register_system(self, name: str, handler: Callable, metadata: dict | None = None) -> None:
         """Register a system command (protected from deletion/modification).
 
         Args:
@@ -124,8 +124,7 @@ class CommandRegistry:
             )
             self._revision += 1
 
-    def register_user(self, name: str, handler: Callable,
-                      metadata: dict) -> dict:
+    def register_user(self, name: str, handler: Callable, metadata: dict) -> dict:
         """Register a user (custom) command.  Can be unregistered later.
 
         Args:
@@ -283,8 +282,7 @@ class CommandRegistry:
             "aliases": cd.aliases,
             "system": cd.system,
             "source": cd.source,
-            "args": [{"name": a.get("name", ""), "optional": a.get("optional", False)}
-                     for a in cd.args],
+            "args": [{"name": a.get("name", ""), "optional": a.get("optional", False)} for a in cd.args],
             "examples": cd.examples[:3],
         }
 
@@ -313,6 +311,7 @@ def reset_registry() -> None:
 
 # ── Backward-compatible aliases ─────────────────────────────
 
+
 def load_command_defs(yaml_path: str = "") -> int:
     """Load command definitions from YAML into the singleton registry."""
     return get_registry().load_defaults(yaml_path)
@@ -339,8 +338,7 @@ def load_command_overrides(cfg: dict) -> None:
     get_registry().load_overrides(cfg)
 
 
-def register_command(name: str, handler: Callable,
-                     metadata: dict | None = None) -> None:
+def register_command(name: str, handler: Callable, metadata: dict | None = None) -> None:
     """Register a system command with optional metadata."""
     get_registry().register_system(name, handler, metadata)
 
@@ -368,24 +366,25 @@ def get_handler(name: str) -> Callable | None:
 
 def list_commands() -> list[dict]:
     """List registered system commands."""
-    return [{
-        "name": c["name"],
-        "help": c["help"],
-        "aliases": c["aliases"],
-        "category": c["category"],
-        "examples": c.get("examples", []),
-        "args": c.get("args", []),
-    } for c in get_registry().list()]
+    return [
+        {
+            "name": c["name"],
+            "help": c["help"],
+            "aliases": c["aliases"],
+            "category": c["category"],
+            "examples": c.get("examples", []),
+            "args": c.get("args", []),
+        }
+        for c in get_registry().list()
+    ]
 
 
 def list_all_definitions() -> dict:
     """List all system/user definitions plus metadata overrides."""
     reg = get_registry()
     return {
-        "system": {n: {"help": cd.help, "category": cd.category}
-                    for n, cd in reg._system_defs.items()},
-        "user": {n: {"help": cd.help, "category": cd.category}
-                  for n, cd in reg._user_defs.items()},
+        "system": {n: {"help": cd.help, "category": cd.category} for n, cd in reg._system_defs.items()},
+        "user": {n: {"help": cd.help, "category": cd.category} for n, cd in reg._user_defs.items()},
         "metadata": dict(reg._defaults),
         "overrides": dict(reg._overrides),
     }
@@ -393,6 +392,7 @@ def list_all_definitions() -> dict:
 
 def _default_yaml_path() -> str:
     from l1.kernel.params.system import COMMANDS_CONFIG_PATH
+
     return os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
         COMMANDS_CONFIG_PATH,

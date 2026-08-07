@@ -31,7 +31,7 @@ class CacheDocument:
     content: str = ""
     metadata: dict = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    archive_ref: str = ""           # Linked Archive entry_id
+    archive_ref: str = ""  # Linked Archive entry_id
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + CACHE_DOC_TTL)
     access_count: int = 0
@@ -55,15 +55,22 @@ class CacheDocumentStore:
         self._docs: dict[str, CacheDocument] = {}
         self._lock = threading.Lock()
 
-    def put(self, title: str, content: str,
-            metadata: dict | None = None,
-            tags: list[str] | None = None,
-            archive_ref: str = "") -> str:
+    def put(
+        self,
+        title: str,
+        content: str,
+        metadata: dict | None = None,
+        tags: list[str] | None = None,
+        archive_ref: str = "",
+    ) -> str:
         """Store a document and return its generated buffer_id."""
         buffer_id = f"cache-{uuid.uuid4().hex[:HASH_TRUNC_MEDIUM]}"
         doc = CacheDocument(
-            buffer_id=buffer_id, title=title, content=content,
-            metadata=metadata or {}, tags=tags or [],
+            buffer_id=buffer_id,
+            title=title,
+            content=content,
+            metadata=metadata or {},
+            tags=tags or [],
             archive_ref=archive_ref,
         )
         with self._lock:
@@ -100,10 +107,14 @@ class CacheDocumentStore:
         """List live documents carrying the given tag as summary dicts."""
         with self._lock:
             return [
-                {"buffer_id": d.buffer_id, "title": d.title,
-                 "tags": d.tags, "created_at": d.created_at,
-                 "archive_ref": d.archive_ref,
-                 "size": len(d.content)}
+                {
+                    "buffer_id": d.buffer_id,
+                    "title": d.title,
+                    "tags": d.tags,
+                    "created_at": d.created_at,
+                    "archive_ref": d.archive_ref,
+                    "size": len(d.content),
+                }
                 for d in self._docs.values()
                 if not d.expired and tag in d.tags
             ]
@@ -112,10 +123,16 @@ class CacheDocumentStore:
         """List all live documents as summary dicts."""
         with self._lock:
             return [
-                {"buffer_id": d.buffer_id, "title": d.title,
-                 "tags": d.tags, "created_at": d.created_at,
-                 "expired": d.expired, "access_count": d.access_count}
-                for d in self._docs.values() if not d.expired
+                {
+                    "buffer_id": d.buffer_id,
+                    "title": d.title,
+                    "tags": d.tags,
+                    "created_at": d.created_at,
+                    "expired": d.expired,
+                    "access_count": d.access_count,
+                }
+                for d in self._docs.values()
+                if not d.expired
             ]
 
     def stats(self) -> dict:
@@ -136,9 +153,7 @@ class CacheDocumentStore:
     def _evict(self) -> None:
         if len(self._docs) <= CACHE_DOC_MAX_ENTRIES:
             return
-        sorted_docs = sorted(
-            self._docs.values(), key=lambda d: (d.access_count, d.expires_at)
-        )
+        sorted_docs = sorted(self._docs.values(), key=lambda d: (d.access_count, d.expires_at))
         to_remove = len(self._docs) - CACHE_DOC_MAX_ENTRIES
         for d in sorted_docs[:to_remove]:
             del self._docs[d.buffer_id]
