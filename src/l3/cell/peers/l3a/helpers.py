@@ -74,6 +74,13 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
         if nature in SKILL_OFFENSIVE_AUTHORIZED_NATURES:
             posture = get_posture()
             if posture.get("classification") != "security-test" or not posture.get("full_power"):
+                # P1: record denied offensive warrants in StatsCenter.
+                try:
+                    from l3.tool_system.security_mode import ingest_security_metric
+
+                    ingest_security_metric("security.warrant.denied", tags={"nature": nature})
+                except Exception:
+                    pass
                 return {
                     "success": False,
                     "error": f"offensive card nature '{nature}' rejected: system posture is not "

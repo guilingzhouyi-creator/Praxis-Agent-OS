@@ -110,13 +110,15 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
 
 
 def _emit_mode_event(event_type: str, data: dict, source: str) -> None:
-    """Record + emit a security-mode event (frontend-notifiable).
+    """Record + emit a security-mode event (frontend-notifiable, RC-metric).
 
     ``security_mode_warning`` fires when a detection-bypass confirmation is
     required; ``security_mode_change`` fires after a successful switch. Each
     entry is appended to the bounded notification history (queryable via
-    ``security_notifications()`` / the API endpoint) and broadcast on the
-    EventBus for the SSE bridge to push to subscribed frontends.
+    ``security_notifications()`` / the API endpoint), broadcast on the
+    EventBus for the SSE bridge, and ingested into StatsCenter as a
+    ``security.mode.*`` metric so the security posture is observable in the
+    RC/StatsCenter time series.
     """
     entry = {
         "type": event_type,
@@ -132,6 +134,52 @@ def _emit_mode_event(event_type: str, data: dict, source: str) -> None:
         get_bus().emit_event(event_type, data=data, source=source or "security_mode")
     except Exception:
         # Notification is best-effort — never break the mode switch.
+        pass
+    try:
+        # P0: bridge to StatsCenter so RC time series cover the security
+        # posture — metric names follow the security.* namespace.
+        from l3.services.stats_center import MetricPoint, get_center
+
+        metric = "security.mode.change" if event_type == "security_mode_change" else "security.mode.warning"
+        get_center().ingest(
+            MetricPoint(
+                name=metric,
+                value=1.0,
+                tags={
+                    "source": "security_mode",
+                    "mode": str(data.get("mode", "")),
+                    "confirmed": str(bool(data.get("confirmed", False))).lower(),
+                },
+                timestamp=time.time(),
+                metric_type="counter",
+            )
+        )
+    except Exception:
+        # Metric bridge is best-effort — never break the mode switch.
+        pass
+
+
+def ingest_security_metric(name: str, value: float = 1.0, tags: dict | None = None) -> None:
+    """Best-effort StatsCenter ingest for security.* counters (P1).
+
+    Shared by the posture gate, GateChain G4 bypass, warrant issuance and
+    attack-team activation hooks so every security-relevant event lands in
+    the RC/StatsCenter time series. Never raises — observability must not
+    break the protected path.
+    """
+    try:
+        from l3.services.stats_center import MetricPoint, get_center
+
+        get_center().ingest(
+            MetricPoint(
+                name=name,
+                value=float(value),
+                tags={"source": "security", **(tags or {})},
+                timestamp=time.time(),
+                metric_type="counter",
+            )
+        )
+    except Exception:
         pass
 
 
