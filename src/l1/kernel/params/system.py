@@ -1022,4 +1022,3 @@ STATS_SSE_BUFFER: Final[int] = 100  # max SSE events buffered per subscriber
 STATS_DEFAULT_WINDOW: Final[str] = "5m"  # default query window
 STATS_TOP_LIMIT: Final[int] = 10  # default row cap for cross-cell ranking
 STATS_TIMELINE_LIMIT: Final[int] = 20  # l2 extra.py timeline query default
-
