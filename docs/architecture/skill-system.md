@@ -12,6 +12,7 @@ surfaces (L2 shell, L4 API, VFS).
                        │  register/create/update/delete (write gate)   │
                        │  cell_skill_map (per-Cell whitelist)          │
                        │  offensive_policy (posture gate)              │
+                       │  distill_policy (master + sub switches)       │
                        │  revision counter (cache invalidation)        │
                        └───────▲──────────────────────────┬───────────┘
                                │ register/persist          │ read
@@ -27,13 +28,13 @@ surfaces (L2 shell, L4 API, VFS).
                                │                           │
                 ┌──────────────▼───────────────────────────▼──────────────┐
                 │  L3 R4Agent (evolution engine, tick-driven)              │
-                │  evolve_skill (LLM architect)        → register + persist│
-                │  _process_failure_traces            → lean_case skills   │
-                │  _generalize_lean_cases (≥5/tool)   → lean_<tool>_lessons│
-                │  _prune_stale_skills (TTL)          → archive+delete     │
-                │  _curate_skills (contrib = useful/injected, cap)         │
-                │  reflect_failure (Reflexion why/fix/pattern)             │
-                │  graph linkage (R5: refines/depends_on edges)            │
+                │  card→skill signal → rule preference (DPO)              │
+                │  _process_failure_traces → lean_case (structured kn)    │
+                │  _cluster_lean_cases (shingle) + _sample_digest (curric)│
+                │  _distill_lessons_skill (rejection sampling + verifier) │
+                │  _generalize_lean_cases (≥5/tool, keep verified rules)  │
+                │  _prune_stale_skills (TTL) / _curate_skills (contrib)   │
+                │  reflect_failure (Reflexion) / graph linkage (R5)       │
                 └──────────────┬───────────────────────────────────────────┘
                                │ inject (token-budgeted)
                 ┌──────────────▼───────────────────────────────────────────┐
@@ -78,6 +79,18 @@ Default-deny: `SKILL_OFFENSIVE_ENABLED=True` + `SKILL_OFFENSIVE_AUTHORIZED_NATUR
 and `use_skill`. `_normalize_posture()` maps invalid values to the safe
 default — neither LLM output, frontmatter, nor callers can escalate.
 
+**System-posture linkage (security.mode × harness.mode):** the skill posture
+gate is only one layer of a five-layer attack-authorization chain. The
+constitution (§9.2 `skill.offensive_posture` rule) additionally requires
+**full_power** (attack classification + detection-bypass confirmed) before an
+offensive skill's `skill.use` / `use_skill` action passes — the provider is
+injected at boot (`set_posture_provider(get_posture)`), never imported from
+L3. Gate decisions are recorded into StatsCenter via the injected L1 metric
+sink (`security.gate.skill_use.blocked`, `security.gate.use_skill.blocked`,
+`security.gate.injection.blocked/allowed`) and the SkillCatalogHook skips the
+§9.2 check for offensive skills when the skill-layer policy is disabled
+(soft bypass stays consistent end to end).
+
 ### 1.5 Revision & audit
 
 Every structural mutation bumps `revision()` (R4Agent cache invalidation)
@@ -110,10 +123,15 @@ constitution). Skill-relevant steps:
    `track_tool_failure(agent_id, tool, args, error, turn_log, domain, nature)`
    → JSON traces in lean dir → `_process_failure_traces()` creates
    `lean_<agent>_<tool>_<err>` skills tagged `[lean_case, failure, agent,
-   tool, card:<nature>]` (dedup: exact name or `dedup_key_` prefix).
+   tool, card:<nature>]` (dedup: exact name or `dedup_key_` prefix). Each
+   lean case carries a **structured `knowledge` field** — `{tool, args,
+   error, domain, nature, turn_count, pattern_hint}` (truncated to
+   `R4_LEAN_KNOWLEDGE_MAX`) — so distillation sees real failure detail,
+   not the flattened prompt template.
 2. **Generalization**: ≥`R4_LEAN_GENERALIZE_THRESHOLD` cases for one tool →
    `lean_<tool>_lessons` (rule-based baseline or LLM summary; idempotent via
-   case fingerprint).
+   case fingerprint). The digest is built by `_sample_digest` (see batch 4
+   below).
 3. **LLM evolution**: `evolve_skill(intent, cell_id, scope, extra_tags)` —
    skill-architect prompt → JSON skill def → `sm.create()` (with posture
    normalization) → bind to Cell → archive pre-version (`fonds="skills",
@@ -145,6 +163,46 @@ constitution). Skill-relevant steps:
    pass flags duplicate evolved skills (prompt Jaccard ≥
    `SKILL_CONFLICT_SIMILARITY`) and contradictory rules (DO vs DON'T on the
    same topic); surfaced in tick results, read-only.
+
+### 3.1 DPO-style rule preference (batch 2)
+
+Card outcomes are attributed back to the lessons rules that were in play:
+
+- **Signal collection**: `AgentLoop` tracks `_card_skills_used` (bounded by
+  `R4_CARD_SKILL_SIGNAL_MAX`) — every `use_skill` invocation and every
+  injected evolved skill rides the driving card. At card completion,
+  `cell_execute` gathers the per-agent skill sets into
+  `result["card_skills_used"]`.
+- **Preference update**: `record_card_skill_signal(skills_used, success)`
+  adjusts each lessons rule's DPO metadata —
+  success → `verified++` / `preferred` up (`REP_TASK_SUCCESS`);
+  failure → `hit++` / `preferred` down (`REP_TASK_FAILURE`). Rules below
+  `R4_RULE_MIN_PREFERRED` are marked `deprecated`.
+- **Targeted re-distillation**: `_generalize_lean_cases` carries
+  verified (non-deprecated) rules into the next digest as keep-context, so
+  the LLM retains what worked and rewrites only the deprecated ones.
+
+### 3.2 Rejection sampling + heuristic verifier (batch 3)
+
+`_distill_lessons_skill` samples up to `R4_DISTILL_SAMPLES` (1-3,
+configurable) candidate definitions per digest and keeps the best-scoring
+one. `_score_distill_candidate` is a three-signal heuristic verifier:
+- **operability** — share of rules that are actionable (DO/DON'T/CHECK/
+  VERIFY/ALWAYS/NEVER prefixes)
+- **coverage** — share of the digest's error terms present in prompt+rules
+- **structure** — procedures present add a bonus
+
+### 3.3 Semantic clustering + curriculum digest (batch 4)
+
+- `_cluster_lean_cases`: 3-gram shingle Jaccard clustering on the error
+  text — same-root-cause failures written differently merge above
+  `R4_CLUSTER_SIMILARITY` (0.6, tuned for 3-gram shingles).
+- `_sample_digest`: curriculum-style digest — clusters ordered by size
+  (frequent failure modes first), each capped at `R4_CLUSTER_SAMPLE_MAX`
+  representative cases, difficulty ramp within a cluster (simple → complex
+  by error word count), `[complex]` marker for patterns ≥
+  `R4_DIFFICULTY_WORDS` words. The fingerprint is computed over the
+  sampled digest, keeping a stable case set idempotent.
 
 ## 4. Retrieval & ranking (L3, `skill_retriever.py` + `r4_skill_feedback.py`)
 
@@ -198,21 +256,50 @@ of `$VARIABLES`. Refuses offensive skills without authorized card nature.
 ## 6. Governance surfaces
 
 - **L2 shell `/skills`**: list/lean/get (public); create/update/delete/
-  reload/evolve/permissions/retriever (developer-gated via `--role`).
+  reload/evolve/permissions/retriever/distill (developer-gated via
+  `--role`). `/skills distill [status|set <field> <on|off>]` toggles the
+  distillation/DPO master + sub switches at runtime.
 - **L4 API** `/api/v2/skills/*`: list/get/create/update/delete/reload/
-  permissions/retriever/offensive-policy (GET+POST, developer-gated).
+  permissions/retriever/offensive-policy/distill-policy (GET+POST,
+  developer-gated).
 - **Config**: `params/` defaults ← `settings_center` L2 ← `praxis.yaml`
   `skill:` section (retriever_backend, evolve_scope, offensive_enabled,
-  offensive_natures, cell.skills).
+  offensive_natures, distill_enabled, dpo_signal_enabled,
+  distill_sub.{generalize,llm_distill,clustering,sampling}, cell.skills).
+
+### 6.1 Distillation/DPO master switches (API-controlled)
+
+The batch 1-4 pipeline is kill-switchable per stage, not all-or-nothing:
+
+- **Masters**: `distill` (whole pipeline) and `dpo_signal` (card→skill
+  preference weighting); `dpo_signal=False` also disables
+  `record_card_skill_signal`.
+- **Sub-switches** under `distill`: `generalize` (rule generalization),
+  `llm_distill` (LLM distillation + rejection sampling), `clustering`
+  (shingle clustering), `sampling` (frequency/difficulty digest).
+- **Degradation chain** (disabling one notches down, never hard-fails):
+  - `clustering=False` → plain by-tool grouping
+  - `sampling=False` → flat digest of all cases (knowledge-consistent)
+  - `llm_distill=False` → rule baseline only, zero LLM calls (cheapest)
+  - `generalize=False` → the whole pipeline is skipped
+- **Policy state** on the SkillManager: `distill_policy()` returns
+  `{distill, dpo_signal, sub{4}, updated, source}` — `source` tracks the
+  last mutator (params/config/api/shell) for auditability.
+- **Control surfaces** share one state: `POST /api/v2/skills/distill-policy`
+  (body: `{distill?, dpo_signal?, sub?}`), `/skills distill set`, and the
+  `skill.*` config keys; runtime changes mirror into SettingsCenter L2.
 
 ## 7. Feedback loop (self-improvement)
 
 ```
 inject (5.1) → inject_count++, last_used refresh
-    → use_skill / catalog exposure
-    → tool failure → trace file → lean_case skill
-    → ≥5 per tool → generalized lessons
-    → LLM evolve (card intent) → evolved skill, bound to Cell
+    → use_skill / catalog exposure → _card_skills_used (per card)
+    → card completes → card_skills_used + success/failure
+    → record_card_skill_signal → rule verified/hit/preferred ±
+    → deprecated rules (< R4_RULE_MIN_PREFERRED) → targeted re-distill
+    → tool failure → trace file → lean_case skill (structured knowledge)
+    → ≥5 per tool → cluster (shingle) + sample (frequency/difficulty)
+    → LLM distill (rejection sampling + verifier) → lessons skill
     → TTL prune / curation retire (archived) → loop
 ```
 
@@ -226,3 +313,7 @@ inject (5.1) → inject_count++, last_used refresh
 6. Injection refreshes `last_used` so active skills survive TTL prune.
 7. Revision-based caching: SkillManager revision is the cache key for all
    R4Agent injection caches.
+8. Distillation never hard-fails: each stage degrades one notch (clustering
+   → grouping, sampling → flat, llm_distill → baseline) under its switch.
+9. Rule preference metadata is runtime-only: SKILL.md persists rule text,
+   DPO counters are rebuilt from card signals on the next distillation.
