@@ -125,6 +125,8 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
         # P3 lesson-summarization gates: per-tool cooldown + global throttle.
         self._last_summarize: dict[str, float] = {}
         self._last_summarize_any: float = 0.0
+        # P4 skill-distillation gates (independent of summarization throttle).
+        self._last_distill: dict[str, float] = {}
         # Reflexion-style failure-reflection gates (per-tool cooldown).
         self._last_reflect: dict[str, float] = {}
         self._registered = self._register_identity()
@@ -227,6 +229,12 @@ class R4Agent(SkillEvolutionMixin, SkillFeedbackMixin):
             curated = self._curate_skills()
             if curated:
                 results["skills_curated"] = curated
+
+            # 4d. Consistency: detect duplicate / contradictory evolved skills
+            conflicts = self._detect_skill_conflicts()
+            if conflicts:
+                results["skill_conflicts"] = conflicts
+                logger.info("R4Agent: %d skill conflict(s) detected", len(conflicts))
 
             # 5. Alert if issues found
             total_issues = len(stale) + len(contradictions)

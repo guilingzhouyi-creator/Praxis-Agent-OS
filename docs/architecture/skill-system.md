@@ -132,6 +132,19 @@ constitution). Skill-relevant steps:
    Never touches built-in or lean_case skills.
 6. **Reflexion** (`reflect_failure`): LLM distills why/fix/pattern per tool
    into the reference channel (non-blocking).
+7. **Content contract on evolved skills** (`validate_skill_content` in L1):
+   LLM-evolved skills are scrubbed/rejected when their prompt+description
+   carry constitutional-violation instructions or project-specific path
+   literals — parity with the built-in catalog contract, so a malformed LLM
+   response cannot register an invalid skill.
+8. **Lesson distillation** (`_distill_lessons_skill`): after a plain lesson
+   summary, the skill architect upgrades it into a structured definition
+   (rules + procedures) with an independent per-tool cooldown
+   (`R4_DISTILL_COOLDOWN`); falls back to the summary/baseline on failure.
+9. **Conflict detection** (`_detect_skill_conflicts`): per-tool consistency
+   pass flags duplicate evolved skills (prompt Jaccard ≥
+   `SKILL_CONFLICT_SIMILARITY`) and contradictory rules (DO vs DON'T on the
+   same topic); surfaced in tick results, read-only.
 
 ## 4. Retrieval & ranking (L3, `skill_retriever.py` + `r4_skill_feedback.py`)
 

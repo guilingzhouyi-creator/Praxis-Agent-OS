@@ -30,6 +30,12 @@ from l1.kernel.params.system import (
     LOG_TRUNC_60,
     LOG_TRUNC_200,
     LOG_TRUNC_2000,
+    SKILL_CONTRACT_FORBIDDEN_PATHS,
+    SKILL_CONTRACT_FORBIDDEN_PATTERNS,
+    SKILL_OFFENSIVE_AUTHORIZED_NATURES,
+    SKILL_OFFENSIVE_ENABLED,
+    SKILL_POSTURE_DEFAULT,
+    SKILL_POSTURE_VALID,
     SKILL_WRITE_MIN_RING,
     SKILL_WRITE_ROLES,
 )
@@ -43,6 +49,32 @@ _BUILTIN_SKILL_DIR = "config/skills"
 def _is_builtin_path(path: str) -> bool:
     """Return True when a skill file lives under the built-in skills dir."""
     return _BUILTIN_SKILL_DIR in path.replace("\\", "/")
+
+
+def validate_skill_content(prompt: str, description: str = "") -> list[str]:
+    """Validate evolved-skill content against the built-in catalog contract.
+
+    Checks a skill's prompt+description for:
+      1. Constitutional-violation instructions (bypass sandbox, modify
+         constitution, write outside territory, skip gates, swallow
+         exceptions) — mirror of ``test_skill_contracts`` patterns.
+      2. Project-specific path/identifier literals that would prevent the
+         skill from generalizing to other projects.
+
+    Returns the list of violations (empty = clean). The caller decides
+    whether to scrub or reject; this function never mutates anything.
+    """
+    import re as _re
+
+    violations: list[str] = []
+    text = f"{prompt or ''}\n{description or ''}"
+    for pat in SKILL_CONTRACT_FORBIDDEN_PATTERNS:
+        if _re.search(pat, text, _re.IGNORECASE):
+            violations.append(f"constitutional pattern: {pat}")
+    for lit in SKILL_CONTRACT_FORBIDDEN_PATHS:
+        if lit in text:
+            violations.append(f"project-specific literal: {lit}")
+    return violations
 
 
 def _get_skill_dirs() -> list[str]:
@@ -95,6 +127,7 @@ class Skill:
     allowed_tools: list[str] | None = None
     variables: list[str] | None = None
     prompt: str = ""
+    posture: str = SKILL_POSTURE_DEFAULT
 
     def expand(self, **kwargs: str) -> str:
         """Expand $VARIABLES in prompt with keyword args."""
@@ -118,6 +151,7 @@ class Skill:
             "variables": self.variables or [],
             "prompt": self.prompt or "",
             "tags": [],
+            "posture": self.posture,
             "loaded_at": self.loaded_at,
         }
 
@@ -138,6 +172,11 @@ class SkillManager:
         # inject overrides via set_write_policy() (kernel never imports L3).
         self._write_min_ring: int = SKILL_WRITE_MIN_RING
         self._write_roles: tuple[str, ...] = SKILL_WRITE_ROLES
+        # Offensive-posture gate policy — compile-time defaults; L3 config
+        # center and the API may inject overrides via set_offensive_policy()
+        # at runtime (soft control, see SKILL_OFFENSIVE_ENABLED).
+        self._offensive_enabled: bool = SKILL_OFFENSIVE_ENABLED
+        self._offensive_natures: tuple[str, ...] = SKILL_OFFENSIVE_AUTHORIZED_NATURES
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
@@ -209,6 +248,50 @@ class SkillManager:
                 "write_min_ring": self._write_min_ring,
                 "write_roles": list(self._write_roles),
             }
+
+    def set_offensive_policy(
+        self,
+        enabled: bool | None = None,
+        natures: list[str] | tuple[str, ...] | None = None,
+    ) -> dict:
+        """Override the offensive-posture gate policy at runtime (API/config).
+
+        Soft control ("honest-agent" gate): ``enabled=False`` bypasses the
+        posture gate entirely; ``natures`` replaces the card natures that
+        authorize offensive-skill injection. Neither field is required, so a
+        caller can flip just one. Applied atomically under the manager lock.
+        """
+        with self._lock:
+            if enabled is not None:
+                self._offensive_enabled = bool(enabled)
+            if natures is not None:
+                self._offensive_natures = tuple(n for n in natures if isinstance(n, str))
+            return {
+                "success": True,
+                "enabled": self._offensive_enabled,
+                "natures": list(self._offensive_natures),
+            }
+
+    def offensive_policy(self) -> dict:
+        """Return the current offensive-posture gate policy (for API/CLI)."""
+        with self._lock:
+            return {
+                "enabled": self._offensive_enabled,
+                "natures": list(self._offensive_natures),
+            }
+
+    def offensive_authorized(self, nature: str) -> bool:
+        """Whether an offensive-posture skill may be used for a card nature.
+
+        Gate disabled → authorized for any nature (soft-control bypass).
+        Gate enabled → authorized only for natures in the policy allow-list
+        (default: SKILL_OFFENSIVE_AUTHORIZED_NATURES). Consulted by AgentLoop
+        injection, SkillCatalogHook and use_skill.
+        """
+        with self._lock:
+            if not self._offensive_enabled:
+                return True
+            return nature in self._offensive_natures
 
     def load_dir(self, directory: str) -> int:
         """Load all skill files from a directory tree.
@@ -331,6 +414,7 @@ class SkillManager:
         allowed_tools: list[str] | None = None,
         dependencies: list[str] | None = None,
         dependency_kind: str = "soft",
+        posture: str = SKILL_POSTURE_DEFAULT,
         agent_id: str = "",
         role: str = "",
         internal: bool = False,
@@ -354,6 +438,7 @@ class SkillManager:
             "allowed_tools": allowed_tools,
             "dependencies": dependencies or [],
             "dependency_kind": dependency_kind if dependency_kind in ("hard", "soft") else "soft",
+            "posture": self._normalize_posture(posture),
             "source": "evolved",
             "loaded_at": __import__("time").time(),
             "useful_count": 0,
@@ -391,6 +476,7 @@ class SkillManager:
                     "prompt": s.get("prompt", ""),
                     "source": s.get("source", ""),
                     "builtin": bool(s.get("builtin")),
+                    "posture": s.get("posture", SKILL_POSTURE_DEFAULT),
                     "loaded_at": s.get("loaded_at", 0.0),
                     "last_used": s.get("last_used", 0.0),
                     "disable_model_invocation": bool(s.get("disable_model_invocation")),
@@ -604,6 +690,10 @@ class SkillManager:
             "variables": meta.get("variables"),
             "tags": meta.get("tags") or [],
             "prompt": body.strip(),
+            # Posture: productive (default) vs offensive (reverse/attack
+            # testing). Invalid values fall back to the safe default so a
+            # malformed frontmatter never escalates a skill's posture.
+            "posture": self._normalize_posture(meta.get("posture")),
             # Matt-Pocock-style invocation model: user-invoked skills
             # (disable-model-invocation: true) are excluded from automatic
             # context injection; they only fire on explicit use.
@@ -633,6 +723,17 @@ class SkillManager:
             logger.debug("skill: constitution check skipped at load: %s", e)
         self._store(data, path)
         return True
+
+    @staticmethod
+    def _normalize_posture(value: Any) -> str:
+        """Normalize a posture value to a valid posture, defaulting to productive.
+
+        Invalid values (or missing) fall back to the safe default so a
+        malformed frontmatter or caller can never escalate a skill's posture.
+        """
+        if isinstance(value, str) and value in SKILL_POSTURE_VALID:
+            return value
+        return SKILL_POSTURE_DEFAULT
 
     def _extract_rules(self, body: str) -> list[str]:
         """Extract DO/DON'T rules from markdown body.

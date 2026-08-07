@@ -282,6 +282,35 @@ SKILL_TTL_EXTEND_PER_USE: Final[int] = 3600  # each bump_usage extends the effec
 SKILL_LIBRARY_MAX: Final[int] = 50  # hard cap on evolved skills; curation evicts lowest contribution
 SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5  # max skills injected by SkillCatalogHook at session start
 SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
+# ── Evolved-skill content contract (parity with built-in contract tests) ──
+# Evolved (LLM-generated) skills must pass the same content checks as the
+# built-in catalog: no project-specific path literals and no instructions
+# that violate constitutional rules. Violations are scrubbed/dropped so a
+# malformed LLM response cannot register an invalid skill.
+SKILL_CONTRACT_FORBIDDEN_PATTERNS: Final[tuple[str, ...]] = (
+    r"bypass.{0,20}sandbox",
+    r"modify.{0,20}constitution",
+    r"write outside.{0,20}territory",
+    r"skip.{0,20}gate",
+    r"swallow.{0,20}exception",
+)
+SKILL_CONTRACT_FORBIDDEN_PATHS: Final[tuple[str, ...]] = (
+    "src/l",
+    "tests/infra",
+    "praxis.yaml",
+    ".praxis/skills",
+    "l1.kernel",
+    "l3.",
+    "StatsCenter",
+    "CardRegistry",
+    "GateChain",
+)
+# ── Evolved-skill conflict detection (R4Agent consistency pass) ──
+# Two evolved skills for the same tool whose prompts overlap more than this
+# ratio (token-set Jaccard) are flagged as duplicates; rules that directly
+# contradict (DO vs DON'T on the same topic) are flagged as conflicts.
+SKILL_CONFLICT_SIMILARITY: Final[float] = 0.6
+SKILL_CONFLICT_SCAN_LIMIT: Final[int] = 50  # evolved skills scanned per tick
 # ── Skill posture (productive vs offensive) ──────────────────────────────
 # Distinguishes normal project/build work from reverse-engineering / attack
 # testing. Offensive skills are registered but NEVER injected into a session
@@ -301,6 +330,14 @@ SKILL_OFFENSIVE_AUTHORIZED_NATURES: Final[tuple[str, ...]] = ("offensive",)
 # the gate is bypassed entirely (dedicated pentest frontends may turn it off
 # at runtime via the API — this is deliberately not a hard security boundary).
 SKILL_OFFENSIVE_ENABLED: Final[bool] = True
+# ── Security mode (system posture: productive vs security-test) ───────────
+# Combined with harness.mode into get_posture(): productive posture grants no
+# attack capability; security-test posture is attack-classified and only
+# reaches full_power after an explicit detection-bypass confirmation.
+SECURITY_MODE_PRODUCTIVE: Final[str] = "productive"
+SECURITY_MODE_TEST: Final[str] = "security-test"
+SECURITY_MODE_DEFAULT: Final[str] = SECURITY_MODE_PRODUCTIVE
+SECURITY_MODES: Final[tuple[str, ...]] = (SECURITY_MODE_PRODUCTIVE, SECURITY_MODE_TEST)
 # Seconds in one hour (timeout baselines)
 SECONDS_PER_HOUR: Final[int] = 3600
 # Seconds in one day (24h TTL baselines)

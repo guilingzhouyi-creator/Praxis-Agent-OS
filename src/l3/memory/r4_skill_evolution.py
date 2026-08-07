@@ -23,6 +23,7 @@ from l1.kernel.params.agent import (
     R4_CONTRIB_MIN_RATIO,
     R4_CONTRIB_MIN_TRIALS,
     R4_CURATION_ENABLED,
+    R4_DISTILL_COOLDOWN,
     R4_EVOLVED_SKILLS_DEFAULT,
     R4_LEAN_GENERALIZE_THRESHOLD,
     R4_SUMMARIZE_COOLDOWN,
@@ -33,15 +34,50 @@ from l1.kernel.params.agent import (
 )
 from l1.kernel.params.system import (
     HASH_TRUNC_MEDIUM,
+    LOG_TRUNC_80,
     LOG_TRUNC_200,
     SECONDS_PER_DAY,
     SECONDS_PER_HOUR,
     SKILL_LIBRARY_MAX,
+    SKILL_POSTURE_DEFAULT,
+    SKILL_POSTURE_VALID,
     SKILL_TTL_DAYS,
     SKILL_TTL_EXTEND_PER_USE,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _scrub_skill_prompt(prompt: str, violations: list[str]) -> str:
+    """Drop lines from a prompt that carry contract violations.
+
+    Line-level scrub: removes any line matching a forbidden constitutional
+    pattern or containing a project-specific literal, so the surviving body
+    stays usable. Returns the scrubbed prompt (may be empty → caller
+    rejects).
+    """
+    import re as _re
+
+    from l1.kernel.params.system import (
+        SKILL_CONTRACT_FORBIDDEN_PATHS,
+        SKILL_CONTRACT_FORBIDDEN_PATTERNS,
+    )
+
+    kept: list[str] = []
+    for line in (prompt or "").splitlines():
+        bad = False
+        for pat in SKILL_CONTRACT_FORBIDDEN_PATTERNS:
+            if _re.search(pat, line, _re.IGNORECASE):
+                bad = True
+                break
+        if not bad:
+            for lit in SKILL_CONTRACT_FORBIDDEN_PATHS:
+                if lit in line:
+                    bad = True
+                    break
+        if not bad:
+            kept.append(line)
+    return "\n".join(kept).strip()
 
 
 class SkillEvolutionMixin:
@@ -51,6 +87,7 @@ class SkillEvolutionMixin:
     agent_id: str
     _last_summarize: dict[str, float]
     _last_summarize_any: float
+    _last_distill: dict[str, float]
     _pmu: Any
 
     def reflect_failure(self, tool: str, cases: list[dict]) -> str | None:
@@ -87,21 +124,26 @@ class SkillEvolutionMixin:
         disable_model_invocation: bool = False,
         dependencies: list[str] | None = None,
         dependency_kind: str = "soft",
+        posture: str = SKILL_POSTURE_DEFAULT,
         scope: str = "",
     ) -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
 
         Frontmatter carries name/description/tags/allowed_tools/variables/
-        disable-model-invocation/dependencies/dependency-kind so a reload via
-        SkillManager._load_markdown() restores them; the prompt is the body.
-        Shared by evolve_skill (LLM) and _generalize_lean_cases (rule-based)
-        so both survive restart via the boot discovery dirs.  An explicit
-        ``scope`` overrides the configured evolution scope for this write.
+        disable-model-invocation/dependencies/dependency-kind/posture so a
+        reload via SkillManager._load_markdown() restores them; the prompt is
+        the body. Shared by evolve_skill (LLM) and _generalize_lean_cases
+        (rule-based) so both survive restart via the boot discovery dirs.  An
+        explicit ``scope`` overrides the configured evolution scope for this
+        write. Invalid ``posture`` values fall back to the safe default so a
+        caller can never escalate a skill's posture through persistence.
         """
         import os
 
         import yaml as _yaml
 
+        if posture not in SKILL_POSTURE_VALID:
+            posture = SKILL_POSTURE_DEFAULT
         md_path = self._skill_md_path(name, scope)
         os.makedirs(os.path.dirname(md_path), exist_ok=True)
         meta: dict[str, Any] = {"name": name, "description": description, "tags": tags}
@@ -111,6 +153,8 @@ class SkillEvolutionMixin:
             meta["dependencies"] = dependencies
         if dependency_kind != "soft":
             meta["dependency-kind"] = dependency_kind
+        if posture != SKILL_POSTURE_DEFAULT:
+            meta["posture"] = posture
         if allowed_tools:
             meta["allowed_tools"] = allowed_tools
         if variables:
@@ -202,6 +246,73 @@ class SkillEvolutionMixin:
             logger.info("R4Agent: summarized lesson for %s rejected (too short)", tool)
             return None
         return lesson
+
+    def _distill_lessons_skill(self, tool: str, cases: list[dict]) -> dict | None:
+        """Distill a tool's lean cases into a structured skill definition.
+
+        P4 upgrade path: after the plain lesson summary succeeds, ask the
+        skill architect to emit a full definition — name, description,
+        rules (enforceable DO/DON'T) and procedures — for the tool's failure
+        patterns. Returns ``{"prompt", "rules", "procedures"}`` or None on
+        any failure (LLM error, invalid JSON, contract violation). The
+        caller keeps the summary as the fallback.
+        """
+        import json as _json
+
+        from l1.kernel.skill import validate_skill_content as _validate_content
+
+        now = time.time()
+        if now - self._last_distill.get(tool, 0.0) < R4_DISTILL_COOLDOWN:
+            logger.debug("R4Agent: skill distillation for %s skipped (cooldown)", tool)
+            return None
+        digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
+        prompt = (
+            "You are a skill architect. Distill these failure patterns for "
+            f"the tool '{tool}' into a structured skill definition:\n{digest}\n"
+            'Reply with JSON only: {"name": "<tool>_lessons", '
+            '"description": "<one line>", "prompt": "<procedural guidance>", '
+            '"rules": ["DO: ...", "DONT: ..."], "procedures": [{"step": "..."}]}'
+        )
+        try:
+            from l4.llm.llm import get_engine
+
+            engine = get_engine()
+            result = engine.generate(
+                prompt=prompt,
+                system="You are a skill architect.",
+                max_tokens=R4_SUMMARIZE_MAX_TOKENS,
+                user_id="r4-agent",
+            )
+        except Exception as e:
+            logger.warning("R4Agent: skill distillation failed: %s", e)
+            return None
+        self._last_distill[tool] = now
+        content = (result.get("content") or "").strip()
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        try:
+            data = _json.loads(content)
+        except Exception as e:
+            logger.warning("R4Agent: distillation invalid JSON for %s: %s", tool, e)
+            return None
+        if not isinstance(data, dict):
+            return None
+        skill_prompt = data.get("prompt") if isinstance(data.get("prompt"), str) else ""
+        skill_desc = data.get("description") if isinstance(data.get("description"), str) else ""
+        if len(skill_prompt or "") < R4_SUMMARIZE_MIN_LEN:
+            logger.info("R4Agent: distilled skill for %s rejected (too short)", tool)
+            return None
+        if _validate_content(skill_prompt, skill_desc):
+            logger.warning("R4Agent: distilled skill for %s violates content contract — dropped", tool)
+            return None
+        rules = [r for r in (data.get("rules") or []) if isinstance(r, str)]
+        procs = [p for p in (data.get("procedures") or []) if isinstance(p, dict)]
+        return {"prompt": skill_prompt, "rules": rules, "procedures": procs}
 
     @staticmethod
     def _archive_before_evolve(name: str, skill_data: dict) -> None:
@@ -298,6 +409,94 @@ class SkillEvolutionMixin:
                 pruned += 1
                 logger.info("R4Agent: pruned stale skill '%s' (age=%.1f days)", name, age / SECONDS_PER_DAY)
         return pruned
+
+    def _detect_skill_conflicts(self) -> list[dict]:
+        """Detect duplicate / contradictory evolved skills per tool.
+
+        Consistency pass over evolved skills (excludes built-in and
+        lean_case): for each tool group (by ``allowed_tools``), pairs whose
+        prompt token-set Jaccard similarity exceeds
+        ``SKILL_CONFLICT_SIMILARITY`` are flagged as duplicates; rules that
+        directly contradict (a DO: X vs a DON'T: X on the same topic) are
+        flagged as conflicts. Returns a report list; the caller decides how
+        to surface it (tick results / alert). Read-only — never mutates.
+        """
+        import re as _re
+
+        from l1.kernel.params.system import (
+            SKILL_CONFLICT_SCAN_LIMIT,
+            SKILL_CONFLICT_SIMILARITY,
+        )
+
+        try:
+            from l1.kernel.skill import get_skill_manager
+        except Exception:
+            return []
+        sm = get_skill_manager()
+        # list_skills returns summary dicts (rules = count); fetch full
+        # records for rule-level analysis.
+        skills = [
+            sm.get(s["name"]) for s in sm.list_skills(tags=["evolved"], limit=SKILL_CONFLICT_SCAN_LIMIT)
+            if sm.get(s["name"])
+        ]
+        skills = [
+            s for s in skills
+            if "lean_case" not in (s.get("tags") or []) and "builtin" not in (s.get("tags") or [])
+        ]
+        by_tool: dict[str, list[dict]] = {}
+        for s in skills:
+            tools = s.get("allowed_tools") or []
+            tool = tools[0] if tools else "general"
+            by_tool.setdefault(tool, []).append(s)
+
+        def _tokens(text: str) -> set[str]:
+            return set(_re.split(r"[\s,;:._-]+", (text or "").lower()))
+
+        report: list[dict] = []
+        for tool, group in by_tool.items():
+            if len(group) < 2:
+                continue
+            tok_cache = {s["name"]: _tokens(s.get("prompt", "")) for s in group}
+            for i, a in enumerate(group):
+                for b in group[i + 1 :]:
+                    ta, tb = tok_cache[a["name"]], tok_cache[b["name"]]
+                    if not ta or not tb:
+                        continue
+                    inter = len(ta & tb)
+                    union = len(ta | tb)
+                    if union and inter / union >= SKILL_CONFLICT_SIMILARITY:
+                        report.append(
+                            {
+                                "kind": "duplicate",
+                                "tool": tool,
+                                "skills": [a["name"], b["name"]],
+                                "similarity": round(inter / union, 2),
+                            }
+                        )
+                    # Rule contradiction: DO: X in one, DON'T: X in the other.
+                    ra_raw, rb_raw = a.get("rules"), b.get("rules")
+                    ra_list = ra_raw if isinstance(ra_raw, list) else []
+                    rb_list = rb_raw if isinstance(rb_raw, list) else []
+                    rules_a = [r.lower() for r in ra_list if isinstance(r, str)]
+                    rules_b = [r.lower() for r in rb_list if isinstance(r, str)]
+                    for ra in rules_a:
+                        for rb in rules_b:
+                            topic = _re.sub(r"^(do|don'?t)\s*[:.]?\s*", "", ra)
+                            if not topic:
+                                continue
+                            neg_b = rb.startswith(("don't", "dont", "do not"))
+                            neg_a = ra.startswith(("don't", "dont", "do not"))
+                            if neg_a != neg_b and topic in rb:
+                                report.append(
+                                    {
+                                        "kind": "contradiction",
+                                        "tool": tool,
+                                        "skills": [a["name"], b["name"]],
+                                        "rule_a": ra[:LOG_TRUNC_80],
+                                        "rule_b": rb[:LOG_TRUNC_80],
+                                    }
+                                )
+        return report
 
     def _curate_skills(self) -> int:
         """Evaluate evolved skills by contribution and enforce the library cap.
@@ -521,11 +720,20 @@ class SkillEvolutionMixin:
             # P3: LLM semantic summary (gated: threshold + per-tool cooldown +
             # per-tick throttle); any failure degrades to the rule-based baseline.
             llm_lesson = self._summarize_tool_lessons(tool, cases)
-            if llm_lesson:
-                candidate = llm_lesson
+            # P4: full skill distillation — when the LLM is available, upgrade
+            # the lessons into a structured skill definition (rules +
+            # procedures) so the generalized skill carries enforceable
+            # guidance, not just a prose paragraph. Falls back to the summary
+            # (or baseline) on any failure; never blocks generalization.
+            distilled = self._distill_lessons_skill(tool, cases) if llm_lesson else None
+            if distilled:
+                candidate: str = distilled.get("prompt") or llm_lesson or baseline
+                rules = distilled.get("rules") or []
+                procs = distilled.get("procedures") or []
             else:
-                logger.info("R4Agent: LLM lesson for %s unavailable — using rule-based baseline", tool)
-                candidate = baseline
+                candidate = llm_lesson if llm_lesson else baseline
+                rules = []
+                procs = []
             if existing:
                 # P2-3: archive the pre-update version (audit/rollback baseline)
                 # before overwriting — same guarantee evolve_skill gives.
@@ -537,6 +745,8 @@ class SkillEvolutionMixin:
                 name=gen_name,
                 description=desc,
                 prompt=candidate,
+                rules=rules,
+                procedures=procs,
                 tags=["evolved", tool],
                 allowed_tools=[tool],
                 internal=True,
@@ -649,6 +859,28 @@ class SkillEvolutionMixin:
             skill_tools = skill_def.get("allowed_tools")
             if not isinstance(skill_tools, list) or not all(isinstance(t, str) for t in skill_tools):
                 skill_tools = None
+            # Posture: carried through round-trip persistence; invalid values
+            # from the LLM fall back to the safe default (productive).
+            skill_posture = skill_def.get("posture", SKILL_POSTURE_DEFAULT)
+            if skill_posture not in SKILL_POSTURE_VALID:
+                skill_posture = SKILL_POSTURE_DEFAULT
+            # Content contract (parity with the built-in catalog): a skill
+            # that instructs constitutional violations or embeds
+            # project-specific literals must not enter the registry. We
+            # scrub the prompt (drop the violating lines) and, if the body
+            # is left empty, reject the evolution entirely.
+            from l1.kernel.skill import validate_skill_content as _validate_content
+
+            violations = _validate_content(skill_prompt, skill_desc)
+            if violations:
+                logger.warning(
+                    "R4Agent: evolved skill '%s' violates content contract, scrubbing: %s",
+                    name, "; ".join(violations),
+                )
+                skill_prompt = _scrub_skill_prompt(skill_prompt, violations)
+                skill_desc = skill_desc if _validate_content(skill_prompt, skill_desc) == [] else ""
+                if not skill_prompt.strip():
+                    return {"success": False, "error": f"skill '{name}' rejected: content contract violations: {violations}"}
             sm.create(
                 name=name,
                 description=skill_desc,
@@ -657,6 +889,7 @@ class SkillEvolutionMixin:
                 rules=skill_rules,
                 procedures=skill_procs,
                 allowed_tools=skill_tools,
+                posture=skill_posture,
                 internal=True,
             )
             if existing:
@@ -715,6 +948,7 @@ class SkillEvolutionMixin:
                 rules=skill_rules,
                 procedures=skill_procs,
                 variables=skill_def.get("variables"),
+                posture=skill_posture,
                 scope=scope,
             )
 

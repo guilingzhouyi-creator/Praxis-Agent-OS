@@ -537,6 +537,7 @@ R4_SUMMARIZE_COOLDOWN: Final[float] = 3600.0  # min gap between LLM summaries pe
 R4_SUMMARIZE_MIN_INTERVAL: Final[float] = 60.0  # min gap between ANY two LLM summaries (s)
 R4_SUMMARIZE_MAX_TOKENS: Final[int] = 512
 R4_SUMMARIZE_MIN_LEN: Final[int] = 20  # quality floor for accepted lessons
+R4_DISTILL_COOLDOWN: Final[float] = 3600.0  # min gap between skill distillations per tool (s)
 
 # ── R4Agent failure reflection (Reflexion-style) ──
 R4_REFLECTION_ENABLED: Final[bool] = True  # LLM failure attribution/reflection on lean cases
