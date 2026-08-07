@@ -189,6 +189,14 @@ class GateChain:
         self._known_tools: set[str] = set()
         self._territories: dict[str, list[str]] = {}
         self._gates: list[tuple[str, Callable]] = list(_BUILTIN_GATES)
+        # Posture provider — injected at boot by L3 wiring (kernel never
+        # imports L3). Returns the get_posture() dict or None when not wired.
+        self._posture_provider: Callable[[], dict | None] | None = None
+
+    def set_posture_provider(self, provider: Callable[[], dict | None] | None) -> None:
+        """Register the posture provider callback (called at boot from L3 wiring)."""
+        with self._lock:
+            self._posture_provider = provider
 
     def register_tools(self, tool_names: list[str]) -> None:
         """Add *tool_names* to the set of known tools."""
@@ -324,6 +332,21 @@ def _gate_g4(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     danger = ctx.get("_danger", 0)
     if danger >= GATECHAIN_ESCALATION_DANGER:
+        # full_power (attack posture + detection-bypass confirmed) authorizes
+        # high-danger tools for the execution layer — the escalation WARN is
+        # skipped, but the call is still recorded for the audit trail.
+        full_power = False
+        provider = getattr(gc, "_posture_provider", None)
+        if provider is not None:
+            try:
+                posture = provider() or {}
+                full_power = bool(posture.get("full_power"))
+            except Exception:
+                full_power = False
+        if full_power:
+            steps.append({"gate": "G4", "result": "PASS",
+                          "reason": f"danger={danger}, full_power posture authorized"})
+            return steps, overall
         from .event import Signal, SignalType, get_bus
         get_bus().emit(Signal(type=SignalType.REVIEW_REQUESTED,
                                sender=GATECHAIN_SENDER, target=GATECHAIN_L3_TARGET,

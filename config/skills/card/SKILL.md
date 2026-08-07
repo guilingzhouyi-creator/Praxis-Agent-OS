@@ -3,6 +3,7 @@ name: card
 description: Card lifecycle — create, dispatch, execute, review across peer agents
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 dependencies: [tool-pipeline]
 dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]

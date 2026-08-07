@@ -108,3 +108,51 @@ def handle_skills_reload(body: dict | None = None) -> dict:
 def handle_skills_permissions(body: dict | None = None) -> dict:
     """GET /api/skills/permissions — current write-gate policy."""
     return {"success": True, "policy": _manager().write_policy()}
+
+
+def handle_skills_offensive_policy_get(body: dict | None = None) -> dict:
+    """GET /api/skills/offensive-policy — current offensive-posture gate policy."""
+    return {"success": True, "policy": _manager().offensive_policy()}
+
+
+def handle_skills_offensive_policy_set(body: dict | None = None) -> dict:
+    """POST /api/skills/offensive-policy — update the offensive-posture gate (developer).
+
+    Body (both optional; only provided fields change):
+      enabled: bool   — False bypasses the posture gate entirely (soft control)
+      natures: [str]  — card natures that authorize offensive-skill injection
+
+    Mirrors the new values into SettingsCenter (L2) so runtime reads stay in
+    sync; the policy is applied atomically on the SkillManager.
+    """
+    b = body or {}
+    agent_id, role = _caller(b)
+    sm = _manager()
+    ok, who = sm.authorize_write(agent_id, role)
+    if not ok:
+        return {"success": False, "error": f"permission denied: {who}"}
+    update = {"success": True}
+    if "enabled" in b:
+        # Parse booleans explicitly — bool("false") is True in Python, which
+        # would invert the gate when clients send string form values.
+        raw = b["enabled"]
+        update["enabled"] = raw in (True, "true", 1, "1")
+    if "natures" in b and isinstance(b["natures"], list):
+        update["natures"] = [n for n in b["natures"] if isinstance(n, str)]
+    policy = sm.set_offensive_policy(
+        enabled=update.get("enabled"),
+        natures=update.get("natures"),
+    )
+    # Mirror into SettingsCenter L2 so config-driven reads observe the change.
+    try:
+        from l3.config.settings_center import get_center
+
+        center = get_center()
+        if "enabled" in update:
+            center.set_l2("skill.offensive_enabled", bool(update["enabled"]))
+        if "natures" in update:
+            center.set_l2("skill.offensive_natures", list(update["natures"]))
+    except Exception:
+        logger.debug("skills: offensive policy SettingsCenter mirror skipped", exc_info=True)
+    policy["authorized"] = who
+    return policy

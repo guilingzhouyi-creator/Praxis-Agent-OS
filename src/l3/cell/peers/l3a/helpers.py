@@ -62,6 +62,29 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
     phases_data = args.get("phases", [])
     domain = columns.get("domain", "")
 
+    # Offensive warrant gate: an offensive-nature card is an action warrant —
+    # issuing it requires the system posture to be attack-classified AND
+    # detection-bypass confirmed (full_power). Without that, no attack card
+    # can be issued, keeping the policy layer aligned with the constitution
+    # §9.2 gate and the execution-layer posture gate.
+    try:
+        from l1.kernel.params.system import SKILL_OFFENSIVE_AUTHORIZED_NATURES
+        from l3.tool_system.security_mode import get_posture
+
+        if nature in SKILL_OFFENSIVE_AUTHORIZED_NATURES:
+            posture = get_posture()
+            if posture.get("classification") != "security-test" or not posture.get("full_power"):
+                return {
+                    "success": False,
+                    "error": f"offensive card nature '{nature}' rejected: system posture is not "
+                             "full-power attack (security.mode=security-test + detection-bypass "
+                             "confirmation required)",
+                    "posture": posture,
+                    "warning": {"code": "OFFENSIVE_WARRANT_DENIED", "nature": nature},
+                }
+    except Exception:
+        pass
+
     # User profile reference (side-channel): attach a condensed profile to the
     # card columns when the profile service is enabled — downstream intent
     # parsing and agent context can consult it without blocking the submit.

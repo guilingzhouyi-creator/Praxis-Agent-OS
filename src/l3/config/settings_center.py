@@ -149,6 +149,15 @@ _L1_DEFAULTS: dict[str, Any] = {
     "skill.write_roles": ["l3", "reviewer", "deployer"],
     "skill.evolve_scope": "project",  # "project" | "global" — evolution write target
     "skill.project_dirs": [],  # extra project skill discovery dirs
+    # ── Offensive-posture gate (soft control, runtime-switchable via API) ──
+    # enabled: False bypasses the posture gate entirely; natures lists the
+    # card natures that authorize offensive-skill injection.
+    "skill.offensive_enabled": True,
+    "skill.offensive_natures": ["offensive"],
+    # ── System security posture (productive | security-test) ──
+    "security.mode": "productive",
+    # Security-team domain bindings (attack posture): domain → skill white-list.
+    "team.attack.domains": {},
     # ── Per-Cell skill white-list (回灌到 Cell); empty → global pool ──
     "cell.skills": {},
     # ── R4 Agent ──

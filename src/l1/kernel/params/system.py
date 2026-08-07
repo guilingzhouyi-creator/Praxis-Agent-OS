@@ -337,6 +337,11 @@ SECURITY_MODE_PRODUCTIVE: Final[str] = "productive"
 SECURITY_MODE_TEST: Final[str] = "security-test"
 SECURITY_MODE_DEFAULT: Final[str] = SECURITY_MODE_PRODUCTIVE
 SECURITY_MODES: Final[tuple[str, ...]] = (SECURITY_MODE_PRODUCTIVE, SECURITY_MODE_TEST)
+# Security-team domain bindings (attack posture): domain → skill white-list.
+# Activate_attack_team() creates one peer agent per domain and binds its
+# skills. Empty by default — security-test mode starts with no attack
+# capability until a deployment configures domains.
+TEAM_ATTACK_DOMAINS: Final[dict[str, list[str]]] = {}
 # Seconds in one hour (timeout baselines)
 SECONDS_PER_HOUR: Final[int] = 3600
 # Seconds in one day (24h TTL baselines)

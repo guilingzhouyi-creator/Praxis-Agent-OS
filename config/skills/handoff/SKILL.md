@@ -3,6 +3,7 @@ name: handoff
 description: Compact the current conversation into a handoff document so another agent can continue the work without context loss
 tags: [strategy]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, write_file, list_dir]
 ---
 

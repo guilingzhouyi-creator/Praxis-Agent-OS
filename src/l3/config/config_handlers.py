@@ -749,6 +749,11 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
                                        skills are persisted (default project)
       - project_dirs                 : extra project skill discovery dirs,
                                        appended to config/discovery skill_dirs
+      - offensive_enabled            : master switch for the offensive-posture
+                                       gate (soft control; runtime-switchable
+                                       via the API)
+      - offensive_natures            : card natures that authorize injecting
+                                       offensive-posture skills
     """
     from l1.kernel.skill import get_skill_manager
     from l3.config.settings_center import get_center
@@ -781,9 +786,22 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
                 p.skill_dirs = existing
             except Exception:
                 logger.debug("cfg_skill: project_dirs path push skipped")
+        if "offensive_enabled" in cfg:
+            center.set_l2("skill.offensive_enabled", bool(cfg["offensive_enabled"]))
+        if "offensive_natures" in cfg and isinstance(cfg["offensive_natures"], list):
+            center.set_l2("skill.offensive_natures", [n for n in cfg["offensive_natures"] if isinstance(n, str)])
+        if "attack" in cfg and isinstance(cfg["attack"], dict):
+            domains = cfg["attack"].get("domains")
+            if isinstance(domains, dict):
+                clean = {str(k): [s for s in v if isinstance(s, str)] for k, v in domains.items() if isinstance(v, list)}
+                center.set_l2("team.attack.domains", clean)
     get_skill_manager().set_write_policy(
         min_ring=center.get("skill.write_min_ring", None),
         roles=center.get("skill.write_roles", None),
+    )
+    get_skill_manager().set_offensive_policy(
+        enabled=center.get("skill.offensive_enabled", None),
+        natures=center.get("skill.offensive_natures", None),
     )
     results["skill"] = True
 

@@ -3,6 +3,7 @@ name: self
 description: Self-diagnostics — system health, audit trails, memory rings, stats, observability
 tags: [review]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]
 ---
 

@@ -53,6 +53,12 @@ class TestBuiltinSkillCatalog:
             assert "allowed-tools" in front, f"{d.name}: missing allowed-tools"
             assert front.get("disable-model-invocation") is True, (
                 f"{d.name}: built-in skills must be user-invoked only")
+            # Posture must be declared explicitly and be a valid value, so the
+            # built-in catalog never silently drifts from the productive
+            # default or ships an unvalidated posture.
+            assert "posture" in front, f"{d.name}: missing posture"
+            assert front.get("posture") in ("productive", "offensive"), (
+                f"{d.name}: invalid posture {front.get('posture')!r}")
 
     def test_universal_principles_present(self):
         """Each built-in skill carries all 12 universal-principle sections."""

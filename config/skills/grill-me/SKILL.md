@@ -3,6 +3,7 @@ name: grill-me
 description: Relentlessly interview the user about a plan, design, or task before starting — resolve every branch of the design tree until aligned
 tags: [strategy]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [read_file, list_dir, grep_search]
 ---
 

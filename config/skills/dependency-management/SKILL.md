@@ -3,6 +3,7 @@ name: dependency-management
 description: Manage project dependencies — inspect versions, plan upgrades, install safely, and verify the result against the lockfile and the test suite
 tags: [execution]
 disable-model-invocation: true
+posture: productive
 allowed-tools: [check_version, pip_list, pip_install, npm_install, apt_install, read_file, list_dir, run_tests]
 ---
 

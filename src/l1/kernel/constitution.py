@@ -42,7 +42,7 @@ from .params.agent import (
     REP_DEFAULT_REPUTATION,
     SANDBOX_ROOT_PATH,
 )
-from .params.system import DEFAULT_TOKEN_BUDGET
+from .params.system import DEFAULT_TOKEN_BUDGET, SKILL_POSTURE_OFFENSIVE
 from .rule_descriptor import CheckResult, RuleDescriptor, RuleSeverity, str_to_severity
 
 logger = logging.getLogger(__name__)
@@ -192,6 +192,56 @@ def _check_audit(rule: RuleDescriptor, action: str, agent_id: str, target: str, 
     return CheckResult.PASS
 
 
+# Posture provider — injected at boot by L3 wiring (kernel never imports L3).
+# Returns the ``get_posture()`` dict {security_mode, harness_mode,
+# classification, full_power, ...} or None when not wired.
+_posture_provider: Callable[[], dict | None] | None = None
+
+
+def set_posture_provider(provider: Callable[[], dict | None] | None) -> None:
+    """Register the posture provider callback (called at boot from L3 wiring).
+
+    Eliminates the ``from l3.tool_system.security_mode import get_posture``
+    import from the kernel layer — the provider is injected, not imported.
+    """
+    global _posture_provider
+    _posture_provider = provider
+
+
+def _check_skill_posture(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+    """Constitutional gate: offensive-posture skills require attack posture.
+
+    Applies to ``skill.use`` (session catalog) AND ``use_skill`` (the actual
+    tool-pipeline action name) — an offensive skill is BLOCKED unless the
+    injected posture provider reports full_power (attack classification +
+    detection-bypass confirmed). ``skill.load`` (registration) is not blocked:
+    offensive skills may exist in the registry but stay unusable — posture
+    gating happens at use/injection. When no provider is wired, the rule
+    passes (backward compatible).
+    """
+    if action not in ("skill.use", "use_skill"):
+        return CheckResult.PASS
+    provider = _posture_provider
+    if provider is None:
+        return CheckResult.PASS
+    try:
+        posture = provider() or {}
+    except Exception:
+        return CheckResult.PASS
+    if posture.get("full_power"):
+        return CheckResult.PASS
+    # Not full power: block use of offensive-posture skills.
+    try:
+        from l1.kernel.skill import get_skill_manager
+
+        skill = get_skill_manager().get(target)
+        if skill and skill.get("posture") == SKILL_POSTURE_OFFENSIVE:
+            return CheckResult.BLOCK
+    except Exception:
+        pass
+    return CheckResult.PASS
+
+
 def _check_cross(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
     if action in CONSTITUTION_SCOUT_BLOCKED:
         if territory and any(CONSTITUTION_SHARED_KEYWORD in t.lower() for t in territory):
@@ -311,6 +361,13 @@ _BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
         severity=RuleSeverity.MUST,
         description="Built-in (shipped) skills are read-only — no agent may modify or delete them",
         check_fn=None,
+        tags=TAG_SKILL,
+    ),
+    RuleDescriptor(
+        id="skill.offensive_posture", section="§9.2",
+        severity=RuleSeverity.MUST,
+        description="Offensive-posture skills require attack posture (full_power) for use",
+        check_fn=_check_skill_posture,
         tags=TAG_SKILL,
     ),
 ]
