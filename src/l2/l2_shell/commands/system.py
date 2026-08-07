@@ -75,8 +75,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills reload [--role <role>]
       /skills evolve <intent>          → generate a new skill via LLM
       /skills permissions              → current write-gate policy
-      /skills distill [status]        → distillation/DPO master switches
-      /skills distill set <field> <on|off>  → toggle distill|dpo_signal at runtime
+      /skills distill [status]        → distillation/DPO master + sub switches
+      /skills distill set <field> <on|off>  → toggle distill|dpo_signal|generalize|llm_distill|clustering|sampling
       /skills retriever [status]       → active retrieval backend (tfidf|embedding)
       /skills retriever set <backend>  → switch retrieval backend at runtime
 
@@ -139,19 +139,22 @@ def _cmd_skills(args: list[str]) -> dict:
         if action in ("set", "on", "off"):
             field = rest[2] if len(rest) > 2 else ""
             value = rest[3] if len(rest) > 3 else ""
-            if field not in ("distill", "dpo_signal") or value not in ("on", "off", "true", "false", "1", "0"):
+            valid_fields = ("distill", "dpo_signal", "generalize", "llm_distill", "clustering", "sampling")
+            if field not in valid_fields or value not in ("on", "off", "true", "false", "1", "0"):
                 return {
                     "success": False,
-                    "error": "usage: /skills distill set <distill|dpo_signal> <on|off>",
+                    "error": "usage: /skills distill set <distill|dpo_signal|generalize|llm_distill|clustering|sampling> <on|off>",
                 }
             flag = value in ("on", "true", "1")
             if field == "distill":
-                return sm.set_distill_policy(distill=flag)
-            return sm.set_distill_policy(dpo_signal=flag)
+                return sm.set_distill_policy(distill=flag, source="shell")
+            if field == "dpo_signal":
+                return sm.set_distill_policy(dpo_signal=flag, source="shell")
+            return sm.set_distill_policy(sub={field: flag}, source="shell")
         return {
             "success": False,
             "error": f"unknown distill action: {action}",
-            "suggestions": ["status", "set <distill|dpo_signal> <on|off>"],
+            "suggestions": ["status", "set <distill|dpo_signal|generalize|llm_distill|clustering|sampling> <on|off>"],
         }
 
     if sub == "retriever":

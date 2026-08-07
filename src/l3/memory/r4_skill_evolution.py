@@ -273,6 +273,15 @@ class SkillEvolutionMixin:
         if now - self._last_distill.get(tool, 0.0) < R4_DISTILL_COOLDOWN:
             logger.debug("R4Agent: skill distillation for %s skipped (cooldown)", tool)
             return None
+        # Degradation: llm_distill sub-switch OFF → no LLM calls at all; the
+        # caller falls back to the rule baseline (cheapest mode).
+        try:
+            from l1.kernel.skill import get_skill_manager as _sm_gate
+
+            if not _sm_gate().distill_policy().get("sub", {}).get("llm_distill", True):
+                return None
+        except Exception:
+            pass
         digest = "\n".join(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}" for c in cases)
         samples = int(R4_DISTILL_SAMPLES) if R4_DISTILL_SAMPLES >= 1 else 1
         best: dict | None = None
@@ -872,7 +881,26 @@ class SkillEvolutionMixin:
         simpler patterns (short error text) come before complex ones (long
         error text, ``R4_DIFFICULTY_WORDS``+ words).
         """
-        clusters = self._cluster_lean_cases(cases)
+        # Degradation chain: clustering OFF → plain by-tool grouping (each
+        # case its own cluster); sampling OFF → flat digest of all cases.
+        try:
+            from l1.kernel.skill import get_skill_manager as _sm_gate
+
+            _sub = _sm_gate().distill_policy().get("sub", {})
+            _clustering = _sub.get("clustering", True)
+            _sampling = _sub.get("sampling", True)
+        except Exception:
+            _clustering = _sampling = True
+        if not _sampling:
+            flat_lines: list[str] = []
+            for c in cases:
+                kn = c.get("knowledge") or {}
+                if isinstance(kn, dict) and kn.get("error"):
+                    flat_lines.append(f"- {tool}: {kn['error'][:LOG_TRUNC_200]}")
+                else:
+                    flat_lines.append(f"- {c.get('prompt', '')[:LOG_TRUNC_200]}")
+            return "\n".join(flat_lines)
+        clusters = [[c] for c in cases] if not _clustering else self._cluster_lean_cases(cases)
         clusters.sort(key=len, reverse=True)
         lines: list[str] = []
         for cl in clusters:

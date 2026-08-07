@@ -761,7 +761,11 @@ class TestDistillPolicySwitch:
         sm.set_distill_policy(dpo_signal=False)
         assert sm.distill_policy()["dpo_signal"] is False
         sm.set_distill_policy(distill=True, dpo_signal=True)
-        assert sm.distill_policy() == {"distill": True, "dpo_signal": True}
+        assert sm.distill_policy()["distill"] is True
+        assert sm.distill_policy()["dpo_signal"] is True
+        assert sm.distill_policy()["sub"] == {
+            "generalize": True, "llm_distill": True, "clustering": True, "sampling": True,
+        }
 
     def test_generalize_gated_off(self):
         from l3.memory.r4_agent import R4Agent
@@ -802,5 +806,79 @@ class TestDistillPolicySwitch:
         assert r["success"]
         assert r["distill"] is True
         # Invalid field rejected.
+        r = _cmd_skills(["distill", "set", "bogus", "on"])
+        assert not r["success"]
+
+
+class TestDistillSubSwitches:
+    """Refinement — per-stage degradation chain for the distill pipeline."""
+
+    def _mk_two_cases(self, sm, tool="subt"):
+        sm.create(name=f"kn1_{tool}", description="d", prompt="p1", tags=["lean_case", "failure", "a", tool],
+                  allowed_tools=[tool],
+                  knowledge={"tool": tool, "error": "permission denied on config file", "domain": "", "nature": "",
+                             "turn_count": 1, "pattern_hint": "h"}, internal=True)
+        sm.create(name=f"kn2_{tool}", description="d", prompt="p2", tags=["lean_case", "failure", "b", tool],
+                  allowed_tools=[tool],
+                  knowledge={"tool": tool, "error": "permission denied on config file path", "domain": "", "nature": "",
+                             "turn_count": 1, "pattern_hint": "h"}, internal=True)
+
+    def test_policy_reports_sub_and_source(self):
+        from l1.kernel.skill import get_skill_manager
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.set_distill_policy(sub={"clustering": False}, source="api")
+        p = sm.distill_policy()
+        assert p["sub"]["clustering"] is False
+        assert p["sub"]["generalize"] is True
+        assert p["source"] == "api"
+        assert p["updated"] > 0
+
+    def test_sampling_off_flat_digest(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_two_cases(sm)
+        sm.set_distill_policy(sub={"sampling": False})
+        r4 = R4Agent()
+        d = r4._sample_digest([sm.get("kn1_subt"), sm.get("kn2_subt")], "subt")
+        assert "permission denied on config file" in d
+        assert "permission denied on config file path" in d
+
+    def test_clustering_off_by_tool_grouping(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_two_cases(sm)
+        sm.set_distill_policy(sub={"clustering": False})
+        r4 = R4Agent()
+        d = r4._sample_digest([sm.get("kn1_subt"), sm.get("kn2_subt")], "subt")
+        # Both cases present (each its own cluster, capped at 1 sample each).
+        assert "permission denied on config file" in d
+        assert "permission denied on config file path" in d
+
+    def test_llm_distill_off_returns_none(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_two_cases(sm)
+        sm.set_distill_policy(sub={"llm_distill": False})
+        r4 = R4Agent()
+        assert r4._distill_lessons_skill("subt", [sm.get("kn1_subt"), sm.get("kn2_subt")]) is None
+
+    def test_l2_shell_sub_switch(self):
+        from l2.l2_shell.commands.system import _cmd_skills
+
+        reset_skill_manager()
+        r = _cmd_skills(["distill", "set", "clustering", "off"])
+        assert r["success"]
+        assert r["sub"]["clustering"] is False
+        r = _cmd_skills(["distill", "set", "clustering", "on"])
+        assert r["success"]
+        assert r["sub"]["clustering"] is True
         r = _cmd_skills(["distill", "set", "bogus", "on"])
         assert not r["success"]

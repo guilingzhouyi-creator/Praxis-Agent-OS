@@ -166,9 +166,14 @@ def handle_skills_distill_policy_get(body: dict | None = None) -> dict:
 def handle_skills_distill_policy_set(body: dict | None = None) -> dict:
     """POST /api/skills/distill-policy — update distillation/DPO switches (developer).
 
-    Body (both optional; only provided fields change):
-      distill: bool    — False disables generalization/distillation/clustering
+    Body (all optional; only provided fields change):
+      distill: bool    — master: False disables generalization/distillation
       dpo_signal: bool — False disables card→skill preference weighting
+      sub: {str: bool} — stage sub-switches:
+          generalize   — rule generalization (lean cases → lessons skill)
+          llm_distill  — LLM distillation (OFF → rule baseline, no LLM)
+          clustering   — semantic shingle clustering (OFF → by-tool)
+          sampling     — frequency/difficulty digest (OFF → flat digest)
 
     Mirrors the new values into SettingsCenter (L2) so config-driven reads
     stay in sync; applied atomically on the SkillManager.
@@ -181,9 +186,15 @@ def handle_skills_distill_policy_set(body: dict | None = None) -> dict:
         return {"success": False, "error": f"permission denied: {who}"}
     distill = b.get("distill")
     dpo = b.get("dpo_signal")
+    sub = b.get("sub")
+    sub_clean = None
+    if isinstance(sub, dict):
+        sub_clean = {k: bool(v) for k, v in sub.items() if isinstance(v, bool)}
     policy = sm.set_distill_policy(
         distill=distill if isinstance(distill, bool) else None,
         dpo_signal=dpo if isinstance(dpo, bool) else None,
+        sub=sub_clean,
+        source="api",
     )
     try:
         from l3.config.settings_center import get_center
@@ -193,6 +204,9 @@ def handle_skills_distill_policy_set(body: dict | None = None) -> dict:
             center.set_l2("skill.distill_enabled", distill)
         if isinstance(dpo, bool):
             center.set_l2("skill.dpo_signal_enabled", dpo)
+        if sub_clean:
+            for k, v in sub_clean.items():
+                center.set_l2(f"skill.distill_sub.{k}", v)
     except Exception:
         logger.debug("skills: distill policy SettingsCenter mirror skipped", exc_info=True)
     policy["authorized"] = who

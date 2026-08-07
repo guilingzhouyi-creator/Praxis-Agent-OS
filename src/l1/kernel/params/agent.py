@@ -697,6 +697,17 @@ CONVENTION_SUB_TIMEOUT: Final[float] = 60.0
 # config defaults here).
 R4_DISTILL_ENABLED: Final[bool] = True  # master switch: generalization + distillation + clustering + sampling
 R4_DPO_SIGNAL_ENABLED: Final[bool] = True  # master switch: card→skill preference signals (rule weighting)
+# Sub-switches under the distill master (each defaults ON; disabling one
+# degrades the pipeline one notch instead of failing):
+#   generalize   — rule generalization (lean cases → lessons skill)
+#   llm_distill  — LLM distillation (structured defs + rejection sampling);
+#                  OFF → rule baseline only (no LLM calls, cheapest)
+#   clustering   — semantic shingle clustering; OFF → by-tool grouping
+#   sampling     — frequency/difficulty digest sampling; OFF → flat digest
+R4_DISTILL_SUB_GENERALIZE: Final[bool] = True
+R4_DISTILL_SUB_LLM: Final[bool] = True
+R4_DISTILL_SUB_CLUSTERING: Final[bool] = True
+R4_DISTILL_SUB_SAMPLING: Final[bool] = True
 R4_LEAN_KNOWLEDGE_MAX: Final[int] = 500  # structured knowledge field truncation (chars)
 R4_CARD_SKILL_SIGNAL_MAX: Final[int] = 32  # max skills tracked per card for preference signal
 R4_RULE_MIN_PREFERRED: Final[float] = 0.3  # rule weight below this → deprecated on next distill

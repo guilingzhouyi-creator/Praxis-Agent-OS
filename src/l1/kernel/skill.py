@@ -24,7 +24,15 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Final
 
-from l1.kernel.params.agent import AGENT_CLEARANCE, R4_DISTILL_ENABLED, R4_DPO_SIGNAL_ENABLED
+from l1.kernel.params.agent import (
+    AGENT_CLEARANCE,
+    R4_DISTILL_ENABLED,
+    R4_DISTILL_SUB_CLUSTERING,
+    R4_DISTILL_SUB_GENERALIZE,
+    R4_DISTILL_SUB_LLM,
+    R4_DISTILL_SUB_SAMPLING,
+    R4_DPO_SIGNAL_ENABLED,
+)
 from l1.kernel.params.system import (
     LOG_TRUNC_50,
     LOG_TRUNC_60,
@@ -180,30 +188,71 @@ class SkillManager:
         # Distillation/DPO master switches — compile-time defaults; the API
         # and config center may override at runtime (see
         # /api/v2/skills/distill-policy). R4Agent gates its pipeline on these.
+        # ``_distill_sub`` holds the per-stage sub-switches (generalize /
+        # llm_distill / clustering / sampling) so the pipeline can degrade
+        # one notch at a time instead of all-or-nothing.
         self._distill_enabled: bool = R4_DISTILL_ENABLED
         self._dpo_signal_enabled: bool = R4_DPO_SIGNAL_ENABLED
+        self._distill_sub: dict[str, bool] = {
+            "generalize": R4_DISTILL_SUB_GENERALIZE,
+            "llm_distill": R4_DISTILL_SUB_LLM,
+            "clustering": R4_DISTILL_SUB_CLUSTERING,
+            "sampling": R4_DISTILL_SUB_SAMPLING,
+        }
+        self._distill_updated: float = 0.0
+        self._distill_source: str = "params"
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
 
-    def set_distill_policy(self, distill: bool | None = None, dpo_signal: bool | None = None) -> dict:
-        """Override the distillation/DPO master switches at runtime (API/config).
+    def set_distill_policy(
+        self,
+        distill: bool | None = None,
+        dpo_signal: bool | None = None,
+        sub: dict | None = None,
+        source: str = "runtime",
+    ) -> dict:
+        """Override the distillation/DPO switches at runtime (API/config).
 
-        ``distill=False`` disables generalization/distillation/clustering/
-        sampling; ``dpo_signal=False`` disables card→skill preference
-        weighting. Neither field is required, so a caller can flip just one.
+        ``distill=False`` disables the whole pipeline (master);
+        ``dpo_signal=False`` disables card→skill preference weighting;
+        ``sub`` optionally sets individual stage switches, e.g.
+        ``{"clustering": False}`` degrades clustering only (falls back to
+        by-tool grouping). ``source`` records who last changed the policy
+        (params/config/runtime/API) for auditability. None fields are left
+        untouched, so a caller can flip just one knob.
         """
         with self._lock:
             if distill is not None:
                 self._distill_enabled = bool(distill)
             if dpo_signal is not None:
                 self._dpo_signal_enabled = bool(dpo_signal)
-            return {"success": True, "distill": self._distill_enabled, "dpo_signal": self._dpo_signal_enabled}
+            if sub and isinstance(sub, dict):
+                for k, v in sub.items():
+                    if k in self._distill_sub:
+                        self._distill_sub[k] = bool(v)
+            if distill is not None or dpo_signal is not None or sub:
+                self._distill_updated = time.time()
+                self._distill_source = source
+            return {
+                "success": True,
+                "distill": self._distill_enabled,
+                "dpo_signal": self._dpo_signal_enabled,
+                "sub": dict(self._distill_sub),
+                "updated": self._distill_updated,
+                "source": self._distill_source,
+            }
 
     def distill_policy(self) -> dict:
-        """Return the current distillation/DPO master-switch policy."""
+        """Return the current distillation/DPO policy (master + sub-switches)."""
         with self._lock:
-            return {"distill": self._distill_enabled, "dpo_signal": self._dpo_signal_enabled}
+            return {
+                "distill": self._distill_enabled,
+                "dpo_signal": self._dpo_signal_enabled,
+                "sub": dict(self._distill_sub),
+                "updated": self._distill_updated,
+                "source": self._distill_source,
+            }
 
     # ── Per-Cell skill binding (回灌到 Cell) ──
 

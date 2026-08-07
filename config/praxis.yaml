@@ -43,6 +43,11 @@ skill:
   # ── Distillation / DPO master switches (runtime-switchable via API) ──
   # distill_enabled: true         # false = disable generalization/distillation/clustering
   # dpo_signal_enabled: true      # false = disable card→skill preference weighting
+  # distill_sub:                  # per-stage sub-switches (default all true)
+  #   generalize: true            # false = skip lean-case generalization
+  #   llm_distill: true           # false = rule baseline only (no LLM calls)
+  #   clustering: true            # false = by-tool grouping (no shingle clustering)
+  #   sampling: true              # false = flat digest (no frequency/difficulty sampling)
   # ── Security-team domains (attack posture; see security.mode) ──
   # attack:
   #   domains:                     # domain → skill white-list (one peer per domain)

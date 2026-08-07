@@ -803,9 +803,16 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
         enabled=center.get("skill.offensive_enabled", None),
         natures=center.get("skill.offensive_natures", None),
     )
+    _sub_switches = {}
+    for _k in ("generalize", "llm_distill", "clustering", "sampling"):
+        _v = center.get(f"skill.distill_sub.{_k}", None)
+        if _v is not None:
+            _sub_switches[_k] = bool(_v)
     get_skill_manager().set_distill_policy(
         distill=center.get("skill.distill_enabled", None),
         dpo_signal=center.get("skill.dpo_signal_enabled", None),
+        sub=_sub_switches or None,
+        source="config",
     )
     results["skill"] = True
 

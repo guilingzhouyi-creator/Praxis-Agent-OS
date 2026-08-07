@@ -157,6 +157,10 @@ _L1_DEFAULTS: dict[str, Any] = {
     # ── Distillation / DPO master switches (API-controllable) ──
     "skill.distill_enabled": True,
     "skill.dpo_signal_enabled": True,
+    "skill.distill_sub.generalize": True,
+    "skill.distill_sub.llm_distill": True,
+    "skill.distill_sub.clustering": True,
+    "skill.distill_sub.sampling": True,
     # ── System security posture (productive | security-test) ──
     "security.mode": "productive",
     # Security-team domain bindings (attack posture): domain → skill white-list.
