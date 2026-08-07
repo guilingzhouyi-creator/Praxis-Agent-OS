@@ -214,7 +214,17 @@ class ScoutPool(BaseService):
         threading.Thread(target=self._scaler, daemon=True).start()
 
     def _on_start(self) -> dict:
+        # Consume SCOUT_DONE emitted by tool_pipeline (previously unsubscribed).
+        try:
+            from l1.kernel import SignalType, get_event_bus
+            get_event_bus().on(SignalType.SCOUT_DONE, self._on_scout_done)
+        except Exception as e:
+            logger.warning("scout: SCOUT_DONE subscribe failed: %s", e)
         return {"success": True, "pool_size": self.max_total}
+
+    def _on_scout_done(self, sig: object) -> None:
+        """EventBus: consume SCOUT_DONE emitted by tool_pipeline."""
+        logger.debug("scout: done %s: %s", getattr(sig, "sender", "?"), getattr(sig, "data", {}))
 
     def _on_stop(self) -> dict:
         self._running = False

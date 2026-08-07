@@ -75,7 +75,10 @@ class AgentRuntime:
 
     def _register_default_handlers(self) -> None:
         self.on(SignalType.TASK_CANCEL, self._on_cancel)
-        self.on(SignalType.CONSTITUTION_UPDATE, self._on_constitution_update)
+        # constitution.py emits the string event "constitution.updated" via
+        # emit_event() (dynamic lowercase registration); subscribe by that name
+        # instead of the enum member, which is never emitted on the bus.
+        self.bus.on_event("constitution.updated", self._on_constitution_update)
 
     def on(self, signal_type: SignalType, handler: Callable) -> None:
         """Register a handler for the signal type and subscribe it to the agent's share of the event bus."""

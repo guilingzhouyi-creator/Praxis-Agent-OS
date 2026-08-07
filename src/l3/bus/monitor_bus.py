@@ -66,6 +66,7 @@ class MonitorBus:
         self._ring: deque[MonitorEvent] = deque(maxlen=ring_size)
         self._lock = threading.RLock()
         self._sse_listeners: list[_SseCallback] = []
+        self._listeners: list[Callable[[MonitorEvent], None]] = []
         self._count: int = 0
         self._persist_path = persist_path or _DEFAULT_PERSIST_PATH
         self._executor = DaemonPool(max_workers=2, thread_name_prefix="mon")
@@ -125,7 +126,8 @@ class MonitorBus:
         with self._lock:
             self._ring.append(event)
             self._count += 1
-        for cb in list(self._sse_listeners):
+            callbacks = list(self._sse_listeners) + list(self._listeners)
+        for cb in callbacks:
             self._bounded_submit(self._safe_sse, cb, event)
 
     _MAX_QUEUED = MONITOR_BUS_MAX_QUEUED
@@ -206,6 +208,20 @@ class MonitorBus:
         }
 
     # ── SSE ──
+
+    def subscribe(self, callback: Callable[[MonitorEvent], None]) -> None:
+        """Register an internal (non-SSE) listener. G6: gives internal
+        components a real subscription path instead of a one-way stream."""
+        with self._lock:
+            self._listeners.append(callback)
+
+    def unsubscribe(self, callback: Callable[[MonitorEvent], None]) -> None:
+        """Remove an internal listener. Returns None."""
+        with self._lock:
+            try:
+                self._listeners.remove(callback)
+            except ValueError:
+                logger.debug("monitor_bus: listener not registered, nothing to remove")
 
     def subscribe_sse(self, callback: _SseCallback) -> None:
         """Register an SSE listener callback. Returns None."""
