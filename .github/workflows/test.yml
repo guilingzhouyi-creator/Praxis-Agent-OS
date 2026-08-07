@@ -121,10 +121,12 @@ jobs:
         run: python -m pytest tests/integration/ --maxfail=5 -q --tb=short
         timeout-minutes: 5
 
-      # Non-gating type check: 671 pre-existing mypy findings are tracked as
-      # debt (same policy as ruff in ci.yml) and cleared incrementally; this
-      # step reports them without blocking merges. --no-namespace-packages is
-      # required for the src/ layout (mixed namespace + regular packages).
+      # Non-gating type check: mypy findings are tracked as debt (same policy
+      # as ruff in ci.yml). Baseline is 0 (cleared 2026-08-07); the nightly
+      # mypy-debt job is the gate that fails when the count grows. This PR
+      # step is diagnostic only — it reports the count without blocking
+      # merges. --no-namespace-packages is required for the src/ layout
+      # (mixed namespace + regular packages).
       - name: Type check (mypy, non-gating)
         continue-on-error: true
         run: mypy src/ --no-namespace-packages --ignore-missing-imports --allow-untyped-calls --allow-untyped-decorators

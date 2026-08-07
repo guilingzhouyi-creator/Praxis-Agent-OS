@@ -7,6 +7,12 @@ on:
 
 jobs:
   full-suite:
+    # Weekly cross-version regression pass (3.11/3.12). Coverage reporting is
+    # deliberately NOT run here — the PR coverage job in test.yml already
+    # gates and uploads coverage on every push, so this job exists only to
+    # catch version-specific drift that the PR matrix may miss. Running
+    # coverage twice (PR + nightly) uploads duplicate Codecov reports and
+    # re-does the same instrumented run.
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,13 +24,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
       - run: pip install -e ".[test]"
-      - name: Full test suite
-        run: python -m pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term --cov-fail-under=60 -q --ignore=tests/benchmarks/bench_card.py
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          fail_ci_if_error: false
+      - name: Full test suite (no coverage)
+        run: python -m pytest tests/ -v --tb=short -q --ignore=tests/benchmarks/bench_card.py
 
   lint-full-tree:
     # Full-tree ruff gate: PR lint (ci.yml) only checks changed files, so
