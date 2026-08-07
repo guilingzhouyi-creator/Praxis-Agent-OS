@@ -129,6 +129,18 @@ class MonitorBus:
             callbacks = list(self._sse_listeners) + list(self._listeners)
         for cb in callbacks:
             self._bounded_submit(self._safe_sse, cb, event)
+        # L5: mirror event counts into StatsCenter so the observability stream
+        # participates in statistical aggregation (was isolated from centers).
+        try:
+            from l3.services.stats_center import MetricPoint, get_center
+            get_center().ingest(MetricPoint(
+                name=f"monitor.event.{event.type}",
+                value=1.0,
+                tags={"source": event.source, "severity": event.severity},
+                metric_type="counter",
+            ))
+        except Exception as e:
+            logger.debug("monitor_bus: stats center ingest failed: %s", e)
 
     _MAX_QUEUED = MONITOR_BUS_MAX_QUEUED
     """Max pending tasks in the executor queue. Beyond this, new tasks are dropped

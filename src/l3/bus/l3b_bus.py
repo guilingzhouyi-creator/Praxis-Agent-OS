@@ -138,7 +138,22 @@ class L3BBus:
             )
             mailbox.append(msg)
             self._stats["sent"] += 1
+            self._mirror_send(sender, target, msg_type, payload)
             return {"success": True}
+
+    def _mirror_send(self, sender: str, target: str, msg_type: L3BMessageType,
+                     payload: dict | None = None) -> None:
+        """Mirror an L3B send to the MonitorBus observability stream."""
+        try:
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
+            get_bus().emit(MonitorEvent(
+                type="l3b.message", source="l3b_bus", severity="info",
+                message=f"L3B {sender} -> {target} ({msg_type.value})",
+                data={"sender": sender, "target": target,
+                      "msg_type": msg_type.value, "payload": payload or {}},
+            ))
+        except Exception as e:
+            logger.debug("l3b_bus: monitor emit failed: %s", e)
 
     def read(self, composite_id: str, limit: int = 10,
              clear: bool = True) -> list[dict]:

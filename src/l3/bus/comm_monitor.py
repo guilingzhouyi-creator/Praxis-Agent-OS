@@ -93,6 +93,20 @@ class CommMonitor:
             self._history.append(sample)
             if len(self._history) > COMM_HISTORY_MAX:
                 self._history.pop(0)
+        # Mirror to MonitorBus so communication traffic joins the unified
+        # observability stream (was in-memory only, lost on restart).
+        try:
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
+            get_bus().emit(MonitorEvent(
+                type="comm.message", source="comm_monitor", severity="info",
+                agent_id=agent_id,
+                message=f"{channel} {msg_type} {direction}",
+                data={"channel": channel, "msg_type": msg_type,
+                      "direction": direction, "target": target,
+                      "latency_ms": latency_ms},
+            ))
+        except Exception as e:
+            logger.debug("comm_monitor: monitor emit failed: %s", e)
 
     def record_dropped(self, channel: str = "ipc", count: int = 1) -> None:
         """Record dropped communication events. Returns None."""
