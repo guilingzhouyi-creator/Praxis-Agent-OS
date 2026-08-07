@@ -356,6 +356,22 @@ class ErrorBus(BaseService):
         except Exception as e:
             logger.warning("error_bus: event push failed: %s", e)
 
+        # ── Push to MonitorBus ──
+        try:
+            from l3.bus.monitor_bus import MonitorEvent
+            from l3.bus.monitor_bus import get_bus as get_mbus
+            sev = {"DEBUG": "info", "INFO": "info", "WARNING": "warn",
+                   "ERROR": "crit", "CRITICAL": "crit"}.get(level, "warn")
+            get_mbus().emit(MonitorEvent(
+                type="error.bus", source="error_bus", severity=sev,
+                agent_id=agent_id,
+                message=f"[{error_code}] {message[:LOG_TRUNC_200]}",
+                data={"level": level, "service": service, "component": component,
+                      "task_id": task_id, "fingerprint": result_entry.fingerprint},
+            ))
+        except Exception as e:
+            logger.warning("error_bus: monitor push failed: %s", e)
+
         # Invalidate stats cache
         self._stats_ts = 0.0
 

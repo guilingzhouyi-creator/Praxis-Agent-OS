@@ -114,6 +114,22 @@ class LogService(BaseService):
         # Auto-flush when memory limit reached
         if self._current_size >= LOG_MAX_FILE_SIZE:
             self._flush_to_disk()
+        # Mirror to MonitorBus so the log stream joins the unified
+        # observability pipeline (SSE/query without polling the API).
+        try:
+            from l3.bus.monitor_bus import MonitorEvent, get_bus
+            severity = {"DEBUG": "info", "INFO": "info",
+                        "WARNING": "warn", "ERROR": "crit",
+                        "CRITICAL": "crit"}.get(level, "info")
+            get_bus().emit(MonitorEvent(
+                type="log.entry", source="log_service", severity=severity,
+                agent_id=agent_id,
+                message=message[:LOG_TRUNC_500],
+                data={"level": level, "service": service or "system",
+                      "task_id": task_id},
+            ))
+        except Exception as e:
+            logger.debug("log: monitor emit failed: %s", e)
         return {"success": True, "entry_id": len(self._entries), "level": level}
 
     # ── Query ──
