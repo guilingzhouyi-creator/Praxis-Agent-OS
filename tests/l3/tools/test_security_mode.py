@@ -333,3 +333,52 @@ class TestReviewFixes:
         assert r["success"]
         r2 = h._security_mode_notifications({"limit": ""})
         assert r2["success"]
+
+
+class TestRCBridge:
+    """P0/P1: security events must land in StatsCenter/RC time series."""
+
+    def _q(self, metric: str):
+        from l3.services.stats_center import get_center
+
+        r = get_center().query(metrics=[metric], window="all", agg="sum")
+        return [(x["name"], x["value"]) for x in r]
+
+    def test_mode_change_and_warning_metrics(self):
+        from l3.services.stats_center import reset_center
+        from l3.tool_system.security_mode import set_security_mode
+
+        reset_center()
+        set_security_mode("security-test", confirmed=False)  # warning
+        set_security_mode("security-test", confirmed=True)   # change
+        set_security_mode("productive", confirmed=True)      # change
+        assert self._q("security.mode.warning") == [("security.mode.warning", 1.0)]
+        assert len(self._q("security.mode.change")) == 2
+
+    def test_ingest_security_metric_helper(self):
+        from l3.services.stats_center import reset_center
+        from l3.tool_system.security_mode import ingest_security_metric
+
+        reset_center()
+        ingest_security_metric("security.gate.injection.blocked", tags={"skill": "x", "nature": ""})
+        ingest_security_metric("security.warrant.denied", tags={"nature": "offensive"})
+        assert self._q("security.gate.injection.blocked") == [
+            ("security.gate.injection.blocked", 1.0)
+        ]
+        assert self._q("security.warrant.denied") == [("security.warrant.denied", 1.0)]
+
+    def test_use_skill_blocked_emits_metric(self):
+        from l1.kernel.skill import get_skill_manager
+        from l3.services.stats_center import reset_center
+        from l3.tool_system.security_mode import set_security_mode
+        from l3.tools._skills import use_skill
+
+        reset_center()
+        sm = get_skill_manager()
+        sm.create(name="rev-m", description="d", prompt="p", posture="offensive", internal=True)
+        set_security_mode("productive", confirmed=True)
+        r = use_skill({"name": "rev-m"}, "agent-x")
+        assert not r["success"]
+        assert self._q("security.gate.use_skill.blocked") == [
+            ("security.gate.use_skill.blocked", 1.0)
+        ]

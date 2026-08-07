@@ -75,6 +75,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills reload [--role <role>]
       /skills evolve <intent>          → generate a new skill via LLM
       /skills permissions              → current write-gate policy
+      /skills distill [status]        → distillation/DPO master switches
+      /skills distill set <field> <on|off>  → toggle distill|dpo_signal at runtime
       /skills retriever [status]       → active retrieval backend (tfidf|embedding)
       /skills retriever set <backend>  → switch retrieval backend at runtime
 
@@ -126,6 +128,31 @@ def _cmd_skills(args: list[str]) -> dict:
         # Policy lives on the SkillManager (L1) — L2 must not import L3.
         policy = sm.write_policy()
         return {"success": True, "policy": policy}
+
+    if sub == "distill":
+        # Distillation / DPO master switches (same state as
+        # /api/v2/skills/distill-policy). Status is public; toggling is a
+        # developer runtime knob.
+        action = rest[1] if len(rest) > 1 else "status"
+        if action == "status":
+            return {"success": True, "policy": sm.distill_policy()}
+        if action in ("set", "on", "off"):
+            field = rest[2] if len(rest) > 2 else ""
+            value = rest[3] if len(rest) > 3 else ""
+            if field not in ("distill", "dpo_signal") or value not in ("on", "off", "true", "false", "1", "0"):
+                return {
+                    "success": False,
+                    "error": "usage: /skills distill set <distill|dpo_signal> <on|off>",
+                }
+            flag = value in ("on", "true", "1")
+            if field == "distill":
+                return sm.set_distill_policy(distill=flag)
+            return sm.set_distill_policy(dpo_signal=flag)
+        return {
+            "success": False,
+            "error": f"unknown distill action: {action}",
+            "suggestions": ["status", "set <distill|dpo_signal> <on|off>"],
+        }
 
     if sub == "retriever":
         # Skill retriever backend control (tfidf | embedding).  Read-only

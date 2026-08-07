@@ -347,6 +347,17 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
                 br = self.bind_skills([s for s in skills if isinstance(s, str)])
                 bound += br.get("bound", 0)
                 failed += br.get("failed", [])
+        # P1: record attack-team activation in StatsCenter.
+        try:
+            from l3.tool_system.security_mode import ingest_security_metric
+
+            ingest_security_metric(
+                "security.team.activated",
+                value=float(len(created)),
+                tags={"domains": ",".join(created)},
+            )
+        except Exception:
+            pass
         return {"success": True, "created": created, "bound": bound,
                 "failed": failed, "domains": list(domains.keys())}
 

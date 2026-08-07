@@ -154,6 +154,9 @@ _L1_DEFAULTS: dict[str, Any] = {
     # card natures that authorize offensive-skill injection.
     "skill.offensive_enabled": True,
     "skill.offensive_natures": ["offensive"],
+    # ── Distillation / DPO master switches (API-controllable) ──
+    "skill.distill_enabled": True,
+    "skill.dpo_signal_enabled": True,
     # ── System security posture (productive | security-test) ──
     "security.mode": "productive",
     # Security-team domain bindings (attack posture): domain → skill white-list.

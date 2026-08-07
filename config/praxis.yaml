@@ -40,6 +40,9 @@ skill:
   # ── Offensive-posture gate (soft control; runtime-switchable via API) ──
   # offensive_enabled: true       # false = bypass the posture gate entirely
   # offensive_natures: [offensive] # card natures that authorize offensive-skill injection
+  # ── Distillation / DPO master switches (runtime-switchable via API) ──
+  # distill_enabled: true         # false = disable generalization/distillation/clustering
+  # dpo_signal_enabled: true      # false = disable card→skill preference weighting
   # ── Security-team domains (attack posture; see security.mode) ──
   # attack:
   #   domains:                     # domain → skill white-list (one peer per domain)
