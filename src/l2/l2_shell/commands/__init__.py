@@ -143,6 +143,17 @@ for _name, _fn, _meta in _SYSTEM_COMMANDS:
         _reg.register_system(_name, _fn, metadata=_meta or None)
     except Exception as _e:
         logger.warning("command registration failed: %s: %s", _name, _e)
+    # Dash-normalized alias: commands are typed with dashes (/agents-md)
+    # while handlers auto-register with the underscore name (_cmd_agents_md).
+    # Register the dash form as the same handler so dispatch resolves it.
+    if "_" in _name:
+        _dash = _name.replace("_", "-")
+        if _dash not in _registered_names:
+            _registered_names.add(_dash)
+            try:
+                _reg.register_system(_dash, _fn, metadata=_meta or None)
+            except Exception as _e:
+                logger.warning("command registration failed: %s: %s", _dash, _e)
 
 # ── Public re-export surface (backward-compatible) ──
 __all__ = [
