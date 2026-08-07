@@ -40,15 +40,14 @@ class SubAgentOrchestrator:
     def __init__(self, cell, parent_agent_id: str):
         self.cell = cell
         self.parent_agent_id = parent_agent_id
-        self.buffer_1: list[dict] = []   # SubAgent results
-        self.buffer_2: list[dict] = []   # Scout verification results
+        self.buffer_1: list[dict] = []  # SubAgent results
+        self.buffer_2: list[dict] = []  # Scout verification results
         self._pool = SubAgentPool(cell.cell_id)
         self._task_ids: list[str] = []
 
     # ── Phase 1+2: Fork-Join ─────────────────────────────────────
 
-    def fork_join(self, sub_tasks: list[dict],
-                  timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
+    def fork_join(self, sub_tasks: list[dict], timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
         """Dispatch all sub-tasks in parallel and wait for results.
 
         sub_tasks: [{"spec": "architect", "prompt": "review src/"},
@@ -64,8 +63,9 @@ class SubAgentOrchestrator:
                 self.buffer_1.append({"spec": spec_name, "error": "spec or prompt missing"})
                 continue
             spec = SubAgentSpec(name=spec_name, read_only=(card_type == "explore"), description="")
-            r = self._pool.commission(spec, prompt, card_type=card_type,
-                                      parent_agent_id=self.parent_agent_id, cell=self.cell)
+            r = self._pool.commission(
+                spec, prompt, card_type=card_type, parent_agent_id=self.parent_agent_id, cell=self.cell
+            )
             if r.get("success"):
                 self._task_ids.append(r["task_id"])
             else:
@@ -73,8 +73,14 @@ class SubAgentOrchestrator:
 
         # Join: Future-driven collect_all
         if not self._task_ids:
-            return {"success": True, "dispatched": 0, "completed": 0,
-                    "failed": 0, "timed_out": 0, "buffer_1": self.buffer_1}
+            return {
+                "success": True,
+                "dispatched": 0,
+                "completed": 0,
+                "failed": 0,
+                "timed_out": 0,
+                "buffer_1": self.buffer_1,
+            }
 
         joined = self._pool.collect_all(self._task_ids, timeout=timeout)
         self.buffer_1.extend(joined.get("results", []))
@@ -89,8 +95,7 @@ class SubAgentOrchestrator:
 
     # ── Phase 3: Verify ──────────────────────────────────────────
 
-    def verify(self, verify_prompt_template: str,
-               timeout: float | None = None) -> dict:
+    def verify(self, verify_prompt_template: str, timeout: float | None = None) -> dict:
         """Auto-dispatch Scouts to verify each SubAgent result.
 
         Each scout prompt receives {spec}, {answer}, {result} substitution.
@@ -99,6 +104,7 @@ class SubAgentOrchestrator:
         scout_pool = None
         try:
             from ..agent.scout import get_pool
+
             scout_pool = get_pool()
         except Exception:
             self.buffer_2 = [{"error": "scout pool unavailable"}]
@@ -116,11 +122,13 @@ class SubAgentOrchestrator:
             )
             try:
                 scout_result = scout_pool.commission(self.parent_agent_id, prompt)
-                self.buffer_2.append({
-                    "spec": spec,
-                    "result": str(scout_result.get("output") or scout_result)[:LOG_TRUNC_2000],
-                    "success": bool(scout_result.get("success")),
-                })
+                self.buffer_2.append(
+                    {
+                        "spec": spec,
+                        "result": str(scout_result.get("output") or scout_result)[:LOG_TRUNC_2000],
+                        "success": bool(scout_result.get("success")),
+                    }
+                )
             except Exception as e:
                 self.buffer_2.append({"spec": spec, "error": str(e)})
             if time.time() > deadline:
@@ -149,47 +157,48 @@ class SubAgentOrchestrator:
         """
         gaps = []
         verified = []
-        _NEGATIVE_KEYWORDS = {"warning", "issue", "missing", "error",
-                              "failed", "vulnerability", "problem", "concern"}
-        _NEGATION_PREFIXES = {"no ", "not ", "without ", "0 "}
+        negative_keywords = {"warning", "issue", "missing", "error", "failed", "vulnerability", "problem", "concern"}
+        negation_prefixes = {"no ", "not ", "without ", "0 "}
 
         for b1 in self.buffer_1:
             spec = b1.get("spec", "?")
             status = b1.get("status", "")
             if status != "completed":
-                gaps.append({"spec": spec, "reason": "subagent did not complete",
-                             "severity": "HIGH"})
+                gaps.append({"spec": spec, "reason": "subagent did not complete", "severity": "HIGH"})
                 continue
 
             scout = next((b2 for b2 in self.buffer_2 if b2.get("spec") == spec), None)
             if scout is None:
-                gaps.append({"spec": spec, "reason": "no verification performed",
-                             "severity": "MEDIUM"})
+                gaps.append({"spec": spec, "reason": "no verification performed", "severity": "MEDIUM"})
                 continue
 
             scout_text = str(scout.get("result", "")).lower()
             found_issues = []
-            for kw in _NEGATIVE_KEYWORDS:
+            for kw in negative_keywords:
                 idx = scout_text.find(kw)
                 if idx == -1:
                     continue
                 # Check if the keyword is negated (e.g. "no issues")
-                before = scout_text[max(0, idx-15):idx]
-                is_negated = any(pre in before for pre in _NEGATION_PREFIXES)
+                before = scout_text[max(0, idx - 15) : idx]
+                is_negated = any(pre in before for pre in negation_prefixes)
                 if not is_negated:
                     found_issues.append(kw)
             if found_issues:
-                gaps.append({
-                    "spec": spec,
-                    "reason": f"verification flagged: {', '.join(found_issues)}",
-                    "severity": "HIGH",
-                    "scout_findings": scout_text[:LOG_TRUNC_500],
-                })
+                gaps.append(
+                    {
+                        "spec": spec,
+                        "reason": f"verification flagged: {', '.join(found_issues)}",
+                        "severity": "HIGH",
+                        "scout_findings": scout_text[:LOG_TRUNC_500],
+                    }
+                )
             else:
-                verified.append({
-                    "spec": spec,
-                    "result_summary": str(b1.get("result", {}).get("answer", ""))[:200],
-                })
+                verified.append(
+                    {
+                        "spec": spec,
+                        "result_summary": str(b1.get("result", {}).get("answer", ""))[:200],
+                    }
+                )
 
         return {
             "gaps": gaps,
@@ -210,21 +219,26 @@ class SubAgentOrchestrator:
         items = []
         for g in gaps:
             content = f"[subagent-gap] {g['spec']}: {g['reason']}"
-            items.append({
-                "content": content,
-                "status": "pending",
-                "attempts": 0,
-                "evidence": [],
-                "checks": [],
-            })
+            items.append(
+                {
+                    "content": content,
+                    "status": "pending",
+                    "attempts": 0,
+                    "evidence": [],
+                    "checks": [],
+                }
+            )
         return items
 
     # ── Full orchestration ───────────────────────────────────────
 
-    def run(self, sub_tasks: list[dict],
-            verify_prompt: str = "",
-            fork_timeout: float = SUBAGENT_RUN_TIMEOUT,
-            verify_timeout: float | None = None) -> dict:
+    def run(
+        self,
+        sub_tasks: list[dict],
+        verify_prompt: str = "",
+        fork_timeout: float = SUBAGENT_RUN_TIMEOUT,
+        verify_timeout: float | None = None,
+    ) -> dict:
         """Run the full fork-join-verify-gap cycle.
 
         Args:

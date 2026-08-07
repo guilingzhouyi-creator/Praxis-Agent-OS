@@ -22,12 +22,12 @@ from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.platform import get_config_dir
+from l1.kernel.platform import get_config_dir  # noqa: E402
 
 CHECKPOINT_DIR = Path(get_config_dir()) / "checkpoints"
 
 # Import configurable constants from kernel params
-from l1.kernel.params.system import (
+from l1.kernel.params.system import (  # noqa: E402
     CHECKPOINT_JSON_FILE,
     CRASH_TIMEOUT,
     FAULT_CHECK_INTERVAL,
@@ -39,9 +39,10 @@ from l1.kernel.params.system import (
 @dataclass
 class Checkpoint:
     """Agent checkpoint — saved state for crash recovery."""
+
     agent_id: str
     task_id: str = ""
-    task_status: str = ""          # pending | running | done
+    task_status: str = ""  # pending | running | done
     progress: dict = field(default_factory=dict)
     tool_ring_snapshot: list = field(default_factory=list)
     sandbox_files: list[str] = field(default_factory=list)
@@ -66,9 +67,10 @@ class Checkpoint:
 @dataclass
 class AgentHeartbeat:
     """Agent heartbeat record."""
+
     agent_id: str
     last_seen: float = field(default_factory=time.time)
-    status: str = "alive"          # alive | unresponsive | crashed
+    status: str = "alive"  # alive | unresponsive | crashed
     task_id: str = ""
     consecutive_failures: int = 0
 
@@ -128,7 +130,8 @@ class FaultToleranceService(BaseService):
                 hb.consecutive_failures = 0
             else:
                 self._heartbeats[agent_id] = AgentHeartbeat(
-                    agent_id=agent_id, task_id=task_id,
+                    agent_id=agent_id,
+                    task_id=task_id,
                 )
         return {"success": True, "agent_id": agent_id, "interval": HEARTBEAT_TIMEOUT}
 
@@ -147,23 +150,33 @@ class FaultToleranceService(BaseService):
             else:
                 status = "alive"
             return {
-                "success": True, "agent_id": agent_id, "status": status,
-                "last_seen": hb.last_seen, "elapsed": round(elapsed, 1),
+                "success": True,
+                "agent_id": agent_id,
+                "status": status,
+                "last_seen": hb.last_seen,
+                "elapsed": round(elapsed, 1),
                 "task_id": hb.task_id,
             }
 
     # ── Checkpoint ──
 
-    def save_checkpoint(self, agent_id: str, task_id: str = "",
-                        progress: dict | None = None,
-                        sandbox_files: list[str] | None = None,
-                        agent_state: dict | None = None,
-                        cell_cache_keys: list[str] | None = None,
-                        mmu_mappings: list[str] | None = None) -> dict:
+    def save_checkpoint(
+        self,
+        agent_id: str,
+        task_id: str = "",
+        progress: dict | None = None,
+        sandbox_files: list[str] | None = None,
+        agent_state: dict | None = None,
+        cell_cache_keys: list[str] | None = None,
+        mmu_mappings: list[str] | None = None,
+    ) -> dict:
         """Save agent checkpoint (§5.1)."""
         cp = Checkpoint(
-            agent_id=agent_id, task_id=task_id, task_status="running",
-            progress=progress or {}, sandbox_files=sandbox_files or [],
+            agent_id=agent_id,
+            task_id=task_id,
+            task_status="running",
+            progress=progress or {},
+            sandbox_files=sandbox_files or [],
             agent_state=agent_state or {},
             cell_cache_keys=cell_cache_keys or [],
             mmu_mappings=mmu_mappings or [],
@@ -213,7 +226,12 @@ class FaultToleranceService(BaseService):
             path.write_text(json.dumps(cp.to_dict(), indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning("checkpoint persist failed: %s", e)
-            capture("checkpoint persist failed", error_code="E_CHECKPOINT", component="fault_tolerance", context={"agent_id": cp.agent_id})
+            capture(
+                "checkpoint persist failed",
+                error_code="E_CHECKPOINT",
+                component="fault_tolerance",
+                context={"agent_id": cp.agent_id},
+            )
 
     def _load_checkpoint(self, agent_id: str) -> Checkpoint | None:
         try:

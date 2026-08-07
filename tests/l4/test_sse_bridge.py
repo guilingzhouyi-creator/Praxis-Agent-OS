@@ -11,6 +11,7 @@ class TestSseBridgeCore:
 
     def test_subscribe_unsubscribe(self):
         from l4.sse.sse_bridge import subscribe, unsubscribe
+
         client = subscribe()
         assert "client_id" in client
         assert "queue" in client
@@ -22,10 +23,12 @@ class TestSseBridgeCore:
 
     def test_subscribe_with_types(self):
         from l4.sse.sse_bridge import subscribe
+
         client = subscribe(event_types={"error_log", "test_event"})
         assert client["client_id"] is not None
         # cleanup
         from l4.sse.sse_bridge import unsubscribe
+
         unsubscribe(client["client_id"])
 
     def test_push_and_receive(self):
@@ -53,7 +56,7 @@ class TestSseBridgeCore:
         push_event("test_b", {"msg": "should be filtered"})
         try:
             q.get(timeout=0.5)
-            assert False, "should not receive filtered event"
+            raise AssertionError("should not receive filtered event")
         except Exception:
             pass  # expected: no event for filtered type
         finally:
@@ -61,6 +64,7 @@ class TestSseBridgeCore:
 
     def test_duplicate_unsubscribe(self):
         from l4.sse.sse_bridge import subscribe, unsubscribe
+
         client = subscribe()
         cid = client["client_id"]
         unsubscribe(cid)
@@ -71,8 +75,8 @@ class TestEnsureActive:
     """Active check"""
 
     def test_ensure_active(self):
-        from l4.sse.sse_bridge import _ACTIVE, ensure_active
-        old = _ACTIVE
+        from l4.sse.sse_bridge import ensure_active
+
         ensure_active()
         # Should not raise
         assert True
@@ -83,6 +87,7 @@ class TestApiHandlers:
 
     def test_handle_sse(self):
         from l4.sse.sse_bridge import handle_sse
+
         r = handle_sse()
         assert isinstance(r, dict)
         assert r.get("_sse") is True

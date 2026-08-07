@@ -22,9 +22,9 @@ import threading
 import time
 import urllib.error
 import urllib.request as req
+from dataclasses import dataclass, field
 
 from l1.kernel.params.api import TOOL_WEBHOOK_TIMEOUT
-from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +36,17 @@ _WEBHOOK_TIMEOUT = TOOL_WEBHOOK_TIMEOUT
 @dataclass
 class WebhookSubscriber:
     """A registered webhook endpoint."""
+
     name: str
     url: str
-    secret: str = ""                      # HMAC secret for signature
+    secret: str = ""  # HMAC secret for signature
     filters: dict[str, str] = field(default_factory=dict)  # e.g. {"domain": "deploy"}
     retries: int = _WEBHOOK_MAX_RETRIES
     enabled: bool = True
 
 
 # ── Payload schema ──
+
 
 def _build_payload(card_id: str, state: str, card_data: dict | None = None) -> str:
     """Build JSON payload for webhook POST."""
@@ -67,6 +69,7 @@ def _build_payload(card_id: str, state: str, card_data: dict | None = None) -> s
 
 # ── TaskBus ──
 
+
 class TaskBus:
     """Manages webhook subscribers and dispatches completion events."""
 
@@ -79,6 +82,7 @@ class TaskBus:
         """Load webhook subscribers from praxis.yaml."""
         try:
             from l3.config.config_loader import load as load_config
+
             cfg = load_config()
             hooks = cfg.get("webhooks", {})
             if isinstance(hooks, dict):
@@ -96,16 +100,24 @@ class TaskBus:
         except Exception as e:
             logger.warning("task_bus: config load failed: %s", e)
 
-    def register(self, name: str, url: str, secret: str = "",
-                 filters: dict[str, str] | None = None,
-                 retries: int = _WEBHOOK_MAX_RETRIES) -> dict:
+    def register(
+        self,
+        name: str,
+        url: str,
+        secret: str = "",
+        filters: dict[str, str] | None = None,
+        retries: int = _WEBHOOK_MAX_RETRIES,
+    ) -> dict:
         """Register a webhook subscriber."""
         if not url.startswith(("http://", "https://")):
             return {"success": False, "error": f"invalid URL: {url}"}
         with self._lock:
             self._subscribers[name] = WebhookSubscriber(
-                name=name, url=url, secret=secret,
-                filters=filters or {}, retries=retries,
+                name=name,
+                url=url,
+                secret=secret,
+                filters=filters or {},
+                retries=retries,
             )
         logger.info("task_bus: registered '%s' → %s", name, url)
         return {"success": True, "name": name, "url": url}
@@ -122,23 +134,18 @@ class TaskBus:
         """List all registered webhook subscribers."""
         with self._lock:
             return [
-                {"name": n, "url": s.url, "enabled": s.enabled,
-                 "filters": s.filters}
+                {"name": n, "url": s.url, "enabled": s.enabled, "filters": s.filters}
                 for n, s in sorted(self._subscribers.items())
             ]
 
-    def dispatch(self, card_id: str, state: str,
-                 card_data: dict | None = None) -> int:
+    def dispatch(self, card_id: str, state: str, card_data: dict | None = None) -> int:
         """Dispatch a card completion event to all matching webhooks.
 
         Returns the number of webhooks that were triggered.
         Runs asynchronously in a background thread.
         """
         with self._lock:
-            targets = [
-                s for s in self._subscribers.values()
-                if s.enabled and self._matches_filters(s, card_data or {})
-            ]
+            targets = [s for s in self._subscribers.values() if s.enabled and self._matches_filters(s, card_data or {})]
         if not targets:
             return 0
         payload = _build_payload(card_id, state, card_data)
@@ -160,8 +167,7 @@ class TaskBus:
                 return False
         return True
 
-    def _dispatch_all(self, targets: list[WebhookSubscriber],
-                      payload: str) -> None:
+    def _dispatch_all(self, targets: list[WebhookSubscriber], payload: str) -> None:
         """Send webhook POST to all targets with retry."""
         for sub in targets:
             self._dispatch_one(sub, payload)
@@ -177,28 +183,24 @@ class TaskBus:
                 if sub.secret:
                     import hashlib
                     import hmac
-                    sig = hmac.new(
-                        sub.secret.encode(), payload.encode(), hashlib.sha256
-                    ).hexdigest()
+
+                    sig = hmac.new(sub.secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
                     headers["X-Praxis-Signature"] = sig
                 r = req.urlopen(
-                    req.Request(sub.url, data=payload.encode(), headers=headers,
-                                method="POST"),
+                    req.Request(sub.url, data=payload.encode(), headers=headers, method="POST"),
                     timeout=_WEBHOOK_TIMEOUT,
                 )
-                logger.info("task_bus: delivered to '%s' (HTTP %d)",
-                            sub.name, r.status)
+                logger.info("task_bus: delivered to '%s' (HTTP %d)", sub.name, r.status)
                 return True
-            except (urllib.error.HTTPError, urllib.error.URLError,
-                    OSError) as e:
+            except (urllib.error.HTTPError, urllib.error.URLError, OSError) as e:
                 if attempt < sub.retries - 1:
                     backoff = _WEBHOOK_BACKOFF[min(attempt, len(_WEBHOOK_BACKOFF) - 1)]
-                    logger.warning("task_bus: retry %d/%d for '%s' in %.1fs: %s",
-                                   attempt + 1, sub.retries, sub.name, backoff, e)
+                    logger.warning(
+                        "task_bus: retry %d/%d for '%s' in %.1fs: %s", attempt + 1, sub.retries, sub.name, backoff, e
+                    )
                     time.sleep(backoff)
                 else:
-                    logger.error("task_bus: failed to deliver to '%s' after %d attempts: %s",
-                                 sub.name, sub.retries, e)
+                    logger.error("task_bus: failed to deliver to '%s' after %d attempts: %s", sub.name, sub.retries, e)
         return False
 
 

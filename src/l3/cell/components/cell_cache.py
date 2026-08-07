@@ -126,15 +126,26 @@ class CellCache:
 
         # Build entries
         idx = IndexEntry(
-            key=key, summary=summary, agent_id=agent_id,
-            entry_type=entry_type, importance=importance,
-            timestamp=now, location="hot", ttl=idx_ttl,
+            key=key,
+            summary=summary,
+            agent_id=agent_id,
+            entry_type=entry_type,
+            importance=importance,
+            timestamp=now,
+            location="hot",
+            ttl=idx_ttl,
         )
         kv = CellCacheEntry(
-            key=key, value=value, summary=summary,
-            agent_id=agent_id, entry_type=entry_type,
-            cell_id=self.cell_id, tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
-            importance=importance, ttl=kv_ttl, timestamp=now,
+            key=key,
+            value=value,
+            summary=summary,
+            agent_id=agent_id,
+            entry_type=entry_type,
+            cell_id=self.cell_id,
+            tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
+            importance=importance,
+            ttl=kv_ttl,
+            timestamp=now,
         )
 
         # 1. Hot Ring — push to deque (auto-evicts via maxlen)
@@ -209,26 +220,31 @@ class CellCache:
 
         # Then Index Chain
         for entry in self._index.values():
-            if not entry.expired(now) and q in entry.summary.lower():
+            if not entry.expired(now) and q in entry.summary.lower() and not any(r.key == entry.key for r in results):
                 # Avoid duplicating hot entries already in results
-                if not any(r.key == entry.key for r in results):
-                    results.append(entry)
-                    if len(results) >= limit:
-                        return results
+                results.append(entry)
+                if len(results) >= limit:
+                    return results
 
         return results
 
-    def promote(self, key: str, summary: str, value: Any,
-                location: str = "l3", importance: float = MEMORY_IMPORTANCE_BASE) -> dict:
+    def promote(
+        self, key: str, summary: str, value: Any, location: str = "l3", importance: float = MEMORY_IMPORTANCE_BASE
+    ) -> dict:
         """Promote a demoted entry back into the KV cache.
 
         Called when memory.recall() finds data relevant to this Cell.
         """
         entry = CellCacheEntry(
-            key=key, value=value, summary=summary[:LOG_TRUNC_200],
-            agent_id="system", entry_type="promoted",
-            cell_id=self.cell_id, tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
-            importance=importance, ttl=self._kv_ttl,
+            key=key,
+            value=value,
+            summary=summary[:LOG_TRUNC_200],
+            agent_id="system",
+            entry_type="promoted",
+            cell_id=self.cell_id,
+            tokens=max(1, len(str(value)) // TOKEN_CHARS_PER_TOKEN),
+            importance=importance,
+            ttl=self._kv_ttl,
         )
         if key not in self._kv:
             self._kv_order.append(key)
@@ -254,10 +270,7 @@ class CellCache:
         count = 0
         failures = 0
 
-        expired_keys = [
-            k for k, e in self._kv.items()
-            if e.expired(now)
-        ]
+        expired_keys = [k for k, e in self._kv.items() if e.expired(now)]
         for key in expired_keys:
             entry = self._kv.pop(key, None)
             if entry is None:
@@ -274,17 +287,14 @@ class CellCache:
 
         # Also evict expired index entries (keep them lean)
         self._index_order = [k for k in self._index_order if k in self._index]
-        expired_idx = [
-            k for k, e in self._index.items()
-            if e.expired(now)
-        ]
+        expired_idx = [k for k, e in self._index.items() if e.expired(now)]
         for key in expired_idx:
             self._pop_from_list(self._index_order, key)
 
         if count or failures:
-            log_msg = "flushed %d entries" % count
+            log_msg = f"flushed {count} entries"
             if failures:
-                log_msg += ", %d failed/skipped" % failures
+                log_msg += f", {failures} failed/skipped"
             logger.info("CellCache %s: %s", self.cell_id, log_msg)
         return count
 
@@ -367,6 +377,7 @@ class CellCache:
         Replaces duplicated flush logic in flush() and _evict_kv().
         """
         from l3.memory.memory import get_memory
+
         content = entry.value if isinstance(entry.value, str) else json.dumps(entry.value, default=str)
         # Skip if content would be rejected by MemoryManager quality gate (<30 chars)
         if len(content) < MEMORY_MIN_CONTENT_LEN:

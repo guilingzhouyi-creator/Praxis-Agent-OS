@@ -55,7 +55,7 @@ class ComponentMeta:
     tags: list[str] = field(default_factory=list)
 
 
-class Component(ABC):
+class Component(ABC):  # noqa: B024  (marker ABC — lifecycle hooks are optional overrides)
     """Base class for all bus-managed components.
 
     Subclasses MUST define:
@@ -76,15 +76,15 @@ class Component(ABC):
         if not cls.meta.name and cls.__name__ != "Component":
             cls.meta.name = cls.__name__.lower().replace("component", "")
 
-    def bus_init(self, bus: SystemBus) -> None:
+    def bus_init(self, bus: SystemBus) -> None:  # noqa: B027  (optional hook)
         """Lifecycle hook: initialize dependencies and register listeners."""
         pass
 
-    def bus_start(self) -> None:
+    def bus_start(self) -> None:  # noqa: B027  (optional hook)
         """Lifecycle hook: start background threads or connections."""
         pass
 
-    def bus_stop(self) -> None:
+    def bus_stop(self) -> None:  # noqa: B027  (optional hook)
         """Lifecycle hook: stop background work gracefully."""
         pass
 

@@ -12,6 +12,7 @@ from l3._persistable import PersistableMixin
 
 # ── Versioning tests ──
 
+
 def test_stamp_adds_version():
     data = stamp({"foo": 1}, "snapshot")
     assert data["_version"] == 3  # SNAPSHOT_VERSION
@@ -54,6 +55,7 @@ def test_register_and_migrate():
 
 
 # ── PersistableMixin tests ──
+
 
 class _TestPersistable(PersistableMixin):
     persistence_kind = "card_registry"
@@ -107,7 +109,7 @@ def test_persist_corrupted_file():
 
 # ── CardRegistry persistence tests ──
 
-from l3.card.card_registry import CardRegistry, reset_registry
+from l3.card.card_registry import CardRegistry, reset_registry  # noqa: E402
 
 
 def test_card_registry_persist_round_trip():
@@ -150,7 +152,7 @@ def test_card_registry_persist_empty():
 
 # ── TodoTable persistence tests ──
 
-from l3.services.todo import TodoStatus, TodoTable
+from l3.services.todo import TodoStatus, TodoTable  # noqa: E402
 
 
 def test_todo_table_persist_round_trip():
@@ -170,7 +172,7 @@ def test_todo_table_persist_round_trip():
 
 # ── TransactionArea persistence tests ──
 
-from l3.card.transaction_area import reset_service
+from l3.card.transaction_area import reset_service  # noqa: E402
 
 
 def test_transaction_area_persist_round_trip():
@@ -178,6 +180,7 @@ def test_transaction_area_persist_round_trip():
     with tempfile.TemporaryDirectory() as td:
         path = os.path.join(td, "tx.json")
         from l3.card.transaction_area import TransactionArea
+
         ta = TransactionArea(persist_path=path)
         result = ta.enqueue("test card", "app", size="small", auto_approve=True)
         assert result.get("status") == "approved"
@@ -192,7 +195,7 @@ def test_transaction_area_persist_round_trip():
 
 # ── ExecutionEngine persistence tests ──
 
-from l3.card.execution_engine import ExecutionEngine, ExecutionPlan
+from l3.card.execution_engine import ExecutionEngine, ExecutionPlan  # noqa: E402
 
 
 def test_execution_engine_persist_round_trip():
@@ -220,7 +223,7 @@ def test_execution_engine_persist_round_trip():
 
 # ── Statecharts snapshot tests ──
 
-from l3.services.statecharts import AgentStatecharts
+from l3.services.statecharts import AgentStatecharts  # noqa: E402
 
 
 def test_statecharts_snapshot_round_trip():
@@ -229,6 +232,7 @@ def test_statecharts_snapshot_round_trip():
         sc = AgentStatecharts(agent_id="s-agent", persist_path=path)
         # Dispatch some events to change state
         from l3.services.statecharts import EventType
+
         sc.dispatch(EventType.TASK_ASSIGN)
         assert sc.task.state != "IDLE"
         snap = sc.snapshot
@@ -248,7 +252,7 @@ def test_statecharts_snapshot_no_file():
 
 # ── DialogueSession persistence tests ──
 
-from l3.card.dialogue_session import DialogueSession, SessionConfig
+from l3.card.dialogue_session import DialogueSession, SessionConfig  # noqa: E402
 
 
 def test_dialogue_session_json_persist_round_trip():
@@ -279,16 +283,20 @@ def test_dialogue_session_json_persist_nonexistent():
 
 # ── Memory restore truncation tests ──
 
+
 def test_memory_restore_limits_default_to_unlimited():
     from l1.kernel.params.system import MEMORY_RING2_RESTORE_LIMIT, MEMORY_RING3_RESTORE_LIMIT
+
     assert MEMORY_RING2_RESTORE_LIMIT == 0
     assert MEMORY_RING3_RESTORE_LIMIT == 0
 
 
 # ── WAL mode test ──
 
+
 def test_persist_wal_mode():
     from l3.tools._archive import _get_db
+
     db = _get_db()
     wal = db.execute("PRAGMA journal_mode").fetchone()[0]
     assert wal == "wal"
@@ -296,17 +304,18 @@ def test_persist_wal_mode():
 
 # ── Configurable paths test ──
 
+
 def test_params_persistence_paths():
     from l1.kernel.paths import get_paths
+
     p = get_paths()
-    for path in (p.todo_table, p.transaction_area, p.statecharts,
-                 p.sandbox_state, p.todo_state, p.mode_state):
+    for path in (p.todo_table, p.transaction_area, p.statecharts, p.sandbox_state, p.todo_state, p.mode_state):
         assert path.endswith(".json")
 
 
 # ── HTN Planner to_card tests ──
 
-from l3.bus.htn_planner import get_service as get_htn
+from l3.bus.htn_planner import get_service as get_htn  # noqa: E402
 
 
 def test_htn_decompose_to_card():
@@ -345,6 +354,7 @@ def test_htn_to_card_phase_agents():
 
 def test_htn_decompose_fallback_to_card_builder():
     from l3.card.card_builder import build_card
+
     card = build_card(
         task_id="test-fallback",
         intent="Do something completely random that won't match any pattern",
@@ -357,7 +367,7 @@ def test_htn_decompose_fallback_to_card_builder():
 
 # ── IssueCard / IssueTable tests ──
 
-from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table, reset_table
+from l3.card.issue import IssueCard, IssueCardStatus, IssueStatus, get_table, reset_table  # noqa: E402
 
 
 def test_issue_card_create():
@@ -437,7 +447,7 @@ def test_issue_table_summary():
 
 # ── CacheDocument tests ──
 
-from l3.memory.cache_doc import get_store, reset_store
+from l3.memory.cache_doc import get_store, reset_store  # noqa: E402
 
 
 def test_cache_doc_put_and_get():
@@ -491,7 +501,7 @@ def test_cache_doc_stats():
 
 # ── Convergence tests ──
 
-from l3.agent.convergence import converge, to_execution_card
+from l3.agent.convergence import converge, to_execution_card  # noqa: E402
 
 
 def test_converge_card_not_found():
@@ -501,6 +511,7 @@ def test_converge_card_not_found():
 
 def test_converge_card_not_converged():
     from l3.card.issue import get_table, reset_table
+
     reset_table()
     table = get_table()
     card = IssueCard(title="T", intent="t")
@@ -513,6 +524,7 @@ def test_converge_card_not_converged():
 
 def test_converge_rule_based():
     from l3.card.issue import get_table, reset_table
+
     reset_table()
     table = get_table()
     card = IssueCard(title="Test", intent="test converge")
@@ -541,7 +553,7 @@ def test_to_execution_card():
 
 # ── Cell convene integration tests ──
 
-from l3.cell import Cell
+from l3.cell import Cell  # noqa: E402
 
 
 def test_cell_convene_starts_convention():
@@ -572,6 +584,7 @@ def test_cell_execute_card_detects_issue_card():
     card = IssueCard(title="Test", intent="test")
     card.add_item("Q1", "", "l3", "")
     from l3.card.issue import get_table
+
     get_table().submit(card)
 
     # execute_card should route to convene() instead of normal execution
@@ -582,28 +595,37 @@ def test_cell_execute_card_detects_issue_card():
 
 def test_cell_handle_convention_message():
     from l3.cell.components.cell_types import MessageType
+
     reset_table()
     cell = Cell("test-cell3")
     cell.add_agent("agent-a", role="reader", territory=["app"], ring=1)
     cell.add_agent("agent-b", role="writer", territory=["app"], ring=1)
 
     card = IssueCard(title="Test", intent="test")
-    it = card.add_item("Q1", "app", "l3", "agent-b")
+    card.add_item("Q1", "app", "l3", "agent-b")
     from l3.card.issue import get_table
+
     get_table().submit(card)
     cell.convene(card)
 
     # Agent answers
-    result = cell.handle_convention_message("agent-b", MessageType.REBUT, {
-        "card_id": card.id, "statement": "I recommend PostgreSQL",
-    })
+    result = cell.handle_convention_message(
+        "agent-b",
+        MessageType.REBUT,
+        {
+            "card_id": card.id,
+            "statement": "I recommend PostgreSQL",
+        },
+    )
     assert result["success"] is True
 
 
 def test_cell_close_convention_full_flow():
     from l3.cell.components.cell_types import MessageType
+
     reset_table()
     from l3.memory.cache_doc import reset_store
+
     reset_store()
     cell = Cell("test-cell4")
     cell.add_agent("agent-a", role="reader", territory=["app"], ring=1)
@@ -613,18 +635,29 @@ def test_cell_close_convention_full_flow():
     it1 = card.add_item("Which DB?", "app", "l3", "agent-b")
     it2 = card.add_item("API style?", "app", "l3", "agent-a")
     from l3.card.issue import get_table
+
     table = get_table()
     table.submit(card)
     cell.convene(card)
 
     # Agents answer
-    cell.handle_convention_message("agent-b", MessageType.REBUT, {
-        "card_id": card.id, "statement": "PostgreSQL",
-    })
+    cell.handle_convention_message(
+        "agent-b",
+        MessageType.REBUT,
+        {
+            "card_id": card.id,
+            "statement": "PostgreSQL",
+        },
+    )
     table.answer_item(card.id, it1, "PostgreSQL", "agent-b")
-    cell.handle_convention_message("agent-a", MessageType.REBUT, {
-        "card_id": card.id, "statement": "REST",
-    })
+    cell.handle_convention_message(
+        "agent-a",
+        MessageType.REBUT,
+        {
+            "card_id": card.id,
+            "statement": "REST",
+        },
+    )
     table.answer_item(card.id, it2, "REST", "agent-a")
 
     # Close convention
@@ -637,31 +670,31 @@ def test_cell_close_convention_full_flow():
 
 # ── Convention message dispatch to AgentTerminal tests ──
 
-from l3.agent_terminal import AgentTerminal, TerminalCard
+from l3.agent_terminal import AgentTerminal, TerminalCard  # noqa: E402
 
 
 def test_convention_terminal_card_dispatched():
     from l3.cell.components.cell_types import MessageType
+
     """Cell.send_message creates a TerminalCard for convention messages."""
     reset_table()
     from l3.agent_terminal import reset_terminals
+
     reset_terminals()
     cell = Cell("test-cell-conv")
     cell.add_agent("agent-a", role="reader", territory=["app"], ring=1)
     cell.add_agent("cell-conv", role="writer", territory=["app"], ring=1)
     # Send via mailbox path only (simulate convention dispatch)
-    result = cell.send_message("agent-a", "cell-conv",
-                                MessageType.CONVENE,
-                                {"card_id": "test-card", "title": "Test"})
+    result = cell.send_message("agent-a", "cell-conv", MessageType.CONVENE, {"card_id": "test-card", "title": "Test"})
     assert result["success"] is True
 
 
 def test_agent_terminal_convention_unknown_msg():
     """Unknown convention message type returns error."""
     term = AgentTerminal("test-agent-conv", role="reader")
-    card = TerminalCard(card_id="t1", action="convention",
-                        target="unknown-card",
-                        params={"msg_type": "UNKNOWN_TYPE", "payload": {}})
+    card = TerminalCard(
+        card_id="t1", action="convention", target="unknown-card", params={"msg_type": "UNKNOWN_TYPE", "payload": {}}
+    )
     result = term._convention_handler(card)
     assert result.success is False
     assert "unknown convention msg" in result.error
@@ -670,9 +703,9 @@ def test_agent_terminal_convention_unknown_msg():
 def test_agent_terminal_convention_start_no_card():
     """CONVENE with unknown card ID returns error."""
     term = AgentTerminal("test-agent-start", role="reader")
-    card = TerminalCard(card_id="t2", action="convention",
-                        target="nonexistent-card",
-                        params={"msg_type": "CONVENE", "payload": {}})
+    card = TerminalCard(
+        card_id="t2", action="convention", target="nonexistent-card", params={"msg_type": "CONVENE", "payload": {}}
+    )
     result = term._convention_handler(card)
     assert result.success is False
     assert "unknown convention" in result.error
@@ -681,10 +714,12 @@ def test_agent_terminal_convention_start_no_card():
 def test_agent_terminal_convention_turn_no_session():
     """CROSS_EXAMINE without active session returns error."""
     term = AgentTerminal("test-agent-turn", role="reader")
-    card = TerminalCard(card_id="t3", action="convention",
-                        target="no-session-card",
-                        params={"msg_type": "CROSS_EXAMINE",
-                                "payload": {"statement": "Why?", "from": "agent-b"}})
+    card = TerminalCard(
+        card_id="t3",
+        action="convention",
+        target="no-session-card",
+        params={"msg_type": "CROSS_EXAMINE", "payload": {"statement": "Why?", "from": "agent-b"}},
+    )
     result = term._convention_handler(card)
     assert result.success is False
     assert "no active convention session" in result.error
@@ -693,9 +728,9 @@ def test_agent_terminal_convention_turn_no_session():
 def test_agent_terminal_convention_close_no_session():
     """CONVENE_CLOSE without active session is OK (cleanup)."""
     term = AgentTerminal("test-agent-close", role="reader")
-    card = TerminalCard(card_id="t4", action="convention",
-                        target="no-session-card",
-                        params={"msg_type": "CONVENE_CLOSE", "payload": {}})
+    card = TerminalCard(
+        card_id="t4", action="convention", target="no-session-card", params={"msg_type": "CONVENE_CLOSE", "payload": {}}
+    )
     result = term._convention_handler(card)
     assert result.success is True  # graceful cleanup
 
@@ -703,10 +738,12 @@ def test_agent_terminal_convention_close_no_session():
 def test_agent_terminal_convention_propose():
     """PROPOSE_ISSUE handled even without active session."""
     term = AgentTerminal("test-agent-prop", role="reader")
-    card = TerminalCard(card_id="t5", action="convention",
-                        target="test-card",
-                        params={"msg_type": "PROPOSE_ISSUE",
-                                "payload": {"question": "Add testing?", "sender": "agent-b"}})
+    card = TerminalCard(
+        card_id="t5",
+        action="convention",
+        target="test-card",
+        params={"msg_type": "PROPOSE_ISSUE", "payload": {"question": "Add testing?", "sender": "agent-b"}},
+    )
     result = term._convention_handler(card)
     assert result.success is True
 
@@ -714,9 +751,9 @@ def test_agent_terminal_convention_propose():
 def test_agent_terminal_process_card_routes_convention():
     """_process_card routes action='convention' to _convention_handler."""
     term = AgentTerminal("test-agent-route", role="reader")
-    card = TerminalCard(card_id="t6", action="convention",
-                        target="nonexistent",
-                        params={"msg_type": "CONVENE", "payload": {}})
+    card = TerminalCard(
+        card_id="t6", action="convention", target="nonexistent", params={"msg_type": "CONVENE", "payload": {}}
+    )
     result = term._process_card(card)
     assert result.success is False  # card not found, but correctly routed
 
@@ -724,6 +761,7 @@ def test_agent_terminal_process_card_routes_convention():
 def test_htn_planner_initialized_in_boot():
     """Verify HTN planner can be instantiated (as boot.py does)."""
     from l3.bus.htn_planner import get_service as get_htn
+
     htn = get_htn()
     stats = htn.stats()
     assert stats["methods"] >= 5  # All built-in methods registered

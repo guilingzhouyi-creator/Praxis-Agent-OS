@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # StatsCenterComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class StatsCenterComponent(Component):
     """Wraps StatsCenter — cross-Cell metric aggregation.
 
@@ -31,6 +32,7 @@ class StatsCenterComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Attach the StatsCenter singleton and auto-ingest on stats.heartbeat."""
         from l3.services.stats_center import get_center
+
         self._center = get_center()
         self._bus = bus
         self._thread: threading.Thread | None = None
@@ -54,13 +56,17 @@ class StatsCenterComponent(Component):
         try:
             all_stats = bus.stats()
             from l3.services.stats_center import MetricPoint
+
             for key, value in all_stats.items():
                 if isinstance(value, (int, float)):
-                    self._center.ingest(MetricPoint(
-                        name=key, value=float(value),
-                        tags={"source": "systembus"},
-                        metric_type="gauge",
-                    ))
+                    self._center.ingest(
+                        MetricPoint(
+                            name=key,
+                            value=float(value),
+                            tags={"source": "systembus"},
+                            metric_type="gauge",
+                        )
+                    )
         except Exception as e:
             logger.warning("stats_center collect: %s", e)
 
@@ -78,7 +84,8 @@ class StatsCenterComponent(Component):
     def _snapshot_all_pmus() -> None:
         try:
             from l3.cell import get_cells
-            for cell_id, cell in get_cells().items():
+
+            for _cell_id, cell in get_cells().items():
                 pmu = getattr(cell, "pmu", None)
                 if pmu:
                     pmu.snapshot()
@@ -101,6 +108,7 @@ class StatsCenterComponent(Component):
 # RecordCenterComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class RecordCenterComponent(Component):
     """Wraps RecordCenter — unified error/log/reference record store."""
 
@@ -109,6 +117,7 @@ class RecordCenterComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Attach the RecordCenter singleton."""
         from l3.services.record_center import get_record_center
+
         self._center = get_record_center()
 
     def bus_start(self) -> None:
@@ -129,6 +138,7 @@ class RecordCenterComponent(Component):
 # EventBusComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class EventBusComponent(Component):
     """Wraps the kernel EventBus (pub/sub, Signal/SignalType).
 
@@ -141,6 +151,7 @@ class EventBusComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Attach the kernel EventBus singleton."""
         from l1.kernel import get_event_bus
+
         self._bus_impl = get_event_bus()
 
     def bus_health(self) -> dict:
@@ -154,6 +165,7 @@ class EventBusComponent(Component):
 # CentralControllerComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CentralControllerComponent(Component):
     """Wraps CentralController — cross-Cell orchestration (L3A + L3B + HTN-A)."""
 
@@ -162,6 +174,7 @@ class CentralControllerComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Attach the CentralController singleton."""
         from l3.cell.peers.l3 import get_coordinator
+
         self._controller = get_coordinator()
 
     def bus_start(self) -> None:
@@ -181,6 +194,7 @@ class CentralControllerComponent(Component):
 # L3BComponent + L3BBusComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class L3BComponent(Component):
     """Wraps a single L3BComposite — bridges two adjacent Cells."""
 
@@ -197,6 +211,7 @@ class L3BComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the L3BComposite bridging two Cells."""
         from l3.bus.l3b import L3BComposite
+
         self._composite = L3BComposite(self.composite_id, self.prev_cell, self.next_cell)
 
     def bus_start(self) -> None:
@@ -224,6 +239,7 @@ class L3BBusComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Attach the L3BBus singleton."""
         from l3.bus.l3b_bus import get_bus
+
         self._bus_impl = get_bus()
 
     def bus_health(self) -> dict:

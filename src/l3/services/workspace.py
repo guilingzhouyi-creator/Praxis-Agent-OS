@@ -9,8 +9,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import MEMORY_WORKSPACES_FILE, WORKSPACE_MAX_RECENT
-from l1.kernel.paths import get_paths as _gp
+from l1.kernel.params.system import MEMORY_WORKSPACES_FILE, WORKSPACE_MAX_RECENT  # noqa: E402
+from l1.kernel.paths import get_paths as _gp  # noqa: E402
 
 CONFIG_DIR = Path(_gp().config_dir)
 CONFIG_FILE = CONFIG_DIR / MEMORY_WORKSPACES_FILE
@@ -56,12 +56,14 @@ def recent(max_count: int = 10) -> dict:
     items = []
     for r in data.get("recent", [])[:max_count]:
         p = Path(r["path"])
-        items.append({
-            "path": r["path"],
-            "name": r.get("name", p.name),
-            "exists": p.exists(),
-            "opened_at": r.get("opened_at", 0),
-        })
+        items.append(
+            {
+                "path": r["path"],
+                "name": r.get("name", p.name),
+                "exists": p.exists(),
+                "opened_at": r.get("opened_at", 0),
+            }
+        )
     return {"success": True, "recent": items, "count": len(items)}
 
 

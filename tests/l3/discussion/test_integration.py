@@ -3,6 +3,7 @@
 Covers IssueOrchestrator lifecycle, CellAnswerRepo persistence,
 AnswerAggregator merge, SupplementManager routing, and ReportService.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,6 +17,7 @@ class TestIssueOrchestrator:
 
     def _get_orchestrator(self):
         from l3.discussion.issue_orchestrator import get_orchestrator, reset_orchestrator
+
         reset_orchestrator()
         return get_orchestrator()
 
@@ -35,6 +37,7 @@ class TestIssueOrchestrator:
 
     def test_cell_answer_round_trip(self):
         from l3.discussion.cell_answer_repo import CellAnswer, CellAnswerRepo
+
         repo = CellAnswerRepo(cell_id="cell-1", session_id="ds-test-1")
         answer = CellAnswer(
             session_id="ds-test-1",
@@ -54,6 +57,7 @@ class TestAnswerAggregator:
 
     def test_collect_empty(self):
         from l3.discussion.answer_aggregator import AnswerAggregator
+
         agg = AnswerAggregator()
         r = agg.collect("nonexistent-session")
         assert isinstance(r, dict)  # should not raise
@@ -61,9 +65,11 @@ class TestAnswerAggregator:
     def test_aggregate_single_answer(self):
         from l3.discussion.answer_aggregator import AnswerAggregator
         from l3.discussion.cell_answer_repo import CellAnswer
+
         agg = AnswerAggregator()
-        answer = CellAnswer(
-            session_id="s1", cell_id="c1",
+        CellAnswer(
+            session_id="s1",
+            cell_id="c1",
             content={"text": "Use Python 3.13"},
             answer_type="answer",
         )
@@ -76,6 +82,7 @@ class TestSupplementManager:
 
     def test_classify_supplement(self):
         from l3.discussion.supplement_manager import SupplementManager
+
         mgr = SupplementManager()
         supplement = {"id": "sup-1", "description": "What about Windows support?"}
         r = mgr.classify([supplement])  # classify expects list[dict]
@@ -88,6 +95,7 @@ class TestReportService:
 
     def test_generate_report(self):
         from l3.discussion.report_service import get_service, reset_service
+
         reset_service()
         svc = get_service()
         r = svc.generate(

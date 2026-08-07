@@ -11,6 +11,7 @@ class TestCellInit:
 
     def test_basic_init(self):
         from l3.cell import Cell
+
         cell = Cell("test-cell-1", territory=["src", "docs"])
         assert cell.cell_id == "test-cell-1"
         assert "src" in cell.territory
@@ -18,6 +19,7 @@ class TestCellInit:
 
     def test_init_empty_territory(self):
         from l3.cell import Cell
+
         cell = Cell("empty-cell")
         assert cell.territory == []
 
@@ -27,13 +29,14 @@ class TestAddAgent:
 
     def test_add_agent_basic(self):
         from l3.cell import Cell
+
         cell = Cell("cell-a")
-        r = cell.add_agent("agent-1", role="reader", territory=["."],
-                           ring=1, auto_boot=False)
+        r = cell.add_agent("agent-1", role="reader", territory=["."], ring=1, auto_boot=False)
         assert r["success"]
 
     def test_add_agent_duplicate(self):
         from l3.cell import Cell
+
         cell = Cell("cell-b")
         cell.add_agent("agent-x", role="reader")
         r = cell.add_agent("agent-x", role="writer")
@@ -41,12 +44,14 @@ class TestAddAgent:
 
     def test_add_agent_with_defaults(self):
         from l3.cell import Cell
+
         cell = Cell("cell-c")
         r = cell.add_agent("agent-y", role="reader")
         assert r["success"]
 
     def test_multiple_agents(self):
         from l3.cell import Cell
+
         cell = Cell("cell-d")
         cell.add_agent("a1", role="reader")
         cell.add_agent("a2", role="writer")
@@ -59,9 +64,11 @@ class TestAgentStatus:
 
     def test_status_before_boot(self):
         from l3.cell import Cell
+
         cell = Cell("cell-s")
         cell.add_agent("agent-s1", role="reader")
         from l3.cell.components.cell_types import AgentStatus
+
         info = cell._agents.get("agent-s1")
         assert info is not None
         assert info.status == AgentStatus.IDLE
@@ -72,6 +79,7 @@ class TestLiveness:
 
     def test_liveness_empty_cell(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("live-cell")
         r = cell.liveness()
@@ -80,6 +88,7 @@ class TestLiveness:
 
     def test_liveness_with_agents(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("live-cell-2")
         cell.add_agent("live-a", role="reader")
@@ -93,6 +102,7 @@ class TestBootAndShutdown:
     def test_boot_all(self):
         from l3.agent_terminal import reset_terminals
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         reset_terminals()
         cell = Cell("boot-cell")
@@ -103,6 +113,7 @@ class TestBootAndShutdown:
 
     def test_shutdown_all(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("shutdown-cell")
         cell.add_agent("shut-a", role="reader")
@@ -111,6 +122,7 @@ class TestBootAndShutdown:
 
     def test_shutdown_empty(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("empty-shut")
         r = cell.shutdown_all()
@@ -122,6 +134,7 @@ class TestEmergencyStop:
 
     def test_emergency_stop(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("emerg-cell")
         cell.add_agent("emerg-a", role="reader")
@@ -131,6 +144,7 @@ class TestEmergencyStop:
 
     def test_resume(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("resume-cell")
         cell.add_agent("resume-a", role="reader")
@@ -141,6 +155,7 @@ class TestEmergencyStop:
 
     def test_double_stop(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("dbl-stop")
         cell.emergency_stop()
@@ -149,6 +164,7 @@ class TestEmergencyStop:
 
     def test_execute_after_stop(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("stop-exec")
         cell.add_agent("exec-a", role="reader")
@@ -163,26 +179,29 @@ class TestMessaging:
 
     def test_send_message_unknown_target(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("msg-cell")
         cell.add_agent("sender", role="reader")
         from l3.cell.components.cell_types import MessageType
-        r = cell.send_message("sender", "unknown-target",
-                              MessageType.CROSS_REVIEW_REQ)
+
+        r = cell.send_message("sender", "unknown-target", MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]
 
     def test_send_message_unknown_sender(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("msg-cell-2")
         cell.add_agent("target", role="reader")
         from l3.cell.components.cell_types import MessageType
-        r = cell.send_message("unknown-sender", "target",
-                              MessageType.CROSS_REVIEW_REQ)
+
+        r = cell.send_message("unknown-sender", "target", MessageType.CROSS_REVIEW_REQ)
         assert not r["success"]
 
     def test_read_messages_empty(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("read-cell")
         cell.add_agent("reader-agent", role="reader")
@@ -195,6 +214,7 @@ class TestStats:
 
     def test_stats_basic(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("stat-cell")
         s = cell.stats()
@@ -203,6 +223,7 @@ class TestStats:
 
     def test_stats_with_agents(self):
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("stat-cell-2")
         cell.add_agent("stat-a", role="reader")
@@ -219,6 +240,7 @@ class TestSaveRestoreState:
         import tempfile
 
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("save-cell")
         cell.add_agent("save-a", role="reader")
@@ -227,7 +249,8 @@ class TestSaveRestoreState:
         try:
             r = cell.save_state(path)
             assert r["success"]
-            data = json.loads(open(path, encoding="utf-8").read())
+            with open(path, encoding="utf-8") as f:
+                data = json.loads(f.read())
             assert data["cell_id"] == "save-cell"
         finally:
             os.unlink(path)
@@ -237,6 +260,7 @@ class TestSaveRestoreState:
         import tempfile
 
         from l3.cell import Cell, reset_cells
+
         reset_cells()
         cell = Cell("rest-cell")
         cell.add_agent("rest-a", role="reader")

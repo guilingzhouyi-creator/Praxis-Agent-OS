@@ -26,10 +26,12 @@ def handle_discussion_start(body: dict | None = None) -> dict:
         return {"success": False, "error": "issue_card_id required"}
     try:
         from l3.card.issue import get_table
+
         card = get_table().get(issue_card_id)
         if not card:
             return {"success": False, "error": f"issue card not found: {issue_card_id}"}
         from l3.discussion.issue_orchestrator import get_orchestrator
+
         orch = get_orchestrator()
         return orch.start_discussion(card)
     except Exception as e:
@@ -42,21 +44,25 @@ def handle_discussion_get(session_id: str = "") -> dict:
         return {"success": False, "error": "session_id required"}
     try:
         from l3.discussion.issue_orchestrator import get_orchestrator
+
         session = get_orchestrator().get_session(session_id)
         if not session:
             return {"success": False, "error": f"session not found: {session_id}"}
-        return {"success": True, "session": {
-            "id": session.id,
-            "issue_card_id": session.issue_card_id,
-            "status": session.status,
-            "phase": session.phase,
-            "cells": len(session.participating_cells),
-            "completed_cells": len(session.completed_cells),
-            "answers": session.total_answers,
-            "supplements": len(session.supplement_issues),
-            "created_at": session.created_at,
-            "completed_at": session.completed_at,
-        }}
+        return {
+            "success": True,
+            "session": {
+                "id": session.id,
+                "issue_card_id": session.issue_card_id,
+                "status": session.status,
+                "phase": session.phase,
+                "cells": len(session.participating_cells),
+                "completed_cells": len(session.completed_cells),
+                "answers": session.total_answers,
+                "supplements": len(session.supplement_issues),
+                "created_at": session.created_at,
+                "completed_at": session.completed_at,
+            },
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -67,9 +73,9 @@ def handle_discussion_answers(session_id: str = "") -> dict:
         return {"success": False, "error": "session_id required"}
     try:
         from l3.discussion.answer_aggregator import AnswerAggregator
+
         agg = AnswerAggregator()
-        result = agg.collect(session_id)
-        return result
+        return agg.collect(session_id)
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -80,15 +86,18 @@ def handle_discussion_report(session_id: str = "") -> dict:
         return {"success": False, "error": "session_id required"}
     try:
         from l3.discussion.report_service import get_service
+
         reports = get_service().get_reports_by_session(session_id)
         if not reports:
             # Generate on demand
             from l3.discussion.answer_aggregator import AnswerAggregator
+
             agg = AnswerAggregator()
             result = agg.collect(session_id)
             if not result.get("success"):
                 return result
             from l3.discussion.report_service import get_service
+
             report = get_service().generate(session_id, result)
             return {"success": True, "report": report}
         return {"success": True, "report": reports[-1]}
@@ -96,14 +105,14 @@ def handle_discussion_report(session_id: str = "") -> dict:
         return {"success": False, "error": str(e)}
 
 
-def handle_discussion_supplement(session_id: str = "",
-                                 body: dict | None = None) -> dict:
+def handle_discussion_supplement(session_id: str = "", body: dict | None = None) -> dict:
     """POST /api/v2/discussion/{id}/supplement — submit supplement issue."""
     if not session_id:
         return {"success": False, "error": "session_id required"}
     b = body or {}
     try:
         from l3.discussion.supplement_manager import SupplementManager
+
         mgr = SupplementManager()
         supplement = {
             "title": b.get("title", ""),
@@ -120,6 +129,7 @@ def handle_discussion_sessions(body: dict | None = None) -> dict:
     """GET /api/v2/discussion/sessions — list all sessions."""
     try:
         from l3.discussion.issue_orchestrator import get_orchestrator
+
         status = (body or {}).get("status", "") if body else ""
         return {"success": True, "sessions": get_orchestrator().list_sessions(status)}
     except Exception as e:
@@ -130,6 +140,7 @@ def handle_discussion_reports(body: dict | None = None) -> dict:
     """GET /api/v2/discussion/reports — list all reports."""
     try:
         from l3.discussion.report_service import get_service
+
         status = (body or {}).get("status", "") if body else ""
         return {"success": True, "reports": get_service().list_reports(status)}
     except Exception as e:
@@ -144,6 +155,7 @@ def handle_discussion_push_l3a(body: dict | None = None) -> dict:
         return {"success": False, "error": "session_id required"}
     try:
         from l3.discussion.report_service import get_service
+
         reports = get_service().get_reports_by_session(session_id)
         if not reports:
             return {"success": False, "error": "no report for session"}

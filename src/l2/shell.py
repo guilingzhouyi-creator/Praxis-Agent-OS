@@ -53,11 +53,12 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
     """
     try:
         import readline
+
         completer = TerminalCompleter()
         completer.refresh()
         readline.set_completer(completer.complete)
         readline.parse_and_bind("tab: complete")
-        readline.set_completer_delims(' \t\n')
+        readline.set_completer_delims(" \t\n")
     except ImportError:
         logger.debug("shell: readline unavailable, tab completion disabled")
     history: deque[str] = deque(maxlen=TERMINAL_OUTPUT_MAX_LINES)
@@ -125,7 +126,9 @@ def _show_help() -> None:
     for cmd in get_command_names()[:SHELL_AUTOCOMPLETE_DISPLAY_LIMIT]:
         h = get_command_help().get(cmd, "")
         print(f"  {cmd:<20s} {h}")
-    print(f"  ... and {len(get_command_names()) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)")
+    print(
+        f"  ... and {len(get_command_names()) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)"
+    )
 
 
 def _list_tools() -> None:
@@ -167,10 +170,9 @@ def _handle_scout(task: str, agent_id: str, cell_id: str) -> None:
     try:
         cell = _get_cell(cell_id)
         # Check delegation permission gate
-        if hasattr(cell, 'permission') and cell.permission:
-            if not cell.permission.is_visible("scout", agent_id):
-                print(f"  [Scout] Delegation disabled: scout is not available to {agent_id}")
-                return
+        if hasattr(cell, "permission") and cell.permission and not cell.permission.is_visible("scout", agent_id):
+            print(f"  [Scout] Delegation disabled: scout is not available to {agent_id}")
+            return
         pool = _get_scout_pool()
         r = pool.commission(agent_id, task)
         print(f"  [Scout] Status: {r.get('status', '?')}")

@@ -38,11 +38,40 @@ from .commands import (
     list_commands,
     preconnect_enhanced,
 )
-from .completer import _complete_agent, _complete_role, autocomplete  # noqa: F401
-from .output_guard import guard_output, set_output_guard  # noqa: F401
-from .state import ShellState, get_state, reset_state  # noqa: F401
+from .completer import _complete_agent, _complete_role, autocomplete
+from .output_guard import guard_output, set_output_guard
+from .state import ShellState, get_state, reset_state
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "_cmd_agents",
+    "_cmd_cells",
+    "_cmd_connect",
+    "_cmd_cross",
+    "_cmd_disconnect",
+    "_cmd_help",
+    "_cmd_intents",
+    "_cmd_memory",
+    "_cmd_mode",
+    "_cmd_observe",
+    "_cmd_plugins",
+    "_cmd_scheduler",
+    "_cmd_security",
+    "_cmd_skills",
+    "_cmd_status",
+    "_pipeline",
+    "list_commands",
+    "preconnect_enhanced",
+    "_complete_agent",
+    "_complete_role",
+    "autocomplete",
+    "guard_output",
+    "set_output_guard",
+    "ShellState",
+    "get_state",
+    "reset_state",
+]
 
 # ── Alias reverse index (built once, refreshed on registry change) ──
 _ALIAS_REVERSE_INDEX: dict[str, str] = {}
@@ -70,7 +99,7 @@ def _lookup_alias(alias: str) -> str | None:
     invalidation hook.
     """
     global _ALIAS_INDEX_STALE
-    if _ALIAS_INDEX_STALE or _ALIAS_INDEX_REVISION != _get_cmd_reg().revision():
+    if _ALIAS_INDEX_STALE or _get_cmd_reg().revision() != _ALIAS_INDEX_REVISION:
         _rebuild_alias_index()
     return _ALIAS_REVERSE_INDEX.get(alias)
 
@@ -88,7 +117,7 @@ def _command_names() -> list[str]:
     """
     global _COMMAND_NAMES_CACHE, _COMMAND_NAMES_REVISION
     rev = _get_cmd_reg().revision()
-    if _COMMAND_NAMES_REVISION != rev:
+    if rev != _COMMAND_NAMES_REVISION:
         _COMMAND_NAMES_CACHE = [c["name"] for c in _get_cmd_reg().list()]
         _COMMAND_NAMES_REVISION = rev
     return _COMMAND_NAMES_CACHE
@@ -127,6 +156,7 @@ def dispatch(text: str) -> dict:
                 return handler(args)
         try:
             from l2.i18n import t as _t
+
             err = _t("shell.error.unknown_command", cmd=cmd)
         except Exception:
             logger.warning("i18n translation failed for shell.error.unknown_command")
@@ -147,6 +177,7 @@ def _direct_message(state: ShellState, text: str) -> dict:
     """
     try:
         from l3.cell import get_cell
+
         cell = get_cell(state.cell_id)
         r = cell.send_direct_message(state.agent_id, text)
         if not r.get("success"):
@@ -173,19 +204,25 @@ def _auto_disconnect(state: ShellState, reason: str) -> None:
     logger.warning("auto-disconnect from %s: %s", state.agent_id, reason)
     try:
         from l3.cell import get_cell
+
         cell = get_cell(state.cell_id)
         cell.close_direct_session(state.agent_id)
     except Exception:
         logger.warning("auto-disconnect: close_direct_session failed for %s", state.agent_id)
     state.switch_to_l3a()
-    emit_signal(EVENT_TASK_ASSIGN, sender="shell", target=SIGNAL_TARGET_L3,
-                 data={"event": "l3a_mode_restored_auto", "reason": reason})
+    emit_signal(
+        EVENT_TASK_ASSIGN,
+        sender="shell",
+        target=SIGNAL_TARGET_L3,
+        data={"event": "l3a_mode_restored_auto", "reason": reason},
+    )
 
 
 def _l3a_intent(text: str) -> dict:
     """Send a natural-language intent to the L3 coordinator for processing."""
     try:
         from .cell.peers.l3 import get_coordinator
+
         coord = get_coordinator()
         return coord.process_intent(text)
     except Exception as e:

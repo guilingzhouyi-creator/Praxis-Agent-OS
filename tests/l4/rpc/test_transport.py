@@ -13,11 +13,12 @@ class TestRpcTransport:
 
     def test_send_non_tcp_raises(self):
         import asyncio
+        from contextlib import suppress
 
         from l4.rpc.transport import RpcTransport
+
         async def test():
-            try:
+            with suppress(AttributeError):
                 await RpcTransport.send(None, {"method": "ping"})
-            except AttributeError:
-                pass
+
         asyncio.run(test())

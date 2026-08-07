@@ -17,6 +17,7 @@ import logging
 import threading
 import time
 
+from l1.kernel.params.agent import LOOP_FOLD_LIST_TRUNCATION
 from l1.kernel.params.api import (
     PAL_COMPLEXITY_MAX_DEPTH,
     PAL_COMPLEXITY_MAX_TOKENS,
@@ -32,11 +33,9 @@ from l1.kernel.params.api import (
     PAL_STANDARD_COST,
     PAL_STANDARD_THRESHOLD,
 )
+from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_40
 
 logger = logging.getLogger(__name__)
-
-from l1.kernel.params.agent import LOOP_FOLD_LIST_TRUNCATION
-from l1.kernel.params.system import HASH_TRUNC_LONG, LOG_TRUNC_40
 
 TIERS = ("frugal", "standard", "frontier")
 TIER_COST = {"frugal": PAL_FRUGAL_COST, "standard": PAL_STANDARD_COST, "frontier": PAL_FRONTIER_COST}
@@ -47,7 +46,11 @@ def complexity_score(tokens: int = 0, tools: int = 0, depth: int = 0) -> float:
     norm_tokens = min(tokens / PAL_COMPLEXITY_MAX_TOKENS, 1.0)
     norm_tools = min(tools / PAL_COMPLEXITY_MAX_TOOLS, 1.0)
     norm_depth = min(depth / PAL_COMPLEXITY_MAX_DEPTH, 1.0)
-    return PAL_COMPLEXITY_WEIGHT_TOKENS * norm_tokens + PAL_COMPLEXITY_WEIGHT_TOOLS * norm_tools + PAL_COMPLEXITY_WEIGHT_DEPTH * norm_depth
+    return (
+        PAL_COMPLEXITY_WEIGHT_TOKENS * norm_tokens
+        + PAL_COMPLEXITY_WEIGHT_TOOLS * norm_tools
+        + PAL_COMPLEXITY_WEIGHT_DEPTH * norm_depth
+    )
 
 
 def complexity_to_tier(score: float) -> str:
@@ -83,8 +86,7 @@ class PALRouter:
             return 0.0
         return len(set_a & set_b) / len(set_a | set_b)
 
-    def select(self, task: str, tools: int = 0, depth: int = 0,
-               tokens: int = 0, prefer_tier: str = "") -> str:
+    def select(self, task: str, tools: int = 0, depth: int = 0, tokens: int = 0, prefer_tier: str = "") -> str:
         """Select the optimal tier for a task.
 
         Args:
@@ -111,8 +113,9 @@ class PALRouter:
                     tier = entry.get("tier", tier)
                     break
 
-            self._pattern_history.setdefault(pkey, {"tier": tier, "failures": 0, "successes": 0,
-                                                      "last_seen": time.time()})
+            self._pattern_history.setdefault(
+                pkey, {"tier": tier, "failures": 0, "successes": 0, "last_seen": time.time()}
+            )
             self._total_calls += 1
             self._total_cost += TIER_COST.get(tier, 1)
 
@@ -165,8 +168,7 @@ class PALRouter:
                 "downgrades": self._downgrades,
                 "patterns": len(self._pattern_history),
                 "tier_distribution": {
-                    t: sum(1 for e in self._pattern_history.values() if e["tier"] == t)
-                    for t in TIERS
+                    t: sum(1 for e in self._pattern_history.values() if e["tier"] == t) for t in TIERS
                 },
             }
 

@@ -27,7 +27,7 @@ from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.platform import get_config_dir
+from l1.kernel.platform import get_config_dir  # noqa: E402
 
 KEY_DIR = Path(get_config_dir()) / "keys"
 _SYSTEM_KEY_FILE = KEY_DIR / ".system_key"
@@ -50,6 +50,7 @@ def _get_system_key() -> bytes:
     if _SYSTEM_KEY_FILE.exists():
         return _SYSTEM_KEY_FILE.read_bytes()
     import secrets
+
     key = secrets.token_bytes(32)
     fd = os.open(str(_SYSTEM_KEY_FILE), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
@@ -63,6 +64,7 @@ def _get_system_key() -> bytes:
 def _encrypt_private_key(priv_bytes: bytes) -> str:
     """Encrypt private key bytes for disk storage using AES-GCM via cryptography."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
     system_key = _get_system_key()
     aesgcm = AESGCM(system_key)
     nonce = os.urandom(12)
@@ -74,6 +76,7 @@ def _encrypt_private_key(priv_bytes: bytes) -> str:
 def _decrypt_private_key(encrypted_hex: str) -> bytes | None:
     """Decrypt a private key hex string back to bytes."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
     try:
         system_key = _get_system_key()
         aesgcm = AESGCM(system_key)
@@ -89,6 +92,7 @@ def _decrypt_private_key(encrypted_hex: str) -> bytes | None:
 @dataclass
 class AgentProof:
     """Agent identity proof — attached to every IPC message (§6.1)."""
+
     agent_id: str
     cell_id: str
     timestamp: float
@@ -108,6 +112,7 @@ class AgentProof:
 @dataclass
 class TrustAnchor:
     """Trust anchor — root of trust for a cell."""
+
     cell_id: str
     public_key: str
     constitution_hash: str
@@ -129,8 +134,8 @@ class IdentityService(BaseService):
 
     def __init__(self):
         super().__init__("identity")
-        self._keys: dict[str, str] = {}         # agent_id → public_key (hex)
-        self._secrets: dict[str, bytes] = {}      # agent_id → private_key (bytes, in-memory only)
+        self._keys: dict[str, str] = {}  # agent_id → public_key (hex)
+        self._secrets: dict[str, bytes] = {}  # agent_id → private_key (bytes, in-memory only)
         # nonce → insertion timestamp; a nonce is only valid within PROOF_TTL
         # of when it was first seen. We absorb a nonce only *after* the
         # signature check passes, so a forged/ replayed proof cannot lock
@@ -150,7 +155,9 @@ class IdentityService(BaseService):
                 self._keys[agent_id] = pub
             except (OSError, ValueError) as e:
                 logger.warning("failed to load public key: %s", e)
-                capture("public key load failed", error_code="E_IDENTITY", component="identity", context={"error": str(e)})
+                capture(
+                    "public key load failed", error_code="E_IDENTITY", component="identity", context={"error": str(e)}
+                )
         # Load persisted encrypted private keys (P7 fix)
         for priv_file in self._key_dir.glob("*.priv"):
             try:
@@ -162,15 +169,14 @@ class IdentityService(BaseService):
                     # Also mark identity as verified in process table
                     try:
                         from l1.kernel.process import get_table
+
                         get_table().mark_identity_verified(agent_id)
                     except (ImportError, AttributeError) as e:
                         logger.warning("identity: %s", e)
             except (OSError, ValueError) as e:
                 logger.warning("failed to load private key for %s: %s", priv_file.stem, e)
-        logger.info("identity service started: %d public keys, %d private keys",
-                    len(self._keys), len(self._secrets))
-        return {"success": True, "keys_loaded": len(self._keys),
-                "priv_keys_loaded": len(self._secrets)}
+        logger.info("identity service started: %d public keys, %d private keys", len(self._keys), len(self._secrets))
+        return {"success": True, "keys_loaded": len(self._keys), "priv_keys_loaded": len(self._secrets)}
 
     def _on_stop(self) -> dict:
         self._keys.clear()
@@ -191,6 +197,7 @@ class IdentityService(BaseService):
                 PrivateFormat,
                 PublicFormat,
             )
+
             private_key = ed25519.Ed25519PrivateKey.generate()
             public_key = private_key.public_key()
 
@@ -217,6 +224,7 @@ class IdentityService(BaseService):
             # Notify kernel process table: this agent's identity is verified
             try:
                 from l1.kernel.process import get_table
+
                 get_table().mark_identity_verified(agent_id)
             except (ImportError, AttributeError) as e:
                 logger.warning("services/identity: %s", e)
@@ -245,6 +253,7 @@ class IdentityService(BaseService):
                 return {"success": False, "error": f"no private key for {agent_id}, generate one first"}
 
         import secrets
+
         nonce = secrets.token_hex(16)
         timestamp = time.time()
 
@@ -258,8 +267,10 @@ class IdentityService(BaseService):
             signature = private_key.sign(payload).hex()
 
             proof = AgentProof(
-                agent_id=agent_id, cell_id=cell_id,
-                timestamp=timestamp, nonce=nonce,
+                agent_id=agent_id,
+                cell_id=cell_id,
+                timestamp=timestamp,
+                nonce=nonce,
                 signature=signature,
                 public_key=self._keys.get(agent_id, ""),
             )
@@ -324,13 +335,13 @@ class IdentityService(BaseService):
         """Register a trust anchor for cross-cell trust."""
         with self._lock:
             self._trust_anchors[cell_id] = TrustAnchor(
-                cell_id=cell_id, public_key=public_key,
+                cell_id=cell_id,
+                public_key=public_key,
                 constitution_hash=constitution_hash,
             )
         return {"success": True, "cell_id": cell_id}
 
-    def verify_cross_cell(self, from_cell: str, to_cell: str,
-                          proof: dict, constitution_hash: str) -> dict:
+    def verify_cross_cell(self, from_cell: str, to_cell: str, proof: dict, constitution_hash: str) -> dict:
         """Verify cross-cell trust chain (§6.2)."""
         # 1. Both cells must have trust anchors
         with self._lock:

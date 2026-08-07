@@ -93,9 +93,8 @@ class TestBatchEdit:
         engine = EditEngine()
         files = []
         for i in range(3):
-            f = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8")
-            f.write(f"file_{i}\n")
-            f.close()
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
+                f.write(f"file_{i}\n")
             files.append(f.name)
 
         try:
@@ -119,12 +118,10 @@ class TestBatchEdit:
         from l3.services.file_editor import DiffEdit, EditEngine
 
         engine = EditEngine()
-        f1 = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8")
-        f1.write("file_one\n")
-        f1.close()
-        f2 = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8")
-        f2.write("file_two\n")
-        f2.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f1:
+            f1.write("file_one\n")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f2:
+            f2.write("file_two\n")
 
         try:
             edits = [
@@ -234,6 +231,7 @@ class TestPatchSystem:
 
     def test_patch_list(self):
         from l3.services.file_editor import EditEngine, PatchManager
+
         engine = EditEngine()
         mgr = PatchManager(engine)
         pr = mgr.list_patches()
@@ -271,6 +269,7 @@ class TestApiHandlers:
 
     def test_handle_fs_undo_redo(self):
         from l3.services.file_editor import get_engine, handle_fs_redo, handle_fs_undo
+
         # Ensure clean state
         eng = get_engine()
         while eng._history:

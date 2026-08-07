@@ -80,28 +80,34 @@ class SubAgentPool:
         if SUBAGENT_SESSION_TTL <= 0 or self._cleanup_started:
             return
         self._cleanup_started = True
+
         def _cleanup_loop():
             while True:
                 time.sleep(SUBAGENT_SESSION_TTL * 0.5)
                 now = time.time()
                 with self._lock:
                     expired = [
-                        sid for sid, t in self._session_history.items()
+                        sid
+                        for sid, t in self._session_history.items()
                         if t.completed_at and now - t.completed_at > t.ttl
                     ]
                     for sid in expired:
                         self._session_history.pop(sid, None)
-        t = threading.Thread(target=_cleanup_loop, daemon=True,
-                             name=f"sub-cleanup-{self.cell_id}")
+
+        t = threading.Thread(target=_cleanup_loop, daemon=True, name=f"sub-cleanup-{self.cell_id}")
         t.start()
 
-    def commission(self, spec: SubAgentSpec, prompt: str,
-                   card_type: str = "explore",
-                   parent_agent_id: str = "",
-                   context: dict | None = None,
-                   cell=None,
-                   territory: list[str] | None = None,
-                   session_id: str = "") -> dict:
+    def commission(
+        self,
+        spec: SubAgentSpec,
+        prompt: str,
+        card_type: str = "explore",
+        parent_agent_id: str = "",
+        context: dict | None = None,
+        cell=None,
+        territory: list[str] | None = None,
+        session_id: str = "",
+    ) -> dict:
         """Dispatch to the appropriate executor buffer by card_type.
 
         If session_id is provided and a completed task with that ID exists
@@ -116,13 +122,14 @@ class SubAgentPool:
         context = context or {}
 
         # Runtime safety check: reject if spec is not visible to caller
-        if cell and hasattr(cell, 'permission') and cell.permission:
-            if not cell.permission.is_visible(spec.name, parent_agent_id):
-                logger.warning("delegation denied: %s cannot see %s (state machine)",
-                               parent_agent_id, spec.name)
-                return {"success": False,
-                        "error": f"'{spec.name}' is not available",
-                        "reason": "not_visible"}
+        if (
+            cell
+            and hasattr(cell, "permission")
+            and cell.permission
+            and not cell.permission.is_visible(spec.name, parent_agent_id)
+        ):
+            logger.warning("delegation denied: %s cannot see %s (state machine)", parent_agent_id, spec.name)
+            return {"success": False, "error": f"'{spec.name}' is not available", "reason": "not_visible"}
 
         # Merge previous session context if session_id given
         if session_id:
@@ -134,8 +141,12 @@ class SubAgentPool:
                     context.setdefault("prev_session_id", session_id)
 
         task = SubAgentTask(
-            task_id=task_id, spec=spec, prompt=prompt,
-            parent_agent_id=parent_agent_id, context=context, cell=cell,
+            task_id=task_id,
+            spec=spec,
+            prompt=prompt,
+            parent_agent_id=parent_agent_id,
+            context=context,
+            cell=cell,
             territory=territory,
             session_id=session_id,
         )
@@ -144,8 +155,9 @@ class SubAgentPool:
             self._total_commissioned += 1
 
         self._executor_for(card_type).submit(task.start)
-        logger.debug("subagent_pool: %s -> %s (buf=%s, total=%d)",
-                     parent_agent_id, task_id, card_type, self._total_commissioned)
+        logger.debug(
+            "subagent_pool: %s -> %s (buf=%s, total=%d)", parent_agent_id, task_id, card_type, self._total_commissioned
+        )
         return {"success": True, "task_id": task_id, "buffer": card_type}
 
     def collect(self, task_id: str, timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
@@ -164,11 +176,14 @@ class SubAgentPool:
                         self._session_history[task.session_id] = task
                 return r
             time.sleep(0.1)
-        return {"success": False, "task_id": task_id, "error": "timeout",
-                "status": (t.status if (t := self._tasks.get(task_id)) else "unknown")}
+        return {
+            "success": False,
+            "task_id": task_id,
+            "error": "timeout",
+            "status": (t.status if (t := self._tasks.get(task_id)) else "unknown"),
+        }
 
-    def collect_all(self, task_ids: list[str],
-                    timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
+    def collect_all(self, task_ids: list[str], timeout: float = SUBAGENT_RUN_TIMEOUT) -> dict:
         """Collect results for many tasks, waiting until all finish or timeout."""
         deadline = time.time() + timeout
         results: list[dict] = []
@@ -190,17 +205,23 @@ class SubAgentPool:
                 time.sleep(0.1)
         for tid in remaining:
             results.append({"task_id": tid, "error": "timeout"})
-        return {"success": True, "completed": sum(1 for r in results if r.get("status") == "completed"),
-                "failed": sum(1 for r in results if r.get("status") == "failed"),
-                "timed_out": len(remaining), "results": results}
+        return {
+            "success": True,
+            "completed": sum(1 for r in results if r.get("status") == "completed"),
+            "failed": sum(1 for r in results if r.get("status") == "failed"),
+            "timed_out": len(remaining),
+            "results": results,
+        }
 
     def stats(self) -> dict:
         """Return pool commission and worker statistics."""
         with self._lock:
-            return {"total_commissioned": self._total_commissioned,
-                    "tracked": len(self._tasks),
-                    "explore_workers": self._explore_workers,
-                    "execute_workers": self._execute_workers}
+            return {
+                "total_commissioned": self._total_commissioned,
+                "tracked": len(self._tasks),
+                "explore_workers": self._explore_workers,
+                "execute_workers": self._execute_workers,
+            }
 
     def shutdown(self, wait: bool = False) -> None:
         """Shut down both executor buffers. Idempotent."""
@@ -209,8 +230,7 @@ class SubAgentPool:
 
     # ── Spec visibility (queried by AgentLoop for tool discovery) ──
 
-    def list_visible_specs(self, agent_id: str, agent_ring: int = 1,
-                          cell=None) -> list[dict]:
+    def list_visible_specs(self, agent_id: str, agent_ring: int = 1, cell=None) -> list[dict]:
         """Return SubAgent specs visible to an agent (dict, not SubAgentSpec).
 
         Delegates to ``Cell.permission.list_visible_specs()`` for gate check,
@@ -220,19 +240,26 @@ class SubAgentPool:
         visible (backward-compatible fallback).
         """
         all_specs = load_specs()
-        if cell and hasattr(cell, 'permission') and cell.permission:
+        if cell and hasattr(cell, "permission") and cell.permission:
             visible_names = cell.permission.list_visible_specs(agent_id, agent_ring)
             return [
-                {"name": n, "description": all_specs[n].description[:LOG_TRUNC_100],
-                 "read_only": all_specs[n].read_only,
-                 "tools": all_specs[n].allowed_tools[:5]}
-                for n in visible_names if n in all_specs
+                {
+                    "name": n,
+                    "description": all_specs[n].description[:LOG_TRUNC_100],
+                    "read_only": all_specs[n].read_only,
+                    "tools": all_specs[n].allowed_tools[:5],
+                }
+                for n in visible_names
+                if n in all_specs
             ]
         # Fallback: all specs visible
         return [
-            {"name": n, "description": s.description[:LOG_TRUNC_100],
-             "read_only": s.read_only,
-             "tools": s.allowed_tools[:5]}
+            {
+                "name": n,
+                "description": s.description[:LOG_TRUNC_100],
+                "read_only": s.read_only,
+                "tools": s.allowed_tools[:5],
+            }
             for n, s in all_specs.items()
         ]
 
@@ -240,9 +267,9 @@ class SubAgentPool:
 
     MENTION_RE = re.compile(r"@(\w[\w-]*)\s*(.*)", re.DOTALL)
 
-    def parse_mentions(self, text: str, cell=None,
-                       agent_id: str = "", agent_ring: int = 1
-                       ) -> list[tuple[str, str, str]]:
+    def parse_mentions(
+        self, text: str, cell=None, agent_id: str = "", agent_ring: int = 1
+    ) -> list[tuple[str, str, str]]:
         """Parse @mentions in text, returning (spec_name, before, after).
 
         If *cell* is provided, only specs visible to the agent are returned
@@ -251,7 +278,7 @@ class SubAgentPool:
         results = []
         remaining = text.strip()
         all_specs = load_specs()
-        if cell and hasattr(cell, 'permission') and cell.permission:
+        if cell and hasattr(cell, "permission") and cell.permission:
             visible = set(cell.permission.list_visible_specs(agent_id, agent_ring))
             specs = {n: s for n, s in all_specs.items() if n in visible}
         else:
@@ -259,27 +286,25 @@ class SubAgentPool:
         while remaining:
             m = self.MENTION_RE.match(remaining)
             if m and m.group(1) in specs:
-                results.append((m.group(1), remaining[:m.start()], m.group(2).strip()))
+                results.append((m.group(1), remaining[: m.start()], m.group(2).strip()))
                 remaining = m.group(2).strip()
                 continue
             break
         return results
 
-    def dispatch_from_text(self, text: str, parent_agent_id: str = "",
-                           cell=None, card_type: str = "explore",
-                           agent_ring: int = 1) -> dict:
+    def dispatch_from_text(
+        self, text: str, parent_agent_id: str = "", cell=None, card_type: str = "explore", agent_ring: int = 1
+    ) -> dict:
         """Parse @mention and dispatch to the pool.
 
         Uses BUILTIN_SUBAGENTS to resolve spec names.
         Filters by visibility when *cell* has a permission system.
         """
-        mentions = self.parse_mentions(text, cell=cell, agent_id=parent_agent_id,
-                                       agent_ring=agent_ring)
+        mentions = self.parse_mentions(text, cell=cell, agent_id=parent_agent_id, agent_ring=agent_ring)
         if not mentions:
             return {"success": False, "error": "no @mention found"}
         spec_name, _before, prompt = mentions[0]
         spec = dict(BUILTIN_SUBAGENTS).get(spec_name)
         if not spec:
             return {"success": False, "error": f"unknown subagent: {spec_name}"}
-        return self.commission(spec, prompt, card_type=card_type,
-                               parent_agent_id=parent_agent_id, cell=cell)
+        return self.commission(spec, prompt, card_type=card_type, parent_agent_id=parent_agent_id, cell=cell)

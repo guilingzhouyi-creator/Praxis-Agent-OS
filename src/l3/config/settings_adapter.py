@@ -27,8 +27,9 @@ class Settings:
         # (deployment-config layer, not persisted) so that keys like
         # llm.provider, kernel.allocator.* remain accessible without
         # polluting the L3 runtime-override file.
-        from l1.kernel.settings import DEFAULTS as _legacy
-        for _k, _v in _legacy.items():
+        from l1.kernel.settings import DEFAULTS as LEGACY_DEFAULTS
+
+        for _k, _v in LEGACY_DEFAULTS.items():
             if self._center.get(_k) is None:
                 self._center.set_l2(_k, _v)
 

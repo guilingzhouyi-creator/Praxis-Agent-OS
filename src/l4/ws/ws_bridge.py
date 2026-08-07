@@ -26,10 +26,11 @@ import threading
 import time
 from typing import Any
 
-from l1.kernel.params.api import API_WS_PORT, API_GATEWAY_HOST
-from l1.kernel.ports import WebSocketPort
-from websockets.sync.server import serve as ws_serve
 from websockets.exceptions import ConnectionClosed
+from websockets.sync.server import serve as ws_serve
+
+from l1.kernel.params.api import API_GATEWAY_HOST, API_WS_PORT
+from l1.kernel.ports import WebSocketPort
 
 logger = logging.getLogger(__name__)
 
@@ -81,10 +82,10 @@ class WsBridgePort(WebSocketPort):
         """Deregister and close the given connection handle."""
         with _ws_lock:
             _ws_clients[:] = [c for c in _ws_clients if c["id"] != conn["id"]]
-        try:
+        from contextlib import suppress
+
+        with suppress(Exception):
             conn["conn"].close()
-        except Exception:
-            pass
 
     def broadcast(self, event: str, data: dict) -> None:
         """Push an event to all subscribed clients."""
@@ -101,10 +102,12 @@ def _register_event_listener() -> None:
         from l1.kernel import get_event_bus
 
         bus = get_event_bus()
-        bus.on_any(lambda sig: _broadcast(
-            sig.type.name if hasattr(sig.type, "name") else str(sig.type),
-            sig.data if hasattr(sig, "data") else {},
-        ))
+        bus.on_any(
+            lambda sig: _broadcast(
+                sig.type.name if hasattr(sig.type, "name") else str(sig.type),
+                sig.data if hasattr(sig, "data") else {},
+            )
+        )
     except Exception as e:
         logger.warning("ws_bridge: event bus subscribe: %s", e)
 
@@ -113,10 +116,15 @@ def _broadcast(event_type: str, data: Any) -> None:
     """Push an event to matching clients."""
     with _ws_lock:
         dead: list[str] = []
-        payload = json.dumps({
-            "type": "event", "event": event_type, "data": data,
-            "timestamp": time.time(),
-        }, default=str)
+        payload = json.dumps(
+            {
+                "type": "event",
+                "event": event_type,
+                "data": data,
+                "timestamp": time.time(),
+            },
+            default=str,
+        )
         for client in _ws_clients:
             if client["types"] and event_type not in client["types"]:
                 continue
@@ -129,10 +137,10 @@ def _broadcast(event_type: str, data: Any) -> None:
 
 
 def _send(client: dict, msg: dict) -> None:
-    try:
+    from contextlib import suppress
+
+    with suppress(Exception):
         client["conn"].send(json.dumps(msg, default=str))
-    except Exception:
-        pass
 
 
 def _import_handler(ref: str):
@@ -215,6 +223,7 @@ def start_server(host: str = "", port: int = 0) -> threading.Thread:
     port = port or API_WS_PORT
     try:
         from l1.kernel.ports import register_port
+
         register_port("ws", WsBridgePort())
     except Exception:
         logger.debug("ws_bridge: port self-registration skipped")
@@ -234,5 +243,4 @@ def start_server(host: str = "", port: int = 0) -> threading.Thread:
 
 def handle_ws_info(body: dict | None = None) -> dict:
     """GET /api/v2/ws — discovery endpoint with the bridge connection URL."""
-    return {"success": True, "url": f"ws://{API_GATEWAY_HOST}:{API_WS_PORT}",
-            "protocol": "subscribe|unsubscribe|rpc"}
+    return {"success": True, "url": f"ws://{API_GATEWAY_HOST}:{API_WS_PORT}", "protocol": "subscribe|unsubscribe|rpc"}

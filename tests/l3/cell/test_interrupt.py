@@ -14,19 +14,21 @@ from l3.cell.components.cell_interrupt import (
 
 # ── Fixtures ──
 
+
 @pytest.fixture
 def irq():
     """Fresh InterruptController with no PMU."""
-    ctrl = InterruptController(cell_id="test-cell", pmu=None)
-    return ctrl
+    return InterruptController(cell_id="test-cell", pmu=None)
 
 
 @pytest.fixture
 def irq_with_pmu():
     """InterruptController with a mock PMU."""
+
     class FakePmu:
         def __init__(self):
             self.counts = {}
+
         def increment(self, name: str, delta: int = 1):
             self.counts[name] = self.counts.get(name, 0) + delta
 
@@ -36,6 +38,7 @@ def irq_with_pmu():
 
 
 # ── Built-in IRQ tests ──
+
 
 class TestBuiltinIrqs:
     """17 built-in IRQs registered at init (0-16, incl. cell.rollback)."""
@@ -74,6 +77,7 @@ class TestBuiltinIrqs:
 
 # ── Registration tests ──
 
+
 class TestRegister:
     """Register/unregister IRQ handlers."""
 
@@ -111,7 +115,10 @@ class TestRegister:
     def test_register_with_handler(self, irq):
         """Handler registered on non-NMI IRQ is called after dispatch."""
         handler_called = []
-        def handler(ev): handler_called.append(ev)
+
+        def handler(ev):
+            handler_called.append(ev)
+
         irq.register(20, "with_handler", handler=handler)
         irq.trigger(20)
         irq.dispatch_pending()  # non-NMI IRQs need explicit dispatch
@@ -120,13 +127,17 @@ class TestRegister:
 
 # ── Trigger tests ──
 
+
 class TestTrigger:
     """Interrupt triggering — NMI vs queued, by number vs name."""
 
     def test_trigger_nmi_inline(self, irq):
         """NMI fires handler immediately."""
         calls = []
-        def handler(ev): calls.append(ev.data)
+
+        def handler(ev):
+            calls.append(ev.data)
+
         irq.set_handler(0, handler)  # IRQ0 = watchdog.crash (NMI)
         r = irq.trigger(0, data="crash_info")
         assert r["delivery"] == "nmi"
@@ -171,6 +182,7 @@ class TestTrigger:
 
 # ── Dispatch tests ──
 
+
 class TestDispatch:
     """Pending interrupt dispatch — priority ordering."""
 
@@ -181,8 +193,8 @@ class TestDispatch:
         irq.set_handler(8, lambda e: dispatched.append(("norm", e.irq_num)))
         irq.set_handler(12, lambda e: dispatched.append(("low", e.irq_num)))
         irq.trigger(12)  # LOW
-        irq.trigger(8)   # NORMAL
-        irq.trigger(4)   # HIGH
+        irq.trigger(8)  # NORMAL
+        irq.trigger(4)  # HIGH
         count = irq.dispatch_pending(max_total=5)
         assert count == 3
         assert dispatched[0][0] == "high"
@@ -213,14 +225,15 @@ class TestDispatch:
     def test_dispatch_max_per_priority(self, irq):
         """max_total caps total dispatched across all priority levels."""
         for _ in range(10):
-            irq.trigger(4)   # HIGH
-            irq.trigger(8)   # NORMAL
+            irq.trigger(4)  # HIGH
+            irq.trigger(8)  # NORMAL
         # max_total is a global cap, not per-priority
         count = irq.dispatch_pending(max_total=3)
         assert count == 3  # total cap, not per-priority
 
 
 # ── Mask / Unmask tests ──
+
 
 class TestMaskUnmask:
     """IRQ masking."""
@@ -248,12 +261,16 @@ class TestMaskUnmask:
 
 # ── Set handler tests ──
 
+
 class TestSetHandler:
     """Handler assignment."""
 
     def test_set_handler(self, irq):
         calls = []
-        def handler(ev): calls.append(ev.data)
+
+        def handler(ev):
+            calls.append(ev.data)
+
         r = irq.set_handler(4, handler)
         assert r["success"]
         irq.trigger(4, data="test")
@@ -273,6 +290,7 @@ class TestSetHandler:
 
 
 # ── Stats tests ──
+
 
 class TestStats:
     """Statistics reporting."""
@@ -295,7 +313,7 @@ class TestStats:
         assert stats["irqs"]["IRQ4"]["handled"] == 1
 
     def test_stats_pending_by_priority(self, irq):
-        irq.trigger(8)   # NORMAL
+        irq.trigger(8)  # NORMAL
         irq.trigger(12)  # LOW
         stats = irq.stats()
         assert stats["pending_by_priority"]["normal"] == 1
@@ -303,6 +321,7 @@ class TestStats:
 
 
 # ── PMU integration tests ──
+
 
 class TestPmuIntegration:
     """PMU counter integration."""
@@ -329,45 +348,58 @@ class TestPmuIntegration:
 
 # ── Thread safety tests ──
 
+
 class TestThreadSafety:
     """Concurrent access from multiple threads."""
 
     def test_parallel_trigger(self, irq):
         import threading
+
         errors = []
+
         def worker(n):
             try:
                 for _ in range(20):
                     irq.trigger(8, data=n)
             except Exception as e:
                 errors.append(e)
+
         threads = [threading.Thread(target=worker, args=(i,)) for i in range(4)]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
         assert len(errors) == 0
         stats = irq.stats()
         assert stats["total_triggered"] == 80
 
     def test_parallel_dispatch(self, irq):
         import threading
+
         irq.set_handler(4, lambda e: None)
         irq.set_handler(8, lambda e: None)
+
         def triggerer():
             for _ in range(50):
                 irq.trigger(4)
                 irq.trigger(8)
+
         def dispatcher():
             for _ in range(10):
                 irq.dispatch_pending(max_total=5)
+
         threads = [threading.Thread(target=triggerer) for _ in range(2)]
         threads += [threading.Thread(target=dispatcher) for _ in range(2)]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
         stats = irq.stats()
         assert stats["total_triggered"] >= 100
 
 
 # ── Edge case tests ──
+
 
 class TestEdgeCases:
     """Boundary conditions."""

@@ -24,10 +24,10 @@ import time
 from dataclasses import dataclass, field
 
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
+from l1.kernel.discovery import get_service_limit
 from l1.kernel.interrupt import InterruptType, register_handler
 from l1.kernel.interrupt import get_table as get_int_table
 from l1.kernel.params.agent import AGENT_STATUS_CRASHED, SIGNAL_TARGET_L3
-from l1.kernel.discovery import get_service_limit
 from l1.kernel.params.system import (
     AGENT_UNRESPONSIVE_TIMEOUT,
     INTERRUPT_HIGH_COUNT,
@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 class AlertLevel:
     """AlertLevel — alert level."""
+
     INFO = "info"
     WARN = "warn"
     CRIT = "crit"
@@ -50,6 +51,7 @@ class AlertLevel:
 @dataclass
 class Alert:
     """Alert — alert record (level, source, message, timestamp, data)."""
+
     level: str
     source: str
     message: str
@@ -60,6 +62,7 @@ class Alert:
 @dataclass
 class CellStatus:
     """CellStatus — cell status record (cell_id, agents, agent_status, agent_uptime, agent_cards)."""
+
     cell_id: str
     agents: dict[str, str] = field(default_factory=dict)  # agent_id → role
     agent_status: dict[str, str] = field(default_factory=dict)  # agent_id → status
@@ -93,16 +96,14 @@ class OpsConsole:
             interval = get_service_limit("ops_console_interval", OPS_CONSOLE_INTERVAL)
         self._running = True
         self._monitor_event = threading.Event()
-        self._monitor_thread = threading.Thread(
-            target=self._monitor_loop, args=(interval,), daemon=True
-        )
+        self._monitor_thread = threading.Thread(target=self._monitor_loop, args=(interval,), daemon=True)
         self._monitor_thread.start()
         return {"success": True}
 
     def stop(self) -> None:
         """Stop the background health monitor."""
         self._running = False
-        if hasattr(self, '_monitor_event'):
+        if hasattr(self, "_monitor_event"):
             self._monitor_event.set()
 
     # ── Cell registration ──
@@ -122,9 +123,9 @@ class OpsConsole:
 
     # ── Agent status updates ──
 
-    def report_agent_status(self, cell_id: str, agent_id: str,
-                            status: str, cards: int = 0,
-                            uptime: float = 0.0) -> None:
+    def report_agent_status(
+        self, cell_id: str, agent_id: str, status: str, cards: int = 0, uptime: float = 0.0
+    ) -> None:
         """Record the latest status, card count, and uptime for an agent."""
         with self._lock:
             cell = self._cells.get(cell_id)
@@ -135,34 +136,40 @@ class OpsConsole:
             cell.agent_uptime[agent_id] = uptime
             cell.last_seen = time.time()
 
-    def report_agent_crash(self, cell_id: str, agent_id: str,
-                           reason: str = "") -> None:
+    def report_agent_crash(self, cell_id: str, agent_id: str, reason: str = "") -> None:
         """Mark an agent as crashed, flag the cell unhealthy, and raise a critical alert."""
         with self._lock:
             cell = self._cells.get(cell_id)
             if cell:
                 cell.agent_status[agent_id] = AGENT_STATUS_CRASHED
                 cell.healthy = False
-        self._alert(AlertLevel.CRIT, f"cell/{cell_id}",
-                     f"Agent {agent_id} crashed: {reason}",
-                     {"agent_id": agent_id, "cell_id": cell_id})
+        self._alert(
+            AlertLevel.CRIT,
+            f"cell/{cell_id}",
+            f"Agent {agent_id} crashed: {reason}",
+            {"agent_id": agent_id, "cell_id": cell_id},
+        )
 
     # ── Interrupt handlers ──
 
     def _on_agent_crash(self, intr) -> None:
-        self._alert(AlertLevel.CRIT, "kernel/interrupt",
-                     f"Agent crash: {intr.agent_id} — {intr.reason}",
-                     {"agent_id": intr.agent_id, "reason": intr.reason})
+        self._alert(
+            AlertLevel.CRIT,
+            "kernel/interrupt",
+            f"Agent crash: {intr.agent_id} — {intr.reason}",
+            {"agent_id": intr.agent_id, "reason": intr.reason},
+        )
 
     def _on_deadlock(self, intr) -> None:
-        self._alert(AlertLevel.CRIT, "kernel/interrupt",
-                     f"Deadlock detected — {intr.reason}",
-                     {"reason": intr.reason})
+        self._alert(AlertLevel.CRIT, "kernel/interrupt", f"Deadlock detected — {intr.reason}", {"reason": intr.reason})
 
     def _on_oom(self, intr) -> None:
-        self._alert(AlertLevel.WARN, "kernel/allocator",
-                     f"OOM kill: {intr.agent_id} — {intr.reason}",
-                     {"agent_id": intr.agent_id, "reason": intr.reason})
+        self._alert(
+            AlertLevel.WARN,
+            "kernel/allocator",
+            f"OOM kill: {intr.agent_id} — {intr.reason}",
+            {"agent_id": intr.agent_id, "reason": intr.reason},
+        )
 
     # ── Background health monitor ──
 
@@ -186,22 +193,29 @@ class OpsConsole:
             for cell_id, cell in list(self._cells.items()):
                 # Check agent heartbeats — use individual agent uptime, not cell.last_seen
                 for aid, uptime in list(cell.agent_uptime.items()):
-                    if uptime > 0 and now - uptime > AGENT_UNRESPONSIVE_TIMEOUT:
-                        if cell.agent_status.get(aid) != AGENT_STATUS_CRASHED:
-                            cell.agent_status[aid] = "UNRESPONSIVE"
-                            self._alert(AlertLevel.WARN, f"cell/{cell_id}",
-                                         f"Agent {aid} unresponsive for 60s",
-                                         {"agent_id": aid, "cell_id": cell_id})
+                    if (
+                        uptime > 0
+                        and now - uptime > AGENT_UNRESPONSIVE_TIMEOUT
+                        and cell.agent_status.get(aid) != AGENT_STATUS_CRASHED
+                    ):
+                        cell.agent_status[aid] = "UNRESPONSIVE"
+                        self._alert(
+                            AlertLevel.WARN,
+                            f"cell/{cell_id}",
+                            f"Agent {aid} unresponsive for 60s",
+                            {"agent_id": aid, "cell_id": cell_id},
+                        )
 
         # Check scout pool
         try:
             from .agent.scout import get_pool
+
             pool = get_pool()
             ps = pool.stats()
             if ps.get("active", 0) >= ps.get("max_total", SCOUT_POOL_MAX_TOTAL) * OPS_CONSOLE_POOL_WARN_RATIO:
-                self._alert(AlertLevel.WARN, "scout/pool",
-                             f"Scout pool near capacity: {ps['active']}/{ps['max_total']}",
-                             ps)
+                self._alert(
+                    AlertLevel.WARN, "scout/pool", f"Scout pool near capacity: {ps['active']}/{ps['max_total']}", ps
+                )
         except Exception as e:
             logger.warning("services/ops_console: %s", e)
 
@@ -211,30 +225,37 @@ class OpsConsole:
             counts = it.counts()
             for iname, count in counts.items():
                 if count > INTERRUPT_HIGH_COUNT:
-                    self._alert(AlertLevel.WARN, "kernel/interrupt",
-                                 f"High interrupt count: {iname} = {count}",
-                                 {"type": iname, "count": count})
+                    self._alert(
+                        AlertLevel.WARN,
+                        "kernel/interrupt",
+                        f"High interrupt count: {iname} = {count}",
+                        {"type": iname, "count": count},
+                    )
         except Exception as e:
             logger.warning("services/ops_console: %s", e)
 
     # ── Alert system ──
 
-    def _alert(self, level: str, source: str, message: str,
-               data: dict | None = None) -> None:
+    def _alert(self, level: str, source: str, message: str, data: dict | None = None) -> None:
         alert = Alert(level=level, source=source, message=message, data=data or {})
         with self._lock:
             self._alerts.append(alert)
             if len(self._alerts) > self._max_alerts:
-                self._alerts = self._alerts[-self._max_alerts:]
-        emit_signal(EVENT_TASK_ASSIGN, sender="ops", target=SIGNAL_TARGET_L3,
-                     data={"alert": level, "source": source, "message": message})
+                self._alerts = self._alerts[-self._max_alerts :]
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="ops",
+            target=SIGNAL_TARGET_L3,
+            data={"alert": level, "source": source, "message": message},
+        )
 
     def recent_alerts(self, level: str = "", limit: int = 20) -> list[dict]:
         """Return the most recent alerts, optionally filtered by level."""
         with self._lock:
-            result = [{"level": a.level, "source": a.source,
-                        "message": a.message, "timestamp": a.timestamp}
-                       for a in self._alerts[-limit:]]
+            result = [
+                {"level": a.level, "source": a.source, "message": a.message, "timestamp": a.timestamp}
+                for a in self._alerts[-limit:]
+            ]
             if level:
                 result = [a for a in result if a["level"] == level]
             return result[-limit:]
@@ -247,12 +268,15 @@ class OpsConsole:
             cells_info = {}
             for cid, cell in self._cells.items():
                 cells_info[cid] = {
-                    "agents": {aid: {
-                        "role": cell.agents.get(aid, ""),
-                        "status": cell.agent_status.get(aid, "unknown"),
-                        "cards": cell.agent_cards.get(aid, 0),
-                        "uptime": round(cell.agent_uptime.get(aid, 0), 1),
-                    } for aid in cell.agents},
+                    "agents": {
+                        aid: {
+                            "role": cell.agents.get(aid, ""),
+                            "status": cell.agent_status.get(aid, "unknown"),
+                            "cards": cell.agent_cards.get(aid, 0),
+                            "uptime": round(cell.agent_uptime.get(aid, 0), 1),
+                        }
+                        for aid in cell.agents
+                    },
                     "healthy": cell.healthy,
                     "last_seen": round(time.time() - cell.last_seen, 1) if cell.last_seen else 0,
                 }

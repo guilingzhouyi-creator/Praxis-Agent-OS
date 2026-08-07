@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class TaskState(Enum):
     """TaskState — enum of task state variants."""
+
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -32,6 +33,7 @@ class TaskState(Enum):
 @dataclass
 class WorkTask:
     """WorkTask — work task record (id, fn, args, kwargs, priority)."""
+
     id: str
     fn: Callable
     args: tuple = ()
@@ -71,14 +73,25 @@ class WorkerPool:
             self._workers.append(t)
             t.start()
 
-    def submit(self, task_id: str, fn: Callable, args: tuple = (),
-               kwargs: dict | None = None, priority: int = 5,
-               timeout: float = 0,
-               callback: Callable | None = None) -> dict:
+    def submit(
+        self,
+        task_id: str,
+        fn: Callable,
+        args: tuple = (),
+        kwargs: dict | None = None,
+        priority: int = 5,
+        timeout: float = 0,
+        callback: Callable | None = None,
+    ) -> dict:
         """Submit a task to the pool and return an ack dict."""
         task = WorkTask(
-            id=task_id, fn=fn, args=args, kwargs=kwargs or {},
-            priority=priority, timeout=timeout, callback=callback,
+            id=task_id,
+            fn=fn,
+            args=args,
+            kwargs=kwargs or {},
+            priority=priority,
+            timeout=timeout,
+            callback=callback,
         )
         with self._lock:
             self._tasks[task_id] = task
@@ -121,8 +134,7 @@ class WorkerPool:
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:
-                pending = sum(1 for t in self._tasks.values()
-                              if t.state in (TaskState.PENDING, TaskState.RUNNING))
+                pending = sum(1 for t in self._tasks.values() if t.state in (TaskState.PENDING, TaskState.RUNNING))
                 if pending == 0:
                     return
             time.sleep(POLL_INTERVAL_DEFAULT)
@@ -160,7 +172,9 @@ class WorkerPool:
                 if task.timeout > 0:
                     # Run with timeout via another thread
                     result_q: queue.Queue = queue.Queue()
-                    t = threading.Thread(target=lambda: result_q.put(task.fn(*task.args, **task.kwargs)), daemon=True)
+                    t = threading.Thread(
+                        target=lambda rq=result_q, tk=task: rq.put(tk.fn(*tk.args, **tk.kwargs)), daemon=True
+                    )
                     t.start()
                     t.join(timeout=task.timeout)
                     if t.is_alive():

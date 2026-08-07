@@ -11,6 +11,7 @@ from l1.kernel.vfs import VFS, MountPoint, MountType, get_vfs, reset_vfs
 # MountPoint
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestMountPoint:
     def test_default_values(self):
         mp = MountPoint(name="test", mount_type=MountType.PROJECT)
@@ -19,8 +20,7 @@ class TestMountPoint:
         assert not mp.read_only
 
     def test_custom_values(self):
-        mp = MountPoint(name="secure", mount_type=MountType.PROJECT,
-                        min_ring=3, read_only=True, description="safe")
+        mp = MountPoint(name="secure", mount_type=MountType.PROJECT, min_ring=3, read_only=True, description="safe")
         assert mp.min_ring == 3
         assert mp.read_only
 
@@ -28,6 +28,7 @@ class TestMountPoint:
 # ═══════════════════════════════════════════════════════════════════
 # VFS — mount
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestVfsMount:
     def test_mount_project(self):
@@ -55,6 +56,7 @@ class TestVfsMount:
 # VFS — read / write (real files via mount)
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestVfsReadWrite:
     def test_read_mounted_file(self):
         with tempfile.TemporaryDirectory() as td:
@@ -73,7 +75,8 @@ class TestVfsReadWrite:
             vfs.mount("/project", MountType.PROJECT, real_path=td)
             r = vfs.write("/project/out.txt", "written by vfs")
             assert r["success"]
-            actual = open(os.path.join(td, "out.txt")).read()
+            with open(os.path.join(td, "out.txt")) as f:
+                actual = f.read()
             assert actual == "written by vfs"
 
     def test_read_nonexistent_mount(self):
@@ -109,6 +112,7 @@ class TestVfsReadWrite:
 # VFS — virtual files
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestVfsVirtual:
     def test_virtual_write_then_read(self):
         vfs = VFS()
@@ -129,6 +133,7 @@ class TestVfsVirtual:
 # ═══════════════════════════════════════════════════════════════════
 # VFS — list directory
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestVfsList:
     def test_list_root(self):
@@ -155,6 +160,7 @@ class TestVfsList:
 # VFS — proc / sys read
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestVfsProc:
     def test_proc_mounts(self):
         vfs = VFS()
@@ -180,6 +186,7 @@ class TestVfsProc:
 # VFS — unmount
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestVfsUnmount:
     def test_unmount(self):
         vfs = VFS()
@@ -198,6 +205,7 @@ class TestVfsUnmount:
 # ═══════════════════════════════════════════════════════════════════
 # VFS — singleton
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestVfsSingleton:
     def test_get_vfs(self):

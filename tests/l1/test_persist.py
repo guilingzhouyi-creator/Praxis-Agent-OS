@@ -22,10 +22,10 @@ from l1.kernel.persist import (
 def _reset_persist():
     """Reset persist module globals before each test and use a temp DB."""
     import l1.kernel.persist as _p
+
     # Redirect DB path to a temporary file
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    _p._DB_PATH = tmp.name
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        _p._DB_PATH = tmp.name
     # Close & reset connections
     if _p._DB is not None:
         _p._DB.close()
@@ -38,10 +38,10 @@ def _reset_persist():
     _p._get_write_db()
     yield
     # Cleanup temp file
-    try:
+    from contextlib import suppress
+
+    with suppress(OSError):
         os.unlink(tmp.name)
-    except OSError:
-        pass
 
 
 class TestAppend:
@@ -62,11 +62,13 @@ class TestAppend:
 
 class TestAppendMany:
     def test_append_many_returns_seqs(self):
-        seqs = append_many([
-            ("evt.1", {"x": 1}),
-            ("evt.2", {"x": 2}),
-            ("evt.3", {"x": 3}),
-        ])
+        seqs = append_many(
+            [
+                ("evt.1", {"x": 1}),
+                ("evt.2", {"x": 2}),
+                ("evt.3", {"x": 3}),
+            ]
+        )
         assert len(seqs) == 3
         assert seqs[2] == seqs[0] + 2
 

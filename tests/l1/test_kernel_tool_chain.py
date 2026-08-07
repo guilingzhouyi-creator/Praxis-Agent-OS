@@ -1,5 +1,6 @@
 """Tool chain tests — start, child, complete, get, chain, subtree, verify,
 agent_calls, recent, stats. Covers fingerprint chain integrity and trimming."""
+
 from __future__ import annotations
 
 import os
@@ -16,9 +17,11 @@ if TYPE_CHECKING:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_chain(max_calls: int = 5000) -> ToolChain:
     """Return a fresh ToolChain for test isolation."""
     from l1.kernel.tool_chain import ToolChain
+
     tc = ToolChain()
     tc._max_calls = max_calls
     return tc
@@ -28,9 +31,11 @@ def _make_chain(max_calls: int = 5000) -> ToolChain:
 # start / child
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainStart:
     def test_start_returns_call_id(self):
         from l1.kernel.tool_chain import ToolChain
+
         tc = ToolChain()
         cid = tc.start("read_file", "agent_a")
         assert cid.startswith("call-")
@@ -85,6 +90,7 @@ class TestToolChainStart:
 # complete
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainComplete:
     def test_mark_success(self):
         tc = _make_chain()
@@ -116,6 +122,7 @@ class TestToolChainComplete:
 # get
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainGet:
     def test_get_returns_link(self):
         tc = _make_chain()
@@ -133,6 +140,7 @@ class TestToolChainGet:
 # ---------------------------------------------------------------------------
 # chain (ancestry traversal)
 # ---------------------------------------------------------------------------
+
 
 class TestToolChainChain:
     def test_root_chain_is_singleton(self):
@@ -165,6 +173,7 @@ class TestToolChainChain:
 # subtree (descendant traversal)
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainSubtree:
     def test_subtree_single(self):
         tc = _make_chain()
@@ -196,6 +205,7 @@ class TestToolChainSubtree:
 # ---------------------------------------------------------------------------
 # verify (fingerprint chain integrity)
 # ---------------------------------------------------------------------------
+
 
 class TestToolChainVerify:
     def test_verify_passes_on_intact_chain(self):
@@ -259,6 +269,7 @@ class TestToolChainVerify:
 # agent_calls
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainAgentCalls:
     def test_agent_calls_returns_matching(self):
         tc = _make_chain()
@@ -285,6 +296,7 @@ class TestToolChainAgentCalls:
 # ---------------------------------------------------------------------------
 # recent
 # ---------------------------------------------------------------------------
+
 
 class TestToolChainRecent:
     def test_recent_returns_dicts(self):
@@ -317,6 +329,7 @@ class TestToolChainRecent:
 # stats
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainStats:
     def test_stats_structure(self):
         tc = _make_chain()
@@ -342,6 +355,7 @@ class TestToolChainStats:
 # ---------------------------------------------------------------------------
 # Fingerprint chain integrity — deep validation
 # ---------------------------------------------------------------------------
+
 
 class TestToolChainFingerprintIntegrity:
     def test_fingerprints_differ_per_call(self):
@@ -395,6 +409,7 @@ class TestToolChainFingerprintIntegrity:
 # Trimming
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainTrim:
     def test_trim_keeps_max_calls_watermark(self):
         """When calls exceed max_calls, they are trimmed to ~max_calls/2."""
@@ -416,8 +431,8 @@ class TestToolChainTrim:
         for i in range(8):
             children.append(tc.child(f"c{i}", "agent", parent=root))
         # Trigger trim
-        extra = tc.start("extra", "agent")
-        _ = tc.start("extra2", "agent")
+        tc.start("extra", "agent")
+        tc.start("extra2", "agent")
 
         # Check that remaining children of trimmed root were re-rooted
         remaining = [c for c in children if tc.get(c) is not None]
@@ -440,9 +455,7 @@ class TestToolChainTrim:
         deepest = tc.get(c3)
         if deepest is not None:
             result = tc.verify(c3)
-            assert result["valid"] is True, (
-                f"re-rooted chain fails verify: {result}"
-            )
+            assert result["valid"] is True, f"re-rooted chain fails verify: {result}"
 
     def test_trim_fingerprint_recomputation_cascade(self):
         """When an orphan is re-rooted, its descendants' fingerprints
@@ -465,10 +478,8 @@ class TestToolChainTrim:
 
         if mid_link is not None and leaf_link is not None:
             # Fingerprints must have changed due to re-rooting
-            assert mid_link.fingerprint != mid_fp_before, \
-                "mid fingerprint should change after re-root"
-            assert leaf_link.fingerprint != leaf_fp_before, \
-                "leaf fingerprint should cascade after re-root"
+            assert mid_link.fingerprint != mid_fp_before, "mid fingerprint should change after re-root"
+            assert leaf_link.fingerprint != leaf_fp_before, "leaf fingerprint should cascade after re-root"
             # Verify the new chain
             assert tc.verify(leaf)["valid"] is True
 
@@ -484,9 +495,11 @@ class TestToolChainTrim:
 # Thread safety
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainThreadSafety:
     def test_concurrent_start(self):
         import threading
+
         tc = _make_chain()
         results: list[str] = []
 
@@ -495,8 +508,7 @@ class TestToolChainThreadSafety:
                 cid = tc.start(f"t{n}", "agent")
                 results.append(cid)
 
-        threads = [threading.Thread(target=worker, args=(i,), daemon=True)
-                   for i in range(4)]
+        threads = [threading.Thread(target=worker, args=(i,), daemon=True) for i in range(4)]
         for t in threads:
             t.start()
         for t in threads:
@@ -506,14 +518,14 @@ class TestToolChainThreadSafety:
 
     def test_concurrent_complete(self):
         import threading
+
         tc = _make_chain()
         cid = tc.start("shared", "agent")
 
         def completer():
             tc.complete(cid, success=True)
 
-        threads = [threading.Thread(target=completer, daemon=True)
-                   for _ in range(5)]
+        threads = [threading.Thread(target=completer, daemon=True) for _ in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -526,15 +538,18 @@ class TestToolChainThreadSafety:
 # Singleton integration
 # ---------------------------------------------------------------------------
 
+
 class TestToolChainSingleton:
     def test_get_tool_chain_returns_same_instance(self):
         from l1.kernel.tool_chain import get_tool_chain
+
         tc1 = get_tool_chain()
         tc2 = get_tool_chain()
         assert tc1 is tc2
 
     def test_reset_tool_chain_clears(self):
         from l1.kernel.tool_chain import get_tool_chain, reset_tool_chain
+
         tc1 = get_tool_chain()
         tc1.start("test", "agent")
         assert tc1.stats()["total_calls"] >= 1

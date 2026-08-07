@@ -20,8 +20,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import HASH_TRUNC_MEDIUM, HASH_TRUNC_SHORT, SNAPSHOT_GLOB, SNAPSHOT_PATH_TEMPLATE
-from l1.kernel.platform import get_config_dir
+from l1.kernel.params.system import (  # noqa: E402
+    HASH_TRUNC_MEDIUM,
+    HASH_TRUNC_SHORT,
+    SNAPSHOT_GLOB,
+    SNAPSHOT_PATH_TEMPLATE,
+)
+from l1.kernel.platform import get_config_dir  # noqa: E402
 
 _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 
@@ -34,6 +39,7 @@ _SNAPSHOT_DIR = Path(get_config_dir()) / "snapshots"
 @dataclass
 class SessionExport:
     """Exportable session format."""
+
     version: int = 2
     session_id: str = ""
     agent_id: str = ""
@@ -71,8 +77,7 @@ class SessionExport:
             raise ValueError(f"unsupported export version: {version}")
         if version < 2:
             data = cls._migrate_v1_to_v2(data)
-        return cls(**{k: v for k, v in data.items()
-                      if k in cls.__dataclass_fields__})
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     @staticmethod
     def _migrate_v1_to_v2(data: dict) -> dict:
@@ -85,6 +90,7 @@ class SessionExport:
 @dataclass
 class Snapshot:
     """Session snapshot (includes full state)."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     session_id: str = ""
     created_at: float = field(default_factory=time.time)
@@ -107,8 +113,7 @@ class Snapshot:
             "data": self.data.to_dict(),
         }
         try:
-            path.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
-                           encoding="utf-8")
+            path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
             return {"success": True, "path": str(path), "snapshot_id": self.id}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -122,8 +127,7 @@ class Snapshot:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             export_data = data.get("data", {})
-            export = SessionExport(**{k: v for k, v in export_data.items()
-                                       if k in SessionExport.__dataclass_fields__})
+            export = SessionExport(**{k: v for k, v in export_data.items() if k in SessionExport.__dataclass_fields__})
             return cls(
                 id=data.get("id", snapshot_id),
                 session_id=data.get("session_id", ""),
@@ -148,10 +152,14 @@ class SessionExportManager:
         self._lock = threading.Lock()
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
-    def export_session(self, session_id: str = "",
-                       agent_id: str = "", messages: list[dict] | None = None,
-                       tags: list[str] | None = None,
-                       metadata: dict | None = None) -> dict:
+    def export_session(
+        self,
+        session_id: str = "",
+        agent_id: str = "",
+        messages: list[dict] | None = None,
+        tags: list[str] | None = None,
+        metadata: dict | None = None,
+    ) -> dict:
         """Export session as shareable JSON."""
         export = SessionExport(
             session_id=session_id or f"session-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}",
@@ -189,10 +197,9 @@ class SessionExportManager:
 
     # ── Snapshots ──
 
-    def create_snapshot(self, session_id: str = "",
-                        messages: list[dict] | None = None,
-                        agent_id: str = "",
-                        label: str = "") -> dict:
+    def create_snapshot(
+        self, session_id: str = "", messages: list[dict] | None = None, agent_id: str = "", label: str = ""
+    ) -> dict:
         """Create a snapshot of the current session."""
         export = SessionExport(
             session_id=session_id,
@@ -213,17 +220,18 @@ class SessionExportManager:
             return {"success": True, "snapshots": [], "count": 0}
 
         snapshots = []
-        for f in sorted(_SNAPSHOT_DIR.glob(SNAPSHOT_GLOB),
-                        key=lambda p: p.stat().st_mtime, reverse=True):
+        for f in sorted(_SNAPSHOT_DIR.glob(SNAPSHOT_GLOB), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
-                snapshots.append({
-                    "id": data.get("id", f.stem),
-                    "session_id": data.get("session_id", ""),
-                    "label": data.get("label", ""),
-                    "created_at": data.get("created_at", 0),
-                    "turn_count": data.get("data", {}).get("turn_count", 0),
-                })
+                snapshots.append(
+                    {
+                        "id": data.get("id", f.stem),
+                        "session_id": data.get("session_id", ""),
+                        "label": data.get("label", ""),
+                        "created_at": data.get("created_at", 0),
+                        "turn_count": data.get("data", {}).get("turn_count", 0),
+                    }
+                )
             except Exception as e:
                 logger.warning("snapshot list: %s: %s", f.name, e)
 

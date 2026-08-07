@@ -14,11 +14,20 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.system import SEARCH_EXCLUDE_DIRS, SEARCH_EXCLUDE_EXTS, SEARCH_MAX_RESULTS
+from l1.kernel.params.system import (  # noqa: E402
+    SEARCH_EXCLUDE_DIRS,
+    SEARCH_EXCLUDE_EXTS,
+    SEARCH_MAX_RESULTS,
+)
 
 
-def search(root: str, query: str, include: list[str] | None = None,
-           exclude: list[str] | None = None, max_results: int = SEARCH_MAX_RESULTS) -> dict[str, Any]:
+def search(
+    root: str,
+    query: str,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    max_results: int = SEARCH_MAX_RESULTS,
+) -> dict[str, Any]:
     """Search for query in root directory.
 
     Args:
@@ -66,13 +75,15 @@ def search(root: str, query: str, include: list[str] | None = None,
             matches: list[dict] = []
             for lineno, line in enumerate(text.splitlines(), 1):
                 for m in compiled.finditer(line):
-                    matches.append({
-                        "path": str(fp),
-                        "line": lineno,
-                        "column": m.start() + 1,
-                        "content": line.strip(),
-                        "match": m.group(),
-                    })
+                    matches.append(
+                        {
+                            "path": str(fp),
+                            "line": lineno,
+                            "column": m.start() + 1,
+                            "content": line.strip(),
+                            "match": m.group(),
+                        }
+                    )
                     if len(matches) > 20:
                         return matches
             return matches
@@ -92,8 +103,7 @@ def search(root: str, query: str, include: list[str] | None = None,
         return {"success": False, "error": str(e)}
 
 
-def replace(root: str, query: str, replacement: str,
-            include: list[str] | None = None) -> dict[str, Any]:
+def replace(root: str, query: str, replacement: str, include: list[str] | None = None) -> dict[str, Any]:
     """Find and replace text across files."""
     try:
         r = search(root, query, include=include)
@@ -109,7 +119,7 @@ def replace(root: str, query: str, replacement: str,
         for match in r["results"]:
             by_file.setdefault(match["path"], []).append(match)
 
-        for fp, matches in by_file.items():
+        for fp in by_file:
             try:
                 text = Path(fp).read_text("utf-8", errors="replace")
                 new_text, n = compiled.subn(replacement, text)
@@ -118,6 +128,7 @@ def replace(root: str, query: str, replacement: str,
                     bak_path = fp + ".bak"
                     try:
                         import shutil
+
                         shutil.copy2(fp, bak_path)
                     except OSError:
                         logger.warning("search: backup failed for %s, skipping", fp)
@@ -128,6 +139,11 @@ def replace(root: str, query: str, replacement: str,
             except (OSError, UnicodeDecodeError):
                 continue
 
-        return {"success": True, "replaced": replaced_count, "files_changed": list(changed_files), "file_count": len(changed_files)}
+        return {
+            "success": True,
+            "replaced": replaced_count,
+            "files_changed": list(changed_files),
+            "file_count": len(changed_files),
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}

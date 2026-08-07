@@ -79,8 +79,7 @@ class Supervisor:
                 try:
                     p = subprocess.Popen(
                         [sys.executable, "-m", cfg["entry"]],
-                        env={**os.environ, "PRAXIS_ROLE": role,
-                             "PRAXIS_REPLICA": str(i)},
+                        env={**os.environ, "PRAXIS_ROLE": role, "PRAXIS_REPLICA": str(i)},
                     )
                     self._procs.setdefault(role, []).append(p)
                 except Exception as e:
@@ -94,7 +93,7 @@ class Supervisor:
     def stop(self) -> dict:
         """Stop all child processes."""
         self._running = False
-        for role, procs in self._procs.items():
+        for _role, procs in self._procs.items():
             for p in procs:
                 try:
                     p.terminate()
@@ -144,8 +143,7 @@ class Supervisor:
         ordered: list[str] = []
         remaining = set(self.PROCESSES.keys())
         while remaining:
-            ready = {r for r in remaining
-                     if all(d not in remaining for d in self.PROCESSES[r]["depends"])}
+            ready = {r for r in remaining if all(d not in remaining for d in self.PROCESSES[r]["depends"])}
             if not ready:
                 logger.warning("supervisor: circular dependency detected: %s", remaining)
                 ordered.extend(remaining)
@@ -168,8 +166,7 @@ class Supervisor:
                         try:
                             new_p = subprocess.Popen(
                                 [sys.executable, "-m", self.PROCESSES[role]["entry"]],
-                                env={**os.environ, "PRAXIS_ROLE": role,
-                                     "PRAXIS_REPLICA": str(i)},
+                                env={**os.environ, "PRAXIS_ROLE": role, "PRAXIS_REPLICA": str(i)},
                             )
                             procs[i] = new_p
                         except Exception as e:
@@ -177,6 +174,7 @@ class Supervisor:
 
 
 # ── Entry points ──
+
 
 def main() -> None:
     """praxis-supervisor: start and monitor all child processes."""
@@ -196,6 +194,7 @@ def start_kernel() -> None:
     logging.basicConfig(level=logging.INFO)
     os.environ.setdefault("PRAXIS_ROLE", "kernel")
     from l3.boot.boot import boot
+
     r = boot(interactive=False)
     logger.info("kernel booted: %s", r.get("status", "?"))
 
@@ -205,6 +204,7 @@ def start_api() -> None:
     logging.basicConfig(level=logging.INFO)
     os.environ.setdefault("PRAXIS_ROLE", "api")
     from l4.api.api_gateway import start_api as _start_api
+
     _start_api(
         host=os.environ.get("PRAXIS_API_HOST", "127.0.0.1"),
         port=int(os.environ.get("PRAXIS_API_PORT", "8080")),

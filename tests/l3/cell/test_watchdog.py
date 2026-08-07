@@ -18,6 +18,7 @@ def wd():
 class _FakePmu:
     def __init__(self):
         self.counts = {}
+
     def increment(self, name, delta=1):
         self.counts[name] = self.counts.get(name, 0) + delta
 
@@ -223,17 +224,22 @@ class TestAgentHealthy:
 class TestConcurrency:
     def test_parallel_pet(self, wd):
         import threading
+
         wd.register("agent-a", timeout=60.0)
         errors = []
+
         def worker():
             try:
                 for _ in range(50):
                     wd.pet("agent-a")
             except Exception as e:
                 errors.append(e)
+
         threads = [threading.Thread(target=worker) for _ in range(4)]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
         assert len(errors) == 0
 
 

@@ -18,6 +18,7 @@ from . import params as _p
 @dataclass
 class L3AModelConfig:
     """L3AModelConfig — l3 a model config record (provider, model, max_tokens, temperature, reasoning_effort)."""
+
     provider: str = ""
     model: str = ""
     max_tokens: int = _p.L3A_MODEL_MAX_TOKENS
@@ -60,13 +61,12 @@ class L3AModelConfig:
 
     def set(self, key: str, value: Any) -> None:
         """Set one config field, coercing thinking_budget to int and marking the source as l3a."""
-        if key in ("provider", "model", "max_tokens", "temperature",
-                   "reasoning_effort", "thinking_budget"):
+        if key in ("provider", "model", "max_tokens", "temperature", "reasoning_effort", "thinking_budget"):
             if key == "thinking_budget":
                 try:
                     value = int(value)
-                except (TypeError, ValueError):
-                    raise ValueError(f"thinking_budget must be int, got {value!r}")
+                except (TypeError, ValueError) as err:
+                    raise ValueError(f"thinking_budget must be int, got {value!r}") from err
             setattr(self, key, value)
             self._source = "l3a"
 

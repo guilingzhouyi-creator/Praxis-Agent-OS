@@ -56,10 +56,10 @@ from l1.kernel.params.system import (
 )
 
 from .memory_context import build_context as _build_context
+from .memory_persist import MemoryPersistMixin
 from .memory_quality import _is_good_memory, _score_importance, _suggest_compact
 from .memory_ring import MemEntry, RingLayer, _estimate_tokens
 from .memory_search import search_long_term as _search_long_term
-from .memory_persist import MemoryPersistMixin
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,12 @@ logger = logging.getLogger(__name__)
 class MemoryManager(MemoryPersistMixin):
     """Agent memory manager — context window + ring tiers."""
 
-    def __init__(self, working_budget: int = MEMORY_RING_WORKING_BUDGET, short_budget: int = MEMORY_RING_SHORT_BUDGET, long_budget: int = MEMORY_RING_LONG_BUDGET):
+    def __init__(
+        self,
+        working_budget: int = MEMORY_RING_WORKING_BUDGET,
+        short_budget: int = MEMORY_RING_SHORT_BUDGET,
+        long_budget: int = MEMORY_RING_LONG_BUDGET,
+    ):
         self.working = RingLayer("working", working_budget, ttl=MEMORY_RING_WORKING_TTL)
         self.short = RingLayer("short", short_budget, ttl=MEMORY_RING_SHORT_TTL)
         self.long = RingLayer("long", long_budget, ttl=MEMORY_RING_LONG_TTL)
@@ -85,12 +90,19 @@ class MemoryManager(MemoryPersistMixin):
         self._persist_dir = Path(path)
         self._persist_dir.mkdir(parents=True, exist_ok=True)
 
-    def remember(self, agent_id: str, entry_type: str, content: str,
-                 tags: list[str] | None = None, source: str = "",
-                 importance: float = MEMORY_IMPORTANCE_BASE, ring: int = 1,
-                 real_tokens: int | None = None,
-                 provenance: dict | None = None,
-                 cell_id: str = "") -> str:
+    def remember(
+        self,
+        agent_id: str,
+        entry_type: str,
+        content: str,
+        tags: list[str] | None = None,
+        source: str = "",
+        importance: float = MEMORY_IMPORTANCE_BASE,
+        ring: int = 1,
+        real_tokens: int | None = None,
+        provenance: dict | None = None,
+        cell_id: str = "",
+    ) -> str:
         """Store a memory entry with quality validation.
 
         Args:
@@ -114,17 +126,25 @@ class MemoryManager(MemoryPersistMixin):
         if provenance is None:
             try:
                 from .services.content_trust import get_trust as _gt
+
                 ct = _gt()
                 st = "agent" if agent_id else "tool"
-                prov = ct.tag(st, source_id=agent_id or source,
-                              method=entry_type, trace_id="")
+                prov = ct.tag(st, source_id=agent_id or source, method=entry_type, trace_id="")
                 provenance = prov.to_dict()
             except Exception:
                 provenance = {}
-        entry = MemEntry(id=eid, agent_id=agent_id, cell_id=cell_id, entry_type=entry_type,
-                         content=content, tokens=tok,
-                         tags=tags or [], source=source,
-                         importance=importance, ttl=self._ttl_for(ring))
+        entry = MemEntry(
+            id=eid,
+            agent_id=agent_id,
+            cell_id=cell_id,
+            entry_type=entry_type,
+            content=content,
+            tokens=tok,
+            tags=tags or [],
+            source=source,
+            importance=importance,
+            ttl=self._ttl_for(ring),
+        )
         entry.provenance = provenance
         layer = self._ring(ring)
         layer.push(entry)
@@ -137,18 +157,29 @@ class MemoryManager(MemoryPersistMixin):
         # ── R5 swarm-domain graph hook (off by default; failures do not affect the main flow) ──
         try:
             from .memory_graph import get_graph as _get_graph
+
             _recent = self._recent_entries(agent_id, cell_id, limit=3)
             _get_graph().remember_hook(
-                entry_id=eid, agent_id=agent_id, entry_type=entry_type,
-                cell_id=cell_id, recent=_recent, created_by=agent_id or "system")
+                entry_id=eid,
+                agent_id=agent_id,
+                entry_type=entry_type,
+                cell_id=cell_id,
+                recent=_recent,
+                created_by=agent_id or "system",
+            )
         except Exception:
             logger.debug("memory_graph: hook failed")  # graph is derived layer
-        logger.debug("memory stored [%s] ring=%d imp=%.2f tokens=%d: %s",
-                     entry_type, ring, importance, entry.tokens, content[:LOG_TRUNC_80])
+        logger.debug(
+            "memory stored [%s] ring=%d imp=%.2f tokens=%d: %s",
+            entry_type,
+            ring,
+            importance,
+            entry.tokens,
+            content[:LOG_TRUNC_80],
+        )
         return eid
 
-    def _recent_entries(self, agent_id: str, cell_id: str,
-                        limit: int = 3) -> list[dict]:
+    def _recent_entries(self, agent_id: str, cell_id: str, limit: int = 3) -> list[dict]:
         """Snapshot the most recent entries (for graph edge building).
 
         Collected before pushing the new entry — provides the "previous"
@@ -161,10 +192,14 @@ class MemoryManager(MemoryPersistMixin):
                     for e in reversed(list(layer._entries)):
                         if len(recent) >= limit:
                             break
-                        recent.append({
-                            "id": e.id, "entry_type": e.entry_type,
-                            "agent_id": e.agent_id, "cell_id": e.cell_id,
-                        })
+                        recent.append(
+                            {
+                                "id": e.id,
+                                "entry_type": e.entry_type,
+                                "agent_id": e.agent_id,
+                                "cell_id": e.cell_id,
+                            }
+                        )
                 if len(recent) >= limit:
                     break
         except Exception:
@@ -236,8 +271,7 @@ class MemoryManager(MemoryPersistMixin):
                     layer._rebuild_token_count()
                     break
 
-        return {"success": True, "entry_id": new_id,
-                "from_ring": source_ring, "to_ring": target_ring}
+        return {"success": True, "entry_id": new_id, "from_ring": source_ring, "to_ring": target_ring}
 
     def get_entry(self, entry_id: str) -> MemEntry | None:
         """Look up a single entry by id across all rings (early-exit scan).
@@ -255,11 +289,17 @@ class MemoryManager(MemoryPersistMixin):
                         return e
         return None
 
-    def recall(self, agent_id: str | None = None, entry_type: str | None = None,
-               tag: str | None = None, rings: list[int] | None = None,
-               limit: int = 20, cell_id: str | None = None,
-               promote_to_cell: str = "",
-               graph_diffusion: bool = False) -> list[MemEntry]:
+    def recall(
+        self,
+        agent_id: str | None = None,
+        entry_type: str | None = None,
+        tag: str | None = None,
+        rings: list[int] | None = None,
+        limit: int = 20,
+        cell_id: str | None = None,
+        promote_to_cell: str = "",
+        graph_diffusion: bool = False,
+    ) -> list[MemEntry]:
         """Query across rings.
 
         Args:
@@ -282,6 +322,7 @@ class MemoryManager(MemoryPersistMixin):
         if graph_diffusion:
             try:
                 from .memory_graph import get_graph as _get_graph
+
                 g = _get_graph()
                 if g.enabled:
                     seeds = [e.id for e in results[:5]]
@@ -304,6 +345,7 @@ class MemoryManager(MemoryPersistMixin):
         if promote_to_cell and results:
             try:
                 from l3.cell import get_cell as _get_cell
+
                 cell = _get_cell(promote_to_cell)
                 for e in results:
                     if e.importance >= MEMORY_PROMOTION_THRESHOLD and e.content:
@@ -356,6 +398,7 @@ class MemoryManager(MemoryPersistMixin):
           < 0.4 → Ring 1 (Working)
         """
         from l1.kernel.params.agent import ARCHIVE_IMPORTANCE_THRESHOLD, COMPACT_RING2_IMPORTANCE, SCOUT_RECALL_LIMIT
+
         entries = self.recall(agent_id=agent_id, rings=[1, 2], limit=SCOUT_RECALL_LIMIT)
         candidates = _suggest_compact(entries)
         merged = 0
@@ -375,10 +418,9 @@ class MemoryManager(MemoryPersistMixin):
                 target_ring = 2
             else:
                 target_ring = 1
-            summary_content = "; ".join(
-                f"[{e.entry_type}] {e.content[:LOG_TRUNC_120]}"
-                for e in group_entries
-            )[:LOG_TRUNC_500]
+            summary_content = "; ".join(f"[{e.entry_type}] {e.content[:LOG_TRUNC_120]}" for e in group_entries)[
+                :LOG_TRUNC_500
+            ]
             self.remember(
                 agent_id=group_entries[0].agent_id,
                 entry_type="summary",
@@ -402,10 +444,13 @@ class MemoryManager(MemoryPersistMixin):
                 layer._rebuild_token_count()
         return {"merged": merged, "saved_tokens": saved_tokens, "candidates": len(candidates)}
 
-    def stub_compact(self, agent_id: str | None = None,
-                      keep_recent_turns: int = 1,
-                      min_collapse_size: int = LOG_TRUNC_500,
-                      exempt_tools: tuple[str, ...] = ("read_file",)) -> dict:
+    def stub_compact(
+        self,
+        agent_id: str | None = None,
+        keep_recent_turns: int = 1,
+        min_collapse_size: int = LOG_TRUNC_500,
+        exempt_tools: tuple[str, ...] = ("read_file",),
+    ) -> dict:
         """Stub-compact old tool results: replace full output with summary.
 
         AtomCode StubCompaction-style:
@@ -415,6 +460,7 @@ class MemoryManager(MemoryPersistMixin):
           - Old tool results are replaced with a one-line summary
         """
         from l1.kernel.params.agent import SCOUT_RECALL_LIMIT
+
         entries = self.recall(agent_id=agent_id, rings=[1, 2, 3], limit=SCOUT_RECALL_LIMIT)
         # Find most recent turn timestamps to protect
         recent_ts: set[str] = set()
@@ -445,8 +491,7 @@ class MemoryManager(MemoryPersistMixin):
             stubbed += 1
 
         if stubbed > 0:
-            logger.info("stub_compact: %d entries stubbed, ~%d bytes saved",
-                        stubbed, saved_bytes)
+            logger.info("stub_compact: %d entries stubbed, ~%d bytes saved", stubbed, saved_bytes)
         return {"stubbed": stubbed, "saved_bytes": saved_bytes}
 
     PRESSURE_HIGH: float = MEMORY_PRESSURE_HIGH
@@ -470,15 +515,25 @@ class MemoryManager(MemoryPersistMixin):
         else:
             level = "low"
         return {
-            "level": level, "working_pct": round(w_pct, 2),
-            "short_pct": round(s_pct, 2), "long_pct": round(l_pct, 2),
+            "level": level,
+            "working_pct": round(w_pct, 2),
+            "short_pct": round(s_pct, 2),
+            "long_pct": round(l_pct, 2),
         }
 
     def stats(self) -> dict:
         """Return memory usage stats across all three rings."""
         return {
-            "working": {"entries": self.working.count(), "tokens": self.working.token_count(), "budget": self.working.max_tokens},
-            "short": {"entries": self.short.count(), "tokens": self.short.token_count(), "budget": self.short.max_tokens},
+            "working": {
+                "entries": self.working.count(),
+                "tokens": self.working.token_count(),
+                "budget": self.working.max_tokens,
+            },
+            "short": {
+                "entries": self.short.count(),
+                "tokens": self.short.token_count(),
+                "budget": self.short.max_tokens,
+            },
             "long": {"entries": self.long.count(), "tokens": self.long.token_count(), "budget": self.long.max_tokens},
         }
 
@@ -486,8 +541,6 @@ class MemoryManager(MemoryPersistMixin):
     #   Ring 2 → JSONL (append-only session log)
     #   Ring 3 → SQLite FTS5 (full-text searchable knowledge)
     #   Ring 1 → in-memory only (ephemeral)
-
-
 
     def search_long_term(self, query: str, agent_id: str | None = None, limit: int = 10) -> list[dict]:
         """FTS5 full-text search across Ring 3 knowledge base. Delegates to memory_search.py."""

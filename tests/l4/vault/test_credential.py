@@ -12,6 +12,7 @@ class TestCredentialVault:
     def _init_vault(self):
         """每次测试使用独立临时目录初始化新 vault。"""
         import l4.vault.credential_vault as cv
+
         self._tmpdir = tempfile.mkdtemp()
         cv._vault.clear()
         cv._VAULT_PATH = ""
@@ -111,7 +112,6 @@ class TestCredentialVault:
         """set + 重新 init_vault + get 应保留值。"""
         cv = self._init_vault()
         cv.set_credential("openai", "api_key", "sk-persist")
-        vault_path = cv._VAULT_PATH
         vault_key = cv._VAULT_KEY
         # 模拟重启：重置并重新初始化指向同一目录
         cv._vault.clear()

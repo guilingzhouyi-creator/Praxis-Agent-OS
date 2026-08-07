@@ -79,6 +79,7 @@ def _break_loop(agent_id: str, pattern: str) -> dict:
 
 class GateResult(Enum):
     """GateResult — enum of gate result variants."""
+
     PASS = auto()
     WARN = auto()
     BLOCK = auto()
@@ -87,6 +88,7 @@ class GateResult(Enum):
 
 class PatternKey(Enum):
     """PatternKey — enum of pattern key variants."""
+
     TERRITORY = auto()
     FREQUENCY = auto()
     DANGER = auto()
@@ -97,6 +99,7 @@ class PatternKey(Enum):
 @dataclass
 class LedgerEntry:
     """LedgerEntry — ledger entry record (agent_id, tool, target, result, timestamp)."""
+
     agent_id: str
     tool: str
     target: str
@@ -128,7 +131,7 @@ class ToolHistoryLedger:
         with self._lock:
             self._entries.append(entry)
             if len(self._entries) > self._max:
-                self._entries = self._entries[-self._max:]
+                self._entries = self._entries[-self._max :]
             # Update index buckets
             self._by_agent.setdefault(entry.agent_id, deque(maxlen=self._max)).append(entry)
             self._by_tool.setdefault(entry.tool, deque(maxlen=self._max)).append(entry)
@@ -174,7 +177,6 @@ class ToolHistoryLedger:
             self._by_agent_tool.clear()
 
 
-
 class GateChain:
     """G1-G5 gate chain — non-bypassable tool pre-authorization.
 
@@ -216,8 +218,7 @@ class GateChain:
         with self._lock:
             self._territories.update(territories)
 
-    def register_gate(self, name: str, fn: Callable,
-                      index: int | None = None) -> None:
+    def register_gate(self, name: str, fn: Callable, index: int | None = None) -> None:
         """Register a gate check.  Insert at *index* (default: append)."""
         entry = (name, fn)
         with self._lock:
@@ -226,11 +227,16 @@ class GateChain:
             else:
                 self._gates.append(entry)
 
-    def check(self, tool: str, agent_id: str, target: str = "",
-              territory: list[str] | None = None,
-              territory_map: dict[str, list[str]] | None = None,
-              reputation: float = -1.0,
-              danger: int | None = None) -> dict:
+    def check(
+        self,
+        tool: str,
+        agent_id: str,
+        target: str = "",
+        territory: list[str] | None = None,
+        territory_map: dict[str, list[str]] | None = None,
+        reputation: float = -1.0,
+        danger: int | None = None,
+    ) -> dict:
         """Run G1-G5 gate checks.
 
         Args:
@@ -241,9 +247,13 @@ class GateChain:
         steps: list[dict] = []
         overall = GateResult.PASS
         context = {
-            "tool": tool, "agent_id": agent_id, "target": target,
-            "territory": territory, "territory_map": territory_map,
-            "reputation": reputation, "steps": steps,
+            "tool": tool,
+            "agent_id": agent_id,
+            "target": target,
+            "territory": territory,
+            "territory_map": territory_map,
+            "reputation": reputation,
+            "steps": steps,
             "danger_override": danger,
         }
         for name, fn in self._gates:
@@ -256,22 +266,27 @@ class GateChain:
                 # call, so we treat it as a BLOCK instead of silently
                 # continuing with the previous (likely PASS) overall.
                 logger.warning("kernel/gatechain: gate %s raised: %s — blocking", name, e)
-                steps.append({"gate": name, "result": "BLOCK",
-                              "reason": f"gate crashed: {e}"})
+                steps.append({"gate": name, "result": "BLOCK", "reason": f"gate crashed: {e}"})
                 overall = GateResult.BLOCK
                 break
 
         final = overall.name
         g1 = steps[GATECHAIN_G1_INDEX]["result"] if len(steps) > 0 else "?"
         g3 = steps[GATECHAIN_G3_INDEX]["result"] if len(steps) > 2 else "?"
-        self.ledger.record(LedgerEntry(
-            agent_id=agent_id, tool=tool, target=target,
-            result=overall, pattern=GATECHAIN_PATTERN_TEMPLATE.format(g1=g1, g3=g3),
-        ))
+        self.ledger.record(
+            LedgerEntry(
+                agent_id=agent_id,
+                tool=tool,
+                target=target,
+                result=overall,
+                pattern=GATECHAIN_PATTERN_TEMPLATE.format(g1=g1, g3=g3),
+            )
+        )
         return {"allowed": overall != GateResult.BLOCK, "decision": final, "steps": steps}
 
 
 # ── Built-in gate functions ──
+
 
 def _gate_g1(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
@@ -291,18 +306,24 @@ def _gate_g2(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     from .process import get_table
+
     pcb = get_table().get_by_name(ctx["agent_id"]) if ctx["agent_id"] else None
     if not pcb:
-        steps.append({"gate": "G2", "result": "BLOCK",
-                      "reason": f"agent '{ctx['agent_id']}' not registered in process table"})
+        steps.append(
+            {"gate": "G2", "result": "BLOCK", "reason": f"agent '{ctx['agent_id']}' not registered in process table"}
+        )
         return steps, GateResult.BLOCK
     if pcb.state.name not in ("READY", "RUNNING"):
-        steps.append({"gate": "G2", "result": "BLOCK",
-                      "reason": f"agent state is {pcb.state.name}, not READY/RUNNING"})
+        steps.append({"gate": "G2", "result": "BLOCK", "reason": f"agent state is {pcb.state.name}, not READY/RUNNING"})
         return steps, GateResult.BLOCK
     if not pcb.identity_verified:
-        steps.append({"gate": "G2", "result": "WARN",
-                      "reason": f"agent '{ctx['agent_id']}' has no Ed25519 keypair (identity not verified)"})
+        steps.append(
+            {
+                "gate": "G2",
+                "result": "WARN",
+                "reason": f"agent '{ctx['agent_id']}' has no Ed25519 keypair (identity not verified)",
+            }
+        )
         return steps, GateResult.WARN
     steps.append({"gate": "G2", "result": "PASS", "pid": pcb.pid, "ring": pcb.ring})
     return steps, overall
@@ -316,13 +337,19 @@ def _gate_g3(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
         danger = override
     else:
         from l1.kernel.discovery import get_config
+
         danger_levels = get_config("gatechain_danger_levels") or GATECHAIN_DANGER_LEVELS
         danger = danger_levels.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
     if ctx["target"] and ctx["territory"]:
         in_territory = any(ctx["target"].startswith(t) for t in ctx["territory"])
         if not in_territory:
-            steps.append({"gate": "G3", "result": "BLOCK",
-                          "reason": f"tool call target '{ctx['target']}' is outside card scope {ctx['territory']}"})
+            steps.append(
+                {
+                    "gate": "G3",
+                    "result": "BLOCK",
+                    "reason": f"tool call target '{ctx['target']}' is outside card scope {ctx['territory']}",
+                }
+            )
             return steps, GateResult.BLOCK
     recent_count = gc.ledger.count(ctx["agent_id"], ctx["tool"], window=LEDGER_COUNT_WINDOW)
     risk_score = danger + (recent_count * GATECHAIN_FREQ_MULTIPLIER)
@@ -352,22 +379,25 @@ def _gate_g4(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
             except Exception:
                 full_power = False
         if full_power:
-            steps.append({"gate": "G4", "result": "PASS",
-                          "reason": f"danger={danger}, full_power posture authorized"})
+            steps.append({"gate": "G4", "result": "PASS", "reason": f"danger={danger}, full_power posture authorized"})
             sink = getattr(gc, "_metric_sink", None)
             if sink is not None:
-                try:
+                from contextlib import suppress
+
+                with suppress(Exception):
                     sink("security.gate.g4.full_power", 1.0, {"tool": ctx["tool"]})
-                except Exception:
-                    pass
             return steps, overall
         from .event import Signal, SignalType, get_bus
-        get_bus().emit(Signal(type=SignalType.REVIEW_REQUESTED,
-                               sender=GATECHAIN_SENDER, target=GATECHAIN_L3_TARGET,
-                               data={"tool": ctx["tool"], "agent_id": ctx["agent_id"],
-                                     "target": ctx["target"], "danger": danger}))
-        steps.append({"gate": "G4", "result": "WARN",
-                      "reason": f"danger={danger}, L3 notified"})
+
+        get_bus().emit(
+            Signal(
+                type=SignalType.REVIEW_REQUESTED,
+                sender=GATECHAIN_SENDER,
+                target=GATECHAIN_L3_TARGET,
+                data={"tool": ctx["tool"], "agent_id": ctx["agent_id"], "target": ctx["target"], "danger": danger},
+            )
+        )
+        steps.append({"gate": "G4", "result": "WARN", "reason": f"danger={danger}, L3 notified"})
     else:
         steps.append({"gate": "G4", "result": "PASS"})
     return steps, overall
@@ -377,51 +407,76 @@ def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     from .reputation import get_reputation
+
     rep = ctx["reputation"] if ctx["reputation"] >= 0 else get_reputation().get(ctx["agent_id"])
     history = gc.ledger.recent(ctx["agent_id"], limit=GATECHAIN_G5_HISTORY_LIMIT)
     same_tool_count = sum(1 for e in history if e.tool == ctx["tool"])
     repeated = len(history) >= GATECHAIN_REPEAT_THRESHOLD
     high_freq_same_tool = same_tool_count >= GATECHAIN_HIGH_FREQ_THRESHOLD
     danger = ctx.get("_danger", 0)
-    score = (danger * GATECHAIN_DANGER_WEIGHT
-             + (len(history) * GATECHAIN_HISTORY_WEIGHT)
-             + (same_tool_count * GATECHAIN_FREQ_WEIGHT))
+    score = (
+        danger * GATECHAIN_DANGER_WEIGHT
+        + (len(history) * GATECHAIN_HISTORY_WEIGHT)
+        + (same_tool_count * GATECHAIN_FREQ_WEIGHT)
+    )
     g3_result = next((s["result"] for s in steps if s.get("gate") == "G3"), "PASS")
     if rep >= GATECHAIN_REP_HIGH_THRESHOLD and g3_result == "WARN":
-        steps.append({"gate": "G5", "result": "PASS",
-                      "reason": f"high reputation ({rep:.2f}) tolerates G3 warn, score={score:.1f}",
-                      "reputation": round(rep, 2)})
+        steps.append(
+            {
+                "gate": "G5",
+                "result": "PASS",
+                "reason": f"high reputation ({rep:.2f}) tolerates G3 warn, score={score:.1f}",
+                "reputation": round(rep, 2),
+            }
+        )
     elif rep < GATECHAIN_REP_LOW_THRESHOLD and g3_result == "WARN":
-        steps.append({"gate": "G5", "result": "BLOCK",
-                      "reason": f"low reputation ({rep:.2f}) + risk, score={score:.1f}",
-                      "reputation": round(rep, 2)})
+        steps.append(
+            {
+                "gate": "G5",
+                "result": "BLOCK",
+                "reason": f"low reputation ({rep:.2f}) + risk, score={score:.1f}",
+                "reputation": round(rep, 2),
+            }
+        )
         return steps, GateResult.BLOCK
     elif repeated and high_freq_same_tool:
         _ba = _break_loop(ctx["agent_id"], "SPINNING")
-        steps.append({"gate": "G5", "result": "REPORT",
-                      "reason": f"{len(history)} calls, {same_tool_count}x '{ctx['tool']}', rep={rep:.2f}, score={score:.1f}",
-                      "break_action": _ba.get("action", ""),
-                      "break_reason": _ba.get("reason", "")})
+        steps.append(
+            {
+                "gate": "G5",
+                "result": "REPORT",
+                "reason": f"{len(history)} calls, {same_tool_count}x '{ctx['tool']}', rep={rep:.2f}, score={score:.1f}",
+                "break_action": _ba.get("action", ""),
+                "break_reason": _ba.get("reason", ""),
+            }
+        )
         return steps, GateResult.REPORT
     elif repeated:
         _ba = _break_loop(ctx["agent_id"], "OSCILLATION")
         outcome = "REPORT" if rep < GATECHAIN_REP_LOW_THRESHOLD else "WARN"
-        steps.append({"gate": "G5", "result": outcome,
-                      "reason": f"{len(history)} calls, rep={rep:.2f}, score={score:.1f}",
-                      "reputation": round(rep, 2),
-                      "break_action": _ba.get("action", ""),
-                      "break_reason": _ba.get("reason", "")})
+        steps.append(
+            {
+                "gate": "G5",
+                "result": outcome,
+                "reason": f"{len(history)} calls, rep={rep:.2f}, score={score:.1f}",
+                "reputation": round(rep, 2),
+                "break_action": _ba.get("action", ""),
+                "break_reason": _ba.get("reason", ""),
+            }
+        )
         if outcome == "REPORT":
             return steps, GateResult.REPORT
     else:
-        steps.append({"gate": "G5", "result": "PASS", "score": score,
-                      "reputation": round(rep, 2)})
+        steps.append({"gate": "G5", "result": "PASS", "score": score, "reputation": round(rep, 2)})
     return steps, overall
 
 
 _BUILTIN_GATES: list[tuple[str, Callable]] = [
-    ("G1", _gate_g1), ("G2", _gate_g2), ("G3", _gate_g3),
-    ("G4", _gate_g4), ("G5", _gate_g5),
+    ("G1", _gate_g1),
+    ("G2", _gate_g2),
+    ("G3", _gate_g3),
+    ("G4", _gate_g4),
+    ("G5", _gate_g5),
 ]
 
 

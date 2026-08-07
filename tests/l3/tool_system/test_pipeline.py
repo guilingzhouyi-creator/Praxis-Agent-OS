@@ -13,6 +13,7 @@ class TestPipelineInit:
 
     def test_get_pipeline_returns_instance(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         assert pipe is not None
         assert hasattr(pipe, "execute")
@@ -20,13 +21,15 @@ class TestPipelineInit:
 
     def test_pipeline_has_steps_tracking(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         assert hasattr(pipe, "_post_execute_hooks")
         assert hasattr(pipe, "_tool_definition_hooks")
 
     def test_reset_pipeline_clears_singleton(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
-        p1 = get_pipeline()
+
+        get_pipeline()
         reset_pipeline()
         p2 = get_pipeline()
         assert p2 is not None
@@ -37,12 +40,14 @@ class TestPipelineExecute:
 
     def test_execute_without_registry_returns_error(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         r = pipe.execute("read_file", "test-agent", args={"path": "/tmp/x"})
         assert not r.get("success", True)
 
     def test_execute_simple_tool_returns_steps(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         r = pipe.execute(
             tool_name="read_file",
@@ -59,6 +64,7 @@ class TestPipelineHooks:
 
     def test_register_post_execute_hook(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         calls = []
 
@@ -70,6 +76,7 @@ class TestPipelineHooks:
 
     def test_register_tool_definition_hook(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         calls = []
 
@@ -82,6 +89,7 @@ class TestPipelineHooks:
 
     def test_apply_tool_definition_hooks_returns_modified_spec(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
         orig = {"name": "test_tool", "ring": "RING_1"}
 
@@ -99,6 +107,7 @@ class TestPipelineSetPmu:
 
     def test_set_pmu_accepts_mock(self):
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipe = get_pipeline()
 
         class FakePmu:
@@ -117,12 +126,14 @@ class TestRateLimiter:
 
     def test_ring1_allowed(self):
         from l3.tool_system.tool_pipeline import get_rate_scheduler
+
         rl = get_rate_scheduler()
         r = rl.check("ratt-agent", "RING_1")
         assert r["allowed"]
 
     def test_ring2_5_rate_limit(self):
         from l3.tool_system.tool_pipeline import get_rate_scheduler
+
         rl = get_rate_scheduler()
         for _ in range(25):
             rl.check("ratb-agent", "RING_2_5")
@@ -131,6 +142,7 @@ class TestRateLimiter:
 
     def test_ring3_blocked_after_limit(self):
         from l3.tool_system.tool_pipeline import get_rate_scheduler
+
         rl = get_rate_scheduler()
         for _ in range(10):
             rl.check("ratc-agent", "RING_3")
@@ -143,12 +155,14 @@ class TestAgentClearance:
 
     def test_default_agent_ring1_only(self):
         from l3.tool_system.tool_pipeline import agent_can_access
+
         assert agent_can_access("default", "RING_1")
         result = agent_can_access("default", "RING_3")
         assert isinstance(result, bool)
 
     def test_l3_can_access_all_rings(self):
         from l3.tool_system.tool_pipeline import agent_can_access
+
         assert agent_can_access("l3", "RING_1")
         assert agent_can_access("l3", "RING_2_5")
         assert agent_can_access("l3", "RING_3")

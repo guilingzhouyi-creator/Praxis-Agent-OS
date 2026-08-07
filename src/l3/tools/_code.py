@@ -23,8 +23,8 @@ def symbol_search(args: dict, agent_id: str) -> dict:
     if not symbol:
         return {"success": False, "error": "symbol is required"}
     results = []
-    pattern = re.compile(r'(def |class |async def |fn |func |function )\s*' + re.escape(symbol))
-    for root, dirs, files in os.walk(path):
+    pattern = re.compile(r"(def |class |async def |fn |func |function )\s*" + re.escape(symbol))
+    for root, _dirs, files in os.walk(path):
         for f in files:
             if not f.endswith((".py", ".rs", ".ts", ".js", ".go", ".java")):
                 continue
@@ -43,7 +43,7 @@ def find_imports(args: dict, agent_id: str) -> dict:
     """Scan Python files under path for import statements; returns matches."""
     path = args.get("path", ".")
     results = []
-    for root, dirs, files in os.walk(path):
+    for root, _dirs, files in os.walk(path):
         for f in files:
             if not f.endswith(".py"):
                 continue
@@ -90,11 +90,12 @@ def list_functions(args: dict, agent_id: str) -> dict:
             source = f.read()
     except Exception as e:
         return {"success": False, "error": str(e)}
-    for m in re.finditer(r'^(async\s+)?(def |class )\s*(\w+)', source, re.MULTILINE):
+    for m in re.finditer(r"^(async\s+)?(def |class )\s*(\w+)", source, re.MULTILINE):
         kind = "class" if "class" in m.group(2) else "function"
         is_async = "async" in (m.group(1) or "")
-        results.append({"name": m.group(3), "kind": kind, "async": is_async,
-                        "line": source[:m.start()].count("\n") + 1})
+        results.append(
+            {"name": m.group(3), "kind": kind, "async": is_async, "line": source[: m.start()].count("\n") + 1}
+        )
     return {"success": True, "functions": results, "total": len(results), "file": path}
 
 
@@ -105,6 +106,7 @@ def ast_parse(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         import ast
+
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
         nodes = []
@@ -127,23 +129,38 @@ def find_callees(args: dict, agent_id: str) -> dict:
         return {"success": False, "error": "path is required"}
     try:
         import ast
+
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
+
         class _CallVisitor(ast.NodeVisitor):
             """_CallVisitor — _ call visitor."""
+
             def __init__(self):
                 self.calls = []
+
             def visit_Call(self, node):  # noqa: N802
                 """Record a function call node and continue the traversal."""
                 if isinstance(node.func, ast.Name):
                     self.calls.append({"name": node.func.id, "line": node.lineno})
                 elif isinstance(node.func, ast.Attribute):
-                    self.calls.append({"name": f"{node.func.attr}", "obj": ast.unparse(node.func.value)[:LOG_TRUNC_30],
-                                       "line": node.lineno})
+                    self.calls.append(
+                        {
+                            "name": f"{node.func.attr}",
+                            "obj": ast.unparse(node.func.value)[:LOG_TRUNC_30],
+                            "line": node.lineno,
+                        }
+                    )
                 self.generic_visit(node)
+
         visitor = _CallVisitor()
         visitor.visit(tree)
-        return {"success": True, "calls": visitor.calls[:TOOL_RESULTS_LIMIT_DEFAULT], "total": len(visitor.calls), "file": path}
+        return {
+            "success": True,
+            "calls": visitor.calls[:TOOL_RESULTS_LIMIT_DEFAULT],
+            "total": len(visitor.calls),
+            "file": path,
+        }
     except SyntaxError as e:
         return {"success": False, "error": f"syntax error: {e}"}
     except Exception as e:

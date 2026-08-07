@@ -18,20 +18,22 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 
-class PolicyAction(str, Enum):
+class PolicyAction(StrEnum):
     """PolicyAction — enum of DISABLE, ENABLE, REQUIRE_APPROVAL."""
+
     DISABLE = "disable"
     ENABLE = "enable"
     REQUIRE_APPROVAL = "require_approval"
 
 
-class PolicyScope(str, Enum):
+class PolicyScope(StrEnum):
     """PolicyScope — enum of GLOBAL, CELL, ROLE, AGENT...."""
+
     GLOBAL = "global"
     CELL = "cell"
     ROLE = "role"
@@ -52,9 +54,10 @@ class PolicyScope(str, Enum):
 @dataclass
 class PolicyRule:
     """A single tool visibility rule."""
+
     scope: PolicyScope
-    scope_id: str          # "agent-writer", "cell-1", "reader", ""
-    tool: str              # tool name or "*" for all
+    scope_id: str  # "agent-writer", "cell-1", "reader", ""
+    tool: str  # tool name or "*" for all
     action: PolicyAction
     reason: str = ""
 
@@ -72,8 +75,8 @@ class ToolPolicy:
 
     # ── Agent identity helpers (injected from Cell at boot) ──
 
-    _agent_role: dict[str, str] = {}     # agent_id → role
-    _agent_cell: dict[str, str] = {}     # agent_id → cell_id
+    _agent_role: dict[str, str] = {}  # agent_id → role
+    _agent_cell: dict[str, str] = {}  # agent_id → cell_id
 
     @classmethod
     def register_agent(cls, agent_id: str, role: str, cell_id: str = "") -> None:
@@ -99,8 +102,7 @@ class ToolPolicy:
             cls._rules = [r for r in cls._rules if r.key() != rule.key()]
             cls._rules.append(rule)
             cls._agent_cache.clear()
-            logger.info("tool_policy: %s %s for %s/%s",
-                        rule.action.value, rule.tool, rule.scope.value, rule.scope_id)
+            logger.info("tool_policy: %s %s for %s/%s", rule.action.value, rule.tool, rule.scope.value, rule.scope_id)
 
     @classmethod
     def remove(cls, tool: str, scope: PolicyScope, scope_id: str = "") -> bool:
@@ -124,8 +126,13 @@ class ToolPolicy:
         """Return all policy rules as dicts."""
         with cls._lock:
             return [
-                {"scope": r.scope.value, "scope_id": r.scope_id,
-                 "tool": r.tool, "action": r.action.value, "reason": r.reason}
+                {
+                    "scope": r.scope.value,
+                    "scope_id": r.scope_id,
+                    "tool": r.tool,
+                    "action": r.action.value,
+                    "reason": r.reason,
+                }
                 for r in cls._rules
             ]
 
@@ -163,7 +170,16 @@ class ToolPolicy:
         for r in rules_snapshot:
             if r.tool != "*" and r.tool != tool_name:
                 continue
-            if r.scope == PolicyScope.GLOBAL or r.scope == PolicyScope.CELL and r.scope_id == cell_id or r.scope == PolicyScope.ROLE and r.scope_id == role or r.scope == PolicyScope.AGENT and r.scope_id == agent_id or r.scope == PolicyScope.SESSION:
+            if (
+                r.scope == PolicyScope.GLOBAL
+                or r.scope == PolicyScope.CELL
+                and r.scope_id == cell_id
+                or r.scope == PolicyScope.ROLE
+                and r.scope_id == role
+                or r.scope == PolicyScope.AGENT
+                and r.scope_id == agent_id
+                or r.scope == PolicyScope.SESSION
+            ):
                 candidates.append((r.scope.priority, r))
 
         # Sort by priority descending (highest wins)
@@ -221,18 +237,26 @@ class ToolPolicy:
             return
         for entry in cfg.get("blacklist", []):
             scope, scope_id = cls._parse_scope(entry.get("scope", "global"))
-            cls.add(PolicyRule(
-                scope=scope, scope_id=scope_id,
-                tool=entry["tool"], action=PolicyAction.DISABLE,
-                reason=entry.get("reason", ""),
-            ))
+            cls.add(
+                PolicyRule(
+                    scope=scope,
+                    scope_id=scope_id,
+                    tool=entry["tool"],
+                    action=PolicyAction.DISABLE,
+                    reason=entry.get("reason", ""),
+                )
+            )
         for entry in cfg.get("approval_required", []):
             scope, scope_id = cls._parse_scope(entry.get("scope", "global"))
-            cls.add(PolicyRule(
-                scope=scope, scope_id=scope_id,
-                tool=entry["tool"], action=PolicyAction.REQUIRE_APPROVAL,
-                reason=entry.get("reason", ""),
-            ))
+            cls.add(
+                PolicyRule(
+                    scope=scope,
+                    scope_id=scope_id,
+                    tool=entry["tool"],
+                    action=PolicyAction.REQUIRE_APPROVAL,
+                    reason=entry.get("reason", ""),
+                )
+            )
 
     @staticmethod
     def _parse_scope(raw: str) -> tuple[PolicyScope, str]:

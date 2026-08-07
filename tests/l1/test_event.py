@@ -31,7 +31,10 @@ def test_signal_to_dict() -> None:
 
 def test_emit_returns_callback_count() -> None:
     bus = EventBus(max_history=10)
-    cb = lambda s: None
+
+    def cb(s):
+        return None
+
     bus.on(SignalType.TASK_ASSIGN, cb)
     sig = Signal(type=SignalType.TASK_ASSIGN)
     count = bus.emit(sig)
@@ -68,8 +71,7 @@ def test_wildcard_listener_receives_all() -> None:
 
 def test_listener_not_called_for_different_type() -> None:
     bus = EventBus(max_history=10)
-    called = False
-    bus.on(SignalType.TASK_CANCEL, lambda s: setattr(called := True, '_', None) or None)
+    bus.on(SignalType.TASK_CANCEL, lambda s: None)
     bus.emit(Signal(type=SignalType.TASK_DONE))
     bus._executor.shutdown(wait=True)
     # We just verify no crash; callback for wrong type should not fire
@@ -78,7 +80,10 @@ def test_listener_not_called_for_different_type() -> None:
 def test_off_removes_listener() -> None:
     bus = EventBus(max_history=10)
     calls = []
-    cb = lambda s: calls.append(s)
+
+    def cb(s):
+        calls.append(s)
+
     bus.on(SignalType.REVIEW_RESULT, cb)
     bus.off(SignalType.REVIEW_RESULT, cb)
     bus.emit(Signal(type=SignalType.REVIEW_RESULT))
@@ -178,6 +183,7 @@ def test_register_signal_type_dynamic() -> None:
 
 def test_register_builtin_type_raises() -> None:
     import pytest
+
     with pytest.raises(ValueError):
         register_signal_type("TASK_ASSIGN")
 
@@ -202,8 +208,10 @@ def test_history_from_empty() -> None:
 
 def test_emit_with_callback_error_does_not_crash() -> None:
     bus = EventBus(max_history=5)
+
     def broken(signal: Signal) -> None:
         raise RuntimeError("oops")
+
     bus.on(SignalType.TASK_DONE, broken)
     bus.emit(Signal(type=SignalType.TASK_DONE))
     bus._executor.shutdown(wait=True)

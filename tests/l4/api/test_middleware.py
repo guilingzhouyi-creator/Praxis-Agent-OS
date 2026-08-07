@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestRequest:
     def test_create_request(self):
         from l4.api.api_middleware import Request
+
         req = Request(method="GET", path="/api/health", headers={"Host": "localhost"})
         assert req.method == "GET"
         assert req.path == "/api/health"
@@ -19,16 +20,19 @@ class TestRequest:
 class TestResponse:
     def test_ok_response(self):
         from l4.api.api_middleware import Response
+
         r = Response.ok({"status": "ok"})
         assert r.status == 200
 
     def test_error_response(self):
         from l4.api.api_middleware import Response
+
         r = Response.error("bad request", status=400)
         assert r.status == 400
 
     def test_json_response(self):
         from l4.api.api_middleware import Response
+
         r = Response.json({"data": [1, 2]}, status=201)
         assert r.status == 201
 
@@ -36,6 +40,7 @@ class TestResponse:
 class TestMiddlewareChain:
     def test_empty_chain_ok(self):
         from l4.api.api_middleware import MiddlewareChain, Request
+
         chain = MiddlewareChain()
         req = Request(method="GET", path="/")
         result = chain.handle(req, handler=lambda r: {"ok": True})
@@ -72,8 +77,9 @@ class TestMiddlewareChain:
 class TestCORSMiddleware:
     def test_adds_cors_headers(self):
         from l4.api.api_middleware import CORSMiddleware, Request, Response
+
         mw = CORSMiddleware(origin="*")
-        req = Request(method="OPTIONS", path="/test", headers={})
+        Request(method="OPTIONS", path="/test", headers={})
         resp = Response.ok({})
         result = mw.process_response(resp)
         assert result.headers.get("Access-Control-Allow-Origin") == "*"

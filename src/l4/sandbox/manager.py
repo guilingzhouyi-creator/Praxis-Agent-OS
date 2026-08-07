@@ -8,13 +8,12 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
-from l1.kernel.params.system import (
+from l1.kernel.params.system import (  # noqa: E402
     HASH_TRUNC_SHORT,
     LOG_TRUNC_500,
     LOG_TRUNC_2000,
@@ -27,8 +26,9 @@ from l1.kernel.params.system import (
 )
 
 
-class SandboxProfile(str, Enum):
+class SandboxProfile(StrEnum):
     """SandboxProfile — enum of READ_ONLY, SAFE_WRITE, NETWORK, FULL...."""
+
     READ_ONLY = SANDBOX_PROFILE_READ_ONLY
     SAFE_WRITE = SANDBOX_PROFILE_SAFE_WRITE
     NETWORK = SANDBOX_PROFILE_NETWORK
@@ -39,6 +39,7 @@ class SandboxProfile(str, Enum):
 @dataclass
 class SandboxResult:
     """SandboxResult — sandbox result record (success, stdout, stderr, exit_code, sandbox_id)."""
+
     success: bool = False
     stdout: str = ""
     stderr: str = ""
@@ -48,9 +49,14 @@ class SandboxResult:
 
     def to_dict(self) -> dict:
         """Serialize sandbox result to a plain dict."""
-        return {"success": self.success, "stdout": self.stdout[:LOG_TRUNC_2000],
-                "stderr": self.stderr[:LOG_TRUNC_500], "exit_code": self.exit_code,
-                "sandbox_id": self.sandbox_id, "elapsed": round(self.elapsed, 3)}
+        return {
+            "success": self.success,
+            "stdout": self.stdout[:LOG_TRUNC_2000],
+            "stderr": self.stderr[:LOG_TRUNC_500],
+            "exit_code": self.exit_code,
+            "sandbox_id": self.sandbox_id,
+            "elapsed": round(self.elapsed, 3),
+        }
 
 
 class SandboxManager:
@@ -72,6 +78,7 @@ class SandboxManager:
 
     def __init__(self, sandbox_root: str = ""):
         from l1.kernel.paths import get_paths as _gp
+
         self._sandbox_root = Path(sandbox_root or _gp().sandbox_root)
         self._sandbox_root.mkdir(parents=True, exist_ok=True)
 
@@ -103,7 +110,8 @@ class SandboxManager:
 
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=timeout,
+                    proc.communicate(),
+                    timeout=timeout,
                 )
             except TimeoutError:
                 try:
@@ -113,8 +121,12 @@ class SandboxManager:
                 elapsed = time.time() - t0
                 self._audit(sandbox_id, agent_id, tool_name, False, "timeout", elapsed)
                 return SandboxResult(
-                    success=False, stdout="", stderr="timed out",
-                    exit_code=-1, sandbox_id=sandbox_id, elapsed=elapsed,
+                    success=False,
+                    stdout="",
+                    stderr="timed out",
+                    exit_code=-1,
+                    sandbox_id=sandbox_id,
+                    elapsed=elapsed,
                 )
 
             elapsed = time.time() - t0
@@ -132,8 +144,12 @@ class SandboxManager:
         except Exception as e:
             elapsed = time.time() - t0
             return SandboxResult(
-                success=False, stdout="", stderr=str(e),
-                exit_code=-1, sandbox_id=sandbox_id, elapsed=elapsed,
+                success=False,
+                stdout="",
+                stderr=str(e),
+                exit_code=-1,
+                sandbox_id=sandbox_id,
+                elapsed=elapsed,
             )
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -177,26 +193,36 @@ class SandboxManager:
 
     def _resolve_shell(self, command: str) -> list[str]:
         from l1.kernel.platform import IS_WINDOWS
+
         if IS_WINDOWS:
             return ["cmd", "/c", command]
         return ["sh", "-c", command]
 
     def _truncate(self, data: bytes) -> str:
         from l1.kernel.params.system import SANDBOX_MAX_OUTPUT
+
         text = data.decode("utf-8", errors="replace")
         return text[:SANDBOX_MAX_OUTPUT]
 
-    def _audit(self, sandbox_id: str, agent_id: str, tool: str,
-               success: bool, error: str, elapsed: float) -> None:
+    def _audit(self, sandbox_id: str, agent_id: str, tool: str, success: bool, error: str, elapsed: float) -> None:
         try:
             from l3.bus.monitor_bus import MonitorEvent, get_bus
-            get_bus().emit(MonitorEvent(
-                type="sandbox.execution", source="sandbox_manager",
-                severity="info" if success else "warn",
-                agent_id=agent_id,
-                message=f"sandbox {sandbox_id} {'ok' if success else 'fail'}",
-                data={"sandbox_id": sandbox_id, "tool": tool,
-                      "success": success, "error": error, "elapsed": round(elapsed, 3)},
-            ))
+
+            get_bus().emit(
+                MonitorEvent(
+                    type="sandbox.execution",
+                    source="sandbox_manager",
+                    severity="info" if success else "warn",
+                    agent_id=agent_id,
+                    message=f"sandbox {sandbox_id} {'ok' if success else 'fail'}",
+                    data={
+                        "sandbox_id": sandbox_id,
+                        "tool": tool,
+                        "success": success,
+                        "error": error,
+                        "elapsed": round(elapsed, 3),
+                    },
+                )
+            )
         except Exception:
             logger.debug("sandbox_manager: monitor event failed")

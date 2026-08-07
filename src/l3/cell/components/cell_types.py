@@ -27,17 +27,18 @@ class CellProtocol(Protocol):
     Modules like ConventionProtocol depend on Cell for messaging.
     This protocol defines the minimum required interface.
     """
+
     cell_id: str
     territory: list[str]
 
-    def send_message(self, sender: str, target: str,
-                     msg_type: Any, payload: Any = None) -> dict:
+    def send_message(self, sender: str, target: str, msg_type: Any, payload: Any = None) -> dict:
         """Send a message to another agent in the cell."""
         ...
 
 
 class AgentStatus(Enum):
     """AgentStatus — enum of agent status variants."""
+
     IDLE = auto()
     BUSY = auto()
     WAITING = auto()
@@ -46,6 +47,7 @@ class AgentStatus(Enum):
 
 class MessageType(Enum):
     """MessageType — enum of message type variants."""
+
     TASK_HANDOFF = auto()
     SCOUT_RESULT = auto()
     CONSULT = auto()
@@ -56,15 +58,25 @@ class MessageType(Enum):
     CROSS_REVIEW_RESP = auto()
     SUBAGENT_RESULT = auto()
     # Convention / Assembly protocol
-    CONVENE = auto()          # Convene assembly (L3A → All Agents)
-    CROSS_EXAMINE = auto()    # Cross-examine specific Agent (Agent → Agent)
-    REBUT = auto()            # Rebuttal (Agent → All)
-    PROPOSE_ISSUE = auto()    # Propose new issue (Agent → Table)
-    CONVENE_CLOSE = auto()    # Close assembly (Convention → All)
+    CONVENE = auto()  # Convene assembly (L3A → All Agents)
+    CROSS_EXAMINE = auto()  # Cross-examine specific Agent (Agent → Agent)
+    REBUT = auto()  # Rebuttal (Agent → All)
+    PROPOSE_ISSUE = auto()  # Propose new issue (Agent → Table)
+    CONVENE_CLOSE = auto()  # Close assembly (Convention → All)
 
 
-from l1.kernel.params.agent import AGENT_ID_PREFIXES, DEFAULT_MAX_CONCURRENT_SCOUTS, SCOUT_PREFIX, SUB_PREFIX
-from l1.kernel.params.system import CELL_CACHE_HOT_TTL, CELL_CACHE_INDEX_TTL, HASH_TRUNC_MEDIUM, MEMORY_IMPORTANCE_BASE
+from l1.kernel.params.agent import (  # noqa: E402
+    AGENT_ID_PREFIXES,
+    DEFAULT_MAX_CONCURRENT_SCOUTS,
+    SCOUT_PREFIX,
+    SUB_PREFIX,
+)
+from l1.kernel.params.system import (  # noqa: E402
+    CELL_CACHE_HOT_TTL,
+    CELL_CACHE_INDEX_TTL,
+    HASH_TRUNC_MEDIUM,
+    MEMORY_IMPORTANCE_BASE,
+)
 
 
 def is_peer(agent_id: str) -> bool:
@@ -85,6 +97,7 @@ def is_subagent(agent_id: str) -> bool:
 @dataclass
 class AgentInfo:
     """AgentInfo — agent info record (role, ring, territory, max_concurrent_scouts, active_scouts)."""
+
     role: str = ""
     ring: int = 1
     territory: list[str] = field(default_factory=list)
@@ -101,6 +114,7 @@ class AgentInfo:
 @dataclass
 class CellMessage:
     """CellMessage — cell message record (msg_id, msg_type, sender, target, payload)."""
+
     msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     msg_type: MessageType = MessageType.CONSULT
     sender: str = ""
@@ -115,10 +129,11 @@ class CellMessage:
 
 class CacheLocation(Enum):
     """Where a cached entry's full value currently resides."""
-    HOT = auto()      # CellCache Hot Ring (fastest)
-    KV = auto()       # CellCache KV Cache
-    L3 = auto()       # MemoryManager R2/R3 (demoted)
-    R4 = auto()       # R4 archive (cold)
+
+    HOT = auto()  # CellCache Hot Ring (fastest)
+    KV = auto()  # CellCache KV Cache
+    L3 = auto()  # MemoryManager R2/R3 (demoted)
+    R4 = auto()  # R4 archive (cold)
 
 
 @dataclass
@@ -128,15 +143,16 @@ class CellCacheEntry:
     Written by a Peer Agent via inject() and immediately visible
     to all other agents in the same Cell via lookup().
     """
+
     key: str
     value: Any
-    summary: str                     # ≤200 chars, low-token preview
-    agent_id: str                    # source agent
-    entry_type: str                  # "decision" | "observation" | "scout_result" | ...
+    summary: str  # ≤200 chars, low-token preview
+    agent_id: str  # source agent
+    entry_type: str  # "decision" | "observation" | "scout_result" | ...
     cell_id: str
     tokens: int = 0
     importance: float = MEMORY_IMPORTANCE_BASE
-    ttl: float = CELL_CACHE_HOT_TTL               # default 5 min
+    ttl: float = CELL_CACHE_HOT_TTL  # default 5 min
     timestamp: float = field(default_factory=time.time)
 
     def expired(self, now: float | None = None) -> bool:
@@ -153,14 +169,15 @@ class IndexEntry:
     Survives even after the full value is demoted to L3/R4.
     Enables low-token-cost pre-check before fetching full data.
     """
+
     key: str
-    summary: str                     # ≤200 chars
+    summary: str  # ≤200 chars
     agent_id: str
     entry_type: str
     importance: float = MEMORY_IMPORTANCE_BASE
     timestamp: float = field(default_factory=time.time)
-    location: str = "hot"            # "hot" | "kv" | "l3" | "r4"
-    ttl: float = CELL_CACHE_INDEX_TTL               # index survives longer (15 min)
+    location: str = "hot"  # "hot" | "kv" | "l3" | "r4"
+    ttl: float = CELL_CACHE_INDEX_TTL  # index survives longer (15 min)
 
     def expired(self, now: float | None = None) -> bool:
         """Return True if the index entry's TTL has elapsed."""

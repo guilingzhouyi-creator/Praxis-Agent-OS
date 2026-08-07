@@ -90,6 +90,7 @@ token_budget: 73000
 @dataclass
 class CheckReport:
     """Result of evaluating a single rule against an action."""
+
     rule: RuleDescriptor
     result: CheckResult
     detail: str = ""
@@ -97,9 +98,11 @@ class CheckReport:
 
 # ── Territory dataclass & helpers (for Assembly Mode) ──
 
+
 @dataclass
 class TerritoryConstitution:
     """Lightweight constitution data for territory management."""
+
     territories: dict[str, list[str]] = field(default_factory=dict)
     gate_rules: dict[str, str] = field(default_factory=dict)
     default_reputation: float = REP_DEFAULT_REPUTATION
@@ -118,12 +121,16 @@ def _severity(s: str) -> RuleSeverity:
 
 # ── Built-in check functions ──
 
-def _check_territory(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+
+def _check_territory(
+    rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]
+) -> CheckResult:
     ca = get_config("constitution")
     if ca:
         file_actions = frozenset(ca.get("file_actions", []))
     else:
         from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS
+
         file_actions = CONSTITUTION_FILE_ACTIONS
     if action not in file_actions or not target:
         return CheckResult.PASS
@@ -138,6 +145,7 @@ def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str
         modify_actions = frozenset(ca.get("modify_actions", []))
     else:
         from l1.kernel.params.agent import CONSTITUTION_MODIFY_ACTIONS
+
         modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action in modify_actions:
         if rule.severity == RuleSeverity.MUST and target:
@@ -148,7 +156,9 @@ def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str
     return CheckResult.PASS
 
 
-def _check_constitution_mod(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+def _check_constitution_mod(
+    rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]
+) -> CheckResult:
     if not target:
         return CheckResult.PASS
     if CONSTITUTION_KEYWORD in target.lower():
@@ -167,10 +177,15 @@ def _check_gate(rule: RuleDescriptor, action: str, agent_id: str, target: str, t
         modify_actions = frozenset(ca.get("modify_actions", []))
     else:
         from l1.kernel.params.agent import CONSTITUTION_MODIFY_ACTIONS
+
         modify_actions = CONSTITUTION_MODIFY_ACTIONS
     if action in CONSTITUTION_GATE_ACTIONS:
         return CheckResult.WARN
-    return CheckResult.WARN if action in modify_actions and len(action) > CONSTITUTION_ACTION_LEN_THRESHOLD else CheckResult.PASS
+    return (
+        CheckResult.WARN
+        if action in modify_actions and len(action) > CONSTITUTION_ACTION_LEN_THRESHOLD
+        else CheckResult.PASS
+    )
 
 
 def _check_scout(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
@@ -179,6 +194,7 @@ def _check_scout(rule: RuleDescriptor, action: str, agent_id: str, target: str, 
         file_actions = frozenset(ca.get("file_actions", []))
     else:
         from l1.kernel.params.agent import CONSTITUTION_FILE_ACTIONS
+
         file_actions = CONSTITUTION_FILE_ACTIONS
     if agent_id == CONSTITUTION_SCOUT_AGENT_NAME:
         if action in CONSTITUTION_SCOUT_BLOCKED:
@@ -222,7 +238,9 @@ def set_posture_provider(provider: Callable[[], dict | None] | None) -> None:
     _posture_provider = provider
 
 
-def _check_skill_posture(rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]) -> CheckResult:
+def _check_skill_posture(
+    rule: RuleDescriptor, action: str, agent_id: str, target: str, territory: list[str]
+) -> CheckResult:
     """Constitutional gate: offensive-posture skills require attack posture.
 
     Applies to ``skill.use`` (session catalog) AND ``use_skill`` (the actual
@@ -252,10 +270,10 @@ def _check_skill_posture(rule: RuleDescriptor, action: str, agent_id: str, targe
         if skill and skill.get("posture") == SKILL_POSTURE_OFFENSIVE:
             sink = _metric_sink
             if sink is not None:
-                try:
+                from contextlib import suppress
+
+                with suppress(Exception):
                     sink("security.gate.skill_use.blocked", 1.0, {"target": target})
-                except Exception:
-                    pass
             return CheckResult.BLOCK
     except Exception:
         pass
@@ -272,119 +290,136 @@ def _check_cross(rule: RuleDescriptor, action: str, agent_id: str, target: str, 
 
 _BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
     RuleDescriptor(
-        id="territory.write", section="§2.3",
+        id="territory.write",
+        section="§2.3",
         severity=RuleSeverity.MUST,
         description="Agent must not write outside its territory",
         check_fn=_check_territory,
         tags=TAG_TERRITORY_WRITE,
     ),
     RuleDescriptor(
-        id="territory.read_l3", section="§3.1",
+        id="territory.read_l3",
+        section="§3.1",
         severity=RuleSeverity.MUST,
         description="Agent must not read files outside its territory without L3 approval",
         check_fn=_check_territory,
         tags=TAG_TERRITORY_READ,
     ),
     RuleDescriptor(
-        id="gatechain.all", section="§3.3",
+        id="gatechain.all",
+        section="§3.3",
         severity=RuleSeverity.MUST,
         description="All tool calls must pass GateChain G1-G5",
         check_fn=_check_gate,
         tags=TAG_GATECHAIN,
     ),
     RuleDescriptor(
-        id="gatechain.cross", section="§3.4",
+        id="gatechain.cross",
+        section="§3.4",
         severity=RuleSeverity.MUST,
         description="Cross-unit tool calls require G5 approval",
         check_fn=_check_gate,
         tags=TAG_GATECHAIN_CROSS,
     ),
     RuleDescriptor(
-        id="sandbox.writes", section="§4.5",
+        id="sandbox.writes",
+        section="§4.5",
         severity=RuleSeverity.MUST,
         description="All modifications must go through sandbox (no direct writes)",
         check_fn=_check_sandbox,
         tags=TAG_SANDBOX,
     ),
     RuleDescriptor(
-        id="sandbox.review", section="§4.6",
+        id="sandbox.review",
+        section="§4.6",
         severity=RuleSeverity.MUST,
         description="All modifications must be reviewable by L3 before flush",
         check_fn=_check_sandbox,
         tags=TAG_SANDBOX_REVIEW,
     ),
     RuleDescriptor(
-        id="constitution.modify", section="§4.7",
+        id="constitution.modify",
+        section="§4.7",
         severity=RuleSeverity.MUST,
         description="No Agent may modify the constitution itself",
         check_fn=_check_constitution_mod,
         tags=TAG_CONSTITUTION,
     ),
     RuleDescriptor(
-        id="audit.trail", section="§5.1",
+        id="audit.trail",
+        section="§5.1",
         severity=RuleSeverity.MUST,
         description="All tool calls must be logged with audit trail",
         check_fn=_check_audit,
         tags=TAG_AUDIT,
     ),
     RuleDescriptor(
-        id="decision.memory", section="§5.2",
+        id="decision.memory",
+        section="§5.2",
         severity=RuleSeverity.SHOULD,
         description="All decisions must be recorded in memory Ring 2",
         check_fn=None,
         tags=TAG_MEMORY,
     ),
     RuleDescriptor(
-        id="territory.cross_review", section="§6.1",
+        id="territory.cross_review",
+        section="§6.1",
         severity=RuleSeverity.MUST,
         description="Cross-territory changes require peer review",
         check_fn=_check_cross,
         tags=TAG_TERRITORY_REVIEW,
     ),
     RuleDescriptor(
-        id="l3.arbiter", section="§6.2",
+        id="l3.arbiter",
+        section="§6.2",
         severity=RuleSeverity.MUST,
         description="L3 is the final arbiter of all disputes",
         check_fn=None,
         tags=TAG_L3,
     ),
     RuleDescriptor(
-        id="scout.readonly", section="§7.1",
+        id="scout.readonly",
+        section="§7.1",
         severity=RuleSeverity.MUST,
         description="Scouts are read-only and depth=1",
         check_fn=_check_scout,
         tags=TAG_SCOUT,
     ),
     RuleDescriptor(
-        id="scout.log", section="§7.2",
+        id="scout.log",
+        section="§7.2",
         severity=RuleSeverity.SHOULD,
         description="Scout findings must be logged before disposal",
         check_fn=_check_scout,
         tags=TAG_SCOUT_AUDIT,
     ),
     RuleDescriptor(
-        id="ring.context", section="§8.1",
+        id="ring.context",
+        section="§8.1",
         severity=RuleSeverity.MUST,
         description="Agent context must be built from Ring memory, not raw output",
         check_fn=None,
         tags=TAG_MEMORY_RING,
     ),
     RuleDescriptor(
-        id="ring.persist", section="§8.2",
+        id="ring.persist",
+        section="§8.2",
         severity=RuleSeverity.SHOULD,
         description="Important decisions must be persisted to Ring 3 (long-term)",
         check_fn=None,
         tags=TAG_MEMORY_RING,
     ),
     RuleDescriptor(
-        id="skill.builtin_readonly", section="§9.1",
+        id="skill.builtin_readonly",
+        section="§9.1",
         severity=RuleSeverity.MUST,
         description="Built-in (shipped) skills are read-only — no agent may modify or delete them",
         check_fn=None,
         tags=TAG_SKILL,
     ),
     RuleDescriptor(
-        id="skill.offensive_posture", section="§9.2",
+        id="skill.offensive_posture",
+        section="§9.2",
         severity=RuleSeverity.MUST,
         description="Offensive-posture skills require attack posture (full_power) for use",
         check_fn=_check_skill_posture,
@@ -396,6 +431,7 @@ _BUILTIN_DESCRIPTORS: list[RuleDescriptor] = [
 # ═════════════════════════════════════════════════════════════════════════════
 # TerritoryConstitution functions (for Assembly Mode / territory management)
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 def load_territory(path: str = "") -> TerritoryConstitution:
     """Load territory constitution from file. Returns blank if not found."""
@@ -450,7 +486,8 @@ def parse_territory(text: str, source: str = "") -> TerritoryConstitution:
         if not line or line.startswith("#") or ":" not in line:
             continue
         key, value = line.split(":", 1)
-        key = key.strip(); value = value.strip()
+        key = key.strip()
+        value = value.strip()
         if key.startswith("agent_"):
             c.territories[key] = [t.strip() for t in value.split(",") if t.strip()]
         elif key.startswith("G") and len(key) <= 3:
@@ -513,7 +550,8 @@ def diff_territory(old: TerritoryConstitution, new: TerritoryConstitution) -> di
     for agent_id in set(list(old.territories.keys()) + list(new.territories.keys())):
         old_t = set(old.territories.get(agent_id, []))
         new_t = set(new.territories.get(agent_id, []))
-        added = new_t - old_t; removed = old_t - new_t
+        added = new_t - old_t
+        removed = old_t - new_t
         if added or removed:
             changes[agent_id] = {"added": list(added), "removed": list(removed)}
     return {"changed": len(changes) > 0, "changes": changes}
@@ -522,6 +560,7 @@ def diff_territory(old: TerritoryConstitution, new: TerritoryConstitution) -> di
 # ═════════════════════════════════════════════════════════════════════════════
 # Constitution engine (rule checking)
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 class Constitution:
     """Constitution engine — the highest authority in the Agent OS.
@@ -556,27 +595,34 @@ class Constitution:
         """
         self._cell_bus = cell_bus
 
-    def _trigger_violation(self, action: str, agent_id: str,
-                           target: str, rule_id: str) -> None:
+    def _trigger_violation(self, action: str, agent_id: str, target: str, rule_id: str) -> None:
         """Emit constitution.violation NMI via cell bus."""
         if not self._cell_bus:
             return
         try:
-            self._cell_bus.emit("interrupt.triggered", {
-                "irq": "constitution.violation",
-                "data": {"action": action, "agent_id": agent_id,
-                         "target": target, "rule_id": rule_id},
-            })
+            self._cell_bus.emit(
+                "interrupt.triggered",
+                {
+                    "irq": "constitution.violation",
+                    "data": {"action": action, "agent_id": agent_id, "target": target, "rule_id": rule_id},
+                },
+            )
         except Exception:
             logger.warning("constitution: cell bus emit failed — violation event lost")
         # Also emit EventBus signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus  # lazy import avoids circular dep
+
             bus = get_event_bus()
-            bus.emit_event("constitution.violation", data={
-                "action": action, "agent_id": agent_id,
-                "target": target, "rule_id": rule_id,
-            })
+            bus.emit_event(
+                "constitution.violation",
+                data={
+                    "action": action,
+                    "agent_id": agent_id,
+                    "target": target,
+                    "rule_id": rule_id,
+                },
+            )
         except Exception:
             logger.warning("constitution: event bus emit failed — violation event lost")
 
@@ -590,10 +636,8 @@ class Constitution:
         to the given agent if ``for_agent`` is provided.
         """
         with self._lock:
-            must_rules = [r for r in self._rules
-                          if r.severity == RuleSeverity.MUST]
-            should_rules = [r for r in self._rules
-                            if r.severity == RuleSeverity.SHOULD]
+            must_rules = [r for r in self._rules if r.severity == RuleSeverity.MUST]
+            should_rules = [r for r in self._rules if r.severity == RuleSeverity.SHOULD]
 
         lines = ["--- Constitution Rules ---"]
         lines.append("You MUST obey these rules. Violations will be blocked.")
@@ -627,9 +671,15 @@ class Constitution:
         # Emit loaded event for SSE
         try:
             from l1.kernel import get_event_bus
-            get_event_bus().emit_event("constitution.loaded", data={
-                "rules": len(self._rules), "custom": len(custom_rules), "path": path,
-            })
+
+            get_event_bus().emit_event(
+                "constitution.loaded",
+                data={
+                    "rules": len(self._rules),
+                    "custom": len(custom_rules),
+                    "path": path,
+                },
+            )
         except Exception:
             logger.warning("constitution: failed to emit loaded event")
         return {"success": True, "rules": len(self._rules), "custom": len(custom_rules), "path": path}
@@ -654,13 +704,15 @@ class Constitution:
             self._rules = [r for r in self._rules if r.source != "custom"]
             for spec in custom_rules:
                 sev = _severity(spec.get("severity", "MUST"))
-                self._rules.append(RuleDescriptor(
-                    id=spec.get("id", f"custom.{len(self._rules)}"),
-                    section=spec.get("section", CONSTITUTION_CUSTOM_SECTION),
-                    severity=sev,
-                    description=spec.get("description", ""),
-                    source="custom",
-                ))
+                self._rules.append(
+                    RuleDescriptor(
+                        id=spec.get("id", f"custom.{len(self._rules)}"),
+                        section=spec.get("section", CONSTITUTION_CUSTOM_SECTION),
+                        severity=sev,
+                        description=spec.get("description", ""),
+                        source="custom",
+                    )
+                )
                 count += 1
         # Persist to SettingsCenter L3 (via registered callback, avoids direct import)
         if self._persist_handler:
@@ -673,6 +725,7 @@ class Constitution:
         # Emit signal for SSE broadcast
         try:
             from l1.kernel import get_event_bus
+
             bus = get_event_bus()
             bus.emit_event("constitution.updated", data={"count": count})
         except Exception:
@@ -688,16 +741,22 @@ class Constitution:
     def rules_list(self) -> list[dict]:
         """Return a summary dict for every loaded rule."""
         with self._lock:
-            return [{"id": r.id, "section": r.section,
-                     "severity": r.severity.name,
-                     "description": r.description,
-                     "source": r.source or "builtin"}
-                    for r in self._rules]
+            return [
+                {
+                    "id": r.id,
+                    "section": r.section,
+                    "severity": r.severity.name,
+                    "description": r.description,
+                    "source": r.source or "builtin",
+                }
+                for r in self._rules
+            ]
 
     # ── Enhanced check with violation event emission ──
 
-    def check(self, action: str, agent_id: str, target: str = "",
-              territory: list[str] | None = None) -> list[CheckReport]:
+    def check(
+        self, action: str, agent_id: str, target: str = "", territory: list[str] | None = None
+    ) -> list[CheckReport]:
         """Evaluate all rules for an action and return non-pass reports."""
         reports: list[CheckReport] = []
         for rule in self._rules:
@@ -705,12 +764,12 @@ class Constitution:
             if result == CheckResult.BLOCK:
                 self._trigger_violation(action, agent_id, target, rule.id)
             if result != CheckResult.PASS:
-                reports.append(CheckReport(rule=rule, result=result,
-                                           detail=self._describe(rule, action, agent_id, target)))
+                reports.append(
+                    CheckReport(rule=rule, result=result, detail=self._describe(rule, action, agent_id, target))
+                )
         return reports
 
-    def is_allowed(self, action: str, agent_id: str, target: str = "",
-                   territory: list[str] | None = None) -> dict:
+    def is_allowed(self, action: str, agent_id: str, target: str = "", territory: list[str] | None = None) -> dict:
         """Check whether the action is allowed; return decision details."""
         reports = self.check(action, agent_id, target, territory)
         blocks = [r for r in reports if r.result == CheckResult.BLOCK]
@@ -719,9 +778,10 @@ class Constitution:
             "decision": "pass" if not blocks else "block",
             "blocks": len(blocks),
             "warns": len([r for r in reports if r.result == CheckResult.WARN]),
-            "details": [{"section": r.rule.section, "rule_id": r.rule.id,
-                         "result": r.result.name, "detail": r.detail}
-                        for r in reports],
+            "details": [
+                {"section": r.rule.section, "rule_id": r.rule.id, "result": r.result.name, "detail": r.detail}
+                for r in reports
+            ],
         }
 
     def to_dict(self) -> dict:
@@ -732,11 +792,16 @@ class Constitution:
                 "total_rules": len(self._rules),
                 "builtin": len([r for r in self._rules if r.source != "custom"]),
                 "custom": len([r for r in self._rules if r.source == "custom"]),
-                "rules": [{"id": r.id, "section": r.section,
-                           "severity": r.severity.name,
-                           "description": r.description,
-                           "source": r.source or "builtin"}
-                          for r in self._rules],
+                "rules": [
+                    {
+                        "id": r.id,
+                        "section": r.section,
+                        "severity": r.severity.name,
+                        "description": r.description,
+                        "source": r.source or "builtin",
+                    }
+                    for r in self._rules
+                ],
             }
 
     def _evaluate(self, rule, action, agent_id, target, territory) -> CheckResult:
@@ -754,18 +819,24 @@ class Constitution:
             if m:
                 current_section = m.group(1).strip()
             sev = None
-            if "[MUST]" in line: sev = RuleSeverity.MUST
-            elif "[SHOULD]" in line: sev = RuleSeverity.SHOULD
-            elif "[MAY]" in line: sev = RuleSeverity.MAY
+            if "[MUST]" in line:
+                sev = RuleSeverity.MUST
+            elif "[SHOULD]" in line:
+                sev = RuleSeverity.SHOULD
+            elif "[MAY]" in line:
+                sev = RuleSeverity.MAY
             if sev:
                 desc = re.sub(r"\[(MUST|SHOULD|MAY)\]", "", line).strip()
                 if desc:
-                    rules.append(RuleDescriptor(
-                        id=f"custom.{len(rules)}",
-                        section=current_section or CONSTITUTION_CUSTOM_SECTION,
-                        severity=sev, description=desc,
-                        source="custom",
-                    ))
+                    rules.append(
+                        RuleDescriptor(
+                            id=f"custom.{len(rules)}",
+                            section=current_section or CONSTITUTION_CUSTOM_SECTION,
+                            severity=sev,
+                            description=desc,
+                            source="custom",
+                        )
+                    )
         return rules
 
 

@@ -63,11 +63,9 @@ class TestApiRoutesTable:
 
     def test_prefix_routes_end_with_slash(self):
         """All prefix routes in API_ROUTES end with '/'."""
-        for method, path, ref, desc in API_ROUTES:
-            if ref.startswith("."):
-                # Mixin method — check if it's a prefix route by path
-                if path.endswith("/") and path != "/api/":
-                    pass  # prefix route, OK
+        for _method, path, ref, _desc in API_ROUTES:
+            if ref.startswith(".") and path.endswith("/") and path != "/api/":
+                pass  # prefix route, OK
 
 
 class TestPrefixRouteS1Strict:
@@ -168,8 +166,7 @@ class TestRegisterRoute:
     def test_register_route_appends(self):
         gw = _make_gateway_with_minimal_routes()
         initial = len(gw._routes)
-        gw.register_route("GET", "/api/test_custom",
-                           lambda b: {"ok": True}, "custom")
+        gw.register_route("GET", "/api/test_custom", lambda b: {"ok": True}, "custom")
         assert len(gw._routes) == initial + 1
         handler, _ = gw._match_route("GET", "/api/test_custom")
         assert handler({}) == {"ok": True}
@@ -181,12 +178,11 @@ class TestParamPatternMatching:
     def _gw(self):
         gw = ApiGateway()
         gw._routes.clear()
-        gw.register_route("GET", "/api/v2/skills/{name}",
-                          lambda b: {"_skills_get": True}, "get skill")
-        gw.register_route("GET", "/api/v2/discussion/{session_id}/report",
-                          lambda b: {"_disc_report": True}, "discussion report")
-        gw.register_route("GET", "/api/v2/tools/locales",
-                          lambda b: {"_locales": True}, "tools locales")
+        gw.register_route("GET", "/api/v2/skills/{name}", lambda b: {"_skills_get": True}, "get skill")
+        gw.register_route(
+            "GET", "/api/v2/discussion/{session_id}/report", lambda b: {"_disc_report": True}, "discussion report"
+        )
+        gw.register_route("GET", "/api/v2/tools/locales", lambda b: {"_locales": True}, "tools locales")
         return gw
 
     def test_param_single_segment(self):
@@ -275,14 +271,14 @@ class TestRouteDispatch:
             seen["body"] = body
             return {"ok": True}
 
-        self._dispatch(get_card, params={"id": "abc"},
-                       query={"_id": "evil", "verbose": "1"})
+        self._dispatch(get_card, params={"id": "abc"}, query={"_id": "evil", "verbose": "1"})
         assert seen["body"]["_id"] == "abc"
         assert seen["body"]["verbose"] == "1", "non-conflicting query still merges"
 
     def test_typeerror_inside_handler_not_double_invoked(self):
         """A TypeError raised in the handler BODY must not trigger re-invocation."""
         import pytest
+
         calls = []
 
         def flaky(body, name=""):

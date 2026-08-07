@@ -1,10 +1,10 @@
 """Reference channel tests — ReferenceChannel event, card_lifecycle, export, count, stats, flush."""
+
 from __future__ import annotations
 
 import json
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -77,7 +77,9 @@ class TestReferenceChannelEvent:
         assert len(records) == 1
         content = json.dumps(
             {k: v for k, v in records[0].items() if k != "sha256"},
-            sort_keys=True, ensure_ascii=False, default=str,
+            sort_keys=True,
+            ensure_ascii=False,
+            default=str,
         )
         expected_hash = __import__("hashlib").sha256(content.encode()).hexdigest()[:16]
         assert records[0]["sha256"] == expected_hash
@@ -116,8 +118,12 @@ class TestReferenceChannelEvent:
 class TestReferenceChannelCardLifecycle:
     def test_card_lifecycle_records_event(self, rc):
         rc.card_lifecycle(
-            card_id="c-001", intent="build feature", state="completed",
-            nature="feature", size="M", error="",
+            card_id="c-001",
+            intent="build feature",
+            state="completed",
+            nature="feature",
+            size="M",
+            error="",
         )
         rc.flush()
         records = rc.export()
@@ -131,7 +137,9 @@ class TestReferenceChannelCardLifecycle:
 
     def test_card_lifecycle_deviation_on_failure(self, rc):
         rc.card_lifecycle(
-            card_id="c-002", intent="risky deploy", state="failed",
+            card_id="c-002",
+            intent="risky deploy",
+            state="failed",
             predicted_state="completed",
         )
         rc.flush()
@@ -140,7 +148,9 @@ class TestReferenceChannelCardLifecycle:
 
     def test_card_lifecycle_deviation_on_unexpected_success(self, rc):
         rc.card_lifecycle(
-            card_id="c-003", intent="should fail", state="completed",
+            card_id="c-003",
+            intent="should fail",
+            state="completed",
             predicted_state="failed",
         )
         rc.flush()
@@ -296,8 +306,12 @@ class TestReferenceChannelSingleton:
 class TestReferenceChannelConvenienceHelpers:
     def test_tool_call_helper(self, rc):
         rc.tool_call(
-            tool_name="write_file", agent_id="agent-1", allowed=False,
-            gate="G3", reason="territory block", args={"path": "/etc/passwd"},
+            tool_name="write_file",
+            agent_id="agent-1",
+            allowed=False,
+            gate="G3",
+            reason="territory block",
+            args={"path": "/etc/passwd"},
             trace_id="t-007",
         )
         rc.flush()
@@ -311,8 +325,12 @@ class TestReferenceChannelConvenienceHelpers:
 
     def test_human_correction_helper(self, rc):
         rc.human_correction(
-            card_id="c-010", agent_id="agent-2",
-            field="intent", old_value="wrong", new_value="right", reason="typo",
+            card_id="c-010",
+            agent_id="agent-2",
+            field="intent",
+            old_value="wrong",
+            new_value="right",
+            reason="typo",
         )
         rc.flush()
         ev = rc.export()[0]
@@ -323,7 +341,8 @@ class TestReferenceChannelConvenienceHelpers:
 
     def test_anomaly_helper(self, rc):
         rc.anomaly(
-            card_id="c-020", cell_id="cell-x",
+            card_id="c-020",
+            cell_id="cell-x",
             detection={"pattern": "OSCILLATION", "score": 0.92},
         )
         rc.flush()
@@ -334,8 +353,10 @@ class TestReferenceChannelConvenienceHelpers:
 
     def test_convention_helper(self, rc):
         rc.convention(
-            card_id="c-030", outcome="consensus",
-            participants=["alice", "bob"], summary="agreed on approach",
+            card_id="c-030",
+            outcome="consensus",
+            participants=["alice", "bob"],
+            summary="agreed on approach",
         )
         rc.flush()
         ev = rc.export()[0]

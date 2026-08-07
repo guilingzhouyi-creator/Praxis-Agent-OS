@@ -19,12 +19,13 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-from l3.error_bus import capture
+from l3.error_bus import capture  # noqa: E402
 
 
 @dataclass
 class SessionTask:
     """SessionTask — session task record (card_id, title, status, turn, created_at)."""
+
     card_id: str = ""
     title: str = ""
     status: str = "queued"
@@ -60,8 +61,7 @@ class SessionTaskTable:
         """Register a card in the table, creating or refreshing its entry."""
         with self._lock:
             if card_id not in self._tasks:
-                self._tasks[card_id] = SessionTask(
-                    card_id=card_id, title=title, turn=turn)
+                self._tasks[card_id] = SessionTask(card_id=card_id, title=title, turn=turn)
             else:
                 self._tasks[card_id].title = title or self._tasks[card_id].title
 
@@ -101,8 +101,7 @@ class SessionTaskTable:
     def pending_count(self) -> int:
         """Return the count of tasks still in a non-terminal status."""
         with self._lock:
-            return sum(1 for t in self._tasks.values()
-                       if t.status in ("queued", "dispatched", "running"))
+            return sum(1 for t in self._tasks.values() if t.status in ("queued", "dispatched", "running"))
 
     def all(self) -> list[SessionTask]:
         """Return all tracked task objects."""
@@ -126,19 +125,20 @@ class SessionTaskTable:
         with self._lock:
             self._tasks.clear()
             for cid, td in (data or {}).items():
-                self._tasks[cid] = SessionTask(**{
-                    k: v for k, v in td.items() if k in SessionTask.__dataclass_fields__
-                })
+                self._tasks[cid] = SessionTask(**{k: v for k, v in td.items() if k in SessionTask.__dataclass_fields__})
 
     # ── Reconciliation (watcher): sync with CardRegistry ──
 
     def sync_from_registry(self) -> int:
         """Reconcile task statuses with CardRegistry state. Returns updated count."""
         from l3.card.card_registry import get_registry
+
         try:
             reg = get_registry()
         except Exception as e:
-            capture("task_table: registry unavailable", error_code="E_L3A_TASKS", component="l3a", context={"error": str(e)})
+            capture(
+                "task_table: registry unavailable", error_code="E_L3A_TASKS", component="l3a", context={"error": str(e)}
+            )
             logger.debug("task_table: registry unavailable: %s", e)
             return 0
         updated = 0
@@ -147,7 +147,12 @@ class SessionTaskTable:
                 try:
                     rec = reg.get(card_id)
                 except Exception:
-                    capture("task_table: card lookup failed", error_code="E_L3A_TASKS", component="l3a", context={"card_id": card_id})
+                    capture(
+                        "task_table: card lookup failed",
+                        error_code="E_L3A_TASKS",
+                        component="l3a",
+                        context={"card_id": card_id},
+                    )
                     continue
                 if not rec:
                     continue

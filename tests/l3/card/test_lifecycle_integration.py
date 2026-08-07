@@ -22,11 +22,11 @@ def _setup_cell():
     """Helper: create a clean Cell with one reader agent."""
     from l3.agent_terminal import reset_terminals
     from l3.cell import get_cell, reset_cells
+
     reset_cells()
     reset_terminals()
     cell = get_cell("integration-cell", ["src", "tests"])
-    cell.add_agent("reader-1", role="reader", ring=1, territory=["src"],
-                    max_scouts=2, auto_boot=False)
+    cell.add_agent("reader-1", role="reader", ring=1, territory=["src"], max_scouts=2, auto_boot=False)
     return cell
 
 
@@ -36,6 +36,7 @@ class TestCardLifecycleIntegration:
     def test_submit_dispatch_complete_cycle(self):
         """基本生命周期：submit → 获取 → complete"""
         from l3.card.card_registry import get_registry, reset_registry
+
         reset_registry()
         cr = get_registry()
         cid = cr.submit("Complete this card lifecycle integration test task", ".")
@@ -48,6 +49,7 @@ class TestCardLifecycleIntegration:
     def test_submit_cancel_cycle(self):
         """submit → cancel 流程"""
         from l3.card.card_registry import get_registry, reset_registry
+
         reset_registry()
         cr = get_registry()
         cid = cr.submit("Cancellable integration test task", ".")
@@ -58,6 +60,7 @@ class TestCardLifecycleIntegration:
     def test_card_pool_install(self):
         """card_pool 基本操作不崩溃"""
         from l3.card.card_pool import get_pool as _cp
+
         pool = _cp()
         r = pool.list_pool()
         assert isinstance(r, dict)
@@ -65,8 +68,8 @@ class TestCardLifecycleIntegration:
     def test_card_builder_creates_card(self):
         """CardBuilder 从意图创建卡片"""
         from l3.card.card_builder import build_card
-        card = build_card(task_id="test-int-1", intent="Read the README file",
-                          domain=".")
+
+        card = build_card(task_id="test-int-1", intent="Read the README file", domain=".")
         assert card is not None
         assert card.summary.title == "Read the README file"
 
@@ -83,6 +86,7 @@ class TestCellExecuteCardIntegration:
     def test_cell_execute_with_card_object(self):
         """Cell 执行 Card 对象不崩溃"""
         from l3.card.models import Card
+
         cell = _setup_cell()
         card = Card(intent="List files in the current directory for inspection", domain=".")
         result = cell.execute_card(card)
@@ -91,8 +95,9 @@ class TestCellExecuteCardIntegration:
     def test_cell_dispatch_card(self):
         """Cell.dispatch_card 向 Agent 发送 TerminalCard"""
         from l3.agent_terminal import get_terminal
+
         cell = _setup_cell()
-        term = get_terminal("reader-1", role="reader", territory=["src"], cell_id="integration-cell")
+        get_terminal("reader-1", role="reader", territory=["src"], cell_id="integration-cell")
         r = cell.dispatch_card("reader-1", "think", target=".", params={})
         assert isinstance(r, dict)
 
@@ -102,21 +107,31 @@ class TestMemoryAfterExecution:
 
     def test_memory_has_entries_after_remember(self):
         from l3.memory.memory import get_memory, reset_memory
+
         reset_memory()
         mem = get_memory()
-        r = mem.remember("integration-agent", "decision",
-                          "Use Python 3.11 for this project with async/await pattern.",
-                          tags=["python", "async"], ring=1)
+        r = mem.remember(
+            "integration-agent",
+            "decision",
+            "Use Python 3.11 for this project with async/await pattern.",
+            tags=["python", "async"],
+            ring=1,
+        )
         assert r.startswith("mem-"), f"remember failed: {r}"
         stats = mem.stats()
         assert stats["working"]["entries"] >= 1
 
     def test_recall_after_store(self):
         from l3.memory.memory import get_memory, reset_memory
+
         reset_memory()
         mem = get_memory()
-        mem.remember("recall-agent", "observation",
-                      "The system runs on Windows with Python 3.11 and minimal dependencies.",
-                      tags=["python", "windows"], ring=1)
+        mem.remember(
+            "recall-agent",
+            "observation",
+            "The system runs on Windows with Python 3.11 and minimal dependencies.",
+            tags=["python", "windows"],
+            ring=1,
+        )
         results = mem.recall(agent_id="recall-agent", limit=10)
         assert len(results) >= 1, "should find stored entry"

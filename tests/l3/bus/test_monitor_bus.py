@@ -20,7 +20,7 @@ class TestRingBuffer:
 
     def test_ring_evicts_oldest_when_full(self):
         bus = MonitorBus(ring_size=3)
-        for i in range(5):
+        for _i in range(5):
             bus.emit(_ev(type_="l1.kernel.test"))
         assert len(bus._ring) == 3
         # Oldest two evicted, ring keeps last three
@@ -38,7 +38,10 @@ class TestRingBuffer:
     def test_subscribe_unsubscribe_threadsafe(self):
         """M1: subscribe/unsubscribe under lock; remove of unknown is tolerated."""
         bus = MonitorBus(ring_size=10)
-        cb = lambda ev: None
+
+        def cb(ev):
+            return None
+
         bus.subscribe_sse(cb)
         bus.unsubscribe_sse(cb)
         # Repeated unsubscribe must not raise
@@ -89,8 +92,7 @@ class TestStatsM2B:
     def test_stats_keys_present(self):
         bus = MonitorBus(ring_size=10)
         s = bus.stats()
-        for key in ("ring_total", "emitted_total", "total",
-                    "ring_used", "ring_capacity", "by_type", "by_severity"):
+        for key in ("ring_total", "emitted_total", "total", "ring_used", "ring_capacity", "by_type", "by_severity"):
             assert key in s, f"missing key: {key}"
 
     def test_ring_total_equals_by_type_sum(self):

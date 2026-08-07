@@ -51,12 +51,20 @@ class TestInit:
     def test_counter_names_known(self, pmu):
         """All predefined counters exist."""
         expected = [
-            "cards.dispatched", "cards.completed", "cards.rolled_back",
-            "cards.decomposed", "cards.failed",
-            "tools.executed.ring_1", "tools.executed.ring_2_5",
-            "tools.executed.ring_3", "tools.rejected",
-            "cache.hits", "cache.misses", "cache.injections",
-            "cache.flushes", "cache.promotions",
+            "cards.dispatched",
+            "cards.completed",
+            "cards.rolled_back",
+            "cards.decomposed",
+            "cards.failed",
+            "tools.executed.ring_1",
+            "tools.executed.ring_2_5",
+            "tools.executed.ring_3",
+            "tools.rejected",
+            "cache.hits",
+            "cache.misses",
+            "cache.injections",
+            "cache.flushes",
+            "cache.promotions",
         ]
         for name in expected:
             assert name in pmu._counters, f"Missing counter: {name}"
@@ -65,13 +73,22 @@ class TestInit:
 class TestIncrement:
     """Counter increment operations."""
 
-    @pytest.mark.parametrize("counter", [
-        "cards.dispatched", "cards.completed", "cards.rolled_back",
-        "tools.executed.ring_1", "cache.hits", "cache.misses",
-        "scouts.spawned", "bus.messages_sent",
-        "token.consumed", "agent.boots",
-        "watchdog.timeouts",
-    ])
+    @pytest.mark.parametrize(
+        "counter",
+        [
+            "cards.dispatched",
+            "cards.completed",
+            "cards.rolled_back",
+            "tools.executed.ring_1",
+            "cache.hits",
+            "cache.misses",
+            "scouts.spawned",
+            "bus.messages_sent",
+            "token.consumed",
+            "agent.boots",
+            "watchdog.timeouts",
+        ],
+    )
     def test_increment_by_one(self, pmu, counter):
         pmu.increment(counter)
         assert pmu.read(counter) == 1
@@ -168,12 +185,12 @@ class TestDeltaRate:
 
     def test_delta_after_snapshots(self, pmu):
         """delta() needs a snapshot older than 'seconds' to compute difference."""
-        pmu.snapshot(force=True)                      # snap 1 at t≈now
+        pmu.snapshot(force=True)  # snap 1 at t≈now
         # Backdate the first snapshot so delta sees it as "old"
         old_snap = pmu._history[-1]
         old_snap.timestamp = time.time() - 10000
         pmu.increment("cards.completed", delta=5)
-        pmu.snapshot(force=True)                      # snap 2 at t≈now
+        pmu.snapshot(force=True)  # snap 2 at t≈now
         d = pmu.delta("cards.completed", seconds=9999)
         assert d == 5
 
@@ -235,27 +252,36 @@ class TestConcurrency:
 
     def test_parallel_increment(self, pmu):
         import threading
+
         errors = []
+
         def worker():
             try:
                 for _ in range(100):
                     pmu.increment("cards.completed")
             except Exception as e:
                 errors.append(e)
+
         threads = [threading.Thread(target=worker) for _ in range(4)]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
         assert len(errors) == 0
         assert pmu.read("cards.completed") == 400
 
     def test_parallel_snapshot(self, pmu):
         import threading
+
         def worker():
             for _ in range(10):
                 pmu.increment("cards.completed")
                 pmu.snapshot(force=True)
+
         threads = [threading.Thread(target=worker) for _ in range(4)]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
         assert pmu.read("cards.completed") == 40
         assert len(pmu._history) <= pmu._history_size

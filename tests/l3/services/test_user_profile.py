@@ -48,8 +48,7 @@ class TestSwitch:
 
 class TestIngest:
     def test_ingest_typed_entry(self, svc):
-        r = svc.ingest("alice", PROFILE_KIND_PREFERENCE, "concise",
-                       source="session", confidence=0.9)
+        r = svc.ingest("alice", PROFILE_KIND_PREFERENCE, "concise", source="session", confidence=0.9)
         assert r["success"]
         assert r["entry_id"]
         entries = svc.entries("alice")
@@ -84,25 +83,21 @@ class TestStoreCap:
     def test_cap_evicts_oldest(self):
         store = ProfileStore(max_entries=3)
         for i in range(5):
-            store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value=f"v{i}",
-                                   user_id="u", ts=float(i)))
+            store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value=f"v{i}", user_id="u", ts=float(i)))
         assert store.count("u") == 3
         values = [e.value for e in store.entries("u")]
         assert values == ["v4", "v3", "v2"]
 
     def test_purge_expired(self):
         store = ProfileStore()
-        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="old",
-                               user_id="u", ts=1.0, expires_at=2.0))
-        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="new",
-                               user_id="u", ts=3.0, expires_at=0.0))
+        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="old", user_id="u", ts=1.0, expires_at=2.0))
+        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="new", user_id="u", ts=3.0, expires_at=0.0))
         assert store.purge_expired(now=5.0) == 1
         assert [e.value for e in store.entries("u")] == ["new"]
 
     def test_decay_weakens_confidence(self):
         store = ProfileStore()
-        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="x",
-                               user_id="u", confidence=0.9))
+        store.add(ProfileEntry(kind=PROFILE_KIND_PREFERENCE, value="x", user_id="u", confidence=0.9))
         store.decay(factor=0.2)
         assert store.entries("u")[0].confidence == pytest.approx(0.7)
 
@@ -115,9 +110,12 @@ class TestEventCollectors:
         bus.on_any(lambda sig: None)  # ensure bus exists
         from l1.kernel import emit_signal
 
-        emit_signal("APPROVAL_RESPONDED", sender="approval_gate",
-                    target="cell", data={"user_id": "carol", "approved": True,
-                                         "req_id": "r1", "response": "ok"})
+        emit_signal(
+            "APPROVAL_RESPONDED",
+            sender="approval_gate",
+            target="cell",
+            data={"user_id": "carol", "approved": True, "req_id": "r1", "response": "ok"},
+        )
         deadline = time.time() + 1.0
         while time.time() < deadline and svc._store.count("carol") == 0:
             time.sleep(0.01)
@@ -129,8 +127,12 @@ class TestEventCollectors:
     def test_card_pending_collected(self, svc):
         from l1.kernel import emit_signal
 
-        emit_signal("CARD_PENDING", sender="pending_queue", target="cell",
-                    data={"user_id": "dave", "card_id": "c1", "domain": "ops"})
+        emit_signal(
+            "CARD_PENDING",
+            sender="pending_queue",
+            target="cell",
+            data={"user_id": "dave", "card_id": "c1", "domain": "ops"},
+        )
         deadline = time.time() + 1.0
         while time.time() < deadline and svc._store.count("dave") == 0:
             time.sleep(0.01)
@@ -189,12 +191,11 @@ class TestPortability:
         assert s2.entries("bob")[0]["source"] == "import"
 
     def test_import_replace(self, svc):
-        payload = {"entries": [
-            {"kind": PROFILE_KIND_PREFERENCE, "value": "x", "user_id": "u"}]}
+        payload = {"entries": [{"kind": PROFILE_KIND_PREFERENCE, "value": "x", "user_id": "u"}]}
         svc.import_profile("alice", payload)
-        svc.import_profile("alice", {"entries": [
-            {"kind": PROFILE_KIND_PREFERENCE, "value": "y", "user_id": "u"}]},
-            replace=True)
+        svc.import_profile(
+            "alice", {"entries": [{"kind": PROFILE_KIND_PREFERENCE, "value": "y", "user_id": "u"}]}, replace=True
+        )
         assert svc._store.count("alice") == 1
         assert svc.entries("alice")[0]["value"] == "y"
 
@@ -220,9 +221,10 @@ class TestConsumers:
         svc.ingest("alice", PROFILE_KIND_PREFERENCE, "concise", confidence=0.9)
         from l3.cell.peers.l3a.helpers import cardwrite_handler
 
-        r = cardwrite_handler({
-            "nature": "execution", "title": "do a thing",
-            "columns": {"domain": "ops"}, "user_id": "alice"}, agent_id="l3a")
+        r = cardwrite_handler(
+            {"nature": "execution", "title": "do a thing", "columns": {"domain": "ops"}, "user_id": "alice"},
+            agent_id="l3a",
+        )
         assert r["success"]
         # The card got a profile summary column (reference, not blocking)
         from l3.card.card_registry import get_registry, reset_registry
@@ -249,8 +251,8 @@ class TestConsumers:
     def test_session_cardwrite_forwards_user_id(self, svc):
         """Session-scoped cardwrite auto-attaches user_id from the session."""
         svc.ingest("bob", PROFILE_KIND_PREFERENCE, "terse", confidence=0.9)
-        from l3.cell.peers.l3a.session import Session
         from l3.card.card_registry import get_registry, reset_registry
+        from l3.cell.peers.l3a.session import Session
 
         reset_registry()
         s = Session.create(title="t", user_id="bob")
@@ -258,9 +260,7 @@ class TestConsumers:
         # The session registers its scoped cardwrite on the loop's tool list
         specs = [t for t in s._loop._tools if t.name == "cardwrite"]
         assert specs, "session cardwrite tool not registered"
-        result = specs[0].handler({
-            "nature": "execution", "title": "do thing",
-            "columns": {"domain": "ops"}}, "l3a")
+        result = specs[0].handler({"nature": "execution", "title": "do thing", "columns": {"domain": "ops"}}, "l3a")
         assert result["success"]
         card = get_registry()._cards.get(result["card_id"])
         if card is not None:

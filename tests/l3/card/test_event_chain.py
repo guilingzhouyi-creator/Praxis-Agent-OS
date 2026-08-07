@@ -32,10 +32,10 @@ def seen_events():
 
     bus = get_event_bus()
     captured: list[str] = []
-    try:
+    from contextlib import suppress
+
+    with suppress(Exception):
         bus.on_any(lambda sig: captured.append(sig.type.name))
-    except Exception:
-        pass
     yield captured
 
 

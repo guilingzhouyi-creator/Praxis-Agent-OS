@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SessionSnapshot:
     """Immutable snapshot of a conversation session. Can be resumed."""
+
     version: int = SNAPSHOT_VERSION
     session_id: str = ""
     agent_id: str = ""
@@ -55,20 +56,22 @@ class SessionSnapshot:
 
 # ── Truncation continuation ──
 
-from l1.kernel.prompts import get_prompt as _gp
+from l1.kernel.prompts import get_prompt as _gp  # noqa: E402
 
 TRUNCATION_RESUME_NUDGE = _gp("session_snapshot.truncation_resume_nudge", "")
 
 # ── Steps-exhausted continuation ──
-STEPS_EXHAUSTED_NUDGE = _gp("agent_loop.steps_exhausted_nudge",
+STEPS_EXHAUSTED_NUDGE = _gp(
+    "agent_loop.steps_exhausted_nudge",
     "Your tool-calling turn budget was reached but the task may not be complete. "
-    "Review what has been done and what still remains. Continue working if needed.")
+    "Review what has been done and what still remains. Continue working if needed.",
+)
 
 
 # ── Pre-send compression guard ──
 
-def should_compress(used_tokens: int, ctx_window: int,
-                    threshold: float = SESSION_COMPRESS_THRESHOLD) -> bool:
+
+def should_compress(used_tokens: int, ctx_window: int, threshold: float = SESSION_COMPRESS_THRESHOLD) -> bool:
     """Check if the current context is near the window limit.
 
     AtomCode-style: when used_tokens / ctx_window >= threshold, trigger

@@ -19,8 +19,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .sandbox_diff import check_conflict, compute_hunks
-
 from l1.kernel import get_rwlock
 from l1.kernel.params.api import ENV_SANDBOX_ROOT
 from l1.kernel.params.system import (
@@ -30,21 +28,23 @@ from l1.kernel.params.system import (
 from l1.kernel.paths import get_paths as _gp
 from l1.kernel.platform import get_temp_dir as _get_temp_dir
 
+from .sandbox_diff import check_conflict, compute_hunks
+
 logger = logging.getLogger(__name__)
 
 # ── Diff color scheme — customizable via API ──
 
 _DEFAULT_COLOR_SCHEME: dict[str, str] = {
-    "logic_change":  "\033[31m",   # red
-    "reformat":      "\033[34m",   # blue
-    "comment_only":  "\033[32m",   # green
-    "import_change": "\033[33m",   # yellow
-    "import_added":  "\033[33m",   # yellow
-    "rename":        "\033[36m",   # cyan
-    "structural":    "\033[90m",   # bright black
-    "mixed":         "\033[35m",   # magenta
-    "added":         "\033[32m",   # green
-    "removed":       "\033[31m",   # red
+    "logic_change": "\033[31m",  # red
+    "reformat": "\033[34m",  # blue
+    "comment_only": "\033[32m",  # green
+    "import_change": "\033[33m",  # yellow
+    "import_added": "\033[33m",  # yellow
+    "rename": "\033[36m",  # cyan
+    "structural": "\033[90m",  # bright black
+    "mixed": "\033[35m",  # magenta
+    "added": "\033[32m",  # green
+    "removed": "\033[31m",  # red
 }
 _RESET = "\033[0m"
 
@@ -62,6 +62,7 @@ def get_color_scheme() -> dict[str, str]:
     result = dict(_DEFAULT_COLOR_SCHEME)
     try:
         from l3.config.settings_center import get_center
+
         cfg_colors = get_center().get("diff.colors", {})
         if cfg_colors and isinstance(cfg_colors, dict):
             result.update(cfg_colors)
@@ -107,11 +108,12 @@ class SandboxEntry:
          ],
          "semantic": str}              # e.g. "logic_change: change return x+1 to x*2"
     """
-    path: str          # relative path in project
+
+    path: str  # relative path in project
     sandbox_path: str  # absolute path in sandbox
     agent_id: str
-    tool_name: str = ""      # tool that created this entry (e.g. "write_file", "replace_string")
-    status: str = "pending"   # pending | staged | flushed | discarded
+    tool_name: str = ""  # tool that created this entry (e.g. "write_file", "replace_string")
+    status: str = "pending"  # pending | staged | flushed | discarded
     original_hash: str = ""
     modified_at: float = field(default_factory=time.time)
     # Structured diff (populated by write())
@@ -121,17 +123,22 @@ class SandboxEntry:
     task_id: str = ""
     depends_on: list[str] = field(default_factory=list)
     # Conflict detection
-    conflict_level: str = "none"   # "none" | "warn" | "block" | "ping_pong"
+    conflict_level: str = "none"  # "none" | "warn" | "block" | "ping_pong"
 
     def to_serializable(self) -> dict:
         """Serialize to a JSON-safe dict for _persist_state."""
         return {
-            "path": self.path, "sandbox_path": self.sandbox_path,
-            "agent_id": self.agent_id, "tool_name": self.tool_name,
+            "path": self.path,
+            "sandbox_path": self.sandbox_path,
+            "agent_id": self.agent_id,
+            "tool_name": self.tool_name,
             "status": self.status,
-            "original_hash": self.original_hash, "modified_at": self.modified_at,
-            "hunks": self.hunks, "stats": self.stats,
-            "task_id": self.task_id, "depends_on": self.depends_on,
+            "original_hash": self.original_hash,
+            "modified_at": self.modified_at,
+            "hunks": self.hunks,
+            "stats": self.stats,
+            "task_id": self.task_id,
+            "depends_on": self.depends_on,
             "conflict_level": self.conflict_level,
         }
 
@@ -139,8 +146,10 @@ class SandboxEntry:
     def from_dict(cls, d: dict) -> SandboxEntry:
         """Restore from a serialized dict (for _restore_state)."""
         return cls(
-            path=d["path"], sandbox_path=d["sandbox_path"],
-            agent_id=d["agent_id"], tool_name=d.get("tool_name", ""),
+            path=d["path"],
+            sandbox_path=d["sandbox_path"],
+            agent_id=d["agent_id"],
+            tool_name=d.get("tool_name", ""),
             status=d.get("status", "pending"),
             original_hash=d.get("original_hash", ""),
             modified_at=d.get("modified_at", 0.0),
@@ -185,16 +194,16 @@ class SandboxEntry:
 
             lines.append(f"@@ -{orig_start},{orig_count} +{mod_start},{mod_count} @@")
 
-            ctx_lines = [(" " + l.rstrip("\n")) for l in h.get("context_before", [])]
+            ctx_lines = [(" " + ln.rstrip("\n")) for ln in h.get("context_before", [])]
             for cl in ctx_lines:
                 lines.append(cl)
 
-            for l in h.get("removed_lines", []):
-                lines.append("-" + l.rstrip("\n"))
-            for l in h.get("added_lines", []):
-                lines.append("+" + l.rstrip("\n"))
+            for ln in h.get("removed_lines", []):
+                lines.append("-" + ln.rstrip("\n"))
+            for ln in h.get("added_lines", []):
+                lines.append("+" + ln.rstrip("\n"))
 
-            ctx_after = [(" " + l.rstrip("\n")) for l in h.get("context_after", [])]
+            ctx_after = [(" " + ln.rstrip("\n")) for ln in h.get("context_after", [])]
             for cl in ctx_after:
                 lines.append(cl)
 
@@ -279,7 +288,7 @@ class SandboxEntry:
             t = h.get("type", "replace")
             by_type[t] = by_type.get(t, 0) + 1
             start = h.get("original_start", 1) or h.get("modified_start", 1)
-            end = (h.get("original_end") or h.get("modified_end") or start)
+            end = h.get("original_end") or h.get("modified_end") or start
             ranges.append({"start": start, "end": end})
             s = h.get("semantic", "")
             if s and s not in ("", "structural"):
@@ -335,14 +344,10 @@ class SandboxEntry:
         return hr
 
 
-
-
-
 class CellSandbox:
     """Sandbox for one Cell. Contains per-Agent write layers — persisted to JSON."""
 
-    def __init__(self, cell_id: str, project_root: str, sandbox_root: str,
-                 state_path: str = ""):
+    def __init__(self, cell_id: str, project_root: str, sandbox_root: str, state_path: str = ""):
         self.cell_id = cell_id
         self.project_root = Path(project_root).resolve()
         self.sandbox_root = Path(sandbox_root).resolve() / cell_id
@@ -364,8 +369,7 @@ class CellSandbox:
                 "_version": 3,
                 "cell_id": self.cell_id,
                 "agents": {aid: str(p) for aid, p in self._agents.items()},
-                "entries": {eid: e.to_serializable()
-                            for eid, e in self._entries.items()},
+                "entries": {eid: e.to_serializable() for eid, e in self._entries.items()},
                 "summary_cache": dict(self._summary_cache),
             }
             tmp = self._state_path + ".tmp"
@@ -389,8 +393,7 @@ class CellSandbox:
                 if rel_path:
                     self._path_index.setdefault(rel_path, []).append(eid)
             self._summary_cache.update(data.get("summary_cache", {}))
-            logger.info("sandbox restored: %d agents, %d entries",
-                        len(self._agents), len(self._entries))
+            logger.info("sandbox restored: %d agents, %d entries", len(self._agents), len(self._entries))
         except Exception as e:
             logger.warning("sandbox restore failed: %s", e)
 
@@ -403,8 +406,7 @@ class CellSandbox:
             self._persist_state()
         return agent_dir
 
-    def _get_old_content(self, rel_path: str, agent_id: str,
-                         depends_on: list[str] | None = None) -> tuple[str, str]:
+    def _get_old_content(self, rel_path: str, agent_id: str, depends_on: list[str] | None = None) -> tuple[str, str]:
         """Get the "old" content for diff purposes.
 
         Resolution order:
@@ -448,8 +450,7 @@ class CellSandbox:
         # 4. New file
         return "", "empty"
 
-    def read(self, rel_path: str, agent_id: str,
-             depends_on: list[str] | None = None) -> dict:
+    def read(self, rel_path: str, agent_id: str, depends_on: list[str] | None = None) -> dict:
         """Read a file with cross-agent version routing.
 
         Resolution order:
@@ -471,9 +472,13 @@ class CellSandbox:
         if sandbox_file.exists():
             try:
                 content = sandbox_file.read_text(encoding="utf-8")
-                return {"success": True, "content": content,
-                        "source": "sandbox", "path": str(sandbox_file),
-                        "agent_id": agent_id}
+                return {
+                    "success": True,
+                    "content": content,
+                    "source": "sandbox",
+                    "path": str(sandbox_file),
+                    "agent_id": agent_id,
+                }
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
@@ -486,9 +491,13 @@ class CellSandbox:
                 if up_file.exists():
                     try:
                         content = up_file.read_text(encoding="utf-8")
-                        return {"success": True, "content": content,
-                                "source": "upstream", "path": str(up_file),
-                                "agent_id": upstream_id}
+                        return {
+                            "success": True,
+                            "content": content,
+                            "source": "upstream",
+                            "path": str(up_file),
+                            "agent_id": upstream_id,
+                        }
                     except Exception as e:
                         return {"success": False, "error": str(e)}
 
@@ -497,16 +506,21 @@ class CellSandbox:
         if real_file.exists():
             try:
                 content = real_file.read_text(encoding="utf-8")
-                return {"success": True, "content": content,
-                        "source": "project", "path": str(real_file)}
+                return {"success": True, "content": content, "source": "project", "path": str(real_file)}
             except Exception as e:
                 return {"success": False, "error": str(e)}
 
         return {"success": False, "error": "file not found"}
 
-    def write(self, rel_path: str, content: str, agent_id: str,
-              task_id: str = "", tool_name: str = "",
-              depends_on: list[str] | None = None) -> dict:
+    def write(
+        self,
+        rel_path: str,
+        content: str,
+        agent_id: str,
+        task_id: str = "",
+        tool_name: str = "",
+        depends_on: list[str] | None = None,
+    ) -> dict:
         """Write to sandbox with structured diff, conflict detection, and event broadcast.
 
         Args:
@@ -541,9 +555,7 @@ class CellSandbox:
 
             # 2. Compute structured diff with agent/tool attribution
             now = time.time()
-            hunks = compute_hunks(old_content, content,
-                                  agent_id=agent_id, tool_name=tool_name,
-                                  timestamp=now)
+            hunks = compute_hunks(old_content, content, agent_id=agent_id, tool_name=tool_name, timestamp=now)
             additions = sum(len(h["added_lines"]) for h in hunks)
             deletions = sum(len(h["removed_lines"]) for h in hunks)
             stats = {"additions": additions, "deletions": deletions, "hunks": len(hunks)}
@@ -559,10 +571,14 @@ class CellSandbox:
             # 5. Build entry with full metadata
             old_hash = hashlib.sha256(old_content.encode("utf-8")).hexdigest()[:HASH_TRUNC_LONG] if old_content else ""
             entry = SandboxEntry(
-                path=safe_rel, sandbox_path=str(target),
-                agent_id=agent_id, tool_name=tool_name, status="pending",
+                path=safe_rel,
+                sandbox_path=str(target),
+                agent_id=agent_id,
+                tool_name=tool_name,
+                status="pending",
                 original_hash=old_hash,
-                hunks=hunks, stats=stats,
+                hunks=hunks,
+                stats=stats,
                 task_id=task_id,
                 depends_on=list(depends_on or []),
                 conflict_level=conflict,
@@ -577,23 +593,26 @@ class CellSandbox:
             try:
                 from l1.kernel.event import Signal, SignalType
                 from l1.kernel.event import get_bus as _get_ebus
+
                 ebus = _get_ebus()
-                ebus.emit(Signal(
-                    type=SignalType.FILE_CHANGED,
-                    sender=f"sandbox:{self.cell_id}",
-                    target=agent_id,
-                    data={
-                        "path": safe_rel,
-                        "agent_id": agent_id,
-                        "tool_name": tool_name,
-                        "cell_id": self.cell_id,
-                        "task_id": task_id,
-                        "stats": stats,
-                        "conflict_level": conflict,
-                        "old_source": old_source,
-                        "hunks_count": len(hunks),
-                    },
-                ))
+                ebus.emit(
+                    Signal(
+                        type=SignalType.FILE_CHANGED,
+                        sender=f"sandbox:{self.cell_id}",
+                        target=agent_id,
+                        data={
+                            "path": safe_rel,
+                            "agent_id": agent_id,
+                            "tool_name": tool_name,
+                            "cell_id": self.cell_id,
+                            "task_id": task_id,
+                            "stats": stats,
+                            "conflict_level": conflict,
+                            "old_source": old_source,
+                            "hunks_count": len(hunks),
+                        },
+                    )
+                )
             except Exception:
                 logger.debug("sandbox: FILE_CHANGED emit failed")
 
@@ -613,7 +632,7 @@ class CellSandbox:
         """Mark all pending entries of an agent as staged."""
         staged = []
         with self._lock:
-            for key, entry in self._entries.items():
+            for _key, entry in self._entries.items():
                 if entry.agent_id == agent_id and entry.status == "pending":
                     entry.status = "staged"
                     staged.append(entry.path)
@@ -624,9 +643,13 @@ class CellSandbox:
         """Flush approved sandbox changes to the real project."""
         flushed = []
         with self._lock:
-            targets = [(entry, entry.path) for entry in self._entries.values()
-                       if entry.agent_id == agent_id and entry.status == "staged"
-                       and (rel_paths is None or entry.path in rel_paths)]
+            targets = [
+                (entry, entry.path)
+                for entry in self._entries.values()
+                if entry.agent_id == agent_id
+                and entry.status == "staged"
+                and (rel_paths is None or entry.path in rel_paths)
+            ]
 
         for entry, rel_path in targets:
             src = Path(entry.sandbox_path)
@@ -657,9 +680,11 @@ class CellSandbox:
         agent_dir = self._agent_path(agent_id) if agent_id else self.sandbox_root
         count = 0
         with self._lock:
-            to_discard = [(k, e) for k, e in self._entries.items()
-                          if (not agent_id or e.agent_id == agent_id)
-                          and e.status in ("pending", "staged")]
+            to_discard = [
+                (k, e)
+                for k, e in self._entries.items()
+                if (not agent_id or e.agent_id == agent_id) and e.status in ("pending", "staged")
+            ]
             for key, entry in to_discard:
                 entry.status = "discarded"
                 count += 1
@@ -715,10 +740,9 @@ class CellSandbox:
             best: SandboxEntry | None = None
             best_ts = 0.0
             for key, entry in self._entries.items():
-                if key.startswith(rel_path + "::"):
-                    if entry.modified_at > best_ts:
-                        best = entry
-                        best_ts = entry.modified_at
+                if entry.modified_at > best_ts and key.startswith(rel_path + "::"):
+                    best = entry
+                    best_ts = entry.modified_at
             return best
 
     def get_entries(self, agent_id: str = "") -> list[SandboxEntry]:
@@ -746,7 +770,9 @@ class CellSandbox:
                 "cell_id": self.cell_id,
                 "agents": list(self._agents.keys()),
                 "entries": len(self._entries),
-                "pending": pending, "staged": staged, "flushed": flushed,
+                "pending": pending,
+                "staged": staged,
+                "flushed": flushed,
             }
 
     def _agent_path(self, agent_id: str) -> Path:
@@ -794,8 +820,7 @@ class SandboxManager:
             # Give each cell its own state file so cells don't load
             # each other's entries via the shared sandbox_state path.
             state_path = str(self._sandbox_root / SANDBOX_STATE_TEMPLATE.format(cell_id=cell_id))
-            sb = CellSandbox(cell_id, project_root, str(self._sandbox_root),
-                             state_path=state_path)
+            sb = CellSandbox(cell_id, project_root, str(self._sandbox_root), state_path=state_path)
             self._cells[cell_id] = sb
             return {"success": True, "cell_id": cell_id, "sandbox_root": str(sb.sandbox_root)}
 

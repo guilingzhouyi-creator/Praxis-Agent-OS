@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 class LockState(Enum):
     """LockState — enum of FREE, LOCKED, CONTENDED."""
+
     FREE = auto()
     LOCKED = auto()
     CONTENDED = auto()
@@ -52,9 +53,13 @@ class Mutex:
       - Cross-agent (works via IPC bus, not just threads)
     """
 
-    def __init__(self, name: str, timeout: float = MUTEX_DEFAULT_TIMEOUT,
-                 on_boost: Callable[[str, float, float], None] | None = None,
-                 ipc_enabled: bool = False):
+    def __init__(
+        self,
+        name: str,
+        timeout: float = MUTEX_DEFAULT_TIMEOUT,
+        on_boost: Callable[[str, float, float], None] | None = None,
+        ipc_enabled: bool = False,
+    ):
         self.name = name
         self.timeout = timeout
         self.ipc_enabled = ipc_enabled
@@ -90,7 +95,7 @@ class Mutex:
                 queue.append(w[0])
 
         adjacency: dict[str, list[str]] = {}
-        for mtx_name, mtx in _registry.items():
+        for _mtx_name, mtx in _registry.items():
             if isinstance(mtx, Mutex) and mtx._owner:
                 adjacency.setdefault(mtx._owner, [])
                 for w in mtx._waiters:
@@ -142,8 +147,7 @@ class Mutex:
             return self.status()
         return None
 
-    def acquire(self, agent_id: str, priority: float = MUTEX_DEFAULT_PRIORITY,
-                blocking: bool = True) -> dict:
+    def acquire(self, agent_id: str, priority: float = MUTEX_DEFAULT_PRIORITY, blocking: bool = True) -> dict:
         """Acquire the mutex, applying priority inheritance and deadlock detection. Returns a result dict with success flag and owner."""
         deadline = time.time() + self.timeout
 
@@ -165,8 +169,14 @@ class Mutex:
                 self._effective_priority = priority
                 if self._on_boost:
                     self._on_boost(self._owner, old, priority)
-                logger.warning("PI: %s boosted %s -> %.1f (waiter %s pri=%.1f)",
-                               self.name, self._owner, priority, agent_id, priority)
+                logger.warning(
+                    "PI: %s boosted %s -> %.1f (waiter %s pri=%.1f)",
+                    self.name,
+                    self._owner,
+                    priority,
+                    agent_id,
+                    priority,
+                )
 
             if not blocking:
                 return {"success": False, "error": "lock contended", "owner": self._owner}
@@ -194,12 +204,16 @@ class Mutex:
                     self._base_priority = priority
                     self._waiters = [w for w in self._waiters if w[0] != agent_id]
                     waited = round(time.time() - (deadline - self.timeout), 3)
-                    return {"success": True, "owner": agent_id, "waited": waited,
-                            "boosted": waited > MUTEX_BOOST_THRESHOLD}
+                    return {
+                        "success": True,
+                        "owner": agent_id,
+                        "waited": waited,
+                        "boosted": waited > MUTEX_BOOST_THRESHOLD,
+                    }
 
             if not cycle_reported and waited > MUTEX_CYCLE_DETECT_AFTER:
                 # Lazify cycle detection: run at most once every 60s to avoid O(n) DFS hot path
-                if not hasattr(self, '_last_cycle_check'):
+                if not hasattr(self, "_last_cycle_check"):
                     self._last_cycle_check = 0.0
                 now = time.time()
                 if now - self._last_cycle_check > MUTEX_CYCLE_DEBOUNCE:
@@ -209,8 +223,13 @@ class Mutex:
                         logger.critical("DEADLOCK CYCLE DETECTED: %s", " -> ".join(cycle))
                         cycle_reported = True
 
-        return {"success": False, "error": "timeout", "owner": self._owner,
-                "waited": round(waited, 3), "cycle_detected": cycle_reported}
+        return {
+            "success": False,
+            "error": "timeout",
+            "owner": self._owner,
+            "waited": round(waited, 3),
+            "cycle_detected": cycle_reported,
+        }
 
     def release(self, agent_id: str) -> dict:
         """Release the mutex if *agent_id* holds it; restores base priority and wakes a waiter. Returns a result dict."""
@@ -226,8 +245,7 @@ class Mutex:
             self._state = LockState.FREE
             self._owner = ""
             self._cond.notify(1)
-            return {"success": True, "priority_restored": restored,
-                    "from": old, "to": self._base_priority}
+            return {"success": True, "priority_restored": restored, "from": old, "to": self._base_priority}
 
     def force_unlock(self) -> dict:
         """Force-release the mutex (for test cleanup). Not for production use."""
@@ -423,16 +441,19 @@ class RWLock:
                 self._readers -= 1
             else:
                 # Nothing held by this agent — report failure (aligns with Mutex).
-                return {"success": False, "error": "not locked",
-                        "writer": self._writer, "readers": self._readers}
+                return {"success": False, "error": "not locked", "writer": self._writer, "readers": self._readers}
             self._cond.notify_all()
-            return {"success": True, "mode": "write" if self._writer else "read",
-                    "readers": self._readers}
+            return {"success": True, "mode": "write" if self._writer else "read", "readers": self._readers}
 
     def status(self) -> dict:
         """Return a snapshot dict of RWLock state (readers, writer, write_waiters)."""
         with self._lock:
-            return {"name": self.name, "readers": self._readers, "writer": self._writer, "write_waiters": self._write_waiters}
+            return {
+                "name": self.name,
+                "readers": self._readers,
+                "writer": self._writer,
+                "write_waiters": self._write_waiters,
+            }
 
 
 # ── Global registry (thread-safe) ──
@@ -448,8 +469,7 @@ def _get_or_create(name: str, factory) -> Any:
         return _registry[name]
 
 
-def get_mutex(name: str, timeout: float = MUTEX_DEFAULT_TIMEOUT,
-              ipc_enabled: bool = False) -> Mutex:
+def get_mutex(name: str, timeout: float = MUTEX_DEFAULT_TIMEOUT, ipc_enabled: bool = False) -> Mutex:
     """Return the named Mutex, creating it on first use."""
     return _get_or_create(name, lambda: Mutex(name, timeout, ipc_enabled=ipc_enabled))
 

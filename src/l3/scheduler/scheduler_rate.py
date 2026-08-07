@@ -5,6 +5,7 @@ Ring 1:   60 calls/min  (fast, read-only)
 Ring 2.5: 20 calls/min  (moderate)
 Ring 3:    5 calls/min   (slow, destructive)
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,16 +26,16 @@ from l1.kernel.params.tool import (
 
 logger = logging.getLogger(__name__)
 
-from l1.kernel.params.kernel import (
+from l1.kernel.params.kernel import (  # noqa: E402
     RING_1 as _R1,
 )
-from l1.kernel.params.kernel import (
+from l1.kernel.params.kernel import (  # noqa: E402
     RING_2_5 as _R25,
 )
-from l1.kernel.params.kernel import (
+from l1.kernel.params.kernel import (  # noqa: E402
     RING_3 as _R3,
 )
-from l1.kernel.params.kernel import (
+from l1.kernel.params.kernel import (  # noqa: E402
     RING_NUM_MAP as _RNM,
 )
 
@@ -58,6 +59,7 @@ _RING_RATE = _resolve_ring_rates()
 def agent_can_access(agent_id: str, tool_ring: str) -> bool:
     """Check whether the agent may access the given tool/ring."""
     from l1.kernel.params.agent import AGENT_CLEARANCE
+
     level = AGENT_CLEARANCE.get(agent_id, 1)
     return level >= _RING_ORDER.get(tool_ring, 0)
 
