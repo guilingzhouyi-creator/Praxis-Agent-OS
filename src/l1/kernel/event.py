@@ -120,7 +120,7 @@ class EventBus:
         """Unsubscribe a callback, or all callbacks, for a signal type."""
         with self._lock:
             if cb:
-                self._listeners[st] = [l for l in self._listeners.get(st, []) if l != cb]
+                self._listeners[st] = [c for c in self._listeners.get(st, []) if c != cb]
             else:
                 self._listeners.pop(st, None)
 

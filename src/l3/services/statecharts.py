@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import time
-from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -38,20 +37,32 @@ logger = logging.getLogger(__name__)
 
 class EventType(Enum):
     """EventType — enum of event type variants."""
-    TASK_ASSIGN = auto(); TASK_CANCEL = auto()
-    ANALYSIS_DONE = auto(); CHANGES_DONE = auto()
-    SELF_CHECK_PASS = auto(); SELF_CHECK_FAIL = auto()
-    REVIEW_PASSED = auto(); REVIEW_REJECTED = auto()
-    FIXES_DONE = auto(); CONVERGENCE_DONE = auto()
-    DIRECT_START = auto(); DIRECT_END = auto()
-    TOOL_CALL_FAIL = auto(); TOOL_CALL_SUCCESS = auto()
-    HEARTBEAT_TIMEOUT = auto(); HEARTBEAT_RESTORED = auto()
+    TASK_ASSIGN = auto()
+    TASK_CANCEL = auto()
+    ANALYSIS_DONE = auto()
+    CHANGES_DONE = auto()
+    SELF_CHECK_PASS = auto()
+    SELF_CHECK_FAIL = auto()
+    REVIEW_PASSED = auto()
+    REVIEW_REJECTED = auto()
+    FIXES_DONE = auto()
+    CONVERGENCE_DONE = auto()
+    DIRECT_START = auto()
+    DIRECT_END = auto()
+    TOOL_CALL_FAIL = auto()
+    TOOL_CALL_SUCCESS = auto()
+    HEARTBEAT_TIMEOUT = auto()
+    HEARTBEAT_RESTORED = auto()
     AGENT_CRASHED = auto()
     REVIEW_REQUESTED = auto()
-    TOKEN_EXCEEDED = auto(); MEMORY_EXCEEDED = auto()
-    BUDGET_RESET = auto(); MEMORY_RECOVERED = auto()
-    COMM_CONNECT = auto(); COMM_DEGRADE = auto()
-    COMM_DISCONNECT = auto(); COMM_RECONNECT = auto()
+    TOKEN_EXCEEDED = auto()
+    MEMORY_EXCEEDED = auto()
+    BUDGET_RESET = auto()
+    MEMORY_RECOVERED = auto()
+    COMM_CONNECT = auto()
+    COMM_DEGRADE = auto()
+    COMM_DISCONNECT = auto()
+    COMM_RECONNECT = auto()
     COMM_ISOLATE = auto()
     TIMEOUT = auto()
 
@@ -59,18 +70,23 @@ class EventType(Enum):
 @dataclass
 class Transition:
     """Transition — transition record (to, reason, ctx)."""
-    to: str; reason: str = ""; ctx: dict = field(default_factory=dict)
+    to: str
+    reason: str = ""
+    ctx: dict = field(default_factory=dict)
 
 @dataclass
 class EventCtx:
     """EventCtx — event ctx record (type, data, ts)."""
-    type: EventType; data: dict = field(default_factory=dict)
+    type: EventType
+    data: dict = field(default_factory=dict)
     ts: float = field(default_factory=time.time)
 
 
-class Region(ABC):
+class Region:
     """Region — region record (name, state, parent, history, _transitions)."""
-    name: str = ""; state: str = ""; parent: str | None = None
+    name: str = ""
+    state: str = ""
+    parent: str | None = None
     history: dict[str, str] = {}
     _transitions: dict = {}
     broadcast: Callable | None = None
@@ -82,15 +98,19 @@ class Region(ABC):
         """Dispatch an event to this region and return the applied transition if any."""
         key = (self.state, event.type)
         tr = self._transitions.get(key)
-        if tr: return self._apply(tr, event)
+        if tr:
+            return self._apply(tr, event)
         tr = self._transitions.get(("*", event.type))
-        if tr: return self._apply(tr, event)
+        if tr:
+            return self._apply(tr, event)
         return None
 
     def _apply(self, tr, event):
-        if self.parent: self.history[self.parent] = self.state
+        if self.parent:
+            self.history[self.parent] = self.state
         from_state = self.state
-        self.state = tr.to; tr.ctx = {**event.data, **tr.ctx}
+        self.state = tr.to
+        tr.ctx = {**event.data, **tr.ctx}
         # Emit STATE_CHANGE so cross-service loggers can track transitions.
         try:
             from l1.kernel import emit_signal
@@ -134,7 +154,8 @@ class HealthRegion(Region):
                  hto=STATECHART_HEALTH_TIMEOUT, cto=STATECHART_CRASH_TIMEOUT):
         self.state = "HEALTHY"
         self.ft, self.st, self.hto, self.cto = ft, st, hto, cto
-        self._fc = self._sc = 0; self._lh = time.time()
+        self._fc = self._sc = 0
+        self._lh = time.time()
         self._add("DEGRADED", EventType.HEARTBEAT_TIMEOUT, "UNRESPONSIVE")
         self._add("UNRESPONSIVE", EventType.HEARTBEAT_RESTORED, "HEALTHY")
         self._add("UNRESPONSIVE", EventType.AGENT_CRASHED, "CRASHED")
@@ -143,13 +164,17 @@ class HealthRegion(Region):
     def handle(self, event):
         """Process health-related events and degrade or recover the region accordingly."""
         if event.type == EventType.TOOL_CALL_FAIL:
-            self._fc += 1; self._sc = 0
+            self._fc += 1
+            self._sc = 0
             if self.state == "HEALTHY" and self._fc >= self.ft:
-                self._fc = 0; return self._apply(Transition(to="DEGRADED"), event)
+                self._fc = 0
+                return self._apply(Transition(to="DEGRADED"), event)
         elif event.type == EventType.TOOL_CALL_SUCCESS:
-            self._sc += 1; self._fc = 0
+            self._sc += 1
+            self._fc = 0
             if self.state == "DEGRADED" and self._sc >= self.st:
-                self._sc = 0; return self._apply(Transition(to="HEALTHY"), event)
+                self._sc = 0
+                return self._apply(Transition(to="HEALTHY"), event)
         elif event.type == EventType.HEARTBEAT_TIMEOUT:
             el = time.time() - self._lh
             if self.state in ("DEGRADED","UNRESPONSIVE") and el > self.cto:
@@ -179,7 +204,8 @@ class ReviewRegion(Region):
     name = "Review"
     def __init__(self):
         self.state = "NOT_UNDER_REVIEW"
-        self._reviewers = []; self._votes = {}
+        self._reviewers = []
+        self._votes = {}
         self._add("NOT_UNDER_REVIEW", EventType.REVIEW_REQUESTED, "UNDER_REVIEW")
         self._add("UNDER_REVIEW", EventType.REVIEW_PASSED, "REVIEW_PASSED")
         self._add("UNDER_REVIEW", EventType.REVIEW_REJECTED, "REVIEW_REJECTED")
@@ -190,11 +216,13 @@ class ReviewRegion(Region):
 
     def add_reviewer(self, rid):
         """Register a reviewer by id if not already present."""
-        if rid not in self._reviewers: self._reviewers.append(rid)
+        if rid not in self._reviewers:
+            self._reviewers.append(rid)
     def vote(self, rid, ok):
         """Record a reviewer vote and return the resulting review action dict."""
         self._votes[rid] = ok
-        if not ok: return {"action": "rejected", "by": rid}
+        if not ok:
+            return {"action": "rejected", "by": rid}
         if len(self._votes) >= len(self._reviewers) and all(self._votes.values()):
             return {"action": "passed"}
         return {"action": "pending", "remaining": len(self._reviewers) - len(self._votes)}
@@ -233,7 +261,8 @@ class CommRegion(Region):
     def __init__(self, dt=STATECHART_COMM_DEGRADE_THRESHOLD, dst=STATECHART_COMM_DISCONNECT_THRESHOLD):
         self.state = "CONNECTED"
         self.dt, self.dst = dt, dst
-        self._latency = 0.0; self._ra = 0
+        self._latency = 0.0
+        self._ra = 0
         self._add("CONNECTED", EventType.COMM_DEGRADE, "DEGRADED")
         self._add("CONNECTED", EventType.COMM_DISCONNECT, "DISCONNECTED")
         self._add("DEGRADED", EventType.COMM_CONNECT, "CONNECTED")
@@ -256,8 +285,10 @@ class AgentStatecharts:
     """Statechart engine for a Cell agent (task/health/review/resource/comm regions)."""
     def __init__(self, agent_id="", persist_path=""):
         self.agent_id = agent_id
-        self.task = TaskRegion(); self.health = HealthRegion()
-        self.review = ReviewRegion(); self.resource = ResourceRegion()
+        self.task = TaskRegion()
+        self.health = HealthRegion()
+        self.review = ReviewRegion()
+        self.resource = ResourceRegion()
         self.comm = CommRegion()
         self._regions = [self.task, self.health, self.review, self.resource, self.comm]
         self._persist_path = persist_path or _gp().statecharts.replace(".json", f"_{agent_id}.json") if agent_id else _gp().statecharts
@@ -343,7 +374,8 @@ class AgentStatecharts:
         trs = []
         for r in self._regions:
             tr = r.handle(ctx)
-            if tr: trs.append(tr)
+            if tr:
+                trs.append(tr)
         if et == EventType.AGENT_CRASHED:
             self.task.handle(EventCtx(type=EventType.AGENT_CRASHED, data={"checkpoint": True}))
         return trs

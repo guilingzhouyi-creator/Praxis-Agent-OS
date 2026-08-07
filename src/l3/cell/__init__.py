@@ -396,8 +396,8 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
 
         # ══ Blocking cross-review gate for write operations ══
         try:
-            from ..tool_system.tool_config import ToolConfig as _TC
-            _is_write = action in _TC.write_tool_names()
+            from ..tool_system.tool_config import ToolConfig
+            _is_write = action in ToolConfig.write_tool_names()
         except Exception:
             _is_write = False
         if _is_write:
@@ -952,8 +952,7 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
     def reuse_scout_result(self, template: str, scope: dict | None = None,
                            ttl: float = 0) -> dict | None:
         """Reuse cached scout results to avoid re-scouting."""
-        cached = scout_cache_get(template, scope, ttl or self.max_scout_cache_ttl)
-        return cached
+        return scout_cache_get(template, scope, ttl or self.max_scout_cache_ttl)
 
     # ── Think quota management ──
 

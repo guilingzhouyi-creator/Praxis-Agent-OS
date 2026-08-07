@@ -23,11 +23,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-# ── Action type constants ──
-_ACTION_THINK = "think"
-_ACTION_TOOL_CALL = "tool_call"
-_ACTION_DECISION = "decision"
-
 from l1.kernel import (
     Signal,
     SignalType,
@@ -37,6 +32,11 @@ from l1.kernel import (
 from l1.kernel.constitution import get_constitution
 from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS, LOG_TRUNC_500
 from l3.memory.memory import get_memory as _get_mem
+
+# ── Action type constants ──
+_ACTION_THINK = "think"
+_ACTION_TOOL_CALL = "tool_call"
+_ACTION_DECISION = "decision"
 
 logger = logging.getLogger(__name__)
 

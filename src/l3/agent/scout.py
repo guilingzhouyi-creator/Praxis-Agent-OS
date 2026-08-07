@@ -172,8 +172,8 @@ class ScoutSession:
 
 
 # Lazy import to avoid circular import with services._base
-from l1.kernel.platform import grep_cmd as _grep_cmd
-from l3._base import BaseService
+from l1.kernel.platform import grep_cmd as _grep_cmd  # noqa: E402  (lazy, circular-import)
+from l3._base import BaseService  # noqa: E402  (lazy, circular-import)
 
 _MODEL_SPEC = "scout"
 

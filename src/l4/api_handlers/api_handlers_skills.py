@@ -60,7 +60,7 @@ def handle_skills_create(body: dict | None = None) -> dict:
     if not name:
         return {"success": False, "error": "skill name is required"}
     agent_id, role = _caller(b)
-    r = _manager().create(
+    return _manager().create(
         name=name,
         description=b.get("description", ""),
         prompt=b.get("prompt", ""),
@@ -70,7 +70,6 @@ def handle_skills_create(body: dict | None = None) -> dict:
         agent_id=agent_id,
         role=role,
     )
-    return r
 
 
 def handle_skills_update(body: dict | None = None, name: str = "") -> dict:
@@ -82,8 +81,7 @@ def handle_skills_update(body: dict | None = None, name: str = "") -> dict:
     data = {k: v for k, v in b.items() if k in ("description", "prompt", "rules", "procedures", "tags") and v is not None}
     if not data:
         return {"success": False, "error": "no updatable fields provided"}
-    r = _manager().update(name, data, agent_id=agent_id, role=role)
-    return r
+    return _manager().update(name, data, agent_id=agent_id, role=role)
 
 
 def handle_skills_delete(body: dict | None = None, name: str = "") -> dict:

@@ -415,10 +415,7 @@ class AgentLoop:
                 pn = getattr(p, "name", None)
                 if pn:
                     params[pn] = str(getattr(p, "type", "") or "string")
-        if parallel_safe is None:
-            is_parallel = bool(getattr(spec, "parallel_safe", False))
-        else:
-            is_parallel = parallel_safe
+        is_parallel = bool(getattr(spec, "parallel_safe", False)) if parallel_safe is None else parallel_safe
         executor = handler if handler is not None else getattr(spec, "handler", None)
         self.add_tool(
             name=spec.name,
