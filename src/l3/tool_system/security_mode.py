@@ -81,6 +81,7 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
             "source": source,
         }
         _emit_mode_event("security_mode_warning", warning, source)
+        ingest_security_metric("security.bypass.denied", tags={"mode": mode, "source": source})
         return {
             "success": False,
             "error": "security-test mode requires detection-bypass confirmation "
@@ -101,6 +102,17 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
         "source": source,
         "posture": get_posture(),
     }
+    # Phase B: full_power state gauge (1.0 when attack+confirmed, else 0.0)
+    # plus the bypass confirmation distribution counters.
+    ingest_security_metric(
+        "security.posture.full_power",
+        value=1.0 if result["posture"].get("full_power") else 0.0,
+        tags={"mode": mode},
+    )
+    ingest_security_metric(
+        "security.bypass.confirmed" if confirmed else "security.bypass.denied",
+        tags={"mode": mode, "source": source},
+    )
     _emit_mode_event(
         "security_mode_change",
         {"mode": mode, "confirmed": bool(confirmed), "posture": result["posture"], "source": source},
@@ -134,6 +146,16 @@ def _emit_mode_event(event_type: str, data: dict, source: str) -> None:
         get_bus().emit_event(event_type, data=data, source=source or "security_mode")
     except Exception:
         # Notification is best-effort — never break the mode switch.
+        pass
+    try:
+        # Phase D: security events also land in the ReferenceChannel
+        # (audit/training JSONL) so the security posture is queryable through
+        # the RC reference source alongside EventBus and StatsCenter.
+        from l3.bus.reference_channel import get_rc
+
+        get_rc().event(event_type, data=data, source=source or "security_mode")
+    except Exception:
+        # Reference write is best-effort — never break the mode switch.
         pass
     try:
         # P0: bridge to StatsCenter so RC time series cover the security

@@ -75,6 +75,7 @@ class EventEmitHook(LifecycleHooks):
             get_event_bus().emit_event("agent.turn_complete", {"result": result, "elapsed": elapsed}, source="hook")
         except Exception:
             logger.debug("hook: turn_complete emit failed")
+        self._ingest_agent_metric("agent.turn_complete")
 
     def on_error(self, error: str) -> None:
         """Emit agent.loop_error with the error text."""
@@ -84,6 +85,7 @@ class EventEmitHook(LifecycleHooks):
             get_event_bus().emit_event("agent.loop_error", {"error": error}, source="hook")
         except Exception:
             logger.debug("hook: on_error emit failed")
+        self._ingest_agent_metric("agent.loop_error")
 
     def session_end(self, result: dict) -> None:
         """Emit agent.session_end with the final result."""
@@ -93,6 +95,20 @@ class EventEmitHook(LifecycleHooks):
             get_event_bus().emit_event("agent.session_end", {"result": result}, source="hook")
         except Exception:
             logger.debug("hook: session_end emit failed")
+        self._ingest_agent_metric("agent.session_end")
+
+    @staticmethod
+    def _ingest_agent_metric(name: str) -> None:
+        """Phase G: AgentLoop lifecycle events also land in StatsCenter."""
+        try:
+            from l3.services.stats_center import MetricPoint, get_center
+
+            get_center().ingest(
+                MetricPoint(name=name, value=1.0, tags={"source": "hook"},
+                            timestamp=__import__("time").time(), metric_type="counter")
+            )
+        except Exception:
+            logger.debug("hook: agent metric ingest failed")
 
 
 class HookChain(LifecycleHooks):

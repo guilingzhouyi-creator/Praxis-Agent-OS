@@ -144,6 +144,17 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
             reg._cards[cid] = card
         mode = _route_to_assembly(card)
         card.summary.columns["_assembly_mode"] = mode.value
+        # Phase C: record successful offensive warrants (attack posture issued
+        # an action warrant) — the issued counterpart of warrant.denied.
+        try:
+            from l1.kernel.params.system import SKILL_OFFENSIVE_AUTHORIZED_NATURES as _NATURES
+
+            if nature in _NATURES:
+                from l3.tool_system.security_mode import ingest_security_metric
+
+                ingest_security_metric("security.warrant.issued", tags={"nature": nature})
+        except Exception:
+            pass
         return {"success": True, "card_id": card.id, "nature": nature,
                 "phases": len(phases_data), "message": f"Card {card.id} submitted"}
     except Exception as e:

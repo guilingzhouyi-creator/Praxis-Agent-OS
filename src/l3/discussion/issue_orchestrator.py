@@ -152,6 +152,18 @@ class IssueOrchestrator:
                     "total_answers": session.total_answers,
                     "supplements": len(supplements),
                 })
+                # Phase G: discussion completion also lands in StatsCenter so
+                # RC time series cover the L3A discussion domain.
+                try:
+                    from l3.services.stats_center import MetricPoint, get_center
+
+                    get_center().ingest(
+                        MetricPoint(name="discussion.completed", value=1.0,
+                                    tags={"source": "issue_orchestrator", "session_id": session.id},
+                                    timestamp=__import__("time").time(), metric_type="counter")
+                    )
+                except Exception:
+                    logger.debug("issue_orchestrator: discussion metric ingest failed")
             except Exception:
                 logger.debug("issue_orchestrator: session collect failed")
 

@@ -430,6 +430,43 @@ def _load_constitution() -> dict:
         except Exception as e:
             logger.debug("boot: gatechain posture provider inject skipped: %s", e)
 
+        # Inject the metric sink into the L1 layers (constitution §9.2 BLOCK,
+        # gatechain G4 full_power) — L1 never imports L3; the sink forwards
+        # security.* counters to StatsCenter via security_mode helper.
+        try:
+            from l1.kernel.constitution import set_metric_sink
+            from l1.kernel.gatechain import get_gatechain as _gc3
+            from l3.tool_system.security_mode import ingest_security_metric
+
+            def _sink(name: str, value: float, tags: dict | None = None) -> None:
+                ingest_security_metric(name, value, tags)
+
+            set_metric_sink(_sink)
+            _gc3().set_metric_sink(_sink)
+        except Exception as e:
+            logger.debug("boot: metric sink inject skipped: %s", e)
+
+        # Register the security notification source into RecordCenter so
+        # query()/stats()/export() can cover the security domain (Phase E).
+        try:
+            from l3.services.record_center import get_record_center
+            from l3.tool_system.security_mode import security_notifications
+
+            def _sec_query(limit: int = 0) -> list:
+                return security_notifications(limit=limit)
+
+            def _sec_stats() -> dict:
+                return {"notifications": len(security_notifications())}
+
+            get_record_center().register_source(
+                "security",
+                query_fn=_sec_query,
+                stats_fn=_sec_stats,
+                export_fn=_sec_query,
+            )
+        except Exception as e:
+            logger.debug("boot: record_center security source register skipped: %s", e)
+
         # Auto-trigger territory discussion if constitution is blank
         if result.get("assembly_mode"):
             try:

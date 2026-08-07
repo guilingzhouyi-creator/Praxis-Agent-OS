@@ -318,6 +318,18 @@ class AgentLoop:
                         system += block
                         budget -= len(block)
                         injected.append(es["name"])
+                        # Phase C: record successful offensive-skill injections
+                        # (the allowed counterpart of injection.blocked).
+                        if es.get("posture") == SKILL_POSTURE_OFFENSIVE:
+                            try:
+                                from l3.tool_system.security_mode import ingest_security_metric
+
+                                ingest_security_metric(
+                                    "security.gate.injection.allowed",
+                                    tags={"skill": es.get("name", ""), "nature": getattr(self, "_card_nature", "")},
+                                )
+                            except Exception:
+                                pass
                         if getattr(self, "_pmu", None):
                             try:
                                 self._pmu.increment("skills.evolved.injected")

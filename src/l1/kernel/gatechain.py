@@ -192,11 +192,19 @@ class GateChain:
         # Posture provider — injected at boot by L3 wiring (kernel never
         # imports L3). Returns the get_posture() dict or None when not wired.
         self._posture_provider: Callable[[], dict | None] | None = None
+        # Metric sink — injected at boot by L3 wiring. Receives
+        # (name, value, tags); None when not wired (backward compatible).
+        self._metric_sink: Callable[[str, float, dict | None], None] | None = None
 
     def set_posture_provider(self, provider: Callable[[], dict | None] | None) -> None:
         """Register the posture provider callback (called at boot from L3 wiring)."""
         with self._lock:
             self._posture_provider = provider
+
+    def set_metric_sink(self, sink: Callable[[str, float, dict | None], None] | None) -> None:
+        """Register the metric sink callback (called at boot from L3 wiring)."""
+        with self._lock:
+            self._metric_sink = sink
 
     def register_tools(self, tool_names: list[str]) -> None:
         """Add *tool_names* to the set of known tools."""
@@ -346,6 +354,12 @@ def _gate_g4(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
         if full_power:
             steps.append({"gate": "G4", "result": "PASS",
                           "reason": f"danger={danger}, full_power posture authorized"})
+            sink = getattr(gc, "_metric_sink", None)
+            if sink is not None:
+                try:
+                    sink("security.gate.g4.full_power", 1.0, {"tool": ctx["tool"]})
+                except Exception:
+                    pass
             return steps, overall
         from .event import Signal, SignalType, get_bus
         get_bus().emit(Signal(type=SignalType.REVIEW_REQUESTED,
