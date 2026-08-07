@@ -34,7 +34,7 @@ jobs:
       matrix:
         target: [kernel, api, sandbox, llm, supervisor]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build target ${{ matrix.target }}
         run: docker build --target ${{ matrix.target }} --tag praxis:${{ matrix.target }} .
