@@ -86,6 +86,15 @@ def use_skill(args: dict, agent_id: str) -> dict:
     if skill_data.get("posture") == SKILL_POSTURE_OFFENSIVE:
         nature = str(args.get("_card_nature", ""))
         if not get_skill_manager().offensive_authorized(nature):
+            # P1: record use_skill posture denials in StatsCenter.
+            try:
+                from l3.tool_system.security_mode import ingest_security_metric
+
+                ingest_security_metric(
+                    "security.gate.use_skill.blocked", tags={"skill": name, "nature": nature}
+                )
+            except Exception:
+                pass
             return {"success": False,
                     "error": f"skill '{name}' is offensive-posture and requires card authorization"
                              f" (nature '{nature}' not allowed by offensive policy)"}

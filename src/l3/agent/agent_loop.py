@@ -301,6 +301,16 @@ class AgentLoop:
                     if es.get("posture") == SKILL_POSTURE_OFFENSIVE and not _loop_sm().offensive_authorized(
                         getattr(self, "_card_nature", "")
                     ):
+                        # P1: record posture-gate injection blocks in StatsCenter.
+                        try:
+                            from l3.tool_system.security_mode import ingest_security_metric
+
+                            ingest_security_metric(
+                                "security.gate.injection.blocked",
+                                tags={"skill": es.get("name", ""), "nature": getattr(self, "_card_nature", "")},
+                            )
+                        except Exception:
+                            pass
                         continue
                     prompt_preview = es["prompt"][:LOOP_EVOLVED_SKILL_TRUNC]
                     block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"
