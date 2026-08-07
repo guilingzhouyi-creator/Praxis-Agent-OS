@@ -374,6 +374,19 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             result = cell.execute_card(dispatch_target, domain=domain)
             cell_elapsed = round(time.time() - t_cell, 3)
             self._record_card_executions(cid, cell_id, cell_elapsed, result)
+            # DPO-style preference signal (batch 2): attribute card outcome
+            # to the skills used, adjusting their rules' verified/hit weights.
+            try:
+                _used = (result or {}).get("card_skills_used") or []
+                if _used:
+                    from l3.memory.r4_agent import get_r4_agent
+
+                    get_r4_agent().record_card_skill_signal(
+                        skills_used=_used,
+                        success=bool((result or {}).get("success")),
+                    )
+            except Exception as e:
+                logger.debug("card_registry: skill preference signal skipped: %s", e)
             self.complete(cid, result=result)
             self._expose_card_execution(cid, cell_id, cell_elapsed, result)
         except Exception as e:

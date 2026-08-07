@@ -302,7 +302,8 @@ class TestLessonsDistillation:
         assert n >= 1
         rec = sm.get("lean_toolx_lessons")
         assert rec is not None
-        assert rec.get("rules") == ["DO: validate args"]
+        # Batch 2: rules carry DPO preference metadata (dict form).
+        assert rec.get("rules") == [{"rule": "DO: validate args", "verified": 0, "hit": 0, "preferred": 1.0, "deprecated": False}]
         assert rec.get("procedures") == [{"step": "validate"}]
 
     def test_distill_falls_back_to_summary(self, mocker):
@@ -488,3 +489,99 @@ class TestCardSkillSignal:
         r = execute_card(cell, card)
         assert r.get("card_skills_used")
         assert "refactor_skill" in r["card_skills_used"]
+
+
+class TestRulePreferenceSignal:
+    """Batch 2 — DPO-style rule weighting from card outcomes."""
+
+    def _mk_lessons_skill(self, sm, rules=None):
+        sm.create(
+            name="lean_git_lessons",
+            description="Consolidated failure lessons for git [abcd1234abcd]",
+            prompt="Check git status before commit.",
+            tags=["evolved", "git"],
+            allowed_tools=["git"],
+            rules=rules or [],
+            internal=True,
+        )
+
+    def test_success_raises_preferred_and_verifies(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_lessons_skill(sm, rules=[{"rule": "DO: verify log", "verified": 1, "hit": 0, "preferred": 0.8, "deprecated": False}])
+        r4 = R4Agent()
+        n = r4.record_card_skill_signal(["lean_git_lessons"], success=True)
+        assert n == 1
+        rules = sm.get("lean_git_lessons")["rules"]
+        assert rules[0]["verified"] == 2
+        assert rules[0]["preferred"] > 0.8
+
+    def test_failure_lowers_preferred_and_deprecates(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_lessons_skill(sm, rules=[{"rule": "DO: force push", "verified": 0, "hit": 0, "preferred": 0.31, "deprecated": False}])
+        r4 = R4Agent()
+        n = r4.record_card_skill_signal(["lean_git_lessons"], success=False)
+        assert n == 1
+        rules = sm.get("lean_git_lessons")["rules"]
+        assert rules[0]["hit"] == 1
+        assert rules[0]["preferred"] < 0.31
+        assert rules[0]["deprecated"] is True
+
+    def test_unknown_skill_ignored(self):
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        get_skill_manager()
+        r4 = R4Agent()
+        n = r4.record_card_skill_signal(["no_such_skill"], success=True)
+        assert n == 0
+
+    def test_verified_rules_survive_redistill(self, mocker):
+        """Batch 2 — re-distillation keeps verified (non-deprecated) rules."""
+        from l3.memory.r4_agent import R4Agent
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        self._mk_lessons_skill(
+            sm,
+            rules=[
+                {"rule": "DO: keep this verified rule", "verified": 5, "hit": 0, "preferred": 0.9, "deprecated": False},
+                {"rule": "DONT: keep this deprecated rule", "verified": 0, "hit": 4, "preferred": 0.1, "deprecated": True},
+            ],
+        )
+        for i in range(5):
+            sm.create(name=f"lean_a{i}_git", prompt=f"failed {i}", tags=["lean_case", "failure", f"a{i}", "git"],
+                      allowed_tools=["git"], internal=True)
+        r4 = R4Agent()
+        r4._last_distill = {}
+        r4._last_summarize = {}
+        payload = json.dumps(
+            {
+                "name": "git_lessons",
+                "description": "d",
+                "prompt": "Fresh guidance for git workflows and operations.",
+                "rules": ["DO: fresh rule"],
+                "procedures": [],
+            }
+        )
+
+        def _fake(prompt, **kw):
+            if "into a structured skill definition" in prompt:
+                # assert verified context was injected
+                assert "keep this verified rule" in prompt
+                assert "keep this deprecated rule" not in prompt
+                return {"content": payload}
+            return {"content": json.dumps({"lesson": "A useful lesson about git operations."})}
+
+        mock_engine = mocker.patch("l4.llm.llm.get_engine")
+        mock_engine.return_value.generate.side_effect = _fake
+        n = r4._generalize_lean_cases(sm)
+        assert n >= 1
+        rules = sm.get("lean_git_lessons")["rules"]
+        assert rules[0]["rule"] == "DO: fresh rule"
+        assert rules[0]["verified"] == 0  # fresh rule starts unverified
