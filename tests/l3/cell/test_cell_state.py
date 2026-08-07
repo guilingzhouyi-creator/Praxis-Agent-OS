@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestCellState:
     def test_importable(self):
         from l3.cell.components.cell_state import save_state
+
         assert callable(save_state)

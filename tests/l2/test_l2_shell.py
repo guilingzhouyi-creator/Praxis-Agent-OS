@@ -28,9 +28,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 # ShellState
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestShellState:
     def test_default_state(self):
         from l2.l2_shell import ShellState
+
         s = ShellState()
         assert s.mode == "L3A"
         assert s.cell_id == "cell-1"
@@ -39,6 +41,7 @@ class TestShellState:
 
     def test_switch_to_direct(self):
         from l2.l2_shell import ShellState
+
         s = ShellState()
         s.switch_to_direct("cell-x", "agent-42", "sess-1")
         assert s.mode == "DIRECT"
@@ -49,6 +52,7 @@ class TestShellState:
 
     def test_switch_to_direct_no_session_id(self):
         from l2.l2_shell import ShellState
+
         s = ShellState()
         s.switch_to_direct("cell-2", "agent-7")
         assert s.is_direct()
@@ -56,6 +60,7 @@ class TestShellState:
 
     def test_switch_to_l3a_clears_state(self):
         from l2.l2_shell import ShellState
+
         s = ShellState()
         s.switch_to_direct("cell-x", "agent-42", "sess-1")
         s.switch_to_l3a()
@@ -66,6 +71,7 @@ class TestShellState:
 
     def test_is_direct_false_when_no_agent(self):
         from l2.l2_shell import ShellState
+
         s = ShellState()
         s.mode = "DIRECT"
         s.agent_id = ""
@@ -73,6 +79,7 @@ class TestShellState:
 
     def test_reset_state(self):
         from l2.l2_shell import get_state, reset_state
+
         reset_state()
         s = get_state()
         assert s.mode == "L3A"
@@ -80,6 +87,7 @@ class TestShellState:
 
     def test_reset_state_isolation(self):
         from l2.l2_shell import get_state, reset_state
+
         reset_state()
         s1 = get_state()
         s1.switch_to_direct("c", "a")
@@ -92,39 +100,46 @@ class TestShellState:
 # autocomplete
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestAutocomplete:
     def test_empty_line_returns_all_commands(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("")
         assert len(results) > 0
         assert results[0]["type"] == "command"
 
     def test_slash_only_returns_commands(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("/")
         assert len(results) > 0
         assert all(r["type"] == "command" for r in results)
 
     def test_partial_command(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("/stat")
         assert len(results) > 0
         assert any("status" in r["value"] for r in results)
 
     def test_full_command_no_args(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("/help ")
         # /help has no args, so empty arg completion
         assert isinstance(results, list)
 
     def test_unknown_partial_returns_suggestions(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("/xyznonexistent")
         # Should return fuzzy-matched command names
         assert isinstance(results, list)
 
     def test_input_capped_at_15(self):
         from l2.l2_shell import autocomplete
+
         results = autocomplete("")
         assert len(results) <= 15
 
@@ -133,9 +148,11 @@ class TestAutocomplete:
 # dispatch
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestDispatch:
     def test_unknown_command(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/nonexistent")
         assert not r.get("success")
@@ -143,6 +160,7 @@ class TestDispatch:
 
     def test_help_command(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/help")
         assert r.get("success")
@@ -151,6 +169,7 @@ class TestDispatch:
 
     def test_status_l3a_default(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/status")
         assert r.get("mode") == "L3A"
@@ -159,6 +178,7 @@ class TestDispatch:
 
     def test_disconnect_no_session(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/disconnect")
         assert not r.get("success")
@@ -166,6 +186,7 @@ class TestDispatch:
 
     def test_mode_l3a_default(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/mode")
         assert r.get("mode") == "L3A"
@@ -176,6 +197,7 @@ class TestDispatch:
         This will fail with an import/lookup error since no coordinator is running,
         confirming routing happened correctly."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("fix the login bug")
         # Should NOT match a command; should try _l3a_intent and fail gracefully
@@ -184,6 +206,7 @@ class TestDispatch:
     def test_dispatch_alias_resolution(self):
         """'ls' is an alias for 'agents'."""
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/ls")  # /ls → alias → /agents
         # /agents calls preselect() which will fail, but the routing is correct
@@ -194,9 +217,11 @@ class TestDispatch:
 # list_commands
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestListCommands:
     def test_list_commands_format(self):
         from l2.l2_shell import list_commands
+
         cmds = list_commands()
         assert isinstance(cmds, list)
         assert len(cmds) > 0
@@ -207,6 +232,7 @@ class TestListCommands:
 
     def test_list_contains_core_commands(self):
         from l2.l2_shell import list_commands
+
         cmds = list_commands()
         names = [c["command"] for c in cmds]
         assert "/help" in names
@@ -223,9 +249,11 @@ class TestListCommands:
 # guard_output / output_guard
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestOutputGuard:
     def test_no_guard_returns_safe(self):
         from l2.l2_shell import guard_output, set_output_guard
+
         set_output_guard(None)
         r = guard_output("agent-a", "some response")
         assert r["safe"]
@@ -281,9 +309,11 @@ class TestOutputGuard:
 # Command handlers (unit-testable)
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestCmdMode:
     def test_mode_shows_current(self):
         from l2.l2_shell import _cmd_mode, reset_state
+
         reset_state()
         r = _cmd_mode([])
         assert r["mode"] == "L3A"
@@ -291,6 +321,7 @@ class TestCmdMode:
 
     def test_mode_with_tool_subcommand(self):
         from l2.l2_shell import _cmd_mode, reset_state
+
         reset_state()
         r = _cmd_mode(["tool", "read"])
         assert "mode" in r
@@ -298,6 +329,7 @@ class TestCmdMode:
 
     def test_mode_invalid_subcommand(self):
         from l2.l2_shell import _cmd_mode, reset_state
+
         reset_state()
         r = _cmd_mode(["invalid_arg"])
         assert "error" in r
@@ -306,6 +338,7 @@ class TestCmdMode:
 class TestCmdHelp:
     def test_help_returns_table(self):
         from l2.l2_shell import _cmd_help
+
         r = _cmd_help([])
         assert r["success"]
         assert r["format"] == "table"
@@ -315,6 +348,7 @@ class TestCmdHelp:
 class TestCmdDisconnect:
     def test_disconnect_no_session_returns_error(self):
         from l2.l2_shell import _cmd_disconnect, reset_state
+
         reset_state()
         r = _cmd_disconnect([])
         assert not r.get("success")
@@ -325,14 +359,17 @@ class TestCmdDisconnect:
 # Shell service entry points (shell.py)
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestShellEntryPoints:
     def test_start_repl_importable(self):
         from l2.shell import direct_session, start_repl
+
         assert callable(direct_session)
         assert callable(start_repl)
 
     def test_terminal_completer_importable(self):
         from l2.shell_completer import TerminalCompleter
+
         tc = TerminalCompleter()
         assert tc._commands == []
         tc.refresh()
@@ -340,6 +377,7 @@ class TestShellEntryPoints:
 
     def test_terminal_session_dataclass(self):
         from l2.shell_session import TerminalSession
+
         s = TerminalSession(id="test", pid=9999)
         assert s.id == "test"
         assert s.pid == 9999
@@ -347,6 +385,7 @@ class TestShellEntryPoints:
 
     def test_terminal_manager_singleton(self):
         from l2.shell_session import get_manager, reset_manager
+
         reset_manager()
         m1 = get_manager()
         m2 = get_manager()
@@ -357,9 +396,11 @@ class TestShellEntryPoints:
 # reset_state integration guard — must not affect other tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestStateIsolation:
     def test_reset_state_clears_preconnect_cache(self):
         from l2.l2_shell import get_state, reset_state
+
         reset_state()
         s = get_state()
         assert hasattr(s, "_preconnect_cache")
@@ -374,9 +415,11 @@ class TestStateIsolation:
 # _complete_role (unit-testable, no runtime deps)
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestCompleteRole:
     def test_empty_partial_returns_all(self):
         from l2.l2_shell import _complete_role
+
         results = _complete_role("")
         assert len(results) == 6
         roles = {r["value"] for r in results}
@@ -384,6 +427,7 @@ class TestCompleteRole:
 
     def test_partial_match(self):
         from l2.l2_shell import _complete_role
+
         results = _complete_role("w")
         values = [r["value"] for r in results]
         assert "writer" in values
@@ -391,11 +435,13 @@ class TestCompleteRole:
 
     def test_no_match_returns_empty(self):
         from l2.l2_shell import _complete_role
+
         results = _complete_role("zzz")
         assert results == []
 
     def test_case_insensitive(self):
         from l2.l2_shell import _complete_role
+
         results = _complete_role("REV")
         values = [r["value"] for r in results]
         assert "reviewer" in values
@@ -405,9 +451,11 @@ class TestCompleteRole:
 # _cmd_connect (empty-args path only)
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestCmdConnect:
     def test_empty_args_returns_usage(self):
         from l2.l2_shell import _cmd_connect
+
         r = _cmd_connect([])
         assert not r.get("success")
         assert "usage" in r.get("error", "").lower()
@@ -417,10 +465,12 @@ class TestCmdConnect:
 # _auto_disconnect (non-Direct guard)
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestAutoDisconnect:
     def test_non_direct_returns_early(self):
         """Verify _auto_disconnect does nothing when already in L3A."""
         from l2.l2_shell import ShellState, _auto_disconnect
+
         s = ShellState()  # mode = L3A by default
         assert not s.is_direct()
         # Should not raise, not change state
@@ -429,6 +479,7 @@ class TestAutoDisconnect:
 
     def test_switch_to_direct_then_auto_disconnect(self):
         from l2.l2_shell import ShellState, _auto_disconnect, reset_state
+
         reset_state()
         s = ShellState()
         s.switch_to_direct("cell-1", "agent-test")
@@ -446,6 +497,7 @@ class TestAutoDisconnect:
         """
         from l2.l2_shell import _direct_message, reset_state
         from l2.l2_shell.state import get_state
+
         reset_state()
         s = get_state()
         s.switch_to_direct("cell-1", "agent-test")
@@ -454,13 +506,14 @@ class TestAutoDisconnect:
         mocker.patch("l3.cell.get_cell", return_value=mock_cell)
         r = _direct_message(s, "hello")
         assert r.get("success") is False
-        assert s.mode == "L3A"      # auto-disconnected
+        assert s.mode == "L3A"  # auto-disconnected
         assert not s.is_direct()
 
     def test_direct_message_cell_error_falls_back(self, mocker):
         """D1/D2 regression: exception in send_direct_message also falls back."""
         from l2.l2_shell import _direct_message, reset_state
         from l2.l2_shell.state import get_state
+
         reset_state()
         s = get_state()
         s.switch_to_direct("cell-1", "agent-test")
@@ -477,10 +530,12 @@ class TestAutoDisconnect:
 # dispatch Direct-mode routing
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestDispatchDirectMode:
     def test_direct_mode_routes_to_direct_message(self):
         """When in DIRECT mode, non-/ text should route to _direct_message."""
         from l2.l2_shell import dispatch, get_state, reset_state
+
         reset_state()
         state = get_state()
         # Manually set DIRECT mode (simulate what /connect does)
@@ -495,10 +550,12 @@ class TestDispatchDirectMode:
 # autocomplete — arg completion paths
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestAutocompleteArgCompletion:
     def test_command_with_optional_arg_hint(self):
         """Commands with defined args return arg_hint when completing."""
         from l2.l2_shell import autocomplete
+
         # /status has an optional "cell_id" arg
         results = autocomplete("/status ")
         # Should return arg hints (cell_id)
@@ -507,6 +564,7 @@ class TestAutocompleteArgCompletion:
     def test_partial_non_slash_text_returns_fuzzy_commands(self):
         """Typing non-/ text that doesn't match a command returns suggestions."""
         from l2.l2_shell import autocomplete
+
         results = autocomplete("xyz123nonexistent")
         # Should return command names that fuzzy-match (empty here = fuzzy against everything)
         assert isinstance(results, list) and len(results) <= 10

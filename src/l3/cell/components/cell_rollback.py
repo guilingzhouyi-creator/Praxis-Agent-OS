@@ -27,6 +27,7 @@ def rollback_card(cell, card_id: str = "") -> dict:
     After rollback, stores info in _rollback_ring for the next card.
     """
     from l3.services.fault_tolerance import get_service as get_ft
+
     ft = get_ft()
     results = {}
 
@@ -59,6 +60,7 @@ def rollback_card(cell, card_id: str = "") -> dict:
     # 3. Discard sandbox
     try:
         from l3.sandbox import get_cell_sandbox as _gcs
+
         sb = _gcs(cell.cell_id)
         discard_r = sb.discard()
         results["sandbox_discard"] = discard_r
@@ -67,6 +69,7 @@ def rollback_card(cell, card_id: str = "") -> dict:
 
     # 4. Reset terminals to IDLE
     from l3.agent_terminal import get_terminals
+
     terms = get_terminals()
     for aid in terms:
         try:
@@ -103,5 +106,4 @@ def rollback_card(cell, card_id: str = "") -> dict:
         logger.debug("rollback interrupt: %s", e)
 
     logger.info("Cell %s rollback complete: %s", cell.cell_id, results)
-    return {"success": True, "cell_id": cell.cell_id, "results": results,
-            "rollback_context": rollback_msg}
+    return {"success": True, "cell_id": cell.cell_id, "results": results, "rollback_context": rollback_msg}

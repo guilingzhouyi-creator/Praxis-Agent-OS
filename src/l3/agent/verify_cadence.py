@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class VerifyCadence:
     """Edit-then-verify with subprocess checks."""
+
     from l1.kernel.discovery import get_tool_config
     from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
     from l1.kernel.params.system import VERIFY_CMDS as VERIFY_CMDS
@@ -27,6 +28,7 @@ class VerifyCadence:
     def _read_enabled() -> bool:
         try:
             from l3.config.settings_center import get_center
+
             return bool(get_center().get("loop.verify_cadence", True))
         except Exception:
             return True
@@ -56,8 +58,7 @@ class VerifyCadence:
             f"'todowrite' with status='verified' when checks pass."
         )
 
-    def run_check(self, command: str, cwd: str = "",
-                  timeout: int | None = None) -> dict:
+    def run_check(self, command: str, cwd: str = "", timeout: int | None = None) -> dict:
         """Run a verification check via subprocess. Returns result with evidence.
 
         Uses ``shlex.split()`` + ``shell=False`` to prevent command injection.
@@ -68,6 +69,7 @@ class VerifyCadence:
         from pathlib import Path
 
         from l1.kernel.discovery import get_tool_config as _get_tc
+
         if timeout is None:
             timeout = int(_get_tc("handler_timeout", 60))
         # Prevent path traversal: *cwd* must stay under project root
@@ -77,30 +79,32 @@ class VerifyCadence:
             try:
                 resolved.relative_to(project_root)
             except ValueError:
-                return {"success": False, "exit_code": -1,
-                        "evidence": f"cwd '{cwd}' escapes project root"}
+                return {"success": False, "exit_code": -1, "evidence": f"cwd '{cwd}' escapes project root"}
         try:
-            r = _sp.run(shlex.split(command), shell=False, capture_output=True,
-                        text=True, timeout=timeout, cwd=cwd or None)
+            r = _sp.run(
+                shlex.split(command), shell=False, capture_output=True, text=True, timeout=timeout, cwd=cwd or None
+            )
             passed = r.returncode == 0
             evidence = f"exit {r.returncode}"
             if passed:
-                evidence += f" | stdout: {r.stdout[:self.LOG_TRUNC_200].strip()}" if r.stdout.strip() else ""
+                evidence += f" | stdout: {r.stdout[: self.LOG_TRUNC_200].strip()}" if r.stdout.strip() else ""
             else:
-                evidence += f" | stderr: {r.stderr[:self.LOG_TRUNC_200].strip()}" if r.stderr.strip() else ""
-            entry = {"command": command, "exit_code": r.returncode,
-                     "passed": passed, "evidence": evidence}
+                evidence += f" | stderr: {r.stderr[: self.LOG_TRUNC_200].strip()}" if r.stderr.strip() else ""
+            entry = {"command": command, "exit_code": r.returncode, "passed": passed, "evidence": evidence}
             self._evidence.append(entry)
-            return {"success": passed, "exit_code": r.returncode,
-                    "evidence": evidence, "stdout": r.stdout[:self.LOG_TRUNC_500], "stderr": r.stderr[:self.LOG_TRUNC_500]}
+            return {
+                "success": passed,
+                "exit_code": r.returncode,
+                "evidence": evidence,
+                "stdout": r.stdout[: self.LOG_TRUNC_500],
+                "stderr": r.stderr[: self.LOG_TRUNC_500],
+            }
         except _sp.TimeoutExpired:
-            entry = {"command": command, "exit_code": -1, "passed": False,
-                     "evidence": f"timeout ({timeout}s)"}
+            entry = {"command": command, "exit_code": -1, "passed": False, "evidence": f"timeout ({timeout}s)"}
             self._evidence.append(entry)
             return {"success": False, "exit_code": -1, "evidence": f"timeout ({timeout}s)"}
         except Exception as e:
-            entry = {"command": command, "exit_code": -1, "passed": False,
-                     "evidence": str(e)}
+            entry = {"command": command, "exit_code": -1, "passed": False, "evidence": str(e)}
             self._evidence.append(entry)
             return {"success": False, "exit_code": -1, "evidence": str(e)}
 

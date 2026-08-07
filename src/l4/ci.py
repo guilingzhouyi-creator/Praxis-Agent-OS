@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineStatus:
     """PipelineStatus — pipeline status."""
+
     PENDING = "pending"
     RUNNING = "running"
     PASSED = "passed"
@@ -42,6 +43,7 @@ class PipelineStatus:
 @dataclass
 class PipelineRun:
     """A single CI pipeline run."""
+
     run_id: str
     name: str
     status: str = PipelineStatus.PENDING
@@ -52,7 +54,7 @@ class PipelineRun:
     completed_at: float = 0.0
     elapsed: float = 0.0
     agent_id: str = ""
-    card_id: str = ""          # source card that triggered this run (CI review linkage)
+    card_id: str = ""  # source card that triggered this run (CI review linkage)
 
 
 class CIService(BaseService):
@@ -73,9 +75,9 @@ class CIService(BaseService):
             self._runs.clear()
         return {"success": True}
 
-    def run_pipeline(self, name: str, steps: list[dict],
-                     agent_id: str = "", timeout: float = CI_DEFAULT_TIMEOUT,
-                     card_id: str = "") -> dict:
+    def run_pipeline(
+        self, name: str, steps: list[dict], agent_id: str = "", timeout: float = CI_DEFAULT_TIMEOUT, card_id: str = ""
+    ) -> dict:
         """Run a CI pipeline with given steps.
 
         Steps format:
@@ -87,8 +89,7 @@ class CIService(BaseService):
         blocked.  Poll ``get_status(run_id)`` for completion.
         """
         run_id = f"ci-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
-        run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id,
-                          card_id=card_id)
+        run = PipelineRun(run_id=run_id, name=name, steps=steps, agent_id=agent_id, card_id=card_id)
         with self._lock:
             self._runs[run_id] = run
             self._total_runs += 1
@@ -100,11 +101,9 @@ class CIService(BaseService):
         run.started_at = time.time()
 
         # Launch background daemon thread — caller remains responsive.
-        threading.Thread(target=self._execute, args=(run_id, timeout),
-                         daemon=True, name=f"ci-{run_id}").start()
+        threading.Thread(target=self._execute, args=(run_id, timeout), daemon=True, name=f"ci-{run_id}").start()
 
-        return {"success": True, "run_id": run_id, "name": name,
-                "status": run.status, "step_count": len(steps)}
+        return {"success": True, "run_id": run_id, "name": name, "status": run.status, "step_count": len(steps)}
 
     def _execute(self, run_id: str, timeout: float) -> None:
         """Execute pipeline steps in sequence."""
@@ -124,7 +123,7 @@ class CIService(BaseService):
             cwd = step.get("cwd", ".")
             step_timeout = step.get("timeout", CI_SHELL_TIMEOUT)  # per-step timeout
 
-            run.output.append(f"[{i+1}/{len(run.steps)}] {action}: {cmd}")
+            run.output.append(f"[{i + 1}/{len(run.steps)}] {action}: {cmd}")
             try:
                 # Build the shell invocation explicitly so we never rely on
                 # subprocess shell=True (which would re-expose us to shell
@@ -134,8 +133,11 @@ class CIService(BaseService):
                 # shell and its platform-specific command flag.
                 shell_args = shell_command(cmd)
                 r = subprocess.run(
-                    shell_args, cwd=cwd,
-                    capture_output=True, text=True, timeout=step_timeout,
+                    shell_args,
+                    cwd=cwd,
+                    capture_output=True,
+                    text=True,
+                    timeout=step_timeout,
                 )
                 step["exit_code"] = r.returncode
                 if r.stdout:
@@ -144,23 +146,23 @@ class CIService(BaseService):
                     run.output.append(f"STDERR: {r.stderr[:LOG_TRUNC_500]}")
                 if r.returncode != 0:
                     run.status = PipelineStatus.FAILED
-                    run.error = f"Step {i+1} ({action}) failed with code {r.returncode}"
+                    run.error = f"Step {i + 1} ({action}) failed with code {r.returncode}"
                     run.output.append(f"FAILED: {run.error}")
                     break
                 run.output.append(f"PASS: {action}")
             except subprocess.TimeoutExpired:
                 run.status = PipelineStatus.TIMEOUT
-                run.error = f"Step {i+1} ({action}) timed out"
+                run.error = f"Step {i + 1} ({action}) timed out"
                 run.output.append(f"TIMEOUT: {run.error}")
                 break
             except FileNotFoundError:
                 run.status = PipelineStatus.FAILED
-                run.error = f"Step {i+1} ({action}): command not found: {cmd}"
+                run.error = f"Step {i + 1} ({action}): command not found: {cmd}"
                 run.output.append(f"FAILED: {run.error}")
                 break
             except Exception as e:
                 run.status = PipelineStatus.FAILED
-                run.error = f"Step {i+1} ({action}): {e}"
+                run.error = f"Step {i + 1} ({action}): {e}"
                 run.output.append(f"FAILED: {run.error}")
                 break
         else:
@@ -177,11 +179,13 @@ class CIService(BaseService):
         if not run:
             return {"success": False, "error": "run not found"}
         return {
-            "success": True, "run_id": run_id, "name": run.name,
-            "status": run.status, "elapsed": round(run.elapsed, 2),
+            "success": True,
+            "run_id": run_id,
+            "name": run.name,
+            "status": run.status,
+            "elapsed": round(run.elapsed, 2),
             "step_count": len(run.steps),
-            "steps": [{"action": s.get("action"), "exit_code": s.get("exit_code")}
-                      for s in run.steps],
+            "steps": [{"action": s.get("action"), "exit_code": s.get("exit_code")} for s in run.steps],
         }
 
     def get_logs(self, run_id: str, max_lines: int = CI_DEFAULT_LOG_LINES) -> dict:
@@ -191,7 +195,8 @@ class CIService(BaseService):
         if not run:
             return {"success": False, "error": "run not found"}
         return {
-            "success": True, "run_id": run_id,
+            "success": True,
+            "run_id": run_id,
             "output": run.output[-max_lines:],
             "line_count": min(len(run.output), max_lines),
         }
@@ -205,9 +210,16 @@ class CIService(BaseService):
         runs.sort(key=lambda r: r.started_at, reverse=True)
         return {
             "success": True,
-            "runs": [{"run_id": r.run_id, "name": r.name, "status": r.status,
-                      "elapsed": round(r.elapsed, 2), "steps": len(r.steps)}
-                     for r in runs[:limit]],
+            "runs": [
+                {
+                    "run_id": r.run_id,
+                    "name": r.name,
+                    "status": r.status,
+                    "elapsed": round(r.elapsed, 2),
+                    "steps": len(r.steps),
+                }
+                for r in runs[:limit]
+            ],
             "count": min(len(runs), limit),
         }
 

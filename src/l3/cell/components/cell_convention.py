@@ -1,5 +1,4 @@
-"""Cell convention operations — extracted from cell.py for modularity.
-"""
+"""Cell convention operations — extracted from cell.py for modularity."""
 
 from __future__ import annotations
 
@@ -27,6 +26,7 @@ def convene(cell: Any, issue_card: Any) -> dict:
     # Activate deliberation memory policy: Peer Agents share the Cell ring
     try:
         from l1.kernel.params.agent import CELL_MEMORY_POLICY_DELIBERATION
+
         cell.set_memory_policy(CELL_MEMORY_POLICY_DELIBERATION)
     except Exception:
         logger.debug("cell_convention: memory policy activation failed")
@@ -45,6 +45,7 @@ def convene(cell: Any, issue_card: Any) -> dict:
             it.assigned_to = _match_agent(cell, it.domain or domain)
 
     from l3.card.convention import ConventionProtocol
+
     conv = ConventionProtocol(issue_card, cell)
     cell._conventions[iid] = conv
     result = conv.start()
@@ -71,16 +72,19 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     # Restore isolated memory policy: shared ring no longer accessible
     try:
         from l1.kernel.params.agent import CELL_MEMORY_POLICY_ISOLATED
+
         cell.set_memory_policy(CELL_MEMORY_POLICY_ISOLATED)
     except Exception:
         logger.debug("cell_convention: memory policy restore failed")
 
     from l3.agent.convergence import converge as _converge
     from l3.agent.convergence import to_execution_card
+
     conv_r = _converge(issue_card_id)
     summary = conv_r.get("summary", "{}")
 
     from l3.card.issue import get_table
+
     table = get_table()
     issue_card = table.get(issue_card_id)
     if not issue_card:
@@ -92,6 +96,7 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     if issue_card.source_card_id:
         try:
             from l3.card.card_registry import get_registry
+
             registry = get_registry()
             registry._complete_convention_card(issue_card_id, summary)
         except Exception as e:
@@ -100,10 +105,10 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     cid = ""
     try:
         from l3.card.card_registry import get_registry
+
         registry = get_registry()
-        exec_intent = (exec_card.summary.title if exec_card.summary else "")
-        exec_domain = (exec_card.summary.columns.get("domain", "")
-                       if exec_card.summary else "")
+        exec_intent = exec_card.summary.title if exec_card.summary else ""
+        exec_domain = exec_card.summary.columns.get("domain", "") if exec_card.summary else ""
         cid = registry.submit(
             intent=exec_intent or "converged execution",
             domain=exec_domain,
@@ -112,17 +117,28 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     except Exception as e:
         logger.warning("convention exec card registry submit failed: %s", e)
 
-    emit_signal(EVENT_TASK_ASSIGN, sender="convention", target=SIGNAL_TARGET_L3,
-                 data={"card_id": issue_card_id, "event": "converged_exec_card",
-                       "exec_card_id": cid,
-                       "cache_ref": close_r.get("cache_ref", ""),
-                       "archive_ref": close_r.get("archive_ref", "")})
+    emit_signal(
+        EVENT_TASK_ASSIGN,
+        sender="convention",
+        target=SIGNAL_TARGET_L3,
+        data={
+            "card_id": issue_card_id,
+            "event": "converged_exec_card",
+            "exec_card_id": cid,
+            "cache_ref": close_r.get("cache_ref", ""),
+            "archive_ref": close_r.get("archive_ref", ""),
+        },
+    )
 
     try:
         from l3.bus.reference_channel import get_rc as _rc
-        _rc().convention(issue_card_id, "completed",
-                         participants=list(conv._participants) if hasattr(conv, '_participants') else [],
-                         summary=conv_r.get("summary", "")[:LOG_TRUNC_200])
+
+        _rc().convention(
+            issue_card_id,
+            "completed",
+            participants=list(conv._participants) if hasattr(conv, "_participants") else [],
+            summary=conv_r.get("summary", "")[:LOG_TRUNC_200],
+        )
     except Exception:
         logger.debug("cell_convention: reference channel convention event failed")
 
@@ -136,8 +152,7 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     }
 
 
-def handle_convention_message(cell: Any, agent_id: str,
-                              msg_type: MessageType, payload: dict) -> dict:
+def handle_convention_message(cell: Any, agent_id: str, msg_type: MessageType, payload: dict) -> dict:
     """Route a convention message to the ConventionProtocol.
 
     While the Cell is in deliberation policy, each statement is also
@@ -146,6 +161,7 @@ def handle_convention_message(cell: Any, agent_id: str,
     """
     card_id = payload.get("card_id", "")
     from l3.card.issue import get_table
+
     table = get_table()
     card = table.get(card_id)
     if not card:
@@ -155,8 +171,7 @@ def handle_convention_message(cell: Any, agent_id: str,
     if not conv:
         return {"success": False, "error": "no active convention"}
 
-    if msg_type in (MessageType.REBUT, MessageType.PROPOSE_ISSUE,
-                    MessageType.CROSS_EXAMINE):
+    if msg_type in (MessageType.REBUT, MessageType.PROPOSE_ISSUE, MessageType.CROSS_EXAMINE):
         _mirror_to_deliberation_ring(cell, card_id, agent_id, msg_type, payload)
 
     if msg_type == MessageType.REBUT:
@@ -164,13 +179,11 @@ def handle_convention_message(cell: Any, agent_id: str,
     if msg_type == MessageType.PROPOSE_ISSUE:
         return conv.propose(agent_id, payload.get("question", ""), payload.get("domain", ""))
     if msg_type == MessageType.CROSS_EXAMINE:
-        return conv.cross_examine(agent_id, payload.get("target", ""),
-                                  payload.get("statement", ""))
+        return conv.cross_examine(agent_id, payload.get("target", ""), payload.get("statement", ""))
     return {"success": False, "error": f"unhandled convention message: {msg_type.name}"}
 
 
-def _mirror_to_deliberation_ring(cell: Any, card_id: str, agent_id: str,
-                                 msg_type: MessageType, payload: dict) -> None:
+def _mirror_to_deliberation_ring(cell: Any, card_id: str, agent_id: str, msg_type: MessageType, payload: dict) -> None:
     """Mirror a convention statement into the shared Cell ring (deliberation).
 
     Strategy-guarded: only writes when the Cell memory policy is
@@ -186,9 +199,7 @@ def _mirror_to_deliberation_ring(cell: Any, card_id: str, agent_id: str,
             return
         target = payload.get("target", "")
         entry_type = f"convention.{msg_type.name.lower()}"
-        content = (f"[{card_id}] {agent_id}"
-                   + (f" → {target}" if target else "")
-                   + f": {statement[:LOG_TRUNC_500]}")
+        content = f"[{card_id}] {agent_id}" + (f" → {target}" if target else "") + f": {statement[:LOG_TRUNC_500]}"
         mem.remember(
             agent_id=agent_id,
             entry_type=entry_type,
@@ -217,6 +228,7 @@ def _get_convention(cell: Any, issue_card: Any) -> Any:
     if conv:
         return conv
     from l3.card.convention import ConventionProtocol as ConvCls
+
     conv = ConvCls(issue_card, cell)
     cell._conventions[issue_card.id] = conv
     return conv

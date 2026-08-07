@@ -66,12 +66,13 @@ if not os.environ.get(CHAIN_KEY_ENV_VAR):
             # Restrict parent dir as well on POSIX (best-effort, ignore failures)
             try:
                 from l1.kernel.platform import safe_chmod
+
                 safe_chmod(_KEY_PATH, 0o600)
             except Exception:
                 logger.debug("tool_chain: safe_chmod failed")
             _SECRET_KEY = key_bytes
     except Exception as e:
-            logger.warning("kernel/tool_chain: %s", e)
+        logger.warning("kernel/tool_chain: %s", e)
 
 
 @dataclass
@@ -106,8 +107,7 @@ class ToolChain:
         self._calls: dict[str, CallLink] = {}
         self._max_calls = TOOLCHAIN_MAX_CALLS
 
-    def start(self, tool_name: str, agent_id: str, ring: int = 1,
-              parent_id: str = "") -> str:
+    def start(self, tool_name: str, agent_id: str, ring: int = 1, parent_id: str = "") -> str:
         """Register a new tool call. Returns call_id.
 
         If parent_id is provided, links this call as a child of the parent.
@@ -127,9 +127,13 @@ class ToolChain:
             fp = self._compute_fp(call_data, prev_fp)
 
             link = CallLink(
-                call_id=call_id, tool_name=tool_name, agent_id=agent_id,
-                ring=ring, parent_id=parent_id,
-                fingerprint=fp, prev_fingerprint=prev_fp,
+                call_id=call_id,
+                tool_name=tool_name,
+                agent_id=agent_id,
+                ring=ring,
+                parent_id=parent_id,
+                fingerprint=fp,
+                prev_fingerprint=prev_fp,
                 depth=depth,
             )
             self._calls[call_id] = link
@@ -139,8 +143,7 @@ class ToolChain:
 
             return call_id
 
-    def complete(self, call_id: str, success: bool = True,
-                 error: str = "", duration: float = 0.0) -> bool:
+    def complete(self, call_id: str, success: bool = True, error: str = "", duration: float = 0.0) -> bool:
         """Mark a call as completed with success/failure."""
         with self._lock:
             link = self._calls.get(call_id)
@@ -151,8 +154,7 @@ class ToolChain:
             link.duration = duration
             return True
 
-    def child(self, tool_name: str, agent_id: str, ring: int = 1,
-              parent: str = "") -> str:
+    def child(self, tool_name: str, agent_id: str, ring: int = 1, parent: str = "") -> str:
         """Convenience: start a child call of the given parent."""
         return self.start(tool_name, agent_id, ring, parent_id=parent)
 
@@ -205,32 +207,39 @@ class ToolChain:
             match = expected == link.fingerprint
             if not match:
                 valid = False
-            steps.append({
-                "call_id": link.call_id,
-                "tool": link.tool_name,
-                "depth": link.depth,
-                "fingerprint_match": match,
-            })
+            steps.append(
+                {
+                    "call_id": link.call_id,
+                    "tool": link.tool_name,
+                    "depth": link.depth,
+                    "fingerprint_match": match,
+                }
+            )
             prev_fp = link.fingerprint
         return {"valid": valid, "steps": steps, "depth": len(ancestry)}
 
     def agent_calls(self, agent_id: str, limit: int = TOOLCHAIN_QUERY_LIMIT) -> list[CallLink]:
         """Get all calls by a specific agent."""
         with self._lock:
-            return [c for c in self._calls.values()
-                    if c.agent_id == agent_id][-limit:]
+            return [c for c in self._calls.values() if c.agent_id == agent_id][-limit:]
 
     def recent(self, limit: int = TOOLCHAIN_QUERY_LIMIT) -> list[dict]:
         """Most recent calls across all agents."""
         with self._lock:
             calls = list(self._calls.values())
-            return [{
-                "call_id": c.call_id, "tool": c.tool_name,
-                "agent": c.agent_id, "ring": c.ring,
-                "depth": c.depth, "success": c.success,
-                "duration": round(c.duration, 3),
-                "children": len(c.children),
-            } for c in calls[-limit:]]
+            return [
+                {
+                    "call_id": c.call_id,
+                    "tool": c.tool_name,
+                    "agent": c.agent_id,
+                    "ring": c.ring,
+                    "depth": c.depth,
+                    "success": c.success,
+                    "duration": round(c.duration, 3),
+                    "children": len(c.children),
+                }
+                for c in calls[-limit:]
+            ]
 
     def stats(self) -> dict:
         """Return call-chain statistics."""

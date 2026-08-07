@@ -38,7 +38,8 @@ _LOG_DIR = Path(get_config_dir()) / "logs"
 @dataclass
 class RecordQuery:
     """RecordQuery — record query record (sources, level, service, agent_id, error_code)."""
-    sources: list[str] | None = None    # "error" | "log" | "reference"
+
+    sources: list[str] | None = None  # "error" | "log" | "reference"
     level: str = ""
     service: str = ""
     agent_id: str = ""
@@ -116,18 +117,21 @@ class RecordCenter:
     def _errors(self):
         if self._error_bus is None:
             from .error_bus import get_bus
+
             self._error_bus = get_bus()
         return self._error_bus
 
     def _logs(self):
         if self._log_service is None:
             from .bus.log import get_service
+
             self._log_service = get_service()
         return self._log_service
 
     def _refs(self):
         if self._ref_channel is None:
             from .bus.reference_channel import get_rc
+
             self._ref_channel = get_rc()
         return self._ref_channel
 
@@ -135,6 +139,7 @@ class RecordCenter:
         if self._stats_center is None:
             try:
                 from .services.stats_center import get_center
+
                 self._stats_center = get_center()
             except Exception:
                 logger.debug("record_center: stats center init failed")
@@ -162,7 +167,7 @@ class RecordCenter:
                 offset=0,
                 limit=q.limit,
             )
-            for e in (r.get("entries") or []):
+            for e in r.get("entries") or []:
                 e["_source"] = "error"
                 results.append(e)
 
@@ -174,14 +179,14 @@ class RecordCenter:
                 since=q.since or None,
                 until=q.until or None,
             )
-            for e in (r or []):
+            for e in r or []:
                 e["_source"] = "log"
                 results.append(e)
 
         if "reference" in sources:
             try:
                 r = self._refs().export(since=q.since, limit=q.limit)
-                for e in (r or []):
+                for e in r or []:
                     e["_source"] = "reference"
                     results.append(e)
             except Exception:
@@ -197,7 +202,7 @@ class RecordCenter:
                 fn = spec.get("query_fn")
                 if fn is None:
                     continue
-                for e in (fn(limit=q.limit) or []):
+                for e in fn(limit=q.limit) or []:
                     if isinstance(e, dict):
                         e = dict(e)
                         e["_source"] = name
@@ -208,16 +213,13 @@ class RecordCenter:
         # Keyword filter
         if q.keyword:
             kw = q.keyword.lower()
-            results = [
-                r for r in results
-                if kw in json.dumps(r).lower()
-            ]
+            results = [r for r in results if kw in json.dumps(r).lower()]
 
         # Sort by timestamp descending
         results.sort(key=lambda r: r.get("timestamp", 0), reverse=True)
 
         total = len(results)
-        page = results[q.offset:q.offset + q.limit]
+        page = results[q.offset : q.offset + q.limit]
 
         return {
             "success": True,
@@ -379,16 +381,17 @@ class RecordCenter:
             return
         try:
             es = self._errors().stats()
-            sc.ingest_batch([
-                _metric("errors.total", float(es.get("total", 0)),
-                        tags={"source": "error_bus"}, ts=time.time()),
-            ])
+            sc.ingest_batch(
+                [
+                    _metric("errors.total", float(es.get("total", 0)), tags={"source": "error_bus"}, ts=time.time()),
+                ]
+            )
             for level, count in es.get("by_level", {}).items():
-                sc.ingest(_metric(f"errors.level.{level.lower()}", float(count),
-                                  tags={"source": "error_bus"}, ts=time.time()))
+                sc.ingest(
+                    _metric(f"errors.level.{level.lower()}", float(count), tags={"source": "error_bus"}, ts=time.time())
+                )
             ls = self._logs().stats()
-            sc.ingest(_metric("logs.total", float(ls.get("total", 0)),
-                              tags={"source": "log_service"}, ts=time.time()))
+            sc.ingest(_metric("logs.total", float(ls.get("total", 0)), tags={"source": "log_service"}, ts=time.time()))
         except Exception as e:
             logger.warning("RecordCenter bridge stats: %s", e)
 
@@ -422,6 +425,7 @@ class RecordCenter:
 def _metric(name: str, value: float, tags: dict, ts: float):
     """Helper to create a MetricPoint without importing StatsCenter types."""
     from .services.stats_center import MetricPoint
+
     return MetricPoint(name=name, value=value, tags=tags, timestamp=ts, metric_type="gauge")
 
 

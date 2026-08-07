@@ -8,6 +8,7 @@ class TestScopeSchedulerStepBudget:
 
     def _make(self):
         from l3.scheduler.scheduler_scope import ScopeScheduler
+
         return ScopeScheduler()
 
     def test_budget_simple(self):
@@ -38,6 +39,7 @@ class TestScopeSchedulerStepBudget:
         """default_max_steps 应返回 AGENT_LOOP_DEFAULT_STEPS。"""
         s = self._make()
         from l1.kernel.params.agent import AGENT_LOOP_DEFAULT_STEPS
+
         assert s.default_max_steps() == AGENT_LOOP_DEFAULT_STEPS
 
 
@@ -46,6 +48,7 @@ class TestScopeSchedulerScoutQuota:
 
     def _make(self):
         from l3.scheduler.scheduler_scope import ScopeScheduler
+
         return ScopeScheduler()
 
     def test_check_empty_quota(self):
@@ -114,6 +117,7 @@ class TestScopeSchedulerSingleton:
 
     def test_singleton(self):
         from l3.scheduler.scheduler_scope import get_scope_scheduler, reset_scope_scheduler
+
         reset_scope_scheduler()
         s1 = get_scope_scheduler()
         s2 = get_scope_scheduler()
@@ -121,6 +125,7 @@ class TestScopeSchedulerSingleton:
 
     def test_reset(self):
         from l3.scheduler.scheduler_scope import get_scope_scheduler, reset_scope_scheduler
+
         reset_scope_scheduler()
         s1 = get_scope_scheduler()
         reset_scope_scheduler()

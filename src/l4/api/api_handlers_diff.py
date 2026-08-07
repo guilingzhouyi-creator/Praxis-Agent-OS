@@ -18,11 +18,13 @@ def _is_enabled() -> bool:
     Precedence: env var > config file > disabled by default.
     """
     import os
+
     env = os.environ.get("PRAXIS_DIFF_HEAVY_API", "").lower()
     if env in ("1", "true", "yes"):
         return True
     try:
         from l3.config.settings_center import get_center
+
         return bool(get_center().get("diff.heavy_api_enabled", False))
     except Exception:
         return False
@@ -54,6 +56,7 @@ def diff_structured(body: dict) -> dict:
 
     try:
         from l4.sandbox import get_manager as _get_sb
+
         sb_mgr = _get_sb()
     except Exception as e:
         return {"success": False, "error": f"sandbox unavailable: {e}"}
@@ -146,6 +149,7 @@ def diff_history(body: dict) -> dict:
 
     try:
         from l4.sandbox import get_manager as _get_sb
+
         sb_mgr = _get_sb()
     except Exception as e:
         return {"success": False, "error": f"sandbox unavailable: {e}"}
@@ -165,15 +169,19 @@ def diff_history(body: dict) -> dict:
                     continue
                 if entry.status in ("flushed", "discarded"):
                     continue
-                entries.append({
-                    "path": entry.path, "cell_id": cid,
-                    "agent_id": entry.agent_id, "tool_name": entry.tool_name,
-                    "status": entry.status,
-                    "task_id": entry.task_id,
-                    "conflict_level": entry.conflict_level,
-                    "stats": entry.stats,
-                    "modified_at": entry.modified_at,
-                })
+                entries.append(
+                    {
+                        "path": entry.path,
+                        "cell_id": cid,
+                        "agent_id": entry.agent_id,
+                        "tool_name": entry.tool_name,
+                        "status": entry.status,
+                        "task_id": entry.task_id,
+                        "conflict_level": entry.conflict_level,
+                        "stats": entry.stats,
+                        "modified_at": entry.modified_at,
+                    }
+                )
                 if len(entries) >= limit:
                     break
             if len(entries) >= limit:
@@ -196,6 +204,7 @@ def diff_colors(body: dict | None = None) -> dict:
     All semantic keys are optional; only provided keys are updated.
     """
     from l4.sandbox.cell_sandbox import get_color_scheme, reset_color_scheme, set_color_scheme
+
     b = body or {}
     action = b.get("action", "get")
     if action == "get":

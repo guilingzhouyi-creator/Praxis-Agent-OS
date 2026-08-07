@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 class PendingStatus(Enum):
     """PendingStatus — enum of PENDING, APPROVED, REJECTED, ESCALATED...."""
+
     PENDING = auto()
     APPROVED = auto()
     REJECTED = auto()
@@ -54,11 +55,12 @@ class PendingStatus(Enum):
 @dataclass
 class PendingMessage:
     """PendingMessage — pending message record (id, card_id, intent, domain, size)."""
+
     id: str = ""
     card_id: str = ""
     intent: str = ""
     domain: str = ""
-    size: str = ""           # large | disputed
+    size: str = ""  # large | disputed
     status: PendingStatus = PendingStatus.PENDING
     priority: int = CARD_DEFAULT_PRIORITY
     created_at: float = field(default_factory=time.time)
@@ -89,22 +91,32 @@ class PendingQueue(PersistableMixin):
 
     def _serialize(self) -> dict:
         return {
-            "items": {mid: {
-                "id": m.id, "card_id": m.card_id,
-                "intent": m.intent, "domain": m.domain,
-                "size": m.size, "status": m.status.name,
-                "priority": m.priority,
-                "created_at": m.created_at, "resolved_at": m.resolved_at,
-                "response": m.response, "metadata": m.metadata,
-            } for mid, m in self._items.items()},
+            "items": {
+                mid: {
+                    "id": m.id,
+                    "card_id": m.card_id,
+                    "intent": m.intent,
+                    "domain": m.domain,
+                    "size": m.size,
+                    "status": m.status.name,
+                    "priority": m.priority,
+                    "created_at": m.created_at,
+                    "resolved_at": m.resolved_at,
+                    "response": m.response,
+                    "metadata": m.metadata,
+                }
+                for mid, m in self._items.items()
+            },
         }
 
     def _deserialize(self, data: dict) -> bool:
         self._items.clear()
         for mid, d in data.get("items", {}).items():
             self._items[mid] = PendingMessage(
-                id=d["id"], card_id=d.get("card_id", ""),
-                intent=d.get("intent", ""), domain=d.get("domain", ""),
+                id=d["id"],
+                card_id=d.get("card_id", ""),
+                intent=d.get("intent", ""),
+                domain=d.get("domain", ""),
                 size=d.get("size", ""),
                 status=PendingStatus[d["status"]],
                 priority=d.get("priority", 5),
@@ -117,22 +129,40 @@ class PendingQueue(PersistableMixin):
 
     # ── Public API ──
 
-    def enqueue(self, card_id: str, intent: str = "", domain: str = "",
-                size: str = CARD_DEFAULT_SIZE, priority: int = CARD_DEFAULT_PRIORITY) -> str:
+    def enqueue(
+        self,
+        card_id: str,
+        intent: str = "",
+        domain: str = "",
+        size: str = CARD_DEFAULT_SIZE,
+        priority: int = CARD_DEFAULT_PRIORITY,
+    ) -> str:
         """Add a card to the pending queue. Returns message id."""
         mid = f"pend-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         msg = PendingMessage(
-            id=mid, card_id=card_id, intent=intent, domain=domain,
-            size=size, priority=priority,
+            id=mid,
+            card_id=card_id,
+            intent=intent,
+            domain=domain,
+            size=size,
+            priority=priority,
         )
         with self._lock:
             self._items[mid] = msg
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="pending_queue",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size},
+        )
         # Frontend notification chain: card entered the pending queue
-        emit_signal("CARD_PENDING", sender="pending_queue", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size})
+        emit_signal(
+            "CARD_PENDING",
+            sender="pending_queue",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "msg_id": mid, "event": "enqueued", "size": size},
+        )
         logger.info("pending enqueued: %s — %s (%s)", mid, intent[:LOG_TRUNC_60], size)
         return mid
 
@@ -147,6 +177,7 @@ class PendingQueue(PersistableMixin):
     def _stamp_card(self, card_id: str, status: str, by: str) -> None:
         try:
             from .card_registry import get_registry
+
             card = get_registry()._cards.get(card_id)
             if card:
                 card.approval_status = status
@@ -181,10 +212,18 @@ class PendingQueue(PersistableMixin):
             except Exception as e:
                 logger.warning("pending_queue on_approve callback failed: %s", e)
 
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "msg_id": msg_id, "event": "approved"})
-        return {"success": True, "card_id": card_id,
-                "intent": msg.intent[:LOG_TRUNC_60] if msg else "", "size": msg.size if msg else ""}
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="pending_queue",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "msg_id": msg_id, "event": "approved"},
+        )
+        return {
+            "success": True,
+            "card_id": card_id,
+            "intent": msg.intent[:LOG_TRUNC_60] if msg else "",
+            "size": msg.size if msg else "",
+        }
 
     def reject(self, msg_id: str, response: str = "") -> dict:
         """Reject a pending card."""
@@ -198,8 +237,12 @@ class PendingQueue(PersistableMixin):
             msg.resolved_at = time.time()
             msg.response = response[:LOG_TRUNC_200]
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
-                     data={"card_id": msg.card_id, "msg_id": msg_id, "event": "rejected"})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="pending_queue",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": msg.card_id, "msg_id": msg_id, "event": "rejected"},
+        )
         return {"success": True, "card_id": msg.card_id}
 
     def escalate(self, msg_id: str) -> dict:
@@ -213,8 +256,12 @@ class PendingQueue(PersistableMixin):
             msg.status = PendingStatus.ESCALATED
             msg.resolved_at = time.time()
             self._persist()
-        emit_signal(EVENT_TASK_ASSIGN, sender="pending_queue", target=SIGNAL_TARGET_L3,
-                     data={"card_id": msg.card_id, "msg_id": msg_id, "event": "escalated"})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="pending_queue",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": msg.card_id, "msg_id": msg_id, "event": "escalated"},
+        )
         return {"success": True, "card_id": msg.card_id, "action": "convention"}
 
     def list(self, status: str = "", limit: int = 50) -> list[dict]:
@@ -224,12 +271,18 @@ class PendingQueue(PersistableMixin):
             for m in sorted(self._items.values(), key=lambda x: (x.priority, x.created_at)):
                 if status and m.status.name != status.upper():
                     continue
-                result.append({
-                    "id": m.id, "card_id": m.card_id,
-                    "intent": m.intent[:LOG_TRUNC_80], "domain": m.domain,
-                    "size": m.size, "status": m.status.name,
-                    "priority": m.priority, "created_at": m.created_at,
-                })
+                result.append(
+                    {
+                        "id": m.id,
+                        "card_id": m.card_id,
+                        "intent": m.intent[:LOG_TRUNC_80],
+                        "domain": m.domain,
+                        "size": m.size,
+                        "status": m.status.name,
+                        "priority": m.priority,
+                        "created_at": m.created_at,
+                    }
+                )
                 if len(result) >= limit:
                     break
             return result
@@ -241,12 +294,17 @@ class PendingQueue(PersistableMixin):
             if not m:
                 return None
             return {
-                "id": m.id, "card_id": m.card_id,
-                "intent": m.intent[:LOG_TRUNC_120], "domain": m.domain,
-                "size": m.size, "status": m.status.name,
+                "id": m.id,
+                "card_id": m.card_id,
+                "intent": m.intent[:LOG_TRUNC_120],
+                "domain": m.domain,
+                "size": m.size,
+                "status": m.status.name,
                 "priority": m.priority,
-                "created_at": m.created_at, "resolved_at": m.resolved_at,
-                "response": m.response, "metadata": m.metadata,
+                "created_at": m.created_at,
+                "resolved_at": m.resolved_at,
+                "response": m.response,
+                "metadata": m.metadata,
             }
 
     def stats(self) -> dict:

@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 class MessageType(Enum):
     """MessageType — enum of TASK_ASSIGN, TASK_CANCEL, REVIEW_RESULT, CONSTITUTION_UPDATE...."""
+
     # L3 → Agent
     TASK_ASSIGN = "task.assign"
     TASK_CANCEL = "task.cancel"
@@ -81,6 +82,7 @@ class MessageType(Enum):
 @dataclass
 class IPCMessage:
     """Unified IPC message format (§2.2)."""
+
     msg_id: str = field(default_factory=lambda: uuid.uuid4().hex[:HASH_TRUNC_MEDIUM])
     sender: str = ""
     receiver: str = ""
@@ -103,14 +105,14 @@ class IPCMessage:
 # Communication constraint matrix (§2.3)
 COMM_CONSTRAINTS: dict[str, bool] = {
     # path:                    allowed?
-    "l3_to_agent":             True,
-    "agent_to_l3":             True,
-    "agent_to_agent_intra":    True,
-    "agent_to_agent_cross":    False,  # requires Ring Omega + constitution check
-    "agent_to_scout":          True,  # delegation only
-    "scout_to_agent":          True,  # report only
-    "scout_to_scout":          False,  # forbidden
-    "agent_to_human":          False,  # forbidden, must go through L3
+    "l3_to_agent": True,
+    "agent_to_l3": True,
+    "agent_to_agent_intra": True,
+    "agent_to_agent_cross": False,  # requires Ring Omega + constitution check
+    "agent_to_scout": True,  # delegation only
+    "scout_to_agent": True,  # report only
+    "scout_to_scout": False,  # forbidden
+    "agent_to_human": False,  # forbidden, must go through L3
 }
 
 
@@ -140,11 +142,14 @@ class IpcBus(BaseService):
 
             def _observe(msg: IPCMessage) -> None:
                 try:
-                    get_bus().emit(MonitorEvent(
-                        type="ipc.message", source="ipc", severity="info",
-                        data={"sender": msg.sender, "receiver": msg.receiver,
-                              "msg_type": msg.msg_type.value},
-                    ))
+                    get_bus().emit(
+                        MonitorEvent(
+                            type="ipc.message",
+                            source="ipc",
+                            severity="info",
+                            data={"sender": msg.sender, "receiver": msg.receiver, "msg_type": msg.msg_type.value},
+                        )
+                    )
                 except Exception as e:
                     logger.debug("ipc: monitor emit failed: %s", e)
 
@@ -180,6 +185,7 @@ class IpcBus(BaseService):
         if not COMM_CONSTRAINTS.get(constraint_key, True):
             self._total_dropped += 1
             from .comm_monitor import get_monitor
+
             get_monitor().record_dropped(channel="ipc")
             return {"success": False, "error": f"communication forbidden: {constraint_key}"}
 
@@ -195,9 +201,10 @@ class IpcBus(BaseService):
                     logger.warning("ipc handler: %s", e)
 
         from .comm_monitor import get_monitor
-        get_monitor().record_message(channel="ipc", msg_type="send",
-                                      direction="out", agent_id=msg.sender,
-                                      target=msg.msg_type.name)
+
+        get_monitor().record_message(
+            channel="ipc", msg_type="send", direction="out", agent_id=msg.sender, target=msg.msg_type.name
+        )
         logger.debug("msg sent: %s → %s (%s)", msg.sender, msg.receiver, msg.msg_type.value)
         return {"success": True, "msg_id": msg.msg_id}
 
@@ -289,37 +296,49 @@ class IpcBus(BaseService):
 
     def send_task(self, agent_id: str, task_data: dict, sender: str = "l3") -> dict:
         """Send a task assignment to an agent and return the send result."""
-        return self.send(IPCMessage(sender=sender, receiver=agent_id,
-                                    msg_type=MessageType.TASK_ASSIGN, payload=task_data))
+        return self.send(
+            IPCMessage(sender=sender, receiver=agent_id, msg_type=MessageType.TASK_ASSIGN, payload=task_data)
+        )
 
     def send_review(self, from_agent: str, to_agent: str, task_id: str) -> dict:
         """Send a cross-review request between agents and return the send result."""
-        return self.send(IPCMessage(sender=from_agent, receiver=to_agent,
-                                    msg_type=MessageType.CROSS_REVIEW_REQ,
-                                    payload={"task_id": task_id}))
+        return self.send(
+            IPCMessage(
+                sender=from_agent,
+                receiver=to_agent,
+                msg_type=MessageType.CROSS_REVIEW_REQ,
+                payload={"task_id": task_id},
+            )
+        )
 
     def send_scout_report(self, scout_id: str, agent_id: str, findings: list) -> dict:
         """Send a scout report to an agent and return the send result."""
-        return self.send(IPCMessage(sender=scout_id, receiver=agent_id,
-                                    msg_type=MessageType.SCOUT_REPORT,
-                                    payload={"findings": findings}))
+        return self.send(
+            IPCMessage(
+                sender=scout_id, receiver=agent_id, msg_type=MessageType.SCOUT_REPORT, payload={"findings": findings}
+            )
+        )
 
     def send_heartbeat(self, agent_id: str) -> dict:
         """Send a heartbeat from an agent to L3 and return the send result."""
-        return self.send(IPCMessage(sender=agent_id, receiver="l3",
-                                    msg_type=MessageType.HEARTBEAT))
+        return self.send(IPCMessage(sender=agent_id, receiver="l3", msg_type=MessageType.HEARTBEAT))
 
     def send_dispute(self, from_agent: str, against: str, reason: str) -> dict:
         """Send a dispute raise to L3 and return the send result."""
-        return self.send(IPCMessage(sender=from_agent, receiver="l3",
-                                    msg_type=MessageType.DISPUTE_RAISE,
-                                    payload={"against": against, "reason": reason}))
+        return self.send(
+            IPCMessage(
+                sender=from_agent,
+                receiver="l3",
+                msg_type=MessageType.DISPUTE_RAISE,
+                payload={"against": against, "reason": reason},
+            )
+        )
 
     def send_direct(self, agent_id: str, message: str, sender: str = "human") -> dict:
         """Send a direct human message to an agent and return the send result."""
-        return self.send(IPCMessage(sender=sender, receiver=agent_id,
-                                    msg_type=MessageType.DIRECT_MESSAGE,
-                                    payload={"text": message}))
+        return self.send(
+            IPCMessage(sender=sender, receiver=agent_id, msg_type=MessageType.DIRECT_MESSAGE, payload={"text": message})
+        )
 
     # ── Stats ──
 
@@ -331,8 +350,7 @@ class IpcBus(BaseService):
                 "total_dropped": self._total_dropped,
                 "agents": len(self._agents),
                 "channels": len(self._channels),
-                "message_types": {mt.value: len(self._subscribers.get(mt, []))
-                                  for mt in MessageType},
+                "message_types": {mt.value: len(self._subscribers.get(mt, [])) for mt in MessageType},
             }
 
 

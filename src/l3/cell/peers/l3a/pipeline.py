@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _output_dir() -> str:
     from l1.kernel.paths import get_paths
+
     return os.path.join(get_paths().data_dir, _p.MANAGED_OUTPUT_DIR)
 
 
@@ -30,8 +31,8 @@ def bound(result: dict, max_bytes: int = _p.MANAGED_OUTPUT_MAX_BYTES) -> dict:
     text = json.dumps(result, ensure_ascii=False, default=str)
     if len(text.encode("utf-8")) <= max_bytes:
         return result
-    head = text[:max_bytes // _p.OUTPUT_SPILL_HEAD_DIVISOR]
-    tail = text[-(max_bytes // _p.OUTPUT_SPILL_TAIL_DIVISOR):]
+    head = text[: max_bytes // _p.OUTPUT_SPILL_HEAD_DIVISOR]
+    tail = text[-(max_bytes // _p.OUTPUT_SPILL_TAIL_DIVISOR) :]
     spill_path = spill(text)
     return {
         "_truncated": True,
@@ -48,7 +49,12 @@ def spill(content: str) -> str:
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
     except OSError as e:
-        capture("l3a pipeline: spill failed", error_code="E_L3A_PIPELINE", component="l3a", context={"path": path, "error": str(e)})
+        capture(
+            "l3a pipeline: spill failed",
+            error_code="E_L3A_PIPELINE",
+            component="l3a",
+            context={"path": path, "error": str(e)},
+        )
         logger.warning("l3a pipeline: spill failed: %s", e)
     return path
 

@@ -17,8 +17,8 @@ class TestToolSpec:
 
     def test_create_minimal_spec(self):
         from l3.tool_system.tool_spec import ToolSpec
-        spec = ToolSpec(name="test_tool", description="Test tool",
-                        category="general", ring=RING_1, danger=0)
+
+        spec = ToolSpec(name="test_tool", description="Test tool", category="general", ring=RING_1, danger=0)
         assert spec.name == "test_tool"
         assert spec.description == "Test tool"
         assert spec.ring == RING_1
@@ -26,11 +26,16 @@ class TestToolSpec:
 
     def test_create_with_all_fields(self):
         from l3.tool_system.tool_spec import ToolSpec
+
         spec = ToolSpec(
-            name="build", description="Build project",
-            category="dev", ring=RING_2_5, danger=1,
+            name="build",
+            description="Build project",
+            category="dev",
+            ring=RING_2_5,
+            danger=1,
             handler=lambda args, agent: {"success": True},
-            parallel_safe=False, metadata={"timeout": 120},
+            parallel_safe=False,
+            metadata={"timeout": 120},
         )
         assert spec.name == "build"
         assert spec.ring == RING_2_5
@@ -40,48 +45,72 @@ class TestToolSpec:
 
     def test_validate_no_params(self):
         from l3.tool_system.tool_spec import ToolSpec
-        spec = ToolSpec(name="test", description="x",
-                        category="gen", ring=RING_1, danger=0)
+
+        spec = ToolSpec(name="test", description="x", category="gen", ring=RING_1, danger=0)
         errors = spec.validate({})
         assert errors == []
 
     def test_validate_required_param_missing(self):
         from l3.tool_system.tool_spec import ParamSpec, ToolSpec
-        spec = ToolSpec(name="test", description="x",
-                        category="gen", ring=RING_1, danger=0,
-                        parameters=[ParamSpec("path", "string", required=True)])
+
+        spec = ToolSpec(
+            name="test",
+            description="x",
+            category="gen",
+            ring=RING_1,
+            danger=0,
+            parameters=[ParamSpec("path", "string", required=True)],
+        )
         errors = spec.validate({})
         assert any("path" in e for e in errors)
 
     def test_validate_type_mismatch(self):
         from l3.tool_system.tool_spec import ParamSpec, ToolSpec
-        spec = ToolSpec(name="test", description="x",
-                        category="gen", ring=RING_1, danger=0,
-                        parameters=[ParamSpec("count", "int", required=True)])
+
+        spec = ToolSpec(
+            name="test",
+            description="x",
+            category="gen",
+            ring=RING_1,
+            danger=0,
+            parameters=[ParamSpec("count", "int", required=True)],
+        )
         errors = spec.validate({"count": "not_an_int"})
         assert len(errors) > 0
 
     def test_validate_optional_param_omitted(self):
         from l3.tool_system.tool_spec import ParamSpec, ToolSpec
-        spec = ToolSpec(name="test", description="x",
-                        category="gen", ring=RING_1, danger=0,
-                        parameters=[ParamSpec("path", "string", required=False)])
+
+        spec = ToolSpec(
+            name="test",
+            description="x",
+            category="gen",
+            ring=RING_1,
+            danger=0,
+            parameters=[ParamSpec("path", "string", required=False)],
+        )
         errors = spec.validate({})
         assert errors == []
 
     def test_to_api_format(self):
         from l3.tool_system.tool_spec import ParamSpec, ToolSpec
-        spec = ToolSpec(name="test", description="x",
-                        category="gen", ring=RING_1, danger=0,
-                        parameters=[ParamSpec("path", "string", required=True)])
+
+        spec = ToolSpec(
+            name="test",
+            description="x",
+            category="gen",
+            ring=RING_1,
+            danger=0,
+            parameters=[ParamSpec("path", "string", required=True)],
+        )
         api = spec.to_api_format()
         assert api["function"]["name"] == "test"
         assert isinstance(api["function"]["parameters"], dict)
 
     def test_to_dict(self):
         from l3.tool_system.tool_spec import ToolSpec
-        spec = ToolSpec(name="test", description="desc",
-                        category="cat", ring=RING_1, danger=0)
+
+        spec = ToolSpec(name="test", description="desc", category="cat", ring=RING_1, danger=0)
         d = spec.to_dict()
         assert d["name"] == "test"
         assert d["ring"] == RING_1
@@ -93,12 +122,14 @@ class TestToolRing:
 
     def test_ring_values(self):
         from l3.tool_system.tool_spec import ToolRing
+
         assert ToolRing.RING_1 == RING_1
         assert ToolRing.RING_2_5 == RING_2_5
         assert ToolRing.RING_3 == RING_3
 
     def test_ring_all_have_values(self):
         from l3.tool_system.tool_spec import ToolRing
+
         assert ToolRing.RING_1
         assert ToolRing.RING_2_5
         assert ToolRing.RING_3
@@ -109,6 +140,7 @@ class TestExecuteToolSpec:
 
     def test_unknown_tool_returns_error(self):
         from l3.tool_system.tool_spec import execute_tool_spec
+
         r = execute_tool_spec("__nonexistent__", {}, "test-agent")
         assert not r.get("success", True)
         assert "unknown tool" in r.get("error", "")
@@ -116,9 +148,9 @@ class TestExecuteToolSpec:
     def test_no_handler_returns_error(self):
         from l3.tool_system.tool_registry import register, reset_registry
         from l3.tool_system.tool_spec import ToolSpec, execute_tool_spec
+
         reset_registry()
-        spec = ToolSpec(name="test_no_handler", description="x",
-                        category="gen", ring=RING_1, danger=0)
+        spec = ToolSpec(name="test_no_handler", description="x", category="gen", ring=RING_1, danger=0)
         register(spec)
         r = execute_tool_spec("test_no_handler", {}, "test-agent")
         assert not r.get("success", True)

@@ -11,8 +11,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestSearch:
     def test_search_importable(self):
         from l4.search.search import search
+
         assert callable(search)
 
     def test_replace_importable(self):
         from l4.search.search import replace
+
         assert callable(replace)

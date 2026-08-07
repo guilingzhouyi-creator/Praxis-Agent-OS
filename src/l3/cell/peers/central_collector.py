@@ -62,17 +62,29 @@ class CentralCollector:
 
         with self._lock:
             # Per-Cell
-            cell = self._cells.setdefault(cell_id, {
-                "cell_id": cell_id, "agents": {},
-                "total_input": 0, "total_output": 0, "total_calls": 0,
-            })
+            cell = self._cells.setdefault(
+                cell_id,
+                {
+                    "cell_id": cell_id,
+                    "agents": {},
+                    "total_input": 0,
+                    "total_output": 0,
+                    "total_calls": 0,
+                },
+            )
             cell["total_input"] += inp
             cell["total_output"] += out
             cell["total_calls"] += 1
 
-            agent = cell["agents"].setdefault(agent_id, {
-                "agent_id": agent_id, "input": 0, "output": 0, "calls": 0,
-            })
+            agent = cell["agents"].setdefault(
+                agent_id,
+                {
+                    "agent_id": agent_id,
+                    "input": 0,
+                    "output": 0,
+                    "calls": 0,
+                },
+            )
             agent["input"] += inp
             agent["output"] += out
             agent["calls"] += 1
@@ -86,22 +98,39 @@ class CentralCollector:
             else:
                 if len(self._history) >= self._max_history:
                     self._history.pop(0)
-                self._history.append({
-                    "window": window, "input": inp, "output": out, "calls": 1,
-                })
+                self._history.append(
+                    {
+                        "window": window,
+                        "input": inp,
+                        "output": out,
+                        "calls": 1,
+                    }
+                )
 
         # Push to global StatsCenter
         try:
             from .services.stats_center import MetricPoint, get_center
+
             sc = get_center()
             ts = time.time()
-            sc.ingest(MetricPoint(name="tokens.consumed", value=float(inp + out),
-                                  tags={"cell": cell_id, "agent": agent_id,
-                                        "provider": provider, "model": model},
-                                  timestamp=ts, metric_type="counter"))
-            sc.ingest(MetricPoint(name="tokens.calls", value=1.0,
-                                  tags={"cell": cell_id, "agent": agent_id},
-                                  timestamp=ts, metric_type="counter"))
+            sc.ingest(
+                MetricPoint(
+                    name="tokens.consumed",
+                    value=float(inp + out),
+                    tags={"cell": cell_id, "agent": agent_id, "provider": provider, "model": model},
+                    timestamp=ts,
+                    metric_type="counter",
+                )
+            )
+            sc.ingest(
+                MetricPoint(
+                    name="tokens.calls",
+                    value=1.0,
+                    tags={"cell": cell_id, "agent": agent_id},
+                    timestamp=ts,
+                    metric_type="counter",
+                )
+            )
         except Exception:
             logger.debug("central_collector: stats center ingest failed")
 
@@ -117,9 +146,7 @@ class CentralCollector:
                     "total_calls": c["total_calls"],
                     "agents": list(c["agents"].values()),
                     "quota": TOKEN_CELL_QUOTA,
-                    "usage_pct": round(
-                        (c["total_input"] + c["total_output"]) / max(TOKEN_CELL_QUOTA, 1) * 100, 1
-                    ),
+                    "usage_pct": round((c["total_input"] + c["total_output"]) / max(TOKEN_CELL_QUOTA, 1) * 100, 1),
                 }
                 for cid, c in self._cells.items()
             ]

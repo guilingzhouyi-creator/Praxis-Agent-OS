@@ -43,13 +43,15 @@ class Endpoint:
       Endpoint("wss://hub.praxis.io/node-1", hint="ws")
       Endpoint("\\\\.\\pipe\\praxis-cell-1", hint="pipe")  # Windows named pipe
     """
+
     address: str = ""
-    hint: str = "tcp"       # transport_hint — lets adapter choose wire protocol
+    hint: str = "tcp"  # transport_hint — lets adapter choose wire protocol
 
 
 @dataclass
 class Result:
     """Generic success/failure result — no exception leak across port boundaries."""
+
     success: bool = True
     error: str = ""
     data: dict = field(default_factory=dict)
@@ -71,23 +73,25 @@ class Message:
 
     Adapters choose the wire format (JSON / MsgPack / Protobuf).
     """
+
     type: str = "message"
     source: str = ""
     target: str = ""
     payload: Any = None
     timestamp: float = 0.0
-    locale: str = "en"                  # sender locale — receiver may localize reply
+    locale: str = "en"  # sender locale — receiver may localize reply
     headers: dict = field(default_factory=dict)
 
 
 @dataclass
 class Event:
     """Domain event — carry pre-localized message for multi-lingual consumers."""
-    type: str = ""                      # "network.peer.join" | "network.peer.loss"
+
+    type: str = ""  # "network.peer.join" | "network.peer.loss"
     source: str = ""
-    severity: str = "info"              # "info" | "warn" | "crit"
-    message: str = ""                   # English default
-    message_locale: str = ""            # Localized variant (e.g. zh-CN)
+    severity: str = "info"  # "info" | "warn" | "crit"
+    message: str = ""  # English default
+    message_locale: str = ""  # Localized variant (e.g. zh-CN)
     data: dict = field(default_factory=dict)
 
 
@@ -103,6 +107,7 @@ class TransportPort(ABC):
         (actual I/O happens on transport's own threads)
       - register_handler  MUST be thread-safe
     """
+
     name: str = "abstract.transport"
 
     @abstractmethod
@@ -137,6 +142,7 @@ class ChannelPort(ABC):
       - get() when empty: blocks up to *timeout* or returns None
       - All operations MUST be thread-safe.
     """
+
     @abstractmethod
     def put(self, item: Any, timeout: float | None = None) -> bool:
         """Enqueue an item. Returns False if full and *timeout* elapsed."""
@@ -174,14 +180,14 @@ class EventBusPort(ABC):
       - subscribe(handler) returns a subscription ID for unsubscribe
       - subscribe with pattern=None subscribes to ALL event types
     """
+
     @abstractmethod
     def emit(self, event: Event) -> None:
         """Publish an event to all matching subscribers."""
         ...
 
     @abstractmethod
-    def subscribe(self, handler: Callable | None = None,
-                  pattern: str | None = None) -> str:
+    def subscribe(self, handler: Callable | None = None, pattern: str | None = None) -> str:
         """Subscribe *handler* to events matching *pattern* (glob). Returns sub_id."""
         ...
 
@@ -207,6 +213,7 @@ class WorkerPort(ABC):
         so the caller never depends on threading.Thread or asyncio.Task
       - shutdown() MUST wait for running tasks up to *timeout* seconds
     """
+
     @abstractmethod
     def submit(self, fn: Callable, *args: Any, **kwargs: Any) -> Result:
         """Submit a callable for execution. Result.success indicates accepted."""
@@ -235,6 +242,7 @@ class I18nPort(ABC):
       - set_locale(locale) is idempotent; unknown locale falls back to "en"
       - All operations MUST be thread-safe
     """
+
     @abstractmethod
     def t(self, key: str, **kwargs: Any) -> str:
         """Translate *key* in the current locale with optional variable substitution."""
@@ -275,6 +283,7 @@ class CardRegistryPort(ABC):
     Replaces lazy ``from l3.card.card_unified import list_card_types``
     and ``from l3.card_pool import get_pool`` in kernel layer.
     """
+
     @abstractmethod
     def list_types(self) -> list[dict]:
         """Return all registered card type definitions."""
@@ -298,16 +307,16 @@ class MonitorBusPort(ABC):
     This is a lighter-weight sibling of EventBusPort focused on
     observability events (network status, cell health, agent lifecycle).
     """
+
     @abstractmethod
-    def emit(self, type_: str, source: str, severity: str,
-             message: str, data: dict | None = None) -> None:
+    def emit(self, type_: str, source: str, severity: str, message: str, data: dict | None = None) -> None:
         """Emit a structured monitoring event."""
         ...
 
     @abstractmethod
-    def query(self, type_prefix: str = "", severity: str = "",
-              source: str = "", since: float = 0.0,
-              limit: int = 100) -> list[dict]:
+    def query(
+        self, type_prefix: str = "", severity: str = "", source: str = "", since: float = 0.0, limit: int = 100
+    ) -> list[dict]:
         """Query recent events with optional filters."""
         ...
 
@@ -318,6 +327,7 @@ class MonitorBusPort(ABC):
 @dataclass
 class LLMConfig:
     """LLM engine configuration — provider, model, parameters."""
+
     provider: str = "mock"
     model: str = ""
     max_tokens: int = LLM_DEFAULT_MAX_TOKENS
@@ -335,8 +345,7 @@ class LLMConfig:
     def __eq__(self, other):
         if not isinstance(other, LLMConfig):
             return False
-        return (self.provider == other.provider and self.model == other.model
-                and self.api_url == other.api_url)
+        return self.provider == other.provider and self.model == other.model and self.api_url == other.api_url
 
 
 class LLMPort(ABC):
@@ -347,28 +356,24 @@ class LLMPort(ABC):
     """
 
     @abstractmethod
-    def tool_use(self, prompt: str, tools: list,
-                 system: str = "", max_turns: int = 10,
-                 user_id: str = "",
-                 **model_kwargs: Any) -> dict:
+    def tool_use(
+        self, prompt: str, tools: list, system: str = "", max_turns: int = 10, user_id: str = "", **model_kwargs: Any
+    ) -> dict:
         """Call LLM with tool definitions. Returns result with tool_calls."""
         ...
 
     @abstractmethod
-    def generate(self, prompt: str, system: str = "",
-                 user_id: str = "", **model_kwargs: Any) -> dict:
+    def generate(self, prompt: str, system: str = "", user_id: str = "", **model_kwargs: Any) -> dict:
         """Generate a plain-text response from the LLM (no tools)."""
         ...
 
     @abstractmethod
-    def context_window(self, cell_id: str = "",
-                       agent_id: str = "") -> dict:
+    def context_window(self, cell_id: str = "", agent_id: str = "") -> dict:
         """Return current context window usage stats (tokens used/max)."""
         ...
 
     @abstractmethod
-    def optimize_prompt(self, prompt: str,
-                        system: str = "") -> tuple[str, str]:
+    def optimize_prompt(self, prompt: str, system: str = "") -> tuple[str, str]:
         """Optimize prompt structure for token efficiency and cache matching."""
         ...
 

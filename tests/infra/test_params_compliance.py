@@ -18,16 +18,28 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # Known constants and their values
 LOG_TRUNC_VALUES: dict[int, str] = {
-    40: "LOG_TRUNC_40", 50: "LOG_TRUNC_50", 60: "LOG_TRUNC_60",
-    80: "LOG_TRUNC_80", 100: "LOG_TRUNC_100", 120: "LOG_TRUNC_120",
-    150: "LOG_TRUNC_150", 200: "LOG_TRUNC_200", 300: "LOG_TRUNC_300",
-    500: "LOG_TRUNC_500", 1000: "LOG_TRUNC_1000", 2000: "LOG_TRUNC_2000",
-    3000: "LOG_TRUNC_3000", 4000: "LOG_TRUNC_4000", 5000: "LOG_TRUNC_5000",
+    40: "LOG_TRUNC_40",
+    50: "LOG_TRUNC_50",
+    60: "LOG_TRUNC_60",
+    80: "LOG_TRUNC_80",
+    100: "LOG_TRUNC_100",
+    120: "LOG_TRUNC_120",
+    150: "LOG_TRUNC_150",
+    200: "LOG_TRUNC_200",
+    300: "LOG_TRUNC_300",
+    500: "LOG_TRUNC_500",
+    1000: "LOG_TRUNC_1000",
+    2000: "LOG_TRUNC_2000",
+    3000: "LOG_TRUNC_3000",
+    4000: "LOG_TRUNC_4000",
+    5000: "LOG_TRUNC_5000",
     10000: "LOG_TRUNC_10000",
 }
 
 HASH_TRUNC_VALUES: dict[int, str] = {
-    8: "HASH_TRUNC_SHORT", 12: "HASH_TRUNC_MEDIUM", 16: "HASH_TRUNC_LONG",
+    8: "HASH_TRUNC_SHORT",
+    12: "HASH_TRUNC_MEDIUM",
+    16: "HASH_TRUNC_LONG",
 }
 
 # Files/types exempt from scanning (e.g., test files, param definitions)
@@ -42,8 +54,9 @@ SCAN_ROOTS = [
 ]
 
 
-def _excess_bare_slices(content: str, values: dict[int, str],
-                        pattern: re.Pattern[str]) -> list[tuple[re.Match[str], str]]:
+def _excess_bare_slices(
+    content: str, values: dict[int, str], pattern: re.Pattern[str]
+) -> list[tuple[re.Match[str], str]]:
     """Return bare-slice matches whose count exceeds the constant's references.
 
     Closes the whole-file exemption loophole: a single ``LOG_TRUNC_200``
@@ -95,19 +108,13 @@ def _find_violations() -> list[str]:
 def test_no_hardcoded_truncation_values():
     """All truncation/hash literals in L3 must use params constants."""
     violations = _find_violations()
-    assert not violations, (
-        "Hardcoded truncation/hash values found:\n  "
-        + "\n  ".join(violations)
-    )
+    assert not violations, "Hardcoded truncation/hash values found:\n  " + "\n  ".join(violations)
 
 
 def test_no_hardcoded_truncation_values_strict():
     """Strict mode — fail on any violation."""
     violations = _find_violations()
-    assert not violations, (
-        "Hardcoded truncation/hash values found:\n  "
-        + "\n  ".join(violations)
-    )
+    assert not violations, "Hardcoded truncation/hash values found:\n  " + "\n  ".join(violations)
 
 
 class TestParamConstantsExist:
@@ -115,18 +122,22 @@ class TestParamConstantsExist:
 
     def test_log_trunc_150_exists(self):
         from l1.kernel.params.system import LOG_TRUNC_150
+
         assert LOG_TRUNC_150 == 150
 
     def test_memory_importance_critical_exists(self):
         from l1.kernel.params.system import MEMORY_IMPORTANCE_CRITICAL
+
         assert MEMORY_IMPORTANCE_CRITICAL == 0.9
 
     def test_memory_importance_very_high_exists(self):
         from l1.kernel.params.system import MEMORY_IMPORTANCE_VERY_HIGH
+
         assert MEMORY_IMPORTANCE_VERY_HIGH == 0.85
 
     def test_l3b_hot_ring_size_exists(self):
         from l1.kernel.params.system import L3B_HOT_RING_SIZE
+
         assert L3B_HOT_RING_SIZE == 200
 
     def test_resource_buffer_dir_constants_exist(self):
@@ -137,6 +148,7 @@ class TestParamConstantsExist:
             RESOURCE_BUFFER_PENDING_DIR,
             RESOURCE_BUFFER_ROOT_DIR,
         )
+
         assert RESOURCE_BUFFER_PENDING_DIR == "_pending"
         assert RESOURCE_BUFFER_HIDDEN_DIR == "_hidden"
         assert RESOURCE_BUFFER_CHECKPOINT_FILE == "_checkpoint.dat"
@@ -145,6 +157,7 @@ class TestParamConstantsExist:
 
     def test_config_path_constants_exist(self):
         from l1.kernel.params.system import COMMANDS_CONFIG_PATH, TOOLS_CONFIG_PATH
+
         assert TOOLS_CONFIG_PATH == "config/tools.yaml"
         assert COMMANDS_CONFIG_PATH == "config/commands.yaml"
 
@@ -153,6 +166,7 @@ class TestParamConstantsExist:
             CARD_YAML_EXPORT,
             LOG_EXPORT_FILE,
         )
+
         assert LOG_EXPORT_FILE  # just check importable, format varies
         assert CARD_YAML_EXPORT == "{name}.card.yaml"
 
@@ -161,5 +175,6 @@ class TestParamConstantsExist:
             MEMORY_AGENT_SESSIONS_DIR,
             MEMORY_WORKSPACES_FILE,
         )
+
         assert MEMORY_AGENT_SESSIONS_DIR == "AGENT/sessions"
         assert MEMORY_WORKSPACES_FILE == "workspaces.json"

@@ -34,17 +34,14 @@ class DaemonPool:
         queue_maxsize: bounded task queue; ``submit`` drops silently when full.
     """
 
-    def __init__(self, max_workers: int = 2,
-                 thread_name_prefix: str = "daemon",
-                 queue_maxsize: int = 0) -> None:
+    def __init__(self, max_workers: int = 2, thread_name_prefix: str = "daemon", queue_maxsize: int = 0) -> None:
         self._work_queue: queue.Queue = queue.Queue(maxsize=queue_maxsize)
         self._lock = threading.Lock()
         self._running = True
         self._max_workers = max_workers
         self._workers: list[threading.Thread] = []
         for i in range(max_workers):
-            w = threading.Thread(target=self._loop, daemon=True,
-                                 name=f"{thread_name_prefix}-{i}")
+            w = threading.Thread(target=self._loop, daemon=True, name=f"{thread_name_prefix}-{i}")
             w.start()
             self._workers.append(w)
 

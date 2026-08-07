@@ -23,9 +23,9 @@ from l1.kernel.params.system import LOG_TRUNC_50
 logger = logging.getLogger(__name__)
 
 _DEFAULT_ENABLED = False
-_MER_MIN_IMPORTANCE = 0.4       # transform only entries with importance >= threshold
-_MER_ENTRIES_PER_SCOPE = 10     # max entries per scope
-_MER_MAX_SCOPES = 8             # max scopes aggregated
+_MER_MIN_IMPORTANCE = 0.4  # transform only entries with importance >= threshold
+_MER_ENTRIES_PER_SCOPE = 10  # max entries per scope
+_MER_MAX_SCOPES = 8  # max scopes aggregated
 # Normalized form (archive _normalize_fonds lowercases and strips non [a-z0-9_-])
 _MER_FONDS = "agent-l3a"
 _MER_SERIES = "memory_mer_snapshot"
@@ -35,6 +35,7 @@ _MER_ID_LEN = 8
 def _default_enabled() -> bool:
     try:
         from l1.kernel.settings import get_settings
+
         return bool(get_settings().get("memory.mer.enabled", _DEFAULT_ENABLED))
     except Exception:
         return _DEFAULT_ENABLED
@@ -62,8 +63,7 @@ class MerTransformer:
 
     # ── Aggregation: multi-agent R1-R3 ──────────────────────────────
 
-    def collect_entries(self, scope_ids: list[str] | None = None,
-                        limit: int = _MER_ENTRIES_PER_SCOPE) -> list[dict]:
+    def collect_entries(self, scope_ids: list[str] | None = None, limit: int = _MER_ENTRIES_PER_SCOPE) -> list[dict]:
         """Aggregate high-value R1-R3 entries across scopes."""
         try:
             from l3.memory.central_memory import get_center
@@ -84,13 +84,19 @@ class MerTransformer:
                 if mem is None:
                     continue
                 entries = mem.recall(agent_id=None, rings=[1, 2, 3], limit=limit)
-                for e in (entries or []):
-                    d = e if isinstance(e, dict) else {
-                        "id": e.id, "agent_id": e.agent_id,
-                        "entry_type": e.entry_type, "content": e.content,
-                        "importance": getattr(e, "importance", 0.5),
-                        "timestamp": getattr(e, "timestamp", 0.0),
-                    }
+                for e in entries or []:
+                    d = (
+                        e
+                        if isinstance(e, dict)
+                        else {
+                            "id": e.id,
+                            "agent_id": e.agent_id,
+                            "entry_type": e.entry_type,
+                            "content": e.content,
+                            "importance": getattr(e, "importance", 0.5),
+                            "timestamp": getattr(e, "timestamp", 0.0),
+                        }
+                    )
                     if float(d.get("importance", 0)) >= _MER_MIN_IMPORTANCE:
                         d["_scope"] = sid
                         out.append(d)
@@ -103,6 +109,7 @@ class MerTransformer:
         """Pull graph edges among the collected nodes (if graph enabled)."""
         try:
             from l3.memory.memory_graph import get_graph
+
             g = get_graph()
             if not g.enabled:
                 return []
@@ -110,18 +117,17 @@ class MerTransformer:
             edges = g.semantic_edges(limit=100)
             if not node_set:
                 return edges[:LOG_TRUNC_50]
-            return [ed for ed in edges
-                    if ed.get("from_id") in node_set or ed.get("to_id") in node_set][:LOG_TRUNC_50]
+            return [ed for ed in edges if ed.get("from_id") in node_set or ed.get("to_id") in node_set][:LOG_TRUNC_50]
         except Exception:
             return []
 
     # ── Symbolization: Mermaid generation ──────────────────────────────
 
     _ENTRY_SHAPES: dict[str, str] = {
-        "decision": "diamond",   # `id{"label"}`
-        "summary": "round",      # `id("label")`
+        "decision": "diamond",  # `id{"label"}`
+        "summary": "round",  # `id("label")`
         "card": "round",
-        "user": "rect",          # `id["label"]`
+        "user": "rect",  # `id["label"]`
         "assistant": "rect",
         "tool_call": "rect",
     }
@@ -130,13 +136,12 @@ class MerTransformer:
     def _node_line(key: str, shape: str, label: str) -> str:
         """Emit a Mermaid node line for the given shape."""
         if shape == "diamond":
-            return f'    {key}{{{{{label}}}}}'
+            return f"    {key}{{{{{label}}}}}"
         if shape == "round":
             return f'    {key}("{label}")'
         return f'    {key}["{label}"]'
 
-    def to_mermaid(self, entries: list[dict], edges: list[dict] | None = None,
-                   title: str = "Memory") -> str:
+    def to_mermaid(self, entries: list[dict], edges: list[dict] | None = None, title: str = "Memory") -> str:
         """Render collected entries + edges as a Mermaid flowchart.
 
         Node shapes encode entry type (decision=diamond, summary/card=round,
@@ -152,8 +157,7 @@ class MerTransformer:
             key = f"e{i}"
             nid[e.get("id", "")] = key
             etype = e.get("entry_type", "?")
-            label = (etype + ": "
-                     + str(e.get("content", ""))[:40].replace('"', "'"))
+            label = etype + ": " + str(e.get("content", ""))[:40].replace('"', "'")
             imp = e.get("importance")
             if imp is not None:
                 try:
@@ -161,11 +165,11 @@ class MerTransformer:
                 except (TypeError, ValueError):
                     label += " (imp=?)"
             lines.append(self._node_line(key, self._ENTRY_SHAPES.get(etype, "rect"), label))
-        for ed in (edges or []):
+        for ed in edges or []:
             f = nid.get(ed.get("from_id", ""))
             t = nid.get(ed.get("to_id", ""))
             if f and t:
-                lines.append(f'    {f} -->|{ed.get("relation", "related")}| {t}')
+                lines.append(f"    {f} -->|{ed.get('relation', 'related')}| {t}")
         # Within-scope chronological chains (dashed) — temporal order visible
         # without the R5 graph
         by_scope: dict[str, list[dict]] = {}
@@ -177,7 +181,7 @@ class MerTransformer:
                 fa, fb = nid.get(a.get("id", "")), nid.get(b.get("id", ""))
                 if fa and fb and fa != fb:
                     lines.append(f"    {fa} -.->|t| {fb}")
-        lines.insert(1, f'    subgraph {title.replace(" ", "_")}')
+        lines.insert(1, f"    subgraph {title.replace(' ', '_')}")
         lines.append("    end")
         return "\n".join(lines)
 
@@ -190,19 +194,24 @@ class MerTransformer:
             import json as _json
 
             from l3.tools._archive import _cmd_archive_store
-            payload = _json.dumps({
-                "mermaid": mermaid,
-                "meta": meta or {},
-                "generated_at": time.time(),
-            }, ensure_ascii=False)
+
+            payload = _json.dumps(
+                {
+                    "mermaid": mermaid,
+                    "meta": meta or {},
+                    "generated_at": time.time(),
+                },
+                ensure_ascii=False,
+            )
             r = _cmd_archive_store(
-                fonds=_MER_FONDS, series=_MER_SERIES,
+                fonds=_MER_FONDS,
+                series=_MER_SERIES,
                 content=payload,
-                tags=f"l3a,memory_mer,{meta.get('scope_ids', '') if meta else ''}")
+                tags=f"l3a,memory_mer,{meta.get('scope_ids', '') if meta else ''}",
+            )
             if not r.get("success"):
                 return {"success": False, "error": "archive store failed"}
-            return {"success": True,
-                    "archive_ref": f"{_MER_FONDS}:{_MER_SERIES}:{ts}"}
+            return {"success": True, "archive_ref": f"{_MER_FONDS}:{_MER_SERIES}:{ts}"}
         except Exception as e:
             logger.debug("memory_mer: R4 archive failed: %s", e)
             return {"success": False, "error": str(e)}
@@ -218,22 +227,33 @@ class MerTransformer:
             if not entries:
                 return {"success": True, "archived": 0, "entries": 0}
             edges = self.collect_edges([e["id"] for e in entries])
-            mermaid = self.to_mermaid(entries, edges,
-                                      title=f"mer-{uuid.uuid4().hex[:_MER_ID_LEN]}")
-            meta = {"scope_ids": list({e.get("_scope", "") for e in entries}),
-                    "entries": len(entries), "edges": len(edges)}
+            mermaid = self.to_mermaid(entries, edges, title=f"mer-{uuid.uuid4().hex[:_MER_ID_LEN]}")
+            meta = {
+                "scope_ids": list({e.get("_scope", "") for e in entries}),
+                "entries": len(entries),
+                "edges": len(edges),
+            }
             arc = self.archive_to_r4(mermaid, meta)
             with self._lock:
                 self._stats["transforms"] += 1
                 if arc.get("success"):
                     self._stats["archived"] += 1
-            self._emit_event("stats.memory.mer.transform", {
-                **meta, "archived": arc.get("success", False),
+            self._emit_event(
+                "stats.memory.mer.transform",
+                {
+                    **meta,
+                    "archived": arc.get("success", False),
+                    "archive_ref": arc.get("archive_ref", ""),
+                },
+            )
+            return {
+                "success": True,
+                "archived": 1 if arc.get("success") else 0,
+                "entries": len(entries),
+                "edges": len(edges),
+                "mermaid": mermaid,
                 "archive_ref": arc.get("archive_ref", ""),
-            })
-            return {"success": True, "archived": 1 if arc.get("success") else 0,
-                    "entries": len(entries), "edges": len(edges),
-                    "mermaid": mermaid, "archive_ref": arc.get("archive_ref", "")}
+            }
         except Exception as e:
             logger.debug("memory_mer: transform failed: %s", e)
             return {"success": False, "archived": 0, "error": str(e)}
@@ -247,8 +267,8 @@ class MerTransformer:
         try:
             from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
-            _MB().emit(_MEv(type=event_type, source="memory_mer",
-                           severity="info", data=data))
+
+            _MB().emit(_MEv(type=event_type, source="memory_mer", severity="info", data=data))
         except Exception:
             logger.debug("memory_mer: monitor emit failed")
         # Phase F: MER lifecycle events also land in StatsCenter so RC time

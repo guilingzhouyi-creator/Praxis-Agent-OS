@@ -25,6 +25,7 @@ def test_registerable_spec_defaults() -> None:
 
 def test_registerable_spec_with_values() -> None:
     """RegisterableSpec accepts all fields."""
+
     def handler(args: dict) -> dict:
         return {"ok": True}
 
@@ -49,7 +50,11 @@ def test_registerable_spec_with_values() -> None:
 def test_registerable_spec_to_dict() -> None:
     """to_dict returns a clean serializable dict."""
     spec = RegisterableSpec(
-        name="x", description="desc", category="sys", tags=["a"], version="0.1",
+        name="x",
+        description="desc",
+        category="sys",
+        tags=["a"],
+        version="0.1",
     )
     d = spec.to_dict()
     assert d["name"] == "x"

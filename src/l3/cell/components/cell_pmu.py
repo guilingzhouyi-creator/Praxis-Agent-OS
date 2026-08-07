@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PmuSnapshot:
     """Point-in-time snapshot of all counter values."""
+
     timestamp: float = 0.0
     counters: dict[str, int] = field(default_factory=dict)
     cell_id: str = ""
@@ -131,6 +132,7 @@ class CellPmu:
             # Push to global StatsCenter
             try:
                 from .services.stats_center import get_center
+
                 get_center().ingest_pmu_snapshot(self.cell_id, snap.counters, now)
             except Exception:
                 logger.debug("cell_pmu: stats center ingest failed")
@@ -213,42 +215,76 @@ class CellPmu:
 
 _COUNTER_NAMES_BY_GROUP: dict[str, list[str]] = {
     "cards": [
-        "dispatched", "completed", "rolled_back", "decomposed", "failed",
+        "dispatched",
+        "completed",
+        "rolled_back",
+        "decomposed",
+        "failed",
     ],
     "tools": [
-        "executed.ring_1", "executed.ring_2_5", "executed.ring_3", "rejected",
+        "executed.ring_1",
+        "executed.ring_2_5",
+        "executed.ring_3",
+        "rejected",
     ],
     "cache": [
-        "hits", "misses", "injections", "flushes", "promotions",
+        "hits",
+        "misses",
+        "injections",
+        "flushes",
+        "promotions",
     ],
     "scouts": [
-        "spawned", "completed", "timed_out", "cache_hits",
+        "spawned",
+        "completed",
+        "timed_out",
+        "cache_hits",
     ],
     "bus": [
-        "messages_sent", "signals_emitted",
+        "messages_sent",
+        "signals_emitted",
     ],
     "token": [
-        "consumed", "estimated",
+        "consumed",
+        "estimated",
     ],
     "memory": [
-        "compacts", "compact.merges", "compact.saved_tokens",
-        "stub_compacts", "stub_compact.saved_bytes",
-        "context.warnings", "context.critical",
+        "compacts",
+        "compact.merges",
+        "compact.saved_tokens",
+        "stub_compacts",
+        "stub_compact.saved_bytes",
+        "context.warnings",
+        "context.critical",
     ],
     "agent": [
-        "seconds_active", "boots", "crashes", "recoveries",
+        "seconds_active",
+        "boots",
+        "crashes",
+        "recoveries",
     ],
     "watchdog": [
-        "timeouts", "pets",
+        "timeouts",
+        "pets",
     ],
     "icache": [
-        "hits", "misses", "evictions",
+        "hits",
+        "misses",
+        "evictions",
     ],
     "tlb": [
-        "hits", "misses", "flushes",
+        "hits",
+        "misses",
+        "flushes",
     ],
     "interrupt": [
-        "triggered.nmi", "triggered.high", "triggered.normal", "triggered.low",
-        "handled.nmi", "handled.high", "handled.normal", "handled.low",
+        "triggered.nmi",
+        "triggered.high",
+        "triggered.normal",
+        "triggered.low",
+        "handled.nmi",
+        "handled.high",
+        "handled.normal",
+        "handled.low",
     ],
 }

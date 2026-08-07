@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ResourceProfile:
     """ResourceProfile — resource profile record (max_tokens, max_workers, max_scouts, max_memory, priority)."""
+
     max_tokens: int = RESOURCE_PROFILE_DEFAULTS.max_tokens
     max_workers: int = RESOURCE_PROFILE_DEFAULTS.max_workers
     max_scouts: int = RESOURCE_PROFILE_DEFAULTS.max_scouts
@@ -40,8 +41,10 @@ def _build_default_profiles() -> dict[str, ResourceProfile]:
     profiles: dict[str, ResourceProfile] = {}
     for role, cfg in DEFAULT_AGENT_CONFIGS.items():
         profiles[role] = ResourceProfile(
-            max_tokens=cfg.max_tokens, max_workers=cfg.max_workers,
-            max_scouts=cfg.max_scouts, priority=cfg.priority,
+            max_tokens=cfg.max_tokens,
+            max_workers=cfg.max_workers,
+            max_scouts=cfg.max_scouts,
+            priority=cfg.priority,
         )
     return profiles
 
@@ -70,8 +73,13 @@ class ResourceLimiter:
         """Return the resource profile of *agent_id* as a dict (falls back to the default agent)."""
         with self._lock:
             p = self._profiles.get(agent_id, DEFAULT_PROFILES[RESOURCE_FALLBACK_AGENT])
-            return {"max_tokens": p.max_tokens, "max_workers": p.max_workers,
-                    "max_scouts": p.max_scouts, "max_memory": p.max_memory, "priority": p.priority}
+            return {
+                "max_tokens": p.max_tokens,
+                "max_workers": p.max_workers,
+                "max_scouts": p.max_scouts,
+                "max_memory": p.max_memory,
+                "priority": p.priority,
+            }
 
     def set_profile(self, agent_id: str, **kwargs) -> dict:
         """Update known profile fields of *agent_id* with the given kwargs. Returns a success dict."""
@@ -94,8 +102,13 @@ class ResourceLimiter:
 
             current = usage.get(resource, 0)
             if current + cost > limits[resource]:
-                return {"success": False, "error": f"{resource} limit exceeded ({current + cost} > {limits[resource]})",
-                        "current": current, "limit": limits[resource], "requested": cost}
+                return {
+                    "success": False,
+                    "error": f"{resource} limit exceeded ({current + cost} > {limits[resource]})",
+                    "current": current,
+                    "limit": limits[resource],
+                    "requested": cost,
+                }
 
             usage[resource] = current + cost
             return {"success": True, "current": usage[resource], "limit": limits[resource]}

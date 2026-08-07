@@ -21,6 +21,7 @@ def search_long_term(mem, query: str, agent_id: str | None = None, limit: int = 
     if not db_path.exists():
         return []
     import sqlite3
+
     try:
         conn = sqlite3.connect(str(db_path), check_same_thread=False)
         sql = """
@@ -37,8 +38,15 @@ def search_long_term(mem, query: str, agent_id: str | None = None, limit: int = 
         rows = conn.execute(sql, params).fetchall()
         conn.close()
         return [
-            {"id": r[0], "agent_id": r[1], "entry_type": r[2], "content": r[3][:500],
-             "tags": r[4].split(","), "importance": r[5], "timestamp": r[6]}
+            {
+                "id": r[0],
+                "agent_id": r[1],
+                "entry_type": r[2],
+                "content": r[3][:500],
+                "tags": r[4].split(","),
+                "importance": r[5],
+                "timestamp": r[6],
+            }
             for r in rows
         ]
     except Exception:

@@ -42,18 +42,20 @@ logger = logging.getLogger(__name__)
 
 class DecomposeState(Enum):
     """DecomposeState — enum of DRAFT, CONFIRMED, DISPATCHED, RUNNING...."""
-    DRAFT = auto()       # freshly decomposed, awaiting confirmation
-    CONFIRMED = auto()   # human confirmed
+
+    DRAFT = auto()  # freshly decomposed, awaiting confirmation
+    CONFIRMED = auto()  # human confirmed
     DISPATCHED = auto()  # dispatched to Cell
-    RUNNING = auto()     # executing
-    REVIEWING = auto()   # cross-review in progress
-    CONVERGED = auto()   # converged
-    FAILED = auto()      # failed
+    RUNNING = auto()  # executing
+    REVIEWING = auto()  # cross-review in progress
+    CONVERGED = auto()  # converged
+    FAILED = auto()  # failed
 
 
 @dataclass
 class CardSlice:
     """A sub-card — work unit assigned to one Agent or SubAgent pool."""
+
     card: CardUnified
     role: str
     agent_id: str
@@ -61,13 +63,14 @@ class CardSlice:
     state: DecomposeState = DecomposeState.DRAFT
     result: dict = field(default_factory=dict)
     error: str = ""
-    parallelism: int = 1           # desired SubAgent parallelism
-    subagent_spec: str = ""        # SubAgentSpec name for pool dispatch
+    parallelism: int = 1  # desired SubAgent parallelism
+    subagent_spec: str = ""  # SubAgentSpec name for pool dispatch
 
 
 @dataclass
 class DecomposePlan:
     """Decompose plan — N sub-cards from one intent + convergence metadata."""
+
     id: str
     intent: str
     domain: str
@@ -127,10 +130,14 @@ class Decomposer:
                         tasks_for_role.append(task)
 
             if not tasks_for_role:
-                tasks_for_role = [CardTask(action=DECOMPOSER_DEFAULT_ACTION,
-                                           target=f"work on {domain}",
-                                           agent=role,
-                                           params={"prompt": f"Process {intent} for {prefix}"})]
+                tasks_for_role = [
+                    CardTask(
+                        action=DECOMPOSER_DEFAULT_ACTION,
+                        target=f"work on {domain}",
+                        agent=role,
+                        params={"prompt": f"Process {intent} for {prefix}"},
+                    )
+                ]
 
             slice_card = CardUnified(
                 id=f"{plan_id}-{role}",
@@ -139,12 +146,12 @@ class Decomposer:
                 phases=[CardPhase(name=f"{role}_work", tasks=tasks_for_role)],
             )
             slice_card.summary = CardSummary(
-                title=intent, description="",
+                title=intent,
+                description="",
                 columns={"domain": prefix},
             )
             agent_id = f"{DECOMPOSER_AGENT_PREFIX}{role}"
-            slices.append(CardSlice(card=slice_card, role=role,
-                                     agent_id=agent_id, territory=prefix))
+            slices.append(CardSlice(card=slice_card, role=role, agent_id=agent_id, territory=prefix))
 
         # No matching territory — create default sub-card
         if not slices:
@@ -152,25 +159,45 @@ class Decomposer:
                 id=f"{plan_id}-default",
                 priority=5,
                 nature="execution",
-                phases=[CardPhase(name=DECOMPOSER_DEFAULT_PHASE, tasks=[
-                    CardTask(action=DECOMPOSER_DEFAULT_ACTION, target=intent,
-                             agent=DECOMPOSER_FALLBACK_ROLE,
-                             params={"prompt": intent}),
-                ])],
+                phases=[
+                    CardPhase(
+                        name=DECOMPOSER_DEFAULT_PHASE,
+                        tasks=[
+                            CardTask(
+                                action=DECOMPOSER_DEFAULT_ACTION,
+                                target=intent,
+                                agent=DECOMPOSER_FALLBACK_ROLE,
+                                params={"prompt": intent},
+                            ),
+                        ],
+                    )
+                ],
             )
-            slice_card.summary = CardSummary(title=intent, description="",
-                                             columns={"domain": domain or "."})
-            slices.append(CardSlice(card=slice_card, role=DECOMPOSER_FALLBACK_ROLE,
-                                     agent_id=DECOMPOSER_FALLBACK_AGENT, territory=domain or "."))
+            slice_card.summary = CardSummary(title=intent, description="", columns={"domain": domain or "."})
+            slices.append(
+                CardSlice(
+                    card=slice_card,
+                    role=DECOMPOSER_FALLBACK_ROLE,
+                    agent_id=DECOMPOSER_FALLBACK_AGENT,
+                    territory=domain or ".",
+                )
+            )
 
         plan = DecomposePlan(id=plan_id, intent=intent, domain=domain, slices=slices)
         self._plans[plan_id] = plan
 
-        logger.info("decomposed: %s → %d slices for roles %s",
-                     plan_id, len(slices), list(seen_roles))
-        emit_signal(EVENT_TASK_ASSIGN, sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
-                     data={"plan_id": plan_id, "intent": intent[:LOG_TRUNC_60],
-                           "slices": len(slices), "event": DECOMPOSER_EVENT_DECOMPOSED})
+        logger.info("decomposed: %s → %d slices for roles %s", plan_id, len(slices), list(seen_roles))
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender=DECOMPOSER_SENDER,
+            target=DECOMPOSER_L3_TARGET,
+            data={
+                "plan_id": plan_id,
+                "intent": intent[:LOG_TRUNC_60],
+                "slices": len(slices),
+                "event": DECOMPOSER_EVENT_DECOMPOSED,
+            },
+        )
         return plan
 
     def confirm(self, plan_id: str) -> dict:
@@ -185,8 +212,7 @@ class Decomposer:
         logger.info("plan confirmed: %s", plan_id)
         return {"success": True, "plan_id": plan_id}
 
-    def dispatch_to_cell(self, plan_id: str, cell: Any,
-                         agent_map: dict[str, str] | None = None) -> dict:
+    def dispatch_to_cell(self, plan_id: str, cell: Any, agent_map: dict[str, str] | None = None) -> dict:
         """Dispatch to Cell for execution."""
         plan = self._plans.get(plan_id)
         if not plan:
@@ -227,18 +253,24 @@ class Decomposer:
                 all_done = False
 
         if not all_done:
-            return {"success": False, "plan_id": plan_id,
-                    "done": plan.completed_slices, "total": plan.total_slices,
-                    "errors": errors}
+            return {
+                "success": False,
+                "plan_id": plan_id,
+                "done": plan.completed_slices,
+                "total": plan.total_slices,
+                "errors": errors,
+            }
 
         plan.state = DecomposeState.CONVERGED
         plan.converged_at = time.time()
-        logger.info("converged: %s (%d/%d slices)",
-                     plan_id, plan.completed_slices, plan.total_slices)
-        emit_signal(EVENT_TASK_ASSIGN, sender=DECOMPOSER_SENDER, target=DECOMPOSER_L3_TARGET,
-                     data={"plan_id": plan_id, "event": "converged"})
-        return {"success": True, "plan_id": plan_id,
-                "slices": plan.total_slices, "converged": True}
+        logger.info("converged: %s (%d/%d slices)", plan_id, plan.completed_slices, plan.total_slices)
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender=DECOMPOSER_SENDER,
+            target=DECOMPOSER_L3_TARGET,
+            data={"plan_id": plan_id, "event": "converged"},
+        )
+        return {"success": True, "plan_id": plan_id, "slices": plan.total_slices, "converged": True}
 
     def get_plan(self, plan_id: str) -> DecomposePlan | None:
         """Return the plan with the given ID, or None if not found."""
@@ -246,13 +278,19 @@ class Decomposer:
 
     def list_plans(self, limit: int = 20) -> list[dict]:
         """Return the most recent plans as summaries, newest first."""
-        return [{
-            "id": p.id, "intent": p.intent[:LOG_TRUNC_60], "domain": p.domain,
-            "state": p.state.name, "slices": p.total_slices,
-            "done": p.completed_slices, "failed": p.failed_slices,
-            "created_at": p.created_at,
-        } for p in sorted(self._plans.values(),
-                           key=lambda x: x.created_at, reverse=True)[:limit]]
+        return [
+            {
+                "id": p.id,
+                "intent": p.intent[:LOG_TRUNC_60],
+                "domain": p.domain,
+                "state": p.state.name,
+                "slices": p.total_slices,
+                "done": p.completed_slices,
+                "failed": p.failed_slices,
+                "created_at": p.created_at,
+            }
+            for p in sorted(self._plans.values(), key=lambda x: x.created_at, reverse=True)[:limit]
+        ]
 
 
 _decomposer: Decomposer | None = None

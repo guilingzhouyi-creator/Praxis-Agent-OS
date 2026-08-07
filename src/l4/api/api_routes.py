@@ -31,14 +31,34 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
     ("POST", "/api/v2/harness/mode", ".harness_mode_set", "Switch harness mode (minimal needs confirm_risk=true)"),
     # System security posture (productive | security-test; attack needs confirm_risk)
     ("GET", "/api/v2/security/mode", ".security_mode_get", "Get system security posture"),
-    ("POST", "/api/v2/security/mode", ".security_mode_set", "Switch security posture (security-test needs confirm_risk=true)"),
-    ("GET", "/api/v2/security/mode/notifications", ".security_mode_notifications", "Recent bypass-detection warnings / mode changes (frontend notification)"),
+    (
+        "POST",
+        "/api/v2/security/mode",
+        ".security_mode_set",
+        "Switch security posture (security-test needs confirm_risk=true)",
+    ),
+    (
+        "GET",
+        "/api/v2/security/mode/notifications",
+        ".security_mode_notifications",
+        "Recent bypass-detection warnings / mode changes (frontend notification)",
+    ),
     # Skill retriever backend (tfidf / embedding)
     ("GET", "/api/v2/skills/retriever", ".retriever_backend_get", "Get active skill retriever backend"),
     ("POST", "/api/v2/skills/retriever", ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
     # Skill distillation / DPO policy (master switches)
-    ("GET", "/api/v2/skills/distill-policy", "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_get", "Skill distillation/DPO policy"),
-    ("POST", "/api/v2/skills/distill-policy", "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_set", "Update skill distillation/DPO switches (developer)"),
+    (
+        "GET",
+        "/api/v2/skills/distill-policy",
+        "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_get",
+        "Skill distillation/DPO policy",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/distill-policy",
+        "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_set",
+        "Update skill distillation/DPO switches (developer)",
+    ),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),
     ("POST", "/api/v2/card/batch", ".submit_batch", "Submit batch cards"),

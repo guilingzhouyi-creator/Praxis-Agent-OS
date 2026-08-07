@@ -67,6 +67,7 @@ def _ensure_dirs() -> None:
 
 # ── Snapshot agent config ──
 
+
 def _snapshot_path(prefix: str) -> str:
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     return str(AGENT_SESSIONS_DIR / AGENT_SESSION_TEMPLATE.format(ts=ts, prefix=prefix))
@@ -100,6 +101,7 @@ def _write_json(path: str, data: Any) -> bool:
 
 
 # ── Boot: load from memories ──
+
 
 def init_from_memories() -> dict:
     """Attempt to load agent configuration from the latest boot snapshot.
@@ -153,10 +155,11 @@ def persist_all() -> dict:
     _ensure_dirs()
     try:
         from .memory import get_memory
+
         mem = get_memory()
         mem.set_persist_dir(str(MEMORIES_DIR))
         pr = mem.persist()
-        return {"memory_persist": f"ring2={pr.get('short_written',0)} ring3={pr.get('long_written',0)}"}
+        return {"memory_persist": f"ring2={pr.get('short_written', 0)} ring3={pr.get('long_written', 0)}"}
     except Exception as e:
         return {"memory_persist": f"error: {e}"}
 
@@ -166,6 +169,7 @@ def archive_ring3() -> int:
     try:
         from .archive_orchestrator import archive_ring3 as _a3
         from .memory import get_memory
+
         return _a3(get_memory())
     except Exception as e:
         logger.warning("archive_ring3 failed: %s", e)
@@ -177,21 +181,24 @@ def snapshot_cells() -> dict:
     _ensure_dirs()
     try:
         from l3.cell import _cells
+
         snapshot = {}
         for cid, cell in list(_cells.items()):
             s = cell.stats()
             snapshot[cid] = {
                 "agents": {
-                    aid: {"role": info.get("role", ""), "ring": info.get("ring", 1),
-                          "status": info.get("status", "IDLE"),
-                          "active_scouts": info.get("active_scouts", 0)}
+                    aid: {
+                        "role": info.get("role", ""),
+                        "ring": info.get("ring", 1),
+                        "status": info.get("status", "IDLE"),
+                        "active_scouts": info.get("active_scouts", 0),
+                    }
                     for aid, info in s.get("agents", {}).items()
                 },
             }
         if snapshot:
             path = _snapshot_path("shutdown")
-            ok = _write_json(path, {"timestamp": datetime.now(UTC).isoformat(),
-                                     "cells": snapshot, "version": 1})
+            ok = _write_json(path, {"timestamp": datetime.now(UTC).isoformat(), "cells": snapshot, "version": 1})
             return {"path": path, "written": bool(ok)}
         return {"note": "no_cells"}
     except Exception as e:
@@ -199,6 +206,7 @@ def snapshot_cells() -> dict:
 
 
 # ── Backward-compat: full shutdown_to_memories ──
+
 
 def shutdown_to_memories() -> dict:
     """Full system shutdown (backward-compat wrapper)."""
@@ -222,6 +230,7 @@ def shutdown_to_memories() -> dict:
     # Persist ops console alerts
     try:
         from l3.ops_console import get_ops
+
         ops = get_ops()
         alerts = ops.recent_alerts(limit=MEMORY_ALERT_EXPORT_LIMIT)
         if alerts:
@@ -236,15 +245,17 @@ def shutdown_to_memories() -> dict:
     # Scout pool stats
     try:
         from .agent.scout import get_pool
+
         pool = get_pool()
         s = pool.stats()
-        results["scout_pool"] = f"active={s.get('active',0)} idle={s.get('idle',0)}"
+        results["scout_pool"] = f"active={s.get('active', 0)} idle={s.get('idle', 0)}"
     except Exception as e:
         results["scout_pool"] = f"error: {e}"
 
     # Interrupt counts
     try:
         from l1.kernel.interrupt import get_table
+
         results["interrupts"] = dict(get_table().counts())
     except Exception as e:
         results["interrupts"] = f"error: {e}"
@@ -252,6 +263,7 @@ def shutdown_to_memories() -> dict:
     # Save kernel state
     try:
         from l1.kernel.persist import save
+
         r = save()
         results["kernel_state"] = "ok" if r.get("success") else r.get("error", "fail")
     except Exception as e:
@@ -260,8 +272,13 @@ def shutdown_to_memories() -> dict:
     # DSL compiler
     if COMPILER_PATH.exists():
         try:
-            cr = subprocess.run([sys.executable, str(COMPILER_PATH)], capture_output=True,
-                                text=True, timeout=MEMORY_INIT_TIMEOUT, cwd=str(MEMORIES_DIR.parent))
+            cr = subprocess.run(
+                [sys.executable, str(COMPILER_PATH)],
+                capture_output=True,
+                text=True,
+                timeout=MEMORY_INIT_TIMEOUT,
+                cwd=str(MEMORIES_DIR.parent),
+            )
             results["compiler"] = "ok" if cr.returncode == 0 else cr.stderr[:LOG_TRUNC_200]
         except Exception as e:
             results["compiler"] = f"error: {e}"

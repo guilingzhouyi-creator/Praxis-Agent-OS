@@ -29,6 +29,7 @@ def graph_api(tmp_path):
     # (reset_center() re-loads the file on the next get_center()).
     try:
         from l3.config.settings_center import get_center as _gc
+
         c = _gc()
         c.reset("memory.graph.enabled")
         c.reset("memory.graph.edge_mode")
@@ -121,8 +122,7 @@ def test_memory_recall_diffusion_passthrough(graph_api):
     for i in range(4):
         mgr.remember("a1", "decision", f"recall {i}", ring=3)
     mgr.remember("a1", "summary", "wrap", ring=3)
-    r = api._memory_recall({"agent_id": "a1", "limit": 10,
-                            "graph_diffusion": True})
+    r = api._memory_recall({"agent_id": "a1", "limit": 10, "graph_diffusion": True})
     assert r["success"] and r["count"] >= 5
     r2 = api._memory_recall({"agent_id": "a1", "limit": 10})
     assert r2["success"] and r2["count"] >= 5

@@ -30,6 +30,7 @@ def _ensure_root() -> Path:
     global _agent_root
     if _agent_root is None:
         from l1.kernel.paths import get_paths as _gp
+
         _agent_root = Path(_gp().data_dir) / "agents"
         _agent_root.mkdir(parents=True, exist_ok=True)
     return _agent_root
@@ -140,20 +141,26 @@ class SnapshotHook:
 
     def turn_complete(self, result: dict, elapsed: float) -> None:
         """Persist a snapshot summarizing the completed turn."""
-        save_snapshot(self.agent_id, {
-            "status": result.get("success", True),
-            "summary": str(result.get("output", ""))[:LOG_TRUNC_200],
-            "total_steps": result.get("total_steps", 0),
-            "elapsed": elapsed,
-        })
+        save_snapshot(
+            self.agent_id,
+            {
+                "status": result.get("success", True),
+                "summary": str(result.get("output", ""))[:LOG_TRUNC_200],
+                "total_steps": result.get("total_steps", 0),
+                "elapsed": elapsed,
+            },
+        )
 
     def on_error(self, error: str) -> None:
         """Persist a failure-marked snapshot for the errored turn."""
-        save_snapshot(self.agent_id, {
-            "status": False,
-            "error": str(error)[:LOG_TRUNC_200],
-            "_saved_at": time.time(),
-        })
+        save_snapshot(
+            self.agent_id,
+            {
+                "status": False,
+                "error": str(error)[:LOG_TRUNC_200],
+                "_saved_at": time.time(),
+            },
+        )
 
 
 # ── Recall tool (agent-facing, for cross-session search) ──
@@ -181,6 +188,7 @@ def clear_agent(agent_id: str) -> dict:
     try:
         d = _agent_dir(agent_id)
         import shutil
+
         shutil.rmtree(d, ignore_errors=True)
         return {"success": True}
     except Exception as e:

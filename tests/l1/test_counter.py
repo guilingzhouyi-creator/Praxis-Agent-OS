@@ -8,6 +8,7 @@ class TestCellCounterRecord:
 
     def _make(self):
         from l3.services.counter import CellCounter
+
         return CellCounter()
 
     def test_record_token(self):
@@ -40,6 +41,7 @@ class TestCellCounterQuery:
 
     def _make(self):
         from l3.services.counter import CellCounter
+
         c = CellCounter()
         c.record_token("agent-a", 100, 50)
         c.record_token("agent-b", 200, 100)
@@ -74,6 +76,7 @@ class TestCellCounterQuery:
 
     def test_empty_counter(self):
         from l3.services.counter import CellCounter
+
         c = CellCounter()
         assert c.token_summary() == {}
         assert c.tool_summary("nonexistent") == {"total": 0}
@@ -85,6 +88,7 @@ class TestCellCounterSingleton:
 
     def test_singleton(self):
         from l3.services.counter import get_counter, reset_counter
+
         reset_counter()
         c1 = get_counter()
         c2 = get_counter()
@@ -92,6 +96,7 @@ class TestCellCounterSingleton:
 
     def test_reset(self):
         from l3.services.counter import get_counter, reset_counter
+
         reset_counter()
         c1 = get_counter()
         reset_counter()

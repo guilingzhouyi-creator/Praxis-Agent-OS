@@ -28,6 +28,7 @@ def handle_stats_query(body: dict | None = None) -> dict:
     b = body or {}
     try:
         from l3.services.stats_center import get_center
+
         center = get_center()
         results = center.query(
             metrics=b.get("metrics"),
@@ -58,6 +59,7 @@ def handle_stats_top(body: dict | None = None) -> dict:
         return {"success": False, "error": "metric required"}
     try:
         from l3.services.stats_center import get_center
+
         center = get_center()
         ranking = center.top(
             metric=metric,

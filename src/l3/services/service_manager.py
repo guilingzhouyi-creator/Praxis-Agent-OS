@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ServiceState:
     """ServiceState — service state."""
+
     STOPPED = "stopped"
     STARTING = "starting"
     RUNNING = "running"
@@ -30,6 +31,7 @@ class ServiceState:
 @dataclass
 class ServiceInfo:
     """ServiceInfo — service info record (name, state, uptime, started_at, healthy)."""
+
     name: str
     state: str = ServiceState.UNKNOWN
     uptime: float = 0.0
@@ -71,7 +73,8 @@ class ServiceManager(BaseService):
         """Register a service with the manager."""
         with self._lock:
             self._services[name] = ServiceInfo(
-                name=name, state=ServiceState.STOPPED,
+                name=name,
+                state=ServiceState.STOPPED,
                 depends_on=depends_on or [],
             )
         return {"success": True, "service": name}
@@ -97,7 +100,7 @@ class ServiceManager(BaseService):
         try:
             registry = get_registry()
             svc = registry.get(name)
-            if svc and hasattr(svc, 'start'):
+            if svc and hasattr(svc, "start"):
                 r = svc.start()
                 if r.get("success"):
                     with self._lock:
@@ -126,7 +129,7 @@ class ServiceManager(BaseService):
         try:
             registry = get_registry()
             svc = registry.get(name)
-            if svc and hasattr(svc, 'stop'):
+            if svc and hasattr(svc, "stop"):
                 svc.stop()
             with self._lock:
                 info.state = ServiceState.STOPPED
@@ -153,12 +156,17 @@ class ServiceManager(BaseService):
                 info = self._services.get(name)
                 if not info:
                     return {"success": False, "error": f"unknown service: {name}"}
-                return {"success": True, "service": {
-                    "name": info.name, "state": info.state,
-                    "uptime": round(time.time() - info.started_at, 1) if info.started_at else 0,
-                    "healthy": info.healthy, "error": info.error,
-                    "depends_on": info.depends_on,
-                }}
+                return {
+                    "success": True,
+                    "service": {
+                        "name": info.name,
+                        "state": info.state,
+                        "uptime": round(time.time() - info.started_at, 1) if info.started_at else 0,
+                        "healthy": info.healthy,
+                        "error": info.error,
+                        "depends_on": info.depends_on,
+                    },
+                }
 
             services = {}
             for n, info in self._services.items():
@@ -173,10 +181,13 @@ class ServiceManager(BaseService):
     def list_services(self) -> dict:
         """List all registered services."""
         with self._lock:
-            return {"success": True, "services": [
-                {"name": n, "state": info.state, "healthy": info.healthy}
-                for n, info in self._services.items()
-            ], "count": len(self._services)}
+            return {
+                "success": True,
+                "services": [
+                    {"name": n, "state": info.state, "healthy": info.healthy} for n, info in self._services.items()
+                ],
+                "count": len(self._services),
+            }
 
     def health_check(self, name: str = "") -> dict:
         """Health check for a service or all services."""
@@ -188,8 +199,7 @@ class ServiceManager(BaseService):
                 return {"success": True, "name": name, "healthy": info.healthy, "state": info.state}
             healthy = sum(1 for info in self._services.values() if info.healthy)
             total = len(self._services)
-            return {"success": True, "healthy": healthy, "total": total,
-                    "all_healthy": healthy == total}
+            return {"success": True, "healthy": healthy, "total": total, "all_healthy": healthy == total}
 
     def stats(self) -> dict:
         """Return service count, state distribution, and healthy count."""

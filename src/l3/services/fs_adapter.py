@@ -35,8 +35,7 @@ class FsAdapter(FilesystemPort):
                 return {"success": False, "error": "file not found"}
             if not p.is_file():
                 return {"success": False, "error": "not a file"}
-            return {"success": True, "content": p.read_text(encoding="utf-8"),
-                    "size": p.stat().st_size}
+            return {"success": True, "content": p.read_text(encoding="utf-8"), "size": p.stat().st_size}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -62,15 +61,16 @@ class FsAdapter(FilesystemPort):
             for child in sorted(p.rglob("*")):
                 try:
                     rel = str(child.relative_to(p))
-                    entries.append({
-                        "path": rel.replace("\\", "/"),
-                        "type": "dir" if child.is_dir() else "file",
-                        "size": child.stat().st_size if child.is_file() else 0,
-                    })
+                    entries.append(
+                        {
+                            "path": rel.replace("\\", "/"),
+                            "type": "dir" if child.is_dir() else "file",
+                            "size": child.stat().st_size if child.is_file() else 0,
+                        }
+                    )
                 except OSError:
                     continue
-            return {"success": True, "root": str(p), "entries": entries,
-                    "count": len(entries)}
+            return {"success": True, "root": str(p), "entries": entries, "count": len(entries)}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -83,10 +83,8 @@ class FsAdapter(FilesystemPort):
             with self._lock:
                 if root in self._watchers:
                     return {"success": False, "error": f"already watching: {root}"}
-                self._watchers[root] = {"mtime": self._snapshot(p), "stop": False,
-                                        "callback": callback}
-            threading.Thread(target=self._poll, args=(str(p), root),
-                             name=f"fs-watch-{root[:16]}", daemon=True).start()
+                self._watchers[root] = {"mtime": self._snapshot(p), "stop": False, "callback": callback}
+            threading.Thread(target=self._poll, args=(str(p), root), name=f"fs-watch-{root[:16]}", daemon=True).start()
             return {"success": True, "watching": root}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -145,6 +143,7 @@ def get_adapter() -> FsAdapter:
                 watch_interval = FS_WATCH_INTERVAL
                 try:
                     from l3.config.settings_center import get_center as _sc
+
                     watch_interval = float(_sc().get("fs.watch_interval", FS_WATCH_INTERVAL))
                 except Exception:
                     pass

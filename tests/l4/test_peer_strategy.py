@@ -10,10 +10,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 def _setup():
     from l3.services.model_service import get_service as _gs
+
     _gs()._settings = None
     from l3.scheduler.think_registry import get_think_registry, reset_think_registry
+
     reset_think_registry()
     from l3.config.settings_center import get_center
+
     sc = get_center()
     sc.set("model_spec.strategies.fast.reasoning_effort", "none")
     sc.set("model_spec.strategies.deep.reasoning_effort", "high")
@@ -79,6 +82,7 @@ class TestRegistryStrategies:
 class TestPeerApi:
     def test_apply_via_api(self):
         from l4.api_handlers.api_handlers_providers import handle_peer_strategy_apply
+
         reg = _setup()
         r = handle_peer_strategy_apply({"scope": "agent", "name": "cell-1.agent-a", "strategy": "deep"})
         assert r["success"] is True
@@ -90,6 +94,7 @@ class TestPeerApi:
             handle_peer_strategy_apply,
             handle_peer_strategy_clear,
         )
+
         reg = _setup()
         handle_peer_strategy_apply({"scope": "global", "strategy": "deep"})
         r = handle_peer_strategy_clear({"scope": "global"})
@@ -98,6 +103,7 @@ class TestPeerApi:
 
     def test_get_via_api(self):
         from l4.api_handlers.api_handlers_providers import handle_peer_strategy_get
+
         _setup()
         r = handle_peer_strategy_get({})
         assert r["success"] is True
@@ -105,6 +111,7 @@ class TestPeerApi:
 
     def test_requires_scope(self):
         from l4.api_handlers.api_handlers_providers import handle_peer_strategy_apply
+
         r = handle_peer_strategy_apply({"strategy": "deep"})
         assert r["success"] is False
 
@@ -112,6 +119,7 @@ class TestPeerApi:
 class TestOverviewPeers:
     def test_overview_includes_peers(self):
         from l4.api_handlers.api_handlers_providers import handle_model_spec_overview
+
         _setup()
         r = handle_model_spec_overview({})
         assert "peers" in r
@@ -121,6 +129,7 @@ class TestOverviewPeers:
 class TestShellPeer:
     def test_shell_peer_apply(self):
         from l2.l2_shell.commands.model import _cmd_model_spec
+
         reg = _setup()
         r = _cmd_model_spec(["peer", "agent", "cell-1.agent-a", "deep"])
         assert r["success"] is True
@@ -128,6 +137,7 @@ class TestShellPeer:
 
     def test_shell_peer_clear(self):
         from l2.l2_shell.commands.model import _cmd_model_spec
+
         reg = _setup()
         _cmd_model_spec(["peer", "agent", "cell-1.agent-a", "deep"])
         r = _cmd_model_spec(["peer", "clear", "agent", "cell-1.agent-a"])
@@ -136,5 +146,6 @@ class TestShellPeer:
 
     def test_shell_peer_bad(self):
         from l2.l2_shell.commands.model import _cmd_model_spec
+
         r = _cmd_model_spec(["peer", "bogus"])
         assert r["success"] is False

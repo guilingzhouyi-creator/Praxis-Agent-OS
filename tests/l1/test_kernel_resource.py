@@ -1,4 +1,5 @@
 """Resource-limiter tests — profiles, limits, check/release, usage, edge cases."""
+
 from __future__ import annotations
 
 import os
@@ -12,6 +13,7 @@ class TestResourceLimiterConstruction:
 
     def test_limiter_created(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         assert lim is not None
         assert hasattr(lim, "_profiles")
@@ -19,6 +21,7 @@ class TestResourceLimiterConstruction:
 
     def test_limiter_has_default_profiles(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         assert "default" in lim._profiles
         assert "scout" in lim._profiles
@@ -27,6 +30,7 @@ class TestResourceLimiterConstruction:
 
     def test_get_limiter_singleton(self):
         from l1.kernel.resource import get_limiter, reset_limiter
+
         reset_limiter()
         l1 = get_limiter()
         l2 = get_limiter()
@@ -34,6 +38,7 @@ class TestResourceLimiterConstruction:
 
     def test_reset_limiter(self):
         from l1.kernel.resource import get_limiter, reset_limiter
+
         reset_limiter()
         l1 = get_limiter()
         reset_limiter()
@@ -46,6 +51,7 @@ class TestGetProfile:
 
     def test_get_profile_default(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("default")
         assert isinstance(p, dict)
@@ -57,6 +63,7 @@ class TestGetProfile:
 
     def test_get_profile_scout(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("scout")
         assert p["max_tokens"] == 2048
@@ -65,6 +72,7 @@ class TestGetProfile:
 
     def test_get_profile_l3(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("l3")
         assert p["max_tokens"] == 2048
@@ -73,6 +81,7 @@ class TestGetProfile:
 
     def test_get_profile_human(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("human")
         assert p["max_tokens"] == 0
@@ -82,6 +91,7 @@ class TestGetProfile:
 
     def test_get_profile_unknown_agent_falls_back_to_default(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("nonexistent-agent")
         assert p["max_tokens"] == 4096
@@ -90,6 +100,7 @@ class TestGetProfile:
     def test_get_profile_isolation(self):
         """Returned dict is a fresh copy, not a reference to internal state."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p1 = lim.get_profile("default")
         p2 = lim.get_profile("default")
@@ -104,6 +115,7 @@ class TestSetProfile:
 
     def test_set_profile_creates_new_agent(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.set_profile("custom-agent", max_tokens=8192, max_workers=8)
         assert result == {"success": True}
@@ -113,6 +125,7 @@ class TestSetProfile:
 
     def test_set_profile_overwrites_field(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("overwrite-agent", max_tokens=8192)
         p = lim.get_profile("overwrite-agent")
@@ -123,6 +136,7 @@ class TestSetProfile:
 
     def test_set_profile_partial_update(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("agent-x", priority=1)
         p = lim.get_profile("agent-x")
@@ -134,6 +148,7 @@ class TestSetProfile:
 
     def test_set_profile_ignores_invalid_field(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         # kwargs that don't exist on ResourceProfile are silently ignored
         result = lim.set_profile("default", nonexistent=999)
@@ -144,6 +159,7 @@ class TestSetProfile:
 
     def test_set_profile_multiple_calls_accumulate(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("multi", max_tokens=2000)
         lim.set_profile("multi", max_workers=6)
@@ -160,6 +176,7 @@ class TestCheck:
 
     def test_check_tokens_success(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "tokens", cost=100)
         assert result["success"] is True
@@ -168,6 +185,7 @@ class TestCheck:
 
     def test_check_workers_success(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "workers", cost=1)
         assert result["success"] is True
@@ -176,6 +194,7 @@ class TestCheck:
 
     def test_check_scouts_success(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "scouts", cost=1)
         assert result["success"] is True
@@ -184,6 +203,7 @@ class TestCheck:
 
     def test_check_memory_success(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "memory", cost=10)
         assert result["success"] is True
@@ -192,6 +212,7 @@ class TestCheck:
 
     def test_check_exceeds_limit(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         # Use a limiter with a known small profile
         lim.set_profile("limited", max_workers=2)
@@ -204,6 +225,7 @@ class TestCheck:
 
     def test_check_accumulates_cost(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("acc", "workers", cost=1)
         lim.check("acc", "workers", cost=1)
@@ -214,6 +236,7 @@ class TestCheck:
 
     def test_check_exceeds_on_accumulation(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("tight", max_workers=2)
         lim.check("tight", "workers", cost=1)
@@ -225,6 +248,7 @@ class TestCheck:
 
     def test_check_unknown_resource(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "cpu", cost=1)
         assert result["success"] is False
@@ -232,6 +256,7 @@ class TestCheck:
 
     def test_check_unknown_agent_uses_fallback(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("ghost", "tokens", cost=100)
         assert result["success"] is True
@@ -239,6 +264,7 @@ class TestCheck:
 
     def test_check_zero_cost(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "tokens", cost=0)
         assert result["success"] is True
@@ -246,6 +272,7 @@ class TestCheck:
 
     def test_check_exact_limit(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("exact", max_workers=3)
         result = lim.check("exact", "workers", cost=3)
@@ -255,6 +282,7 @@ class TestCheck:
 
     def test_check_isolation_between_agents(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("agent-a", "workers", cost=4)
         result_b = lim.check("agent-b", "workers", cost=4)
@@ -265,6 +293,7 @@ class TestCheck:
 
     def test_check_isolation_between_resources(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("iso", "workers", cost=4)
         result = lim.check("iso", "tokens", cost=100)
@@ -276,6 +305,7 @@ class TestRelease:
 
     def test_release_decrements(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("rel", "workers", cost=3)
         result = lim.release("rel", "workers", cost=1)
@@ -284,6 +314,7 @@ class TestRelease:
 
     def test_release_below_zero_clamps(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.release("rel", "workers", cost=10)
         assert result["success"] is True
@@ -291,6 +322,7 @@ class TestRelease:
 
     def test_release_on_unused_agent(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.release("fresh-agent", "workers", cost=1)
         assert result["success"] is True
@@ -299,6 +331,7 @@ class TestRelease:
     def test_release_on_unchecked_agent(self):
         """release on an agent that has never called check still works."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.release("never-checked", "scouts", cost=5)
         assert result["success"] is True
@@ -307,6 +340,7 @@ class TestRelease:
     def test_release_allows_recheck(self):
         """After releasing, the same resource can be consumed again."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("cyclic", max_workers=2)
         lim.check("cyclic", "workers", cost=2)
@@ -318,6 +352,7 @@ class TestRelease:
 
     def test_release_partial(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("part", "tokens", cost=100)
         lim.release("part", "tokens", cost=30)
@@ -330,6 +365,7 @@ class TestUsage:
 
     def test_usage_empty_agent(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         u = lim.usage("nobody")
         assert u["workers"]["current"] == 0
@@ -340,6 +376,7 @@ class TestUsage:
 
     def test_usage_after_checks(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("busy", "workers", cost=2)
         lim.check("busy", "tokens", cost=500)
@@ -352,6 +389,7 @@ class TestUsage:
 
     def test_usage_after_release(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("releaser", "scouts", cost=2)
         lim.release("releaser", "scouts", cost=1)
@@ -360,6 +398,7 @@ class TestUsage:
 
     def test_usage_custom_agent(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("big-agent", max_workers=16, max_tokens=32000, max_memory=500)
         lim.check("big-agent", "workers", cost=4)
@@ -370,6 +409,7 @@ class TestUsage:
 
     def test_all_usage_returns_all_profiles(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         all_u = lim.all_usage()
         assert "default" in all_u
@@ -379,6 +419,7 @@ class TestUsage:
 
     def test_all_usage_includes_custom(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("custom", max_tokens=999)
         all_u = lim.all_usage()
@@ -387,6 +428,7 @@ class TestUsage:
 
     def test_all_usage_values_are_dicts(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         all_u = lim.all_usage()
         for _aid, metrics in all_u.items():
@@ -398,6 +440,7 @@ class TestUsage:
 
     def test_all_usage_shows_consumption(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("default", "tokens", cost=100)
         lim.check("default", "workers", cost=2)
@@ -408,6 +451,7 @@ class TestUsage:
     def test_usage_round_trip(self):
         """Full cycle: check, usage, release, usage."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("cycle-agent", max_workers=5, max_tokens=8000)
         lim.check("cycle-agent", "workers", cost=1)
@@ -429,6 +473,7 @@ class TestConcurrency:
         import threading
 
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("concurrent", max_workers=4)
         errors = []
@@ -451,6 +496,7 @@ class TestConcurrency:
         import threading
 
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("cr", max_workers=4)
         errors = []
@@ -477,6 +523,7 @@ class TestEdgeCases:
     def test_negative_cost_in_check(self):
         """Negative cost reduces usage (acts like a partial release)."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("neg", max_workers=10)
         lim.check("neg", "workers", cost=5)
@@ -486,6 +533,7 @@ class TestEdgeCases:
 
     def test_large_cost_value(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.check("default", "tokens", cost=10_000_000)
         assert result["success"] is False
@@ -493,12 +541,14 @@ class TestEdgeCases:
 
     def test_set_profile_empty_kwargs(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.set_profile("empty-kwargs")
         assert result == {"success": True}
 
     def test_profile_for_human_has_zero_limits(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("human")
         assert p["max_tokens"] == 0
@@ -512,6 +562,7 @@ class TestEdgeCases:
     def test_release_unknown_resource_key(self):
         """Release on a resource key never checked before works."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         result = lim.release("any", "memory", cost=5)
         assert result["success"] is True
@@ -519,6 +570,7 @@ class TestEdgeCases:
 
     def test_usage_on_custom_profile_without_usage(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("inactive", max_workers=10)
         u = lim.usage("inactive")
@@ -527,6 +579,7 @@ class TestEdgeCases:
 
     def test_set_profile_updates_all_usage(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("default", max_workers=10)
         all_u = lim.all_usage()
@@ -535,6 +588,7 @@ class TestEdgeCases:
     def test_release_thrice_underflow(self):
         """Release more than checked multiple times still clamps at zero."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.release("under", "workers", cost=1)
         lim.release("under", "workers", cost=5)
@@ -545,6 +599,7 @@ class TestEdgeCases:
     def test_all_usage_excludes_unprofiled_agents(self):
         """Agents not in _profiles won't appear in all_usage even if they have usage."""
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         lim.check("temporary", "tokens", cost=10)
         all_u = lim.all_usage()
@@ -558,12 +613,14 @@ class TestEdgeCases:
 
     def test_get_profile_returns_all_five_keys(self):
         from l1.kernel.resource import ResourceLimiter
+
         lim = ResourceLimiter()
         p = lim.get_profile("default")
         assert set(p.keys()) == {"max_tokens", "max_workers", "max_scouts", "max_memory", "priority"}
 
     def test_default_cost_used_when_omitted(self):
         from l1.kernel.resource import RESOURCE_DEFAULT_COST, ResourceLimiter
+
         lim = ResourceLimiter()
         lim.set_profile("default-cost", max_workers=5)
         r1 = lim.check("default-cost", "workers")

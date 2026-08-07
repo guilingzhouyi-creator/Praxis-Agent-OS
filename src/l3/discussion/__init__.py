@@ -17,8 +17,10 @@ from .report_service import ReportService
 from .supplement_manager import SupplementManager
 
 __all__ = [
-    "IssueOrchestrator", "DiscussionSession",
-    "CellAnswerRepo", "CellAnswer",
+    "IssueOrchestrator",
+    "DiscussionSession",
+    "CellAnswerRepo",
+    "CellAnswer",
     "AnswerAggregator",
     "SupplementManager",
     "ReportService",

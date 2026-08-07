@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # CellPmuComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellPmuComponent(Component):
     """Wraps CellPmu — 49 hardware-style performance counters across 12 groups per Cell."""
 
@@ -35,6 +36,7 @@ class CellPmuComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the CellPmu and attach the bus reference."""
         from l3.cell.components.cell_pmu import CellPmu
+
         self._pmu = CellPmu(self.cell_id, **self._pmu_kwargs)
         self._bus = bus
 
@@ -46,6 +48,7 @@ class CellPmuComponent(Component):
     def snapshot(self, force: bool = False):
         """Capture a PMU snapshot, emit pmu.snapshot, and ingest it into stats; returns the snapshot."""
         from .services.stats_center import get_center
+
         snap = self._pmu.snapshot(force=force)
         if snap:
             try:
@@ -76,6 +79,7 @@ class CellPmuComponent(Component):
 # CellWatchdogComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellWatchdogComponent(Component):
     """Wraps CellWatchdog — per-agent liveness monitor.
 
@@ -96,6 +100,7 @@ class CellWatchdogComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize CellWatchdog and bridge its callbacks to bus events."""
         from l3.cell.components.cell_watchdog import CellWatchdog
+
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._watchdog = CellWatchdog(self.cell_id, pmu=pmu)
@@ -144,6 +149,7 @@ class CellWatchdogComponent(Component):
 # CellICacheComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellICacheComponent(Component):
     """Wraps ICache — instruction cache (LFU, read-mostly)."""
 
@@ -158,6 +164,7 @@ class CellICacheComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the ICache, wiring the PMU from the bus."""
         from l3.cell.components.cell_icache import ICache
+
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._icache = ICache(self.cell_id, pmu=pmu, **self._ic_kwargs)
@@ -186,6 +193,7 @@ class CellICacheComponent(Component):
 # CellMmuComponent (includes TLB)
 # ════════════════════════════════════════════════════════════════
 
+
 class CellMmuComponent(Component):
     """Wraps CellMmu + CellTlb — territory→agent translation."""
 
@@ -201,6 +209,7 @@ class CellMmuComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the CellTlb and CellMmu, wiring PMU/ICache from the bus."""
         from l3.cell.components.cell_mmu import CellMmu, CellTlb
+
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         ic = bus.get("icache")
@@ -239,6 +248,7 @@ class CellMmuComponent(Component):
 # CellInterruptComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellInterruptComponent(Component):
     """Wraps InterruptController — priority interrupt routing.
 
@@ -257,6 +267,7 @@ class CellInterruptComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the InterruptController, wiring the PMU from the bus."""
         from l3.cell.components.cell_interrupt import InterruptController
+
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._interrupt = InterruptController(self.cell_id, pmu=pmu, **self._ic_kwargs)
@@ -290,6 +301,7 @@ class CellInterruptComponent(Component):
 # CellCacheComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellCacheComponent(Component):
     """Wraps CellCache — per-Cell L2 shared cache (D-Cache)."""
 
@@ -304,6 +316,7 @@ class CellCacheComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the CellCache, wiring the PMU from the bus."""
         from l3.cell.components.cell_cache import CellCache
+
         pmu_comp = bus.get("pmu")
         pmu = pmu_comp.pmu if pmu_comp else None
         self._cache = CellCache(self.cell_id, pmu=pmu, **self._cache_kwargs)
@@ -339,6 +352,7 @@ class CellCacheComponent(Component):
 # CellPermissionComponent
 # ════════════════════════════════════════════════════════════════
 
+
 class CellPermissionComponent(Component):
     """Wraps SubAgentRegistry — state-gated delegation permission."""
 
@@ -352,6 +366,7 @@ class CellPermissionComponent(Component):
     def bus_init(self, bus: SystemBus) -> None:
         """Lazy-initialize the SubAgentRegistry for the Cell."""
         from l3.cell.components.cell_permission import SubAgentRegistry
+
         self._permission = SubAgentRegistry(self.cell_id)
 
     @property

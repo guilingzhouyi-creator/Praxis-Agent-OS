@@ -13,16 +13,19 @@ from l1.kernel.params.system import LOG_TRUNC_200
 def execute_scout_verify(ps: Any, spec: dict, phase: str) -> dict:
     """Run a scout investigation for verification (before/after)."""
     from .agent.scout import get_pool
+
     pool = get_pool()
     template = spec.get("template", "grep")
     scope = spec.get("scope", {})
     scope.setdefault("path", ".")
     scope.setdefault("pattern", ps.target)
     result = pool.commission("verify", template, scope)
-    return {"success": result.get("success", False),
-            "findings": result.get("findings", []),
-            "output": result.get("output", []),
-            "phase": phase}
+    return {
+        "success": result.get("success", False),
+        "findings": result.get("findings", []),
+        "output": result.get("output", []),
+        "phase": phase,
+    }
 
 
 def diff_verify(before: dict, after: dict) -> dict:
@@ -42,6 +45,7 @@ def diff_verify(before: dict, after: dict) -> dict:
 def execute_scout(ps: Any) -> dict:
     """Execute a scout step via ScoutPool."""
     from .agent.scout import get_pool
+
     pool = get_pool()
     pattern = ps.params.get("pattern", ps.target)
     path = ps.params.get("path", ".")
@@ -92,6 +96,7 @@ class Verifier:
         return {
             "consistent": len(failures) == 0,
             "conflicts": [r.get("error", "unknown error") for r in failures],
-            "recommendation": "All steps passed" if not failures
-                             else f"{len(failures)} step(s) failed — review and retry",
+            "recommendation": "All steps passed"
+            if not failures
+            else f"{len(failures)} step(s) failed — review and retry",
         }

@@ -1,4 +1,5 @@
 """Memory and Sandbox service tests."""
+
 from __future__ import annotations
 
 import os
@@ -12,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestMemoryManager:
     def test_remember_and_recall(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         eid = mem.remember("agent-a", "tool_call", "read_file /etc/config find version=2.0", tags=["read"], ring=1)
         assert eid.startswith("mem-")
@@ -21,6 +23,7 @@ class TestMemoryManager:
 
     def test_recall_by_type(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         mem.remember("agent-a", "decision", "approve deploy to production server v3", ring=2)
         mem.remember("agent-a", "observation", "saw error in /var/log/app.log port 8080", ring=1)
@@ -32,13 +35,21 @@ class TestMemoryManager:
 
     def test_recall_by_tag(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
-        mem.remember("agent-a", "observation", "security audit found open port 443 on 10.0.1.50", tags=["urgent", "security"], ring=1)
+        mem.remember(
+            "agent-a",
+            "observation",
+            "security audit found open port 443 on 10.0.1.50",
+            tags=["urgent", "security"],
+            ring=1,
+        )
         results = mem.recall(agent_id="agent-a", tag="security")
         assert len(results) >= 1
 
     def test_recall_multiple_rings(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         mem.remember("agent-a", "working", "project root at /home/user/src/api uses Python 3.12", ring=1)
         mem.remember("agent-a", "short", "staging server at 10.0.1.50 with Docker Compose", ring=2)
@@ -48,6 +59,7 @@ class TestMemoryManager:
 
     def test_build_context(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         mem.remember("agent-a", "observation", "project root at /home/user/src/api uses Python 3.12", ring=1)
         ctx = mem.build_context("agent-a", max_tokens=4096)
@@ -55,6 +67,7 @@ class TestMemoryManager:
 
     def test_stats(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         mem.remember("agent-a", "observation", "project uses Poetry for deps not pip", ring=1)
         stats = mem.stats()
@@ -63,6 +76,7 @@ class TestMemoryManager:
 
     def test_forget_agent(self):
         from l3.memory.memory import MemoryManager
+
         mem = MemoryManager()
         mem.remember("forget-me", "observation", "custom port 2222 for SSH on staging", ring=1)
         mem.forget_agent("forget-me")
@@ -71,6 +85,7 @@ class TestMemoryManager:
 
     def test_get_memory_singleton(self):
         from l3.memory.memory import get_memory, reset_memory
+
         reset_memory()
         m1 = get_memory()
         m2 = get_memory()
@@ -80,6 +95,7 @@ class TestMemoryManager:
 class TestSandbox:
     def test_cell_sandbox_create(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         sb = CellSandbox("test-cell", td, td)
         assert sb.cell_id == "test-cell"
@@ -87,6 +103,7 @@ class TestSandbox:
 
     def test_register_agent(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         sb = CellSandbox("cell-1", td, td)
         agent_dir = sb.register_agent("agent-x")
@@ -96,6 +113,7 @@ class TestSandbox:
 
     def test_write_and_read(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         sb = CellSandbox("cell-wr", td, tempfile.mkdtemp())
         sb.register_agent("writer")
@@ -109,6 +127,7 @@ class TestSandbox:
 
     def test_read_from_project(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         real_file = os.path.join(td, "existing.txt")
         with open(real_file, "w") as f:
@@ -124,6 +143,7 @@ class TestSandbox:
 
     def test_discard(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         sb = CellSandbox("cell-discard", td, tempfile.mkdtemp())
         sb.register_agent("discarder")
@@ -136,6 +156,7 @@ class TestSandbox:
 
     def test_agent_path(self):
         from l4.sandbox import CellSandbox
+
         td = tempfile.mkdtemp()
         sb = CellSandbox("cell-path", td, tempfile.mkdtemp())
         sb.register_agent("path-agent")

@@ -12,14 +12,13 @@ from . import params as _p
 logger = logging.getLogger(__name__)
 
 
-def store_session(session_id: str, metadata: dict,
-                  transcript: list[dict]) -> dict:
+def store_session(session_id: str, metadata: dict, transcript: list[dict]) -> dict:
     """Persist a session (metadata + transcript) into the R4 archive and return the store result."""
-    blob = json.dumps({"metadata": metadata, "transcript": transcript},
-                      ensure_ascii=False, default=str)
+    blob = json.dumps({"metadata": metadata, "transcript": transcript}, ensure_ascii=False, default=str)
     tags = ",".join(metadata.get("tags", ["l3a", "session"]))
     try:
         from l3.tools._archive import _cmd_archive_store
+
         return _cmd_archive_store(
             fonds=_p.FONDS,
             series=_p.SERIES,
@@ -27,18 +26,23 @@ def store_session(session_id: str, metadata: dict,
             tags=tags,
         )
     except Exception as e:
-        capture("l3a archive: store failed", error_code="E_L3A_ARCHIVE", component="l3a", context={"session_id": session_id, "error": str(e)})
+        capture(
+            "l3a archive: store failed",
+            error_code="E_L3A_ARCHIVE",
+            component="l3a",
+            context={"session_id": session_id, "error": str(e)},
+        )
         logger.warning("l3a archive: store failed: %s", e)
         return {"success": False, "error": str(e)}
 
 
-def search_sessions(limit: int = 10, cursor: str | None = None,
-                    session_id: str | None = None) -> dict:
+def search_sessions(limit: int = 10, cursor: str | None = None, session_id: str | None = None) -> dict:
     """List archived sessions. Fetches FULL content from DB directly —
     archive_search truncates content to LOG_TRUNC_500 which breaks
     JSON parsing for large session blobs."""
     try:
         from l3.tools._archive import _get_db, _normalize_fonds
+
         conn = _get_db()
         # store_session persists via _cmd_archive_store which normalizes the
         # fonds name; query with the same normalization or nothing matches.
@@ -52,14 +56,16 @@ def search_sessions(limit: int = 10, cursor: str | None = None,
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id, content FROM archive "
-                "WHERE fonds = ? AND series = ? "
-                "ORDER BY created_at DESC LIMIT ?",
+                "SELECT id, content FROM archive WHERE fonds = ? AND series = ? ORDER BY created_at DESC LIMIT ?",
                 (fonds, _p.SERIES, limit),
             ).fetchall()
     except Exception:
-        capture("l3a archive: search_sessions failed", error_code="E_L3A_SEARCH",
-                component="l3a", context={"session_id": session_id or ""})
+        capture(
+            "l3a archive: search_sessions failed",
+            error_code="E_L3A_SEARCH",
+            component="l3a",
+            context={"session_id": session_id or ""},
+        )
         return {"success": False, "error": "search failed", "data": [], "count": 0}
 
     results = []
@@ -70,9 +76,12 @@ def search_sessions(limit: int = 10, cursor: str | None = None,
             meta["_archive_id"] = rid
             results.append(meta)
         except Exception:
-            capture("l3a archive: session search JSON parse failed",
-                    error_code="E_L3A_ARCHIVE", component="l3a",
-                    context={"session_id": session_id or ""})
+            capture(
+                "l3a archive: session search JSON parse failed",
+                error_code="E_L3A_ARCHIVE",
+                component="l3a",
+                context={"session_id": session_id or ""},
+            )
             continue
     return {"success": True, "data": results, "count": len(results)}
 
@@ -93,14 +102,17 @@ def load_session_blob(session_id: str) -> dict | None:
         return None
     try:
         from l3.tools._archive import _get_db
+
         conn = _get_db()
-        row = conn.execute(
-            "SELECT content FROM archive WHERE id = ?", (arch_id,)
-        ).fetchone()
+        row = conn.execute("SELECT content FROM archive WHERE id = ?", (arch_id,)).fetchone()
         if row:
             return json.loads(row[0])
     except Exception:
-        capture("l3a archive: load_session_blob failed", error_code="E_L3A_ARCHIVE",
-                component="l3a", context={"session_id": session_id})
+        capture(
+            "l3a archive: load_session_blob failed",
+            error_code="E_L3A_ARCHIVE",
+            component="l3a",
+            context={"session_id": session_id},
+        )
         logger.warning("l3a archive: load_session_blob failed for %s", session_id)
     return None

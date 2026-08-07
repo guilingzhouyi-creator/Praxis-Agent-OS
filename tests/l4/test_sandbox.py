@@ -11,6 +11,7 @@ def _clear_sandbox_state() -> None:
     """Remove the persisted sandbox state file so each test starts clean."""
     try:
         from l1.kernel.params.system import SANDBOX_STATE_PATH
+
         if os.path.exists(SANDBOX_STATE_PATH):
             os.remove(SANDBOX_STATE_PATH)
     except Exception:
@@ -22,11 +23,13 @@ class TestCellSandbox:
 
     def setup_method(self):
         from l4.sandbox import reset_manager
+
         _clear_sandbox_state()
         reset_manager()
 
     def test_create_cell(self):
         from l4.sandbox import SandboxManager
+
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
             sb = mgr.create_cell("sand-cell-1", project_root=d)
@@ -34,6 +37,7 @@ class TestCellSandbox:
 
     def test_get_cell(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -43,6 +47,7 @@ class TestCellSandbox:
 
     def test_get_nonexistent_cell(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         sb = mgr.get_cell("no-such-cell")
@@ -54,6 +59,7 @@ class TestSandboxOps:
 
     def test_write_and_read(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -68,6 +74,7 @@ class TestSandboxOps:
 
     def test_write_and_stage(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -83,6 +90,7 @@ class TestSandboxOps:
 
     def test_flush(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -99,6 +107,7 @@ class TestSandboxOps:
 
     def test_discard(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -114,6 +123,7 @@ class TestSandboxOps:
 
     def test_read_nonexistent(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -129,11 +139,13 @@ class TestAgentRegistration:
 
     def setup_method(self):
         from l4.sandbox import reset_manager
+
         _clear_sandbox_state()
         reset_manager()
 
     def test_register_agent(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -144,6 +156,7 @@ class TestAgentRegistration:
 
     def test_register_duplicate(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -155,6 +168,7 @@ class TestAgentRegistration:
 
     def test_register_multiple(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -170,11 +184,13 @@ class TestStatus:
 
     def setup_method(self):
         from l4.sandbox import reset_manager
+
         _clear_sandbox_state()
         reset_manager()
 
     def test_status_empty(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -187,6 +203,7 @@ class TestStatus:
 
     def test_status_after_write(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:
@@ -200,6 +217,7 @@ class TestStatus:
 
     def test_cleanup(self):
         from l4.sandbox import SandboxManager, reset_manager
+
         reset_manager()
         mgr = SandboxManager()
         with tempfile.TemporaryDirectory() as d:

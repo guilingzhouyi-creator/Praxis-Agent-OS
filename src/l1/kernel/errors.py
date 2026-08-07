@@ -66,6 +66,7 @@ def set_locale(locale: str) -> None:
     _current_locale = locale
     try:
         from l1.kernel.ports import get_port as _gp
+
         adapter = _gp("i18n")
         adapter.set_locale(locale)
     except Exception:
@@ -90,8 +91,7 @@ class PraxisError(Exception):
         **context: additional key-value pairs for the error context
     """
 
-    def __init__(self, code: str, message: str = "",
-                 cause: Exception | None = None, **context: Any):
+    def __init__(self, code: str, message: str = "", cause: Exception | None = None, **context: Any):
         self.code = code
         self.message = message or _default_message(code)
         self.cause = cause
@@ -123,6 +123,7 @@ class PraxisError(Exception):
             # 2) Registered I18nPort takes precedence when available.
             try:
                 from l1.kernel.ports import get_port as _gp
+
                 localized = _gp("i18n").t(f"error.{self.code}")
                 if localized != f"error.{self.code}":
                     msg = localized
@@ -139,8 +140,7 @@ class PraxisError(Exception):
         return f"[{self.code}] {self.message}"
 
 
-def error(code: str, message: str = "", cause: Exception | None = None,
-          **context: Any) -> dict:
+def error(code: str, message: str = "", cause: Exception | None = None, **context: Any) -> dict:
     """Convenience: create and return a PraxisError as a dict.
 
     This is the preferred way to return errors from tool handlers
@@ -246,6 +246,7 @@ _ZH_TRANSLATIONS: dict[str, str] = {
 
 try:
     from l1.kernel.ports import get_port as _gp_err
+
     _i18n = _gp_err("i18n")
     _i18n.register("zh-CN", dict(_ZH_TRANSLATIONS))
 except Exception:

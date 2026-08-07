@@ -50,21 +50,25 @@ def set_harness_mode(mode: str, confirmed: bool = False, source: str = "api") ->
     """
     mode = str(mode or "").lower()
     if mode not in HARNESS_MODES:
-        return {"success": False, "error": f"invalid harness mode: {mode}",
-                "modes": list(HARNESS_MODES)}
+        return {"success": False, "error": f"invalid harness mode: {mode}", "modes": list(HARNESS_MODES)}
     if mode == "minimal" and not confirmed:
-        return {"success": False,
-                "error": "minimal mode requires explicit risk confirmation "
-                         "(confirm_risk=true): approval, rate limit and pool "
-                         "gates are disabled; constitution/gatechain/sandbox/"
-                         "recording stay enforced",
-                "modes": list(HARNESS_MODES)}
+        return {
+            "success": False,
+            "error": "minimal mode requires explicit risk confirmation "
+            "(confirm_risk=true): approval, rate limit and pool "
+            "gates are disabled; constitution/gatechain/sandbox/"
+            "recording stay enforced",
+            "modes": list(HARNESS_MODES),
+        }
     with _lock:
         _state["mode"] = mode
         _state["source"] = source
-    return {"success": True, "mode": mode, "source": source,
-            "note": None if mode != "minimal" else
-                    f"risk user-assumed; bottom line ({BOTTOM_LINE}) still enforced"}
+    return {
+        "success": True,
+        "mode": mode,
+        "source": source,
+        "note": None if mode != "minimal" else f"risk user-assumed; bottom line ({BOTTOM_LINE}) still enforced",
+    }
 
 
 def reset_harness_mode() -> dict:
@@ -79,5 +83,4 @@ def harness_status() -> dict:
     """Return the current mode plus the switchable matrix and bottom line."""
     with _lock:
         source = _state.get("source", "config")
-    return {"mode": get_harness_mode(), "source": source,
-            "modes": list(HARNESS_MODES), "bottom_line": BOTTOM_LINE}
+    return {"mode": get_harness_mode(), "source": source, "modes": list(HARNESS_MODES), "bottom_line": BOTTOM_LINE}

@@ -14,18 +14,21 @@ class TestCellSandbox:
 
     def test_create_sandbox(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox(cell_id="test-cell", project_root=td, sandbox_root=td)
             assert sb.cell_id == "test-cell"
 
     def test_register_agent(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox(cell_id="test-cell", project_root=td, sandbox_root=td)
             sb.register_agent("agent-a")
 
     def test_status(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox(cell_id="stat-cell", project_root=td, sandbox_root=td)
             st = sb.status()
@@ -33,6 +36,7 @@ class TestCellSandbox:
 
     def test_get_entries(self):
         from l4.sandbox.cell_sandbox import CellSandbox
+
         with tempfile.TemporaryDirectory() as td:
             sb = CellSandbox(cell_id="entries-cell", project_root=td, sandbox_root=td)
             entries = sb.get_entries()

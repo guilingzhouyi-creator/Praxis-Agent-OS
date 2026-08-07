@@ -139,8 +139,14 @@ class SkillFeedbackMixin:
             logger.warning("R4Agent: track failure failed: %s", e)
 
     def track_tool_failure(
-        self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list[dict],
-        domain: str = "", nature: str = "",
+        self,
+        agent_id: str,
+        tool_name: str,
+        args: dict,
+        error: str,
+        turn_log: list[dict],
+        domain: str = "",
+        nature: str = "",
     ) -> None:
         """Public entry point for tool-pipeline failure recording."""
         self._track_failure(agent_id, tool_name, args, error, turn_log, domain=domain, nature=nature)
@@ -218,7 +224,6 @@ class SkillFeedbackMixin:
                     # and summarization see real failure data, not the
                     # flattened prompt template. Truncated to bound memory.
                     try:
-
                         _knowledge = {
                             "tool": tool,
                             "args": str(entry.get("args", ""))[:R4_LEAN_KNOWLEDGE_MAX],

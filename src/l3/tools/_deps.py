@@ -3,6 +3,7 @@
 try:
     from importlib.metadata import distribution as _get_dist
     from importlib.metadata import version as _get_version
+
     HAS_PKG = True
 except ImportError:
     HAS_PKG = False

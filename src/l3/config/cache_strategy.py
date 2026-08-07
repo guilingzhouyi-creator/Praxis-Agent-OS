@@ -54,6 +54,7 @@ def load_cache_config(cfg: dict) -> None:
 
 # ── Config-driven strategy (covers all built-in providers) ──
 
+
 class ConfigCacheStrategy:
     """Single strategy class driven by praxis.yaml → llm.cache config.
 
@@ -69,8 +70,7 @@ class ConfigCacheStrategy:
         specific = _cache_config.get(provider, {})
         self._opts = {**defaults, **specific}
 
-    def optimize(self, prompt: str, system: str,
-                 user_id: str = "") -> tuple[str, str, dict[str, Any]]:
+    def optimize(self, prompt: str, system: str, user_id: str = "") -> tuple[str, str, dict[str, Any]]:
         """Optimize prompt/system per provider flags; return updated prompt, system, and extra options."""
         extra: dict[str, Any] = {}
         if self._opts.get("forward_user_id", False) and user_id:
@@ -93,6 +93,7 @@ def register_strategy(provider_name: str, strategy: Any) -> None:
 
 
 # ── Public API ──
+
 
 def get_strategy(provider_name: str) -> ConfigCacheStrategy | Any:
     """Get cache strategy for a provider.

@@ -28,8 +28,7 @@ class TestTransportConfig:
         assert cfg.tls_enabled is False
 
     def test_custom_values(self):
-        cfg = TransportConfig(host="127.0.0.1", port=9999,
-                              discovery_port=8888, socket_timeout=5.0)
+        cfg = TransportConfig(host="127.0.0.1", port=9999, discovery_port=8888, socket_timeout=5.0)
         assert cfg.host == "127.0.0.1"
         assert cfg.port == 9999
         assert cfg.discovery_port == 8888
@@ -40,8 +39,8 @@ class TestTcpAdapterConstruction:
     def test_is_transport_port(self):
         from l4.adapters.channel_ring import RingChannel
         from l4.adapters.worker_thread import ThreadPoolWorker
-        t = TcpAdapter(worker_pool=ThreadPoolWorker(min_workers=2, max_workers=4),
-                       msg_channel=RingChannel(capacity=64))
+
+        t = TcpAdapter(worker_pool=ThreadPoolWorker(min_workers=2, max_workers=4), msg_channel=RingChannel(capacity=64))
         assert isinstance(t, TransportPort)
         assert t.name == "tcp"
 
@@ -69,8 +68,10 @@ class TestTcpAdapterHandlerRegistration:
     def test_register_and_call(self):
         t = TcpAdapter()
         captured = []
+
         def handler(msg):
             captured.append(msg)
+
         t.register_handler("test.type", handler)
         assert t._handlers.get("test.type") is handler
         t._handlers["test.type"]({"key": "value"})

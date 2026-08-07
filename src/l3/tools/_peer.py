@@ -2,12 +2,14 @@
 
 try:
     from l3.bus.ipc import IPCMessage, MessageType, get_bus
+
     HAS_IPC = True
 except ImportError:
     HAS_IPC = False
 
 try:
     from l3.cell import get_cell
+
     HAS_CELL = True
 except ImportError:
     HAS_CELL = False
@@ -50,7 +52,9 @@ def agent_message(args: dict, agent_id: str) -> dict:
     if HAS_IPC:
         try:
             bus = get_bus()
-            msg = IPCMessage(sender=agent_id, receiver=target, msg_type=MessageType.DIRECT_MESSAGE, payload={"text": message})
+            msg = IPCMessage(
+                sender=agent_id, receiver=target, msg_type=MessageType.DIRECT_MESSAGE, payload={"text": message}
+            )
             bus.send(msg)
             return {"success": True, "target": target}
         except Exception as e:

@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestMemoryRing:
     def test_importable(self):
         from l3.memory.memory_ring import MemEntry
+
         assert callable(MemEntry)

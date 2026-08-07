@@ -36,29 +36,28 @@ _L3A_SPECS: dict[str, dict] = {
         "max_steps": _p.SA_CARD_PLANNER_MAX_STEPS,
         "timeout": _p.SA_CARD_PLANNER_TIMEOUT,
         "expect_keys": ["domain", "card_nature", "phases", "tasks", "findings"],
-        "strategy": "balanced",   # planning benefits from moderate reasoning
+        "strategy": "balanced",  # planning benefits from moderate reasoning
     },
     "investigator": {
         "allowed_tools": ["read_file", "grep_search", "list_dir", "glob"],
         "max_steps": _p.SA_INVESTIGATOR_MAX_STEPS,
         "timeout": _p.SA_INVESTIGATOR_TIMEOUT,
         "expect_keys": ["findings", "files_examined", "summary"],
-        "strategy": "fast",       # read-only recon keeps latency low
+        "strategy": "fast",  # read-only recon keeps latency low
     },
 }
 
 
 class L3ASubAgentPool:
     """L3ASubAgentPool — l3 a sub agent pool."""
+
     def __init__(self, max_workers: int = 4):
-        self._executor = ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="l3a-sa")
+        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="l3a-sa")
         self._tasks: dict[str, L3ATask] = {}
         self._groups: dict[str, L3ATaskGroup] = {}
         self._lock = threading.RLock()
 
-    def commission(self, spec: str, task: str, group: str = "",
-                   expect: dict | None = None, strategy: str = "") -> dict:
+    def commission(self, spec: str, task: str, group: str = "", expect: dict | None = None, strategy: str = "") -> dict:
         """Spawn a subagent task from a spec and return its registration dict."""
         if spec not in _L3A_SPECS:
             return {"success": False, "error": f"unknown spec: {spec}"}
@@ -66,8 +65,12 @@ class L3ASubAgentPool:
         strategy = strategy or spec_def.get("strategy", "")
         tid = f"{_SPAWN_PREFIX}-{uuid.uuid4().hex[:_SID_LEN]}"
         task_obj = L3ATask(
-            task_id=tid, spec=spec, task=task,
-            group=group, expect=expect, status="pending",
+            task_id=tid,
+            spec=spec,
+            task=task,
+            group=group,
+            expect=expect,
+            status="pending",
         )
         with self._lock:
             self._tasks[tid] = task_obj
@@ -78,8 +81,7 @@ class L3ASubAgentPool:
         fut = self._executor.submit(self._run, tid, spec, task, strategy)
         task_obj.future = fut
         task_obj.status = "running"
-        logger.debug("l3a subagent: spawned %s (%s) group=%s strategy=%s",
-                     tid, spec, group, strategy)
+        logger.debug("l3a subagent: spawned %s (%s) group=%s strategy=%s", tid, spec, group, strategy)
         return {"success": True, "task_id": tid, "spec": spec, "group": group}
 
     def collect(self, group: str, timeout: float = 30.0) -> dict:
@@ -110,15 +112,22 @@ class L3ASubAgentPool:
         with self._lock:
             for tid in tids:
                 t = self._tasks.get(tid)
-                results.append({
-                    "task_id": tid,
-                    "spec": t.spec if t else "",
-                    "status": t.status if t else "unknown",
-                    "result": t.result if t else None,
-                })
+                results.append(
+                    {
+                        "task_id": tid,
+                        "spec": t.spec if t else "",
+                        "status": t.status if t else "unknown",
+                        "result": t.result if t else None,
+                    }
+                )
         elapsed = time.time() - t0
-        return {"success": True, "group": group, "results": results,
-                "count": len(results), "elapsed": round(elapsed, 2)}
+        return {
+            "success": True,
+            "group": group,
+            "results": results,
+            "count": len(results),
+            "elapsed": round(elapsed, 2),
+        }
 
     def peek(self, task_id: str) -> dict:
         """Return a task's current status and result without waiting."""
@@ -126,8 +135,7 @@ class L3ASubAgentPool:
             t = self._tasks.get(task_id)
         if not t:
             return {"success": False, "error": f"unknown task: {task_id}"}
-        return {"success": True, "task_id": task_id, "spec": t.spec,
-                "status": t.status, "result": t.result}
+        return {"success": True, "task_id": task_id, "spec": t.spec, "status": t.status, "result": t.result}
 
     def shutdown(self, wait: bool = True) -> None:
         """Shut down the executor, optionally waiting for running tasks."""
@@ -137,9 +145,11 @@ class L3ASubAgentPool:
     def _resolve_tool_handler(self, tool_name: str):
         if tool_name == "cardwrite":
             from .helpers import cardwrite_handler
+
             return cardwrite_handler
         try:
             from l3.tool_system.tool_spec import get_tool as _gt
+
             spec = _gt(tool_name)
             if spec and spec.handler:
                 return spec.handler
@@ -148,8 +158,7 @@ class L3ASubAgentPool:
             pass
         return None
 
-    def _run(self, task_id: str, spec_name: str, task_text: str,
-             strategy: str = "") -> dict:
+    def _run(self, task_id: str, spec_name: str, task_text: str, strategy: str = "") -> dict:
         spec = _L3A_SPECS.get(spec_name, {})
         max_steps = spec.get("max_steps", 6)
         timeout = spec.get("timeout", 45.0)
@@ -158,14 +167,15 @@ class L3ASubAgentPool:
 
         try:
             from l3.agent.agent_loop import AgentLoop
+
             agent_id = f"l3a-sa-{task_id[:_SID_LEN]}"
             loop = AgentLoop(
                 task=task_text,
                 agent_id=agent_id,
                 role="l3a_subagent",
                 system=f"You are a {spec_name} subagent for L3A. "
-                       f"Use allowed tools: {', '.join(allowed_tools)}. "
-                       "Return structured results as JSON in your final answer.",
+                f"Use allowed tools: {', '.join(allowed_tools)}. "
+                "Return structured results as JSON in your final answer.",
                 prompt_key="l3a.agentloop_system",
             )
 
@@ -181,9 +191,14 @@ class L3ASubAgentPool:
                     loop.add_tool(
                         tn,
                         "Create and submit a structured card.",
-                        {"nature": "string", "title": "string",
-                         "description": "string", "columns": "dict",
-                         "priority": "int", "phases": "list"},
+                        {
+                            "nature": "string",
+                            "title": "string",
+                            "description": "string",
+                            "columns": "dict",
+                            "priority": "int",
+                            "phases": "list",
+                        },
                         handler,
                         parallel_safe=False,
                     )
@@ -191,9 +206,15 @@ class L3ASubAgentPool:
                     continue
                 try:
                     from l3.tool_system.tool_spec import get_tool as _gt
+
                     tool_spec: Any = _gt(tn)
                 except Exception:
-                    capture("l3a subagent: tool spec parse failed", error_code="E_L3A_SA", component="l3a", context={"tool_name": tn})
+                    capture(
+                        "l3a subagent: tool spec parse failed",
+                        error_code="E_L3A_SA",
+                        component="l3a",
+                        context={"tool_name": tn},
+                    )
                     tool_spec = None
                 if tool_spec is None:
                     loop.add_tool(tn, tn, {}, handler, parallel_safe=True)
@@ -202,8 +223,7 @@ class L3ASubAgentPool:
                 registered.add(tn)
 
             model_cfg = self._resolve_model_config(strategy)
-            result = loop.run(max_steps=max_steps, timeout=timeout,
-                              model_config=model_cfg)
+            result = loop.run(max_steps=max_steps, timeout=timeout, model_config=model_cfg)
             answer = result.get("answer", "")
             findings = self._extract_findings(task_text, answer, spec)
 
@@ -218,7 +238,12 @@ class L3ASubAgentPool:
             return findings
 
         except Exception as e:
-            capture("l3a subagent: run failed", error_code="E_L3A_SA", component="l3a", context={"task_id": task_id, "spec": spec_name})
+            capture(
+                "l3a subagent: run failed",
+                error_code="E_L3A_SA",
+                component="l3a",
+                context={"task_id": task_id, "spec": spec_name},
+            )
             logger.warning("l3a subagent: %s failed: %s", task_id, e)
             with self._lock:
                 t = self._tasks.get(task_id)
@@ -233,14 +258,14 @@ class L3ASubAgentPool:
     def _resolve_model_config(strategy: str = "") -> dict:
         try:
             from l3.services.model_service import get_service as _gs
+
             return _gs().resolve_dict_with_strategy("l3a_subagent", strategy=strategy)
         except Exception:
             capture("l3a subagent: model config resolve failed", error_code="E_L3A_SA", component="l3a")
             return {"max_tokens": _p.SA_DEFAULT_MAX_TOKENS, "temperature": _p.SA_DEFAULT_TEMPERATURE}
 
     @staticmethod
-    def _extract_findings(task: str, answer: str,
-                          spec: dict) -> dict:
+    def _extract_findings(task: str, answer: str, spec: dict) -> dict:
         result: dict[str, Any] = {
             "task": task[:LOG_TRUNC_200],
             "summary": answer[:LOG_TRUNC_2000],

@@ -1,4 +1,5 @@
 """API handlers for Card operations — extracted from api_handlers.py for modularity."""
+
 from __future__ import annotations
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
@@ -9,6 +10,7 @@ def list_cards(body: dict) -> dict:
     """List registered cards, optionally filtered by state or approval status."""
     try:
         from l3.card.card_registry import get_registry
+
         state = body.get("state") or body.get("_id")
         approval_status = body.get("approval_status", "")
         cards = get_registry().list(state=state)
@@ -23,10 +25,12 @@ def get_card(body: dict) -> dict:
     """Fetch a single card by id from the registry or event bus."""
     try:
         from l1.kernel import get_event_bus
+
         card_id = body.get("_id") or body.get("card_id", "")
         if not card_id:
             return {"success": False, "error": "card_id required"}
         from l3.card.card_registry import get_registry
+
         card = get_registry().get(card_id)
         if card:
             return {"success": True, "card": card}
@@ -45,6 +49,7 @@ def submit_card(body: dict) -> dict:
             return {"success": False, "error": "intent required"}
         domain = body.get("domain", ".")
         from l3.card.card_registry import get_registry
+
         cid = get_registry().submit(intent, domain)
         return {"success": True, "card_id": cid}
     except Exception as e:
@@ -58,6 +63,7 @@ def submit_batch(body: dict) -> dict:
         if not cards:
             return {"success": False, "error": "batch empty"}
         from l3.card.card_registry import get_registry
+
         results = []
         for c in cards:
             cid = get_registry().submit(c.get("intent", ""), c.get("domain", "."))
@@ -71,6 +77,7 @@ def card_rollback(body: dict) -> dict:
     """Roll back the card with the given id on the default cell."""
     try:
         from l3.cell import get_cell
+
         card_id = body.get("card_id", "")
         cell = get_cell(DEFAULT_CELL_ID)
         return cell.rollback_card(card_id)
@@ -82,6 +89,7 @@ def card_gate_history(body: dict) -> dict:
     """Return the gatechain ledger history for the given card id."""
     try:
         from l1.kernel.gatechain import get_gatechain
+
         card_id = body.get("card_id", "")
         gc = get_gatechain()
         return {"history": gc.ledger.recent(card_id, limit=GATECHAIN_LEDGER_LIMIT)}
@@ -95,6 +103,7 @@ def sideload_dispatch(body: dict) -> dict:
         intent = body.get("intent", "")
         domain = body.get("domain", ".")
         from l3.cell import get_cell
+
         cell = get_cell(DEFAULT_CELL_ID, [domain])
         result = cell.execute_card(intent, domain=domain)
         return {"success": True, "result": result}

@@ -105,8 +105,7 @@ def test_barrier_wait_reset() -> None:
 
     def run_all(prefix: str) -> dict[str, dict]:
         results: dict[str, dict] = {}
-        threads = [threading.Thread(target=arrive, args=(results, f"{prefix}-{i}"))
-                   for i in range(3)]
+        threads = [threading.Thread(target=arrive, args=(results, f"{prefix}-{i}")) for i in range(3)]
         for t in threads:
             t.start()
         for t in threads:

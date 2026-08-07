@@ -11,6 +11,7 @@ class TestMentionParsing:
 
     def test_parse_known_agent(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         mentions = d.parse_mentions("@security-auditor review this code")
         assert len(mentions) == 1
@@ -20,18 +21,21 @@ class TestMentionParsing:
 
     def test_parse_unknown_agent(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         mentions = d.parse_mentions("@nonexistent-agent do something")
         assert len(mentions) == 0
 
     def test_parse_no_mention(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         mentions = d.parse_mentions("just a normal query")
         assert len(mentions) == 0
 
     def test_parse_multiple_mentions(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         # Two separate @mentions on separate fragments
         m1 = d.parse_mentions("@helper explore")
@@ -43,6 +47,7 @@ class TestMentionParsing:
 
     def test_parse_empty(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         mentions = d.parse_mentions("")
         assert len(mentions) == 0
@@ -53,6 +58,7 @@ class TestSubAgentSpec:
 
     def test_builtin_specs(self):
         from l3.agent.subagent_spec import BUILTIN_SUBAGENTS
+
         assert "security-auditor" in BUILTIN_SUBAGENTS
         assert "helper" in BUILTIN_SUBAGENTS
         assert "code-reviewer" in BUILTIN_SUBAGENTS
@@ -60,6 +66,7 @@ class TestSubAgentSpec:
 
     def test_spec_defaults(self):
         from l3.agent.subagent_framework import SubAgentSpec
+
         spec = SubAgentSpec(name="test-agent", description="test")
         assert spec.read_only is True
         assert spec.max_steps == 5
@@ -67,6 +74,7 @@ class TestSubAgentSpec:
 
     def test_spec_to_dict(self):
         from l3.agent.subagent_framework import SubAgentSpec
+
         spec = SubAgentSpec(name="t", description="d")
         d = spec.to_dict()
         assert d["name"] == "t"
@@ -78,6 +86,7 @@ class TestDispatcher:
 
     def test_dispatch_known(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         r = d.dispatch("helper", "explore the src directory")
         # should succeed even if LLM not available — falls back gracefully
@@ -92,12 +101,14 @@ class TestDispatcher:
 
     def test_dispatch_unknown(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         r = d.dispatch("nonexistent", "do something")
         assert not r["success"]
 
     def test_dispatch_from_text(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         r = d.dispatch_from_text("check @security-auditor this file")
         assert r.get("success") or not r.get("success")
@@ -107,6 +118,7 @@ class TestDispatcher:
 
     def test_dispatch_from_text_no_mention(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         r = d.dispatch_from_text("just a normal question")
         assert not r["success"]
@@ -114,12 +126,14 @@ class TestDispatcher:
 
     def test_list_tasks(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         tasks = d.list_tasks()
         assert isinstance(tasks, list)
 
     def test_cancel_nonexistent(self):
         from l3.agent.subagent_framework import SubAgentDispatcher
+
         d = SubAgentDispatcher()
         r = d.cancel_task("nonexistent-id")
         assert not r["success"]
@@ -130,14 +144,15 @@ class TestSpecRegistration:
 
     def test_register_spec(self):
         from l3.agent.subagent_framework import SubAgentDispatcher, SubAgentSpec
+
         d = SubAgentDispatcher()
-        spec = SubAgentSpec(name="my-custom-agent", description="test agent",
-                            allowed_tools=["read_file"], max_steps=3)
+        spec = SubAgentSpec(name="my-custom-agent", description="test agent", allowed_tools=["read_file"], max_steps=3)
         r = d.register_spec(spec)
         assert r["success"]
 
     def test_register_and_list(self):
         from l3.agent.subagent_framework import SubAgentDispatcher, SubAgentSpec
+
         d = SubAgentDispatcher()
         d.register_spec(SubAgentSpec(name="agent-x", description="x"))
         r = d.list_specs()
@@ -150,12 +165,14 @@ class TestResultMerger:
 
     def test_merge_empty(self):
         from l3.agent.subagent_framework import ResultMerger
+
         r = ResultMerger.merge([])
         assert r["success"]
         assert r["total"] == 0
 
     def test_merge_no_conflict(self):
         from l3.agent.subagent_framework import ResultMerger
+
         results = [
             {"status": "completed", "spec": "a", "result": {"content": "all good"}},
             {"status": "completed", "spec": "b", "result": {"content": "looks fine"}},
@@ -167,6 +184,7 @@ class TestResultMerger:
 
     def test_merge_with_conflict(self):
         from l3.agent.subagent_framework import ResultMerger
+
         results = [
             {"status": "completed", "spec": "safer", "result": {"content": "The code is safe"}},
             {"status": "completed", "spec": "scanner", "result": {"content": "Found vulnerable code"}},
@@ -179,6 +197,7 @@ class TestResultMerger:
 
     def test_merge_with_failed(self):
         from l3.agent.subagent_framework import ResultMerger
+
         results = [
             {"status": "completed", "spec": "a", "result": {"content": "done"}},
             {"status": "failed", "spec": "b", "result": {"error": "timeout"}},
@@ -193,41 +212,49 @@ class TestApiHandlers:
 
     def test_handle_subagent_specs(self):
         from l3.agent.subagent_framework import handle_subagent_specs
+
         r = handle_subagent_specs()
         assert r["success"]
         assert r["count"] >= 4
 
     def test_handle_subagent_dispatch_missing(self):
         from l3.agent.subagent_framework import handle_subagent_dispatch
+
         r = handle_subagent_dispatch({})
         assert not r["success"]
 
     def test_handle_subagent_dispatch_text(self):
         from l3.agent.subagent_framework import handle_subagent_dispatch
+
         r = handle_subagent_dispatch({"text": "hello world"})
         assert not r["success"]  # no @mention
 
     def test_handle_subagent_result_missing(self):
         from l3.agent.subagent_framework import handle_subagent_result
+
         r = handle_subagent_result({})
         assert not r["success"]
 
     def test_handle_subagent_cancel_missing(self):
         from l3.agent.subagent_framework import handle_subagent_cancel
+
         r = handle_subagent_cancel({})
         assert not r["success"]
 
     def test_handle_subagent_list(self):
         from l3.agent.subagent_framework import handle_subagent_list
+
         r = handle_subagent_list({})
         assert r["success"]
 
     def test_handle_subagent_spec_register(self):
         from l3.agent.subagent_framework import handle_subagent_spec_register
+
         r = handle_subagent_spec_register({"name": "api-agent", "description": "api test"})
         assert r["success"]
 
     def test_handle_subagent_merge_empty(self):
         from l3.agent.subagent_framework import handle_subagent_merge
+
         r = handle_subagent_merge({"task_ids": []})
         assert not r["success"]

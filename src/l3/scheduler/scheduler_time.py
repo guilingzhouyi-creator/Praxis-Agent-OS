@@ -37,7 +37,9 @@ class TimeScheduler:
         """Register an agent with a priority and time quantum."""
         with self._lock:
             self._slices[agent_id] = TimeSlice(
-                agent_id=agent_id, quantum=quantum, priority=priority,
+                agent_id=agent_id,
+                quantum=quantum,
+                priority=priority,
             )
 
     def tick(self, agent_id: str, elapsed: float) -> dict:
@@ -52,17 +54,29 @@ class TimeScheduler:
             if ts.used >= MAX_PREEMPT:
                 ts.preempted = True
                 self._preemptions += 1
-                return {"status": "timeout", "agent_id": agent_id,
-                        "used": round(ts.used, 1), "quantum": ts.quantum,
-                        "action": "force_preempt"}
+                return {
+                    "status": "timeout",
+                    "agent_id": agent_id,
+                    "used": round(ts.used, 1),
+                    "quantum": ts.quantum,
+                    "action": "force_preempt",
+                }
             if ts.used >= ts.quantum:
                 ts.preempted = True
                 self._preemptions += 1
-                return {"status": "preempt", "agent_id": agent_id,
-                        "used": round(ts.used, 1), "quantum": ts.quantum,
-                        "action": "yield_or_preempt"}
-            return {"status": "ok", "agent_id": agent_id,
-                    "used": round(ts.used, 1), "remaining": round(ts.quantum - ts.used, 1)}
+                return {
+                    "status": "preempt",
+                    "agent_id": agent_id,
+                    "used": round(ts.used, 1),
+                    "quantum": ts.quantum,
+                    "action": "yield_or_preempt",
+                }
+            return {
+                "status": "ok",
+                "agent_id": agent_id,
+                "used": round(ts.used, 1),
+                "remaining": round(ts.quantum - ts.used, 1),
+            }
 
     def schedule(self, available: list[str]) -> str | None:
         """Pick the next agent to run by priority and wait score."""
@@ -108,11 +122,15 @@ class TimeScheduler:
             return {
                 "total_ticks": self._total_ticks,
                 "preemptions": self._preemptions,
-                "agents": {aid: {"used": round(ts.used, 1),
-                                  "quantum": ts.quantum,
-                                  "preempted": ts.preempted,
-                                  "priority": ts.priority}
-                           for aid, ts in self._slices.items()},
+                "agents": {
+                    aid: {
+                        "used": round(ts.used, 1),
+                        "quantum": ts.quantum,
+                        "preempted": ts.preempted,
+                        "priority": ts.priority,
+                    }
+                    for aid, ts in self._slices.items()
+                },
             }
 
 

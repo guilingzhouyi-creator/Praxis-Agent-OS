@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestL3AInbox:
     def test_importable(self):
         from l3.cell.peers.l3a.inbox import PromptInbox
+
         assert callable(PromptInbox)

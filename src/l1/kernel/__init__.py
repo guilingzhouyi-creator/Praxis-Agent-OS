@@ -103,8 +103,7 @@ def flush_audit_buffer() -> None:
         _thread_audit_buffer.entries = []
 
 
-def record_audit(op: str, agent_id: str, success: bool = True,
-                 error: str = "", detail: str = "") -> None:
+def record_audit(op: str, agent_id: str, success: bool = True, error: str = "", detail: str = "") -> None:
     """Record an arbitrary event in the syscall audit trail."""
     result = {"success": success, "error": error}
     _audit(op, agent_id, result, detail)
@@ -182,8 +181,7 @@ def syscall(op: str, *args, **kwargs) -> dict:
     if entry is None:
         _syscall_total += 1
         _syscall_failures += 1
-        return {"success": False, "error": f"EINVAL: unknown syscall '{op}'",
-                "error_code": "EINVAL"}
+        return {"success": False, "error": f"EINVAL: unknown syscall '{op}'", "error_code": "EINVAL"}
     handler, precomputed_sub = entry
     t0 = time.perf_counter()
     try:
@@ -205,6 +203,7 @@ def syscall(op: str, *args, **kwargs) -> dict:
 
 
 # ── Built-in syscall handlers ──
+
 
 def _sys_mutex(agent_id: str, kw: dict) -> dict:
     sub = kw.pop("_sub", "acquire")
@@ -238,26 +237,36 @@ def _sys_condition(agent_id: str, kw: dict) -> dict:
 def _sys_signal(agent_id: str, kw: dict) -> dict:
     sub = kw.get("_sub", "emit")
     bus = get_event_bus()
-    sig = Signal(type=SignalType[kw.get("type", SYSCALL_DEFAULT_SIGNAL_TYPE).upper()],
-                 sender=agent_id, target=kw.get("target", ""), data=kw.get("data", {}))
+    sig = Signal(
+        type=SignalType[kw.get("type", SYSCALL_DEFAULT_SIGNAL_TYPE).upper()],
+        sender=agent_id,
+        target=kw.get("target", ""),
+        data=kw.get("data", {}),
+    )
     return {"dispatched": getattr(bus, sub)(sig)}
 
 
 def _sys_resource(agent_id: str, kw: dict) -> dict:
     sub = kw.get("_sub", "check")
     lm = get_limiter()
-    return getattr(lm, sub)(agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE),
-                            kw.get("cost", SYSCALL_DEFAULT_COST))
+    return getattr(lm, sub)(
+        agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE), kw.get("cost", SYSCALL_DEFAULT_COST)
+    )
 
 
 def _sys_process(agent_id: str, kw: dict) -> dict:
     sub = kw.get("_sub", "list")
     pt = get_table()
     if sub == "spawn":
-        return {"success": True, "pid": pt.spawn(
-            kw.get("name", ""), kw.get("role", ""),
-            kw.get("parent_pid", 0), kw.get("ring", SYSCALL_DEFAULT_RING),
-        ).pid}
+        return {
+            "success": True,
+            "pid": pt.spawn(
+                kw.get("name", ""),
+                kw.get("role", ""),
+                kw.get("parent_pid", 0),
+                kw.get("ring", SYSCALL_DEFAULT_RING),
+            ).pid,
+        }
     if sub == "exit":
         return {"success": pt.exit(kw.get("pid", 0), kw.get("exit_code", 0), kw.get("reason", ""))}
     if sub == "list":
@@ -269,11 +278,11 @@ def _sys_alloc(agent_id: str, kw: dict) -> dict:
     sub = kw.get("_sub", "usage")
     al = get_allocator()
     if sub == "alloc":
-        return al.alloc(agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE),
-                        kw.get("amount", 1), kw.get("purpose", ""))
+        return al.alloc(
+            agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE), kw.get("amount", 1), kw.get("purpose", "")
+        )
     if sub == "free":
-        return al.free(agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE),
-                       kw.get("amount", 1))
+        return al.free(agent_id, kw.get("resource", SYSCALL_DEFAULT_RESOURCE), kw.get("amount", 1))
     if sub == "usage":
         return {"success": True, "usage": al.usage(agent_id)}
     return {"success": False, "error": f"unknown alloc op: {sub}"}
@@ -287,14 +296,14 @@ def _register_builtin_syscalls() -> None:
     for unrecognized operations instead of ENOSYS/AttributeError.
     """
     _groups: dict[str, tuple[Any, list[str]]] = {
-        "mutex":     (_sys_mutex,     ["acquire", "release", "status"]),
+        "mutex": (_sys_mutex, ["acquire", "release", "status"]),
         "semaphore": (_sys_semaphore, ["acquire", "release", "status"]),
-        "barrier":   (_sys_barrier,   ["wait", "reset"]),
+        "barrier": (_sys_barrier, ["wait", "reset"]),
         "condition": (_sys_condition, ["wait", "signal", "broadcast"]),
-        "signal":    (_sys_signal,    ["emit", "on", "off"]),
-        "resource":  (_sys_resource,  ["check", "release", "usage"]),
-        "process":   (_sys_process,   ["spawn", "exit", "list"]),
-        "alloc":     (_sys_alloc,     ["alloc", "free", "usage"]),
+        "signal": (_sys_signal, ["emit", "on", "off"]),
+        "resource": (_sys_resource, ["check", "release", "usage"]),
+        "process": (_sys_process, ["spawn", "exit", "list"]),
+        "alloc": (_sys_alloc, ["alloc", "free", "usage"]),
     }
     for group, (handler, subs) in _groups.items():
         for sub in subs:
@@ -303,8 +312,8 @@ def _register_builtin_syscalls() -> None:
 
 _register_builtin_syscalls()
 
-def emit_signal(signal_type: str, sender: str = "system", target: str = "",
-                data: dict | None = None) -> int:
+
+def emit_signal(signal_type: str, sender: str = "system", target: str = "", data: dict | None = None) -> int:
     """Emit a typed signal onto the kernel event bus.
 
     Resolves the type against static enum members first (uppercased), then falls
@@ -321,15 +330,18 @@ def emit_signal(signal_type: str, sender: str = "system", target: str = "",
 def push_event(event_type: str, data: dict | None = None) -> None:
     """Push an event to the kernel event bus (migrated from server.py)."""
     from .params.agent import EVENT_TASK_ASSIGN
-    emit_signal(EVENT_TASK_ASSIGN, sender="l1.kernel.push_event", target="cell",
-                data={"type": event_type, **(data or {})})
+
+    emit_signal(
+        EVENT_TASK_ASSIGN, sender="l1.kernel.push_event", target="cell", data={"type": event_type, **(data or {})}
+    )
 
 
 def health() -> dict:
     """Kernel health check — probes all kernel modules."""
     import time as _t
+
     probes = [
-        ("sync",  lambda: len(get_mutex("_h").status()) > 0),
+        ("sync", lambda: len(get_mutex("_h").status()) > 0),
         ("event", lambda: get_event_bus().stats() is not None),
         ("constitution", lambda: len(get_constitution().rules_list()) > 0),
         ("allocator", lambda: get_allocator().summary() is not None),
@@ -345,8 +357,10 @@ def health() -> dict:
         t0 = _t.time()
         try:
             ok = fn()
-            results[name] = {"status": GateStatus.PASS if ok else "FAIL",
-                             "elapsed_ms": round((_t.time() - t0) * 1000, 1)}
+            results[name] = {
+                "status": GateStatus.PASS if ok else "FAIL",
+                "elapsed_ms": round((_t.time() - t0) * 1000, 1),
+            }
             if not ok:
                 all_ok = False
         except Exception as e:
@@ -366,15 +380,19 @@ def health() -> dict:
         }
     except Exception:
         metrics = {}
-    return {"status": GateStatus.PASS if all_ok else "FAIL",
-            "modules": results, "module_count": len(probes), "metrics": metrics}
+    return {
+        "status": GateStatus.PASS if all_ok else "FAIL",
+        "modules": results,
+        "module_count": len(probes),
+        "metrics": metrics,
+    }
 
 
-def register_process(name: str, role: str = "", ring: int = SYSCALL_DEFAULT_RING,
-                     agent_id: str = SYSCALL_REGISTER_DEFAULT_AGENT) -> int:
+def register_process(
+    name: str, role: str = "", ring: int = SYSCALL_DEFAULT_RING, agent_id: str = SYSCALL_REGISTER_DEFAULT_AGENT
+) -> int:
     """Register a process via syscall and return its pid."""
-    return syscall("process.spawn", agent_id=agent_id,
-                   name=name, role=role, ring=ring).get("pid", 0)
+    return syscall("process.spawn", agent_id=agent_id, name=name, role=role, ring=ring).get("pid", 0)
 
 
 __all__ = [

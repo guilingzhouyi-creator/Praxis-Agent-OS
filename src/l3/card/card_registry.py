@@ -87,8 +87,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
 
     # ── Completion subscription (external closed-loop callbacks) ──
 
-    def register_completion_listener(self,
-                                     callback: Callable[[str, str, dict], None]) -> None:
+    def register_completion_listener(self, callback: Callable[[str, str, dict], None]) -> None:
         """Register a global completion callback fired for every card completion.
 
         Unlike ``subscribe`` (per-card, consumed once), global listeners are
@@ -106,8 +105,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             except ValueError:
                 logger.debug("card_registry: completion listener not registered")
 
-    def subscribe(self, card_id: str,
-                  callback: Callable[[str, str, dict], None]) -> None:
+    def subscribe(self, card_id: str, callback: Callable[[str, str, dict], None]) -> None:
         """Register a completion callback for a card.
 
         Callback signature: (card_id, state, result) — fired on COMPLETED,
@@ -124,12 +122,9 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             if callback is None:
                 del self._subscribers[card_id]
             else:
-                self._subscribers[card_id] = [
-                    cb for cb in self._subscribers[card_id] if cb != callback
-                ]
+                self._subscribers[card_id] = [cb for cb in self._subscribers[card_id] if cb != callback]
 
-    def _notify_subscribers(self, card_id: str, state: str,
-                            result: dict | None = None) -> None:
+    def _notify_subscribers(self, card_id: str, state: str, result: dict | None = None) -> None:
         with self._lock:
             callbacks = list(self._subscribers.get(card_id, []))
         for cb in callbacks:
@@ -157,11 +152,14 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             record.state = CardLifecycle.QUEUED
             if not restored and card_id not in self._queue:
                 self._queue.append(card_id)
-                self._queue.sort(key=lambda x: self._cards[x].priority
-                                 if x in self._cards else 5)
+                self._queue.sort(key=lambda x: self._cards[x].priority if x in self._cards else 5)
         logger.info("card approved: %s", card_id)
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "event": "approved"})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="registry",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "event": "approved"},
+        )
         return {"success": True, "card_id": card_id, "state": "QUEUED"}
 
     def reject(self, card_id: str, reason: str = "") -> dict:
@@ -185,13 +183,17 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                     dep.state = CardLifecycle.CANCELLED
                     if dep_cid in self._queue:
                         self._queue.remove(dep_cid)
-        logger.info("card rejected: %s (reason=%s, dependents=%d)",
-                    card_id, reason[:LOG_TRUNC_40] or "none", len(dependents))
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "event": "rejected", "reason": reason[:LOG_TRUNC_80]})
+        logger.info(
+            "card rejected: %s (reason=%s, dependents=%d)", card_id, reason[:LOG_TRUNC_40] or "none", len(dependents)
+        )
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="registry",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "event": "rejected", "reason": reason[:LOG_TRUNC_80]},
+        )
         self._notify_subscribers(card_id, CardLifecycle.CANCELLED.value, {"reason": reason})
-        return {"success": True, "card_id": card_id, "state": "CANCELLED",
-                "dependents_cancelled": len(dependents)}
+        return {"success": True, "card_id": card_id, "state": "CANCELLED", "dependents_cancelled": len(dependents)}
 
     def set_cell_resolver(self, resolver: Callable[[str], Any]) -> None:
         """Register the callable used to resolve a cell_id to a Cell object."""
@@ -205,7 +207,9 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             return
         self._dispatcher_running = True
         self._dispatcher_thread = threading.Thread(
-            target=self._dispatcher_loop, daemon=True, name="card-dispatcher",
+            target=self._dispatcher_loop,
+            daemon=True,
+            name="card-dispatcher",
         )
         self._dispatcher_thread.start()
         logger.info("card dispatcher started (poll every %.1fs)", CARD_DISPATCH_INTERVAL)
@@ -226,11 +230,15 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
 
     def _recheck_held(self) -> None:
         with self._lock:
-            held = [(cid, rec) for cid, rec in self._cards.items()
-                    if rec.state == CardLifecycle.QUEUED and rec.timestamps.dispatched_at > 0]
+            held = [
+                (cid, rec)
+                for cid, rec in self._cards.items()
+                if rec.state == CardLifecycle.QUEUED and rec.timestamps.dispatched_at > 0
+            ]
         for cid, rec in held:
             try:
                 from .card_gate import evaluate as _gate_evaluate
+
                 gate_r = _gate_evaluate(cid, intent=rec.summary.title, domain=rec.nature)
                 if gate_r.get("auto_approve", False):
                     logger.info("card %s un-held by card gate, re-queued", cid)
@@ -241,13 +249,20 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         now = time.time()
         with self._lock:
             for cid, rec in list(self._cards.items()):
-                if rec.state == CardLifecycle.QUEUED and (now - rec.timestamps.created_at) > CARD_STALE_ESCALATE_SECONDS:
+                if (
+                    rec.state == CardLifecycle.QUEUED
+                    and (now - rec.timestamps.created_at) > CARD_STALE_ESCALATE_SECONDS
+                ):
                     logger.warning("card %s stale (>1h), escalating", cid)
                     rec.state = CardLifecycle.CANCELLED
                     if cid in self._queue:
                         self._queue.remove(cid)
-                    emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
-                                 data={"card_id": cid, "event": "stale_escalated"})
+                    emit_signal(
+                        EVENT_TASK_ASSIGN,
+                        sender="registry",
+                        target=SIGNAL_TARGET_L3,
+                        data={"card_id": cid, "event": "stale_escalated"},
+                    )
 
     # ── Placeholder system ──
 
@@ -320,11 +335,12 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             # Prefer CardUnified directly (new architecture), fall back to
             # raw intent string for simple dispatch.
             structured_card = None
-            if hasattr(record, 'phases') and any(p.tasks for p in record.phases):
+            if hasattr(record, "phases") and any(p.tasks for p in record.phases):
                 structured_card = record  # CardUnified is natively supported
 
         try:
             from .card_gate import evaluate as _gate_evaluate
+
             gate_r = _gate_evaluate(cid, intent=intent, domain=domain)
         except Exception:
             gate_r = {"auto_approve": True, "action": "dispatch"}
@@ -340,6 +356,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             dependents = self._find_dependents(cid)
             for dep_cid in dependents:
                 from l3.card.pending_queue import get_queue
+
                 dep_rec = self._cards.get(dep_cid)
                 if dep_rec:
                     get_queue().enqueue(
@@ -393,11 +410,7 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             logger.warning("card %s dispatch failed: %s", cid, e)
             self.complete(cid, error=str(e))
 
-
-
     # ── Assembly CONFERENCE routing ──
-
-
 
     # ── Persistence ──
 
@@ -427,13 +440,17 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         """Generate an execution plan for a card via the LLM, falling back to a default."""
         try:
             from l4.llm.llm import get_engine as _ge
+
             engine = _ge()
             from l1.kernel.prompts import get_prompt as _gp
+
             prompt = _gp("card_registry.generate_plan", "").format(intent=intent, domain=domain)
-            r = engine.generate(prompt,
-                                system=_gp("card_registry.generate_plan.system", "You are a planning assistant."),
-                                max_tokens=PLAN_GENERATION_MAX_TOKENS,
-                                **_get_model_service().resolve_dict(_MODEL_SPEC))
+            r = engine.generate(
+                prompt,
+                system=_gp("card_registry.generate_plan.system", "You are a planning assistant."),
+                max_tokens=PLAN_GENERATION_MAX_TOKENS,
+                **_get_model_service().resolve_dict(_MODEL_SPEC),
+            )
             content = r.get("content", "")
             plan = json.loads(content.strip().removeprefix("```json").removesuffix("```").strip())
             if not isinstance(plan, dict):
@@ -445,8 +462,13 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         except Exception:
             return {
                 "summary": intent[:LOG_TRUNC_80],
-                "steps": [{"action": "think", "target": intent[:LOG_TRUNC_40],
-                           "description": f"Process: {intent[:LOG_TRUNC_60]}"}],
+                "steps": [
+                    {
+                        "action": "think",
+                        "target": intent[:LOG_TRUNC_40],
+                        "description": f"Process: {intent[:LOG_TRUNC_60]}",
+                    }
+                ],
                 "estimated_files": 1,
                 "estimated_lines": 50,
                 "verification": "manual review",
@@ -474,15 +496,19 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
 
     # ── Submit ──
 
-    def submit(self, intent: str, domain: str = "",
-               priority: int = 5, card_id: str = "",
-               depends_on: list[str] | None = None) -> str:
+    def submit(
+        self, intent: str, domain: str = "", priority: int = 5, card_id: str = "", depends_on: list[str] | None = None
+    ) -> str:
         """Submit a card to the queue and return its id (empty if the queue is full)."""
         cid = card_id or f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
         with self._lock:
             if len(self._queue) >= CARD_QUEUE_PENDING_MAX:
-                logger.warning("card queue full (%d/%d), rejecting: %s",
-                               len(self._queue), CARD_QUEUE_PENDING_MAX, intent[:LOG_TRUNC_40])
+                logger.warning(
+                    "card queue full (%d/%d), rejecting: %s",
+                    len(self._queue),
+                    CARD_QUEUE_PENDING_MAX,
+                    intent[:LOG_TRUNC_40],
+                )
                 return ""
         card = CardUnified(id=cid, priority=priority)
         card.summary = CardSummary(title=intent, description="", columns={"domain": domain})
@@ -493,10 +519,15 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
             self._queue.append(cid)
             self._queue.sort(key=lambda x: self._cards[x].priority if x in self._cards else 5)
         logger.info("card submitted: %s — %s", cid, intent[:LOG_TRUNC_60])
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
-                     data={"card_id": cid, "intent": intent[:LOG_TRUNC_60], "event": "submitted"})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="registry",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": cid, "intent": intent[:LOG_TRUNC_60], "event": "submitted"},
+        )
         try:
             from l3.bus.reference_channel import get_rc as _rc
+
             _rc().card_lifecycle(cid, intent, "submitted", nature="", size="")
         except Exception:
             logger.debug("card_registry: rc lifecycle submit failed")
@@ -526,14 +557,14 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 self._cell_map[cell_id]["active_cards"] += 1
 
         logger.info("card dispatched: %s → %s", card_id, cell_id)
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=cell_id,
-                     data={"card_id": card_id, "event": "dispatched"})
+        emit_signal(
+            EVENT_TASK_ASSIGN, sender="registry", target=cell_id, data={"card_id": card_id, "event": "dispatched"}
+        )
         return {"success": True, "card_id": card_id, "cell_id": cell_id}
 
     # ── Complete / Cancel ──
 
-    def complete(self, card_id: str, result: dict | None = None,
-                 error: str = "") -> bool:
+    def complete(self, card_id: str, result: dict | None = None, error: str = "") -> bool:
         """Complete or fail a card, notify subscribers, and fire lifecycle events."""
         with self._lock:
             record = self._cards.get(card_id)
@@ -548,8 +579,12 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 cell["active_cards"] = max(0, cell["active_cards"] - 1)
             if card_id in self._queue:
                 self._queue.remove(card_id)
-        emit_signal(EVENT_TASK_ASSIGN, sender="registry", target=SIGNAL_TARGET_L3,
-                     data={"card_id": card_id, "state": record.state.value, "event": "completed"})
+        emit_signal(
+            EVENT_TASK_ASSIGN,
+            sender="registry",
+            target=SIGNAL_TARGET_L3,
+            data={"card_id": card_id, "state": record.state.value, "event": "completed"},
+        )
         # ── Completion subscribers (L3A session closed loop) ──
         self._notify_subscribers(card_id, record.state.value, result or {"error": error})
         # ── Global completion listeners (system services: CI review, ...) ──
@@ -561,19 +596,26 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         # ── Task completion bus: fire webhooks ──
         try:
             from l3.bus.task_bus import get_task_bus
-            get_task_bus().dispatch(card_id, record.state.value, {
-                "intent": record.summary.columns.get("intent", record.summary.title) if record.summary else "",
-                "domain": record.summary.columns.get("domain", "") if record.summary else "",
-                "result": result or {},
-                "error": error,
-                "elapsed": time.time() - record.timestamps.created_at if hasattr(record, 'timestamps') else 0,
-            })
+
+            get_task_bus().dispatch(
+                card_id,
+                record.state.value,
+                {
+                    "intent": record.summary.columns.get("intent", record.summary.title) if record.summary else "",
+                    "domain": record.summary.columns.get("domain", "") if record.summary else "",
+                    "result": result or {},
+                    "error": error,
+                    "elapsed": time.time() - record.timestamps.created_at if hasattr(record, "timestamps") else 0,
+                },
+            )
         except Exception as e:
             logger.warning("task_bus dispatch failed: %s", e)
         try:
             from l3.bus.reference_channel import get_rc as _rc
-            _rc().card_lifecycle(card_id, record.summary.title if record.summary else "",
-                                 record.state.value, error=error)
+
+            _rc().card_lifecycle(
+                card_id, record.summary.title if record.summary else "", record.state.value, error=error
+            )
         except Exception:
             logger.debug("card_registry: rc lifecycle update failed")
         return True
@@ -600,8 +642,9 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
         with self._lock:
             return self._cards.get(card_id)
 
-    def list(self, state: CardLifecycle | str | None = None,
-             cell_id: str = "", domain: str = "", limit: int = 50) -> list[dict]:
+    def list(
+        self, state: CardLifecycle | str | None = None, cell_id: str = "", domain: str = "", limit: int = 50
+    ) -> list[dict]:
         """List cards as dicts, filtered by state, cell, and domain, newest first."""
         with self._lock:
             result = []
@@ -645,8 +688,6 @@ class CardRegistry(CardExecutionStatsMixin, CardConventionMixin, PersistableMixi
                 "cells": len(self._cell_map),
                 "by_state": states,
             }
-
-
 
     def _match_cell(self, domain: str) -> str:
         best_cell = ""

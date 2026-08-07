@@ -198,7 +198,12 @@ class OpenAIProvider(_ProviderHelperMixin):
             return {"content": "", "tool_calls": [], "tokens": 0, "model": self.model, "error": str(e)}
 
     def generate(
-        self, prompt: str, system: str = "", max_tokens: int = 512, user_id: str = "", cache_retention: float = 0,
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = 512,
+        user_id: str = "",
+        cache_retention: float = 0,
         **kwargs,
     ) -> dict:
         """Generate a completion for the prompt via the OpenAI-compatible API."""

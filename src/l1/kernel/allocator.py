@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Allocation:
     """Allocation — allocation record (agent_id, resource, amount, allocated_at, expires_at)."""
+
     agent_id: str
     resource: str
     amount: int
@@ -102,6 +103,7 @@ class Allocator:
         _pcb_thread_buffer.entries = []
         try:
             from .process import get_table
+
             table = get_table()
             for agent_id, resource, amount, is_alloc in buf:
                 pcb = table.get_by_name(agent_id)
@@ -115,8 +117,9 @@ class Allocator:
         except Exception as e:
             logger.warning("allocator pcb update: %s", e)
 
-    def alloc(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT,
-              purpose: str = "", ttl: float = 0.0) -> dict:
+    def alloc(
+        self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT, purpose: str = "", ttl: float = 0.0
+    ) -> dict:
         """Allocate a resource amount for an agent. Triggers reclamation or OOM kill when limits are exceeded."""
         with self._lock:
             self._pressure_cache = None
@@ -131,22 +134,35 @@ class Allocator:
                 freed = self._reclaim_locked(agent_id, resource, amount - available)
                 available += freed
                 if available < amount:
-                    fire(InterruptType.RESOURCE_EXHAUSTION, agent_id=agent_id,
-                         reason=f"{resource} exhausted ({used}/{limit})",
-                         data={"resource": resource, "used": used, "limit": limit})
+                    fire(
+                        InterruptType.RESOURCE_EXHAUSTION,
+                        agent_id=agent_id,
+                        reason=f"{resource} exhausted ({used}/{limit})",
+                        data={"resource": resource, "used": used, "limit": limit},
+                    )
                     victim_freed = self._oom_kill(agent_id, resource, amount - available)
                     available += victim_freed
                     if available < amount:
-                        return {"success": False, "error": f"{resource} exhausted ({used}/{limit})",
-                                "used": used, "limit": limit, "pressure": True, "oom": True}
+                        return {
+                            "success": False,
+                            "error": f"{resource} exhausted ({used}/{limit})",
+                            "used": used,
+                            "limit": limit,
+                            "pressure": True,
+                            "oom": True,
+                        }
 
-            alloc = Allocation(agent_id=agent_id, resource=resource, amount=amount,
-                               purpose=purpose, expires_at=time.time() + ttl if ttl else 0)
+            alloc = Allocation(
+                agent_id=agent_id,
+                resource=resource,
+                amount=amount,
+                purpose=purpose,
+                expires_at=time.time() + ttl if ttl else 0,
+            )
             allocs.append(alloc)
             counter[resource] = counter.get(resource, 0) + amount
             self._update_pcb(agent_id, resource, amount, is_alloc=True)
-            return {"success": True, "used": used + amount, "limit": limit,
-                    "remaining": limit - used - amount}
+            return {"success": True, "used": used + amount, "limit": limit, "remaining": limit - used - amount}
 
     def free(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT) -> dict:
         """Release a resource amount back to the agent's pool."""
@@ -198,8 +214,11 @@ class Allocator:
             for resource, stats in usage.items():
                 if stats["pct"] >= threshold:
                     agents_under_pressure.append({"agent_id": agent_id, "resource": resource, **stats})
-        result = {"under_pressure": len(agents_under_pressure) > 0,
-                  "agents": agents_under_pressure, "count": len(agents_under_pressure)}
+        result = {
+            "under_pressure": len(agents_under_pressure) > 0,
+            "agents": agents_under_pressure,
+            "count": len(agents_under_pressure),
+        }
         with self._lock:
             self._pressure_cache = (threshold, result)
         return result
@@ -269,26 +288,35 @@ class Allocator:
                 prev = victim_counter.get(resource, 0)
                 victim_counter[resource] = max(0, prev - freed)
 
-        fire(InterruptType.OOM_KILL, agent_id=victim,
-             reason=f"killed by OOM for {resource} (priority={prio}, reclaimed={freed})",
-             data={"requesting_agent": requesting_agent, "resource": resource,
-                   "needed": needed, "reclaimed": freed})
+        fire(
+            InterruptType.OOM_KILL,
+            agent_id=victim,
+            reason=f"killed by OOM for {resource} (priority={prio}, reclaimed={freed})",
+            data={"requesting_agent": requesting_agent, "resource": resource, "needed": needed, "reclaimed": freed},
+        )
 
         # Terminate the victim process via PCB exit (which uses FSM "crash" transition)
         try:
             from .process import get_table
+
             pcb = get_table().get_by_name(victim)
             if pcb:
                 get_table().exit(pcb.pid, exit_code=PROCESS_OOM_EXIT_CODE, reason=f"OOM killed for {resource}")
         except Exception as e:
             logger.warning("allocator pcb update: %s", e)
 
-        logger.critical("OOM: killed %s (priority=%d), reclaimed %d %s for %s",
-                        victim, prio, freed, resource, requesting_agent)
+        logger.critical(
+            "OOM: killed %s (priority=%d), reclaimed %d %s for %s", victim, prio, freed, resource, requesting_agent
+        )
         return freed
 
-    def swap_out(self, agent_id: str, resource: str = ALLOCATOR_SWAP_SOURCE,
-                 target_resource: str = ALLOCATOR_SWAP_TARGET, count: int = ALLOCATOR_SWAP_COUNT) -> dict:
+    def swap_out(
+        self,
+        agent_id: str,
+        resource: str = ALLOCATOR_SWAP_SOURCE,
+        target_resource: str = ALLOCATOR_SWAP_TARGET,
+        count: int = ALLOCATOR_SWAP_COUNT,
+    ) -> dict:
         """Move allocations to colder resource (like swap to disk).
 
         ring2 → ring3: rename resource tag.
@@ -308,10 +336,16 @@ class Allocator:
                 if target_resource == ALLOCATOR_DISK_RESOURCE:
                     try:
                         from .persist import append
-                        append("allocator.swap_out", {
-                            "agent_id": agent_id, "resource": str(a.resource),
-                            "amount": a.amount, "purpose": a.purpose,
-                        })
+
+                        append(
+                            "allocator.swap_out",
+                            {
+                                "agent_id": agent_id,
+                                "resource": str(a.resource),
+                                "amount": a.amount,
+                                "purpose": a.purpose,
+                            },
+                        )
                     except Exception as e:
                         logger.warning("kernel/allocator: %s", e)
                     allocs.remove(a)

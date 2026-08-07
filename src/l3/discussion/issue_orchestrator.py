@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DiscussionSession:
     """One complete discussion lifecycle for a single IssueCard."""
+
     id: str = ""
     issue_card_id: str = ""
     status: str = "pending"
@@ -74,13 +75,13 @@ class IssueOrchestrator:
         # Register with IssueTable
         try:
             from l3.card.issue import get_table
+
             table = get_table()
             table.set_status(issue_card.id, "DELIBERATING")
         except Exception as e:
             logger.warning("orchestrator: issue table update: %s", e)
 
-        logger.info("orchestrator: started discussion %s for issue %s",
-                     session_id, getattr(issue_card, "id", "?"))
+        logger.info("orchestrator: started discussion %s for issue %s", session_id, getattr(issue_card, "id", "?"))
 
         return {"success": True, "session_id": session_id}
 
@@ -94,9 +95,7 @@ class IssueOrchestrator:
                 session.participating_cells.append(cell_id)
             return {"success": True, "cell_id": cell_id}
 
-    def process_cell_completion(self, session_id: str, cell_id: str,
-                                 answer_count: int,
-                                 supplement_count: int) -> dict:
+    def process_cell_completion(self, session_id: str, cell_id: str, answer_count: int, supplement_count: int) -> dict:
         """Called when a Cell completes its AnswerSession.
 
         Collects the result.  When all Cells complete, triggers aggregation.
@@ -115,19 +114,22 @@ class IssueOrchestrator:
             if set(session.completed_cells) >= set(session.participating_cells):
                 return self._finalize(session)
 
-        return {"success": True, "session_id": session_id,
-                "completed": len(session.completed_cells),
-                "total": len(session.participating_cells)}
+        return {
+            "success": True,
+            "session_id": session_id,
+            "completed": len(session.completed_cells),
+            "total": len(session.participating_cells),
+        }
 
     def _finalize(self, session: DiscussionSession) -> dict:
         """All Cells completed — trigger aggregation and reporting."""
         session.phase = 5
-        logger.info("orchestrator: all %d cells completed for %s",
-                     len(session.participating_cells), session.id)
+        logger.info("orchestrator: all %d cells completed for %s", len(session.participating_cells), session.id)
 
         # Trigger AnswerAggregator
         try:
             from .answer_aggregator import AnswerAggregator
+
             aggregator = AnswerAggregator()
             report = aggregator.collect(session.id)
             session.report_ref = report.get("session_id", "")
@@ -144,23 +146,31 @@ class IssueOrchestrator:
             # Push report via bus event
             try:
                 from l1.kernel import get_event_bus
+
                 bus = get_event_bus()
-                bus.emit_event("discussion.completed", data={
-                    "session_id": session.id,
-                    "issue_card_id": session.issue_card_id,
-                    "status": "completed",
-                    "total_answers": session.total_answers,
-                    "supplements": len(supplements),
-                })
+                bus.emit_event(
+                    "discussion.completed",
+                    data={
+                        "session_id": session.id,
+                        "issue_card_id": session.issue_card_id,
+                        "status": "completed",
+                        "total_answers": session.total_answers,
+                        "supplements": len(supplements),
+                    },
+                )
                 # Phase G: discussion completion also lands in StatsCenter so
                 # RC time series cover the L3A discussion domain.
                 try:
                     from l3.services.stats_center import MetricPoint, get_center
 
                     get_center().ingest(
-                        MetricPoint(name="discussion.completed", value=1.0,
-                                    tags={"source": "issue_orchestrator", "session_id": session.id},
-                                    timestamp=__import__("time").time(), metric_type="counter")
+                        MetricPoint(
+                            name="discussion.completed",
+                            value=1.0,
+                            tags={"source": "issue_orchestrator", "session_id": session.id},
+                            timestamp=__import__("time").time(),
+                            metric_type="counter",
+                        )
                     )
                 except Exception:
                     logger.debug("issue_orchestrator: discussion metric ingest failed")
@@ -172,14 +182,13 @@ class IssueOrchestrator:
             session.status = "failed"
             return {"success": False, "error": str(e)}
 
-        return {"success": True, "session_id": session.id,
-                "status": "completed", "report_ref": session.report_ref}
+        return {"success": True, "session_id": session.id, "status": "completed", "report_ref": session.report_ref}
 
-    def _route_supplements(self, session: DiscussionSession,
-                           supplements: list[dict]) -> None:
+    def _route_supplements(self, session: DiscussionSession, supplements: list[dict]) -> None:
         """Route supplement issues back through IssueTable."""
         try:
             from .supplement_manager import SupplementManager
+
             mgr = SupplementManager()
             classified = mgr.classify(supplements)
             for item in classified.get("cross_cell", []):
@@ -202,11 +211,15 @@ class IssueOrchestrator:
         if status:
             sessions = [s for s in sessions if s.status == status]
         return [
-            {"id": s.id, "issue_card_id": s.issue_card_id,
-             "status": s.status, "cells": len(s.participating_cells),
-             "completed_cells": len(s.completed_cells),
-             "answers": s.total_answers,
-             "created_at": s.created_at}
+            {
+                "id": s.id,
+                "issue_card_id": s.issue_card_id,
+                "status": s.status,
+                "cells": len(s.participating_cells),
+                "completed_cells": len(s.completed_cells),
+                "answers": s.total_answers,
+                "created_at": s.created_at,
+            }
             for s in sorted(sessions, key=lambda x: x.created_at, reverse=True)
         ]
 
@@ -215,10 +228,8 @@ class IssueOrchestrator:
         with self._lock:
             return {
                 "total_sessions": len(self._sessions),
-                "active": sum(1 for s in self._sessions.values()
-                              if s.status == "in_progress"),
-                "completed": sum(1 for s in self._sessions.values()
-                                 if s.status == "completed"),
+                "active": sum(1 for s in self._sessions.values() if s.status == "in_progress"),
+                "completed": sum(1 for s in self._sessions.values() if s.status == "completed"),
             }
 
 

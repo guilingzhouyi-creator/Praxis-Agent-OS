@@ -33,6 +33,7 @@ class CardPool:
             import yaml
 
             from l1.kernel.paths import get_paths
+
             cfg_path = get_paths().config_file
             if os.path.exists(cfg_path):
                 with open(cfg_path, encoding="utf-8") as f:
@@ -47,10 +48,12 @@ class CardPool:
     def install_from_url(self, url: str) -> dict:
         """Download and register a card definition from URL."""
         from l3.net_client import NetClient
+
         r = NetClient.download(url)
         if not r.get("success"):
             return r
         import yaml
+
         try:
             defn = yaml.safe_load(r["content"])
         except Exception as e:
@@ -63,6 +66,7 @@ class CardPool:
             return {"success": False, "error": f"file not found: {path}"}
         try:
             import yaml
+
             with open(path, encoding="utf-8") as f:
                 defn = yaml.safe_load(f)
         except Exception as e:
@@ -80,34 +84,38 @@ class CardPool:
         metadata_schema = defn.get("metadata_schema", {})
 
         from .card_unified import register_card_type
-        register_card_type(name, {
-            "display": display,
-            "has_review": defn.get("has_review", False),
-            "phases": [p["name"] for p in phases] if isinstance(phases, list) else phases,
-            "default_prompts": defn.get("default_prompts", {}),
-            "metadata_schema": metadata_schema,
-        })
+
+        register_card_type(
+            name,
+            {
+                "display": display,
+                "has_review": defn.get("has_review", False),
+                "phases": [p["name"] for p in phases] if isinstance(phases, list) else phases,
+                "default_prompts": defn.get("default_prompts", {}),
+                "metadata_schema": metadata_schema,
+            },
+        )
         logger.info("card_pool: installed '%s' from %s (protocol=%s)", name, source, protocol)
-        return {"success": True, "name": name, "display": display,
-                "protocol": protocol, "source": source}
+        return {"success": True, "name": name, "display": display, "protocol": protocol, "source": source}
 
     # ── Export ──
 
     def export_to_file(self, name: str, path: str = "") -> dict:
         """Export a registered card type definition to YAML file."""
         from .card_unified import get_card_type
+
         defn = get_card_type(name)
         if not defn:
             return {"success": False, "error": f"unknown card type: {name}"}
         import yaml
+
         export = {
             "_cif_version": "1.0",
             "name": name,
             "protocol": "universal",
             "display": defn.get("display", name),
             "has_review": defn.get("has_review", False),
-            "phases": [{"name": p, "mode": "single", "tasks": []}
-                       for p in defn.get("phases", [])],
+            "phases": [{"name": p, "mode": "single", "tasks": []} for p in defn.get("phases", [])],
             "metadata_schema": defn.get("metadata_schema", {}),
         }
         out = path or CARD_YAML_EXPORT.format(name=name)
@@ -123,18 +131,19 @@ class CardPool:
     def search_remote(self, query: str, registry_url: str = "") -> dict:
         """Search card types across all configured remote registries."""
         from .card_registry_protocol import CardRegistryProtocol
+
         urls = [registry_url] if registry_url else [r["url"] for r in self._registries]
         all_results = []
         for url in urls:
             r = CardRegistryProtocol.search(url, query)
             if r.get("success"):
                 all_results.extend(r.get("cards", []))
-        return {"success": True, "cards": all_results, "count": len(all_results),
-                "registries": len(urls)}
+        return {"success": True, "cards": all_results, "count": len(all_results), "registries": len(urls)}
 
     def sync_from_peers(self) -> dict:
         """Sync card types from peer Praxis instances via network."""
         from l1.kernel.net import get_net
+
         net = get_net()
         peers = net.list_peers()
         imported = 0
@@ -153,6 +162,7 @@ class CardPool:
     def list_pool(self, category: str = "") -> dict:
         """List all registered card types."""
         from .card_unified import list_card_types
+
         types = list_card_types()
         if category:
             types = [t for t in types if t.get("name", "").startswith(category)]
@@ -161,6 +171,7 @@ class CardPool:
     def remove(self, name: str) -> dict:
         """Remove a card type from the registry."""
         from .card_unified import _card_type_registry, _registry_lock
+
         if name not in _card_type_registry:
             return {"success": False, "error": f"unknown card type: {name}"}
         with _registry_lock:

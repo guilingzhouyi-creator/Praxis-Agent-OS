@@ -11,6 +11,7 @@ class TestSessionExport:
 
     def test_export_basic(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.export_session(
             session_id="sess-001",
@@ -28,6 +29,7 @@ class TestSessionExport:
 
     def test_export_no_messages(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.export_session(agent_id="agent-b")
         assert r["success"]
@@ -39,6 +41,7 @@ class TestSessionImport:
 
     def test_import_valid(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         export = mgr.export_session(
             session_id="sess-002",
@@ -46,6 +49,7 @@ class TestSessionImport:
         )
         raw = export["data"]
         import json
+
         r = mgr.import_session(json.dumps(raw))
         assert r["success"]
         assert r["session_id"] == "sess-002"
@@ -53,12 +57,14 @@ class TestSessionImport:
 
     def test_import_invalid_json(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.import_session("not valid json")
         assert not r["success"]
 
     def test_import_empty(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.import_session("")
         assert not r["success"]
@@ -69,6 +75,7 @@ class TestSnapshot:
 
     def test_create_and_list(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.create_snapshot(
             session_id="sess-003",
@@ -89,6 +96,7 @@ class TestSnapshot:
 
     def test_restore_snapshot(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.create_snapshot(
             session_id="sess-restore",
@@ -105,12 +113,14 @@ class TestSnapshot:
 
     def test_restore_nonexistent(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.restore_snapshot("nonexistent-snap-id")
         assert not r["success"]
 
     def test_delete_snapshot(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.create_snapshot(session_id="sess-del", label="delete me")
         snap_id = r["snapshot_id"]
@@ -124,6 +134,7 @@ class TestSnapshot:
 
     def test_delete_nonexistent(self):
         from l3.services.session_export import SessionExportManager
+
         mgr = SessionExportManager()
         r = mgr.delete_snapshot("nonexistent")
         assert not r["success"]
@@ -134,11 +145,13 @@ class TestSessionExportModel:
 
     def test_version(self):
         from l3.services.session_export import SessionExport
+
         s = SessionExport()
         assert s.version == 2
 
     def test_to_json_roundtrip(self):
         from l3.services.session_export import SessionExport
+
         s = SessionExport(session_id="rt", messages=[{"role": "u", "content": "ok"}])
         raw = s.to_json()
         s2 = SessionExport.from_json(raw)
@@ -147,6 +160,7 @@ class TestSessionExportModel:
 
     def test_to_dict(self):
         from l3.services.session_export import SessionExport
+
         s = SessionExport(session_id="dict-test", tags=["a"])
         d = s.to_dict()
         assert d["version"] == 2
@@ -158,30 +172,36 @@ class TestApiHandlers:
 
     def test_handle_export(self):
         from l3.services.session_export import handle_session_export
+
         r = handle_session_export({"session_id": "api-export", "messages": []})
         assert r["success"]
 
     def test_handle_import(self):
         from l3.services.session_export import handle_session_import
+
         r = handle_session_import({"data": '{"version":2}'})
         assert r["success"]  # valid JSON with version=2 succeeds
 
     def test_handle_snapshots(self):
         from l3.services.session_export import handle_session_snapshots
+
         r = handle_session_snapshots()
         assert r["success"]
 
     def test_handle_create_snapshot(self):
         from l3.services.session_export import handle_session_snapshot_create
+
         r = handle_session_snapshot_create({"session_id": "api-snap"})
         assert r["success"]
 
     def test_handle_restore_nonexistent(self):
         from l3.services.session_export import handle_session_snapshot_restore
+
         r = handle_session_snapshot_restore({"snapshot_id": "no-such-snap"})
         assert not r["success"]
 
     def test_handle_delete_nonexistent(self):
         from l3.services.session_export import handle_session_snapshot_delete
+
         r = handle_session_snapshot_delete({"snapshot_id": "no-such-snap"})
         assert not r["success"]

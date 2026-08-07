@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 class CacheEntry:
     """CacheEntry — cache entry."""
-    def __init__(self, key: str, value: Any, tags: set[str] | None = None,
-                 ttl: float = FILE_CACHE_TTL):
+
+    def __init__(self, key: str, value: Any, tags: set[str] | None = None, ttl: float = FILE_CACHE_TTL):
         self.key = key
         self.value = value
         self.tags = tags or set()
@@ -70,8 +70,9 @@ class IsolatedCache:
         self._hits_by_agent: dict[str, int] = {}
         self._misses_by_agent: dict[str, int] = {}
 
-    def _make_key(self, raw_key: str, scope: str = "cell", agent_id: str = "",
-                  ring: int = 1, territory: list[str] | None = None) -> str:
+    def _make_key(
+        self, raw_key: str, scope: str = "cell", agent_id: str = "", ring: int = 1, territory: list[str] | None = None
+    ) -> str:
         """Build scoped cache key."""
         if scope == "agent" and agent_id:
             return f"{raw_key}::agent={agent_id}"
@@ -80,9 +81,9 @@ class IsolatedCache:
             return f"{raw_key}::agent={agent_id}::ring={ring}::territory={t}"
         return raw_key  # cell scope
 
-    def get(self, raw_key: str, scope: str = "cell",
-            agent_id: str = "", ring: int = 1,
-            territory: list[str] | None = None) -> Any | None:
+    def get(
+        self, raw_key: str, scope: str = "cell", agent_id: str = "", ring: int = 1, territory: list[str] | None = None
+    ) -> Any | None:
         """Get cache entry. Returns None on miss or expiry.
 
         Tracks per-agent hit/miss for both Scout and SubAgent delegation.
@@ -108,11 +109,17 @@ class IsolatedCache:
                 self._hits_by_agent[agent_id] = self._hits_by_agent.get(agent_id, 0) + 1
             return entry.value
 
-    def set(self, raw_key: str, value: Any, scope: str = "cell",
-            agent_id: str = "", ring: int = 1,
-            territory: list[str] | None = None,
-            tags: set[str] | None = None,
-            ttl: float = FILE_CACHE_TTL) -> None:
+    def set(
+        self,
+        raw_key: str,
+        value: Any,
+        scope: str = "cell",
+        agent_id: str = "",
+        ring: int = 1,
+        territory: list[str] | None = None,
+        tags: set[str] | None = None,
+        ttl: float = FILE_CACHE_TTL,
+    ) -> None:
         """Store cache entry with scoping."""
         key = self._make_key(raw_key, scope, agent_id, ring, territory)
         all_tags = set(tags or [])
@@ -129,8 +136,7 @@ class IsolatedCache:
             self._entries.move_to_end(key)
             self._evict()
 
-    def invalidate(self, raw_key: str, scope: str = "",
-                   agent_id: str = "") -> int:
+    def invalidate(self, raw_key: str, scope: str = "", agent_id: str = "") -> int:
         """Invalidate cache entries by raw_key.
 
         scope="" means all scopes.
@@ -205,6 +211,7 @@ class IsolatedCache:
 
 # ── Context register (unchanged, stays shared) ──
 
+
 class ContextRegister:
     """Cell-level shared context store — remains shared, no isolation."""
 
@@ -213,17 +220,23 @@ class ContextRegister:
         self._entries: list[dict] = []
         self._lock = threading.Lock()
 
-    def store(self, key: str, value: Any, agent_id: str = "",
-              entry_type: str = "observation", ttl: float = CACHE_DEFAULT_TTL) -> str:
+    def store(
+        self, key: str, value: Any, agent_id: str = "", entry_type: str = "observation", ttl: float = CACHE_DEFAULT_TTL
+    ) -> str:
         """Store a context entry; returns the assigned context register id."""
         with self._lock:
-            self._entries.append({
-                "key": key, "value": value, "agent_id": agent_id,
-                "type": entry_type, "timestamp": time.time(),
-                "expires_at": time.time() + ttl,
-            })
+            self._entries.append(
+                {
+                    "key": key,
+                    "value": value,
+                    "agent_id": agent_id,
+                    "type": entry_type,
+                    "timestamp": time.time(),
+                    "expires_at": time.time() + ttl,
+                }
+            )
             if len(self._entries) > self.max_entries:
-                self._entries = self._entries[-self.max_entries:]
+                self._entries = self._entries[-self.max_entries :]
             return f"ctx-{len(self._entries)}"
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -239,9 +252,17 @@ class ContextRegister:
         """Return the most recent unexpired context entries, up to limit."""
         now = time.time()
         with self._lock:
-            return [{"key": e["key"], "value": e["value"], "agent_id": e["agent_id"],
-                     "type": e["type"], "timestamp": e["timestamp"]}
-                    for e in self._entries[-limit:] if now < e.get("expires_at", now)]
+            return [
+                {
+                    "key": e["key"],
+                    "value": e["value"],
+                    "agent_id": e["agent_id"],
+                    "type": e["type"],
+                    "timestamp": e["timestamp"],
+                }
+                for e in self._entries[-limit:]
+                if now < e.get("expires_at", now)
+            ]
 
     def stats(self) -> dict:
         """Return context register occupancy statistics."""

@@ -13,14 +13,14 @@ class TestMonitorBusAdapter:
 
     def test_emit(self):
         from l4.adapters.monitor_bus import MonitorBusAdapter
+
         bus = MonitorBusAdapter()
-        bus.emit(type_="test.metric", source="agent-x",
-                 severity="info", message="hello", data={"value": 42})
+        bus.emit(type_="test.metric", source="agent-x", severity="info", message="hello", data={"value": 42})
 
     def test_query(self):
         from l4.adapters.monitor_bus import MonitorBusAdapter
+
         bus = MonitorBusAdapter()
-        bus.emit(type_="cpu.usage", source="agent-x",
-                 severity="info", message="cpu at 80", data={"percent": 80})
+        bus.emit(type_="cpu.usage", source="agent-x", severity="info", message="cpu at 80", data={"percent": 80})
         results = bus.query("cpu.usage")
         assert isinstance(results, list)

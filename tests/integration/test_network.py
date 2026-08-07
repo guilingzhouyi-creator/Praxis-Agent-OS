@@ -3,6 +3,7 @@
 MockTransport implements ``kernel.ports.TransportPort`` for isolated unit tests
 without real sockets.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,8 +17,10 @@ from l1.kernel.ports import Result as PortResult
 
 # ── Mock transport (TransportPort implementation) ──
 
+
 class MockTransport(TransportPort):
     """Simulates TransportPort without real sockets."""
+
     name = "mock"
 
     def __init__(self):
@@ -46,17 +49,20 @@ class MockTransport(TransportPort):
 class TestNetKernel:
     def test_create_default_transport(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel()
         assert nk._transport.name == "tcp"
 
     def test_create_with_mock(self):
         from l1.kernel.net import NetKernel
+
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         assert nk._transport is mock
 
     def test_start_stop_with_mock(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         r = nk.start(node_id="test-node", port=9999)
         assert r.get("success") if isinstance(r, dict) else r.success
@@ -65,9 +71,13 @@ class TestNetKernel:
 
     def test_register_handler(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         calls = []
-        def handler(msg): calls.append(msg)
+
+        def handler(msg):
+            calls.append(msg)
+
         nk.register_handler("foo", handler)
         nk._handlers["foo"]({"x": 1})
         assert len(calls) == 1
@@ -75,6 +85,7 @@ class TestNetKernel:
 
     def test_send_remote_no_peer(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         r = nk.send_remote("unknown-peer", {"type": "test"})
         assert not r.get("success")
@@ -84,11 +95,14 @@ class TestNetKernel:
         import time
 
         from l1.kernel.net import NetKernel, Peer
+
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         nk._node_id = "sender"
         nk._peers["peer-1"] = Peer(
-            id="peer-1", host="10.0.0.2", port=8888,
+            id="peer-1",
+            host="10.0.0.2",
+            port=8888,
             last_seen=time.time(),
         )
         r = nk.send_remote("peer-1", {"type": "card", "intent": "fix bug"})
@@ -98,6 +112,7 @@ class TestNetKernel:
         assert host == "10.0.0.2"
         assert port == 8888
         import json
+
         msg = json.loads(data.decode())
         assert msg["from"] == "sender"
         assert msg["type"] == "card"
@@ -107,6 +122,7 @@ class TestNetKernel:
         import time
 
         from l1.kernel.net import NetKernel, Peer
+
         mock = MockTransport()
         nk = NetKernel(transport=mock)
         now = time.time()
@@ -119,6 +135,7 @@ class TestNetKernel:
 
     def test_health_empty(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         h = nk.health()
         assert h["status"] == "lonely"
@@ -128,6 +145,7 @@ class TestNetKernel:
         import time
 
         from l1.kernel.net import NetKernel, Peer
+
         nk = NetKernel(transport=MockTransport())
         nk._peers["p1"] = Peer(id="p1", host="10.0.0.2", port=8888, last_seen=time.time())
         h = nk.health()
@@ -138,6 +156,7 @@ class TestNetKernel:
         import time
 
         from l1.kernel.net import NetKernel, Peer
+
         nk = NetKernel(transport=MockTransport())
         now = time.time()
         nk._peers["a"] = Peer(id="a", host="10.0.0.2", port=1111, last_seen=now)
@@ -147,15 +166,18 @@ class TestNetKernel:
 
     def test_peer_on_announce_new_peer(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         nk._node_id = "self-node"
-        nk._on_peer_announce({
-            "peer_id": "new-peer",
-            "host": "10.0.0.5",
-            "port": 7777,
-            "cells": 2,
-            "version": "1.0",
-        })
+        nk._on_peer_announce(
+            {
+                "peer_id": "new-peer",
+                "host": "10.0.0.5",
+                "port": 7777,
+                "cells": 2,
+                "version": "1.0",
+            }
+        )
         assert "new-peer" in nk._peers
         p = nk._peers["new-peer"]
         assert p.host == "10.0.0.5"
@@ -165,6 +187,7 @@ class TestNetKernel:
 
     def test_peer_on_announce_ignores_self(self):
         from l1.kernel.net import NetKernel
+
         nk = NetKernel(transport=MockTransport())
         nk._node_id = "self-node"
         nk._peers.clear()

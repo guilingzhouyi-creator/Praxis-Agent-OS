@@ -14,11 +14,13 @@ class TestAskUserDegrade:
 
     def test_requires_question(self):
         from l3.tools._comm import ask_user
+
         r = ask_user({}, "agent-a")
         assert r["success"] is False
 
     def test_degrade_mode_notify_only(self):
         from l3.tools._comm import ask_user
+
         with mock.patch("l3.tools._comm._log_pending_question") as log:
             r = ask_user({"question": "Target platform?"}, "agent-a")
         assert r["success"] is True
@@ -29,6 +31,7 @@ class TestAskUserDegrade:
 
     def test_confirm_degrade(self):
         from l3.tools._comm import confirm
+
         with mock.patch("l3.tools._comm._log_pending_question"):
             r = confirm({"message": "Proceed?"}, "agent-b")
         assert r["success"] is True
@@ -41,12 +44,14 @@ class TestAskUserL3A:
 
     def _make_l3a_session(self):
         from l3.cell.peers.l3a.session import Session
+
         return Session(session_id="l3a-comm", title="t")
 
     def test_routes_to_active_l3a_session(self):
         from l3.cell.peers.l3a import get_daemon
         from l3.cell.peers.l3a.session import SessionManager
         from l3.tools._comm import ask_user
+
         s = self._make_l3a_session()
         d = get_daemon()
         mgr = SessionManager()
@@ -65,6 +70,7 @@ class TestAskUserL3A:
         from l3.cell.peers.l3a import get_daemon
         from l3.cell.peers.l3a.session import SessionManager
         from l3.tools._comm import ask_user
+
         s = self._make_l3a_session()
         mgr = SessionManager()
         with mgr._lock:
@@ -76,6 +82,7 @@ class TestAskUserL3A:
 
     def test_non_l3a_agent_not_routed(self):
         from l3.tools._comm import ask_user
+
         with mock.patch("l3.tools._comm._log_pending_question") as log:
             r = ask_user({"question": "Q?"}, "agent-c")
         assert r["mode"] == "notify_only"
@@ -86,6 +93,7 @@ class TestAskUserL3A:
         from l3.cell.peers.l3a import get_daemon
         from l3.cell.peers.l3a.session import SessionManager
         from l3.tools._comm import confirm
+
         s = self._make_l3a_session()
         mgr = SessionManager()
         with mgr._lock:
@@ -100,6 +108,7 @@ class TestAskUserL3A:
         from l3.cell.peers.l3a import get_daemon
         from l3.cell.peers.l3a.session import SessionManager
         from l3.tools._comm import ask_user
+
         mgr = SessionManager()
         with mock.patch.object(get_daemon(), "manager", mgr):
             with mock.patch("l3.tools._comm._log_pending_question"):
@@ -110,6 +119,7 @@ class TestAskUserL3A:
 class TestPendingQuestions:
     def test_pending_questions_queries_memory(self):
         from l3.tools._comm import pending_questions
+
         with mock.patch("l3.memory.central_memory.get_l3a_memory") as gm:
             gm.return_value.recall.return_value = [
                 mock.Mock(content='{"agent_id": "agent-a", "question": "Q?", "asked_at": 1}'),
@@ -120,6 +130,7 @@ class TestPendingQuestions:
 
     def test_pending_questions_survives_memory_failure(self):
         from l3.tools._comm import pending_questions
+
         with mock.patch("l3.memory.central_memory.get_l3a_memory", side_effect=Exception("boom")):
             assert pending_questions() == []
 
@@ -127,12 +138,14 @@ class TestPendingQuestions:
 class TestOtherComm:
     def test_notify(self):
         from l3.tools._comm import notify
+
         with mock.patch("l4.notify.send_notification"):
             r = notify({"message": "hi"}, "agent-a")
         assert r["success"] is True
 
     def test_user_delete(self):
         from l3.tools._comm import user_delete
+
         r = user_delete({"user_id": "u1"}, "agent-a")
         assert r["success"] is True
         assert "approval gate" in r["message"]

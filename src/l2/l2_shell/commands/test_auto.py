@@ -22,5 +22,4 @@ def _cmd_test_auto(args: list[str]) -> dict:
         return {"success": True, **reset_auto_test()}
     if sub in ("off", "async"):
         return set_auto_test(sub, source="shell")
-    return {"success": False,
-            "error": f"unknown auto-test mode: {sub} (expected off|async|reset)"}
+    return {"success": False, "error": f"unknown auto-test mode: {sub} (expected off|async|reset)"}

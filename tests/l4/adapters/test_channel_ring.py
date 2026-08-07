@@ -15,6 +15,7 @@ class TestRingChannel:
 
     def test_put_and_get(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         ch.put("a")
         ch.put("b")
@@ -23,11 +24,13 @@ class TestRingChannel:
 
     def test_get_empty_returns_none(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         assert ch.get(timeout=0.01) is None
 
     def test_peek(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         ch.put("x")
         assert ch.peek(timeout=T) == "x"
@@ -35,6 +38,7 @@ class TestRingChannel:
 
     def test_size(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         assert ch.size() == 0
         ch.put("a")
@@ -43,11 +47,13 @@ class TestRingChannel:
 
     def test_capacity(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=10)
         assert ch.capacity() == 10
 
     def test_drain(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         ch.put("a")
         ch.put("b")
@@ -57,6 +63,7 @@ class TestRingChannel:
 
     def test_is_closed(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         assert not ch.is_closed()
         ch.close()
@@ -64,6 +71,7 @@ class TestRingChannel:
 
     def test_utilization(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4)
         assert ch.utilization() == 0.0
         ch.put("a")
@@ -71,6 +79,7 @@ class TestRingChannel:
 
     def test_put_over_capacity_overwrites_oldest(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=2, overwrite=True)
         ch.put("a")
         ch.put("b")
@@ -80,6 +89,7 @@ class TestRingChannel:
 
     def test_close_stops_put(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=4, overwrite=True)
         ch.close()
         ch.put("x")
@@ -87,6 +97,7 @@ class TestRingChannel:
 
     def test_concurrent_put_get(self):
         from l4.adapters.channel_ring import RingChannel
+
         ch = RingChannel(capacity=20, overwrite=True)
         for i in range(10):
             ch.put(i)

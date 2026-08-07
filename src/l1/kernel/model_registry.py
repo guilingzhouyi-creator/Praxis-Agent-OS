@@ -50,12 +50,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelInfo:
     """Descriptor for an available model."""
-    provider: str          # "openai", "anthropic", "ollama", ...
-    model: str             # model name, e.g. "gpt-4o", "llama3"
-    api_url: str           # endpoint URL
-    api_key: str = ""      # empty = not configured
+
+    provider: str  # "openai", "anthropic", "ollama", ...
+    model: str  # model name, e.g. "gpt-4o", "llama3"
+    api_url: str  # endpoint URL
+    api_key: str = ""  # empty = not configured
     status: str = "unknown"  # "ok" | "degraded" | "down" | "unknown"
-    source: str = "env"    # "env" | "yaml" | "network" | "manual"
+    source: str = "env"  # "env" | "yaml" | "network" | "manual"
 
 
 # ── Provider discovery descriptors ──
@@ -63,21 +64,18 @@ class ModelInfo:
 # Format: (provider_name, env_key, env_url, env_model, default_url, api_key_env)
 
 _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
-    ("openai",    ENV_OPENAI_KEY,    ENV_OPENAI_URL,    ENV_OPENAI_MODEL,
-     LLM_PROVIDER_URLS["openai"],
-     ENV_OPENAI_KEY),
-    ("deepseek",  ENV_DEEPSEEK_KEY,  "",                "",
-     LLM_PROVIDER_URLS["deepseek"],
-     ENV_DEEPSEEK_KEY),
-    ("anthropic", ENV_ANTHROPIC_KEY, ENV_ANTHROPIC_URL, ENV_ANTHROPIC_MODEL,
-     LLM_PROVIDER_URLS["anthropic"],
-     ENV_ANTHROPIC_KEY),
-    ("ollama",    "",                ENV_OLLAMA_URL,    ENV_OLLAMA_MODEL,
-     LLM_PROVIDER_URLS["ollama"],
-     ""),
-    ("websocket", "",                ENV_LLM_WS_URL,   ENV_LLM_WS_MODEL,
-     "",
-     ""),
+    ("openai", ENV_OPENAI_KEY, ENV_OPENAI_URL, ENV_OPENAI_MODEL, LLM_PROVIDER_URLS["openai"], ENV_OPENAI_KEY),
+    ("deepseek", ENV_DEEPSEEK_KEY, "", "", LLM_PROVIDER_URLS["deepseek"], ENV_DEEPSEEK_KEY),
+    (
+        "anthropic",
+        ENV_ANTHROPIC_KEY,
+        ENV_ANTHROPIC_URL,
+        ENV_ANTHROPIC_MODEL,
+        LLM_PROVIDER_URLS["anthropic"],
+        ENV_ANTHROPIC_KEY,
+    ),
+    ("ollama", "", ENV_OLLAMA_URL, ENV_OLLAMA_MODEL, LLM_PROVIDER_URLS["ollama"], ""),
+    ("websocket", "", ENV_LLM_WS_URL, ENV_LLM_WS_MODEL, "", ""),
 ]
 
 
@@ -86,9 +84,9 @@ _PROVIDER_DISCOVERY: list[tuple[str, str, str, str, str, str]] = [
 # Registering a new provider type is a one-line addition here; no method changes needed.
 
 _PROVIDER_HANDLERS: dict[str, Callable[..., Any]] = {
-    "ollama":    lambda cls, url, model, key, _c: cls(url, model),
-    "openai":    lambda cls, url, model, key, _c: cls(key, url, model),
-    "deepseek":  lambda cls, url, model, key, _c: cls(key, url, model),
+    "ollama": lambda cls, url, model, key, _c: cls(url, model),
+    "openai": lambda cls, url, model, key, _c: cls(key, url, model),
+    "deepseek": lambda cls, url, model, key, _c: cls(key, url, model),
     "anthropic": lambda cls, url, model, key, cache: cls(key, url, model, cache),
     "websocket": lambda cls, url, model, key, _c: cls(url, model, key),
 }
@@ -119,7 +117,12 @@ class ModelRegistry:
             self._models.clear()
             for provider, env_key, env_url, env_model, default_url, api_key_env in _PROVIDER_DISCOVERY:
                 models = self._discover_provider(
-                    provider, env_key, env_url, env_model, default_url, api_key_env,
+                    provider,
+                    env_key,
+                    env_url,
+                    env_model,
+                    default_url,
+                    api_key_env,
                 )
                 if models:
                     self._models[provider] = models
@@ -129,12 +132,12 @@ class ModelRegistry:
             self._discover_from_settings()
 
             self._discovered = True
-        logger.info("model_registry: discovered %d models across %d providers",
-                     count, len(self._models))
+        logger.info("model_registry: discovered %d models across %d providers", count, len(self._models))
         return count
 
-    def _discover_provider(self, provider: str, env_key: str, env_url: str,
-                           env_model: str, default_url: str, api_key_env: str) -> list[ModelInfo]:
+    def _discover_provider(
+        self, provider: str, env_key: str, env_url: str, env_model: str, default_url: str, api_key_env: str
+    ) -> list[ModelInfo]:
         """Discover a single provider from env vars + discovery config."""
         api_key = os.environ.get(env_key, "") if env_key else ""
         api_key = api_key or (os.environ.get(api_key_env, "") if api_key_env else "")
@@ -149,29 +152,37 @@ class ModelRegistry:
         if not api_key and provider not in ("ollama", "mock", "websocket"):
             # Provider configured but no API key — mark as degraded
             if url:
-                return [ModelInfo(
-                    provider=provider, model=model or f"{provider}-default",
-                    api_url=url, api_key="", status="degraded",
-                    source="env",
-                )]
+                return [
+                    ModelInfo(
+                        provider=provider,
+                        model=model or f"{provider}-default",
+                        api_url=url,
+                        api_key="",
+                        status="degraded",
+                        source="env",
+                    )
+                ]
             return []
 
         if not url:
             return []
 
-        return [ModelInfo(
-            provider=provider,
-            model=model or f"{provider}-default",
-            api_url=url,
-            api_key=api_key,
-            status="ok" if api_key else "degraded",
-            source="env",
-        )]
+        return [
+            ModelInfo(
+                provider=provider,
+                model=model or f"{provider}-default",
+                api_url=url,
+                api_key=api_key,
+                status="ok" if api_key else "degraded",
+                source="env",
+            )
+        ]
 
     def _discover_from_settings(self) -> None:
         """Discover providers configured via YAML / SettingsCenter."""
         try:
             from l1.kernel.settings import get_settings
+
             s = get_settings()
             provider = s.get("llm.provider", "")
             model = s.get("llm.model", "")
@@ -180,8 +191,10 @@ class ModelRegistry:
             if provider and api_url:
                 existing = self._models.get(provider, [])
                 info = ModelInfo(
-                    provider=provider, model=model or f"{provider}-yaml",
-                    api_url=api_url, api_key=api_key or "",
+                    provider=provider,
+                    model=model or f"{provider}-yaml",
+                    api_url=api_url,
+                    api_key=api_key or "",
                     status="ok" if api_key else "degraded",
                     source="yaml",
                 )
@@ -226,17 +239,24 @@ class ModelRegistry:
         # Prefer exact model match, otherwise first available
         for info in models:
             if model and info.model == model and info.status == "ok":
-                return {"provider": info.provider, "model": info.model,
-                        "api_url": info.api_url, "api_key": info.api_key}
+                return {
+                    "provider": info.provider,
+                    "model": info.model,
+                    "api_url": info.api_url,
+                    "api_key": info.api_key,
+                }
         # Fall back to first ok model
         for info in models:
             if info.status == "ok":
-                return {"provider": info.provider, "model": info.model,
-                        "api_url": info.api_url, "api_key": info.api_key}
+                return {
+                    "provider": info.provider,
+                    "model": info.model,
+                    "api_url": info.api_url,
+                    "api_key": info.api_key,
+                }
         # Last resort: first model even if degraded
         info = models[0]
-        return {"provider": info.provider, "model": info.model,
-                "api_url": info.api_url, "api_key": info.api_key}
+        return {"provider": info.provider, "model": info.model, "api_url": info.api_url, "api_key": info.api_key}
 
     def get_fallback(self, provider: str, model: str = "") -> dict | None:
         """Get fallback configuration when primary provider is unavailable.
@@ -271,9 +291,9 @@ class ModelRegistry:
 
     # ── Build provider instance ──────────────────────────────────────────
 
-    def build_provider(self, provider: str, model: str = "",
-                       api_key: str = "", api_url: str = "",
-                       cache_breakpoints: int = 4) -> Any | None:
+    def build_provider(
+        self, provider: str, model: str = "", api_key: str = "", api_url: str = "", cache_breakpoints: int = 4
+    ) -> Any | None:
         """Construct a provider instance by name.
 
         Returns an LLMProvider subclass instance, or None if the provider
@@ -300,12 +320,10 @@ class ModelRegistry:
         try:
             handler = _PROVIDER_HANDLERS.get(provider)
             if handler:
-                return handler(cls, resolved_url, resolved_model,
-                               resolved_key, cache_breakpoints)
+                return handler(cls, resolved_url, resolved_model, resolved_key, cache_breakpoints)
             # Fallback for unknown providers: try kwargs, then no-arg
             try:
-                return cls(api_key=resolved_key, api_url=resolved_url,
-                           model=resolved_model)
+                return cls(api_key=resolved_key, api_url=resolved_url, model=resolved_model)
             except Exception:
                 return cls()
         except Exception as e:

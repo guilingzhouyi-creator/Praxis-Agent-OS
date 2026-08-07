@@ -28,9 +28,19 @@ TASK_DECIDE = "decide"
 TASK_RESUME = "resume"
 
 _DECIDE_KEYWORDS = (
-    "review", "analyze", "compare", "conflict", "converge",
-    "discuss", "decide", "evaluate", "assess", "audit", "design",
-    "convention", "conference",
+    "review",
+    "analyze",
+    "compare",
+    "conflict",
+    "converge",
+    "discuss",
+    "decide",
+    "evaluate",
+    "assess",
+    "audit",
+    "design",
+    "convention",
+    "conference",
 )
 _RESUME_KEYWORDS = ("resume", "continue", "restore", "recall", "history")
 
@@ -72,6 +82,7 @@ def resolve_strategy() -> str:
     """memory.injection.strategy — auto|summary|mer (default auto)."""
     try:
         from l1.kernel.settings import get_settings
+
         s = str(get_settings().get("memory.injection.strategy", "auto"))
         return s if s in ("auto", "summary", "mer") else "auto"
     except Exception:
@@ -86,9 +97,9 @@ _MER_MAX_NODES = 30
 class MemoryInjector:
     """Task-aware memory context builder (side-channel, zero-impact on default)."""
 
-    def build_context(self, agent_id: str = "", *,
-                      card=None, prompt: str = "",
-                      max_tokens: int = 1024, memory=None) -> str:
+    def build_context(
+        self, agent_id: str = "", *, card=None, prompt: str = "", max_tokens: int = 1024, memory=None
+    ) -> str:
         """Build the injection block for the current task.
 
         Returns the memory context string (empty when nothing applicable).
@@ -98,8 +109,11 @@ class MemoryInjector:
           mer → Mer skeleton only
         """
         strategy = resolve_strategy()
-        task = classify_task(card, prompt) if strategy == "auto" else (
-            TASK_EXECUTE if strategy == "summary" else TASK_DECIDE)
+        task = (
+            classify_task(card, prompt)
+            if strategy == "auto"
+            else (TASK_EXECUTE if strategy == "summary" else TASK_DECIDE)
+        )
         try:
             if task == TASK_DECIDE:
                 mer = self._mer_block(agent_id, max_tokens)
@@ -113,14 +127,15 @@ class MemoryInjector:
             logger.debug("memory_inject: build_context failed: %s", e)
             return self._summary_block(agent_id, max_tokens, memory)
 
-    def _summary_block(self, agent_id: str, max_tokens: int,
-                       memory=None) -> str:
+    def _summary_block(self, agent_id: str, max_tokens: int, memory=None) -> str:
         """Linear narrative — existing behavior (zero change)."""
         try:
             from l1.kernel.params.system import CONTEXT_BUILD_MAX_TOKENS
+
             m = memory
             if m is None:
                 from l3.memory.memory import get_memory
+
                 m = get_memory()
             if m is None:
                 return ""
@@ -134,6 +149,7 @@ class MemoryInjector:
         try:
             from l3.memory.central_memory import get_center
             from l3.memory.memory_graph import get_graph
+
             g = get_graph()
             if not g.enabled:
                 return ""
@@ -141,8 +157,7 @@ class MemoryInjector:
             mem = center.get("l3a") or center.get(agent_id)
             seeds = []
             if mem is not None:
-                recent = mem.recall(agent_id=agent_id or None,
-                                    rings=[1, 2, 3], limit=5)
+                recent = mem.recall(agent_id=agent_id or None, rings=[1, 2, 3], limit=5)
                 seeds = [e.id for e in recent if e and e.id]
             if not seeds:
                 return ""
@@ -152,20 +167,18 @@ class MemoryInjector:
             by_rel: dict[str, list[str]] = {}
             for ed in gr.get("edges", []):
                 key = ed.get("relation", "related")
-                by_rel.setdefault(key, []).append(
-                    f"{ed.get('from_id', '')[:8]}→{ed.get('to_id', '')[:8]}")
+                by_rel.setdefault(key, []).append(f"{ed.get('from_id', '')[:8]}→{ed.get('to_id', '')[:8]}")
             lines = ["=== Memory Relations (Mer) ==="]
             for rel, pairs in by_rel.items():
                 lines.append(f"- {rel}: {', '.join(pairs[:_MER_MAX_NODES])}")
             if gr["nodes"]:
                 lines.append(f"- nodes: {len(gr['nodes'])} reached via diffusion")
             text = "\n".join(lines)
-            return text[:max_tokens * 4]
+            return text[: max_tokens * 4]
         except Exception:
             return ""
 
-    def _layered_block(self, agent_id: str, max_tokens: int,
-                       memory=None) -> str:
+    def _layered_block(self, agent_id: str, max_tokens: int, memory=None) -> str:
         """Skeleton + narrative (layered injection, budget-aware)."""
         mer = self._mer_block(agent_id, max_tokens // 2)
         summary = self._summary_block(agent_id, max_tokens // 2, memory)
@@ -173,8 +186,6 @@ class MemoryInjector:
         return "\n\n".join(parts)
 
 
-def build_context(agent_id: str = "", *, card=None, prompt: str = "",
-                  max_tokens: int = 1024, memory=None) -> str:
+def build_context(agent_id: str = "", *, card=None, prompt: str = "", max_tokens: int = 1024, memory=None) -> str:
     """Module-level convenience — task-aware injection."""
-    return MemoryInjector().build_context(
-        agent_id, card=card, prompt=prompt, max_tokens=max_tokens, memory=memory)
+    return MemoryInjector().build_context(agent_id, card=card, prompt=prompt, max_tokens=max_tokens, memory=memory)

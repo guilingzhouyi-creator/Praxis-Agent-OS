@@ -9,6 +9,7 @@ from l3.cell.components.cell_mmu import CellMmu, CellTlb
 
 # ── Fixtures ──
 
+
 @pytest.fixture
 def tlb():
     """Fresh TLB with mock PMU."""
@@ -25,6 +26,7 @@ def mmu():
 class _FakePmu:
     def __init__(self):
         self.counts = {}
+
     def increment(self, name: str, delta: int = 1):
         self.counts[name] = self.counts.get(name, 0) + delta
 
@@ -32,6 +34,7 @@ class _FakePmu:
 # ═══════════════════════════════════════════════════════════════
 # CellTlb tests
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestTlbInit:
     def test_empty_on_create(self, tlb):
@@ -171,6 +174,7 @@ class TestTlbStats:
 # CellMmu tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestMmuResolve:
     def test_resolve_tlb_hit(self, mmu):
         mmu._tlb.fill("src/", "agent-a", ring=1)
@@ -185,6 +189,7 @@ class TestMmuResolve:
 
     def test_resolve_fallback_agents_dict(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {
             "agent-a": AgentInfo(role="reader", ring=1, territory=["src/"]),
             "agent-b": AgentInfo(role="writer", ring=2, territory=["docs/"]),
@@ -195,6 +200,7 @@ class TestMmuResolve:
 
     def test_resolve_fallback_caches_result(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {"agent-a": AgentInfo(ring=1, territory=["src/"])}
         mmu.resolve("src/", agents)
         # Second call should hit TLB
@@ -203,6 +209,7 @@ class TestMmuResolve:
 
     def test_resolve_best_match_longest_prefix(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {
             "agent-a": AgentInfo(ring=1, territory=["src/"]),
             "agent-b": AgentInfo(ring=2, territory=["src/sub/"]),
@@ -213,6 +220,7 @@ class TestMmuResolve:
 
     def test_resolve_many(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {
             "agent-a": AgentInfo(ring=1, territory=["src/"]),
             "agent-b": AgentInfo(ring=2, territory=["docs/"]),
@@ -223,6 +231,7 @@ class TestMmuResolve:
 
     def test_resolve_many_mixed(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {"agent-a": AgentInfo(ring=1, territory=["src/"])}
         results = mmu.resolve_many(["src/", "unknown/"], agents)
         assert results["src/"]["agent_id"] == "agent-a"
@@ -232,6 +241,7 @@ class TestMmuResolve:
 class TestMmuCacheWarming:
     def test_warm_from_agents(self, mmu):
         from l3.cell.components.cell_types import AgentInfo
+
         agents = {
             "agent-a": AgentInfo(ring=1, territory=["src/", "docs/"]),
             "agent-b": AgentInfo(ring=2, territory=["api/"]),

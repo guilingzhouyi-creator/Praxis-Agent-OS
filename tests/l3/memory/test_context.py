@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestMemoryContext:
     def test_importable(self):
         from l3.memory.context import ContextManager
+
         assert callable(ContextManager)

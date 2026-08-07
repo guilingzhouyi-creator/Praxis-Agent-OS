@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestPagerBridge:
     def test_importable(self):
         from l3.memory.pager_bridge import PagerBridge
+
         assert callable(PagerBridge)

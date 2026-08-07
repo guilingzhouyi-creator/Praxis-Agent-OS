@@ -35,11 +35,13 @@ class MemoryPersistMixin:
     def _jsonl_path(self) -> Path:
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING2
         from l1.kernel.paths import get_paths as _gp
+
         return (self._persist_dir or Path(_gp().data_dir)) / MEMORY_PERSIST_FILE_RING2
 
     def _ring3_path(self) -> Path:
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
         from l1.kernel.paths import get_paths as _gp
+
         return (self._persist_dir or Path(_gp().data_dir)) / MEMORY_PERSIST_FILE_RING3
 
     def _ensure_ring3_db(self) -> None:
@@ -48,6 +50,7 @@ class MemoryPersistMixin:
         import tempfile
 
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+
         data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
         db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -108,6 +111,7 @@ class MemoryPersistMixin:
         # Ring 3 → SQLite FTS5 (dirty entries only)
         if dirty_long_ids:
             import sqlite3
+
             self._ensure_ring3_db()
             db_path = Path(self._persist_dir) / MEMORY_PERSIST_FILE_RING3
             conn = sqlite3.connect(str(db_path), check_same_thread=False)
@@ -117,8 +121,15 @@ class MemoryPersistMixin:
                 cur = conn.execute(
                     "INSERT OR REPLACE INTO knowledge (id, agent, type, content, tags, importance, ts) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (e["id"], e["agent_id"], e["entry_type"], e["content"],
-                     ",".join(e.get("tags", [])), e.get("importance", MEMORY_IMPORTANCE_BASE), e.get("timestamp", time.time())),
+                    (
+                        e["id"],
+                        e["agent_id"],
+                        e["entry_type"],
+                        e["content"],
+                        ",".join(e.get("tags", [])),
+                        e.get("importance", MEMORY_IMPORTANCE_BASE),
+                        e.get("timestamp", time.time()),
+                    ),
                 )
                 # Sync FTS5 index for searchable content
                 try:
@@ -137,8 +148,7 @@ class MemoryPersistMixin:
 
         return {"success": True, "short_written": short_written, "long_written": long_written}
 
-    def restore(self, path: str | None = None,
-                ring2_limit: int = 0, ring3_limit: int = 0) -> dict:
+    def restore(self, path: str | None = None, ring2_limit: int = 0, ring3_limit: int = 0) -> dict:
         """Restore Ring 2 from JSONL, Ring 3 from SQLite FTS5.
 
         Args:
@@ -147,6 +157,7 @@ class MemoryPersistMixin:
             ring3_limit: Max SQLite rows to restore (0 = unlimited).
         """
         from l3.memory.memory import MemEntry
+
         p = Path(path) if path else self._persist_dir
         if not p:
             return {"success": False, "error": "no path configured"}
@@ -174,10 +185,12 @@ class MemoryPersistMixin:
         import tempfile
 
         from l1.kernel.params.system import MEMORY_PERSIST_FILE_RING3
+
         data_dir = str(self._persist_dir) if self._persist_dir else tempfile.gettempdir()
         db_path = Path(data_dir) / MEMORY_PERSIST_FILE_RING3
         if db_path.exists():
             import sqlite3
+
             try:
                 conn = sqlite3.connect(str(db_path), check_same_thread=False)
                 sql = "SELECT id, agent, type, content, tags, importance, ts FROM knowledge ORDER BY ts DESC"
@@ -190,9 +203,13 @@ class MemoryPersistMixin:
                     logger.warning("memory restore ring3: truncated %d→%d rows", before, ring3_limit)
                 for row in rows:
                     entry = MemEntry(
-                        id=row[0], agent_id=row[1], entry_type=row[2], content=row[3],
+                        id=row[0],
+                        agent_id=row[1],
+                        entry_type=row[2],
+                        content=row[3],
                         tags=row[4].split(",") if row[4] else [],
-                        importance=row[5], timestamp=row[6],
+                        importance=row[5],
+                        timestamp=row[6],
                     )
                     self.long.push(entry)
                     total += 1

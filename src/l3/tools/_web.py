@@ -2,6 +2,7 @@
 
 try:
     import urllib.request as req
+
     HAS_URLLIB = True
 except ImportError:
     HAS_URLLIB = False
@@ -20,7 +21,12 @@ def web_fetch(args: dict, agent_id: str) -> dict:
     try:
         r = req.urlopen(url, timeout=get_tool_config("web_timeout", 15))
         content = r.read().decode("utf-8", errors="replace")
-        return {"success": True, "data": content[:LOG_TRUNC_10000], "url": url, "truncated": len(content) > LOG_TRUNC_10000}
+        return {
+            "success": True,
+            "data": content[:LOG_TRUNC_10000],
+            "url": url,
+            "truncated": len(content) > LOG_TRUNC_10000,
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -35,11 +41,13 @@ def web_search(args: dict, agent_id: str) -> dict:
     try:
         # Delegate to web_fetch instead of inline DuckDuckGo HTML parsing
         import urllib.parse as _up
+
         fetch = web_fetch({"url": "https://duckduckgo.com/html/?q=" + _up.quote(query)}, agent_id)
         if not fetch.get("success"):
             return fetch
         content = fetch.get("data", "")
         import re
+
         results = re.findall(r'<a rel="nofollow" href="([^"]+)"[^>]*>([^<]+)</a>', content)
         items = [{"title": t, "url": u} for u, t in results[:TOOL_WEB_RESULTS_LIMIT]]
         return {"success": True, "results": items, "query": query}

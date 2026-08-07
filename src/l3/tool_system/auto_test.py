@@ -47,6 +47,7 @@ _feedback: list[dict] = []
 
 # ── Mode switch (mirrors harness.py) ─────────────────────────────────────────
 
+
 def get_auto_test_mode() -> str:
     """Return the effective auto-test mode (override → config → default)."""
     with _lock:
@@ -55,6 +56,7 @@ def get_auto_test_mode() -> str:
         return override
     try:
         from l1.kernel.discovery import get_tool_config
+
         static = str(get_tool_config("loop.auto_test", AUTO_TEST_DEFAULT_MODE)).lower()
     except Exception:
         static = AUTO_TEST_DEFAULT_MODE
@@ -73,8 +75,7 @@ def set_auto_test(mode: str, source: str = "api") -> dict:
     """
     mode = str(mode or "").lower()
     if mode not in AUTO_TEST_MODES:
-        return {"success": False, "error": f"invalid auto-test mode: {mode}",
-                "modes": list(AUTO_TEST_MODES)}
+        return {"success": False, "error": f"invalid auto-test mode: {mode}", "modes": list(AUTO_TEST_MODES)}
     with _lock:
         _state["mode"] = mode
         _state["source"] = source
@@ -94,10 +95,13 @@ def auto_test_status() -> dict:
     with _lock:
         source = _state.get("source", "config")
         pending = list(_feedback)
-    return {"mode": get_auto_test_mode(), "source": source,
-            "modes": list(AUTO_TEST_MODES),
-            "pending_feedback": len(pending),
-            "pending_by_agent": _group_by_agent(pending)}
+    return {
+        "mode": get_auto_test_mode(),
+        "source": source,
+        "modes": list(AUTO_TEST_MODES),
+        "pending_feedback": len(pending),
+        "pending_by_agent": _group_by_agent(pending),
+    }
 
 
 def _group_by_agent(entries: list[dict]) -> dict[str, int]:
@@ -110,6 +114,7 @@ def _group_by_agent(entries: list[dict]) -> dict[str, int]:
 
 # ── Pending feedback queue ───────────────────────────────────────────────────
 
+
 def push_feedback(agent_id: str, payload: dict) -> int:
     """Queue a test result as pending feedback for the next card.
 
@@ -121,7 +126,7 @@ def push_feedback(agent_id: str, payload: dict) -> int:
     with _lock:
         _feedback.append(entry)
         if len(_feedback) > AUTO_TEST_FEEDBACK_MAX:
-            del _feedback[:len(_feedback) - AUTO_TEST_FEEDBACK_MAX]
+            del _feedback[: len(_feedback) - AUTO_TEST_FEEDBACK_MAX]
         return len(_feedback)
 
 
@@ -161,8 +166,8 @@ def clear_feedback() -> int:
 
 # ── Background execution ─────────────────────────────────────────────────────
 
-def maybe_trigger(agent_id: str, cell_id: str, task: str,
-                  unverified: list[str], card_id: str = "") -> bool:
+
+def maybe_trigger(agent_id: str, cell_id: str, task: str, unverified: list[str], card_id: str = "") -> bool:
     """Spawn a background test run when enabled and edits are pending.
 
     Args:
@@ -193,8 +198,7 @@ def maybe_trigger(agent_id: str, cell_id: str, task: str,
         return False
 
 
-def _run(agent_id: str, cell_id: str, task: str,
-         edited_paths: list[str], card_id: str) -> None:
+def _run(agent_id: str, cell_id: str, task: str, edited_paths: list[str], card_id: str) -> None:
     """Background body: execute the test suite and distribute the result."""
     try:
         t0 = time.time()
@@ -216,16 +220,17 @@ def _run(agent_id: str, cell_id: str, task: str,
         logger.warning("auto_test run failed: %s", e)
 
 
-def _distribute_result(agent_id: str, cell_id: str, task: str,
-                       payload: dict) -> None:
+def _distribute_result(agent_id: str, cell_id: str, task: str, payload: dict) -> None:
     """Write the Cell L2 cache, emit events, and queue card feedback."""
     key = _cache_key(task)
     try:
         from l3.cell import get_cell as _get_cell
+
         cell = _get_cell(cell_id)
         if cell is not None:
-            summary = (f"PASS [{agent_id}]" if payload["passed"]
-                       else f"FAIL [{agent_id}] {len(payload['failures'])} failed")
+            summary = (
+                f"PASS [{agent_id}]" if payload["passed"] else f"FAIL [{agent_id}] {len(payload['failures'])} failed"
+            )
             cell.cache.inject(
                 key=key,
                 value=payload,
@@ -238,18 +243,26 @@ def _distribute_result(agent_id: str, cell_id: str, task: str,
         logger.debug("auto_test: cell cache inject failed: %s", e)
     try:
         from l1.kernel.event import get_bus as _get_bus
+
         _get_bus().emit_event("auto_test.result", data=payload, source=agent_id)
     except Exception as e:
         logger.debug("auto_test: event emit failed: %s", e)
     try:
         from l3.bus.monitor_bus import MonitorEvent as _MonitorEvent
         from l3.bus.monitor_bus import get_bus as _MB
-        _MB().emit(_MonitorEvent(
-            type="auto_test.result", source="auto_test",
-            severity="info" if payload["passed"] else "warning",
-            message=f"{agent_id} tests {'passed' if payload['passed'] else 'failed'} "
-                    f"({len(payload['failures'])} failures)",
-            agent_id=agent_id, cell_id=cell_id, data=payload))
+
+        _MB().emit(
+            _MonitorEvent(
+                type="auto_test.result",
+                source="auto_test",
+                severity="info" if payload["passed"] else "warning",
+                message=f"{agent_id} tests {'passed' if payload['passed'] else 'failed'} "
+                f"({len(payload['failures'])} failures)",
+                agent_id=agent_id,
+                cell_id=cell_id,
+                data=payload,
+            )
+        )
     except Exception as e:
         logger.debug("auto_test: monitor emit failed: %s", e)
     push_feedback(agent_id, payload)
@@ -261,6 +274,7 @@ def _cache_key(task: str) -> str:
 
 
 # ── Test execution + failure parsing ─────────────────────────────────────────
+
 
 def _execute_tests() -> dict:
     """Run the project test suite via the detectors; parse failure detail.
@@ -285,8 +299,7 @@ def _execute_tests() -> dict:
             }
         except Exception:
             continue
-    return {"passed": False, "command": "", "failures": [],
-            "output": "no supported test framework found"}
+    return {"passed": False, "command": "", "failures": [], "output": "no supported test framework found"}
 
 
 def parse_pytest_failures(output: str) -> list[str]:
@@ -296,8 +309,7 @@ def parse_pytest_failures(output: str) -> list[str]:
     ``ERROR path::test``.
     """
     names: set[str] = set()
-    for m in re.finditer(r"^(?:FAILED|ERROR)\s+(.+?)(?:\s*-\s*|$)", output or "",
-                         re.MULTILINE):
+    for m in re.finditer(r"^(?:FAILED|ERROR)\s+(.+?)(?:\s*-\s*|$)", output or "", re.MULTILINE):
         name = m.group(1).strip()
         if name:
             names.add(name)

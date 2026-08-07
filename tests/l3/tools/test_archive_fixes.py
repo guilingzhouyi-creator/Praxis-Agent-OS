@@ -63,14 +63,21 @@ class TestTtlPurge:
         conn = arc._get_db()
         now = 1000.0
         conn.execute(
-            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at)"
-            " VALUES ('a','s','old',60,?,?)", (now - 100, now - 100))
+            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at) VALUES ('a','s','old',60,?,?)",
+            (now - 100, now - 100),
+        )
         conn.execute(
-            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at)"
-            " VALUES ('a','s','fresh',60,?,?)", (now - 10, now - 10))
+            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at) VALUES ('a','s','fresh',60,?,?)",
+            (now - 10, now - 10),
+        )
         conn.commit()
         import time as _t
-        with _t.patch("time.time", return_value=now) if hasattr(_t, "patch") else __import__("unittest.mock").mock.patch("l3.tools._archive.time.time", return_value=now):
+
+        with (
+            _t.patch("time.time", return_value=now)
+            if hasattr(_t, "patch")
+            else __import__("unittest.mock").mock.patch("l3.tools._archive.time.time", return_value=now)
+        ):
             n = arc._purge_expired()
         assert n == 1
         rows = conn.execute("SELECT content FROM archive").fetchall()
@@ -80,8 +87,8 @@ class TestTtlPurge:
         _fresh()
         conn = arc._get_db()
         conn.execute(
-            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at)"
-            " VALUES ('a','s','keep',0,1,1)")
+            "INSERT INTO archive (fonds, series, content, ttl, created_at, updated_at) VALUES ('a','s','keep',0,1,1)"
+        )
         conn.commit()
         n = arc._purge_expired()
         assert n == 0

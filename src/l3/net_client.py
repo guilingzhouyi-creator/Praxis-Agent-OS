@@ -75,8 +75,9 @@ def _discard(url: str) -> None:
             conn.close()
 
 
-def _request(method: str, url: str, timeout: float,
-             headers: dict | None, body: bytes | None = None) -> tuple[int, bytes]:
+def _request(
+    method: str, url: str, timeout: float, headers: dict | None, body: bytes | None = None
+) -> tuple[int, bytes]:
     """Perform one request, re-establishing stale connections once."""
     path = urllib.parse.urlparse(url).path or "/"
     if urllib.parse.urlparse(url).query:
@@ -88,8 +89,7 @@ def _request(method: str, url: str, timeout: float,
             resp = conn.getresponse()
             data = resp.read()
             return resp.status, data
-        except (http.client.RemoteDisconnected, ConnectionError, OSError,
-                http.client.HTTPException) as e:
+        except (http.client.RemoteDisconnected, ConnectionError, OSError, http.client.HTTPException) as e:
             _discard(url)
             if attempt == 0:
                 logger.debug("net_client: stale connection to %s, retrying: %s", url, e)
@@ -116,8 +116,7 @@ class NetClient:
     """Generic HTTP client for Praxis internal network requests."""
 
     @staticmethod
-    def get(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT,
-            headers: dict | None = None) -> dict:
+    def get(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT, headers: dict | None = None) -> dict:
         """GET JSON from URL. Returns {"success": True, "data": ...} or error."""
         try:
             status, data = _request("GET", url, timeout, _headers(headers))
@@ -132,15 +131,13 @@ class NetClient:
             return {"success": False, "error": str(e)}
 
     @staticmethod
-    def post(url: str, data: dict, timeout: float = NETWORK_DEFAULT_TIMEOUT,
-             headers: dict | None = None) -> dict:
+    def post(url: str, data: dict, timeout: float = NETWORK_DEFAULT_TIMEOUT, headers: dict | None = None) -> dict:
         """POST JSON to URL, return JSON response."""
         try:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            status, rdata = _request("POST", url, timeout,
-                                     _headers({"Content-Type": "application/json",
-                                               **(headers or {})}),
-                                     body=body)
+            status, rdata = _request(
+                "POST", url, timeout, _headers({"Content-Type": "application/json", **(headers or {})}), body=body
+            )
             return {"success": True, "data": _parse_json(rdata, url), "status": status}
         except http.client.HTTPException as e:
             return {"success": False, "error": f"HTTP {getattr(e, 'code', '?')}: {e}"}
@@ -155,10 +152,8 @@ class NetClient:
     def download(url: str, timeout: float = NETWORK_DEFAULT_TIMEOUT) -> dict:
         """Download raw content from URL (for .card.yaml files)."""
         try:
-            status, data = _request("GET", url, timeout,
-                                    {"User-Agent": _USER_AGENT})
-            return {"success": True, "content": data.decode("utf-8", errors="replace"),
-                    "status": status, "url": url}
+            status, data = _request("GET", url, timeout, {"User-Agent": _USER_AGENT})
+            return {"success": True, "content": data.decode("utf-8", errors="replace"), "status": status, "url": url}
         except (ConnectionError, OSError, http.client.HTTPException) as e:
             return {"success": False, "error": str(e), "url": url}
         except Exception as e:

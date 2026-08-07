@@ -11,11 +11,12 @@ from l3.tools._git import (
 
 def _guard_no_real_commit() -> None:
     import subprocess
+
     try:
-        r = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
-                           capture_output=True, text=True, timeout=5)
+        r = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip() == "true":
             import pytest
+
             pytest.skip("inside git repo — skip to prevent accidental commit")
     except Exception:
         pass

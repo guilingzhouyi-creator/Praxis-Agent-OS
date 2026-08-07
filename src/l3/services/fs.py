@@ -54,13 +54,15 @@ def list_dir(path: str) -> dict[str, Any]:
         for child in sorted(p.iterdir()):
             try:
                 stat = child.stat()
-                entries.append({
-                    "name": child.name,
-                    "path": str(child),
-                    "type": "dir" if child.is_dir() else "file",
-                    "size": stat.st_size,
-                    "modified": stat.st_mtime,
-                })
+                entries.append(
+                    {
+                        "name": child.name,
+                        "path": str(child),
+                        "type": "dir" if child.is_dir() else "file",
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                    }
+                )
             except OSError:
                 continue
         return {"success": True, "entries": entries, "count": len(entries)}
@@ -141,6 +143,7 @@ def glob(pattern: str, root: str = ".") -> dict[str, Any]:
 
 # ── Encoding detection ─────────────────────────────────────────
 
+
 def _detect_encoding(raw: bytes) -> str:
     """Detect file encoding (BOM-first, then try UTF-8/GBK)."""
     if raw[:3] == b"\xef\xbb\xbf":
@@ -154,9 +157,10 @@ def _detect_encoding(raw: bytes) -> str:
         raw.decode("utf-8")
         return "utf-8"
     except Exception as e:
-            logger.warning("services/fs: %s", e)
+        logger.warning("services/fs: %s", e)
     # Fallback to system encoding (GBK on Chinese Windows)
     import locale
+
     try:
         enc = locale.getpreferredencoding()
         raw.decode(enc)

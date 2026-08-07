@@ -26,34 +26,25 @@ logger = logging.getLogger(__name__)
 _DEFAULTS: dict[str, str] = {
     # AgentLoop: role-based resolution in AgentLoop.run()
     #   Priority: caller system= > agent_loop.system.{role} > agent_loop.system
-    "agent_loop.system": (
-        "You are an agent in NOMOS Praxis. Complete this task using tools: {task}"
-    ),
+    "agent_loop.system": ("You are an agent in NOMOS Praxis. Complete this task using tools: {task}"),
     "agent_loop.verification_culture": (
         "--- Behavioral Guardrails ---\n"
         "1. VERIFY BEFORE CLAIMING: Trace code paths, read files, check dependencies.\n"
-        "   If you haven't read the relevant file, say \"I need to check the source first.\"\n"
+        '   If you haven\'t read the relevant file, say "I need to check the source first."\n'
         "2. CHALLENGE AMBIGUITY: If the task is underspecified, flag what's missing.\n"
         "   Do not guess—ask clarifying questions or state assumptions explicitly.\n"
         "3. SELF-CORRECT: If new evidence contradicts your earlier analysis,\n"
         "   acknowledge the contradiction and update your position. Do not entrench.\n"
         "4. BOUNDARY AWARENESS: You are analyzing a codebase, not running it.\n"
-        "   Distinguish between \"this code says X\" and \"X is true.\"\n"
+        '   Distinguish between "this code says X" and "X is true."\n'
         "5. ADMIT UNCERTAINTY: When you don't know, say so.\n"
-        "   A clear \"I don't have enough information\" is better than a confident error.\n"
+        '   A clear "I don\'t have enough information" is better than a confident error.\n'
         "6. STRUCTURED REASONING: For complex tasks, show your reasoning step by step.\n"
         "   State the question, what you checked, what you found, and your conclusion."
     ),
-    "agent_loop.system.default": (
-        "You are an agent in NOMOS Praxis. Complete this task: {task}"
-    ),
-    "agent_loop.keepalive": (
-        "You are agent {agent_id} ({role}) in NOMOS Praxis. Keepalive."
-    ),
-    "agent_loop.system.l3a": (
-        "You are L3A, the human interface layer of Praxis Agent OS. "
-        "Parse user intent: {task}"
-    ),
+    "agent_loop.system.default": ("You are an agent in NOMOS Praxis. Complete this task: {task}"),
+    "agent_loop.keepalive": ("You are agent {agent_id} ({role}) in NOMOS Praxis. Keepalive."),
+    "agent_loop.system.l3a": ("You are L3A, the human interface layer of Praxis Agent OS. Parse user intent: {task}"),
     # Scout
     "scout.system": (
         "You are a scout agent in NOMOS Praxis. Read-only investigation.\n"
@@ -120,18 +111,10 @@ _DEFAULTS: dict[str, str] = {
         "- When cross-examined, defend your position.\n"
         "- When cross-examining others, ask pointed technical questions."
     ),
-    "convention.turn_examine": (
-        "Cross-examination from {source}: {statement}\n\nRespond with your position."
-    ),
-    "convention.turn_rebut": (
-        "{source} says: {statement}\n\nAcknowledge and respond."
-    ),
-    "convention.propose": (
-        "Agent {proposer} proposes: {question}\n\nDo you support this? Any concerns?"
-    ),
-    "convention.close": (
-        "The convention has concluded. Summarize your final position in 2-3 sentences."
-    ),
+    "convention.turn_examine": ("Cross-examination from {source}: {statement}\n\nRespond with your position."),
+    "convention.turn_rebut": ("{source} says: {statement}\n\nAcknowledge and respond."),
+    "convention.propose": ("Agent {proposer} proposes: {question}\n\nDo you support this? Any concerns?"),
+    "convention.close": ("The convention has concluded. Summarize your final position in 2-3 sentences."),
     # Verifier
     "verifier.self_check": (
         "You are a verification agent. Check if the following result achieves the goal.\n"
@@ -165,9 +148,7 @@ _DEFAULTS: dict[str, str] = {
         "Please address any suggested changes."
     ),
     # LLM fallback
-    "llm.fallback_system": (
-        "You are a helpful assistant."
-    ),
+    "llm.fallback_system": ("You are a helpful assistant."),
     # AgentTerminal
     "agent_terminal.think": (
         "You are agent {agent_id} ({role}) in NOMOS Praxis.\n"
@@ -210,25 +191,14 @@ _DEFAULTS: dict[str, str] = {
         "Include reproduction steps when possible."
     ),
     # ── PromptEngine constraint templates ──
-    "prompt_engine.constraint.no_test_modification": (
-        "Do NOT modify any test files (*.test.*, *_test.go, tests/)."
-    ),
-    "prompt_engine.constraint.no_lockfile": (
-        "Do NOT modify lock files (package-lock.json, yarn.lock, Cargo.lock)."
-    ),
-    "prompt_engine.constraint.max_steps": (
-        "You have up to {max_steps} tool-calling turns to complete this task."
-    ),
-    "prompt_engine.constraint.read_only": (
-        "You are in read-only mode. Do NOT edit any files."
-    ),
+    "prompt_engine.constraint.no_test_modification": ("Do NOT modify any test files (*.test.*, *_test.go, tests/)."),
+    "prompt_engine.constraint.no_lockfile": ("Do NOT modify lock files (package-lock.json, yarn.lock, Cargo.lock)."),
+    "prompt_engine.constraint.max_steps": ("You have up to {max_steps} tool-calling turns to complete this task."),
+    "prompt_engine.constraint.read_only": ("You are in read-only mode. Do NOT edit any files."),
     # ── AgentLoop nudges ──
-    "agent_loop.turn_budget": (
-        "\nYou have up to {max_steps} tool-calling turns. Use them wisely."
-    ),
+    "agent_loop.turn_budget": ("\nYou have up to {max_steps} tool-calling turns. Use them wisely."),
     "agent_loop.cross_cell_rules": (
-        "\n\n--- Cross-Cell Territory Rules ---\n"
-        "Read across Cells allowed; write restricted to assigned Cell.\n---"
+        "\n\n--- Cross-Cell Territory Rules ---\nRead across Cells allowed; write restricted to assigned Cell.\n---"
     ),
     "agent_loop.continuation_nudge": (
         "[System: the task list still has open items. Continue working or update status.]"
@@ -245,9 +215,7 @@ _DEFAULTS: dict[str, str] = {
         "- risk: low|medium|high\n"
         "Output ONLY valid JSON."
     ),
-    "card_registry.generate_plan.system": (
-        "You are a planning assistant."
-    ),
+    "card_registry.generate_plan.system": ("You are a planning assistant."),
     # ── R4 agent skill architect ──
     "r4_agent.skill_architect": (
         "You are a skill architect for NOMOS Praxis. "
@@ -269,13 +237,13 @@ _DEFAULTS: dict[str, str] = {
         "12. Peer cross-review — peer changes require cross-review before archiving.\n\n"
         "Required fields:\n"
         '  - name: short kebab-case (e.g. "python-style-guide")\n'
-        '  - description: one line, ≤120 chars\n'
-        '  - prompt: system prompt the agent receives. Include rules and context. ≥50 chars, ≤4000 chars\n\n'
+        "  - description: one line, ≤120 chars\n"
+        "  - prompt: system prompt the agent receives. Include rules and context. ≥50 chars, ≤4000 chars\n\n"
         "Optional fields:\n"
         '  - rules: list of "DO: ..." / "DON\'T: ..." strings\n'
         '  - procedures: [{"step": "1", "action": "action_name", "description": "what to do"}]\n'
         '  - tags: ["evolved", "domain-tag"]\n'
-        '  - allowed_tools: list of tool names this skill is allowed to use (omit = all tools)\n\n'
+        "  - allowed_tools: list of tool names this skill is allowed to use (omit = all tools)\n\n"
         "Schema:\n"
         "{\n"
         '  "name": "short-kebab-case-name",\n'
@@ -295,23 +263,15 @@ _DEFAULTS: dict[str, str] = {
         "INCREMENTALLY rather than re-emitting it all."
     ),
     # ── LLM turn budget warning ──
-    "llm.turn_budget_warning": (
-        "[System: {remaining} turn(s) remaining. Make this count.]"
-    ),
+    "llm.turn_budget_warning": ("[System: {remaining} turn(s) remaining. Make this count.]"),
     # ── LLM analyze suffix ──
-    "llm.analyze_suffix": (
-        "\n\nProvide a structured analysis with severity, impact, and recommendations."
-    ),
+    "llm.analyze_suffix": ("\n\nProvide a structured analysis with severity, impact, and recommendations."),
     # ── Optimize prompt section headers ──
     "llm.optimize.system_marker": "[System]",
     "llm.optimize.task_marker": "[Task]",
     # ── SubAgent built-in system prompts ──
-    "subagent.fallback": (
-        "You are {name}. {description}"
-    ),
-    "subagent.read_only": (
-        "\n\nYou are in READ-ONLY mode. Do NOT modify any files."
-    ),
+    "subagent.fallback": ("You are {name}. {description}"),
+    "subagent.read_only": ("\n\nYou are in READ-ONLY mode. Do NOT modify any files."),
     "subagent.security_auditor": (
         "You are a security expert. Review code for vulnerabilities, "
         "injection risks, and insecure patterns. Report findings clearly."
@@ -329,13 +289,9 @@ _DEFAULTS: dict[str, str] = {
         "concisely. Identify relevant files, patterns, and potential issues."
     ),
     # ── Convergence section markers ──
-    "convergence.discussion_header": (
-        "\n\n--- Discussion Document ---\n{doc_text}"
-    ),
+    "convergence.discussion_header": ("\n\n--- Discussion Document ---\n{doc_text}"),
     # ── Memory context section ──
-    "agent_terminal.memory_context": (
-        "\n--- Memory Context ---\n{memory_context}\n---"
-    ),
+    "agent_terminal.memory_context": ("\n--- Memory Context ---\n{memory_context}\n---"),
 }
 
 # ── Runtime overrides (loaded from YAML at boot) ──

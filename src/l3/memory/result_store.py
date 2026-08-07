@@ -40,8 +40,7 @@ def _canonical_json(obj: Any) -> str:
 class ResultStore:
     """Deterministic tool result cache with LRU eviction and write-invalidation."""
 
-    def __init__(self, max_entries: int = RESULT_STORE_MAX_ENTRIES,
-                 ttl: float = RESULT_STORE_TTL):
+    def __init__(self, max_entries: int = RESULT_STORE_MAX_ENTRIES, ttl: float = RESULT_STORE_TTL):
         self.max_entries = max_entries
         self.ttl = ttl
         self._cache: OrderedDict[str, dict] = OrderedDict()
@@ -73,8 +72,7 @@ class ResultStore:
             self._hits += 1
             return entry["result"]
 
-    def set(self, fp: str, result: dict, tool_name: str = "",
-            path: str = "") -> None:
+    def set(self, fp: str, result: dict, tool_name: str = "", path: str = "") -> None:
         """Store a tool result. 'path' enables write-invalidation later."""
         with self._lock:
             self._cache[fp] = {
@@ -113,8 +111,7 @@ class ResultStore:
         """Invalidate all cached results referencing a given path."""
         with self._lock:
             before = len(self._cache)
-            keys = [fp for fp, e in self._cache.items()
-                    if e.get("path") and path in e["path"]]
+            keys = [fp for fp, e in self._cache.items() if e.get("path") and path in e["path"]]
             for fp in keys:
                 del self._cache[fp]
             n = before - len(self._cache)

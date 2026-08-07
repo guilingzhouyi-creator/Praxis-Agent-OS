@@ -84,11 +84,14 @@ class ThreadPoolWorker(WorkerPort):
       - Shrinks back toward *min_workers* after *idle_timeout* of inactivity.
     """
 
-    def __init__(self, min_workers: int = WORKER_POOL_MIN,
-                 max_workers: int = WORKER_POOL_MAX,
-                 queue_size: int = WORKER_POOL_QUEUE_SIZE,
-                 idle_timeout: float = WORKER_POOL_IDLE_TIMEOUT,
-                 task_timeout: float = WORKER_POOL_TASK_TIMEOUT) -> None:
+    def __init__(
+        self,
+        min_workers: int = WORKER_POOL_MIN,
+        max_workers: int = WORKER_POOL_MAX,
+        queue_size: int = WORKER_POOL_QUEUE_SIZE,
+        idle_timeout: float = WORKER_POOL_IDLE_TIMEOUT,
+        task_timeout: float = WORKER_POOL_TASK_TIMEOUT,
+    ) -> None:
         if max_workers < min_workers:
             max_workers = min_workers
         self._min = min_workers

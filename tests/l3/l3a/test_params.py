@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestL3AParams:
     def test_importable(self):
         import l3.cell.peers.l3a.params as _p
+
         assert _p is not None

@@ -155,26 +155,29 @@ RING_NAME_MAP: Final[dict[int, str]] = {1: RING_1, 2: RING_2_5, 3: RING_3}
 
 class PraxisRing:
     """PraxisRing — praxis ring record (TOOL_RING_CAPACITY)."""
-# Tool entries per ring in PraxisRing records
+
+    # Tool entries per ring in PraxisRing records
     TOOL_RING_CAPACITY: int = 50
 
 
 # ── RequestPoolConfig (request pool scheduling) ──
 
+
 @dataclass
 class RequestPoolConfig:
     """RequestPoolConfig — request pool config record (CAPACITY, EVICT_ON_FULL, WEIGHT_REPUTATION, WEIGHT_PRIORITY, WEIGHT_WAIT)."""
-# Default request pool capacity
+
+    # Default request pool capacity
     CAPACITY: int = 8
-# Evict lowest-weight request when the pool is full
+    # Evict lowest-weight request when the pool is full
     EVICT_ON_FULL: bool = True
-# Weight of reputation in the eviction score
+    # Weight of reputation in the eviction score
     WEIGHT_REPUTATION: float = 0.40
-# Weight of priority in the eviction score
+    # Weight of priority in the eviction score
     WEIGHT_PRIORITY: float = 0.35
-# Weight of wait time in the eviction score
+    # Weight of wait time in the eviction score
     WEIGHT_WAIT: float = 0.25
-# Max seconds a request may wait in the pool
+    # Max seconds a request may wait in the pool
     MAX_WAIT_S: float = 300.0
 
 

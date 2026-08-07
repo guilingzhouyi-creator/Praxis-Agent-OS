@@ -27,16 +27,18 @@ logger = logging.getLogger(__name__)
 
 class MountType(Enum):
     """MountType — enum of PROJECT, SANDBOX, TEMP, VIRTUAL...."""
-    PROJECT = auto()       # real project directory
-    SANDBOX = auto()       # sandbox directory (COW)
-    TEMP = auto()          # temporary directory
-    VIRTUAL = auto()       # in-memory virtual files
-    SYSTEM = auto()        # kernel system files (/proc, /sys equivalents)
+
+    PROJECT = auto()  # real project directory
+    SANDBOX = auto()  # sandbox directory (COW)
+    TEMP = auto()  # temporary directory
+    VIRTUAL = auto()  # in-memory virtual files
+    SYSTEM = auto()  # kernel system files (/proc, /sys equivalents)
 
 
 @dataclass
 class MountPoint:
     """MountPoint — mount point record (name, mount_type, real_path, min_ring, read_only)."""
+
     name: str
     mount_type: MountType
     real_path: str = ""
@@ -48,6 +50,7 @@ class MountPoint:
 @dataclass
 class VNode:
     """Virtual inode — represents a file in VFS."""
+
     path: str
     size: int = 0
     is_dir: bool = False
@@ -75,16 +78,26 @@ class VFS:
         # Pre-sorted prefix list (longest-first) for O(1) _resolve.
         self._sorted_prefixes: list[str] = []
 
-    def mount(self, name: str, mount_type: MountType, real_path: str = "",
-              min_ring: int = VFS_DEFAULT_MIN_RING, read_only: bool = False,
-              description: str = "") -> dict:
+    def mount(
+        self,
+        name: str,
+        mount_type: MountType,
+        real_path: str = "",
+        min_ring: int = VFS_DEFAULT_MIN_RING,
+        read_only: bool = False,
+        description: str = "",
+    ) -> dict:
         """Mount a filesystem at the given name prefix."""
         with self._lock:
             if name in self._mounts:
                 return {"success": False, "error": f"mount point '{name}' already exists"}
             self._mounts[name] = MountPoint(
-                name=name, mount_type=mount_type, real_path=real_path,
-                min_ring=min_ring, read_only=read_only, description=description,
+                name=name,
+                mount_type=mount_type,
+                real_path=real_path,
+                min_ring=min_ring,
+                read_only=read_only,
+                description=description,
             )
             # Rebuild sorted cache: longest prefix first, so _resolve matches
             # the most specific mount point without runtime sorting.
@@ -102,7 +115,7 @@ class VFS:
             if mp is None:
                 continue  # stale entry from dynamic unmount; skip
             if path == prefix or path.startswith(prefix + "/"):
-                rel = path[len(prefix):].lstrip("/")
+                rel = path[len(prefix) :].lstrip("/")
                 real = os.path.join(mp.real_path, rel) if mp.real_path else ""
                 return mp, rel, real
         return None, "", ""
@@ -209,10 +222,17 @@ class VFS:
     def mounts(self) -> list[dict]:
         """List all registered mounts as dicts."""
         with self._lock:
-            return [{"name": m.name, "type": m.mount_type.name,
-                     "real_path": m.real_path, "min_ring": m.min_ring,
-                     "read_only": m.read_only, "description": m.description}
-                    for m in self._mounts.values()]
+            return [
+                {
+                    "name": m.name,
+                    "type": m.mount_type.name,
+                    "real_path": m.real_path,
+                    "min_ring": m.min_ring,
+                    "read_only": m.read_only,
+                    "description": m.description,
+                }
+                for m in self._mounts.values()
+            ]
 
     @property
     def proc_path(self) -> str:
@@ -236,6 +256,7 @@ class VFS:
         from .params.system import KERNEL_VERSION
         from .registry import get_registry
         from .settings import get_settings
+
         r = get_registry()
         parts = path.strip("/").split("/")
         if len(parts) == 1:
@@ -250,7 +271,7 @@ class VFS:
             m = r.modules()
             content = "Kernel Modules\n" + "=" * 40 + "\n"
             for name, info in m.items():
-                content += f"{name:20s} {info.get('status','?'):>4s}  {info.get('elapsed_ms',0)}ms\n"
+                content += f"{name:20s} {info.get('status', '?'):>4s}  {info.get('elapsed_ms', 0)}ms\n"
             return {"success": True, "content": content}
         if "settings" in parts:
             s = get_settings().all()
@@ -269,6 +290,7 @@ class VFS:
     def skill_read(self, path: str) -> dict:
         """Read /skills files — agent skills."""
         from .skill import get_skill_manager
+
         sm = get_skill_manager()
         parts = path.strip("/").split("/")
         if len(parts) == 1:
@@ -282,7 +304,7 @@ class VFS:
                 # /skills/<name> — list rules
                 rules = skill.get("rules", [])
                 content = f"Skill: {skill_name}\n"
-                content += f"Description: {skill.get('description','')}\n"
+                content += f"Description: {skill.get('description', '')}\n"
                 content += f"Rules ({len(rules)}):\n"
                 for r in rules:
                     content += f"  - {r}\n"
@@ -292,26 +314,29 @@ class VFS:
     def dev_read(self, path: str) -> dict:
         """Read /dev files — device manager."""
         from .device import get_device_manager
+
         dm = get_device_manager()
         parts = path.strip("/").split("/")
         if len(parts) == 1:
             devices = dm.list()
             content = "Devices\n" + "=" * 40 + "\n"
             for d in devices:
-                content += f"{d['name']:15s} {d['type']:12s} {d['health']:10s}  rate={d['rate_limit']} calls={d['calls']}\n"
+                content += (
+                    f"{d['name']:15s} {d['type']:12s} {d['health']:10s}  rate={d['rate_limit']} calls={d['calls']}\n"
+                )
             return {"success": True, "content": content}
         return {"success": False, "error": "ENOENT", "error_code": "ENOENT"}
 
     def proc_read(self, path: str) -> dict:
         """Read /proc files (kernel virtual filesystem)."""
         from .process import get_table
+
         parts = path.strip("/").split("/")
         if len(parts) == 1 and parts[0] == "proc":
             table = get_table()
             procs = table.list_processes()
             content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
-                f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
-                for p in procs
+                f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s" for p in procs
             )
             return {"success": True, "content": content}
         if len(parts) == 2 and parts[0] == "proc":
@@ -325,8 +350,7 @@ class VFS:
                 table = get_table()
                 procs = table.list_processes()
                 content = "PID\tNAME\tROLE\tSTATE\tRING\tUPTIME\n" + "\n".join(
-                    f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s"
-                    for p in procs
+                    f"{p['pid']}\t{p['name']}\t{p['role']}\t{p['state']}\t{p['ring']}\t{p['uptime']}s" for p in procs
                 )
                 return {"success": True, "content": content}
             try:

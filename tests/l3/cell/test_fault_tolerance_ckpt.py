@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 class TestFaultToleranceInit:
     def test_get_service(self):
         from l3.services.fault_tolerance import get_service, reset_service
+
         reset_service()
         ft = get_service()
         assert ft is not None
@@ -27,6 +28,7 @@ class TestFaultToleranceInit:
 class TestFaultToleranceCheckpoint:
     def test_save_checkpoint(self):
         from l3.services.fault_tolerance import get_service, reset_service
+
         reset_service()
         ft = get_service()
         r = ft.save_checkpoint("agent-cp", {"action": "test", "target": "."})
@@ -34,6 +36,7 @@ class TestFaultToleranceCheckpoint:
 
     def test_save_and_restore(self):
         from l3.services.fault_tolerance import get_service, reset_service
+
         reset_service()
         ft = get_service()
         ft.save_checkpoint("agent-sr", {"action": "write", "target": "/tmp/test"})
@@ -42,6 +45,7 @@ class TestFaultToleranceCheckpoint:
 
     def test_multiple_checkpoints(self):
         from l3.services.fault_tolerance import get_service, reset_service
+
         reset_service()
         ft = get_service()
         ft.save_checkpoint("agent-multi", {"step": 1})
@@ -52,6 +56,7 @@ class TestFaultToleranceCheckpoint:
 
     def test_restore_nonexistent(self):
         from l3.services.fault_tolerance import get_service, reset_service
+
         reset_service()
         ft = get_service()
         r = ft.restore_checkpoint("no-such-agent")

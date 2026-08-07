@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 class TestCentralCollector:
     def test_importable(self):
         from l3.cell.peers.central_collector import CentralCollector
+
         assert callable(CentralCollector)

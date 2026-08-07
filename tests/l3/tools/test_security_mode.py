@@ -165,9 +165,7 @@ class TestCardwriteWarrant:
     def _card(self, nature: str = "offensive"):
         from l3.cell.peers.l3a.helpers import cardwrite_handler
 
-        return cardwrite_handler(
-            {"nature": nature, "title": "t", "intent": "t", "phases": []}, "l3a"
-        )
+        return cardwrite_handler({"nature": nature, "title": "t", "intent": "t", "phases": []}, "l3a")
 
     def test_offensive_warrant_denied_in_productive(self):
         from l3.tool_system.security_mode import set_security_mode
@@ -201,9 +199,7 @@ class TestCellAttackTeam:
         reset_center()
         sm = get_skill_manager()
         sm.create(name="recon-methodology", description="d", prompt="r", posture="offensive", internal=True)
-        get_center().set_l2(
-            "team.attack.domains", {"recon": ["recon-methodology"]}
-        )
+        get_center().set_l2("team.attack.domains", {"recon": ["recon-methodology"]})
         cell = Cell(cell_id="cell-1")
         r = cell.activate_attack_team()
         assert r["success"]
@@ -318,9 +314,7 @@ class TestReviewFixes:
     def test_offensive_policy_set_parses_string_false(self):
         from l4.api_handlers.api_handlers_skills import handle_skills_offensive_policy_set
 
-        r = handle_skills_offensive_policy_set(
-            {"enabled": "false", "agent_id": "l3a", "role": "l3"}
-        )
+        r = handle_skills_offensive_policy_set({"enabled": "false", "agent_id": "l3a", "role": "l3"})
         assert r["success"]
         assert r["enabled"] is False  # string "false" must not invert to True
 
@@ -350,8 +344,8 @@ class TestRCBridge:
 
         reset_center()
         set_security_mode("security-test", confirmed=False)  # warning
-        set_security_mode("security-test", confirmed=True)   # change
-        set_security_mode("productive", confirmed=True)      # change
+        set_security_mode("security-test", confirmed=True)  # change
+        set_security_mode("productive", confirmed=True)  # change
         assert self._q("security.mode.warning") == [("security.mode.warning", 1.0)]
         assert len(self._q("security.mode.change")) == 2
 
@@ -362,9 +356,7 @@ class TestRCBridge:
         reset_center()
         ingest_security_metric("security.gate.injection.blocked", tags={"skill": "x", "nature": ""})
         ingest_security_metric("security.warrant.denied", tags={"nature": "offensive"})
-        assert self._q("security.gate.injection.blocked") == [
-            ("security.gate.injection.blocked", 1.0)
-        ]
+        assert self._q("security.gate.injection.blocked") == [("security.gate.injection.blocked", 1.0)]
         assert self._q("security.warrant.denied") == [("security.warrant.denied", 1.0)]
 
     def test_use_skill_blocked_emits_metric(self):
@@ -379,9 +371,7 @@ class TestRCBridge:
         set_security_mode("productive", confirmed=True)
         r = use_skill({"name": "rev-m"}, "agent-x")
         assert not r["success"]
-        assert self._q("security.gate.use_skill.blocked") == [
-            ("security.gate.use_skill.blocked", 1.0)
-        ]
+        assert self._q("security.gate.use_skill.blocked") == [("security.gate.use_skill.blocked", 1.0)]
 
 
 class TestRCGapClosure:
@@ -399,8 +389,8 @@ class TestRCGapClosure:
 
         reset_center()
         set_security_mode("security-test", confirmed=False)  # denied
-        set_security_mode("security-test", confirmed=True)   # confirmed -> gauge 1.0
-        set_security_mode("productive", confirmed=True)      # back -> gauge 0.0
+        set_security_mode("security-test", confirmed=True)  # confirmed -> gauge 1.0
+        set_security_mode("productive", confirmed=True)  # back -> gauge 0.0
         assert self._q("security.bypass.denied") == [("security.bypass.denied", 1.0)]
         assert len(self._q("security.bypass.confirmed")) >= 1
         # gauge recorded both for full_power (1.0) and back-to-productive (0.0)

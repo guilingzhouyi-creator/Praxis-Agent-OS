@@ -1,4 +1,5 @@
 """Tests for subagent_gate.py — card type classification + spec builder."""
+
 from __future__ import annotations
 
 from l3.agent.subagent_gate import build_spec, classify_card
@@ -12,6 +13,7 @@ def test_classify_explore_empty():
 def test_classify_explore_read_tools():
     """A card with only read tools is 'explore'."""
     from dataclasses import dataclass, field
+
     @dataclass
     class DummyTask:
         action: str = ""
@@ -28,6 +30,7 @@ def test_classify_explore_read_tools():
 def test_classify_execute_write_tool():
     """A card with a write tool is 'execute'."""
     from dataclasses import dataclass, field
+
     @dataclass
     class DummyTask:
         action: str = ""
@@ -43,6 +46,7 @@ def test_classify_execute_write_tool():
 def test_classify_execute_writer_role():
     """A card with a 'writer' role agent is 'execute'."""
     from dataclasses import dataclass, field
+
     @dataclass
     class DummyTask:
         action: str = ""

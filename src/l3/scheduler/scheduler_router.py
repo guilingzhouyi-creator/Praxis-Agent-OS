@@ -21,24 +21,35 @@ class L3Router:
         self._agents: dict[str, AgentInfo] = {}
         self._lock = threading.Lock()
 
-    def register(self, agent_id: str, territory: list[str],
-                 reputation: float = REP_DEFAULT_REPUTATION, affinity: list[str] | None = None) -> None:
+    def register(
+        self,
+        agent_id: str,
+        territory: list[str],
+        reputation: float = REP_DEFAULT_REPUTATION,
+        affinity: list[str] | None = None,
+    ) -> None:
         """Register an agent with territory, reputation, and affinity tags."""
         with self._lock:
             self._agents[agent_id] = AgentInfo(
-                id=agent_id, territory=territory, reputation=reputation,
+                id=agent_id,
+                territory=territory,
+                reputation=reputation,
                 affinity_tags=affinity or [],
             )
 
-    def route(self, domain: str, intent_tags: list[str] | None = None,
-              preferred: str | None = None) -> dict:
+    def route(self, domain: str, intent_tags: list[str] | None = None, preferred: str | None = None) -> dict:
         """Route a domain intent to the best agent."""
         with self._lock:
             agents = dict(self._agents)
         if preferred and preferred in agents:
             a = agents[preferred]
-            return {"agent_id": preferred, "territory": a.territory,
-                    "reputation": a.reputation, "score": 999, "reason": "preferred"}
+            return {
+                "agent_id": preferred,
+                "territory": a.territory,
+                "reputation": a.reputation,
+                "score": 999,
+                "reason": "preferred",
+            }
         scored = []
         for aid, a in agents.items():
             score = 0.0
@@ -54,8 +65,13 @@ class L3Router:
         scored.sort(reverse=True)
         best = scored[0][1]
         a = agents[best]
-        return {"agent_id": best, "territory": a.territory,
-                "reputation": a.reputation, "score": scored[0][0], "reason": "best match"}
+        return {
+            "agent_id": best,
+            "territory": a.territory,
+            "reputation": a.reputation,
+            "score": scored[0][0],
+            "reason": "best match",
+        }
 
     def update_load(self, agent_id: str, delta: float = 0.1) -> None:
         """Adjust an agent's load by delta, clamped to [0, 1]."""
@@ -68,9 +84,15 @@ class L3Router:
     def agents(self) -> dict:
         """Return a snapshot of all registered agents."""
         with self._lock:
-            return {aid: {"territory": a.territory, "reputation": a.reputation,
-                          "load": a.load, "active_tasks": a.active_tasks}
-                    for aid, a in self._agents.items()}
+            return {
+                aid: {
+                    "territory": a.territory,
+                    "reputation": a.reputation,
+                    "load": a.load,
+                    "active_tasks": a.active_tasks,
+                }
+                for aid, a in self._agents.items()
+            }
 
 
 class RequestPool:
@@ -111,10 +133,15 @@ class RequestPool:
         """List pending tasks, optionally filtered by agent."""
         with self._lock:
             items: list[dict[str, Any]] = [
-                {"id": t.id, "command": t.command,
-                 "priority": t.priority, "score": round(self._score(t), 3),
-                 "wait": round(time.time() - t.submitted_at, 1)}
-                for t in self._queue if not agent_id or t.agent_id == agent_id
+                {
+                    "id": t.id,
+                    "command": t.command,
+                    "priority": t.priority,
+                    "score": round(self._score(t), 3),
+                    "wait": round(time.time() - t.submitted_at, 1),
+                }
+                for t in self._queue
+                if not agent_id or t.agent_id == agent_id
             ]
             items.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
             return items

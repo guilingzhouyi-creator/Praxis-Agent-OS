@@ -793,7 +793,9 @@ def cfg_skill(cfg: dict, s: Any, results: dict) -> None:
         if "attack" in cfg and isinstance(cfg["attack"], dict):
             domains = cfg["attack"].get("domains")
             if isinstance(domains, dict):
-                clean = {str(k): [s for s in v if isinstance(s, str)] for k, v in domains.items() if isinstance(v, list)}
+                clean = {
+                    str(k): [s for s in v if isinstance(s, str)] for k, v in domains.items() if isinstance(v, list)
+                }
                 center.set_l2("team.attack.domains", clean)
     get_skill_manager().set_write_policy(
         min_ring=center.get("skill.write_min_ring", None),

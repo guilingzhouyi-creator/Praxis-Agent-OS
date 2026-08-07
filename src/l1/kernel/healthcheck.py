@@ -109,6 +109,7 @@ def safe_system_check() -> dict[str, Any]:
 def _check_process_table(results: dict) -> tuple[bool, str]:
     try:
         from .process import get_table
+
         procs = get_table().list_processes()
         cnt = len(procs) if procs else 0
         results["kernel.process[table]"] = {"status": "OK", "detail": f"{cnt} processes"}
@@ -121,10 +122,13 @@ def _check_process_table(results: dict) -> tuple[bool, str]:
 def _check_event_bus(results: dict) -> tuple[bool, str]:
     try:
         from .event import get_bus
+
         bus = get_bus()
         ok = hasattr(bus, "on") and hasattr(bus, "emit")
-        results["kernel.event[bus]"] = {"status": "OK" if ok else "DEGRADED",
-                                         "detail": "functional" if ok else "missing methods"}
+        results["kernel.event[bus]"] = {
+            "status": "OK" if ok else "DEGRADED",
+            "detail": "functional" if ok else "missing methods",
+        }
         return ok, "functional" if ok else "degraded"
     except Exception as e:
         results["kernel.event[bus]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}
@@ -134,6 +138,7 @@ def _check_event_bus(results: dict) -> tuple[bool, str]:
 def _check_device_manager(results: dict) -> tuple[bool, str]:
     try:
         from .device import get_device_manager
+
         dm = get_device_manager()
         results["kernel.device[manager]"] = {"status": "OK", "detail": type(dm).__name__}
         return True, type(dm).__name__
@@ -145,10 +150,13 @@ def _check_device_manager(results: dict) -> tuple[bool, str]:
 def _check_constitution(results: dict) -> tuple[bool, str]:
     try:
         from .constitution import get_constitution
+
         c = get_constitution()
         ok = bool(c)
-        results["kernel.constitution[loaded]"] = {"status": "OK" if ok else "DEGRADED",
-                                                    "detail": "loaded" if ok else "empty/None"}
+        results["kernel.constitution[loaded]"] = {
+            "status": "OK" if ok else "DEGRADED",
+            "detail": "loaded" if ok else "empty/None",
+        }
         return ok, "loaded" if ok else "empty"
     except Exception as e:
         results["kernel.constitution[loaded]"] = {"status": "FAILED", "detail": str(e)[:LOG_TRUNC_120]}

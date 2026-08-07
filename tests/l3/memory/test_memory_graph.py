@@ -139,8 +139,8 @@ def test_compact_executable_prunes_leaves(tmp_path):
     g = get_graph()
     # 手工构造：n-b / n-h 是 hub（度 2），n-a/n-c/n-d/n-e 是叶子（度 1）
     import time as _t
-    for f, t in (("n-a", "n-b"), ("n-b", "n-c"), ("n-b", "n-h"),
-                 ("n-h", "n-d"), ("n-h", "n-e")):
+
+    for f, t in (("n-a", "n-b"), ("n-b", "n-c"), ("n-b", "n-h"), ("n-h", "n-d"), ("n-h", "n-e")):
         g._insert_edge(f, t, "sequential", 1.0, "test", _t.time())
     dry = g.compact(min_degree=2, dry_run=True)
     assert dry["dry_run"] is True and dry["leaves"] >= 4
@@ -150,8 +150,7 @@ def test_compact_executable_prunes_leaves(tmp_path):
     assert res["edges_removed"] >= 4
     assert g.stats()["edges"] < before
     # hub-hub 边保留：n-b 仍连接 n-h
-    assert any(ed["to_id"] == "n-h" or ed["from_id"] == "n-h"
-               for ed in g.edges_of("n-b"))
+    assert any(ed["to_id"] == "n-h" or ed["from_id"] == "n-h" for ed in g.edges_of("n-b"))
 
 
 def test_recall_graph_diffusion_expands(tmp_path):
@@ -164,12 +163,10 @@ def test_recall_graph_diffusion_expands(tmp_path):
     linear = mgr.recall(agent_id="a1", entry_type="decision", limit=10)
     ids = {e.id for e in linear}
     assert e1 in ids and e2 in ids
-    diff = mgr.recall(agent_id="a1", entry_type="decision", limit=10,
-                      graph_diffusion=True)
+    diff = mgr.recall(agent_id="a1", entry_type="decision", limit=10, graph_diffusion=True)
     diff_ids = {e.id for e in diff}
     # 扩散后应包含图可达的 summary 节点（通过 type_chain 边）
-    assert len(diff_ids) >= len(ids) or any(
-        e.entry_type == "summary" for e in diff)
+    assert len(diff_ids) >= len(ids) or any(e.entry_type == "summary" for e in diff)
 
 
 def test_recall_diffusion_disabled_graph_falls_back(tmp_path):
@@ -185,6 +182,7 @@ def test_recall_diffusion_disabled_graph_falls_back(tmp_path):
 def test_central_recall_passes_diffusion(tmp_path):
     """CentralMemory.recall 透传 graph_diffusion。"""
     from l3.memory.central_memory import get_center, reset_center
+
     reset_center()
     _activate_graph(tmp_path, enabled=True)
     center = get_center()
@@ -222,6 +220,7 @@ def test_semantic_edges_listing(tmp_path):
     g.add_semantic_edge("a1", "a2", "contradicts", created_by="llm")
     g.add_semantic_edge("b1", "b2", "depends_on", created_by="llm")
     import time as _t
+
     g._insert_edge("x1", "x2", "sequential", 1.0, "system", _t.time())
     sem = g.semantic_edges()
     assert len(sem) == 2
@@ -230,17 +229,16 @@ def test_semantic_edges_listing(tmp_path):
 
 def test_semantic_edge_api(tmp_path):
     from l4.api_handlers import ApiHandlers
+
     reset_graph()
     g = get_graph(db_path=str(tmp_path / "sem.db"))
     g.set_enabled(True)
     api = ApiHandlers()
-    r = api._memory_graph_edge({"from_id": "a", "to_id": "b",
-                                "relation": "contradicts"})
+    r = api._memory_graph_edge({"from_id": "a", "to_id": "b", "relation": "contradicts"})
     assert r["success"]
     lst = api._memory_graph_semantic()
     assert lst["success"] and len(lst["edges"]) == 1
-    r2 = api._memory_graph_edge({"from_id": "a", "to_id": "b",
-                                 "relation": "nope"})
+    r2 = api._memory_graph_edge({"from_id": "a", "to_id": "b", "relation": "nope"})
     assert not r2["success"]
 
 
@@ -248,6 +246,7 @@ def test_compress_triggers_graph_compact(tmp_path):
     """Compression auto-triggers graph reduction (graph enabled)."""
     from l3.cell.peers.l3a import get_daemon
     from l3.memory.central_memory import reset_center
+
     reset_center()
     _activate_graph(tmp_path, enabled=True)
     d = get_daemon()
@@ -255,8 +254,8 @@ def test_compress_triggers_graph_compact(tmp_path):
     s._ensure_loop()
 
     def fake_run(**kw):
-        return {"answer": "ok", "success": True, "tool_calls": [],
-                "reasoning_trail": ["t"], "reasoning_tokens": 1}
+        return {"answer": "ok", "success": True, "tool_calls": [], "reasoning_trail": ["t"], "reasoning_tokens": 1}
+
     s._loop.run = fake_run
     for i in range(3):
         s.prompt(f"bulk question {i}")
@@ -304,10 +303,12 @@ def test_extract_semantic_edges_hybrid_only(tmp_path):
     g.set_edge_mode("rules")
     r = g.extract_semantic_edges(entries, engine=None)
     assert not r["success"] and "not hybrid" in r["error"]
+
     # hybrid mode with a fake engine
     class FakeEngine:
         def generate(self, prompt, **kw):
             return {"content": "contradicts"}
+
     g.set_edge_mode("hybrid")
     r = g.extract_semantic_edges(entries, engine=FakeEngine())
     assert r["success"] and r["added"] >= 1
@@ -323,9 +324,11 @@ def test_extract_failure_auto_degrades_to_paused(tmp_path):
         {"id": "m1", "entry_type": "decision", "content": "alpha"},
         {"id": "m2", "entry_type": "decision", "content": "beta"},
     ]
+
     class BoomEngine:
         def generate(self, prompt, **kw):
             raise RuntimeError("llm down")
+
     r = g.extract_semantic_edges(entries, engine=BoomEngine())
     assert not r["success"]
     assert g.edge_mode == "paused"  # 自动降级
@@ -333,6 +336,7 @@ def test_extract_failure_auto_degrades_to_paused(tmp_path):
 
 def test_stats_command_graph_subcommand(tmp_path):
     from l2.l2_shell.commands.extra import _cmd_stats
+
     reset_graph()
     g = get_graph(db_path=str(tmp_path / "stats.db"))
     g.set_enabled(True)
@@ -345,6 +349,7 @@ def test_resume_from_archive_graph_recall(tmp_path):
     """会话恢复时图扩散召回相关上下文（图启用时）。"""
     from l3.cell.peers.l3a import get_daemon
     from l3.memory.central_memory import reset_center
+
     reset_center()
     _activate_graph(tmp_path, enabled=True)
     d = get_daemon()
@@ -352,8 +357,8 @@ def test_resume_from_archive_graph_recall(tmp_path):
     s._ensure_loop()
 
     def fake_run(**kw):
-        return {"answer": "ok", "success": True, "tool_calls": [],
-                "reasoning_trail": ["chain"], "reasoning_tokens": 1}
+        return {"answer": "ok", "success": True, "tool_calls": [], "reasoning_trail": ["chain"], "reasoning_tokens": 1}
+
     s._loop.run = fake_run
     for i in range(3):
         s.prompt(f"question {i}")
@@ -362,9 +367,9 @@ def test_resume_from_archive_graph_recall(tmp_path):
     aid = archived.get("session_id") or archived.get("archived_session_id")
 
     from l3.cell.peers.l3a.session import Session
+
     s2 = Session.resume_from_archive(aid)
     assert s2 is not None
-    graph_msgs = [m for m in s2.history._messages
-                  if m.metadata.get("graph_recall")]
+    graph_msgs = [m for m in s2.history._messages if m.metadata.get("graph_recall")]
     assert graph_msgs, "graph recall context should be injected"
     s2.close()

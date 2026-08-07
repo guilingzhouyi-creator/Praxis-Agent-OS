@@ -11,6 +11,7 @@ class TestSemanticSearch:
 
     def _make_search(self):
         from l4.search.search_engine import SemanticSearch
+
         return SemanticSearch()
 
     def test_search_empty_query(self):
@@ -72,14 +73,19 @@ class TestDocSearch:
 
     def _make_doc(self):
         from l4.search.search_engine import DocSearch
+
         return DocSearch()
 
     def test_index_and_search(self):
         """索引后应能搜索到文档条目。"""
         ds = self._make_doc()
-        ds.index("praxis", "l4.search", "SemanticSearch",
-                 signature="SemanticSearch()",
-                 docstring="Lightweight semantic search with TF-IDF")
+        ds.index(
+            "praxis",
+            "l4.search",
+            "SemanticSearch",
+            signature="SemanticSearch()",
+            docstring="Lightweight semantic search with TF-IDF",
+        )
         results = ds.search("semantic")
         assert results.get("success")
         items = results.get("results", [])
@@ -121,8 +127,16 @@ class TestSearchResult:
 
     def test_to_dict(self):
         from l4.search.search_engine import SearchResult
-        sr = SearchResult(path="/test/file.py", line=10, content="def foo(): pass",
-                          score=0.85, kind="symbol", symbol_name="foo", symbol_type="function")
+
+        sr = SearchResult(
+            path="/test/file.py",
+            line=10,
+            content="def foo(): pass",
+            score=0.85,
+            kind="symbol",
+            symbol_name="foo",
+            symbol_type="function",
+        )
         d = sr.to_dict()
         assert d["path"] == "/test/file.py"
         assert d["line"] == 10

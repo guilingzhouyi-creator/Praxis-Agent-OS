@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 class IrqPriority(IntEnum):
     """IrqPriority — irq priority."""
+
     NMI = 0
     HIGH = 1
     NORMAL = 2
@@ -52,6 +53,7 @@ class IrqPriority(IntEnum):
 @dataclass
 class IrqSlot:
     """IrqSlot — irq slot record (irq_num, name, handler, priority, masked)."""
+
     irq_num: int = 0
     name: str = ""
     handler: Callable | None = None
@@ -65,6 +67,7 @@ class IrqSlot:
 @dataclass
 class IrqEvent:
     """IrqEvent — irq event record (irq_num, name, priority, data, timestamp)."""
+
     irq_num: int = 0
     name: str = ""
     priority: IrqPriority = IrqPriority.NORMAL
@@ -79,8 +82,7 @@ class InterruptController:
     Non-NMI interrupts are queued and dispatched FIFO within priority.
     """
 
-    def __init__(self, cell_id: str, table_size: int = IRQ_TABLE_SIZE,
-                 pmu: Any = None):
+    def __init__(self, cell_id: str, table_size: int = IRQ_TABLE_SIZE, pmu: Any = None):
         self.cell_id = cell_id
         self._table_size = table_size
         self._pmu = pmu
@@ -101,9 +103,9 @@ class InterruptController:
 
     # ── IRQ registration ──────────────────────────────────────────
 
-    def register(self, irq_num: int, name: str,
-                 handler: Callable | None = None,
-                 priority: IrqPriority = IrqPriority.NORMAL) -> dict:
+    def register(
+        self, irq_num: int, name: str, handler: Callable | None = None, priority: IrqPriority = IrqPriority.NORMAL
+    ) -> dict:
         """Register an interrupt handler.
 
         irq_num: 0-31.  Returns {"success": True} or error dict.
@@ -250,9 +252,7 @@ class InterruptController:
                 "total_triggered": self._total_triggered,
                 "total_handled": self._total_handled,
                 "registered_irqs": len(self._table),
-                "pending_by_priority": {
-                    p.name.lower(): len(q) for p, q in self._pending.items()
-                },
+                "pending_by_priority": {p.name.lower(): len(q) for p, q in self._pending.items()},
                 "irqs": {
                     f"IRQ{n}": {
                         "name": s.name,
@@ -318,5 +318,7 @@ class InterruptController:
         ]
         for irq_num, name, priority in builtin:
             self._table[irq_num] = IrqSlot(
-                irq_num=irq_num, name=name, priority=priority,
+                irq_num=irq_num,
+                name=name,
+                priority=priority,
             )

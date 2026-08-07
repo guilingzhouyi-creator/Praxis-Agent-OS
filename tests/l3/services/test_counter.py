@@ -13,11 +13,13 @@ class TestCounter:
 
     def test_get_counter(self):
         from l3.services.counter import get_counter
+
         c = get_counter()
         assert c is not None
 
     def test_record_tool(self):
         from l3.services.counter import get_counter
+
         c = get_counter()
         c.record_tool("agent-a", "read_file", success=True)
         summary = c.tool_summary()

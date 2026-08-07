@@ -43,11 +43,14 @@ class SequenceMonitor:
       # → {"probability": 0.02, "anomaly": True, "reason": "low_transition"}
     """
 
-    def __init__(self, cell_id: str = "default",
-                 ngram: int = SEQ_MONITOR_NGRAM,
-                 min_samples: int = SEQ_MONITOR_MIN_SAMPLES,
-                 anomaly_threshold: float = SEQ_MONITOR_ANOMALY_THRESHOLD,
-                 persist_path: str = ""):
+    def __init__(
+        self,
+        cell_id: str = "default",
+        ngram: int = SEQ_MONITOR_NGRAM,
+        min_samples: int = SEQ_MONITOR_MIN_SAMPLES,
+        anomaly_threshold: float = SEQ_MONITOR_ANOMALY_THRESHOLD,
+        persist_path: str = "",
+    ):
         self.cell_id = cell_id
         self._ngram_n = ngram
         self._min_samples = min_samples
@@ -79,7 +82,7 @@ class SequenceMonitor:
             for i in range(1, len(tool_names)):
                 # Build n-gram context from previous n-1 calls
                 for n in range(1, min(self._ngram_n, i) + 1):
-                    context = tuple(tool_names[i - n:i])
+                    context = tuple(tool_names[i - n : i])
                     next_tool = tool_names[i]
                     self._transitions[context][next_tool] += 1
             self._total_sequences += 1
@@ -109,7 +112,7 @@ class SequenceMonitor:
                 best_prob = 0.0
                 best_context = ""
                 for n in range(1, min(self._ngram_n, i) + 1):
-                    ctx = tuple(tool_names[i - n:i])
+                    ctx = tuple(tool_names[i - n : i])
                     counts = self._transitions.get(ctx, {})
                     total = sum(counts.values())
                     if total >= self._min_samples:
@@ -120,18 +123,21 @@ class SequenceMonitor:
 
                 prob = best_prob if best_prob > 0 else 0.0
                 probs.append(prob)
-                step_details.append({
-                    "step": i,
-                    "tool": next_tool,
-                    "context": best_context,
-                    "probability": round(prob, 4),
-                    "known": prob > 0,
-                })
+                step_details.append(
+                    {
+                        "step": i,
+                        "tool": next_tool,
+                        "context": best_context,
+                        "probability": round(prob, 4),
+                        "known": prob > 0,
+                    }
+                )
 
         # Overall probability: geometric mean
         if not probs:
             return {"probability": 1.0, "anomaly": False, "transitions": []}
         import math as _m
+
         product = _m.prod(max(p, 1e-10) for p in probs)
         geo_mean = product ** (1.0 / len(probs))
         anomaly = geo_mean < self._anomaly_threshold
@@ -140,9 +146,17 @@ class SequenceMonitor:
         if anomaly:
             try:
                 from l3.bus.reference_channel import get_rc as _rc
-                _rc().anomaly("", {"context": context, "probability": round(geo_mean, 4),
-                            "transitions": len(step_details), "cell_id": self.cell_id},
-                              cell_id=self.cell_id)
+
+                _rc().anomaly(
+                    "",
+                    {
+                        "context": context,
+                        "probability": round(geo_mean, 4),
+                        "transitions": len(step_details),
+                        "cell_id": self.cell_id,
+                    },
+                    cell_id=self.cell_id,
+                )
             except Exception:
                 logger.debug("sequence_monitor: anomaly emit failed")
 
@@ -175,10 +189,7 @@ class SequenceMonitor:
         if total < self._min_samples:
             return []
         sorted_tools = sorted(counts.items(), key=lambda x: -x[1])
-        return [
-            {"tool": t, "count": c, "probability": round(c / total, 3)}
-            for t, c in sorted_tools[:top_n]
-        ]
+        return [{"tool": t, "count": c, "probability": round(c / total, 3)} for t, c in sorted_tools[:top_n]]
 
     def stats(self) -> dict:
         """Return monitor statistics (sequences, calls, contexts)."""
@@ -214,9 +225,7 @@ class SequenceMonitor:
                 "ngram_n": self._ngram_n,
                 "total_sequences": self._total_sequences,
                 "total_calls": self._total_calls,
-                "transitions": {
-                    "|".join(k): v for k, v in self._transitions.items()
-                },
+                "transitions": {"|".join(k): v for k, v in self._transitions.items()},
             }
             tmp = self._persist_path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
@@ -246,9 +255,9 @@ _instances: dict[str, SequenceMonitor] = {}
 _instances_lock = threading.Lock()
 
 
-def get_monitor(cell_id: str = "default",
-                ngram: int = 0, min_samples: int = 0,
-                anomaly_threshold: float = 0.0) -> SequenceMonitor:
+def get_monitor(
+    cell_id: str = "default", ngram: int = 0, min_samples: int = 0, anomaly_threshold: float = 0.0
+) -> SequenceMonitor:
     """Return the shared monitor for *cell_id*, creating it on first use."""
     with _instances_lock:
         if cell_id not in _instances:

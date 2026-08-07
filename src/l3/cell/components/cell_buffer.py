@@ -1,4 +1,5 @@
 """CircularBuffer — fixed-size ring buffer extracted from cell.py for reuse."""
+
 from __future__ import annotations
 
 import logging

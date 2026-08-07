@@ -23,6 +23,7 @@ class TestLeanCaseDedup:
     def test_duplicate_trace_marks_resolved_without_new_skill(self):
         """A second trace for the same tool+agent must not create a second skill."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -31,6 +32,7 @@ class TestLeanCaseDedup:
         old_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         from l1.kernel.paths import reset_paths
+
         reset_paths()
         try:
             # First trace → generates lean case
@@ -45,6 +47,7 @@ class TestLeanCaseDedup:
             assert count_after_second == count_after_first
         finally:
             import shutil
+
             shutil.rmtree(td, ignore_errors=True)
             reset_paths()
             if old_dir is None:
@@ -55,6 +58,7 @@ class TestLeanCaseDedup:
     def test_lean_case_readable_name(self):
         """Generated lean case uses lean_{agent}_{tool} naming."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -63,6 +67,7 @@ class TestLeanCaseDedup:
         old_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         from l1.kernel.paths import reset_paths
+
         reset_paths()
         try:
             r4._track_failure("agent-b", "grep", {}, "not found", [])
@@ -71,6 +76,7 @@ class TestLeanCaseDedup:
             assert any(n.startswith("lean_agent-b_grep") for n in names)
         finally:
             import shutil
+
             shutil.rmtree(td, ignore_errors=True)
             reset_paths()
             if old_dir is None:
@@ -83,6 +89,7 @@ class TestPruneStaleSkills:
     def test_old_unused_skill_pruned(self):
         """Evolved skill with ancient loaded_at and no last_used is pruned."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -99,6 +106,7 @@ class TestPruneStaleSkills:
     def test_lean_cases_never_pruned(self):
         """Lean case skills are exempt from TTL pruning."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -114,6 +122,7 @@ class TestOrphanCleanup:
     def test_old_unresolved_trace_removed(self):
         """A trace file older than 24h that is still unresolved is deleted."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         r4 = R4Agent()
 
@@ -121,6 +130,7 @@ class TestOrphanCleanup:
         old_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         from l1.kernel.paths import reset_paths
+
         reset_paths()
         try:
             lean_dir = os.path.join(td, "skills", "lean")
@@ -130,6 +140,7 @@ class TestOrphanCleanup:
                 json.dump({"resolved": False, "tool": "y"}, f)
             # Backdate mtime beyond 24h
             import time
+
             old = time.time() - 90000
             os.utime(fp, (old, old))
 
@@ -138,6 +149,7 @@ class TestOrphanCleanup:
             assert not os.path.exists(fp)
         finally:
             import shutil
+
             shutil.rmtree(td, ignore_errors=True)
             reset_paths()
             if old_dir is None:
@@ -148,6 +160,7 @@ class TestOrphanCleanup:
     def test_fresh_trace_kept(self):
         """A recent unresolved trace is not deleted."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         r4 = R4Agent()
 
@@ -155,6 +168,7 @@ class TestOrphanCleanup:
         old_dir = os.environ.get("PRAXIS_DATA_DIR")
         os.environ["PRAXIS_DATA_DIR"] = td
         from l1.kernel.paths import reset_paths
+
         reset_paths()
         try:
             lean_dir = os.path.join(td, "skills", "lean")
@@ -168,6 +182,7 @@ class TestOrphanCleanup:
             assert os.path.exists(fp)
         finally:
             import shutil
+
             shutil.rmtree(td, ignore_errors=True)
             reset_paths()
             if old_dir is None:
@@ -180,6 +195,7 @@ class TestEvolvedSkillFilter:
     def test_get_evolved_skills_filters_by_agent(self):
         """get_evolved_skills(agent_id=...) only returns that agent's skills."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -195,6 +211,7 @@ class TestEvolvedSkillFilter:
     def test_evolved_skills_include_useful_count_order(self):
         """Without agent filter, evolved skills come back sorted by recency."""
         from l3.memory.r4_agent import R4Agent
+
         reset_skill_manager()
         sm = get_skill_manager()
         r4 = R4Agent()
@@ -268,16 +285,41 @@ class TestLessonsDistillation:
 
         reset_skill_manager()
         sm = get_skill_manager()
-        sm.create(name="lean_agent-1_toolx", prompt="failed with X", tags=["lean_case", "failure", "agent-1", "toolx"],
-                  allowed_tools=["toolx"], internal=True)
-        sm.create(name="lean_agent-2_toolx", prompt="failed with Y", tags=["lean_case", "failure", "agent-2", "toolx"],
-                  allowed_tools=["toolx"], internal=True)
-        sm.create(name="lean_agent-3_toolx", prompt="failed with Z", tags=["lean_case", "failure", "agent-3", "toolx"],
-                  allowed_tools=["toolx"], internal=True)
-        sm.create(name="lean_agent-4_toolx", prompt="failed with W", tags=["lean_case", "failure", "agent-4", "toolx"],
-                  allowed_tools=["toolx"], internal=True)
-        sm.create(name="lean_agent-5_toolx", prompt="failed with V", tags=["lean_case", "failure", "agent-5", "toolx"],
-                  allowed_tools=["toolx"], internal=True)
+        sm.create(
+            name="lean_agent-1_toolx",
+            prompt="failed with X",
+            tags=["lean_case", "failure", "agent-1", "toolx"],
+            allowed_tools=["toolx"],
+            internal=True,
+        )
+        sm.create(
+            name="lean_agent-2_toolx",
+            prompt="failed with Y",
+            tags=["lean_case", "failure", "agent-2", "toolx"],
+            allowed_tools=["toolx"],
+            internal=True,
+        )
+        sm.create(
+            name="lean_agent-3_toolx",
+            prompt="failed with Z",
+            tags=["lean_case", "failure", "agent-3", "toolx"],
+            allowed_tools=["toolx"],
+            internal=True,
+        )
+        sm.create(
+            name="lean_agent-4_toolx",
+            prompt="failed with W",
+            tags=["lean_case", "failure", "agent-4", "toolx"],
+            allowed_tools=["toolx"],
+            internal=True,
+        )
+        sm.create(
+            name="lean_agent-5_toolx",
+            prompt="failed with V",
+            tags=["lean_case", "failure", "agent-5", "toolx"],
+            allowed_tools=["toolx"],
+            internal=True,
+        )
         r4 = R4Agent()
         r4._last_distill = {}
         r4._last_summarize = {}
@@ -303,7 +345,9 @@ class TestLessonsDistillation:
         rec = sm.get("lean_toolx_lessons")
         assert rec is not None
         # Batch 2: rules carry DPO preference metadata (dict form).
-        assert rec.get("rules") == [{"rule": "DO: validate args", "verified": 0, "hit": 0, "preferred": 1.0, "deprecated": False}]
+        assert rec.get("rules") == [
+            {"rule": "DO: validate args", "verified": 0, "hit": 0, "preferred": 1.0, "deprecated": False}
+        ]
         assert rec.get("procedures") == [{"step": "validate"}]
 
     def test_distill_falls_back_to_summary(self, mocker):
@@ -312,11 +356,17 @@ class TestLessonsDistillation:
         reset_skill_manager()
         sm = get_skill_manager()
         for i in range(5):
-            sm.create(name=f"lean_a{i}_tooly", prompt=f"failed {i}", tags=["lean_case", "failure", f"a{i}", "tooly"],
-                      allowed_tools=["tooly"], internal=True)
+            sm.create(
+                name=f"lean_a{i}_tooly",
+                prompt=f"failed {i}",
+                tags=["lean_case", "failure", f"a{i}", "tooly"],
+                allowed_tools=["tooly"],
+                internal=True,
+            )
         r4 = R4Agent()
         r4._last_distill = {}
         r4._last_summarize = {}
+
         # summary succeeds, distillation returns invalid JSON → summary wins
         def _fake_generate(prompt, **kw):
             if "into a structured skill definition" in prompt:
@@ -341,12 +391,23 @@ class TestSkillConflictDetection:
         reset_skill_manager()
         sm = get_skill_manager()
         prompt = "Check the git status then commit with a clear message and verify the log."
-        sm.create(name="dup_a", description="d", prompt=prompt, tags=["evolved"], allowed_tools=["git"],
-                  internal=True)
-        sm.create(name="dup_b", description="d", prompt=prompt + " Always verify the log output.",
-                  tags=["evolved"], allowed_tools=["git"], internal=True)
-        sm.create(name="unique_c", description="d", prompt="completely different content here",
-                  tags=["evolved"], allowed_tools=["git"], internal=True)
+        sm.create(name="dup_a", description="d", prompt=prompt, tags=["evolved"], allowed_tools=["git"], internal=True)
+        sm.create(
+            name="dup_b",
+            description="d",
+            prompt=prompt + " Always verify the log output.",
+            tags=["evolved"],
+            allowed_tools=["git"],
+            internal=True,
+        )
+        sm.create(
+            name="unique_c",
+            description="d",
+            prompt="completely different content here",
+            tags=["evolved"],
+            allowed_tools=["git"],
+            internal=True,
+        )
         r4 = R4Agent()
         report = r4._detect_skill_conflicts()
         dups = [r for r in report if r["kind"] == "duplicate"]
@@ -358,10 +419,24 @@ class TestSkillConflictDetection:
 
         reset_skill_manager()
         sm = get_skill_manager()
-        sm.create(name="c_a", description="d", prompt="one", tags=["evolved"],
-                  rules=["DO: use force push"], allowed_tools=["git"], internal=True)
-        sm.create(name="c_b", description="d", prompt="two", tags=["evolved"],
-                  rules=["DON'T: use force push"], allowed_tools=["git"], internal=True)
+        sm.create(
+            name="c_a",
+            description="d",
+            prompt="one",
+            tags=["evolved"],
+            rules=["DO: use force push"],
+            allowed_tools=["git"],
+            internal=True,
+        )
+        sm.create(
+            name="c_b",
+            description="d",
+            prompt="two",
+            tags=["evolved"],
+            rules=["DON'T: use force push"],
+            allowed_tools=["git"],
+            internal=True,
+        )
         r4 = R4Agent()
         report = r4._detect_skill_conflicts()
         contrad = [r for r in report if r["kind"] == "contradiction"]
@@ -409,8 +484,14 @@ class TestLeanStructuredKnowledge:
     def test_create_accepts_knowledge(self):
         reset_skill_manager()
         sm = get_skill_manager()
-        sm.create(name="kn_skill", description="d", prompt="p", tags=["evolved"],
-                  knowledge={"tool": "x", "error": "boom"}, internal=True)
+        sm.create(
+            name="kn_skill",
+            description="d",
+            prompt="p",
+            tags=["evolved"],
+            knowledge={"tool": "x", "error": "boom"},
+            internal=True,
+        )
         rec = sm.get("kn_skill")
         assert rec.get("knowledge", {}).get("error") == "boom"
         # Default knowledge still populated when not passed.
@@ -441,6 +522,7 @@ class TestCardSkillSignal:
         _fake_skill.__name__ = "use_skill"
         wrapped = loop._wrap_handler(_fake_skill)
         import contextlib
+
         with contextlib.suppress(Exception):
             wrapped({"name": "refactor_skill", "goal": "x"}, "agent-1")
         assert "refactor_skill" in loop._card_skills_used
@@ -458,10 +540,12 @@ class TestCardSkillSignal:
         cell._pmu = mocker.Mock()
         cell._card_history = mocker.Mock()
         from unittest.mock import MagicMock
+
         cell.cache = MagicMock()
         cell.cache.keys.return_value = []
         cell._cache = None
         cell._rollback_ring = None
+
         class _FakeCard:
             id = "c-1"
             intent = "do work"
@@ -473,6 +557,7 @@ class TestCardSkillSignal:
             sender = "l3"
             cell_id = ""
             created_at = 0.0
+
         card = _FakeCard()
         # Auto-agent-map needs cell attributes
         cell._ensure_terminal = mocker.Mock()
@@ -480,11 +565,14 @@ class TestCardSkillSignal:
         mocker.patch("l3.cell.components.cell_execute._auto_agent_map", return_value={"agent-1": "agent-1"})
         mocker.patch("l3.card.execution_plan.ExecutionPlan")
         from l3.card.execution_plan import ExecutionPlan
+
         ExecutionPlan.return_value.execute.return_value = {"success": True, "steps": []}
         from l3.agent_terminal import TerminalStatus
+
         class _FakeTerm:
             status = TerminalStatus.IDLE
             _active_loop = mocker.Mock(_card_skills_used={"refactor_skill", "code_review"})
+
         mocker.patch("l3.agent_terminal.get_terminals", return_value={"agent-1": _FakeTerm()})
         r = execute_card(cell, card)
         assert r.get("card_skills_used")
@@ -510,7 +598,9 @@ class TestRulePreferenceSignal:
 
         reset_skill_manager()
         sm = get_skill_manager()
-        self._mk_lessons_skill(sm, rules=[{"rule": "DO: verify log", "verified": 1, "hit": 0, "preferred": 0.8, "deprecated": False}])
+        self._mk_lessons_skill(
+            sm, rules=[{"rule": "DO: verify log", "verified": 1, "hit": 0, "preferred": 0.8, "deprecated": False}]
+        )
         r4 = R4Agent()
         n = r4.record_card_skill_signal(["lean_git_lessons"], success=True)
         assert n == 1
@@ -523,7 +613,9 @@ class TestRulePreferenceSignal:
 
         reset_skill_manager()
         sm = get_skill_manager()
-        self._mk_lessons_skill(sm, rules=[{"rule": "DO: force push", "verified": 0, "hit": 0, "preferred": 0.31, "deprecated": False}])
+        self._mk_lessons_skill(
+            sm, rules=[{"rule": "DO: force push", "verified": 0, "hit": 0, "preferred": 0.31, "deprecated": False}]
+        )
         r4 = R4Agent()
         n = r4.record_card_skill_signal(["lean_git_lessons"], success=False)
         assert n == 1
@@ -551,12 +643,23 @@ class TestRulePreferenceSignal:
             sm,
             rules=[
                 {"rule": "DO: keep this verified rule", "verified": 5, "hit": 0, "preferred": 0.9, "deprecated": False},
-                {"rule": "DONT: keep this deprecated rule", "verified": 0, "hit": 4, "preferred": 0.1, "deprecated": True},
+                {
+                    "rule": "DONT: keep this deprecated rule",
+                    "verified": 0,
+                    "hit": 4,
+                    "preferred": 0.1,
+                    "deprecated": True,
+                },
             ],
         )
         for i in range(5):
-            sm.create(name=f"lean_a{i}_git", prompt=f"failed {i}", tags=["lean_case", "failure", f"a{i}", "git"],
-                      allowed_tools=["git"], internal=True)
+            sm.create(
+                name=f"lean_a{i}_git",
+                prompt=f"failed {i}",
+                tags=["lean_case", "failure", f"a{i}", "git"],
+                allowed_tools=["git"],
+                internal=True,
+            )
         r4 = R4Agent()
         r4._last_distill = {}
         r4._last_summarize = {}
@@ -592,9 +695,13 @@ class TestRejectionSampling:
 
     def _mk_cases(self, sm, tool, n=5):
         for i in range(n):
-            sm.create(name=f"lean_s{i}_{tool}", prompt=f"failed with error {tool} {i}",
-                      tags=["lean_case", "failure", f"s{i}", tool],
-                      allowed_tools=[tool], internal=True)
+            sm.create(
+                name=f"lean_s{i}_{tool}",
+                prompt=f"failed with error {tool} {i}",
+                tags=["lean_case", "failure", f"s{i}", tool],
+                allowed_tools=[tool],
+                internal=True,
+            )
 
     def test_best_candidate_wins(self, mocker):
         from l3.memory.r4_agent import R4Agent
@@ -606,19 +713,25 @@ class TestRejectionSampling:
         r4._last_distill = {}
         r4._last_summarize = {}
         # 候选1: 可操作规则 + procedures(高覆盖)
-        good = json.dumps({
-            "name": "gitsync_lessons", "description": "d",
-            "prompt": "Check gitsync status before sync and verify the log output.",
-            "rules": ["DO: verify gitsync log", "CHECK: gitsync status"],
-            "procedures": [{"step": "verify"}],
-        })
+        good = json.dumps(
+            {
+                "name": "gitsync_lessons",
+                "description": "d",
+                "prompt": "Check gitsync status before sync and verify the log output.",
+                "rules": ["DO: verify gitsync log", "CHECK: gitsync status"],
+                "procedures": [{"step": "verify"}],
+            }
+        )
         # 候选2: 无规则无 procedures(低分)
-        bad = json.dumps({
-            "name": "gitsync_lessons", "description": "d",
-            "prompt": "gitsync things happened.",
-            "rules": [],
-            "procedures": [],
-        })
+        bad = json.dumps(
+            {
+                "name": "gitsync_lessons",
+                "description": "d",
+                "prompt": "gitsync things happened.",
+                "rules": [],
+                "procedures": [],
+            }
+        )
         calls = {"n": 0}
 
         def _fake(prompt, **kw):
@@ -643,7 +756,11 @@ class TestRejectionSampling:
         get_skill_manager()
         r4 = R4Agent()
         digest = "- failed with error gitsync 0\n- failed with error gitsync 1"
-        operable = {"prompt": "Check gitsync and verify log.", "rules": [{"rule": "DO: verify gitsync"}], "procedures": [{"step": "x"}]}
+        operable = {
+            "prompt": "Check gitsync and verify log.",
+            "rules": [{"rule": "DO: verify gitsync"}],
+            "procedures": [{"step": "x"}],
+        }
         vague = {"prompt": "gitsync things.", "rules": [{"rule": "maybe check"}], "procedures": []}
         assert r4._score_distill_candidate(operable, digest) > r4._score_distill_candidate(vague, digest)
 
@@ -663,11 +780,17 @@ class TestRejectionSampling:
         def _fake(prompt, **kw):
             if "into a structured skill definition" in prompt:
                 calls["n"] += 1
-                return {"content": json.dumps({
-                    "name": "cfgsync_lessons", "description": "d",
-                    "prompt": "Check cfgsync config before sync and verify output.",
-                    "rules": ["DO: verify cfgsync"], "procedures": [],
-                })}
+                return {
+                    "content": json.dumps(
+                        {
+                            "name": "cfgsync_lessons",
+                            "description": "d",
+                            "prompt": "Check cfgsync config before sync and verify output.",
+                            "rules": ["DO: verify cfgsync"],
+                            "procedures": [],
+                        }
+                    )
+                }
             return {"content": json.dumps({"lesson": "A useful lesson about cfgsync operations."})}
 
         mock_engine = mocker.patch("l4.llm.llm.get_engine")
@@ -682,11 +805,12 @@ class TestSemanticClustering:
 
     def _mk_lean(self, sm, name, error, tool="shingletool"):
         sm.create(
-            name=name, description="d", prompt=f"failed {error}",
+            name=name,
+            description="d",
+            prompt=f"failed {error}",
             tags=["lean_case", "failure", name, tool],
             allowed_tools=[tool],
-            knowledge={"tool": tool, "error": error, "domain": "", "nature": "",
-                       "turn_count": 1, "pattern_hint": "h"},
+            knowledge={"tool": tool, "error": error, "domain": "", "nature": "", "turn_count": 1, "pattern_hint": "h"},
             internal=True,
         )
 
@@ -764,7 +888,10 @@ class TestDistillPolicySwitch:
         assert sm.distill_policy()["distill"] is True
         assert sm.distill_policy()["dpo_signal"] is True
         assert sm.distill_policy()["sub"] == {
-            "generalize": True, "llm_distill": True, "clustering": True, "sampling": True,
+            "generalize": True,
+            "llm_distill": True,
+            "clustering": True,
+            "sampling": True,
         }
 
     def test_generalize_gated_off(self):
@@ -774,8 +901,13 @@ class TestDistillPolicySwitch:
         sm = get_skill_manager()
         sm.set_distill_policy(distill=False)
         for i in range(5):
-            sm.create(name=f"lean_g{i}_t", prompt=f"f{i}", tags=["lean_case", "failure", f"g{i}", "t"],
-                      allowed_tools=["t"], internal=True)
+            sm.create(
+                name=f"lean_g{i}_t",
+                prompt=f"f{i}",
+                tags=["lean_case", "failure", f"g{i}", "t"],
+                allowed_tools=["t"],
+                internal=True,
+            )
         r4 = R4Agent()
         assert r4._generalize_lean_cases(sm) == 0
 
@@ -785,10 +917,15 @@ class TestDistillPolicySwitch:
         reset_skill_manager()
         sm = get_skill_manager()
         sm.set_distill_policy(dpo_signal=False)
-        sm.create(name="lean_d_lessons", description="d [abcd1234abcd]", prompt="p", tags=["evolved", "t"],
-                  allowed_tools=["t"],
-                  rules=[{"rule": "DO: x", "verified": 0, "hit": 0, "preferred": 0.5, "deprecated": False}],
-                  internal=True)
+        sm.create(
+            name="lean_d_lessons",
+            description="d [abcd1234abcd]",
+            prompt="p",
+            tags=["evolved", "t"],
+            allowed_tools=["t"],
+            rules=[{"rule": "DO: x", "verified": 0, "hit": 0, "preferred": 0.5, "deprecated": False}],
+            internal=True,
+        )
         r4 = R4Agent()
         assert r4.record_card_skill_signal(["lean_d_lessons"], success=True) == 0
 
@@ -814,14 +951,38 @@ class TestDistillSubSwitches:
     """Refinement — per-stage degradation chain for the distill pipeline."""
 
     def _mk_two_cases(self, sm, tool="subt"):
-        sm.create(name=f"kn1_{tool}", description="d", prompt="p1", tags=["lean_case", "failure", "a", tool],
-                  allowed_tools=[tool],
-                  knowledge={"tool": tool, "error": "permission denied on config file", "domain": "", "nature": "",
-                             "turn_count": 1, "pattern_hint": "h"}, internal=True)
-        sm.create(name=f"kn2_{tool}", description="d", prompt="p2", tags=["lean_case", "failure", "b", tool],
-                  allowed_tools=[tool],
-                  knowledge={"tool": tool, "error": "permission denied on config file path", "domain": "", "nature": "",
-                             "turn_count": 1, "pattern_hint": "h"}, internal=True)
+        sm.create(
+            name=f"kn1_{tool}",
+            description="d",
+            prompt="p1",
+            tags=["lean_case", "failure", "a", tool],
+            allowed_tools=[tool],
+            knowledge={
+                "tool": tool,
+                "error": "permission denied on config file",
+                "domain": "",
+                "nature": "",
+                "turn_count": 1,
+                "pattern_hint": "h",
+            },
+            internal=True,
+        )
+        sm.create(
+            name=f"kn2_{tool}",
+            description="d",
+            prompt="p2",
+            tags=["lean_case", "failure", "b", tool],
+            allowed_tools=[tool],
+            knowledge={
+                "tool": tool,
+                "error": "permission denied on config file path",
+                "domain": "",
+                "nature": "",
+                "turn_count": 1,
+                "pattern_hint": "h",
+            },
+            internal=True,
+        )
 
     def test_policy_reports_sub_and_source(self):
         from l1.kernel.skill import get_skill_manager

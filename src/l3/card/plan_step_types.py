@@ -1,4 +1,5 @@
 """Plan step data types — extracted from execution_plan.py."""
+
 from __future__ import annotations
 
 import time
@@ -8,6 +9,7 @@ from enum import Enum, auto
 
 class StepState(Enum):
     """StepState — enum of PENDING, RUNNING, DONE, FAILED...."""
+
     PENDING = auto()
     RUNNING = auto()
     DONE = auto()
@@ -18,6 +20,7 @@ class StepState(Enum):
 @dataclass
 class PlanStep:
     """A single step in the execution plan — one action for one agent."""
+
     step_id: str = ""
     action: str = ""
     target: str = ""

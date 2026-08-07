@@ -8,6 +8,7 @@ Responsibilities:
   - boot:    restore recent Archive entries back into Ring 3 knowledge
   - classify: derive fonds/series from entry metadata
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,12 +39,14 @@ def archive_ring3(mem: Any) -> int:
     for e in entries:
         if e.get("importance", 0) >= ARCHIVE_IMPORTANCE_THRESHOLD:
             fonds, series = _classify(e)
-            rows.append((
-                fonds,
-                series,
-                e.get("content", ""),
-                ",".join(str(t) for t in (e.get("tags") or [])),
-            ))
+            rows.append(
+                (
+                    fonds,
+                    series,
+                    e.get("content", ""),
+                    ",".join(str(t) for t in (e.get("tags") or [])),
+                )
+            )
     if not rows:
         return 0
     r = _cmd_archive_store_batch(rows)
@@ -68,8 +71,7 @@ def ring3_from_archive(mem: Any) -> int:
     try:
         conn = _get_db()
         rows = conn.execute(
-            "SELECT fonds, series, content, tags, created_at FROM archive "
-            "ORDER BY created_at DESC LIMIT ?",
+            "SELECT fonds, series, content, tags, created_at FROM archive ORDER BY created_at DESC LIMIT ?",
             (ARCHIVE_RESTORE_LIMIT,),
         ).fetchall()
         for row in rows:

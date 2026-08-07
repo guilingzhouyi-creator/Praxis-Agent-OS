@@ -18,6 +18,7 @@ from enum import Enum, auto
 
 class ServiceState(Enum):
     """ServiceState — enum of CREATED, STARTING, RUNNING, STOPPING...."""
+
     CREATED = auto()
     STARTING = auto()
     RUNNING = auto()

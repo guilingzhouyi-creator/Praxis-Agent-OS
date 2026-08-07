@@ -14,15 +14,16 @@ from l3.cell.components.cell_types import MessageType, is_peer
 logger = logging.getLogger(__name__)
 
 
-def auto_cross_review(cell, completed_agent: str, action: str,
-                      target: str, card_id: str,
-                      timeout: float | None = None) -> dict:
+def auto_cross_review(
+    cell, completed_agent: str, action: str, target: str, card_id: str, timeout: float | None = None
+) -> dict:
     """After a write/delete/rename, BLOCKING wait for peer agent review.
 
     Sends CROSS_REVIEW_REQ to all peer agents, then blocks until
     all peers respond (CROSS_REVIEW_RESP) or timeout.
     """
     from threading import Event as _Event
+
     if action not in ("write_file", "replace_string", "delete", "rename"):
         return {"approved": True, "action": "skip"}
     if not target:
@@ -31,8 +32,7 @@ def auto_cross_review(cell, completed_agent: str, action: str,
         return {"approved": True, "action": "skip"}
 
     with cell._lock:
-        peers = [aid for aid in cell._agents
-                 if aid != completed_agent and is_peer(aid)]
+        peers = [aid for aid in cell._agents if aid != completed_agent and is_peer(aid)]
     if not peers:
         return {"approved": True, "action": "no_peers"}
 
@@ -46,14 +46,17 @@ def auto_cross_review(cell, completed_agent: str, action: str,
             resp_events[sender].set()
 
     def _on_signal(sig: Any) -> None:
-        if (hasattr(sig, 'data') and
-                isinstance(sig.data, dict) and
-                sig.data.get("msg_type") == "CROSS_REVIEW_RESP" and
-                sig.data.get("card_id") == card_id):
+        if (
+            hasattr(sig, "data")
+            and isinstance(sig.data, dict)
+            and sig.data.get("msg_type") == "CROSS_REVIEW_RESP"
+            and sig.data.get("card_id") == card_id
+        ):
             _on_resp(sig.sender, sig.data)
 
     try:
         from l1.kernel.event import get_bus as _get_bus
+
         bus = _get_bus()
         bus.on_any(_on_signal)
     except Exception as exc:
@@ -62,7 +65,9 @@ def auto_cross_review(cell, completed_agent: str, action: str,
     all_entries = _get_sandbox_entries(cell, target)
     for peer in peers:
         payload: dict[str, Any] = {
-            "file": target, "card_id": card_id, "action": action,
+            "file": target,
+            "card_id": card_id,
+            "action": action,
             "from": completed_agent,
         }
         if all_entries:
@@ -73,8 +78,10 @@ def auto_cross_review(cell, completed_agent: str, action: str,
                 tool = e.get("tool_name", action)
                 stats = e["stats"]
                 sem = e.get("semantic", "")
-                lines.append(f"  {agent} ({tool}): +{stats['additions']}/-{stats['deletions']} "
-                             f"{stats['hunks']} hunks{sem and f' [{sem}]' or ''}")
+                lines.append(
+                    f"  {agent} ({tool}): +{stats['additions']}/-{stats['deletions']} "
+                    f"{stats['hunks']} hunks{sem and f' [{sem}]' or ''}"
+                )
             payload["msg"] = "\n".join(lines)
         else:
             payload["msg"] = f"Please review changes to {target} made by {completed_agent}."
@@ -113,6 +120,7 @@ def auto_cross_review(cell, completed_agent: str, action: str,
 def _get_sandbox_entries(cell, target: str) -> list[dict]:
     try:
         from l4.sandbox import get_manager as _get_sb_manager
+
         sb_mgr = _get_sb_manager()
         sb = sb_mgr.get_cell(cell.cell_id)
         if sb is None:
@@ -121,16 +129,18 @@ def _get_sandbox_entries(cell, target: str) -> list[dict]:
         for entry in sb.get_entries():
             if entry.path != target:
                 continue
-            result.append({
-                "hunks": entry.hunks,
-                "stats": entry.stats,
-                "agent_id": entry.agent_id,
-                "tool_name": entry.tool_name,
-                "task_id": entry.task_id,
-                "conflict_level": entry.conflict_level,
-                "original_hash": entry.original_hash,
-                "modified_at": entry.modified_at,
-            })
+            result.append(
+                {
+                    "hunks": entry.hunks,
+                    "stats": entry.stats,
+                    "agent_id": entry.agent_id,
+                    "tool_name": entry.tool_name,
+                    "task_id": entry.task_id,
+                    "conflict_level": entry.conflict_level,
+                    "original_hash": entry.original_hash,
+                    "modified_at": entry.modified_at,
+                }
+            )
         return result
     except Exception:
         logger.debug("cross-review: sandbox entries lookup failed")

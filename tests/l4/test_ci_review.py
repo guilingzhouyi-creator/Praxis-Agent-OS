@@ -18,12 +18,10 @@ class _FakeCIService:
 
     def run_pipeline(self, name="", steps=None, agent_id="", timeout=0.0, card_id=""):
         self.calls.append({"name": name, "steps": steps, "card_id": card_id})
-        return {"success": True, "run_id": "run-1", "name": name, "status": "running",
-                "step_count": len(steps or [])}
+        return {"success": True, "run_id": "run-1", "name": name, "status": "running", "step_count": len(steps or [])}
 
     def get_status(self, run_id):
-        return {"success": True, "run_id": run_id, "status": self._status,
-                "steps": self._steps, "error": self._error}
+        return {"success": True, "run_id": run_id, "status": self._status, "steps": self._steps, "error": self._error}
 
 
 def _make_service(tmp_path, monkeypatch, settings=None):
@@ -39,8 +37,7 @@ def _make_service(tmp_path, monkeypatch, settings=None):
 def _make_report(card_id="card-1", verdict="PASS", agent_id="agent-writer"):
     from l4.ci_review import CardCiReport
 
-    report = CardCiReport(card_id=card_id, run_id="run-1", state="completed",
-                          verdict=verdict, agent_id=agent_id)
+    report = CardCiReport(card_id=card_id, run_id="run-1", state="completed", verdict=verdict, agent_id=agent_id)
     report.completed_at = time.time()
     return report
 
@@ -48,6 +45,7 @@ def _make_report(card_id="card-1", verdict="PASS", agent_id="agent-writer"):
 class TestCore:
     def test_importable(self):
         from l4.ci_review import CiReviewService, get_service, reset_service
+
         assert callable(get_service)
         assert callable(reset_service)
         assert CiReviewService("ci") is not None
@@ -68,8 +66,7 @@ class TestCore:
     def test_trigger_on_card_complete(self, tmp_path, monkeypatch):
         svc, _ = _make_service(tmp_path, monkeypatch)
         reports = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: reports.append(cid))
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: reports.append(cid))
         svc._on_card_completed("card-1", "completed", {"agent_id": "a1"})
         time.sleep(0.3)  # daemon thread scheduling
         assert reports == ["card-1"]
@@ -77,8 +74,7 @@ class TestCore:
     def test_dedup_same_card_state(self, tmp_path, monkeypatch):
         svc, _ = _make_service(tmp_path, monkeypatch)
         count = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: count.append(cid))
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: count.append(cid))
         svc._on_card_completed("card-1", "completed", {})
         svc._on_card_completed("card-1", "completed", {})
         time.sleep(0.3)
@@ -88,8 +84,7 @@ class TestCore:
         svc, fake = _make_service(tmp_path, monkeypatch)
         fake["ci.review.enabled"] = False
         count = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: count.append(cid))
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: count.append(cid))
         svc._on_card_completed("card-1", "completed", {})
         time.sleep(0.3)
         assert count == []
@@ -135,10 +130,12 @@ class TestReport:
         svc, _ = _make_service(tmp_path, monkeypatch)
         captured = {}
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
-        monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
-        monkeypatch.setattr(svc, "_persist_report",
-                            lambda r: captured.update(verdict=r.verdict, error=r.error))
+        monkeypatch.setattr(
+            svc,
+            "_run_and_wait",
+            lambda cid, steps, r: ("run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""),
+        )
+        monkeypatch.setattr(svc, "_persist_report", lambda r: captured.update(verdict=r.verdict, error=r.error))
         monkeypatch.setattr(svc, "_dispatch_linkages", lambda r: None)
         svc._do_review("card-1", "completed", {"agent_id": "a1"})
         assert captured["verdict"] == "PASS"
@@ -147,11 +144,13 @@ class TestReport:
     def test_report_failed_verdict(self, tmp_path, monkeypatch):
         svc, _ = _make_service(tmp_path, monkeypatch)
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
-        monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            "run-1", [{"action": "ruff", "exit_code": 1, "status": "failed"}], "ruff failed"))
+        monkeypatch.setattr(
+            svc,
+            "_run_and_wait",
+            lambda cid, steps, r: ("run-1", [{"action": "ruff", "exit_code": 1, "status": "failed"}], "ruff failed"),
+        )
         captured = {}
-        monkeypatch.setattr(svc, "_persist_report",
-                            lambda r: captured.update(verdict=r.verdict, error=r.error))
+        monkeypatch.setattr(svc, "_persist_report", lambda r: captured.update(verdict=r.verdict, error=r.error))
         monkeypatch.setattr(svc, "_dispatch_linkages", lambda r: None)
         svc._do_review("card-1", "completed", {"agent_id": "a1"})
         assert captured["verdict"] == "NEEDS_CHANGES"
@@ -171,12 +170,14 @@ class TestReport:
         fake["ci.review.llm_review"] = True
         called = []
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
-        monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
+        monkeypatch.setattr(
+            svc,
+            "_run_and_wait",
+            lambda cid, steps, r: ("run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""),
+        )
         monkeypatch.setattr(svc, "_llm_review", lambda r: called.append(1) or {"verdict": "REJECT"})
         captured = {}
-        monkeypatch.setattr(svc, "_persist_report",
-                            lambda r: captured.update(verdict=r.verdict, review=r.review))
+        monkeypatch.setattr(svc, "_persist_report", lambda r: captured.update(verdict=r.verdict, review=r.review))
         monkeypatch.setattr(svc, "_dispatch_linkages", lambda r: None)
         svc._do_review("card-1", "completed", {"agent_id": "a1"})
         assert called == [1]
@@ -186,12 +187,14 @@ class TestReport:
         svc, _ = _make_service(tmp_path, monkeypatch)  # llm_review default False
         called = []
         monkeypatch.setattr(svc, "_collect_changes", lambda cid, r: ["src/a.py"])
-        monkeypatch.setattr(svc, "_run_and_wait", lambda cid, steps, r: (
-            "run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""))
+        monkeypatch.setattr(
+            svc,
+            "_run_and_wait",
+            lambda cid, steps, r: ("run-1", [{"action": "ruff", "exit_code": 0, "status": "passed"}], ""),
+        )
         monkeypatch.setattr(svc, "_llm_review", lambda r: called.append(1))
         captured = {}
-        monkeypatch.setattr(svc, "_persist_report",
-                            lambda r: captured.update(verdict=r.verdict, review=r.review))
+        monkeypatch.setattr(svc, "_persist_report", lambda r: captured.update(verdict=r.verdict, review=r.review))
         monkeypatch.setattr(svc, "_dispatch_linkages", lambda r: None)
         svc._do_review("card-1", "completed", {})
         assert called == []
@@ -416,8 +419,10 @@ class _FakeControlSvc:
         return bool(self._center.get(f"ci.control.{surface}.writable", True))
 
     def _effective(self, suffix, agent_id="", cell_id="", default=None):
-        for scope_key in (f"ci.review.agent.{agent_id}.{suffix}" if agent_id else "",
-                          f"ci.review.cell.{cell_id}.{suffix}" if cell_id else ""):
+        for scope_key in (
+            f"ci.review.agent.{agent_id}.{suffix}" if agent_id else "",
+            f"ci.review.cell.{cell_id}.{suffix}" if cell_id else "",
+        ):
             if scope_key and scope_key in self._center.d:
                 return self._center.d[scope_key]
         return self._center.get(f"ci.review.{suffix}", default)
@@ -541,8 +546,7 @@ class TestScopeApi:
         from l4.api_handlers.api_handlers_ci import handle_ci_config_set
 
         center, _ = self._install(monkeypatch)
-        r = handle_ci_config_set({"key": "enabled", "value": False,
-                                  "scope": {"cell": "cell-sp1"}})
+        r = handle_ci_config_set({"key": "enabled", "value": False, "scope": {"cell": "cell-sp1"}})
         assert r["success"] is True
         assert center.d["ci.review.cell.cell-sp1.enabled"] is False
 
@@ -550,8 +554,7 @@ class TestScopeApi:
         from l4.api_handlers.api_handlers_ci import handle_ci_config_set
 
         center, _ = self._install(monkeypatch)
-        r = handle_ci_config_set({"key": "llm_review", "value": True,
-                                  "scope": {"agent": "agent-writer"}})
+        r = handle_ci_config_set({"key": "llm_review", "value": True, "scope": {"agent": "agent-writer"}})
         assert r["success"] is True
         assert center.d["ci.review.agent.agent-writer.llm_review"] is True
 
@@ -569,8 +572,7 @@ class TestScopeApi:
         from l4.api_handlers.api_handlers_ci import handle_ci_config_set
 
         center, _ = self._install(monkeypatch)
-        r = handle_ci_config_set({"key": "enabled", "value": False,
-                                  "scope": {"cell": "a.b"}})
+        r = handle_ci_config_set({"key": "enabled", "value": False, "scope": {"cell": "a.b"}})
         assert r["success"] is False
         assert "not writable" in r["error"]
         assert "ci.review.cell.a.b.enabled" not in center.d
@@ -588,8 +590,7 @@ class TestScopeApi:
         from l4.api_handlers.api_handlers_ci import handle_ci_config_set
 
         center, _ = self._install(monkeypatch)
-        r = handle_ci_config_set({"key": "ci.control.shell.writable",
-                                  "value": False, "admin": True})
+        r = handle_ci_config_set({"key": "ci.control.shell.writable", "value": False, "admin": True})
         assert r["success"] is True
         assert center.d["ci.control.shell.writable"] is False
 
@@ -598,8 +599,7 @@ class TestScopeApi:
 
         center, _ = self._install(monkeypatch)
         center.d["ci.control.api.writable"] = False
-        r = handle_ci_config_set({"key": "ci.control.api.writable",
-                                  "value": True, "admin": True})
+        r = handle_ci_config_set({"key": "ci.control.api.writable", "value": True, "admin": True})
         assert r["success"] is True  # recoverable despite the api gate being off
         assert center.d["ci.control.api.writable"] is True
 
@@ -630,12 +630,9 @@ class TestScopeResolution:
         fake["ci.review.enabled"] = True
         fake["ci.review.agent.agent-writer.enabled"] = False
         triggered = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: triggered.append(cid))
-        svc._on_card_completed("card-1", "completed",
-                               {"agent_id": "agent-writer", "cell_id": "cell-sp1"})
-        svc._on_card_completed("card-2", "completed",
-                               {"agent_id": "agent-reader", "cell_id": "cell-sp1"})
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: triggered.append(cid))
+        svc._on_card_completed("card-1", "completed", {"agent_id": "agent-writer", "cell_id": "cell-sp1"})
+        svc._on_card_completed("card-2", "completed", {"agent_id": "agent-reader", "cell_id": "cell-sp1"})
         time.sleep(0.3)
         assert triggered == ["card-2"]
 
@@ -644,8 +641,7 @@ class TestScopeResolution:
         fake["ci.review.enabled"] = True
         fake["ci.review.cell.cell-sp1.enabled"] = False
         triggered = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: triggered.append(cid))
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: triggered.append(cid))
         svc._on_card_completed("card-1", "completed", {"cell_id": "cell-sp1"})
         svc._on_card_completed("card-2", "completed", {"cell_id": "cell-sp2"})
         time.sleep(0.3)
@@ -672,8 +668,7 @@ class TestV4Matcher:
 
     def test_matcher_exclude_wins(self, tmp_path, monkeypatch):
         svc, fake = _make_service(tmp_path, monkeypatch)
-        fake["ci.review.matchers"] = {
-            "mypy": {"include": ["src/**"], "exclude": ["src/l1/**"]}}
+        fake["ci.review.matchers"] = {"mypy": {"include": ["src/**"], "exclude": ["src/l1/**"]}}
         steps = svc._build_steps(["src/a.py", "src/l1/kernel/params/b.py"])
         mypy = [s for s in steps if s["action"] == "mypy"]
         assert mypy, "mypy step should exist (src/a.py matches include)"
@@ -704,8 +699,7 @@ class TestV4AutotestContext:
             def __init__(self, cache):
                 self.cache = cache
 
-        monkeypatch.setattr(cell_mod, "get_cell",
-                            lambda cid: _FakeCell(_FakeCache()) if cid else None)
+        monkeypatch.setattr(cell_mod, "get_cell", lambda cid: _FakeCell(_FakeCache()) if cid else None)
         return entries
 
     def test_autotest_context_attached(self, tmp_path, monkeypatch):
@@ -715,9 +709,8 @@ class TestV4AutotestContext:
         fake["ci.review.consume_auto_test_cache"] = True
         entries = {
             "auto_test:abc": SimpleNamespace(
-                timestamp=200.0,
-                value={"passed": True, "failures": [], "at": 200.0},
-                summary="PASS [agent]"),
+                timestamp=200.0, value={"passed": True, "failures": [], "at": 200.0}, summary="PASS [agent]"
+            ),
         }
         self._install_cache(monkeypatch, entries)
         ctx = svc._collect_autotest_context("cell-sp1")
@@ -746,8 +739,7 @@ class TestV4Rerun:
         monkeypatch.setattr(svc, "_emit_events", lambda r: None)
         svc._persist_report(report)
         processed = []
-        monkeypatch.setattr(svc, "_do_review",
-                            lambda cid, state, result: processed.append((cid, result)))
+        monkeypatch.setattr(svc, "_do_review", lambda cid, state, result: processed.append((cid, result)))
         r = svc.rerun("card-1")
         assert r["success"] is True and r["queued"] is True
         time.sleep(0.3)
@@ -797,8 +789,7 @@ class TestV4Webhook:
                 self.calls = []
 
             def send(self, channel, to, subject, body):
-                self.calls.append({"channel": channel, "to": to,
-                                   "subject": subject, "body": body})
+                self.calls.append({"channel": channel, "to": to, "subject": subject, "body": body})
                 return {"success": True}
 
         fake_notify = _FakeNotify()
@@ -807,10 +798,14 @@ class TestV4Webhook:
         return svc, fake, fake_notify
 
     def test_webhook_on_failed(self, tmp_path, monkeypatch):
-        svc, fake, notify = self._install(tmp_path, monkeypatch, {
-            "ci.review.notify.webhook_url": "http://ci.example/hook",
-            "ci.review.notify.webhook_events": ["failed", "rejected"],
-        })
+        svc, fake, notify = self._install(
+            tmp_path,
+            monkeypatch,
+            {
+                "ci.review.notify.webhook_url": "http://ci.example/hook",
+                "ci.review.notify.webhook_events": ["failed", "rejected"],
+            },
+        )
         report = _make_report("card-1", "NEEDS_CHANGES", agent_id="agent-writer")
         report.completed_at = time.time()
         svc._link_notify(report)
@@ -828,10 +823,14 @@ class TestV4Webhook:
         assert notify.calls[-1]["channel"] == "log"  # fallback channel
 
     def test_webhook_event_filter(self, tmp_path, monkeypatch):
-        svc, fake, notify = self._install(tmp_path, monkeypatch, {
-            "ci.review.notify.webhook_url": "http://ci.example/hook",
-            "ci.review.notify.webhook_events": ["failed", "rejected"],
-        })
+        svc, fake, notify = self._install(
+            tmp_path,
+            monkeypatch,
+            {
+                "ci.review.notify.webhook_url": "http://ci.example/hook",
+                "ci.review.notify.webhook_events": ["failed", "rejected"],
+            },
+        )
         report = _make_report("card-1", "PASS", agent_id="agent-writer")
         svc._link_notify(report)
         assert notify.calls[-1]["channel"] == "log"  # passed not in default events
@@ -877,8 +876,7 @@ class TestV5ErrorBus:
 
         svc, _ = _make_service(tmp_path, monkeypatch)
         captured = self._capture_fake(monkeypatch)
-        monkeypatch.setattr(archive_mod, "_cmd_archive_store",
-                            _boom)
+        monkeypatch.setattr(archive_mod, "_cmd_archive_store", _boom)
         monkeypatch.setattr(svc, "_emit_events", lambda r: None)
         svc._persist_report(_make_report("card-9", "PASS"))
         assert captured and captured[0][1]["error_code"] == "E_CI_REVIEW_ARCHIVE"

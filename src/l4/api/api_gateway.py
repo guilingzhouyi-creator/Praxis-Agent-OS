@@ -53,10 +53,11 @@ def _auth_ok(headers, auth_token: str) -> bool:
 
     header = headers.get("Authorization", "")
     if header.startswith("Bearer "):
-        token = header[len("Bearer "):]
+        token = header[len("Bearer ") :]
         # Channel 1: login-issued tokens via the auth port
         try:
             from l1.kernel.ports import get_port
+
             auth = get_port("auth")
             v = auth.verify_token(token)
             if v.get("valid"):
@@ -76,6 +77,7 @@ def _auth_ok(headers, auth_token: str) -> bool:
 
 # ── Route definition ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class Route:
     """API route entry — method + path pattern + handler.
@@ -84,6 +86,7 @@ class Route:
       Exact: "/api/health"
       Wildcard: "/api/card/" → matches "/api/card/<id>"
     """
+
     method: str = "GET"
     path: str = ""
     handler: Callable = lambda *a, **kw: {}
@@ -104,6 +107,7 @@ def _handler_params(handler: Callable) -> Any:
     if params is _NO_SIGNATURE:
         try:
             import inspect
+
             params = inspect.signature(handler).parameters
         except (TypeError, ValueError):
             params = None
@@ -113,6 +117,7 @@ def _handler_params(handler: Callable) -> Any:
 
 # ── ApiGateway ───────────────────────────────────────────────────────────────
 
+
 class ApiGateway(ApiHandlers):
     """HTTP API gateway — MiddlewareChain request processing + Route dispatch.
 
@@ -120,8 +125,7 @@ class ApiGateway(ApiHandlers):
     ``start_api()``, ``stop_api()`` signatures unchanged.
     """
 
-    def __init__(self, host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT,
-                 auth_token: str = ""):
+    def __init__(self, host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT, auth_token: str = ""):
         self.host = host
         self.port = port
         self.auth_token = auth_token or os.environ.get(ENV_API_TOKEN, "")
@@ -135,34 +139,37 @@ class ApiGateway(ApiHandlers):
         self._index_route_count = -1
 
         # Middleware chain — built once at init
-        self._middleware = MiddlewareChain([
-            CORSMiddleware(
-                origin=API_CORS_ORIGIN,
-                methods=API_CORS_ALLOW_METHODS,
-                headers=API_CORS_ALLOW_HEADERS,
-            ),
-            LocaleMiddleware(),
-        ])
+        self._middleware = MiddlewareChain(
+            [
+                CORSMiddleware(
+                    origin=API_CORS_ORIGIN,
+                    methods=API_CORS_ALLOW_METHODS,
+                    headers=API_CORS_ALLOW_HEADERS,
+                ),
+                LocaleMiddleware(),
+            ]
+        )
 
         self._register_defaults()
 
     # ── Route registration ───────────────────────────────────────────────
 
-    def register_route(self, method: str, path: str,
-                       handler: Callable, description: str = "") -> None:
+    def register_route(self, method: str, path: str, handler: Callable, description: str = "") -> None:
         """Register a new API route."""
-        self._routes.append(Route(
-            method=method, path=path,
-            handler=handler, description=description,
-        ))
+        self._routes.append(
+            Route(
+                method=method,
+                path=path,
+                handler=handler,
+                description=description,
+            )
+        )
         self._index_route_count = -1  # exact index needs a lazy rebuild
 
     def _rebuild_exact_index(self) -> None:
         """Rebuild the (method, path) → handler index from ``_routes``."""
         self._exact_index = {
-            (r.method, r.path): (r.handler, {})
-            for r in self._routes
-            if not r.path.endswith("/") and "{" not in r.path
+            (r.method, r.path): (r.handler, {}) for r in self._routes if not r.path.endswith("/") and "{" not in r.path
         }
         self._index_route_count = len(self._routes)
 
@@ -196,6 +203,7 @@ class ApiGateway(ApiHandlers):
         # SSE bridge activation
         try:
             from l4.sse.sse_bridge import ensure_active
+
             ensure_active()
         except Exception as e:
             logger.warning("sse activation: %s", e)
@@ -242,7 +250,7 @@ class ApiGateway(ApiHandlers):
                 continue
             prefix = r.path.rstrip("/")
             if path.startswith(prefix + "/"):
-                remainder = path[len(prefix) + 1:]
+                remainder = path[len(prefix) + 1 :]
                 if remainder == "":
                     return r.handler, {"id": ""}
                 if "/" not in remainder:
@@ -273,9 +281,7 @@ class ApiGateway(ApiHandlers):
         return params
 
     @staticmethod
-    def _route_dispatch(handler: Callable, data: dict,
-                        query: dict | None, params: dict,
-                        user_id: str) -> dict:
+    def _route_dispatch(handler: Callable, data: dict, query: dict | None, params: dict, user_id: str) -> dict:
         """Build the handler body dict and invoke the route handler.
 
         Merge order guarantees the URL path is the authoritative resource
@@ -349,6 +355,7 @@ class ApiGateway(ApiHandlers):
 
         class _Handler(http.server.BaseHTTPRequestHandler):
             """_Handler — _ handler record (gateway)."""
+
             gateway: ApiGateway | None = None  # set after class definition (class-body scoping)
 
             def log_message(self, fmt, *args):
@@ -388,22 +395,18 @@ class ApiGateway(ApiHandlers):
             def _user_id(self) -> str:
                 return self.headers.get("X-User-Id", "")
 
-            def _build_request(self, method: str, path: str,
-                               body: dict | None = None) -> Request:
+            def _build_request(self, method: str, path: str, body: dict | None = None) -> Request:
                 """Build a Request object from HTTP headers + body."""
                 parsed = urllib.parse.urlparse(path)
                 query = urllib.parse.parse_qs(parsed.query)
-                flat_query = {k: v[0] if len(v) == 1 else v
-                              for k, v in query.items()}
+                flat_query = {k: v[0] if len(v) == 1 else v for k, v in query.items()}
                 return Request(
                     method=method,
                     path=parsed.path.rstrip("/"),
                     headers=dict(self.headers),
                     body=body or {},
                     query=flat_query,
-                    raw_body=self.rfile.read(
-                        int(self.headers.get("Content-Length", 0))
-                    ) if body is None else b"",
+                    raw_body=self.rfile.read(int(self.headers.get("Content-Length", 0))) if body is None else b"",
                     user_id=self._user_id(),
                 )
 
@@ -433,8 +436,7 @@ class ApiGateway(ApiHandlers):
 
                 def route_handler(r: Request) -> dict:
                     """Dispatch the matched route handler for request *r*."""
-                    return gw._route_dispatch(
-                        handler, r.body, r.query, params, r.user_id)
+                    return gw._route_dispatch(handler, r.body, r.query, params, r.user_id)
 
                 t0 = time.time()
                 resp = gw._middleware.handle(req, route_handler)
@@ -442,9 +444,7 @@ class ApiGateway(ApiHandlers):
                 self._json(resp.data, resp.status)
                 self._expose_request_stats(method, path, resp, req, latency_ms)
 
-            def _expose_request_stats(self, method: str, path: str,
-                                      resp: Any, req: Request,
-                                      latency_ms: float) -> None:
+            def _expose_request_stats(self, method: str, path: str, resp: Any, req: Request, latency_ms: float) -> None:
                 """Expose request timing to the monitoring center (MonitorBus)
                 and the statistics center (StatsCenter) — api.request.* metrics
                 and stats.api.request events (consumed by /api/v2/stats/live).
@@ -452,31 +452,44 @@ class ApiGateway(ApiHandlers):
                 try:
                     from l3.bus.monitor_bus import MonitorEvent
                     from l3.bus.monitor_bus import get_bus as _mb2
-                    _mb2().emit(MonitorEvent(
-                        type="stats.api.request", source="api_gateway",
-                        severity="info",
-                        message=f"{method} {path} -> {getattr(resp, 'status', '?')}",
-                        data={"method": method, "path": path,
-                              "status": getattr(resp, "status", 0),
-                              "latency_ms": latency_ms,
-                              "user_id": req.user_id},
-                    ))
+
+                    _mb2().emit(
+                        MonitorEvent(
+                            type="stats.api.request",
+                            source="api_gateway",
+                            severity="info",
+                            message=f"{method} {path} -> {getattr(resp, 'status', '?')}",
+                            data={
+                                "method": method,
+                                "path": path,
+                                "status": getattr(resp, "status", 0),
+                                "latency_ms": latency_ms,
+                                "user_id": req.user_id,
+                            },
+                        )
+                    )
                 except Exception:
                     logger.debug("api_gateway: monitor emit failed")
                 try:
                     from l3.services.stats_center import MetricPoint
                     from l3.services.stats_center import get_center as _sc2
+
                     _ts = time.time()
-                    _tags = {"endpoint": path, "method": method,
-                             "status": str(getattr(resp, "status", 0))}
+                    _tags = {"endpoint": path, "method": method, "status": str(getattr(resp, "status", 0))}
                     # Phase E: tag security-domain requests so api.request.*
                     # metrics can be sliced by domain.
                     if path.startswith("/api/v2/security"):
                         _tags["domain"] = "security"
-                    _sc2().ingest(MetricPoint(name="api.request.latency", value=latency_ms,
-                                              tags=_tags, timestamp=_ts, metric_type="gauge"))
-                    _sc2().ingest(MetricPoint(name="api.request.count", value=1.0,
-                                              tags=_tags, timestamp=_ts, metric_type="counter"))
+                    _sc2().ingest(
+                        MetricPoint(
+                            name="api.request.latency", value=latency_ms, tags=_tags, timestamp=_ts, metric_type="gauge"
+                        )
+                    )
+                    _sc2().ingest(
+                        MetricPoint(
+                            name="api.request.count", value=1.0, tags=_tags, timestamp=_ts, metric_type="counter"
+                        )
+                    )
                 except Exception:
                     logger.debug("api_gateway: stats emit failed")
 
@@ -492,6 +505,7 @@ class ApiGateway(ApiHandlers):
                     import queue as _queue
 
                     from l4.sse.sse_bridge import subscribe
+
                     client = subscribe()
                     q = client["queue"]
                     while True:
@@ -512,6 +526,7 @@ class ApiGateway(ApiHandlers):
                 finally:
                     try:
                         from l4.sse.sse_bridge import unsubscribe as _unsub
+
                         _unsub(client.get("client_id", ""))
                     except Exception:
                         logger.debug("api_gateway: sse unsubscribe failed")
@@ -562,8 +577,7 @@ _gateway: ApiGateway | None = None
 _gateway_lock = threading.Lock()
 
 
-def start_api(host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT,
-              auth_token: str = "") -> ApiGateway:
+def start_api(host: str = API_GATEWAY_HOST, port: int = API_GATEWAY_PORT, auth_token: str = "") -> ApiGateway:
     """Start the module-level gateway singleton and return it."""
     global _gateway
     if _gateway is None:
@@ -588,6 +602,7 @@ def get_gateway() -> ApiGateway | None:
 
 # ── YAML route loader ───────────────────────────────────────────────────────
 
+
 def load_routes_from_yaml(routes_cfg: list[dict]) -> dict:
     """Load API routes from a list of route dicts (from praxis.yaml api.routes)."""
     gw = _gateway
@@ -596,7 +611,7 @@ def load_routes_from_yaml(routes_cfg: list[dict]) -> dict:
 
     loaded = 0
     errors = []
-    for entry in (routes_cfg or []):
+    for entry in routes_cfg or []:
         method = entry.get("method", "GET").upper()
         path = entry.get("path", "")
         handler_path = entry.get("handler", "")
@@ -612,8 +627,7 @@ def load_routes_from_yaml(routes_cfg: list[dict]) -> dict:
             errors.append(f"route {method} {path}: {e}")
 
     if errors:
-        logger.warning("load_routes: %d loaded, %d errors: %s",
-                       loaded, len(errors), errors)
+        logger.warning("load_routes: %d loaded, %d errors: %s", loaded, len(errors), errors)
     return {"success": True, "loaded": loaded, "errors": errors}
 
 
@@ -623,6 +637,7 @@ def _resolve_handler(path: str) -> Callable:
     if not attr_path:
         raise ValueError(f"handler path must contain ':' — got '{path}'")
     import importlib
+
     mod = importlib.import_module(module_path)
     parts = attr_path.split(".")
     obj = mod

@@ -1,4 +1,5 @@
 """CLI commands — extracted from main.py for modularity."""
+
 from __future__ import annotations
 
 import time
@@ -16,6 +17,7 @@ def cmd_boot(args) -> dict:
     agent_config = None
     try:
         from l3.memory.memory_init import init_from_memories
+
         m = init_from_memories()
         if m.get("loaded"):
             agent_config = m["agent_config"]
@@ -35,7 +37,7 @@ def cmd_boot(args) -> dict:
     if r.get("success"):
         osys.watchdog_start()
         print(f"Boot OK in {r['elapsed']}s")
-        print(f"  Cell: {r.get('cell_id','cell-1')}")
+        print(f"  Cell: {r.get('cell_id', 'cell-1')}")
         print(f"  Agents: {len(r.get('agents', []))}")
         for a in r.get("agents", []):
             print(f"    {a}")
@@ -47,6 +49,7 @@ def cmd_boot(args) -> dict:
 def cmd_health(args) -> dict:
     """Run the kernel health self-test and print per-module status results."""
     from l1.kernel import health
+
     h = health()
     print(f"Kernel health: {h['status']} ({h['module_count']} modules)")
     for name, r in h["modules"].items():
@@ -60,6 +63,7 @@ def cmd_health(args) -> dict:
 def cmd_ps(args) -> dict:
     """List kernel processes from the process table, printing a formatted table."""
     from l1.kernel.process import get_table
+
     procs = get_table().list_processes()
     if not procs:
         print("No processes")
@@ -79,6 +83,7 @@ def cmd_card(args) -> dict:
     intent = " ".join(args)
     domain = "."
     from l3.cell import get_cell
+
     cell = get_cell("shell-cell", [domain])
     t0 = time.time()
     result = cell.execute_card(intent, domain=domain)
@@ -89,14 +94,17 @@ def cmd_card(args) -> dict:
     for s in steps:
         v = ""
         if s.get("verify"):
-            v = f" verify={s['verify'].get('pass','?')}"
-        print(f"  [{s.get('success','?')}] {s.get('action','?'):12s} {str(s.get('target',''))[:30]:30s} {s.get('agent',''):15s} {s.get('elapsed',0):.3f}s{v}")
+            v = f" verify={s['verify'].get('pass', '?')}"
+        print(
+            f"  [{s.get('success', '?')}] {s.get('action', '?'):12s} {str(s.get('target', ''))[:30]:30s} {s.get('agent', ''):15s} {s.get('elapsed', 0):.3f}s{v}"
+        )
     return result
 
 
 def cmd_tools(args) -> dict:
     """List an agent's tools (or all terminals) with ring, danger and description."""
     from l3.agent_terminal import get_terminals
+
     agent_id = args[0] if args else ""
     terms = get_terminals()
     if agent_id:
@@ -107,7 +115,7 @@ def cmd_tools(args) -> dict:
         tools = term.list_tools()
         print(f"Tools for {agent_id} (ring {term.ring}): {len(tools)}")
         for t in tools:
-            print(f"  [{t['ring']:8s}] {t['name']:25s} danger={t['danger']}  {t.get('description','')[:50]}")
+            print(f"  [{t['ring']:8s}] {t['name']:25s} danger={t['danger']}  {t.get('description', '')[:50]}")
         return {"tools": tools, "agent": agent_id}
     for aid, term in sorted(terms.items()):
         tools = term.list_tools()
@@ -120,6 +128,7 @@ def cmd_audit(args) -> dict:
     """Show the syscall audit log (optionally filtered by agent), printing a table."""
     from l1.kernel import get_audit_log
     from l1.kernel.params.kernel import SYSCALL_AUDIT_CLI_LIMIT
+
     agent_filter = args[0] if args else ""
     logs = get_audit_log(limit=SYSCALL_AUDIT_CLI_LIMIT, agent_id=agent_filter)
     if not logs:
@@ -140,17 +149,21 @@ def cmd_chain(args) -> dict:
         print("Usage: chain <call_id>")
         return {"success": False, "error": "call_id required"}
     from l1.kernel.tool_chain import get_tool_chain
+
     chain = get_tool_chain()
     v = chain.verify(args[0])
     print(f"Chain verify: {'PASS' if v['valid'] else 'FAIL'} (depth {v['depth']})")
     for step in v["steps"]:
-        print(f"  {step['depth']}: {step['tool']:25s} {step['call_id']:20s} {'✓' if step['fingerprint_match'] else '✗'}")
+        print(
+            f"  {step['depth']}: {step['tool']:25s} {step['call_id']:20s} {'✓' if step['fingerprint_match'] else '✗'}"
+        )
     return v
 
 
 def cmd_interrupts(args) -> dict:
     """Show interrupt counts and the most recent interrupt records."""
     from l1.kernel.interrupt import get_table
+
     t = get_table()
     counts = t.counts()
     recent = t.recent(10)
@@ -168,6 +181,7 @@ def cmd_interrupts(args) -> dict:
 def cmd_devices(args) -> dict:
     """Show registered devices with name, type, health and usage counters."""
     from l1.kernel.device import get_device_manager
+
     dm = get_device_manager()
     devices = dm.list()
     if not devices:
@@ -176,13 +190,16 @@ def cmd_devices(args) -> dict:
     print(f"{'NAME':15s} {'TYPE':12s} {'HEALTH':10s} {'RATE':>6} {'CALLS':>6} {'ERRORS':>6}")
     print("-" * 60)
     for d in devices:
-        print(f"{d['name']:15s} {d['type']:12s} {d['health']:10s} {d['rate_limit']:>6} {d['calls']:>6} {d['errors']:>6}")
+        print(
+            f"{d['name']:15s} {d['type']:12s} {d['health']:10s} {d['rate_limit']:>6} {d['calls']:>6} {d['errors']:>6}"
+        )
     return {"devices": devices}
 
 
 def cmd_shutdown(args) -> dict:
     """Shut down the kernel and Cell, printing uptime and per-module results."""
     from l1.kernel.os import get_os
+
     r = get_os().shutdown()
     if r.get("success"):
         print(f"⏻ Shutdown OK: uptime={r.get('uptime', 0):.0f}s")
@@ -202,18 +219,21 @@ def cmd_status(args) -> dict:
     from l1.kernel.device import get_device_manager
     from l1.kernel.process import get_table
     from l3.agent_terminal import get_terminals
+
     try:
         from l4.ops_console import get_ops
+
         ops = get_ops()
         s = ops.summary()
         print("\nOps Console:")
         print(f"  Cells: {s.get('cell_count', 0)}")
         print(f"  Agents: {sum(len(c.get('agents', {})) for c in s.get('cells', {}).values())}")
-        al = s.get('alerts', {})
+        al = s.get("alerts", {})
         print(f"  Alerts: {al.get('total', 0)} (crit={al.get('crit', 0)}, warn={al.get('warn', 0)})")
     except Exception:
-            pass
+        pass
     from l1.kernel.params.kernel import SYSCALL_AUDIT_MAX
+
     print("\nSummary:")
     print(f"  Kernel: {cmd_health([])['status']}")
     print(f"  Processes: {len(get_table().list_processes())}")
@@ -226,30 +246,33 @@ def cmd_status(args) -> dict:
 def cmd_sys(args) -> dict:
     """Read and print a VFS /sys path, exposing kernel pseudo-files."""
     from l1.kernel.vfs import get_vfs
+
     path = args[0] if args else "/sys"
     r = get_vfs().read(path)
     if r.get("success"):
         print(r["content"])
     else:
-        print(f"Error: {r.get('error','')}")
+        print(f"Error: {r.get('error', '')}")
     return r
 
 
 def cmd_dev(args) -> dict:
     """Read and print a VFS /dev path, exposing device nodes."""
     from l1.kernel.vfs import get_vfs
+
     path = args[0] if args else "/dev"
     r = get_vfs().read(path)
     if r.get("success"):
         print(r["content"])
     else:
-        print(f"Error: {r.get('error','')}")
+        print(f"Error: {r.get('error', '')}")
     return r
 
 
 def cmd_setting(args) -> dict:
     """Get one/all kernel settings or set one, printing the resulting values."""
     from l1.kernel.settings import get_settings
+
     s = get_settings()
     if not args:
         all_s = s.all()
@@ -278,6 +301,7 @@ def cmd_setting(args) -> dict:
 def cmd_card_list(args) -> dict:
     """List recent cards from the registry, printing a summary table."""
     from l3.card.card_registry import get_registry
+
     cr = get_registry()
     cards = cr.list(state=None)
     if not cards:
@@ -286,7 +310,7 @@ def cmd_card_list(args) -> dict:
     print(f"{'ID':20s} {'STATE':12s} {'PRI':>3} {'ELAPSED':>8} {'INTENT'}")
     print("-" * 80)
     for c in cards[:20]:
-        print(f"{c['id']:20s} {c['state']:12s} {c['priority']:>3} {str(c.get('elapsed','')):>8}s {c['intent'][:40]}")
+        print(f"{c['id']:20s} {c['state']:12s} {c['priority']:>3} {str(c.get('elapsed', '')):>8}s {c['intent'][:40]}")
     return {"cards": cards}
 
 
@@ -296,6 +320,7 @@ def cmd_card_submit(args) -> dict:
         print("Usage: card-submit <intent> [domain]")
         return {"success": False}
     from l3.card.card_registry import get_registry
+
     cr = get_registry()
     intent = " ".join(args)
     cid = cr.submit(intent, ".")
@@ -309,6 +334,7 @@ def cmd_card_cancel(args) -> dict:
         print("Usage: card-cancel <card_id>")
         return {"success": False}
     from l3.card.card_registry import get_registry
+
     cr = get_registry()
     ok = cr.cancel(args[0])
     print(f"Cancelled: {ok}")
@@ -316,13 +342,22 @@ def cmd_card_cancel(args) -> dict:
 
 
 COMMANDS = {
-    "boot": cmd_boot, "health": cmd_health, "ps": cmd_ps,
-    "card": cmd_card, "card-list": cmd_card_list,
-    "card-submit": cmd_card_submit, "card-cancel": cmd_card_cancel,
-    "tools": cmd_tools, "audit": cmd_audit,
-    "chain": cmd_chain, "interrupts": cmd_interrupts,
-    "devices": cmd_devices, "status": cmd_status,
-    "sys": cmd_sys, "dev": cmd_dev, "setting": cmd_setting,
+    "boot": cmd_boot,
+    "health": cmd_health,
+    "ps": cmd_ps,
+    "card": cmd_card,
+    "card-list": cmd_card_list,
+    "card-submit": cmd_card_submit,
+    "card-cancel": cmd_card_cancel,
+    "tools": cmd_tools,
+    "audit": cmd_audit,
+    "chain": cmd_chain,
+    "interrupts": cmd_interrupts,
+    "devices": cmd_devices,
+    "status": cmd_status,
+    "sys": cmd_sys,
+    "dev": cmd_dev,
+    "setting": cmd_setting,
     "shutdown": cmd_shutdown,
     "restart": lambda a: (lambda r: cmd_boot(a) or r)(cmd_shutdown(a)),
 }

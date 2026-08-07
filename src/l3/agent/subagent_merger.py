@@ -1,4 +1,5 @@
 """SubAgent result merging — combines multiple SubAgent outputs into unified results."""
+
 from __future__ import annotations
 
 import logging
@@ -6,6 +7,7 @@ import logging
 from l1.kernel.params.system import LOG_TRUNC_500
 
 logger = logging.getLogger(__name__)
+
 
 class ResultMerger:
     """Multi sub-agent result merging — conflict detection + merge summary."""
@@ -56,12 +58,13 @@ class ResultMerger:
                 # Check if one says "safe" and the other says "vulnerable"
                 a_lower = a.lower()
                 b_lower = b.lower()
-                if ("safe" in a_lower and "vulnerable" in b_lower) or \
-                   ("vulnerable" in a_lower and "safe" in b_lower):
-                    conflicts.append({
-                        "type": "verdict_conflict",
-                        "between": [results[i].get("spec"), results[j].get("spec")],
-                        "detail": "One says safe, the other says vulnerable",
-                    })
+                if ("safe" in a_lower and "vulnerable" in b_lower) or ("vulnerable" in a_lower and "safe" in b_lower):
+                    conflicts.append(
+                        {
+                            "type": "verdict_conflict",
+                            "between": [results[i].get("spec"), results[j].get("spec")],
+                            "detail": "One says safe, the other says vulnerable",
+                        }
+                    )
 
         return conflicts

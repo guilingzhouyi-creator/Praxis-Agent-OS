@@ -1,4 +1,5 @@
 """Tests for ObservabilityBus — unified observability bus."""
+
 from __future__ import annotations
 
 import os
@@ -9,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 def test_observe_alert():
     from l3.bus.observability_bus import ObservabilityBus
+
     bus = ObservabilityBus()
     r = bus.observe("alert", "test-agent", {"message": "test alert", "level": "info"})
     assert r.get("alert", {}).get("success", False) or "alert" in r
@@ -16,6 +18,7 @@ def test_observe_alert():
 
 def test_observe_metric():
     from l3.bus.observability_bus import ObservabilityBus
+
     bus = ObservabilityBus()
     r = bus.observe("metric", "test-agent", {"metric": "test_count", "value": 1})
     assert r.get("metric", {}).get("success", False) or "metric" in r
@@ -23,6 +26,7 @@ def test_observe_metric():
 
 def test_observe_unknown():
     from l3.bus.observability_bus import ObservabilityBus
+
     bus = ObservabilityBus()
     r = bus.observe("unknown_kind", "test", {})
     assert "error" in r
@@ -30,6 +34,7 @@ def test_observe_unknown():
 
 def test_summary():
     from l3.bus.observability_bus import ObservabilityBus
+
     bus = ObservabilityBus()
     s = bus.summary()
     assert "ops" in s
@@ -39,6 +44,7 @@ def test_summary():
 
 def test_get_bus():
     from l3.bus.observability_bus import get_obs_bus, reset_obs_bus
+
     reset_obs_bus()
     b1 = get_obs_bus()
     b2 = get_obs_bus()

@@ -44,18 +44,20 @@ _SseCallback = Callable[[dict], None]
 @dataclass
 class MetricPoint:
     """MetricPoint — metric point record (name, value, tags, timestamp, metric_type)."""
+
     name: str = ""
     value: float = 0.0
     tags: dict = field(default_factory=dict)
     timestamp: float = 0.0
-    metric_type: str = "counter"     # "counter" | "gauge" | "rate"
+    metric_type: str = "counter"  # "counter" | "gauge" | "rate"
 
 
 @dataclass
 class MetricBucket:
     """Aggregated values for one metric+tags within a time window."""
+
     name: str = ""
-    tags_key: str = ""               # canonical tags dict key
+    tags_key: str = ""  # canonical tags dict key
     sum: float = 0.0
     count: int = 0
     min_val: float = float("inf")
@@ -167,18 +169,19 @@ class StatsCenter:
         for p in points:
             self.ingest(p)
 
-    def ingest_pmu_snapshot(self, cell_id: str, counters: dict[str, int],
-                            timestamp: float = 0) -> None:
+    def ingest_pmu_snapshot(self, cell_id: str, counters: dict[str, int], timestamp: float = 0) -> None:
         """Convert a PMU snapshot dict to MetricPoints and ingest."""
         ts = timestamp or time.time()
         for name, value in counters.items():
-            self.ingest(MetricPoint(
-                name=name,
-                value=float(value),
-                tags={"cell": cell_id},
-                timestamp=ts,
-                metric_type="counter",
-            ))
+            self.ingest(
+                MetricPoint(
+                    name=name,
+                    value=float(value),
+                    tags={"cell": cell_id},
+                    timestamp=ts,
+                    metric_type="counter",
+                )
+            )
 
     # ── Query ────────────────────────────────────────────────────
 
@@ -234,8 +237,9 @@ class StatsCenter:
 
         return results
 
-    def top(self, metric: str, order: str = "desc",
-            limit: int = STATS_TOP_LIMIT, window: str = STATS_DEFAULT_WINDOW) -> list[dict]:
+    def top(
+        self, metric: str, order: str = "desc", limit: int = STATS_TOP_LIMIT, window: str = STATS_DEFAULT_WINDOW
+    ) -> list[dict]:
         """Cross-Cell ranking for a single metric.
 
         Returns sorted list of {tags_key, value} aggregated per tags.
@@ -311,7 +315,7 @@ class StatsCenter:
             "min": bucket.min_val if bucket.count > 0 else 0,
             "max": bucket.max_val if bucket.count > 0 else 0,
             "last": bucket.last,
-            "p95": bucket.last,      # simplified: single-bucket p95 = last
+            "p95": bucket.last,  # simplified: single-bucket p95 = last
         }
         return {
             "name": bucket.name,

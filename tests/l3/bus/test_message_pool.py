@@ -1,4 +1,5 @@
 """Tests for l3b_message_pool.py — L3B message cache pool."""
+
 from __future__ import annotations
 
 from l3.bus.l3b_message_pool import L3BMessagePool

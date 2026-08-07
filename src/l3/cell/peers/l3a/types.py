@@ -10,6 +10,7 @@ from typing import Any
 
 class AssemblyMode(Enum):
     """AssemblyMode — enum of assembly mode variants."""
+
     DEFAULT = "default"
     AUTO_APPROVE = "auto_approve"
     CONFERENCE = "conference"
@@ -17,6 +18,7 @@ class AssemblyMode(Enum):
 
 class CardType(Enum):
     """CardType — enum of card type variants."""
+
     EXECUTION = auto()
     ISSUE = auto()
     DIRECTIVE = auto()
@@ -26,6 +28,7 @@ class CardType(Enum):
 @dataclass
 class SessionRecord:
     """SessionRecord — session record record (session_id, title, created_at, closed_at, turn_count)."""
+
     session_id: str = ""
     title: str = ""
     created_at: str = ""
@@ -40,6 +43,7 @@ class SessionRecord:
 @dataclass
 class TaskCard:
     """TaskCard — task card record (id, intent, card_type, domain, cell)."""
+
     id: str = ""
     intent: str = ""
     card_type: CardType = CardType.EXECUTION
@@ -54,6 +58,7 @@ class TaskCard:
 @dataclass
 class L3ATask:
     """A subagent task tracked by the L3A session task table."""
+
     task_id: str = ""
     spec: str = ""
     task: str = ""
@@ -73,6 +78,7 @@ class L3ATask:
 @dataclass
 class L3ATaskGroup:
     """Group of subagent task ids collected at once."""
+
     group_id: str = ""
     task_ids: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)

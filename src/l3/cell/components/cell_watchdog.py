@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class WatchdogState(Enum):
     """WatchdogState — enum of HEALTHY, UNRESPONSIVE, CRASHED."""
+
     HEALTHY = auto()
     UNRESPONSIVE = auto()
     CRASHED = auto()
@@ -44,6 +45,7 @@ class WatchdogState(Enum):
 @dataclass
 class WatchdogSlot:
     """WatchdogSlot — watchdog slot record (agent_id, timeout, last_pet, state, auto_reboot)."""
+
     agent_id: str = ""
     timeout: float = CELL_WATCHDOG_DEFAULT_TIMEOUT
     last_pet: float = 0.0
@@ -79,9 +81,9 @@ class CellWatchdog:
         self._thread: threading.Thread | None = None
 
         # Callbacks — set by Cell to wire escalation actions
-        self.on_timeout: Any = None       # fn(agent_id, state) -> None
-        self.on_recovery: Any = None      # fn(agent_id) -> None
-        self.on_crash: Any = None         # fn(agent_id) -> None
+        self.on_timeout: Any = None  # fn(agent_id, state) -> None
+        self.on_recovery: Any = None  # fn(agent_id) -> None
+        self.on_crash: Any = None  # fn(agent_id) -> None
 
     # ── Slot management ───────────────────────────────────────────
 
@@ -177,7 +179,9 @@ class CellWatchdog:
                     slot.escalation_count += 1
                     logger.warning(
                         "watchdog: %s UNRESPONSIVE (missed pet for %.1fs, timeout=%ss)",
-                        agent_id, elapsed, slot.timeout,
+                        agent_id,
+                        elapsed,
+                        slot.timeout,
                     )
                     if self._pmu:
                         self._pmu.increment("watchdog.timeouts")
@@ -190,7 +194,8 @@ class CellWatchdog:
                         slot.state = WatchdogState.CRASHED
                         logger.error(
                             "watchdog: %s CRASHED (%d consecutive misses)",
-                            agent_id, slot.consecutive_misses,
+                            agent_id,
+                            slot.consecutive_misses,
                         )
                         if self.on_crash:
                             _actions.append((agent_id, "crash", self.on_crash))

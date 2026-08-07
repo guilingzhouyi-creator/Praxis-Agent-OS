@@ -1,4 +1,5 @@
 """Tests for api_handlers_cluster.py — Cluster management API handlers."""
+
 from __future__ import annotations
 
 from l4.api_handlers.api_handlers_cluster import cluster_composites, cluster_expand, cluster_shrink, cluster_status

@@ -1,4 +1,5 @@
 """SubAgent specification definitions — built-in specs, lazy loading, YAML integration."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SubAgentSpec:
     """Sub-agent spec definition."""
+
     name: str
     description: str
     system_prompt: str = ""
@@ -22,10 +24,10 @@ class SubAgentSpec:
     timeout: float = SUBAGENT_SPEC_TIMEOUT
     read_only: bool = True
     tags: list[str] = field(default_factory=list)
-    model_spec: str = "subagent"            # model_spec reference name, defined in praxis.yaml
-    model_config: dict | None = None        # per-spec model override dict
-    strategy: str = ""                      # named model_spec strategy pack (fast/balanced/deep)
-    sandbox_profile: str = ""          # empty=no sandbox, "safe"/"isolated"/"danger"
+    model_spec: str = "subagent"  # model_spec reference name, defined in praxis.yaml
+    model_config: dict | None = None  # per-spec model override dict
+    strategy: str = ""  # named model_spec strategy pack (fast/balanced/deep)
+    sandbox_profile: str = ""  # empty=no sandbox, "safe"/"isolated"/"danger"
     post_actions: list[dict] = field(default_factory=list)
     """Post-execution actions chained after SubAgent completes.
 
@@ -59,55 +61,92 @@ class SubAgentSpec:
 # Config-driven via commands.yaml subagent_specs section.
 
 _BUILTIN_SPECS: dict[str, dict] = {
-    "security-auditor": {"description": "Security code review — scan for OWASP Top 10, hardcoded secrets, injection vectors",
+    "security-auditor": {
+        "description": "Security code review — scan for OWASP Top 10, hardcoded secrets, injection vectors",
         "system_prompt": "You are a senior security auditor. Review the provided code for vulnerabilities. "
-                         "Check for: SQL injection, XSS, path traversal, hardcoded secrets, insecure crypto, "
-                         "authorization bypasses. Rate each finding as CRITICAL/HIGH/MEDIUM/LOW.",
+        "Check for: SQL injection, XSS, path traversal, hardcoded secrets, insecure crypto, "
+        "authorization bypasses. Rate each finding as CRITICAL/HIGH/MEDIUM/LOW.",
         "allowed_tools": ["read_file", "grep_search", "list_dir"],
-        "max_steps": 8, "timeout": 120.0, "tags": ["security", "review"]},
-    "code-reviewer": {"description": "General code review — logic errors, style, test coverage, edge cases",
+        "max_steps": 8,
+        "timeout": 120.0,
+        "tags": ["security", "review"],
+    },
+    "code-reviewer": {
+        "description": "General code review — logic errors, style, test coverage, edge cases",
         "system_prompt": "You are a senior engineer reviewing code. Check for: logic errors, "
-                         "edge cases, style guide violations, missing error handling, "
-                         "test coverage gaps, performance issues.",
+        "edge cases, style guide violations, missing error handling, "
+        "test coverage gaps, performance issues.",
         "allowed_tools": ["read_file", "grep_search", "list_dir"],
-        "max_steps": 8, "timeout": 120.0, "tags": ["review"]},
-    "documenter": {"description": "Generate documentation from code — docstrings, README, API reference",
+        "max_steps": 8,
+        "timeout": 120.0,
+        "tags": ["review"],
+    },
+    "documenter": {
+        "description": "Generate documentation from code — docstrings, README, API reference",
         "system_prompt": "You are a technical writer. Read the code and generate documentation. "
-                         "Focus on: public API surface, usage examples, edge cases, parameter descriptions.",
+        "Focus on: public API surface, usage examples, edge cases, parameter descriptions.",
         "allowed_tools": ["read_file", "list_dir"],
-        "max_steps": 6, "timeout": 90.0, "tags": ["docs"]},
-    "data-analyst": {"description": "Analyze data files, logs, or structured output for patterns and anomalies",
+        "max_steps": 6,
+        "timeout": 90.0,
+        "tags": ["docs"],
+    },
+    "data-analyst": {
+        "description": "Analyze data files, logs, or structured output for patterns and anomalies",
         "system_prompt": "You are a data analyst. Read the provided data, identify patterns, "
-                         "anomalies, and trends. Summarize findings with specific evidence.",
+        "anomalies, and trends. Summarize findings with specific evidence.",
         "allowed_tools": ["read_file", "grep_search"],
-        "max_steps": 6, "timeout": 90.0, "tags": ["data"]},
-    "architect": {"description": "Architecture review — dependency analysis, module boundaries, design patterns",
+        "max_steps": 6,
+        "timeout": 90.0,
+        "tags": ["data"],
+    },
+    "architect": {
+        "description": "Architecture review — dependency analysis, module boundaries, design patterns",
         "system_prompt": "You are a software architect. Review the codebase structure. "
-                         "Check for: circular dependencies, violation of layer boundaries, "
-                         "missing abstractions, over-engineering, architectural drift.",
+        "Check for: circular dependencies, violation of layer boundaries, "
+        "missing abstractions, over-engineering, architectural drift.",
         "allowed_tools": ["read_file", "grep_search", "list_dir"],
-        "max_steps": 10, "timeout": 180.0, "tags": ["architecture", "review"]},
-    "helper": {"description": "General-purpose assistant — answer questions, explain code, suggest fixes",
+        "max_steps": 10,
+        "timeout": 180.0,
+        "tags": ["architecture", "review"],
+    },
+    "helper": {
+        "description": "General-purpose assistant — answer questions, explain code, suggest fixes",
         "system_prompt": "You are a helpful engineering assistant. Answer questions, explain code, "
-                         "suggest fixes, and provide examples. Be concise and specific.",
+        "suggest fixes, and provide examples. Be concise and specific.",
         "allowed_tools": ["read_file", "grep_search", "list_dir"],
-        "max_steps": 5, "timeout": 60.0, "read_only": False, "tags": ["general"]},
-    "refactor-agent": {"description": "Refactor code — rename symbols, extract methods, split files, apply patterns",
+        "max_steps": 5,
+        "timeout": 60.0,
+        "read_only": False,
+        "tags": ["general"],
+    },
+    "refactor-agent": {
+        "description": "Refactor code — rename symbols, extract methods, split files, apply patterns",
         "system_prompt": "You are a senior software engineer performing code refactoring. "
-                         "Read the target code, plan the refactoring steps, then execute them. "
-                         "Ensure all tests still pass after each change.",
+        "Read the target code, plan the refactoring steps, then execute them. "
+        "Ensure all tests still pass after each change.",
         "allowed_tools": ["read_file", "grep_search", "list_dir", "edit", "write_file"],
-        "max_steps": 12, "timeout": 180.0, "read_only": False,
-        "sandbox_profile": "safe", "tags": ["refactor", "write"],
-        "post_actions": [{"type": "scout", "prompt": "Verify that the refactoring preserves behavior and all tests pass."}]},
-    "fixer": {"description": "Fix bugs and issues — read error, locate cause, apply fix, verify",
+        "max_steps": 12,
+        "timeout": 180.0,
+        "read_only": False,
+        "sandbox_profile": "safe",
+        "tags": ["refactor", "write"],
+        "post_actions": [
+            {"type": "scout", "prompt": "Verify that the refactoring preserves behavior and all tests pass."}
+        ],
+    },
+    "fixer": {
+        "description": "Fix bugs and issues — read error, locate cause, apply fix, verify",
         "system_prompt": "You are a debug technician. Read the error description, locate the root cause "
-                         "in the codebase, apply the minimal fix, and verify the fix doesn't break tests. "
-                         "Explain what caused the bug and how your fix resolves it.",
+        "in the codebase, apply the minimal fix, and verify the fix doesn't break tests. "
+        "Explain what caused the bug and how your fix resolves it.",
         "allowed_tools": ["read_file", "grep_search", "list_dir", "edit", "write_file", "shell"],
-        "max_steps": 10, "timeout": 180.0, "read_only": False,
-        "sandbox_profile": "safe", "tags": ["fix", "write"],
-        "post_actions": [{"type": "scout", "prompt": "Verify that the fix resolves the issue without side effects."}]},
+        "max_steps": 10,
+        "timeout": 180.0,
+        "read_only": False,
+        "sandbox_profile": "safe",
+        "tags": ["fix", "write"],
+        "post_actions": [{"type": "scout", "prompt": "Verify that the fix resolves the issue without side effects."}],
+    },
 }
 
 
@@ -120,6 +159,7 @@ def load_specs() -> dict[str, SubAgentSpec]:
     import os
 
     import yaml
+
     specs: dict[str, SubAgentSpec] = {}
 
     # Start from built-in defaults
@@ -128,6 +168,7 @@ def load_specs() -> dict[str, SubAgentSpec]:
 
     # Apply YAML overrides
     from l1.kernel.params.system import COMMANDS_CONFIG_PATH
+
     yaml_path = os.path.join(os.getcwd(), COMMANDS_CONFIG_PATH)
     try:
         with open(yaml_path, encoding="utf-8") as f:
@@ -149,12 +190,14 @@ def load_specs() -> dict[str, SubAgentSpec]:
 
 # Re-export for backward compat — lazy dict defers YAML loading until first access
 
+
 class _LazyBuiltins(dict):
     """Dict subclass that loads specs on first access, not at import time.
 
     All dict operations (``__getitem__``, ``__iter__``, ``dict()``, etc.)
     trigger a single call to ``load_specs()`` on first use.
     """
+
     _loaded = False
     _data: dict[str, SubAgentSpec] = {}
 

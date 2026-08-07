@@ -45,6 +45,7 @@ class RegisterableSpec:
         metadata: Arbitrary key-value store.
         version: Semantic version of this spec.
     """
+
     name: str
     handler: Callable | None = None
     description: str = ""

@@ -35,9 +35,10 @@ _DEFAULT_PERSIST_PATH = ""  # set at boot from kernel.params
 @dataclass
 class MonitorEvent:
     """Unified monitoring event — all subsystems use this model."""
-    type: str                # "l1.kernel.interrupt" | "network.peer.join" | "service.cell.crash" | "task.card.complete"
-    source: str              # "net" | "cell_monitor" | "ops_console" | "stagnation" | "card_registry"
-    severity: str            # "info" | "warn" | "crit"
+
+    type: str  # "l1.kernel.interrupt" | "network.peer.join" | "service.cell.crash" | "task.card.complete"
+    source: str  # "net" | "cell_monitor" | "ops_console" | "stagnation" | "card_registry"
+    severity: str  # "info" | "warn" | "crit"
     agent_id: str = ""
     cell_id: str = ""
     card_id: str = ""
@@ -48,9 +49,15 @@ class MonitorEvent:
     def to_dict(self) -> dict:
         """Serialize the event to a dict."""
         return {
-            "type": self.type, "source": self.source, "severity": self.severity,
-            "agent_id": self.agent_id, "cell_id": self.cell_id, "card_id": self.card_id,
-            "message": self.message, "data": self.data, "timestamp": self.timestamp,
+            "type": self.type,
+            "source": self.source,
+            "severity": self.severity,
+            "agent_id": self.agent_id,
+            "cell_id": self.cell_id,
+            "card_id": self.card_id,
+            "message": self.message,
+            "data": self.data,
+            "timestamp": self.timestamp,
         }
 
 
@@ -87,10 +94,24 @@ class MonitorBus:
                         continue
                     try:
                         d = json.loads(line)
-                        ev = MonitorEvent(**{k: v for k, v in d.items() if k in (
-                            "type", "source", "severity", "agent_id", "cell_id",
-                            "card_id", "message", "data", "timestamp",
-                        )})
+                        ev = MonitorEvent(
+                            **{
+                                k: v
+                                for k, v in d.items()
+                                if k
+                                in (
+                                    "type",
+                                    "source",
+                                    "severity",
+                                    "agent_id",
+                                    "cell_id",
+                                    "card_id",
+                                    "message",
+                                    "data",
+                                    "timestamp",
+                                )
+                            }
+                        )
                         self._ring.append(ev)
                         self._count += 1
                         loaded += 1
@@ -133,12 +154,15 @@ class MonitorBus:
         # participates in statistical aggregation (was isolated from centers).
         try:
             from l3.services.stats_center import MetricPoint, get_center
-            get_center().ingest(MetricPoint(
-                name=f"monitor.event.{event.type}",
-                value=1.0,
-                tags={"source": event.source, "severity": event.severity},
-                metric_type="counter",
-            ))
+
+            get_center().ingest(
+                MetricPoint(
+                    name=f"monitor.event.{event.type}",
+                    value=1.0,
+                    tags={"source": event.source, "severity": event.severity},
+                    metric_type="counter",
+                )
+            )
         except Exception as e:
             logger.debug("monitor_bus: stats center ingest failed: %s", e)
 
@@ -168,10 +192,16 @@ class MonitorBus:
 
     # ── Query ──
 
-    def query(self, type_prefix: str = "", severity: str = "",
-              agent_id: str = "", cell_id: str = "",
-              source: str = "", since: float = 0.0,
-              limit: int = 100) -> list[dict]:
+    def query(
+        self,
+        type_prefix: str = "",
+        severity: str = "",
+        agent_id: str = "",
+        cell_id: str = "",
+        source: str = "",
+        since: float = 0.0,
+        limit: int = 100,
+    ) -> list[dict]:
         """Query events with filters. type_prefix supports glob: "kernel.*", "network.*"."""
         results: list[dict] = []
         with self._lock:
@@ -251,6 +281,7 @@ class MonitorBus:
 
 # ── Helpers ──
 
+
 def _match_type(event_type: str, pattern: str) -> bool:
     """Match "network.peer.join" against "network.*" or "network.peer.*"."""
     if pattern.endswith(".*"):
@@ -270,6 +301,7 @@ def get_bus() -> MonitorBus:
     if _bus is None:
         try:
             from l1.kernel.paths import get_paths as _gp
+
             persist = _gp().monitor_bus_log
         except Exception:
             persist = ""

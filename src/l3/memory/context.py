@@ -39,7 +39,8 @@ _ROLE_ASSISTANT = "assistant"
 @dataclass
 class RegisterEntry:
     """RegisterEntry — register entry record (role, content, tokens, source, timestamp)."""
-    role: str        # system | user | assistant | tool | memory
+
+    role: str  # system | user | assistant | tool | memory
     content: str
     tokens: int = 0
     source: str = ""  # memory entry ID or tool name
@@ -103,25 +104,35 @@ class ContextManager:
         # Store tool calls in Ring 1
         for tc in tool_calls[-10:]:
             mem.remember(
-                agent_id=self._agent_id, entry_type="tool_call",
-                content=tc.content[:LOG_TRUNC_500], tags=["tool_call"],
-                source=tc.source, ring=1,
+                agent_id=self._agent_id,
+                entry_type="tool_call",
+                content=tc.content[:LOG_TRUNC_500],
+                tags=["tool_call"],
+                source=tc.source,
+                ring=1,
             )
 
         # Store decisions in Ring 2
         for d in decisions[-3:]:
             mem.remember(
-                agent_id=self._agent_id, entry_type="decision",
-                content=d.content[:LOG_TRUNC_500], tags=["decision", self._current_task],
-                source=d.source, importance=MEMORY_IMPORTANCE_HIGH, ring=2,
+                agent_id=self._agent_id,
+                entry_type="decision",
+                content=d.content[:LOG_TRUNC_500],
+                tags=["decision", self._current_task],
+                source=d.source,
+                importance=MEMORY_IMPORTANCE_HIGH,
+                ring=2,
             )
 
         # Store summary in Ring 3
         if summary:
             mem.remember(
-                agent_id=self._agent_id, entry_type="summary",
-                content=summary[:LOG_TRUNC_1000], tags=["summary", self._current_task],
-                importance=MEMORY_IMPORTANCE_CRITICAL, ring=3,
+                agent_id=self._agent_id,
+                entry_type="summary",
+                content=summary[:LOG_TRUNC_1000],
+                tags=["summary", self._current_task],
+                importance=MEMORY_IMPORTANCE_CRITICAL,
+                ring=3,
             )
 
         with self._lock:
@@ -136,9 +147,10 @@ class ContextManager:
     def snapshot(self) -> dict:
         """Current register contents (for UI display)."""
         with self._lock:
-            entries = [{"role": e.role, "content": e.content[:LOG_TRUNC_100],
-                        "tokens": e.tokens, "source": e.source}
-                       for e in self._register]
+            entries = [
+                {"role": e.role, "content": e.content[:LOG_TRUNC_100], "tokens": e.tokens, "source": e.source}
+                for e in self._register
+            ]
             return {
                 "agent_id": self._agent_id,
                 "task": self._current_task,

@@ -24,11 +24,25 @@ from typing import Any
 from .subagent_spec import SubAgentSpec
 
 # Well-known write tool names — if any task uses one, the card is "execute"
-_WRITE_TOOLS: frozenset[str] = frozenset({
-    "write_file", "edit", "edit_file", "delete", "delete_file",
-    "create", "mkdir", "rename", "move", "copy",
-    "run", "terminal", "execute", "build", "install",
-})
+_WRITE_TOOLS: frozenset[str] = frozenset(
+    {
+        "write_file",
+        "edit",
+        "edit_file",
+        "delete",
+        "delete_file",
+        "create",
+        "mkdir",
+        "rename",
+        "move",
+        "copy",
+        "run",
+        "terminal",
+        "execute",
+        "build",
+        "install",
+    }
+)
 
 
 def _card_attr(card: Any, name: str, default: Any = None) -> Any:
@@ -51,13 +65,11 @@ def classify_card(card: Any) -> str:
             tasks = _card_attr(phase, "steps", [])
         tasks = tasks or []
         for task in tasks:
-            action = _card_attr(task, "action", "") or (
-                isinstance(task, dict) and task.get("action", ""))
+            action = _card_attr(task, "action", "") or (isinstance(task, dict) and task.get("action", ""))
             if action in _WRITE_TOOLS:
                 return "execute"
             # Check agent role — "writer" roles imply write work
-            agent = _card_attr(task, "agent", "") or (
-                isinstance(task, dict) and task.get("agent", ""))
+            agent = _card_attr(task, "agent", "") or (isinstance(task, dict) and task.get("agent", ""))
             if agent in ("writer", "developer", "builder"):
                 return "execute"
     return "explore"

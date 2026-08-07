@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 
 _EDGE_ID_LEN = 12
 
-_REL_SEQUENTIAL = "sequential"      # same-agent sequential write chain
-_REL_TYPE_CHAIN = "type_chain"      # same-agent + same entry_type chain
-_REL_CELL_CHAIN = "cell_chain"      # same-cell chain
+_REL_SEQUENTIAL = "sequential"  # same-agent sequential write chain
+_REL_TYPE_CHAIN = "type_chain"  # same-agent + same entry_type chain
+_REL_CELL_CHAIN = "cell_chain"  # same-cell chain
 
 # ── Semantic edges (hybrid mode — explicitly written by caller/LLM) ──
-_REL_CONTRADICTS = "contradicts"    # new knowledge overrides old knowledge
-_REL_DEPENDS_ON = "depends_on"      # decision dependency basis
-_REL_REFINES = "refines"            # refine / supplement
+_REL_CONTRADICTS = "contradicts"  # new knowledge overrides old knowledge
+_REL_DEPENDS_ON = "depends_on"  # decision dependency basis
+_REL_REFINES = "refines"  # refine / supplement
 
 _SEMANTIC_RELATIONS = {_REL_CONTRADICTS, _REL_DEPENDS_ON, _REL_REFINES}
 
@@ -61,18 +61,21 @@ _EDGE_MODE_TRANSITIONS: dict[str, set[str]] = {
     _EDGE_MODE_HYBRID: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_PAUSED},
     _EDGE_MODE_PAUSED: {_EDGE_MODE_OFF, _EDGE_MODE_RULES, _EDGE_MODE_HYBRID},
 }
-_LLM_EXTRACT_MAX_PAIRS = 5          # max comparison pairs per extraction round
+_LLM_EXTRACT_MAX_PAIRS = 5  # max comparison pairs per extraction round
 _LLM_EXTRACT_MAX_TOKENS = 256
 
 _DEFAULT_DB_NAME = "memory_graph.db"
 _DEFAULT_ENABLED = False
-_COMPACT_MIN_EDGES = 4          # skip pruning when graph has fewer edges than this (prevent newborn graph from being pruned empty)
+_COMPACT_MIN_EDGES = (
+    4  # skip pruning when graph has fewer edges than this (prevent newborn graph from being pruned empty)
+)
 
 
 def _default_enabled() -> bool:
     """Read the global switch from settings (memory.graph.enabled)."""
     try:
         from l1.kernel.settings import get_settings
+
         return bool(get_settings().get("memory.graph.enabled", _DEFAULT_ENABLED))
     except Exception:
         return _DEFAULT_ENABLED
@@ -92,6 +95,7 @@ class MemoryGraph:
     def _default_edge_mode(self) -> str:
         try:
             from l1.kernel.settings import get_settings
+
             m = str(get_settings().get("memory.graph.edge_mode", _EDGE_MODE_OFF))
             return m if m in _EDGE_MODES else _EDGE_MODE_OFF
         except Exception:
@@ -114,10 +118,8 @@ class MemoryGraph:
                     created_at REAL NOT NULL
                 )
             """)
-            self._conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_edges_from ON memory_edges(from_id)")
-            self._conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_edges_to ON memory_edges(to_id)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_edges_from ON memory_edges(from_id)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_edges_to ON memory_edges(to_id)")
             self._conn.commit()
         except Exception as e:
             logger.warning("memory_graph: connect failed: %s", e)
@@ -133,8 +135,7 @@ class MemoryGraph:
         self._enabled = bool(flag)
         logger.info("memory_graph: enabled=%s", self._enabled)
         if changed:
-            self._emit_event("stats.memory.graph.switch",
-                             {"enabled": self._enabled})
+            self._emit_event("stats.memory.graph.switch", {"enabled": self._enabled})
 
     # ── Semantic extraction state machine ─────────────────────────────────────
 
@@ -150,31 +151,34 @@ class MemoryGraph:
         """
         mode = str(mode).strip().lower()
         if mode not in _EDGE_MODES:
-            return {"success": False,
-                    "error": f"edge_mode must be one of {list(_EDGE_MODES)}"}
+            return {"success": False, "error": f"edge_mode must be one of {list(_EDGE_MODES)}"}
         if mode == self._edge_mode:
             return {"success": True, "edge_mode": mode, "changed": False}
         allowed = _EDGE_MODE_TRANSITIONS.get(self._edge_mode, set())
         if mode not in allowed:
-            return {"success": False,
-                    "error": f"invalid transition: {self._edge_mode} -> {mode} "
-                             f"(allowed: {sorted(allowed)})"}
+            return {
+                "success": False,
+                "error": f"invalid transition: {self._edge_mode} -> {mode} (allowed: {sorted(allowed)})",
+            }
         old = self._edge_mode
         self._edge_mode = mode
         logger.info("memory_graph: edge_mode %s -> %s", old, mode)
-        self._emit_event("stats.memory.graph.edge_mode", {
-            "from": old, "to": mode,
-        })
-        return {"success": True, "edge_mode": mode, "changed": True,
-                "from": old}
+        self._emit_event(
+            "stats.memory.graph.edge_mode",
+            {
+                "from": old,
+                "to": mode,
+            },
+        )
+        return {"success": True, "edge_mode": mode, "changed": True, "from": old}
 
     def _emit_event(self, event_type: str, data: dict) -> None:
         """Publish graph lifecycle events to the monitoring bus + StatsCenter."""
         try:
             from l3.bus.monitor_bus import MonitorEvent as _MEv
             from l3.bus.monitor_bus import get_bus as _MB
-            _MB().emit(_MEv(type=event_type, source="memory_graph",
-                           severity="info", data=data))
+
+            _MB().emit(_MEv(type=event_type, source="memory_graph", severity="info", data=data))
         except Exception:
             logger.debug("memory_graph: monitor emit failed")
         # Phase F: memory-graph lifecycle events also land in StatsCenter so
@@ -196,9 +200,15 @@ class MemoryGraph:
 
     # ── Rule-based edges (zero cost, no LLM) ────────────────────────────
 
-    def remember_hook(self, entry_id: str, agent_id: str, entry_type: str,
-                      cell_id: str, recent: list[dict],
-                      created_by: str = "system") -> list[str]:
+    def remember_hook(
+        self,
+        entry_id: str,
+        agent_id: str,
+        entry_type: str,
+        cell_id: str,
+        recent: list[dict],
+        created_by: str = "system",
+    ) -> list[str]:
         """Called after remember(): build rule-based edges to recent entries.
 
         Args:
@@ -231,8 +241,8 @@ class MemoryGraph:
                     if self._edge_exists(r["id"], entry_id, rel):
                         continue
                     eid = self._insert_edge(
-                        from_id=r["id"], to_id=entry_id, relation=rel,
-                        weight=w, created_by=created_by, created_at=now)
+                        from_id=r["id"], to_id=entry_id, relation=rel, weight=w, created_by=created_by, created_at=now
+                    )
                     if eid:
                         created.append(eid)
         except Exception as e:
@@ -243,12 +253,13 @@ class MemoryGraph:
         if self._conn is None:
             return False
         cur = self._conn.execute(
-            "SELECT 1 FROM memory_edges WHERE from_id=? AND to_id=? AND relation=? LIMIT 1",
-            (from_id, to_id, relation))
+            "SELECT 1 FROM memory_edges WHERE from_id=? AND to_id=? AND relation=? LIMIT 1", (from_id, to_id, relation)
+        )
         return cur.fetchone() is not None
 
-    def _insert_edge(self, from_id: str, to_id: str, relation: str,
-                     weight: float, created_by: str, created_at: float) -> str | None:
+    def _insert_edge(
+        self, from_id: str, to_id: str, relation: str, weight: float, created_by: str, created_at: float
+    ) -> str | None:
         if self._conn is None:
             return None
         eid = f"edge-{uuid.uuid4().hex[:_EDGE_ID_LEN]}"
@@ -257,7 +268,8 @@ class MemoryGraph:
                 "INSERT OR IGNORE INTO memory_edges "
                 "(id, from_id, to_id, relation, weight, created_by, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (eid, from_id, to_id, relation, weight, created_by, created_at))
+                (eid, from_id, to_id, relation, weight, created_by, created_at),
+            )
             self._conn.commit()
             return eid
         except Exception as e:
@@ -266,8 +278,7 @@ class MemoryGraph:
 
     # ── Diffusion retrieval (seed traversal along edges) ──────────────────────────────
 
-    def recall(self, seeds: list[str], depth: int = 2,
-               limit: int = 20) -> dict:
+    def recall(self, seeds: list[str], depth: int = 2, limit: int = 20) -> dict:
         """Diffusion retrieval: BFS from seed entries.
 
         Returns:
@@ -288,7 +299,8 @@ class MemoryGraph:
                     cur = self._conn.execute(
                         "SELECT to_id FROM memory_edges WHERE from_id=? "
                         "UNION SELECT from_id FROM memory_edges WHERE to_id=?",
-                        (fid, fid))
+                        (fid, fid),
+                    )
                     for row in cur.fetchall():
                         nxt.append(row[0])
                 except Exception:
@@ -302,15 +314,15 @@ class MemoryGraph:
             cur = self._conn.execute(
                 "SELECT from_id, to_id, relation, weight FROM memory_edges "
                 "WHERE from_id IN ({ph}) OR to_id IN ({ph}) LIMIT {lim}".format(
-                    ph=",".join("?" * len(nodes)), lim=limit * 2),
-                list(nodes) + list(nodes))
+                    ph=",".join("?" * len(nodes)), lim=limit * 2
+                ),
+                list(nodes) + list(nodes),
+            )
             for fid, tid, rel, w in cur.fetchall():
-                edges.append({"from_id": fid, "to_id": tid,
-                              "relation": rel, "weight": w})
+                edges.append({"from_id": fid, "to_id": tid, "relation": rel, "weight": w})
         except Exception:
             logger.debug("memory_graph: edge query failed, returning empty edges", exc_info=True)
-        return {"nodes": nodes, "edges": edges,
-                "stats": {"seeds": len(seeds), "depth": depth, "reached": len(nodes)}}
+        return {"nodes": nodes, "edges": edges, "stats": {"seeds": len(seeds), "depth": depth, "reached": len(nodes)}}
 
     # ── Graph reduction (degree centrality analysis + executable pruning) ──────────────────
 
@@ -327,13 +339,12 @@ class MemoryGraph:
                 "SELECT entry, COUNT(*) AS deg FROM ("
                 "  SELECT from_id AS entry FROM memory_edges "
                 "  UNION ALL SELECT to_id AS entry FROM memory_edges"
-                ") GROUP BY entry")
+                ") GROUP BY entry"
+            )
             degrees = {row[0]: row[1] for row in cur.fetchall()}
-            hubs = [{"entry_id": eid, "degree": deg}
-                    for eid, deg in degrees.items() if deg >= min_degree]
+            hubs = [{"entry_id": eid, "degree": deg} for eid, deg in degrees.items() if deg >= min_degree]
             leaves = sum(1 for deg in degrees.values() if deg == 1)
-            total_edges = self._conn.execute(
-                "SELECT COUNT(*) FROM memory_edges").fetchone()[0]
+            total_edges = self._conn.execute("SELECT COUNT(*) FROM memory_edges").fetchone()[0]
             return {"hubs": hubs, "leaves": leaves, "edges": total_edges}
         except Exception as e:
             logger.debug("memory_graph: compact_report failed: %s", e)
@@ -354,50 +365,67 @@ class MemoryGraph:
             return {"success": False, "error": "no connection"}
         rep = self.compact_report(min_degree=min_degree)
         if not dry_run and rep["edges"] < _COMPACT_MIN_EDGES:
-            return {"success": False, "dry_run": False,
-                    "error": f"graph too small for pruning ({rep['edges']} < {_COMPACT_MIN_EDGES})",
-                    "edges_before": rep["edges"], "edges_after": rep["edges"]}
+            return {
+                "success": False,
+                "dry_run": False,
+                "error": f"graph too small for pruning ({rep['edges']} < {_COMPACT_MIN_EDGES})",
+                "edges_before": rep["edges"],
+                "edges_after": rep["edges"],
+            }
         # Leaves = degree-1 nodes (low-connectivity noise)
         try:
             cur = self._conn.execute(
                 "SELECT entry, COUNT(*) AS deg FROM ("
                 "  SELECT from_id AS entry FROM memory_edges "
                 "  UNION ALL SELECT to_id AS entry FROM memory_edges"
-                ") GROUP BY entry HAVING deg = 1")
+                ") GROUP BY entry HAVING deg = 1"
+            )
             leaf_ids = [row[0] for row in cur.fetchall()]
         except Exception:
             leaf_ids = []
         if dry_run:
-            return {"success": True, "dry_run": True,
-                    "leaves": len(leaf_ids), "edges_before": rep["edges"],
-                    "edges_after": rep["edges"]}
+            return {
+                "success": True,
+                "dry_run": True,
+                "leaves": len(leaf_ids),
+                "edges_before": rep["edges"],
+                "edges_after": rep["edges"],
+            }
         removed = 0
         try:
             with self._lock:
                 for eid in leaf_ids:
-                    cur = self._conn.execute(
-                        "DELETE FROM memory_edges WHERE from_id=? OR to_id=?",
-                        (eid, eid))
+                    cur = self._conn.execute("DELETE FROM memory_edges WHERE from_id=? OR to_id=?", (eid, eid))
                     removed += cur.rowcount
                 self._conn.commit()
         except Exception as e:
             logger.debug("memory_graph: compact failed: %s", e)
             return {"success": False, "error": str(e)}
-        after = self._conn.execute(
-            "SELECT COUNT(*) FROM memory_edges").fetchone()[0]
-        self._emit_event("stats.memory.graph.compact", {
-            "leaves_pruned": len(leaf_ids), "edges_removed": removed,
-            "edges_before": rep["edges"], "edges_after": after,
-        })
-        return {"success": True, "dry_run": False,
-                "leaves_pruned": len(leaf_ids), "edges_removed": removed,
-                "edges_before": rep["edges"], "edges_after": after,
-                "hubs_kept": len(rep["hubs"])}
+        after = self._conn.execute("SELECT COUNT(*) FROM memory_edges").fetchone()[0]
+        self._emit_event(
+            "stats.memory.graph.compact",
+            {
+                "leaves_pruned": len(leaf_ids),
+                "edges_removed": removed,
+                "edges_before": rep["edges"],
+                "edges_after": after,
+            },
+        )
+        return {
+            "success": True,
+            "dry_run": False,
+            "leaves_pruned": len(leaf_ids),
+            "edges_removed": removed,
+            "edges_before": rep["edges"],
+            "edges_after": after,
+            "hubs_kept": len(rep["hubs"]),
+        }
 
     # ── Semantic edges (explicit writes — contradicts/depends_on/refines) ────────
 
-    def add_semantic_edge(self, from_id: str, to_id: str, relation: str,
-                          weight: float = 1.5, created_by: str = "llm") -> dict:
+    def add_semantic_edge(
+        self, from_id: str, to_id: str, relation: str, weight: float = 1.5, created_by: str = "llm"
+    ) -> dict:
         """Add a semantic edge (contradicts/depends_on/refines).
 
         Unlike rule-based edges (automatic, zero cost), semantic edges are
@@ -412,21 +440,24 @@ class MemoryGraph:
             return {"success": False, "error": "graph disabled"}
         rel = relation.strip().lower()
         if rel not in _SEMANTIC_RELATIONS:
-            return {"success": False,
-                    "error": f"relation must be one of {sorted(_SEMANTIC_RELATIONS)}"}
+            return {"success": False, "error": f"relation must be one of {sorted(_SEMANTIC_RELATIONS)}"}
         if not from_id or not to_id or from_id == to_id:
             return {"success": False, "error": "from_id/to_id required and distinct"}
         if self._edge_exists(from_id, to_id, rel):
             return {"success": False, "error": "edge already exists"}
         try:
-            eid = self._insert_edge(from_id, to_id, rel, float(weight),
-                                    created_by, time.time())
+            eid = self._insert_edge(from_id, to_id, rel, float(weight), created_by, time.time())
             if not eid:
                 return {"success": False, "error": "insert failed"}
-            self._emit_event("stats.memory.graph.semantic", {
-                "relation": rel, "from_id": from_id, "to_id": to_id,
-                "created_by": created_by,
-            })
+            self._emit_event(
+                "stats.memory.graph.semantic",
+                {
+                    "relation": rel,
+                    "from_id": from_id,
+                    "to_id": to_id,
+                    "created_by": created_by,
+                },
+            )
             return {"success": True, "edge_id": eid, "relation": rel}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -441,18 +472,27 @@ class MemoryGraph:
                 "SELECT from_id, to_id, relation, weight, created_by, created_at "
                 f"FROM memory_edges WHERE relation IN ({ph}) "
                 "ORDER BY created_at DESC LIMIT ?",
-                list(_SEMANTIC_RELATIONS) + [limit])
-            return [{"from_id": r[0], "to_id": r[1], "relation": r[2],
-                     "weight": r[3], "created_by": r[4], "created_at": r[5]}
-                    for r in cur.fetchall()]
+                list(_SEMANTIC_RELATIONS) + [limit],
+            )
+            return [
+                {
+                    "from_id": r[0],
+                    "to_id": r[1],
+                    "relation": r[2],
+                    "weight": r[3],
+                    "created_by": r[4],
+                    "created_at": r[5],
+                }
+                for r in cur.fetchall()
+            ]
         except Exception:
             return []
 
     # ── LLM semantic edge extraction (hybrid mode only) ──────────────────
 
-    def extract_semantic_edges(self, entries: list[dict],
-                               engine: Any = None,
-                               max_pairs: int = _LLM_EXTRACT_MAX_PAIRS) -> dict:
+    def extract_semantic_edges(
+        self, entries: list[dict], engine: Any = None, max_pairs: int = _LLM_EXTRACT_MAX_PAIRS
+    ) -> dict:
         """LLM extracts contradicts/depends_on/refines between entry pairs.
 
         State machine: runs ONLY in hybrid mode. On LLM failure the mode
@@ -464,15 +504,12 @@ class MemoryGraph:
         Returns: {"success", "added": N, "relations": [...], "mode": ...}
         """
         if self._edge_mode != _EDGE_MODE_HYBRID:
-            return {"success": False, "added": 0,
-                    "error": f"edge_mode is {self._edge_mode}, not hybrid"}
+            return {"success": False, "added": 0, "error": f"edge_mode is {self._edge_mode}, not hybrid"}
         if not self._enabled or self._conn is None:
             return {"success": False, "added": 0, "error": "graph disabled"}
-        candidates = [e for e in entries
-                      if e and e.get("id") and e.get("content")]
+        candidates = [e for e in entries if e and e.get("id") and e.get("content")]
         if len(candidates) < 2:
-            return {"success": True, "added": 0, "relations": [],
-                    "mode": self._edge_mode}
+            return {"success": True, "added": 0, "relations": [], "mode": self._edge_mode}
         try:
             engine = engine or self._resolve_llm_engine()
             pairs = self._pick_pairs(candidates, max_pairs)
@@ -485,34 +522,30 @@ class MemoryGraph:
                     engine_failures += 1
                     continue
                 if rel in _SEMANTIC_RELATIONS:
-                    r = self.add_semantic_edge(
-                        a["id"], b["id"], rel, created_by="llm")
+                    r = self.add_semantic_edge(a["id"], b["id"], rel, created_by="llm")
                     if r.get("success"):
                         added += 1
-                        relations.append({"from": a["id"], "to": b["id"],
-                                          "relation": rel})
+                        relations.append({"from": a["id"], "to": b["id"], "relation": rel})
             if engine_failures and engine_failures == len(pairs):
                 raise RuntimeError("LLM semantic extraction engine failed")
-            return {"success": True, "added": added,
-                    "relations": relations, "mode": self._edge_mode}
+            return {"success": True, "added": added, "relations": relations, "mode": self._edge_mode}
         except Exception as e:
             # Auto-degrade: LLM failure → paused (manually recoverable)
-            logger.warning("memory_graph: LLM semantic extract failed, "
-                           "edge_mode -> paused: %s", e)
+            logger.warning("memory_graph: LLM semantic extract failed, edge_mode -> paused: %s", e)
             self.set_edge_mode(_EDGE_MODE_PAUSED)
-            return {"success": False, "added": 0, "error": str(e),
-                    "mode": self._edge_mode}
+            return {"success": False, "added": 0, "error": str(e), "mode": self._edge_mode}
 
     def _resolve_llm_engine(self):
         try:
             from l1.kernel.ports import get_port
+
             return get_port("llm")
         except Exception:
             from l4.llm.llm import get_engine
+
             return get_engine()
 
-    def _pick_pairs(self, candidates: list[dict],
-                    max_pairs: int) -> list[tuple[dict, dict]]:
+    def _pick_pairs(self, candidates: list[dict], max_pairs: int) -> list[tuple[dict, dict]]:
         """Pick the most informative pairs: same type (compare) + recent tail."""
         pairs: list[tuple[dict, dict]] = []
         by_type: dict[str, list[dict]] = {}
@@ -563,10 +596,19 @@ class MemoryGraph:
             cur = self._conn.execute(
                 "SELECT from_id, to_id, relation, weight, created_by, created_at "
                 "FROM memory_edges WHERE from_id=? OR to_id=? LIMIT ?",
-                (entry_id, entry_id, limit))
-            return [{"from_id": r[0], "to_id": r[1], "relation": r[2],
-                     "weight": r[3], "created_by": r[4], "created_at": r[5]}
-                    for r in cur.fetchall()]
+                (entry_id, entry_id, limit),
+            )
+            return [
+                {
+                    "from_id": r[0],
+                    "to_id": r[1],
+                    "relation": r[2],
+                    "weight": r[3],
+                    "created_by": r[4],
+                    "created_at": r[5],
+                }
+                for r in cur.fetchall()
+            ]
         except Exception:
             return []
 
@@ -575,14 +617,11 @@ class MemoryGraph:
         if self._conn is None:
             return {"enabled": self._enabled, "edges": 0, "db": self._db_path}
         try:
-            total = self._conn.execute(
-                "SELECT COUNT(*) FROM memory_edges").fetchone()[0]
+            total = self._conn.execute("SELECT COUNT(*) FROM memory_edges").fetchone()[0]
             by_rel: dict[str, int] = {}
-            for row in self._conn.execute(
-                    "SELECT relation, COUNT(*) FROM memory_edges GROUP BY relation"):
+            for row in self._conn.execute("SELECT relation, COUNT(*) FROM memory_edges GROUP BY relation"):
                 by_rel[row[0]] = row[1]
-            return {"enabled": self._enabled, "edges": total,
-                    "by_relation": by_rel, "db": self._db_path}
+            return {"enabled": self._enabled, "edges": total, "by_relation": by_rel, "db": self._db_path}
         except Exception:
             return {"enabled": self._enabled, "edges": 0, "db": self._db_path}
 

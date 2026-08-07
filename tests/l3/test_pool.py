@@ -11,4 +11,5 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class TestL3Pool:
     def test_importable(self):
         from l3._pool import WorkerPool
+
         assert callable(WorkerPool)

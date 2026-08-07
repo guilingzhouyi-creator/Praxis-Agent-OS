@@ -43,10 +43,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ICacheEntry:
     """ICacheEntry — i cache entry record (key, value, entry_type, frequency, loaded_at)."""
+
     key: str = ""
     value: Any = None
-    entry_type: str = ""          # "tool" | "template" | "htn" | "constitution" | "territory" | "config"
-    frequency: int = 0            # access count (decayed)
+    entry_type: str = ""  # "tool" | "template" | "htn" | "constitution" | "territory" | "config"
+    frequency: int = 0  # access count (decayed)
     loaded_at: float = 0.0
     ttl: float = ICACHE_TTL
     tags: list[str] = field(default_factory=list)
@@ -131,8 +132,7 @@ class ICache:
             self._maybe_decay()
             return entry
 
-    def search(self, entry_type: str = "", tag: str = "",
-               limit: int = ICACHE_SEARCH_LIMIT) -> list[ICacheEntry]:
+    def search(self, entry_type: str = "", tag: str = "", limit: int = ICACHE_SEARCH_LIMIT) -> list[ICacheEntry]:
         """Search entries by type or tag."""
         now = time.time()
         with self._lock:

@@ -13,6 +13,7 @@ class TestThreadPoolWorker:
 
     def test_submit_returns_result(self):
         from l4.adapters.worker_thread import ThreadPoolWorker
+
         pool = ThreadPoolWorker(max_workers=2)
         result = pool.submit(lambda: 42)
         assert result.success
@@ -20,6 +21,7 @@ class TestThreadPoolWorker:
 
     def test_submit_multiple(self):
         from l4.adapters.worker_thread import ThreadPoolWorker
+
         pool = ThreadPoolWorker(max_workers=4)
         results = [pool.submit(lambda i=i: i * 2) for i in range(5)]
         assert all(r.success for r in results)
@@ -27,6 +29,7 @@ class TestThreadPoolWorker:
 
     def test_stats(self):
         from l4.adapters.worker_thread import ThreadPoolWorker
+
         pool = ThreadPoolWorker(max_workers=2)
         st = pool.stats()
         assert isinstance(st, dict)
@@ -35,6 +38,7 @@ class TestThreadPoolWorker:
 
     def test_shutdown_idempotent(self):
         from l4.adapters.worker_thread import ThreadPoolWorker
+
         pool = ThreadPoolWorker(max_workers=2)
         pool.shutdown()
         pool.shutdown()

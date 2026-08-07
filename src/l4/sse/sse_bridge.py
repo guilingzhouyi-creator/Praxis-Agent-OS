@@ -34,21 +34,27 @@ def subscribe(event_types: set[str] | None = None) -> dict:
     with _sse_lock:
         _client_counter += 1
         client_id = f"sse-{_client_counter}"
-        _sse_clients.append({
-            "id": client_id,
-            "queue": q,
-            "types": event_types or set(),
-        })
+        _sse_clients.append(
+            {
+                "id": client_id,
+                "queue": q,
+                "types": event_types or set(),
+            }
+        )
         # Register EventBus listener exactly once, not per-client
         if not _HAS_LISTENER:
             _HAS_LISTENER = True
             try:
                 from l1.kernel import get_event_bus
+
                 bus = get_event_bus()
-                bus.on_event("sse_bridge", lambda sig: _broadcast(
-                    sig.type.name if hasattr(sig.type, 'name') else str(sig.type),
-                    sig.data if hasattr(sig, 'data') else {},
-                ))
+                bus.on_event(
+                    "sse_bridge",
+                    lambda sig: _broadcast(
+                        sig.type.name if hasattr(sig.type, "name") else str(sig.type),
+                        sig.data if hasattr(sig, "data") else {},
+                    ),
+                )
             except Exception as e:
                 logger.warning("sse_bridge: event bus subscribe: %s", e)
     return {"client_id": client_id, "queue": q}
@@ -62,11 +68,13 @@ def _broadcast(event_type: str, data: Any) -> None:
             if client["types"] and event_type not in client["types"]:
                 continue
             try:
-                client["queue"].put_nowait({
-                    "type": event_type,
-                    "data": data,
-                    "timestamp": time.time(),
-                })
+                client["queue"].put_nowait(
+                    {
+                        "type": event_type,
+                        "data": data,
+                        "timestamp": time.time(),
+                    }
+                )
             except queue.Full:
                 dead.append(client["id"])
         for cid in dead:
@@ -83,6 +91,7 @@ def push_event(event_type: str, data: Any) -> None:
     """External entry: push an event to EventBus (automatically broadcasts to SSE)."""
     try:
         from l1.kernel import emit_event
+
         emit_event(event_type, data, source="sse_bridge")
     except Exception:
         logger.debug("sse_bridge: kernel emit failed")
@@ -100,22 +109,28 @@ def ensure_active() -> None:
         return
     try:
         from l1.kernel import get_event_bus
+
         bus = get_event_bus()
         # Register wildcard listener: broadcast all events
-        bus.on_any(lambda sig: _broadcast(
-            sig.type.name if hasattr(sig.type, 'name') else str(sig.type),
-            sig.data if hasattr(sig, 'data') else {},
-        ))
+        bus.on_any(
+            lambda sig: _broadcast(
+                sig.type.name if hasattr(sig.type, "name") else str(sig.type),
+                sig.data if hasattr(sig, "data") else {},
+            )
+        )
         _ACTIVE = True
         logger.info("sse_bridge: active, broadcasting all EventBus events")
         # Subscribe StatsCenter live metrics to SSE bridge
         try:
             from l3.services.stats_center import get_center
+
             center = get_center()
-            center.subscribe_sse(lambda event: _broadcast(
-                event.get("type", "stats.metric"),
-                event,
-            ))
+            center.subscribe_sse(
+                lambda event: _broadcast(
+                    event.get("type", "stats.metric"),
+                    event,
+                )
+            )
             logger.info("sse_bridge: subscribed to StatsCenter live metrics")
         except Exception as e:
             logger.warning("sse_bridge: stats center subscribe failed: %s", e)

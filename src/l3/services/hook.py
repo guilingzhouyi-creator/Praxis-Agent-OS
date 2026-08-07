@@ -104,8 +104,13 @@ class EventEmitHook(LifecycleHooks):
             from l3.services.stats_center import MetricPoint, get_center
 
             get_center().ingest(
-                MetricPoint(name=name, value=1.0, tags={"source": "hook"},
-                            timestamp=__import__("time").time(), metric_type="counter")
+                MetricPoint(
+                    name=name,
+                    value=1.0,
+                    tags={"source": "hook"},
+                    timestamp=__import__("time").time(),
+                    metric_type="counter",
+                )
             )
         except Exception:
             logger.debug("hook: agent metric ingest failed")

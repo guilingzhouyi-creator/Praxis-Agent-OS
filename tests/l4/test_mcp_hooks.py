@@ -1,4 +1,5 @@
 """MCP bridge, tool pipeline hooks, and AgentLoop chat.params hook tests."""
+
 from __future__ import annotations
 
 import os
@@ -12,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 # MCP 5-state machine tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestMCPStateMachine:
     def test_status_constants(self):
         from l4.mcp_bridge import (
@@ -21,6 +23,7 @@ class TestMCPStateMachine:
             MCP_STATUS_NEEDS_AUTH,
             MCP_STATUS_NEEDS_REGISTRATION,
         )
+
         assert MCP_STATUS_CONNECTED == "connected"
         assert MCP_STATUS_DISABLED == "disabled"
         assert MCP_STATUS_FAILED == "failed"
@@ -29,11 +32,13 @@ class TestMCPStateMachine:
 
     def test_bridge_init_empty(self):
         from l4 import mcp_bridge as mb
+
         orig_path = mb.MCP_STATE_PATH
         with tempfile.TemporaryDirectory() as d:
             mb.MCP_STATE_PATH = os.path.join(d, "mcp_state.json")
             try:
                 from l4.mcp_bridge import MCPBridge
+
                 bridge = MCPBridge()
                 s = bridge.status()
                 assert s["servers"] == {}
@@ -43,6 +48,7 @@ class TestMCPStateMachine:
 
     def test_set_disabled_and_enabled(self):
         from l4.mcp_bridge import MCPBridge
+
         bridge = MCPBridge()
         r = bridge.set_disabled("test-server")
         assert r["success"]
@@ -57,9 +63,11 @@ class TestMCPStateMachine:
 
     def test_import_server_fails_on_disabled(self):
         from l4.mcp_bridge import MCPBridge
+
         bridge = MCPBridge()
         bridge.set_disabled("blocked-server")
         from l4.mcp_bridge import McpClient
+
         client = McpClient("http://localhost:1")
         r = bridge.import_server("blocked-server", client)
         assert not r["success"]
@@ -67,6 +75,7 @@ class TestMCPStateMachine:
 
     def test_get_status_all(self):
         from l4.mcp_bridge import MCPBridge
+
         bridge = MCPBridge()
         bridge.set_disabled("srv-a")
         all_status = bridge.get_status()
@@ -82,6 +91,7 @@ class TestMCPStatePersistence:
             _load_mcp_state,
             _save_mcp_state,
         )
+
         original_path = mb.MCP_STATE_PATH
         try:
             test_path = os.path.join(str(tmp_path), "mcp_state.json")
@@ -99,9 +109,11 @@ class TestMCPStatePersistence:
 # MCP L2_Shell command tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestMCPCommand:
     def test_mcp_status_via_dispatch(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/mcp")
         assert r.get("success")
@@ -110,6 +122,7 @@ class TestMCPCommand:
 
     def test_mcp_status_long(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/mcp status")
         assert r.get("success")
@@ -117,12 +130,14 @@ class TestMCPCommand:
 
     def test_mcp_add_missing_args(self):
         from l2.l2_shell import dispatch, reset_state
+
         reset_state()
         r = dispatch("/mcp add")
         assert not r.get("success")
 
     def test_mcp_disable_unknown(self):
         from l4.mcp_bridge import get_bridge, reset_bridge
+
         reset_bridge()
         bridge = get_bridge()
         r = bridge.set_disabled("ghost-server")
@@ -134,9 +149,11 @@ class TestMCPCommand:
 # Tool pipeline hook tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestToolPipelineHooks:
     def test_register_post_execute_hook(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
+
         reset_pipeline()
         pipeline = get_pipeline()
         called = []
@@ -151,6 +168,7 @@ class TestToolPipelineHooks:
 
     def test_run_post_execute_hooks(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
+
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -170,6 +188,7 @@ class TestToolPipelineHooks:
 
     def test_register_tool_definition_hook(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
+
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -181,6 +200,7 @@ class TestToolPipelineHooks:
 
     def test_post_execute_hook_exception_isolation(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
+
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -199,6 +219,7 @@ class TestToolPipelineHooks:
 
     def test_hook_deduplication(self):
         from l3.tool_system.tool_pipeline import get_pipeline, reset_pipeline
+
         reset_pipeline()
         pipeline = get_pipeline()
 
@@ -214,9 +235,11 @@ class TestToolPipelineHooks:
 # AgentLoop chat.params hook tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestAgentLoopChatParamsHook:
     def test_register_hook(self):
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="test", agent_id="test-agent")
 
         def my_hook(task, agent, kwargs):
@@ -228,6 +251,7 @@ class TestAgentLoopChatParamsHook:
 
     def test_hook_deduplication(self):
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="test")
 
         def h(task, agent, kwargs):
@@ -239,6 +263,7 @@ class TestAgentLoopChatParamsHook:
 
     def test_import_does_not_crash(self):
         from l3.agent.agent_loop import AgentLoop
+
         loop = AgentLoop(task="test", agent_id="test-agent")
         # Just verify the run() method can be called without LLM
         assert loop is not None
@@ -248,9 +273,11 @@ class TestAgentLoopChatParamsHook:
 # MCPBridge list_prompts / list_resources tests
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestMCPBridgePromptsResources:
     def test_list_prompts_no_server(self):
         from l4.mcp_bridge import get_bridge, reset_bridge
+
         reset_bridge()
         bridge = get_bridge()
         r = bridge.list_prompts("nonexistent")
@@ -259,6 +286,7 @@ class TestMCPBridgePromptsResources:
 
     def test_list_resources_no_server(self):
         from l4.mcp_bridge import get_bridge, reset_bridge
+
         reset_bridge()
         bridge = get_bridge()
         r = bridge.list_resources("nonexistent")

@@ -66,6 +66,7 @@ def _load_mode() -> None:
 
 def _apply_mode() -> None:
     from .tool_spec import mute_ring, unmute_ring
+
     if _MODE == "read":
         for r in _WRITE_RINGS:
             mute_ring(r)

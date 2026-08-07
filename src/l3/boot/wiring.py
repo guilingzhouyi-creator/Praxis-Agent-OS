@@ -54,12 +54,14 @@ def wire_defaults() -> dict[str, str]:
     # I18nPort — YAML file adapter (default_locale resolved at construction
     # from params so praxis.yaml `language:` overrides apply).
     from l4.adapters.i18n_yaml import YamlI18nAdapter
+
     i18n = YamlI18nAdapter(locale_dir=I18N_LOCALE_DIR)
     register_port("i18n", i18n)
     registry["i18n"] = "yaml"
 
     # WorkerPort — thread pool
     from l4.adapters.worker_thread import ThreadPoolWorker
+
     worker = ThreadPoolWorker(
         min_workers=WORKER_POOL_MIN,
         max_workers=WORKER_POOL_MAX,
@@ -70,13 +72,14 @@ def wire_defaults() -> dict[str, str]:
 
     # ChannelPort — ring buffer
     from l4.adapters.channel_ring import RingChannel
-    channel = RingChannel(capacity=CHANNEL_RING_CAPACITY,
-                          overwrite=CHANNEL_RING_OVERWRITE)
+
+    channel = RingChannel(capacity=CHANNEL_RING_CAPACITY, overwrite=CHANNEL_RING_OVERWRITE)
     register_port("channel", channel)
     registry["channel"] = "ring"
 
     # EventBusPort — in-memory pub/sub
     from l4.adapters.bus_memory import MemoryBusAdapter
+
     register_port("event_bus", MemoryBusAdapter())
     registry["event_bus"] = "memory"
 
@@ -86,22 +89,26 @@ def wire_defaults() -> dict[str, str]:
 
     # CardRegistryPort — delegated adapter (wraps services.card_unified)
     from l4.adapters.card_registry import CardRegistryAdapter
+
     register_port("card_registry", CardRegistryAdapter())
     registry["card_registry"] = "card_unified"
 
     # MonitorBusPort — delegated adapter (wraps services.monitor_bus)
     from l4.adapters.monitor_bus import MonitorBusAdapter
+
     register_port("monitor_bus", MonitorBusAdapter())
     registry["monitor_bus"] = "monitor_bus"
 
     # FilesystemPort — OS-direct adapter (services.fs_adapter)
     from l3.services.fs_adapter import get_adapter as get_fs_adapter
+
     get_fs_adapter()
     registry["fs"] = "fs_adapter"
 
     # Hook chain — shared LifecycleHooks singleton with EventEmitHook
     # pre-registered. Not a port: consumed via hook.get_hook_chain().
     from l3.services.hook import get_hook_chain
+
     get_hook_chain()
 
     logger.info("wiring: default adapters registered: %s", registry)
@@ -122,6 +129,7 @@ def wire_transport(adapter_name: str = "tcp", **kwargs: Any) -> str:
 
     if adapter_name == "tcp":
         from l1.kernel.net_transport import TcpAdapter
+
         adapter = TcpAdapter(worker_pool=worker, msg_channel=channel, **kwargs)
     else:
         raise ValueError(f"unknown transport adapter: {adapter_name}")
@@ -150,6 +158,7 @@ def wire_from_config(cfg: dict) -> dict[str, str]:
     i18n_cfg = cfg.get("i18n", {})
     if i18n_cfg.get("adapter", "yaml") == "yaml":
         from l4.adapters.i18n_yaml import YamlI18nAdapter
+
         i18n = YamlI18nAdapter(
             locale_dir=i18n_cfg.get("locale_dir", I18N_LOCALE_DIR),
             default_locale=i18n_cfg.get("default_locale", I18N_DEFAULT_LOCALE),
@@ -161,6 +170,7 @@ def wire_from_config(cfg: dict) -> dict[str, str]:
     worker_cfg = cfg.get("worker", {})
     if worker_cfg.get("adapter", "thread") == "thread":
         from l4.adapters.worker_thread import ThreadPoolWorker
+
         worker = ThreadPoolWorker(
             min_workers=worker_cfg.get("min", WORKER_POOL_MIN),
             max_workers=worker_cfg.get("max", WORKER_POOL_MAX),
@@ -173,6 +183,7 @@ def wire_from_config(cfg: dict) -> dict[str, str]:
     chan_cfg = cfg.get("channel", {})
     if chan_cfg.get("adapter", "ring") == "ring":
         from l4.adapters.channel_ring import RingChannel
+
         channel = RingChannel(
             capacity=chan_cfg.get("capacity", CHANNEL_RING_CAPACITY),
             overwrite=chan_cfg.get("overwrite", CHANNEL_RING_OVERWRITE),
@@ -183,6 +194,7 @@ def wire_from_config(cfg: dict) -> dict[str, str]:
     # EventBus
     if "event_bus" not in registry:
         from l4.adapters.bus_memory import MemoryBusAdapter
+
         register_port("event_bus", MemoryBusAdapter())
         registry["event_bus"] = "memory"
 
@@ -194,11 +206,13 @@ def wire_from_config(cfg: dict) -> dict[str, str]:
     # CardRegistry + MonitorBus (always defaults)
     if not _is_registered("card_registry"):
         from l4.adapters.card_registry import CardRegistryAdapter
+
         register_port("card_registry", CardRegistryAdapter())
         registry["card_registry"] = "card_unified"
 
     if not _is_registered("monitor_bus"):
         from l4.adapters.monitor_bus import MonitorBusAdapter
+
         register_port("monitor_bus", MonitorBusAdapter())
         registry["monitor_bus"] = "monitor_bus"
 

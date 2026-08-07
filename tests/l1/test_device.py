@@ -229,5 +229,6 @@ def test_register_custom_type_returns_cached() -> None:
 
 def test_register_builtin_type_raises() -> None:
     import pytest
+
     with pytest.raises(ValueError):
         register_device_type("LLM")

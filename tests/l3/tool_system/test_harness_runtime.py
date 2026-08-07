@@ -34,15 +34,13 @@ class TestHarnessState:
     def test_default_falls_back_to_config(self, monkeypatch):
         import l3.tool_system.harness as h
 
-        monkeypatch.setattr("l3.tool_system.harness.get_tool_config",
-                            lambda k, d=None: "semi")
+        monkeypatch.setattr("l3.tool_system.harness.get_tool_config", lambda k, d=None: "semi")
         assert h.get_harness_mode() == HARNESS_MODE_SEMI
 
     def test_runtime_override_wins(self, monkeypatch):
         import l3.tool_system.harness as h
 
-        monkeypatch.setattr("l3.tool_system.harness.get_tool_config",
-                            lambda k, d=None: HARNESS_MODE_GOVERNED)
+        monkeypatch.setattr("l3.tool_system.harness.get_tool_config", lambda k, d=None: HARNESS_MODE_GOVERNED)
         assert h.set_harness_mode(HARNESS_MODE_SEMI, confirmed=False)["success"]
         assert h.get_harness_mode() == HARNESS_MODE_SEMI
 
@@ -67,8 +65,7 @@ class TestHarnessState:
     def test_reset_restores_config_source(self, monkeypatch):
         import l3.tool_system.harness as h
 
-        monkeypatch.setattr("l3.tool_system.harness.get_tool_config",
-                            lambda k, d=None: HARNESS_MODE_GOVERNED)
+        monkeypatch.setattr("l3.tool_system.harness.get_tool_config", lambda k, d=None: HARNESS_MODE_GOVERNED)
         h.set_harness_mode(HARNESS_MODE_SEMI)
         assert h.reset_harness_mode()["mode"] == HARNESS_MODE_GOVERNED
 
@@ -130,8 +127,7 @@ class TestL2Glue:
     def test_command_reset(self, monkeypatch):
         from l2.l2_shell.commands.harness import _cmd_harness
 
-        monkeypatch.setattr("l3.tool_system.harness.get_tool_config",
-                            lambda k, d=None: HARNESS_MODE_GOVERNED)
+        monkeypatch.setattr("l3.tool_system.harness.get_tool_config", lambda k, d=None: HARNESS_MODE_GOVERNED)
         _cmd_harness(["semi", "--confirm"])
         r = _cmd_harness(["reset"])
         assert r["success"] and r["mode"] == HARNESS_MODE_GOVERNED

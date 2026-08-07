@@ -69,8 +69,7 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
     """
     mode = str(mode or "").lower()
     if mode not in SECURITY_MODES:
-        return {"success": False, "error": f"invalid security mode: {mode}",
-                "modes": list(SECURITY_MODES)}
+        return {"success": False, "error": f"invalid security mode: {mode}", "modes": list(SECURITY_MODES)}
     if mode == SECURITY_MODE_TEST and not confirmed:
         warning = {
             "code": "SECURITY_TEST_CONFIRM_REQUIRED",
@@ -85,10 +84,10 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
         return {
             "success": False,
             "error": "security-test mode requires detection-bypass confirmation "
-                     "(confirm_risk=true): the execution layer will be granted "
-                     "full-power attack authorization for offensive tools/skills "
-                     "on authorized targets. Safety bottom line "
-                     f"({BOTTOM_LINE}) stays enforced.",
+            "(confirm_risk=true): the execution layer will be granted "
+            "full-power attack authorization for offensive tools/skills "
+            "on authorized targets. Safety bottom line "
+            f"({BOTTOM_LINE}) stays enforced.",
             "modes": list(SECURITY_MODES),
             "warning": warning,
         }

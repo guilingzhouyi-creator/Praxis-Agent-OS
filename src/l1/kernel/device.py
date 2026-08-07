@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class DeviceType(Enum):
     """DeviceType — enum of device type variants."""
+
     LLM = auto()
     DATABASE = auto()
     NETWORK = auto()
@@ -66,6 +67,7 @@ def register_device_type(name: str) -> DeviceType:
 
 class DeviceHealth(Enum):
     """DeviceHealth — enum of device health variants."""
+
     HEALTHY = auto()
     DEGRADED = auto()
     DOWN = auto()
@@ -74,6 +76,7 @@ class DeviceHealth(Enum):
 @dataclass
 class DeviceCapability:
     """DeviceCapability — device capability record (name, description)."""
+
     name: str
     description: str = ""
 
@@ -81,6 +84,7 @@ class DeviceCapability:
 @dataclass
 class Device:
     """Device — device record (name, device_type, health, rate_limit, rate_window)."""
+
     name: str
     device_type: DeviceType
     health: DeviceHealth = DeviceHealth.HEALTHY
@@ -133,10 +137,12 @@ class DeviceManager:
         if self._health_running:
             return
         self._health_running = True
+
         def _loop():
             while self._health_running:
                 time.sleep(interval)
                 self._check_all_health()
+
         self._health_thread = threading.Thread(target=_loop, daemon=True)
         self._health_thread.start()
 
@@ -150,29 +156,43 @@ class DeviceManager:
                 dev = self._devices.get(name)
                 if not dev:
                     continue
-                if dev.error_count > dev.call_count * DEVICE_DEGRADED_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DEGRADED:
+                if (
+                    dev.error_count > dev.call_count * DEVICE_DEGRADED_THRESHOLD
+                    and dev.call_count > DEVICE_MIN_CALLS_DEGRADED
+                ):
                     dev.health = DeviceHealth.DEGRADED
                 if dev.error_count > dev.call_count * DEVICE_DOWN_THRESHOLD and dev.call_count > DEVICE_MIN_CALLS_DOWN:
                     dev.health = DeviceHealth.DOWN
 
-    def register(self, name: str, device_type: DeviceType,
-                 rate_limit: int | None = None, rate_window: float = 1.0,
-                 description: str = "", capabilities: list[str] | None = None,
-                 version: str = "") -> dict:
+    def register(
+        self,
+        name: str,
+        device_type: DeviceType,
+        rate_limit: int | None = None,
+        rate_window: float = 1.0,
+        description: str = "",
+        capabilities: list[str] | None = None,
+        version: str = "",
+    ) -> dict:
         """Register a device, deriving rate limit and capabilities from settings. Returns a result dict."""
         with self._lock:
             if name in self._devices:
                 return {"success": False, "error": f"device '{name}' already registered"}
             from .settings import get_settings
+
             s = get_settings()
             rl = rate_limit or s.get(f"device.{name}.rate_limit", s.get("device.rate_limit_default", 10))
             caps = [DeviceCapability(c, c.replace("-", " ").title()) for c in (capabilities or [])]
             if not caps:
                 caps = list(_CAPABILITY_REGISTRY.get(device_type, []))
             self._devices[name] = Device(
-                name=name, device_type=device_type, rate_limit=rl,
-                rate_window=rate_window, description=description,
-                capabilities=caps, version=version,
+                name=name,
+                device_type=device_type,
+                rate_limit=rl,
+                rate_window=rate_window,
+                description=description,
+                capabilities=caps,
+                version=version,
             )
             self._call_timestamps[name] = []
             logger.info("device registered: %s (%s, %d caps)", name, device_type.name, len(caps))
@@ -191,8 +211,7 @@ class DeviceManager:
             remaining = dev.rate_limit - len(ts_list)
             if remaining <= 0:
                 reset_after = ts_list[0] + dev.rate_window - now if ts_list else 0
-                return {"allowed": False, "remaining": 0,
-                        "reset_after": round(reset_after, 2)}
+                return {"allowed": False, "remaining": 0, "reset_after": round(reset_after, 2)}
             return {"allowed": True, "remaining": remaining, "reset_after": 0}
 
     def get(self, name: str) -> Device | None:
@@ -224,28 +243,29 @@ class DeviceManager:
     def list(self, device_type: DeviceType | None = None) -> list[dict]:
         """List registered devices as dicts, optionally filtered by *device_type*."""
         with self._lock:
-            return [{
-                "name": d.name, "type": d.device_type.name,
-                "health": d.health.name,
-                "rate_limit": d.rate_limit,
-                "calls": d.call_count, "errors": d.error_count,
-                "last_used": d.last_used,
-                "description": d.description,
-            } for d in self._devices.values()
-               if device_type is None or d.device_type == device_type]
+            return [
+                {
+                    "name": d.name,
+                    "type": d.device_type.name,
+                    "health": d.health.name,
+                    "rate_limit": d.rate_limit,
+                    "calls": d.call_count,
+                    "errors": d.error_count,
+                    "last_used": d.last_used,
+                    "description": d.description,
+                }
+                for d in self._devices.values()
+                if device_type is None or d.device_type == device_type
+            ]
 
     def stats(self) -> dict:
         """Return aggregate device statistics (total, by type, healthy, down)."""
         with self._lock:
             return {
                 "total_devices": len(self._devices),
-                "by_type": {t.name: sum(1 for d in self._devices.values()
-                                         if d.device_type == t)
-                            for t in DeviceType},
-                "healthy": sum(1 for d in self._devices.values()
-                                if d.health == DeviceHealth.HEALTHY),
-                "down": sum(1 for d in self._devices.values()
-                             if d.health == DeviceHealth.DOWN),
+                "by_type": {t.name: sum(1 for d in self._devices.values() if d.device_type == t) for t in DeviceType},
+                "healthy": sum(1 for d in self._devices.values() if d.health == DeviceHealth.HEALTHY),
+                "down": sum(1 for d in self._devices.values() if d.health == DeviceHealth.DOWN),
             }
 
     def unregister(self, name: str) -> bool:

@@ -115,8 +115,12 @@ class TestTrigger:
 
         def fake_execute():
             calls.append(1)
-            return {"passed": False, "command": "pytest",
-                    "failures": ["tests/x.py::test_bad"], "output": "FAILED tests/x.py::test_bad"}
+            return {
+                "passed": False,
+                "command": "pytest",
+                "failures": ["tests/x.py::test_bad"],
+                "output": "FAILED tests/x.py::test_bad",
+            }
 
         monkeypatch.setattr("l3.tool_system.auto_test._execute_tests", fake_execute)
         spawned = maybe_trigger("writer", "", "fix the bug", ["src/a.py"])
@@ -137,10 +141,8 @@ class TestCardwriteAttachment:
         from l3.cell.peers.l3a.helpers import cardwrite_handler
 
         reset_registry()
-        push_feedback("writer", {"passed": False,
-                                 "failures": ["tests/x.py::test_bad"]})
-        r = cardwrite_handler({"title": "fix failing test", "priority": 5},
-                              agent_id="writer")
+        push_feedback("writer", {"passed": False, "failures": ["tests/x.py::test_bad"]})
+        r = cardwrite_handler({"title": "fix failing test", "priority": 5}, agent_id="writer")
         assert r["success"]
         reg = get_registry()
         card = reg._cards.get(r["card_id"])

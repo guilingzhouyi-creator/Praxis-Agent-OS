@@ -32,9 +32,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MessageGateRule:
     """A single message gate rule with dependency support."""
+
     id: str
     pattern: dict  # {"type": "network.peer.loss", "severity": "crit", "agent_id": ""} — empty fields match any
-    action: str    # "allow" | "block" | "mute" | "hold" | "redirect"
+    action: str  # "allow" | "block" | "mute" | "hold" | "redirect"
     depends_on: list[str] = field(default_factory=list)
     priority: int = 5
     reason: str = ""
@@ -45,6 +46,7 @@ class MessageGateRule:
     def matches(self, event: MonitorEvent) -> bool:
         """Return True if the event matches this rule's pattern."""
         from .monitor_bus import _match_type
+
         for key in ("type", "severity", "agent_id", "cell_id", "source"):
             val = self.pattern.get(key, "")
             if not val:
@@ -67,6 +69,7 @@ class MessageGateEngine(PersistableMixin):
         self._triggered: dict[str, float] = {}  # rule_id → triggered_at
         self._lock = threading.RLock()
         from l1.kernel.paths import get_paths as _gp
+
         self._init_persistence(persist_path or _gp().message_gate_state)
         self._restore()
 
@@ -91,10 +94,18 @@ class MessageGateEngine(PersistableMixin):
     def list_rules(self) -> list[dict]:
         """Return all rules as a list of dicts."""
         with self._lock:
-            return [{"id": r.id, "pattern": r.pattern, "action": r.action,
-                     "depends_on": r.depends_on, "priority": r.priority,
-                     "reason": r.reason, "hold_timeout": r.hold_timeout}
-                    for r in self._rules.values()]
+            return [
+                {
+                    "id": r.id,
+                    "pattern": r.pattern,
+                    "action": r.action,
+                    "depends_on": r.depends_on,
+                    "priority": r.priority,
+                    "reason": r.reason,
+                    "hold_timeout": r.hold_timeout,
+                }
+                for r in self._rules.values()
+            ]
 
     # ── Evaluation ──
 
@@ -135,10 +146,18 @@ class MessageGateEngine(PersistableMixin):
 
     def _serialize(self) -> dict:
         return {
-            "rules": {rid: {"id": r.id, "pattern": r.pattern, "action": r.action,
-                            "depends_on": r.depends_on, "priority": r.priority,
-                            "reason": r.reason, "hold_timeout": r.hold_timeout}
-                      for rid, r in self._rules.items()},
+            "rules": {
+                rid: {
+                    "id": r.id,
+                    "pattern": r.pattern,
+                    "action": r.action,
+                    "depends_on": r.depends_on,
+                    "priority": r.priority,
+                    "reason": r.reason,
+                    "hold_timeout": r.hold_timeout,
+                }
+                for rid, r in self._rules.items()
+            },
             "triggered": self._triggered,
         }
 
@@ -146,9 +165,13 @@ class MessageGateEngine(PersistableMixin):
         self._rules.clear()
         for rid, d in data.get("rules", {}).items():
             self._rules[rid] = MessageGateRule(
-                id=d["id"], pattern=d["pattern"], action=d["action"],
-                depends_on=d.get("depends_on", []), priority=d.get("priority", 5),
-                reason=d.get("reason", ""), hold_timeout=d.get("hold_timeout", CARD_GATE_APPROVAL_TIMEOUT),
+                id=d["id"],
+                pattern=d["pattern"],
+                action=d["action"],
+                depends_on=d.get("depends_on", []),
+                priority=d.get("priority", 5),
+                reason=d.get("reason", ""),
+                hold_timeout=d.get("hold_timeout", CARD_GATE_APPROVAL_TIMEOUT),
             )
         self._triggered.update(data.get("triggered", {}))
         return True

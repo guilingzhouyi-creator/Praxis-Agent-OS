@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ComponentMeta:
     """Declarative component metadata — defined as a class variable on each Component subclass."""
+
     name: str = ""
     version: str = "0.1.0"
     description: str = ""
@@ -117,7 +118,7 @@ class SystemBus:
         self.name = name or str(id(self))
         self.children: dict[str, SystemBus] = {}
         self._components: dict[str, Component] = {}
-        self._state: dict[str, str] = {}          # comp_name → lifecycle state
+        self._state: dict[str, str] = {}  # comp_name → lifecycle state
         self._handlers: dict[str, list[Callable]] = defaultdict(list)
         self._lock = threading.RLock()
         self._wired = False

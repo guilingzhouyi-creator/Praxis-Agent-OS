@@ -92,8 +92,7 @@ class ToolPipeline:
         if hook not in self._tool_definition_hooks:
             self._tool_definition_hooks.append(hook)
 
-    def _run_post_execute_hooks(self, tool_name: str, agent_id: str,
-                                args: dict, result: dict) -> dict:
+    def _run_post_execute_hooks(self, tool_name: str, agent_id: str, args: dict, result: dict) -> dict:
         """Run all registered post-execute hooks in order."""
         current = dict(result)
         for hook in self._post_execute_hooks:
@@ -114,6 +113,7 @@ class ToolPipeline:
                 r = hook(tool_name, spec)
                 if isinstance(r, dict) and spec is not None:
                     from .tool_spec import ToolSpec as _ToolSpec
+
                     if isinstance(spec, _ToolSpec):
                         for k, v in r.items():
                             if hasattr(spec, k):
@@ -122,9 +122,9 @@ class ToolPipeline:
                 logger.warning("tool-definition hook failed for %s: %s", tool_name, e)
         return spec
 
-    def _record_tool_failure(self, agent_id: str, tool_name: str,
-                             args: dict, error: str, turn_log: list,
-                             domain: str = "", nature: str = "") -> None:
+    def _record_tool_failure(
+        self, agent_id: str, tool_name: str, args: dict, error: str, turn_log: list, domain: str = "", nature: str = ""
+    ) -> None:
         """Record a tool execution failure for R4Agent lean-case generation.
 
         Lazily imports R4Agent so the pipeline stays decoupled from memory.
@@ -133,20 +133,30 @@ class ToolPipeline:
         """
         try:
             from l3.memory.r4_agent import get_r4_agent
+
             get_r4_agent().track_tool_failure(
-                agent_id=agent_id, tool_name=tool_name,
-                args=args, error=error, turn_log=turn_log,
-                domain=domain, nature=nature)
+                agent_id=agent_id,
+                tool_name=tool_name,
+                args=args,
+                error=error,
+                turn_log=turn_log,
+                domain=domain,
+                nature=nature,
+            )
         except Exception as e:
             logger.debug("tool_pipeline: failure tracking skipped: %s", e)
 
-    def execute(self, tool_name: str, agent_id: str,
-                args: dict | None = None,
-                domain: str = "",
-                nature: str = "",
-                _registry: dict | None = None,
-                _executor: Any = None,
-                _parent_call_id: str = "") -> dict:
+    def execute(
+        self,
+        tool_name: str,
+        agent_id: str,
+        args: dict | None = None,
+        domain: str = "",
+        nature: str = "",
+        _registry: dict | None = None,
+        _executor: Any = None,
+        _parent_call_id: str = "",
+    ) -> dict:
         """Execute a tool through the pipeline with hierarchical call tracking.
 
         Args:
@@ -166,8 +176,7 @@ class ToolPipeline:
         tool_ring_num = ring_map.get(tool_ring_str, 1)
 
         tool_danger = spec.danger if spec else 0
-        call_id = chain.start(tool_name, agent_id, ring=tool_ring_num,
-                               parent_id=_parent_call_id)
+        call_id = chain.start(tool_name, agent_id, ring=tool_ring_num, parent_id=_parent_call_id)
         # Step tracing toggle — off skips per-phase gate traces on the hot path.
         record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
         # Harness mode: governed | semi | minimal (runtime override → config).
@@ -182,11 +191,15 @@ class ToolPipeline:
         _skip = set(HARNESS_MODE_STEPS[harness_mode])
         # Token budget read once per execution (used across alloc/free paths).
         token_budget = get_tool_config("exec_token_budget", TOOL_EXEC_TOKEN_BUDGET)
-        result: dict[str, Any] = {"tool": tool_name, "agent": agent_id,
-                                  "ring": tool_ring_str, "danger": tool_danger,
-                                  "steps": [] if record_steps else _DiscardSteps(),
-                                  "call_id": call_id,
-                                  "harness_mode": harness_mode}
+        result: dict[str, Any] = {
+            "tool": tool_name,
+            "agent": agent_id,
+            "ring": tool_ring_str,
+            "danger": tool_danger,
+            "steps": [] if record_steps else _DiscardSteps(),
+            "call_id": call_id,
+            "harness_mode": harness_mode,
+        }
 
         # 1. Validate tool exists
         if not _registry and not _executor:
@@ -204,12 +217,18 @@ class ToolPipeline:
         if "approval" not in _skip:
             try:
                 if _ToolPolicy.requires_approval(agent_id, tool_name):
-                    ar = _get_approval_gate().request(tool_name, agent_id, args or {}, reason="policy requires approval")
+                    ar = _get_approval_gate().request(
+                        tool_name, agent_id, args or {}, reason="policy requires approval"
+                    )
                     result["steps"].append({"phase": "approval", "request_id": ar.id, "status": "pending"})
                     status = ar.wait(timeout=get_config("persistence", {}).get("approval_wait_timeout", 300))
                     if status != "approved":
-                        return {"success": False, "error": f"approval {status}", "approval_id": ar.id,
-                                "steps": result["steps"]}
+                        return {
+                            "success": False,
+                            "error": f"approval {status}",
+                            "approval_id": ar.id,
+                            "steps": result["steps"],
+                        }
                     result["steps"].append({"phase": "approval", "request_id": ar.id, "status": status})
             except Exception as e:
                 logger.warning("approval check failed: %s", e)
@@ -220,15 +239,17 @@ class ToolPipeline:
             result["steps"].append({"phase": "rate", **rr})
             if not rr["allowed"]:
                 self.allocator.free(agent_id, "tokens", token_budget)
-                return {"success": False, "error": f"rate limited ({tool_ring_str})",
-                        "rate": rr, "steps": result["steps"]}
+                return {
+                    "success": False,
+                    "error": f"rate limited ({tool_ring_str})",
+                    "rate": rr,
+                    "steps": result["steps"],
+                }
 
         # 5. Constitution (pass file path as target for territory enforcement)
         fpath = (args or {}).get("path", "")
         territory_str = (args or {}).get("territory", "")
-        cc = self.constitution.is_allowed(tool_name, agent_id,
-                                          target=fpath or tool_name,
-                                          territory=territory_str)
+        cc = self.constitution.is_allowed(tool_name, agent_id, target=fpath or tool_name, territory=territory_str)
         result["steps"].append({"phase": "constitution", **cc})
         if not cc["allowed"]:
             return {"success": False, "error": "constitution blocked", "steps": result["steps"]}
@@ -242,23 +263,28 @@ class ToolPipeline:
                 _danger = _get_approval_policy().resolve(_cid, agent_id, tool_name)
             except Exception:
                 _danger = None
-            gcr = _get_gatechain().check(tool_name, agent_id, target=fpath,
-                                         territory=[territory_str] if territory_str else None,
-                                         danger=_danger)
+            gcr = _get_gatechain().check(
+                tool_name, agent_id, target=fpath, territory=[territory_str] if territory_str else None, danger=_danger
+            )
             gc_allowed = gcr.get("allowed", True)
             gc_decision = gcr.get("decision", "?")
-            result["steps"].append({"phase": "gatechain", "decision": gc_decision,
-                                    "steps": gcr.get("steps", [])})
+            result["steps"].append({"phase": "gatechain", "decision": gc_decision, "steps": gcr.get("steps", [])})
             # Reference Channel: record tool call for training data
             try:
-                _get_rc().tool_call(tool_name, agent_id, allowed=gc_allowed,
-                                   gate="gatechain", reason=gc_decision,
-                                   args=args, trace_id=call_id, card_scope=domain)
+                _get_rc().tool_call(
+                    tool_name,
+                    agent_id,
+                    allowed=gc_allowed,
+                    gate="gatechain",
+                    reason=gc_decision,
+                    args=args,
+                    trace_id=call_id,
+                    card_scope=domain,
+                )
             except Exception:
                 logger.debug("tool_pipeline: gatechain record failed")
             if not gc_allowed:
-                return {"success": False, "error": "gatechain blocked",
-                        "gate_result": gcr, "steps": result["steps"]}
+                return {"success": False, "error": "gatechain blocked", "gate_result": gcr, "steps": result["steps"]}
         except Exception as e:
             logger.error("gatechain check failed, blocking: %s", e)
             result["steps"].append({"phase": "gatechain", "decision": "BLOCK", "error": str(e)})
@@ -269,15 +295,26 @@ class ToolPipeline:
             _sb_profile = spec.sandbox_profile if spec else None
             if _sb_profile:
                 from l4.sandbox.manager import SandboxManager, SandboxProfile
+
                 _sb = SandboxManager()
                 _sb_cmd = (args or {}).get("command", "")
                 _sb_to = (args or {}).get("timeout", 30)
                 _sb_r = _sb.run_sync(_sb_cmd, SandboxProfile(_sb_profile), _sb_to, agent_id, tool_name)
-                result["steps"].append({"phase": "sandbox", "sandbox_id": _sb_r.sandbox_id,
-                                        "success": _sb_r.success, "elapsed": _sb_r.elapsed})
+                result["steps"].append(
+                    {
+                        "phase": "sandbox",
+                        "sandbox_id": _sb_r.sandbox_id,
+                        "success": _sb_r.success,
+                        "elapsed": _sb_r.elapsed,
+                    }
+                )
                 if not _sb_r.success:
-                    return {"success": False, "error": f"sandbox: {_sb_r.stderr[:LOG_TRUNC_200]}",
-                            "sandbox": _sb_r.to_dict(), "steps": result["steps"]}
+                    return {
+                        "success": False,
+                        "error": f"sandbox: {_sb_r.stderr[:LOG_TRUNC_200]}",
+                        "sandbox": _sb_r.to_dict(),
+                        "steps": result["steps"],
+                    }
                 # Sandbox succeeded: record result and skip execute step
                 result["result"] = _sb_r.to_dict()
                 result["success"] = True
@@ -317,7 +354,11 @@ class ToolPipeline:
         lock_name = ""
         if fpath:
             lock_name = f"file:{fpath}"
-            lr = get_rwlock(lock_name).write_lock(agent_id) if tool_ring_str != _RING_1 else get_rwlock(lock_name).read_lock(agent_id)
+            lr = (
+                get_rwlock(lock_name).write_lock(agent_id)
+                if tool_ring_str != _RING_1
+                else get_rwlock(lock_name).read_lock(agent_id)
+            )
             result["steps"].append({"phase": "lock", **lr})
 
         # 8b. Tool-definition hooks (modify spec before execution)
@@ -341,7 +382,8 @@ class ToolPipeline:
         # 9b. R4Agent failure tracking → lean-case learning loop
         if not result.get("success", False):
             self._record_tool_failure(
-                agent_id=agent_id, tool_name=tool_name,
+                agent_id=agent_id,
+                tool_name=tool_name,
                 args=args or {},
                 error=str((result.get("result") or {}).get("error", "tool failed")),
                 turn_log=result.get("steps", []),
@@ -362,8 +404,7 @@ class ToolPipeline:
         # 10. Complete chain call
         duration = time.time() - _start
         link = chain.get(call_id)
-        chain.complete(call_id, success=result.get("success", False),
-                       error=result.get("error", ""), duration=duration)
+        chain.complete(call_id, success=result.get("success", False), error=result.get("error", ""), duration=duration)
         result["call_id"] = call_id
         result["parent_call_id"] = _parent_call_id
         result["fingerprint"] = link.fingerprint if link else ""
@@ -375,9 +416,14 @@ class ToolPipeline:
         # 11. Signal
         agent_key = agent_id.replace("agent_", "") if agent_id.startswith("agent_") else agent_id
         sig_type = SignalType.SCOUT_DONE if agent_key == SCOUT_AGENT_NAME else SignalType.TASK_ASSIGN
-        self.bus.emit(Signal(type=sig_type, sender=agent_id, target="cell",
-                              data={"tool": tool_name, "call_id": call_id,
-                                    "success": result["success"]}))
+        self.bus.emit(
+            Signal(
+                type=sig_type,
+                sender=agent_id,
+                target="cell",
+                data={"tool": tool_name, "call_id": call_id, "success": result["success"]},
+            )
+        )
         return result
 
 

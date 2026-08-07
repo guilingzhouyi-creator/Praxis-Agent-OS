@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 def _manager():
     from l1.kernel.skill import get_skill_manager
+
     return get_skill_manager()
 
 
@@ -78,7 +79,9 @@ def handle_skills_update(body: dict | None = None, name: str = "") -> dict:
         return {"success": False, "error": "skill name is required"}
     b = body or {}
     agent_id, role = _caller(b)
-    data = {k: v for k, v in b.items() if k in ("description", "prompt", "rules", "procedures", "tags") and v is not None}
+    data = {
+        k: v for k, v in b.items() if k in ("description", "prompt", "rules", "procedures", "tags") and v is not None
+    }
     if not data:
         return {"success": False, "error": "no updatable fields provided"}
     return _manager().update(name, data, agent_id=agent_id, role=role)

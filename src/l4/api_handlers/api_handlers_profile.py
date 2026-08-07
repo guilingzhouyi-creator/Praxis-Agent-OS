@@ -30,8 +30,7 @@ def handle_profile_list(body: dict | None = None) -> dict:
     """GET /api/v2/profile — list users with live profiles."""
     try:
         svc = _get_profile()
-        return {"success": True, "users": svc._store.all_users(),
-                "count": svc._store.count()}
+        return {"success": True, "users": svc._store.all_users(), "count": svc._store.count()}
     except Exception as e:
         return {"success": False, "error": f"profile list failed: {e}"}
 
@@ -70,11 +69,14 @@ def handle_profile_ingest(body: dict | None = None, user_id: str = "") -> dict:
     except (TypeError, ValueError):
         return {"success": False, "error": "confidence/ttl must be numbers"}
     return _get_profile().ingest(
-        user_id=user_id, kind=kind, value=b["value"],
+        user_id=user_id,
+        kind=kind,
+        value=b["value"],
         source=str(b.get("source") or "api"),
         confidence=confidence,
         context=b.get("context") if isinstance(b.get("context"), dict) else None,
-        ttl=ttl)
+        ttl=ttl,
+    )
 
 
 def handle_profile_refine(body: dict | None = None, user_id: str = "") -> dict:

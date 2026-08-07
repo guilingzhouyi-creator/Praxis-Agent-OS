@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CellInfo:
     """CellInfo — cell info record (id, territory, load, agents, status)."""
+
     id: str
     territory: list[str] = field(default_factory=list)
     load: float = 0.0
@@ -89,15 +90,19 @@ class L3BComposite:
         """Read the preceding Cell's L2 cache summary (can only read preceding, not succeeding)."""
         try:
             from l3.cell import get_cell as _get_cell
+
             cell = _get_cell(self.prev_cell)
             hits = cell.cache.search(query, limit=limit)
-            return [{
-                "key": h.key,
-                "summary": h.summary,
-                "agent_id": h.agent_id,
-                "entry_type": h.entry_type,
-                "importance": h.importance,
-            } for h in hits]
+            return [
+                {
+                    "key": h.key,
+                    "summary": h.summary,
+                    "agent_id": h.agent_id,
+                    "entry_type": h.entry_type,
+                    "importance": h.importance,
+                }
+                for h in hits
+            ]
         except Exception as e:
             logger.warning("%s read_prev_cache: %s", self.composite_id, e)
             return []
@@ -113,22 +118,24 @@ class L3BComposite:
         if target != self.next_cell:
             return {
                 "success": False,
-                "error": f"{self.composite_id}: cannot dispatch to {target}, "
-                         f"only to adjacent {self.next_cell}",
+                "error": f"{self.composite_id}: cannot dispatch to {target}, only to adjacent {self.next_cell}",
             }
         try:
             from l3.cell import get_cell as _get_cell
+
             cell = _get_cell(self.next_cell)
             intent = card_data.get("intent", card_data.get("task_name", ""))
             domain = card_data.get("domain", "")
             # Execute with skip_htn=True since pre-routing is already done
             result = cell.execute_card(intent, domain=domain)
             self._pending_cards = [c for c in self._pending_cards if c.get("card_id") != card_data.get("card_id")]
-            self._completed_cards.append({
-                "card_id": card_data.get("card_id", ""),
-                "result": result,
-                "completed_at": time.time(),
-            })
+            self._completed_cards.append(
+                {
+                    "card_id": card_data.get("card_id", ""),
+                    "result": result,
+                    "completed_at": time.time(),
+                }
+            )
             return result
         except Exception as e:
             logger.warning("%s dispatch_to_next: %s", self.composite_id, e)
@@ -198,11 +205,12 @@ class L3B:
             composite.boot()
             logger.info(
                 "L3B: created composite %s (tier=%s, total cells=%d)",
-                composite.composite_id, self.tier, len(self._cells),
+                composite.composite_id,
+                self.tier,
+                len(self._cells),
             )
 
-        logger.info("L3B registered: %s (tier=%s, total=%d)",
-                     cell_id, self.tier, len(self._cells))
+        logger.info("L3B registered: %s (tier=%s, total=%d)", cell_id, self.tier, len(self._cells))
 
     def get_composite(self, prev_cell: str, next_cell: str) -> L3BComposite | None:
         """Get the composite between two adjacent Cells."""
@@ -211,10 +219,7 @@ class L3B:
 
     def route(self, domain: str, exclude: str = "") -> str | None:
         """Legacy route: find best Cell for a domain (used by CentralController)."""
-        candidates = [
-            c for c in self._cells.values()
-            if c.id != exclude and c.status == "active"
-        ]
+        candidates = [c for c in self._cells.values() if c.id != exclude and c.status == "active"]
         if self.tier == "L3B1":
             for c in candidates:
                 if any(domain.startswith(t) for t in c.territory):
@@ -222,8 +227,7 @@ class L3B:
             return candidates[0].id if candidates else None
         # L3B2/L3B4: score-based
         scored = [
-            (sum(1 for t in c.territory if domain.startswith(t)) * 3 + (1.0 - c.load) * 2, c.id)
-            for c in candidates
+            (sum(1 for t in c.territory if domain.startswith(t)) * 3 + (1.0 - c.load) * 2, c.id) for c in candidates
         ]
         scored.sort(reverse=True)
         return scored[0][1] if scored else None
@@ -238,15 +242,18 @@ class L3B:
             return {"success": True, "winner": winner, "tier": "L3B1", "reason": "lower load"}
         score_a = (1.0 - ca.load) * L3B_LOAD_SCORE_WEIGHT + L3B_LOAD_SCORE_BASE
         score_b = (1.0 - cb.load) * L3B_LOAD_SCORE_WEIGHT + L3B_LOAD_SCORE_BASE
-        return {"success": True, "winner": cell_a if score_a >= score_b else cell_b,
-                "tier": self.tier, "reason": f"score {score_a:.2f} vs {score_b:.2f}"}
+        return {
+            "success": True,
+            "winner": cell_a if score_a >= score_b else cell_b,
+            "tier": self.tier,
+            "reason": f"score {score_a:.2f} vs {score_b:.2f}",
+        }
 
     def status(self) -> dict:
         """Return L3B coordinator status. Returns a status dict."""
         return {
             "tier": self.tier,
-            "cells": {c.id: {"load": c.load, "agents": c.agents, "status": c.status}
-                      for c in self._cells.values()},
+            "cells": {c.id: {"load": c.load, "agents": c.agents, "status": c.status} for c in self._cells.values()},
             "composites": {cid: comp.status() for cid, comp in self._composites.items()},
         }
 
@@ -258,18 +265,21 @@ class L3B:
         for cell_id in list(self._cells.keys()):
             try:
                 from l3.cell import get_cell as _get_cell
+
                 cell = _get_cell(cell_id)
                 hits = cell.cache.search(query, limit=limit)
                 for entry in hits:
-                    results.append({
-                        "key": entry.key,
-                        "summary": entry.summary,
-                        "cell_id": cell_id,
-                        "agent_id": entry.agent_id,
-                        "entry_type": entry.entry_type,
-                        "importance": entry.importance,
-                        "location": entry.location,
-                    })
+                    results.append(
+                        {
+                            "key": entry.key,
+                            "summary": entry.summary,
+                            "cell_id": cell_id,
+                            "agent_id": entry.agent_id,
+                            "entry_type": entry.entry_type,
+                            "importance": entry.importance,
+                            "location": entry.location,
+                        }
+                    )
             except Exception:
                 logger.debug("l3b: memory aggregate failed")
         results.sort(key=lambda r: r["importance"], reverse=True)
@@ -279,6 +289,7 @@ class L3B:
         """Look up a cache entry by key in a specific Cell. Returns a result dict."""
         try:
             from l3.cell import get_cell as _get_cell
+
             cell = _get_cell(cell_id)
             entry = cell.cache.lookup(key)
             if entry:
@@ -294,6 +305,7 @@ class L3B:
         for cell_id in list(self._cells.keys()):
             try:
                 from l3.cell import get_cell as _get_cell
+
                 cell = _get_cell(cell_id)
                 s = cell.cache.stats()
                 per_cell[cell_id] = s

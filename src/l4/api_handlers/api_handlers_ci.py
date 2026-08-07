@@ -21,6 +21,7 @@ def handle_ci_reviews(body: dict | None = None) -> dict:
     b = body or {}
     try:
         from l4.ci_review import get_service
+
         return get_service().query(
             card_id=str(b.get("card_id", "")),
             status=str(b.get("status", "")),
@@ -34,6 +35,7 @@ def handle_ci_review_get(body: dict | None = None, card_id: str = "") -> dict:
     """GET /api/v2/ci/reviews/{card_id} — single card latest report."""
     try:
         from l4.ci_review import get_service
+
         result = get_service().query(card_id=card_id, limit=1)
         reports = result.get("reports", [])
         if not reports:
@@ -50,8 +52,7 @@ def handle_ci_review_rerun(body: dict | None = None, card_id: str = "") -> dict:
 
         svc = get_service()
         if not svc._surface_writable("api"):
-            return {"success": False,
-                    "error": "writes disabled (ci.control.api.writable=false)"}
+            return {"success": False, "error": "writes disabled (ci.control.api.writable=false)"}
         return svc.rerun(card_id)
     except Exception as e:
         return error("E_CI_REVIEW_API", str(e), cause=e)
@@ -139,7 +140,7 @@ def handle_ci_config_set(body: dict | None = None) -> dict:
             if full.startswith("ci.control."):
                 resolved[full] = value
                 continue
-            suffix = full[len("ci.review."):] if full.startswith("ci.review.") else full
+            suffix = full[len("ci.review.") :] if full.startswith("ci.review.") else full
             if cell_id:
                 resolved[f"ci.review.cell.{cell_id}.{suffix}"] = value
             elif agent_id:
@@ -157,11 +158,9 @@ def handle_ci_config_set(body: dict | None = None) -> dict:
         for key in resolved:
             if key.startswith("ci.control."):
                 if not admin:
-                    return {"success": False,
-                            "error": f"admin confirmation required for {key}"}
+                    return {"success": False, "error": f"admin confirmation required for {key}"}
             elif not svc._surface_writable("api"):
-                return {"success": False,
-                        "error": "writes disabled (ci.control.api.writable=false)"}
+                return {"success": False, "error": "writes disabled (ci.control.api.writable=false)"}
         for key, value in resolved.items():
             center.set(key, value)
         return {"success": True, "updated": resolved}

@@ -14,6 +14,7 @@ class TestCellCardExecution:
 
         # Ensure LLM mock mode + reset state
         from l4.llm import get_engine, reset_engine
+
         reset_engine()
         get_engine()
 
@@ -21,6 +22,7 @@ class TestCellCardExecution:
         cell.add_agent("a", role="reader", territory=["."], auto_boot=True)
         # Poll for agent readiness instead of fixed sleep
         from l3.agent_terminal import get_terminal
+
         deadline = time.time() + 2.0
         while time.time() < deadline:
             try:
@@ -41,6 +43,7 @@ class TestCellCardExecution:
 class TestSyscallIntegration:
     def test_process_list(self):
         from l1.kernel import syscall
+
         r = syscall("process.list", agent_id="test")
         assert r.get("success"), "process.list via syscall"
         if r.get("success"):
@@ -48,6 +51,7 @@ class TestSyscallIntegration:
 
     def test_registry_aggregates(self):
         from l1.kernel.registry import get_registry
+
         reg = get_registry()
         summary = reg.summary()
         assert summary.get("modules", {}).get("total", 0) >= 9
@@ -57,6 +61,7 @@ class TestSyscallIntegration:
 
     def test_vfs_proc(self):
         from l1.kernel.vfs import get_vfs
+
         vfs = get_vfs()
         r = vfs.read("/proc")
         assert r.get("success"), "/proc should be readable"
@@ -65,6 +70,7 @@ class TestSyscallIntegration:
 
     def test_emit_signal(self):
         from l1.kernel import SignalType, emit_signal, get_event_bus
+
         bus = get_event_bus()
         captured = []
         bus.on(SignalType.SCOUT_DONE, lambda s: captured.append(s.sender))

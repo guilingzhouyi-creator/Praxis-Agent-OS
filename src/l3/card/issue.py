@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class IssueStatus(Enum):
     """IssueStatus — enum of PENDING, ANSWERED, SUPPLEMENTED, RESOLVED...."""
+
     PENDING = auto()
     ANSWERED = auto()
     SUPPLEMENTED = auto()
@@ -40,6 +41,7 @@ class IssueStatus(Enum):
 
 class IssueCardStatus(Enum):
     """IssueCardStatus — enum of DRAFT, DELIBERATING, CONVERGED, ARCHIVED...."""
+
     DRAFT = auto()
     DELIBERATING = auto()
     CONVERGED = auto()
@@ -54,8 +56,8 @@ class IssueItem:
     id: str = ""
     question: str = ""
     domain: str = ""
-    proposed_by: str = ""       # Proposer agent_id
-    assigned_to: str = ""       # Answerer agent_id (territory matching)
+    proposed_by: str = ""  # Proposer agent_id
+    assigned_to: str = ""  # Answerer agent_id (territory matching)
     answer: str = ""
     status: IssueStatus = IssueStatus.PENDING
     created_at: float = field(default_factory=time.time)
@@ -64,9 +66,12 @@ class IssueItem:
     def to_dict(self) -> dict[str, Any]:
         """Serialize this issue item to a dictionary representation."""
         return {
-            "id": self.id, "question": self.question[:LOG_TRUNC_120],
-            "domain": self.domain, "proposed_by": self.proposed_by,
-            "assigned_to": self.assigned_to, "status": self.status.name,
+            "id": self.id,
+            "question": self.question[:LOG_TRUNC_120],
+            "domain": self.domain,
+            "proposed_by": self.proposed_by,
+            "assigned_to": self.assigned_to,
+            "status": self.status.name,
             "answer": self.answer[:LOG_TRUNC_500] if self.answer else "",
             "answered_at": self.answered_at,
         }
@@ -92,14 +97,14 @@ class IssueCard:
     source_card_id: str = ""
     """CardRegistry card that routed to this convention (assembly conference mode)."""
 
-    def add_item(self, question: str, domain: str = "",
-                 proposed_by: str = "",
-                 assigned_to: str = "") -> str:
+    def add_item(self, question: str, domain: str = "", proposed_by: str = "", assigned_to: str = "") -> str:
         """Add a new issue item to the card and return its id."""
         item = IssueItem(
             id=f"{self.id}-{uuid.uuid4().hex[:6]}",
-            question=question, domain=domain or self.domain,
-            proposed_by=proposed_by, assigned_to=assigned_to,
+            question=question,
+            domain=domain or self.domain,
+            proposed_by=proposed_by,
+            assigned_to=assigned_to,
         )
         self.items.append(item)
         return item.id
@@ -111,8 +116,10 @@ class IssueCard:
     def to_dict(self) -> dict[str, Any]:
         """Serialize this issue card to a dictionary representation."""
         return {
-            "id": self.id, "title": self.title[:LOG_TRUNC_80],
-            "intent": self.intent[:LOG_TRUNC_120], "domain": self.domain,
+            "id": self.id,
+            "title": self.title[:LOG_TRUNC_80],
+            "intent": self.intent[:LOG_TRUNC_120],
+            "domain": self.domain,
             "status": self.status.name,
             "items": [it.to_dict() for it in self.items],
             "agent_ids": self.agent_ids,
@@ -143,8 +150,10 @@ class IssueTable(PersistableMixin):
         self._cards.clear()
         for cid, d in data.get("cards", {}).items():
             card = IssueCard(
-                id=d.get("id", cid), title=d.get("title", ""),
-                intent=d.get("intent", ""), domain=d.get("domain", ""),
+                id=d.get("id", cid),
+                title=d.get("title", ""),
+                intent=d.get("intent", ""),
+                domain=d.get("domain", ""),
                 status=IssueCardStatus[d["status"]] if "status" in d else IssueCardStatus.DRAFT,
                 agent_ids=d.get("agent_ids", []),
                 cell_id=d.get("cell_id", ""),
@@ -164,7 +173,9 @@ class IssueTable(PersistableMixin):
                     for it in card.items:
                         if it.question == item_data["question"]:
                             it.answer = item_data["answer"]
-                            it.status = IssueStatus[item_data["status"]] if "status" in item_data else IssueStatus.PENDING
+                            it.status = (
+                                IssueStatus[item_data["status"]] if "status" in item_data else IssueStatus.PENDING
+                            )
                             it.answered_at = item_data.get("answered_at", 0.0)
                             break
             self._cards[cid] = card
@@ -192,8 +203,7 @@ class IssueTable(PersistableMixin):
                 card.converged_at = time.time()
             return True
 
-    def answer_item(self, card_id: str, item_id: str,
-                    answer: str, agent_id: str) -> bool:
+    def answer_item(self, card_id: str, item_id: str, answer: str, agent_id: str) -> bool:
         """Record an agent's answer to an assigned issue item."""
         with self._lock:
             card = self._cards.get(card_id)
@@ -207,8 +217,7 @@ class IssueTable(PersistableMixin):
                     return True
             return False
 
-    def supplement(self, card_id: str, question: str, domain: str,
-                   proposed_by: str) -> str | None:
+    def supplement(self, card_id: str, question: str, domain: str, proposed_by: str) -> str | None:
         """Add a supplementary issue item to a card and return its id."""
         with self._lock:
             card = self._cards.get(card_id)
@@ -233,8 +242,7 @@ class IssueTable(PersistableMixin):
                     return True
             return False
 
-    def assign_item(self, card_id: str, item_id: str,
-                    agent_id: str) -> bool:
+    def assign_item(self, card_id: str, item_id: str, agent_id: str) -> bool:
         """Assign an issue item to a specific agent for answering."""
         with self._lock:
             card = self._cards.get(card_id)
@@ -249,8 +257,7 @@ class IssueTable(PersistableMixin):
     def list_by_status(self, status: IssueCardStatus | None = None) -> list[dict]:
         """List cards as dicts, optionally filtered by card status."""
         with self._lock:
-            return [c.to_dict() for c in self._cards.values()
-                    if status is None or c.status == status]
+            return [c.to_dict() for c in self._cards.values() if status is None or c.status == status]
 
     def list_items_by_agent(self, agent_id: str) -> list[dict]:
         """List all issue items assigned to a given agent, annotated with card id."""
@@ -269,10 +276,7 @@ class IssueTable(PersistableMixin):
             for c in self._cards.values():
                 statuses[c.status.name] = statuses.get(c.status.name, 0) + 1
             total_items = sum(len(c.items) for c in self._cards.values())
-            resolved = sum(
-                1 for c in self._cards.values()
-                for it in c.items if it.status == IssueStatus.RESOLVED
-            )
+            resolved = sum(1 for c in self._cards.values() for it in c.items if it.status == IssueStatus.RESOLVED)
             return {
                 "cards": len(self._cards),
                 "total_items": total_items,

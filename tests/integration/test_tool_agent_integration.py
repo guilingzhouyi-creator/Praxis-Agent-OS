@@ -7,6 +7,7 @@ Covers the full chain:
   4. The tool passes through the pipeline (clearance → constitution → alloc → lock → execute → signal)
   5. Result returns to the agent and can be collected
 """
+
 from __future__ import annotations
 
 import os
@@ -38,6 +39,7 @@ def _register_test_tool(name: str = "test_ping") -> str:
 def _unregister(name: str) -> None:
     try:
         from l3.tool_system.tool_registry import TOOL_REGISTRY
+
         TOOL_REGISTRY.unregister(name)
     except Exception:
         pass
@@ -50,6 +52,7 @@ class TestToolAgentPipelineIntegration:
         from l1.kernel.process import reset_table
         from l3.agent_terminal import reset_terminals
         from l3.cell import reset_cells
+
         reset_cells()
         reset_table()
         reset_terminals()
@@ -59,6 +62,7 @@ class TestToolAgentPipelineIntegration:
         name = _register_test_tool("int_ping_1")
         try:
             from l3.tool_system.tool_spec import get_tool
+
             spec = get_tool(name)
             assert spec is not None, f"tool {name} must be resolvable"
             assert callable(spec.handler)
@@ -70,6 +74,7 @@ class TestToolAgentPipelineIntegration:
         name = _register_test_tool("invoke_test")
         try:
             from l3.tool_system.tool_spec import get_tool
+
             spec = get_tool(name)
             assert spec is not None
             result = spec.handler({"msg": "hello"}, "test-agent")
@@ -84,6 +89,7 @@ class TestToolAgentPipelineIntegration:
         name = _register_test_tool("late_reg")
         try:
             from l3.tool_system.tool_spec import get_tool
+
             spec = get_tool(name)
             assert spec is not None, "tool must be visible immediately after register"
         finally:
@@ -92,6 +98,7 @@ class TestToolAgentPipelineIntegration:
     def test_tool_pipeline_rejects_unknown_tool(self):
         """Pipeline returns structured error for unregistered tool names."""
         from l3.tool_system.tool_pipeline import get_pipeline
+
         pipeline = get_pipeline()
         result = pipeline.execute(
             tool_name="_nonexistent_tool_999",
@@ -104,6 +111,7 @@ class TestToolAgentPipelineIntegration:
         """Unregistering a tool removes it from the global registry."""
         name = _register_test_tool("unreg_test")
         from l3.tool_system.tool_spec import get_tool
+
         assert get_tool(name) is not None, "tool must exist after register"
         _unregister(name)
         assert get_tool(name) is None, "tool must not exist after unregister"
@@ -113,14 +121,17 @@ class TestToolAgentPipelineIntegration:
         name = _register_test_tool("int_rate_test")
         try:
             from l3.tool_system.tool_pipeline import get_pipeline
+
             pipeline = get_pipeline()
             for _ in range(5):
                 pipeline.execute(
-                    tool_name=name, agent_id="rate-hog",
+                    tool_name=name,
+                    agent_id="rate-hog",
                     args={"msg": "spam"},
                 )
             result = pipeline.execute(
-                tool_name=name, agent_id="rate-other",
+                tool_name=name,
+                agent_id="rate-other",
                 args={"msg": "ok"},
             )
             assert isinstance(result, dict)

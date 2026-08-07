@@ -37,18 +37,22 @@ logger = logging.getLogger(__name__)
 _slot_registry: dict[str, dict] = {}
 
 
-def register_slot(slot_name: str, default: Any = None, description: str = "",
-                  version: int = 1, validator: Callable | None = None) -> None:
+def register_slot(
+    slot_name: str, default: Any = None, description: str = "", version: int = 1, validator: Callable | None = None
+) -> None:
     """Register a slot type. External modules can extend."""
     _slot_registry[slot_name] = {
-        "default": default, "description": description,
-        "version": version, "validator": validator,
+        "default": default,
+        "description": description,
+        "version": version,
+        "validator": validator,
     }
 
 
 @dataclass
 class SlotEntry:
     """SlotEntry — slot entry record (name, value, version, updated_at, updated_by)."""
+
     name: str
     value: Any
     version: int = 1
@@ -58,14 +62,17 @@ class SlotEntry:
     def to_dict(self) -> dict:
         """Serialize this slot entry to a dict."""
         return {
-            "name": self.name, "value": self.value,
-            "version": self.version, "updated_at": self.updated_at,
+            "name": self.name,
+            "value": self.value,
+            "version": self.version,
+            "updated_at": self.updated_at,
         }
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 # AgentControlBlock
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 class AgentControlBlock:
     """Agent Control Block — extensible slot container.
@@ -89,8 +96,7 @@ class AgentControlBlock:
         """Load default slots from registry."""
         for name, meta in _slot_registry.items():
             if meta["default"] is not None:
-                self._slots[name] = SlotEntry(name=name, value=meta["default"],
-                                               version=meta["version"])
+                self._slots[name] = SlotEntry(name=name, value=meta["default"], version=meta["version"])
 
     # ── Basic CRUD ──
 
@@ -114,9 +120,9 @@ class AgentControlBlock:
 
         with self._lock:
             old = self._slots.get(name)
-            entry = SlotEntry(name=name, value=value,
-                              version=old.version + 1 if old else meta.get("version", 1),
-                              updated_by=source)
+            entry = SlotEntry(
+                name=name, value=value, version=old.version + 1 if old else meta.get("version", 1), updated_by=source
+            )
             self._slots[name] = entry
 
         # Trigger listeners
@@ -157,7 +163,8 @@ class AgentControlBlock:
         acb.created_at = data.get("created_at", time.time())
         for name, sdata in data.get("slots", {}).items():
             acb._slots[name] = SlotEntry(
-                name=sdata["name"], value=sdata["value"],
+                name=sdata["name"],
+                value=sdata["value"],
                 version=sdata.get("version", 1),
                 updated_at=sdata.get("updated_at", 0),
                 updated_by=sdata.get("updated_by", ""),
@@ -199,7 +206,7 @@ class AgentControlBlock:
                 "health": self.get("health_state", "HEALTHY"),
             },
             "reputation": self.get("reputation", REP_DEFAULT_REPUTATION),
-            "token_usage": f'{self.get("token_consumed", 0)}/{self.get("token_budget", DEFAULT_TOKEN_BUDGET)}',
+            "token_usage": f"{self.get('token_consumed', 0)}/{self.get('token_budget', DEFAULT_TOKEN_BUDGET)}",
             "current_card": self.get("current_card", ""),
             "uptime": time.time() - self.created_at,
         }
@@ -211,6 +218,7 @@ class AgentControlBlock:
 # ═════════════════════════════════════════════════════════════════════════════
 # ACB service
 # ═════════════════════════════════════════════════════════════════════════════
+
 
 class ACBService(BaseService):
     """ACB management service — manages all Agent ACB lifecycles."""
@@ -274,8 +282,10 @@ class ACBService(BaseService):
     def list(self) -> dict:
         """List all agents."""
         with self._lock:
-            agents = [{"agent_id": aid, "slots": len(acb._slots), "created_at": acb.created_at}
-                      for aid, acb in self._agents.items()]
+            agents = [
+                {"agent_id": aid, "slots": len(acb._slots), "created_at": acb.created_at}
+                for aid, acb in self._agents.items()
+            ]
             return {"success": True, "agents": agents, "count": len(agents)}
 
     def snapshot(self, agent_id: str) -> dict:

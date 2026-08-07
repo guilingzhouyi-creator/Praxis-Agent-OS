@@ -51,14 +51,14 @@ class TestBuiltinSkillCatalog:
             assert front.get("name"), f"{d.name}: missing name"
             assert front.get("description"), f"{d.name}: missing description"
             assert "allowed-tools" in front, f"{d.name}: missing allowed-tools"
-            assert front.get("disable-model-invocation") is True, (
-                f"{d.name}: built-in skills must be user-invoked only")
+            assert front.get("disable-model-invocation") is True, f"{d.name}: built-in skills must be user-invoked only"
             # Posture must be declared explicitly and be a valid value, so the
             # built-in catalog never silently drifts from the productive
             # default or ships an unvalidated posture.
             assert "posture" in front, f"{d.name}: missing posture"
             assert front.get("posture") in ("productive", "offensive"), (
-                f"{d.name}: invalid posture {front.get('posture')!r}")
+                f"{d.name}: invalid posture {front.get('posture')!r}"
+            )
 
     def test_universal_principles_present(self):
         """Each built-in skill carries all 12 universal-principle sections."""
@@ -66,13 +66,21 @@ class TestBuiltinSkillCatalog:
             body = (d / "SKILL.md").read_text(encoding="utf-8")
             numbered = re.findall(r"^(\d+)\.\s", body, re.MULTILINE)
             assert len(numbered) >= _PRINCIPLE_COUNT, (
-                f"{d.name}: expected {_PRINCIPLE_COUNT} principles, got {len(numbered)}")
+                f"{d.name}: expected {_PRINCIPLE_COUNT} principles, got {len(numbered)}"
+            )
 
     def test_no_project_specific_paths(self):
         """Skill content must be generalized — no project-specific path literals."""
         forbidden = [
-            "src/l", "tests/infra", "praxis.yaml", ".praxis/skills",
-            "l1.kernel", "l3.", "StatsCenter", "CardRegistry", "GateChain",
+            "src/l",
+            "tests/infra",
+            "praxis.yaml",
+            ".praxis/skills",
+            "l1.kernel",
+            "l3.",
+            "StatsCenter",
+            "CardRegistry",
+            "GateChain",
         ]
         for d in _builtin_skill_dirs():
             body = (d / "SKILL.md").read_text(encoding="utf-8")
@@ -85,10 +93,23 @@ class TestBuiltinSkillCatalog:
             lines = (d / "SKILL.md").read_text(encoding="utf-8").splitlines()
             for lineno, line in enumerate(lines, 1):
                 lowered = line.lower()
-                if any(neg in lowered for neg in (
-                        "don't", "never", "must not", "shall not", "not allowed",
-                        "may not", "cannot", "no agent", "prohibited", "forbidden",
-                        " no ", "n't ")):
+                if any(
+                    neg in lowered
+                    for neg in (
+                        "don't",
+                        "never",
+                        "must not",
+                        "shall not",
+                        "not allowed",
+                        "may not",
+                        "cannot",
+                        "no agent",
+                        "prohibited",
+                        "forbidden",
+                        " no ",
+                        "n't ",
+                    )
+                ):
                     continue  # negated constraint — compliant guidance
                 for pat in _FORBIDDEN_PATTERNS:
                     assert not re.search(pat, line, re.IGNORECASE), (
@@ -101,6 +122,7 @@ class TestBuiltinReadOnly:
 
     def test_builtin_marked_and_protected(self):
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.load_builtin()
@@ -118,6 +140,7 @@ class TestBuiltinReadOnly:
 
     def test_non_builtin_still_mutable(self):
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.load_builtin()
@@ -132,6 +155,7 @@ class TestBuiltinDefaultActivation:
     def test_hook_injects_builtin_first(self):
         from l1.kernel.skill import get_skill_manager, reset_skill_manager
         from l3.services.hook import SkillCatalogHook
+
         reset_skill_manager()
         sm = get_skill_manager()
         sm.load_builtin()

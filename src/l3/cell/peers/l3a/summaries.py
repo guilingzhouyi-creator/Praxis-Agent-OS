@@ -30,16 +30,48 @@ logger = logging.getLogger(__name__)
 
 _L3A_SUMMARY_DIR = "l3a_summaries"
 _L3A_SUMMARY_CACHE_MAX = 200
-_STOPWORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for",
-    "with", "is", "are", "was", "be", "this", "that", "should", "we", "our",
-    "how", "what", "why", "when", "it", "as", "by", "at", "from", "do", "not",
-})
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "of",
+        "to",
+        "in",
+        "on",
+        "for",
+        "with",
+        "is",
+        "are",
+        "was",
+        "be",
+        "this",
+        "that",
+        "should",
+        "we",
+        "our",
+        "how",
+        "what",
+        "why",
+        "when",
+        "it",
+        "as",
+        "by",
+        "at",
+        "from",
+        "do",
+        "not",
+    }
+)
 
 
 @dataclass
 class L3ASummary:
     """L3ASummary — l3 a summary record (issue_id, source_card_id, title, domain, created_at)."""
+
     issue_id: str = ""
     source_card_id: str = ""
     title: str = ""
@@ -63,9 +95,11 @@ class L3ASummary:
 
 class L3ASummaryStore:
     """L3ASummaryStore — l3 a summary store."""
+
     def __init__(self, persist_dir: str = ""):
         try:
             from l1.kernel.paths import get_paths as _gp
+
             base = _gp().data_dir
         except Exception:
             base = ".praxis"
@@ -91,16 +125,25 @@ class L3ASummaryStore:
                             if not line:
                                 continue
                             data = json.loads(line)
-                            s = L3ASummary(**{k: v for k, v in data.items()
-                                              if k in L3ASummary.__dataclass_fields__})
+                            s = L3ASummary(**{k: v for k, v in data.items() if k in L3ASummary.__dataclass_fields__})
                             self._cache[s.issue_id] = s
                             if len(self._cache) > _L3A_SUMMARY_CACHE_MAX:
                                 self._cache.popitem(last=False)
                 except Exception:
-                    capture("l3a summaries: restore failed", error_code="E_L3A_SUMMARY", component="l3a", context={"path": path})
+                    capture(
+                        "l3a summaries: restore failed",
+                        error_code="E_L3A_SUMMARY",
+                        component="l3a",
+                        context={"path": path},
+                    )
                     logger.warning("l3a summaries: restore failed for %s", path)
         except Exception as e:
-            capture("l3a summaries: restore dir failed", error_code="E_L3A_SUMMARY", component="l3a", context={"error": str(e)})
+            capture(
+                "l3a summaries: restore dir failed",
+                error_code="E_L3A_SUMMARY",
+                component="l3a",
+                context={"error": str(e)},
+            )
             logger.warning("l3a summaries: restore dir failed: %s", e)
 
     def _append(self, s: L3ASummary) -> None:
@@ -110,7 +153,9 @@ class L3ASummaryStore:
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(s.to_dict(), ensure_ascii=False, default=str) + "\n")
         except Exception as e:
-            capture("l3a summaries: persist failed", error_code="E_L3A_SUMMARY", component="l3a", context={"error": str(e)})
+            capture(
+                "l3a summaries: persist failed", error_code="E_L3A_SUMMARY", component="l3a", context={"error": str(e)}
+            )
             logger.warning("l3a summaries: persist failed: %s", e)
 
     # ── Write (system-managed timestamps) ──
@@ -133,6 +178,7 @@ class L3ASummaryStore:
         # Cold backup into L3A's own R3 ring (isolated instance)
         try:
             from l3.memory.central_memory import get_l3a_memory
+
             get_l3a_memory().remember(
                 agent_id=_p.AGENT_ID,
                 entry_type="l3a_summary",
@@ -144,8 +190,12 @@ class L3ASummaryStore:
         except Exception:
             capture("l3a summaries: R3 cold backup failed", error_code="E_L3A_SUMMARY", component="l3a")
             logger.debug("l3a summaries: R3 cold backup failed")
-        logger.info("l3a summary saved: %s — %s (session=%s)",
-                    summary.issue_id, summary.title[:LOG_TRUNC_60], summary.session_id)
+        logger.info(
+            "l3a summary saved: %s — %s (session=%s)",
+            summary.issue_id,
+            summary.title[:LOG_TRUNC_60],
+            summary.session_id,
+        )
 
     # ── Read (system-managed last_accessed_at) ──
 
@@ -183,10 +233,14 @@ class L3ASummaryStore:
             items = list(self._cache.values())
         hits = []
         for s in items:
-            haystack = " ".join([
-                s.title, s.domain, s.summary,
-                " ".join(d.get("text", "") for d in s.decisions),
-            ]).lower()
+            haystack = " ".join(
+                [
+                    s.title,
+                    s.domain,
+                    s.summary,
+                    " ".join(d.get("text", "") for d in s.decisions),
+                ]
+            ).lower()
             if q in haystack or any(q in w.lower() for w in s.title.split()):
                 hits.append(s)
         hits.sort(key=lambda s: s.created_at, reverse=True)
@@ -208,6 +262,7 @@ class L3ASummaryStore:
 
 # ── Second-pass dedup analysis (on top of in-Cell dedup) ──
 
+
 def _keywords(text: str) -> set[str]:
     words = set()
     for w in text.lower().split():
@@ -224,8 +279,9 @@ def analyze_overlap(issues: list[dict]) -> list[str]:
     Returns human-readable overlap notes for the L3A summary.
     """
     notes = []
-    answers = [(i.get("anchor", "?"), i.get("assigned_to", "?"),
-                i.get("answer", "")) for i in issues if i.get("answer")]
+    answers = [
+        (i.get("anchor", "?"), i.get("assigned_to", "?"), i.get("answer", "")) for i in issues if i.get("answer")
+    ]
     for i in range(len(answers)):
         for j in range(i + 1, len(answers)):
             a1, a2 = answers[i], answers[j]
@@ -243,11 +299,18 @@ def analyze_overlap(issues: list[dict]) -> list[str]:
     return notes
 
 
-def build_summary(issue_id: str, source_card_id: str, title: str,
-                  domain: str, agents: list[str],
-                  issues: list[dict], decisions: list[dict],
-                  doc_path: str = "", archive_ref: str = "",
-                  session_id: str = "") -> L3ASummary:
+def build_summary(
+    issue_id: str,
+    source_card_id: str,
+    title: str,
+    domain: str,
+    agents: list[str],
+    issues: list[dict],
+    decisions: list[dict],
+    doc_path: str = "",
+    archive_ref: str = "",
+    session_id: str = "",
+) -> L3ASummary:
     """Rule-based L3A summary distillation from a converged convention."""
     overlap = analyze_overlap(issues)
     resolved = [i for i in issues if i.get("status") == "resolved"]
@@ -268,10 +331,17 @@ def build_summary(issue_id: str, source_card_id: str, title: str,
     if not lines:
         lines.append("(no decisions recorded)")
     return L3ASummary(
-        issue_id=issue_id, source_card_id=source_card_id,
-        title=title, domain=domain, agents=agents,
-        issues=issues, decisions=decisions, overlap_notes=overlap,
-        summary="\n".join(lines), doc_path=doc_path, archive_ref=archive_ref,
+        issue_id=issue_id,
+        source_card_id=source_card_id,
+        title=title,
+        domain=domain,
+        agents=agents,
+        issues=issues,
+        decisions=decisions,
+        overlap_notes=overlap,
+        summary="\n".join(lines),
+        doc_path=doc_path,
+        archive_ref=archive_ref,
         session_id=session_id,
     )
 

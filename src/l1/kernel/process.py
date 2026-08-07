@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessState(Enum):
     """ProcessState — enum of READY, RUNNING, BLOCKED, ZOMBIE...."""
+
     READY = auto()
     RUNNING = auto()
     BLOCKED = auto()
@@ -56,27 +57,27 @@ class ProcessState(Enum):
 
 _PCB_TRANSITIONS: dict[ProcessState, dict[str, ProcessState | None]] = {
     ProcessState.READY: {
-        "run":    ProcessState.RUNNING,
-        "crash":  ProcessState.ZOMBIE,  # killed before first run
-        "stop":   ProcessState.STOPPED,
+        "run": ProcessState.RUNNING,
+        "crash": ProcessState.ZOMBIE,  # killed before first run
+        "stop": ProcessState.STOPPED,
     },
     ProcessState.RUNNING: {
-        "block":  ProcessState.BLOCKED,
-        "yield":  ProcessState.READY,
-        "stop":   ProcessState.STOPPED,
-        "crash":  ProcessState.ZOMBIE,
+        "block": ProcessState.BLOCKED,
+        "yield": ProcessState.READY,
+        "stop": ProcessState.STOPPED,
+        "crash": ProcessState.ZOMBIE,
     },
     ProcessState.BLOCKED: {
-        "wake":   ProcessState.READY,
-        "stop":   ProcessState.STOPPED,
-        "crash":  ProcessState.ZOMBIE,
+        "wake": ProcessState.READY,
+        "stop": ProcessState.STOPPED,
+        "crash": ProcessState.ZOMBIE,
     },
     ProcessState.ZOMBIE: {
-        "reap":   None,  # None → remove from table
+        "reap": None,  # None → remove from table
     },
     ProcessState.STOPPED: {
         "resume": ProcessState.READY,
-        "reap":   None,
+        "reap": None,
     },
 }
 
@@ -94,8 +95,7 @@ def _apply_transition(pcb: PCB, action: str) -> bool:
         # reap is always valid from ZOMBIE or STOPPED
         return True
     if target is None:
-        logger.warning("illegal FSM transition: %s → %s (state=%s)",
-                       pcb.name, action, pcb.state.name)
+        logger.warning("illegal FSM transition: %s → %s (state=%s)", pcb.name, action, pcb.state.name)
         return False
     pcb.state = target
     pcb.touch()
@@ -105,6 +105,7 @@ def _apply_transition(pcb: PCB, action: str) -> bool:
 @dataclass
 class ResourceUsage:
     """ResourceUsage — resource usage record (tokens_allocated, tokens_used, workers_active, scouts_active, memory_entries)."""
+
     tokens_allocated: int = 0
     tokens_used: int = 0
     workers_active: int = 0
@@ -117,8 +118,7 @@ class ResourceUsage:
 class PCB:
     """Process Control Block — one per agent or scout."""
 
-    def __init__(self, pid: int, name: str, role: str = "",
-                 parent_pid: int = 0, ring: int = PROCESS_DEFAULT_RING):
+    def __init__(self, pid: int, name: str, role: str = "", parent_pid: int = 0, ring: int = PROCESS_DEFAULT_RING):
         self.pid = pid
         self.name = name
         self.role = role
@@ -203,8 +203,7 @@ class ProcessTable:
 
         # Background zombie reaper (daemon thread)
         self._gc_running = True
-        threading.Thread(target=self._gc_loop, daemon=True,
-                         name="zombie-reaper").start()
+        threading.Thread(target=self._gc_loop, daemon=True, name="zombie-reaper").start()
 
     def _gc_loop(self) -> None:
         """Background zombie reaper: reap zombies older than ZOMBIE_MAX_AGE, cap total processes."""
@@ -213,8 +212,11 @@ class ProcessTable:
             try:
                 with self._lock:
                     now = time.time()
-                    zombies = [(pid, pcb) for pid, pcb in self._processes.items()
-                               if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > ZOMBIE_MAX_AGE]
+                    zombies = [
+                        (pid, pcb)
+                        for pid, pcb in self._processes.items()
+                        if pcb.state == ProcessState.ZOMBIE and now - pcb.last_active > ZOMBIE_MAX_AGE
+                    ]
                     for pid, _ in zombies:
                         self._processes.pop(pid, None)
                         name = self._pid_to_name.pop(pid, None)
@@ -223,13 +225,16 @@ class ProcessTable:
                     # Cap: if > PROCESS_TABLE_MAX processes, reap oldest STOPPED/ZOMBIE
                     if len(self._processes) > PROCESS_TABLE_MAX:
                         oldest = sorted(
-                            [(pid, pcb) for pid, pcb in self._processes.items()
-                             if pcb.state in (ProcessState.ZOMBIE, ProcessState.STOPPED)],
-                            key=lambda x: x[1].last_active
+                            [
+                                (pid, pcb)
+                                for pid, pcb in self._processes.items()
+                                if pcb.state in (ProcessState.ZOMBIE, ProcessState.STOPPED)
+                            ],
+                            key=lambda x: x[1].last_active,
                         )
                         # Build reverse index once to avoid O(N) dict comprehension per reap
                         pid_to_name = {p: n for n, p in self._name_index.items()}
-                        for pid, _ in oldest[:len(self._processes) - 500]:
+                        for pid, _ in oldest[: len(self._processes) - 500]:
                             self._processes.pop(pid, None)
                             name = pid_to_name.pop(pid, None)
                             if name:
@@ -237,14 +242,12 @@ class ProcessTable:
             except Exception as e:
                 logger.warning("process gc: %s", e)
 
-    def spawn(self, name: str, role: str = "", parent_pid: int = 0,
-              ring: int = PROCESS_DEFAULT_RING) -> PCB:
+    def spawn(self, name: str, role: str = "", parent_pid: int = 0, ring: int = PROCESS_DEFAULT_RING) -> PCB:
         """Create a new process with the given identity, return the PCB."""
         with self._lock:
             pid = self._next_pid
             self._next_pid += 1
-            pcb = PCB(pid=pid, name=name, role=role,
-                      parent_pid=parent_pid, ring=ring)
+            pcb = PCB(pid=pid, name=name, role=role, parent_pid=parent_pid, ring=ring)
             self._processes[pid] = pcb
             self._name_index[name] = pid
             self._pid_to_name[pid] = name
@@ -310,8 +313,7 @@ class ProcessTable:
     def list_processes(self, state: ProcessState | None = None) -> list[dict]:
         """List all processes, optionally filtered by state."""
         with self._lock:
-            result = [p.snapshot() for p in self._processes.values()
-                      if state is None or p.state == state]
+            result = [p.snapshot() for p in self._processes.values() if state is None or p.state == state]
             return sorted(result, key=lambda x: x["pid"])
 
     def resource_summary(self) -> dict:
@@ -326,10 +328,15 @@ class ProcessTable:
             return total
 
     def _audit(self, op: str, pid: int, name: str, detail: str) -> None:
-        self._audit_log.append({
-            "op": op, "pid": pid, "name": name, "detail": detail,
-            "timestamp": time.time(),
-        })
+        self._audit_log.append(
+            {
+                "op": op,
+                "pid": pid,
+                "name": name,
+                "detail": detail,
+                "timestamp": time.time(),
+            }
+        )
 
     def audit_log(self, limit: int = PROCESS_AUDIT_LOG_LIMIT) -> list[dict]:
         """Return recent process audit log entries."""
