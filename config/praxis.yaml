@@ -79,7 +79,10 @@ ci:
       writable: true             # L2 Shell surface may mutate ci.review.* (/ci set|toggle)
 
 # ── Internationalization ──
-language: en                      # Display language: en | zh-CN | ja | de (see locales/)
+# Display language (see locales/): en | zh-CN | ja | ko.
+# English is the canonical base; the locale files are the translation layer
+# that turns base English messages into the selected user-facing language.
+language: en
 
 # ── LLM ──
 llm:

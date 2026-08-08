@@ -9,6 +9,8 @@ import json as _json
 import logging
 import os
 
+from l2.i18n import t as _t
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +50,7 @@ def restore_state(cell, path: str = "") -> dict:
 
     path = path or _gp().cell_state_template.format(cell.cell_id)
     if not os.path.exists(path):
-        return {"success": False, "error": "no state file"}
+        return {"success": False, "error": _t("core.no_state_file")}
     try:
         with open(path, encoding="utf-8") as f:
             state = _json.load(f)

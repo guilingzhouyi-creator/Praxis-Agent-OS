@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,13 +95,13 @@ def _cmd_ci(args: list[str]) -> dict:
             return svc.query(status=status)
         if sub == "show":
             if len(rest) < 2:
-                return {"success": False, "error": "usage: /ci show <card_id>"}
+                return {"success": False, "error": _t("shell.app_error.usage_ci_show")}
             return svc.query(card_id=rest[1], limit=1)
         if sub == "rerun":
             if len(rest) < 2:
-                return {"success": False, "error": "usage: /ci rerun <card_id>"}
+                return {"success": False, "error": _t("shell.app_error.usage_ci_rerun")}
             if not svc._surface_writable("shell"):
-                return {"success": False, "error": "writes disabled (ci.control.shell.writable=false)"}
+                return {"success": False, "error": _t("shell.app_error.ci_writes_disabled")}
             return svc.rerun(rest[1])
         if sub == "config":
             settings: dict = {}
@@ -120,7 +122,7 @@ def _cmd_ci(args: list[str]) -> dict:
             }
         if sub == "set":
             if len(rest) < 3:
-                return {"success": False, "error": "usage: /ci set <key> <value> [--cell X] [--agent Y] [--admin]"}
+                return {"success": False, "error": _t("shell.app_error.usage_ci_set")}
             full_key = _resolve_scope_key(rest[1], cell_id, agent_id)
             if not _is_allowed_key(full_key):
                 return {
@@ -132,16 +134,16 @@ def _cmd_ci(args: list[str]) -> dict:
                 if not admin:
                     return {"success": False, "error": f"admin confirmation required for {full_key} (add --admin)"}
             elif not svc._surface_writable("shell"):
-                return {"success": False, "error": "writes disabled (ci.control.shell.writable=false)"}
+                return {"success": False, "error": _t("shell.app_error.ci_writes_disabled")}
             value = _parse_value(" ".join(rest[2:]))
             center.set(full_key, value)
             return {"success": True, "key": full_key, "value": value}
         if sub == "toggle":
             full_key = _resolve_scope_key("enabled", cell_id, agent_id)
             if _is_control_key(full_key) and not admin:
-                return {"success": False, "error": "admin confirmation required (add --admin)"}
+                return {"success": False, "error": _t("shell.app_error.ci_admin_required")}
             if not svc._surface_writable("shell"):
-                return {"success": False, "error": "writes disabled (ci.control.shell.writable=false)"}
+                return {"success": False, "error": _t("shell.app_error.ci_writes_disabled")}
             enabled = not bool(center.get(full_key, True))
             center.set(full_key, enabled)
             return {"success": True, "key": full_key, "enabled": enabled}

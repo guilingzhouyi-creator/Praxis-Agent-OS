@@ -28,6 +28,7 @@ from l1.kernel.params.tool import (
     TOOL_PIPELINE_RECORD_STEPS,
 )
 from l1.kernel.tool_chain import get_tool_chain
+from l2.i18n import t as _l2_t
 from l3.bus.reference_channel import get_rc as _get_rc
 from l3.card.approval_gate import get_gate as _get_approval_gate
 from l3.error_bus import error_boundary
@@ -203,15 +204,15 @@ class ToolPipeline:
 
         # 1. Validate tool exists
         if not _registry and not _executor:
-            return {"success": False, "error": "pipeline not initialized with registry"}
+            return {"success": False, "error": _l2_t("core.pipeline_not_initialized")}
 
         # 2. Clearance
         if not agent_can_access(agent_id, tool_ring_str):
-            return {"success": False, "error": f"no clearance for {tool_ring_str}"}
+            return {"success": False, "error": _l2_t("core.pipeline_no_clearance", ring=tool_ring_str)}
 
         # 3. Scout restriction (single source: kernel.params.SCOUT_*)
         if agent_id == SCOUT_AGENT_NAME and tool_ring_str != SCOUT_RING_LIMIT:
-            return {"success": False, "error": "scout: Ring 1 only"}
+            return {"success": False, "error": _l2_t("core.pipeline_scout_ring1")}
 
         # 3b. ToolPolicy approval check (skipped in semi/minimal harness modes)
         if "approval" not in _skip:
@@ -241,7 +242,7 @@ class ToolPipeline:
                 self.allocator.free(agent_id, "tokens", token_budget)
                 return {
                     "success": False,
-                    "error": f"rate limited ({tool_ring_str})",
+                    "error": _l2_t("core.pipeline_rate_limited", ring=tool_ring_str),
                     "rate": rr,
                     "steps": result["steps"],
                 }
@@ -252,7 +253,7 @@ class ToolPipeline:
         cc = self.constitution.is_allowed(tool_name, agent_id, target=fpath or tool_name, territory=territory_str)
         result["steps"].append({"phase": "constitution", **cc})
         if not cc["allowed"]:
-            return {"success": False, "error": "constitution blocked", "steps": result["steps"]}
+            return {"success": False, "error": _l2_t("core.pipeline_constitution_blocked"), "steps": result["steps"]}
 
         # 5b. GateChain G1-G5 (with ApprovalPolicy danger override)
         try:
@@ -284,7 +285,12 @@ class ToolPipeline:
             except Exception:
                 logger.debug("tool_pipeline: gatechain record failed")
             if not gc_allowed:
-                return {"success": False, "error": "gatechain blocked", "gate_result": gcr, "steps": result["steps"]}
+                return {
+                    "success": False,
+                    "error": _l2_t("core.pipeline_gatechain_blocked"),
+                    "gate_result": gcr,
+                    "steps": result["steps"],
+                }
         except Exception as e:
             logger.error("gatechain check failed, blocking: %s", e)
             result["steps"].append({"phase": "gatechain", "decision": "BLOCK", "error": str(e)})

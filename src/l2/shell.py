@@ -26,6 +26,7 @@ from l1.kernel.params.system import (
     TOOL_RESULT_DISPLAY_LIMIT,
 )
 from l1.kernel.platform import run_shell
+from l2.i18n import t
 from l3.agent.scout import get_pool as _get_scout_pool
 from l3.cell import get_cell as _get_cell
 from l3.tool_system.tool_spec import execute_tool_spec, get_tool
@@ -63,12 +64,12 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
         logger.debug("shell: readline unavailable, tab completion disabled")
     history: deque[str] = deque(maxlen=TERMINAL_OUTPUT_MAX_LINES)
 
-    print("Agent OS Terminal — Type 'help' for commands, 'exit' to quit")
-    print("  !<intent>              → L3A direct session")
-    print("  !<intent>@<cell>/<agent> → Route to specific Cell/Agent")
-    print("  !scout <task>          → Scout investigation")
-    print("  $ <command>            → Raw system command (Bash/PowerShell)")
-    print("  <tool> <args>          → Tool execution (aliases: rf→read_file)")
+    print(t("terminal.banner.title"))
+    print(t("terminal.banner.l3a"))
+    print(t("terminal.banner.route"))
+    print(t("terminal.banner.scout"))
+    print(t("terminal.banner.system"))
+    print(t("terminal.banner.tool"))
     print()
 
     while True:
@@ -110,7 +111,7 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
                 parts = route.split("/")
                 target_cell = parts[0] if len(parts) > 0 else cell_id
                 target_agent = parts[1] if len(parts) > 1 else agent_id
-                print(f"  [L3A] Routing to {target_cell}/{target_agent}: {intent}")
+                print(t("terminal.l3a.routing", target=target_cell, agent=target_agent, intent=intent))
                 _handle_direct(intent, target_agent)
             else:
                 _handle_direct(rest, agent_id)
@@ -122,12 +123,15 @@ def direct_session(prompt: str = "agent> ", agent_id: str = SIGNAL_TARGET_L3, ce
 
 def _show_help() -> None:
     """Print command list (first 15 commands) and hint for more."""
-    print("Commands:")
+    print(t("terminal.help.title"))
     for cmd in get_command_names()[:SHELL_AUTOCOMPLETE_DISPLAY_LIMIT]:
         h = get_command_help().get(cmd, "")
         print(f"  {cmd:<20s} {h}")
     print(
-        f"  ... and {len(get_command_names()) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT} more tools (type 'tools' to list all)"
+        t(
+            "terminal.help.more",
+            count=len(get_command_names()) - SHELL_AUTOCOMPLETE_DISPLAY_LIMIT,
+        )
     )
 
 
@@ -135,9 +139,9 @@ def _list_tools() -> None:
     """List all registered tools with descriptions.  Falls back to command names on error."""
     try:
         tools = _list_tools_()
-        for t in tools:
-            print(f"  {t.name:<25s} {t.description[:LOG_TRUNC_50]}")
-        print(f"\nTotal: {len(tools)} tools")
+        for tool in tools:
+            print(f"  {tool.name:<25s} {tool.description[:LOG_TRUNC_50]}")
+        print(t("terminal.tools.total", count=len(tools)))
     except Exception as e:
         logger.warning("shell: list_tools failed (%s), falling back to command list", e)
         for c in get_command_names():
@@ -146,45 +150,45 @@ def _list_tools() -> None:
 
 def _handle_direct(intent: str, agent_id: str) -> None:
     """Handle a direct session intent (! prefix)."""
-    print(f"  [L3A] Parsing: {intent}")
+    print(t("terminal.l3a.parsing", intent=intent))
     try:
         r = _execute_l3_tool("intent_parse", {"text": intent}, agent_id)
         if r.get("success"):
             card = r.get("data", {})
-            print(f"  [L3A] Card: {card.get('card_id', '?')}")
-            print(f"        Domain: {card.get('domain', '?')}")
-            print(f"        Agent: {card.get('agent_id', '?')}")
-            print(f"        Type: {card.get('card_type', '?')}")
+            print(t("terminal.l3a.card", card_id=card.get("card_id", "?")))
+            print(t("terminal.l3a.domain", domain=card.get("domain", "?")))
+            print(t("terminal.l3a.agent", agent=card.get("agent_id", "?")))
+            print(t("terminal.l3a.type", card_type=card.get("card_type", "?")))
         else:
-            print(f"  [L3A] Error: {r.get('error', 'parse failed')}")
+            print(t("terminal.l3a.error", error=r.get("error", "parse failed")))
     except Exception as e:
-        print(f"  [L3A] Error: {e}")
+        print(t("terminal.l3a.error", error=str(e)))
 
 
 def _handle_scout(task: str, agent_id: str, cell_id: str) -> None:
     """Commission a Scout for investigation."""
     if not task:
-        print("  [Scout] Usage: !scout <task>")
+        print(t("terminal.scout.usage"))
         return
-    print(f"  [Scout] Commissioning: {task}")
+    print(t("terminal.scout.commissioning", task=task))
     try:
         cell = _get_cell(cell_id)
         # Check delegation permission gate
         if hasattr(cell, "permission") and cell.permission and not cell.permission.is_visible("scout", agent_id):
-            print(f"  [Scout] Delegation disabled: scout is not available to {agent_id}")
+            print(t("terminal.scout.disabled", agent=agent_id))
             return
         pool = _get_scout_pool()
         r = pool.commission(agent_id, task)
-        print(f"  [Scout] Status: {r.get('status', '?')}")
+        print(t("terminal.scout.status", status=r.get("status", "?")))
         findings = r.get("findings", [])
         if findings:
-            print(f"  [Scout] Findings ({len(findings)}):")
+            print(t("terminal.scout.findings", count=len(findings)))
             for f in findings[:SCOUT_FINDINGS_DISPLAY_LIMIT]:
                 print(f"    - {str(f)[:LOG_TRUNC_200]}")
         if r.get("error"):
-            print(f"  [Scout] Error: {r['error']}")
+            print(t("terminal.scout.error", error=r["error"]))
     except Exception as e:
-        print(f"  [Scout] Error: {e}")
+        print(t("terminal.scout.error", error=str(e)))
 
 
 def _handle_system_command(cmd: str) -> None:
@@ -198,14 +202,14 @@ def _handle_system_command(cmd: str) -> None:
                 print(f"  {line}")
         if proc.stderr:
             for line in proc.stderr.splitlines():
-                print(f"  [stderr] {line}")
-        print(f"  [Exit] {proc.returncode}")
+                print(t("terminal.sys.stderr", line=line))
+        print(t("terminal.sys.exit", code=proc.returncode))
     except subprocess.TimeoutExpired:
-        print(f"  [Error] Command timed out after {SHELL_CMD_TIMEOUT}s")
+        print(t("terminal.sys.timeout", timeout=SHELL_CMD_TIMEOUT))
     except FileNotFoundError:
-        print("  [Error] Shell not found")
+        print(t("terminal.sys.shell_not_found"))
     except Exception as e:
-        print(f"  [Error] {e}")
+        print(t("terminal.sys.error", error=str(e)))
 
 
 def _handle_tool_call(line: str, agent_id: str) -> None:
@@ -224,11 +228,11 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
         elif i < len(parts) - 1:
             args[f"arg{i}"] = parts[i]
 
-    print(f"  [Exec] {tool_name} {args}")
+    print(t("terminal.exec.prefix", tool=tool_name, args=args))
     try:
         spec = get_tool(tool_name)
         if not spec:
-            print(f"  [Error] Unknown tool: {tool_name}")
+            print(t("terminal.exec.unknown_tool", tool=tool_name))
             return
         r = execute_tool_spec(tool_name, args, agent_id)
         if r.get("success"):
@@ -237,11 +241,11 @@ def _handle_tool_call(line: str, agent_id: str) -> None:
                 for k, v in list(result.items())[:TOOL_RESULT_DISPLAY_LIMIT]:
                     print(f"  {k}: {str(v)[:LOG_TRUNC_100]}")
             else:
-                print(f"  Result: {str(result)[:LOG_TRUNC_200]}")
+                print(t("terminal.exec.result", result=str(result)[:LOG_TRUNC_200]))
         else:
-            print(f"  [Error] {r.get('error', 'execution failed')}")
+            print(t("terminal.exec.error", error=r.get("error", "execution failed")))
     except Exception as e:
-        print(f"  [Error] {e}")
+        print(t("terminal.exec.error", error=str(e)))
 
 
 def start_repl(agent_id: str = SIGNAL_TARGET_L3, prompt: str = "") -> None:

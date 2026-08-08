@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import Any
 
 from l1.kernel.params.system import POLL_INTERVAL_DEFAULT
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class WorkerPool:
         with self._lock:
             task = self._tasks.get(task_id)
         if not task:
-            return {"success": False, "error": "task not found"}
+            return {"success": False, "error": _t("core.task_not_found")}
         return {
             "success": True,
             "id": task.id,
@@ -127,7 +128,7 @@ class WorkerPool:
             if task and task.state == TaskState.PENDING:
                 task.state = TaskState.FAILED
                 return {"success": True}
-        return {"success": False, "error": "task not found or already running"}
+        return {"success": False, "error": _t("core.task_not_found_or_running")}
 
     def wait_all(self, timeout: float = 30) -> None:
         """Block until all tasks finish or the timeout elapses."""

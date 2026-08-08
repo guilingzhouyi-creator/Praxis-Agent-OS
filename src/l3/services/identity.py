@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from l1.kernel.params.system import NONCE_CLEANUP_AGE, PROOF_TTL
+from l2.i18n import t as _t
 from l3._base import BaseService
 from l3.error_bus import capture
 
@@ -240,7 +241,7 @@ class IdentityService(BaseService):
         with self._lock:
             pub = self._keys.get(agent_id)
             if not pub:
-                return {"success": False, "error": "no key for agent"}
+                return {"success": False, "error": _t("core.agent_no_key")}
             return {"success": True, "agent_id": agent_id, "public_key": pub}
 
     # ── AgentProof (§6.1) ──
@@ -307,7 +308,7 @@ class IdentityService(BaseService):
         #    doesn't get re-locked
         with self._lock:
             if nonce in self._nonces:
-                return {"success": False, "error": "nonce already used (replay attack)"}
+                return {"success": False, "error": _t("core.identity_nonce_reused")}
 
         # 4. Verify signature
         try:
@@ -318,13 +319,13 @@ class IdentityService(BaseService):
             signature = bytes.fromhex(signature_hex)
             public_key.verify(signature, payload)
         except Exception:
-            return {"success": False, "error": "signature verification failed"}
+            return {"success": False, "error": _t("core.identity_signature_failed")}
 
         # 5. Absorb nonce only after the signature is confirmed valid
         with self._lock:
             # Re-check: a concurrent verify may have absorbed this nonce
             if nonce in self._nonces:
-                return {"success": False, "error": "nonce already used (replay attack)"}
+                return {"success": False, "error": _t("core.identity_nonce_reused")}
             self._nonces[nonce] = time.time()
 
         return {"success": True, "valid": True, "agent_id": agent_id}
@@ -355,7 +356,7 @@ class IdentityService(BaseService):
 
         # 2. Verify same constitution
         if anchor_from.constitution_hash != anchor_to.constitution_hash:
-            return {"success": False, "error": "constitution mismatch — cross-cell denied"}
+            return {"success": False, "error": _t("core.identity_constitution_mismatch")}
 
         # 3. Verify the proof
         return self.verify_proof(proof)

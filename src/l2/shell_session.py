@@ -13,6 +13,7 @@ from typing import IO
 from l1.kernel.params.api import SHELL_READ_CHUNK_SIZE, SHELL_SESSION_TIMEOUT
 from l1.kernel.params.system import BUFFER_MAX, POLL_INTERVAL_SLOW
 from l1.kernel.platform import IS_WINDOWS, create_interactive_shell, set_nonblocking
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class TerminalManager:
         try:
             proc = create_interactive_shell(cwd=cwd or "")
         except FileNotFoundError:
-            return {"success": False, "error": "shell not found"}
+            return {"success": False, "error": _t("shell.app_error.shell_not_found")}
         except Exception as e:
             return {"success": False, "error": str(e)}
         session = TerminalSession(id=sid, pid=proc.pid, process=proc)
@@ -103,9 +104,9 @@ class TerminalManager:
         """Write data to a session's stdin."""
         s = self.get(sid)
         if not s:
-            return {"success": False, "error": "session not found"}
+            return {"success": False, "error": _t("shell.app_error.session_not_found")}
         if not s.is_alive():
-            return {"success": False, "error": "process terminated"}
+            return {"success": False, "error": _t("shell.app_error.process_terminated")}
         s.write(data)
         return {"success": True}
 
@@ -181,7 +182,7 @@ class TerminalManager:
         """Get buffered output for a session. Returns {"success", "lines", "alive"}."""
         s = self.get(sid)
         if not s:
-            return {"success": False, "error": "session not found"}
+            return {"success": False, "error": _t("shell.app_error.session_not_found")}
         return {"success": True, "lines": list(s.output_buffer), "alive": s.is_alive()}
 
 

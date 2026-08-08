@@ -19,6 +19,7 @@ from l1.kernel.params.system import (
     TOKEN_HISTORY_SHOWN,
     TOKEN_HISTORY_WINDOW_SECONDS,
 )
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ class CentralCollector:
                 return {"error": f"cell {cell_id} not found"}
             agent = cell["agents"].get(agent_id)
             if not agent:
-                return {"error": f"agent {agent_id} not found in cell {cell_id}"}
+                return {"error": _t("core.agent_not_found_in_cell", agent_id=agent_id, cell_id=cell_id)}
             return {**agent, "cell_id": cell_id}
 
 

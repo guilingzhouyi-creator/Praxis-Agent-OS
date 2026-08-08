@@ -15,6 +15,7 @@ import time
 from collections.abc import Callable
 
 from l1.kernel.params.system import SCHEDULER_TASK_RETENTION
+from l2.i18n import t as _t
 
 from .scheduler_rate import get_rate_scheduler
 from .scheduler_router import L3Router, RequestPool
@@ -107,7 +108,7 @@ class CentralScheduler:
         with self._lock:
             task = self._tasks.get(task_id)
         if not task:
-            return {"success": False, "error": "task not found"}
+            return {"success": False, "error": _t("core.task_not_found")}
         task.started_at = time.time()
         agent_id = task.agent_id
         acb = self._get_acb()
@@ -172,7 +173,7 @@ class CentralScheduler:
         with self._lock:
             t = self._tasks.get(task_id)
         if not t:
-            return {"success": False, "error": "task not found"}
+            return {"success": False, "error": _t("core.task_not_found")}
         return {
             "success": True,
             "id": t.id,

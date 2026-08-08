@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from l2.i18n import t as _t
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def _cmd_cron(args: list[str]) -> dict:
         return {"success": True, "cron": s.list()}
     if sub == "add" and len(args) >= 4:
         return {"success": True, "id": args[1], "schedule": args[2], "task": args[3]}
-    return {"success": False, "error": "usage: /cron [list|add <id> <schedule> <task>]"}
+    return {"success": False, "error": _t("shell.app_error.usage_cron")}
 
 
 def _cmd_model(args: list[str]) -> dict:
@@ -52,7 +53,7 @@ def _cmd_model(args: list[str]) -> dict:
         return _model_set(args[1], args[2], args[3])
     if sub == "spec":
         return _cmd_model_spec(args[1:])
-    return {"success": False, "error": "usage: /model [list|status|switch|health|set|spec]"}
+    return {"success": False, "error": _t("shell.app_error.usage_model")}
 
 
 def _cmd_model_spec(args: list[str]) -> dict:
@@ -78,14 +79,14 @@ def _cmd_model_spec(args: list[str]) -> dict:
                 try:
                     caps["max_budget"] = int(args[2])
                 except ValueError:
-                    return {"success": False, "error": "max_budget must be an int"}
+                    return {"success": False, "error": _t("shell.app_error.model_budget_int")}
             return handle_think_caps_set(caps)
         return handle_think_caps_get({})
     if sub == "peer":
         return _cmd_model_spec_peer(args[1:])
     return {
         "success": False,
-        "error": "usage: /model spec [strategy <name> <pack>|clear <name>|caps [max_reasoning [max_budget]]|peer <scope> <name> <pack>|peer clear <scope> <name>]",
+        "error": _t("shell.app_error.usage_model_spec"),
     }
 
 
@@ -108,7 +109,7 @@ def _cmd_model_spec_peer(args: list[str]) -> dict:
         return {"success": False, "error": f"usage: /model spec peer {sub} <name> <pack>"}
     return {
         "success": False,
-        "error": "usage: /model spec peer [global <pack>|cell <id> <pack>|agent <cell>.<agent> <pack>|clear <scope> <name>]",
+        "error": _t("shell.app_error.usage_model_spec_peer"),
     }
 
 

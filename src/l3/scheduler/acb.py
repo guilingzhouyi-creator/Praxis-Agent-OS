@@ -25,6 +25,7 @@ from typing import Any
 
 from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
 from l1.kernel.params.system import DEFAULT_TOKEN_BUDGET
+from l2.i18n import t as _t
 from l3._base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -240,7 +241,7 @@ class ACBService(BaseService):
         """Create a new ACB for an agent."""
         with self._lock:
             if agent_id in self._agents:
-                return {"success": False, "error": f"agent {agent_id} already exists"}
+                return {"success": False, "error": _t("core.agent_already_exists", agent_id=agent_id)}
             acb = AgentControlBlock(agent_id)
             self._agents[agent_id] = acb
             logger.info("acb created: %s", agent_id)
@@ -251,7 +252,7 @@ class ACBService(BaseService):
         with self._lock:
             acb = self._agents.get(agent_id)
             if not acb:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
             return {"success": True, "agent_id": agent_id, "acb": acb.to_dict()}
 
     def delete(self, agent_id: str) -> dict:
@@ -259,7 +260,7 @@ class ACBService(BaseService):
         with self._lock:
             acb = self._agents.pop(agent_id, None)
             if not acb:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
             return {"success": True, "agent_id": agent_id, "removed": True}
 
     def set_slot(self, agent_id: str, slot: str, value: Any, source: str = "") -> dict:
@@ -267,7 +268,7 @@ class ACBService(BaseService):
         with self._lock:
             acb = self._agents.get(agent_id)
             if not acb:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
             return acb.set(slot, value, source)
 
     def get_slot(self, agent_id: str, slot: str, default: Any = None) -> dict:
@@ -275,7 +276,7 @@ class ACBService(BaseService):
         with self._lock:
             acb = self._agents.get(agent_id)
             if not acb:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
             value = acb.get(slot, default)
             return {"success": True, "agent_id": agent_id, "slot": slot, "value": value}
 
@@ -293,7 +294,7 @@ class ACBService(BaseService):
         with self._lock:
             acb = self._agents.get(agent_id)
             if not acb:
-                return {"success": False, "error": "agent not found"}
+                return {"success": False, "error": _t("core.agent_missing")}
             return {"success": True, "snapshot": acb.snapshot()}
 
     def export_all(self) -> dict:

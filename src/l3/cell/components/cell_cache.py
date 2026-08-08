@@ -44,6 +44,7 @@ from l1.kernel.params.system import (
     MEMORY_MIN_CONTENT_LEN,
     TOKEN_CHARS_PER_TOKEN,
 )
+from l2.i18n import t as _t
 from l3.cell.components.cell_types import CellCacheEntry, IndexEntry
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class CellCache:
         - Immediately visible to all agents in this Cell.
         """
         if not key or not summary:
-            return {"success": False, "error": "key and summary required"}
+            return {"success": False, "error": _t("core.cache_key_summary_required")}
 
         # Truncate summary to 200 chars
         summary = summary[:LOG_TRUNC_200]

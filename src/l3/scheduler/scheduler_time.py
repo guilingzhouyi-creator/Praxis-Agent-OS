@@ -10,6 +10,7 @@ import threading
 import time
 
 from l1.kernel.params.system import DEFAULT_QUANTUM, MAX_PREEMPT
+from l2.i18n import t as _t
 
 from .scheduler_types import TimeSlice
 
@@ -48,7 +49,7 @@ class TimeScheduler:
             self._total_ticks += 1
             ts = self._slices.get(agent_id)
             if not ts:
-                return {"success": False, "error": f"agent {agent_id} not registered"}
+                return {"success": False, "error": _t("core.agent_not_registered", agent_id=agent_id)}
             ts.used += elapsed
             ts.deadline = time.time() + max(0, ts.quantum - ts.used)
             if ts.used >= MAX_PREEMPT:

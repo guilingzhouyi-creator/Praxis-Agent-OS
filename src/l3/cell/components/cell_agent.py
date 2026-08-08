@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import DEFAULT_AGENT_CONFIGS, DEFAULT_AGENT_RING, DEFAULT_MAX_CONCURRENT_SCOUTS
+from l2.i18n import t as _t
 
 from .cell_types import AgentInfo
 
@@ -31,7 +32,7 @@ def add_agent(
     """Register an agent in this Cell."""
     with self._lock:
         if agent_id in self._agents:
-            return {"success": False, "error": f"agent {agent_id} already registered"}
+            return {"success": False, "error": _t("core.agent_already_registered", agent_id=agent_id)}
         defaults = DEFAULT_AGENT_CONFIGS.get(role) if role else None
         self._agents[agent_id] = AgentInfo(
             role=role,
@@ -60,7 +61,7 @@ def _boot_agent(self, agent_id: str) -> dict:
     with self._lock:
         info = self._agents.get(agent_id)
         if not info:
-            return {"success": False, "error": f"agent {agent_id} not registered"}
+            return {"success": False, "error": _t("core.agent_not_registered", agent_id=agent_id)}
     term = get_terminal(agent_id, role=info.role, territory=info.territory, cell_id=self.cell_id)
     if term.status in (TerminalStatus.BOOTING, TerminalStatus.STOPPED):
         term.boot()
@@ -94,7 +95,7 @@ def agent_status(self, agent_id: str) -> dict:
     with self._lock:
         info = self._agents.get(agent_id)
         if not info:
-            return {"success": False, "error": "unknown agent"}
+            return {"success": False, "error": _t("core.agent_unknown")}
         role_str = (
             info.role
             if isinstance(info.role, str)

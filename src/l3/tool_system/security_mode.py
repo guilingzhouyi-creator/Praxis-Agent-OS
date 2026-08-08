@@ -31,6 +31,7 @@ from l1.kernel.params.system import (
     SECURITY_MODE_TEST,
     SECURITY_MODES,
 )
+from l2.i18n import t as _t
 
 _state: dict[str, Any] = {"mode": None, "confirmed": False}
 _lock = threading.RLock()
@@ -69,11 +70,11 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
     """
     mode = str(mode or "").lower()
     if mode not in SECURITY_MODES:
-        return {"success": False, "error": f"invalid security mode: {mode}", "modes": list(SECURITY_MODES)}
+        return {"success": False, "error": _t("core.security_invalid_mode", mode=mode), "modes": list(SECURITY_MODES)}
     if mode == SECURITY_MODE_TEST and not confirmed:
         warning = {
             "code": "SECURITY_TEST_CONFIRM_REQUIRED",
-            "message": "attack posture requires explicit bypass confirmation",
+            "message": _t("core.security_attack_confirmation"),
             "classification": "attack",
             "bottom_line": BOTTOM_LINE,
             "mode": mode,
@@ -83,11 +84,7 @@ def set_security_mode(mode: str, confirmed: bool = False, source: str = "api") -
         ingest_security_metric("security.bypass.denied", tags={"mode": mode, "source": source})
         return {
             "success": False,
-            "error": "security-test mode requires detection-bypass confirmation "
-            "(confirm_risk=true): the execution layer will be granted "
-            "full-power attack authorization for offensive tools/skills "
-            "on authorized targets. Safety bottom line "
-            f"({BOTTOM_LINE}) stays enforced.",
+            "error": _t("core.security_attack_confirmation_long", bottom_line=BOTTOM_LINE),
             "modes": list(SECURITY_MODES),
             "warning": warning,
         }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
 from l2.selector import preselect
 
 logger = logging.getLogger(__name__)
@@ -39,15 +40,15 @@ def _cmd_help(args: list[str]) -> dict:
         for c in cmds:
             groups.setdefault(c.get("category", "other"), []).append(c)
         cat_labels = {
-            "session": "Session",
-            "control": "Central Control",
-            "memory": "Memory",
-            "system": "System",
-            "agent": "Agent / Cell",
-            "audit": "Audit / Config",
-            "ext": "Extensions",
+            "session": _t("shell.render.cat_session"),
+            "control": _t("shell.render.cat_control"),
+            "memory": _t("shell.render.cat_memory"),
+            "system": _t("shell.render.cat_system"),
+            "agent": _t("shell.render.cat_agent"),
+            "audit": _t("shell.render.cat_audit"),
+            "ext": _t("shell.render.cat_ext"),
         }
-        lines = ["Available commands:", ""]
+        lines = [_t("shell.render.available"), ""]
         for cat in ["session", "control", "memory", "system", "agent", "audit", "ext"]:
             items = groups.get(cat, [])
             if not items:
@@ -74,7 +75,7 @@ def _cmd_connect(args: list[str]) -> dict:
     from l3.agent_terminal import get_terminals
 
     if not args:
-        return {"success": False, "error": "usage: /connect <agent_id>"}
+        return {"success": False, "error": _t("shell.app_error.usage_connect")}
     from l1.kernel.params.agent import DEFAULT_CELL_ID
     from l3.cell import get_cell
 
@@ -102,7 +103,7 @@ def _cmd_disconnect(args: list[str]) -> dict:
 
     state = get_state()
     if not state.is_direct():
-        return {"success": False, "error": "no active session — not connected"}
+        return {"success": False, "error": _t("shell.app_error.no_active_session")}
     try:
         from l3.cell import get_cell
 
@@ -122,7 +123,7 @@ def _cmd_mode(args: list[str]) -> dict:
         sub = args[0].lower()
         if sub == "direct":
             if not state.agent_id:
-                return {"success": False, "error": "no agent connected — use /connect first"}
+                return {"success": False, "error": _t("shell.app_error.no_agent_connected")}
             state.switch_to_direct(state.cell_id, state.agent_id)
             return {"success": True, "mode": "DIRECT", "cell_id": state.cell_id, "current_tool_mode": "read"}
         if sub == "tool":

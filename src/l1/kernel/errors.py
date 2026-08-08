@@ -6,9 +6,12 @@ Three-layer architecture:
   3. Error response: to_dict() → {"success": false, "error": str, "error_code": str}
 
 i18n:
-  All localized messages are served by the registered ``I18nPort`` adapter.
-  Built-in zh-CN translations are registered into the port at module load.
-  The old private ``_translations`` dict is removed — no dual state.
+  English is the canonical message language. Localized messages are served
+  by the registered ``I18nPort`` adapter (``error.*`` keys in ``locales/``,
+  one file per locale) via the per-locale ``t_locale()`` lookup. A built-in
+  zh-CN dict remains only as a port-less fallback for minimal setups/tests;
+  it is never registered into the port — the YAML translation layer is the
+  single translation source at runtime.
 
 Usage:
   from l1.kernel.errors import (
@@ -110,25 +113,38 @@ class PraxisError(Exception):
     def to_dict(self, locale: str = "") -> dict:
         """Return a structured error response dict.
 
-        If locale is set and a translation is available (built-in zh-CN dict
-        or registered I18nPort), uses the localized message.
+        Message resolution priority:
+          1. Registered I18nPort ``t_locale()`` for the requested locale
+             (``error.*`` keys in the ``locales/`` YAML files)
+          2. Built-in zh-CN fallback dict (port-less environments only)
+          3. The English default message from the error catalog
+
+        Returns:
+            dict: {"success": False, "error": str, "error_code": str,
+            "context": dict, "cause": str}
         """
         msg = self.message
         loc = locale or get_locale()
         if loc != "en":
-            # 1) Built-in zh-CN fallback — works without a registered I18nPort.
-            builtin = _ZH_TRANSLATIONS.get(f"error.{self.code}")
-            if builtin:
-                msg = builtin
-            # 2) Registered I18nPort takes precedence when available.
+            # 1) I18nPort per-locale lookup takes precedence when registered.
             try:
                 from l1.kernel.ports import get_port as _gp
 
-                localized = _gp("i18n").t(f"error.{self.code}")
+                adapter = _gp("i18n")
+                t_locale = getattr(adapter, "t_locale", None)
+                if callable(t_locale):
+                    localized = t_locale(loc, f"error.{self.code}", **self.context)
+                else:
+                    localized = adapter.t(f"error.{self.code}")
                 if localized != f"error.{self.code}":
                     msg = localized
             except Exception:
                 logger.debug("errors: i18n localization lookup failed")
+            # 2) Built-in zh-CN fallback — works without a registered I18nPort.
+            if msg == self.message:
+                builtin = _ZH_TRANSLATIONS.get(f"error.{self.code}")
+                if builtin:
+                    msg = builtin
         result: dict = {"success": False, "error": msg, "error_code": self.code}
         if self.context:
             result["context"] = self.context
@@ -217,8 +233,9 @@ for _code, _msg in [
     register_error(_code, _msg)
 
 # ── Built-in zh-CN translations ──
-# Single source of truth: used both for the I18nPort registration below and as
-# the fallback in PraxisError.to_dict() when no I18nPort is registered.
+# Port-less fallback used by PraxisError.to_dict() when no I18nPort is
+# registered (unit tests, minimal setups). Runtime translations come from
+# the ``error.*`` keys in ``locales/zh-CN.yaml`` — keep both in sync.
 _ZH_TRANSLATIONS: dict[str, str] = {
     f"error.{E_INTERNAL}": "内部错误",
     f"error.{E_TIMEOUT}": "操作超时",
@@ -242,12 +259,6 @@ _ZH_TRANSLATIONS: dict[str, str] = {
     f"error.{E_SANDBOX_ERROR}": "沙箱操作失败",
 }
 
-# ── Register zh-CN translations into I18nPort ──
-
-try:
-    from l1.kernel.ports import get_port as _gp_err
-
-    _i18n = _gp_err("i18n")
-    _i18n.register("zh-CN", dict(_ZH_TRANSLATIONS))
-except Exception:
-    logger.debug("errors: i18n translations not yet available — using defaults")
+# NOTE: the zh-CN translations above are a port-less fallback ONLY. They are
+# intentionally NOT registered into the I18nPort — the ``error.*`` keys in
+# ``locales/<locale>.yaml`` are the single translation source at runtime.

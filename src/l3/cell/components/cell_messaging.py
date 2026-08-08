@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from l1.kernel import Signal, SignalType
 from l1.kernel.params.agent import CELL_MAILBOX_MAX_PER_AGENT, CELL_MAILBOX_TTL
+from l2.i18n import t as _t
 
 if TYPE_CHECKING:
     from l3.cell.components.cell_types import AgentInfo, CellMessage
@@ -127,7 +128,7 @@ class CellMessagingMixin:
             return {"success": False, "error": f"unknown agent: {agent_id}"}
         r = term.session_reachable()
         if not r.get("reachable"):
-            return {"success": False, "error": f"unreachable: {r.get('reason')}"}
+            return {"success": False, "error": _t("core.unreachable", reason=r.get("reason"))}
         return term.send_direct_message(text)
 
     def liveness(self) -> dict:
