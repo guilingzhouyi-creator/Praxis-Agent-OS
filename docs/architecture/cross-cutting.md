@@ -109,6 +109,31 @@ Adapters: `auth` (AuthService), `fs` (FsAdapter), `profile`
 card-registry/monitor-bus/transport. The kernel never imports upper layers —
 swapping the Python kernel for another language only changes adapters.
 
+## Agent efficiency evaluation (cross-layer)
+
+Throughput alone is not a valid efficiency measure for agents: a loop that
+repeatedly emits steps rejected by the Verifier scores high on steps/s and
+zero on value. Evaluation therefore combines **four metric families**, each
+answering a different question:
+
+| Family | Question | Signals / formulas |
+|---|---|---|
+| **Quality-weighted** | How much *useful* work per second? | effective throughput = raw throughput × Verifier pass rate; rework ratio = rejected steps / total; convergence efficiency = steps to card convergence (`convergence.py` RESOLVED share); quality-cost ratio = passed steps / LLM calls |
+| **Latency distribution** | How bad is the *tail*? | p50/p95/p99 step latency (mean feeds throughput only); Little's Law cross-check `WIP = throughput × cycle time` — finds the concurrency where throughput stops rising (lock contention / serial dependency); wait share = agent idle / wall time (complements the thread-pool `active_ratio` in the load-adaptive design) |
+| **Stall & oscillation** | Is the agent *spinning*? | stagnation rate = stagnation-trigger count / total steps; oscillation detection = zero-crossing / variance analysis of the EWMA `queue_ratio` series (feeds the load-adaptive hysteresis tuning); convergence-step histogram to surface long-tail cards |
+| **Scaling curve** | Where is the serial bottleneck? | Amdahl fit `speedup = 1 / (1−P + P/N)` over agent counts 1→2→4→8 → serial fraction P (high P ⇒ scheduler/shared-lock bottleneck); Gustafson correction at fixed wall time; saturation knee N* = measured max useful concurrency for `praxis.yaml` |
+
+Sources already in-tree: `src/l3/agent/verifier.py` (pass/fail),
+`convergence.py` (resolution ratio), `stagnation.py` (loop detection),
+`src/l3/scheduler/` (rate limits, step budgets), `tests/benchmarks/bench_card.py`
+(wall time, steps/s, parallel efficiency, CPU/wall speedup),
+`tests/benchmarks/bench_platform.py` (L1 primitives: mutex/event bus/channel/
+worker pool/thread create; platform fingerprint incl. WSL; `--json` for
+cross-platform diffing). The load-adaptive controller's `stats()` +
+`load_adaptive_decision` events (see `docs/design/praxis-load-adaptive-pool-design.md`)
+feed families 2–4; the scaling curve is the primary evidence for the Rust
+kernel migration priorities.
+
 ## Testing & QA
 
 - **3383 tests** under `tests/` organized by layer (`tests/l1/` … `tests/l5/`,
