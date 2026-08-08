@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -132,6 +133,20 @@ def _derive_role(agent_id: str) -> str:
     return agent_id
 
 
+_UNIVERSAL_PRINCIPLES_RE = re.compile(r"^## Universal Principles.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+
+
+def _strip_universal_principles(body: str) -> str:
+    """Remove the duplicated universal-principles section from a skill body.
+
+    The 12 governance principles are normalized into
+    ``config/skills/_shared/principles.md`` and injected once per skill at
+    load; the per-file section is stripped so sources stay slim and edits
+    do not drift across 21 files.
+    """
+    return _UNIVERSAL_PRINCIPLES_RE.sub("", body, count=1)
+
+
 @dataclass
 class Skill:
     """Skill — skill record (name, description, rules, procedures, knowledge)."""
@@ -233,6 +248,9 @@ class SkillManager:
         self._disclosure_source: str = "params"
         # Quest-style staged skills: (skill, session_key) → active stage index.
         self._stage_state: dict[tuple[str, str], int] = {}
+        # Universal principles normalized into a single shared layer
+        # (config/skills/_shared/principles.md) — injected at load time.
+        self._shared_principles: str = ""
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
@@ -669,6 +687,13 @@ class SkillManager:
         base = os.path.abspath(directory)
         if not os.path.isdir(base):
             return 0
+        # Universal principles live once in <base>/_shared/principles.md and
+        # are injected into every loaded skill (normalization: no per-file
+        # duplication of the 12 governance principles).
+        shared_path = os.path.join(base, "_shared", "principles.md")
+        if os.path.isfile(shared_path):
+            with open(shared_path, encoding="utf-8") as f:
+                self._shared_principles = f.read().strip()
         for root, _dirs, files in os.walk(base):
             for fn in files:
                 fp = os.path.join(root, fn)
@@ -820,7 +845,38 @@ class SkillManager:
         with self._lock:
             return self._skills.get(name)
 
-    def list_skills(self, tags: list[str] | None = None, limit: int = 0, sort_by: str = "name") -> list[dict]:
+    def structured_skill(self, name: str, session_key: str = "") -> dict:
+        """Return a skill as pure structure — the agent-facing view.
+
+        The human-readable SKILL.md stays the source of truth; this
+        projection (rules/procedures/stages as machine-readable items plus
+        the current stage) is what the agent consumes at runtime — the raw
+        markdown body is excluded (full content stays on the human/review
+        layer).
+        """
+        skill = self._skills.get(name)
+        if not skill:
+            return {"success": False, "error": f"skill '{name}' not found"}
+        stage = None
+        if skill.get("stages"):
+            stage = self.current_stage(name, session_key)
+        return {
+            "success": True,
+            "name": name,
+            "description": skill.get("description", ""),
+            "rules": list(skill.get("rules") or []),
+            "procedures": list(skill.get("procedures") or []),
+            "allowed_tools": skill.get("allowed_tools") or [],
+            "variables": skill.get("variables") or [],
+            "dependencies": skill.get("dependencies") or [],
+            "next": skill.get("next") or [],
+            "disclosure": skill.get("disclosure", SKILL_DISCLOSURE_DEFAULT),
+            "stage": stage,
+        }
+
+    def list_skills(
+        self, tags: list[str] | None = None, limit: int = 0, sort_by: str = "name", include_prompt: bool = False
+    ) -> list[dict]:
         """List skills, optionally filtered by tags and sorted.
 
         Args:
@@ -843,7 +899,7 @@ class SkillManager:
                     "rules": len(s.get("rules", [])),
                     "procedures": len(s.get("procedures", [])),
                     "tags": s.get("tags", []),
-                    "prompt": s.get("prompt", ""),
+                    "prompt": s.get("prompt", "") if include_prompt else "",
                     "source": s.get("source", ""),
                     "builtin": bool(s.get("builtin")),
                     "posture": s.get("posture", SKILL_POSTURE_DEFAULT),
@@ -1048,14 +1104,16 @@ class SkillManager:
             return False
         if not isinstance(meta, dict):
             return False
-        body = content[m.end() :]
+        body = _strip_universal_principles(content[m.end() :])
+        if self._shared_principles:
+            body = self._shared_principles + "\n\n" + body
         name = meta.get("name", os.path.basename(os.path.dirname(path)))
         desc = meta.get("description")
         data = {
             "name": name,
             "description": (desc or "")[:LOG_TRUNC_200],
             "rules": self._extract_rules(body),
-            "procedures": [],
+            "procedures": self._extract_procedures(body),
             "knowledge": {"body": body[:LOG_TRUNC_2000]},
             "source": path,
             "builtin": _is_builtin_path(path),
@@ -1141,6 +1199,20 @@ class SkillManager:
         for m in re.finditer(r"^[-*]\s+(DO|DON'T)[\s:]+(.+)$", body, re.MULTILINE):
             rules.append(f"{m.group(1)}: {m.group(2).strip()}")
         return rules
+
+    def _extract_procedures(self, body: str) -> list[dict]:
+        """Extract structured procedure steps from the markdown body.
+
+        Accepts ``- **1**: desc`` / ``- **step**: desc`` forms so both the
+        builtin catalog and the LLM SkillArchitect contract
+        (``{step, action, description}``) round-trip this shape.
+        """
+        procedures = []
+        import re
+
+        for m in re.finditer(r"^[-*]\s+\*\*([A-Za-z0-9_-]+)\*\*:\s*(.+)$", body, re.MULTILINE):
+            procedures.append({"step": m.group(1), "description": m.group(2).strip()})
+        return procedures
 
     def _store(self, data: dict, source: str = "") -> None:
         name = data.get("name", "unknown")

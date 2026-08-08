@@ -85,8 +85,9 @@ Key conventions:
 
 - **Round-trip integrity**: `evolve_skill` persists skills as `SKILL.md` with
   full YAML frontmatter (`name`, `description`, `tags`, `allowed_tools`,
-  `variables`). `_load_markdown` restores ALL of these on reload — never add a
-  persisted field to one side without the other, or skills degrade to a
+  `variables`, `posture`, `disclosure`, `dependencies`/`dependency-kind`,
+  `next`, `stages`). `_load_markdown` restores ALL of these on reload — never
+  add a persisted field to one side without the other, or skills degrade to a
   tag-less form after a reboot.
 - **Write gate**: `authorize_write(agent_id, role, internal=False)` — external
   callers (L2 shell `/skills`, L4 API) MUST pass an explicit identity;
@@ -115,6 +116,29 @@ Key conventions:
   member for it — `emit_event` auto-registers the string type).
 - **R5 graph switch** defaults OFF (`memory.graph.enabled`); all graph hooks
   must degrade gracefully (try/except + linear fallback).
+- **Skill file format gate**: `tests/infra/test_skill_schema.py` enforces the
+  normalized contract — required fields, enum validity (posture/disclosure),
+  trigger-oriented `description` ("Use when …"), name = directory, dangling
+  `next`/`dependencies` references, guidance-DAG acyclicity, body layout
+  (`## Constitution Binding`/`## Rules`/`## Procedures`) and loader round-trip.
+- **Shared principles layer**: the 12 universal governance principles live ONCE
+  in `config/skills/_shared/principles.md` and are injected by the loader at
+  load time — never duplicate them in per-skill files.
+- **Disclosure depth** (`disclosure: full|index|none`): `none` is hidden from
+  every surface (catalog/retrieval/injection — explicit `use_skill` only);
+  `index` surfaces name+description only. `none`-tagged skills also skip the
+  retrieval pool.
+- **Staged skills + guidance engine**: `stages` make a skill quest-style —
+  `current_stage`/`advance_stage` track per-session progression and `use_skill`
+  discloses only the active stage; `dependencies` (prerequisites) + `next`
+  (forward guidance) form the guidance DAG (`guided_frontier`/`guided_path`,
+  acyclicity enforced). `on_card_complete` advances the card session's stages
+  (three-table linkage).
+- **Structured view (human vs agent)**: `SKILL.md` is the human-readable
+  document; agents consume `SkillManager.structured_skill()` (rules/procedures/
+  stages — no markdown body). `list_skills()` drops `prompt` on external
+  surfaces (internal retrieval passes `include_prompt=True`); `use_skill`
+  defaults to the structured view, `full=true` is a write-gated privileged read.
 
 ## L3 + L4 conventions (enforced during code review)
 

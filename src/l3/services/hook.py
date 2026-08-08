@@ -305,7 +305,12 @@ class SkillCatalogHook(LifecycleHooks):
                         r = retriever.rank(task, group, limit=len(group))
                         ranked.extend(r if r else group)
                     if ranked:
-                        skills = ranked
+                        # Reorder, never filter: the retriever drops
+                        # zero-overlap candidates, but the catalog must keep
+                        # full coverage for the two-level index — ranked first,
+                        # unranked appended.
+                        ranked_names = {s.get("name") for s in ranked}
+                        skills = ranked + [s for s in skills if s.get("name") not in ranked_names]
                 except Exception as e:
                     logger.debug("SkillCatalogHook: relevance ranking skipped: %s", e)
             # Two-level index (progressive disclosure): curated slots first,
