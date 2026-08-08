@@ -1,6 +1,6 @@
 ---
 name: ask-matt
-description: The skill router — given a situation, name the skill or flow that fits it; a decision-layer entry point over the whole skill catalog
+description: Use when unsure which skill applies — route a situation to the fitting skill or flow across the catalog
 tags: [strategy]
 disable-model-invocation: true
 posture: productive

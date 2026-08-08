@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: The reusable interview primitive — resolve every branch of a plan, design, or decision tree through structured questioning until fully aligned
+description: Use when interviewing or clarifying — resolve every branch of a plan/design/decision tree through structured questioning
 tags: [strategy]
 disable-model-invocation: true
 posture: productive

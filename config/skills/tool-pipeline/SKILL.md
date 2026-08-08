@@ -1,6 +1,6 @@
 ---
 name: tool-pipeline
-description: Tool execution pipeline — registration, gating, sandbox staging, result folding
+description: Use when working on tool execution — registration, gating, sandbox staging, result folding
 tags: [execution]
 disable-model-invocation: true
 posture: productive

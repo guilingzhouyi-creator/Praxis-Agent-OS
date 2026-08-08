@@ -1,6 +1,6 @@
 ---
 name: codebase-design
-description: Deep-module design discipline — a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface; shared vocabulary for making modules deep
+description: Use when designing modules — deep-module discipline, small interface, clean seam, testable through it
 tags: [execution]
 disable-model-invocation: true
 posture: productive

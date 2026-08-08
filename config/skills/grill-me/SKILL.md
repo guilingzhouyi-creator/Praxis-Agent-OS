@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: Relentlessly interview the user about a plan, design, or task before starting — resolve every branch of the design tree until aligned
+description: Use when starting ambiguous work — interview the user on the plan/design until every branch is resolved
 tags: [strategy]
 disable-model-invocation: true
 posture: productive

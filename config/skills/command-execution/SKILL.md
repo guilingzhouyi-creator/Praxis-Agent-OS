@@ -1,6 +1,6 @@
 ---
 name: command-execution
-description: Run commands and shell operations safely — build, test, and diagnostic commands with explicit timeouts, output caps, and failure recovery
+description: Use when running shell commands — build/test/diagnostic with explicit timeouts, output caps, failure recovery
 tags: [execution]
 disable-model-invocation: true
 posture: productive

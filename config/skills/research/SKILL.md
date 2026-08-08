@@ -1,6 +1,6 @@
 ---
 name: research
-description: Investigate a question against high-trust primary sources and capture the findings as a cited Markdown file — web research with provenance
+description: Use when researching — investigate against high-trust primary sources, capture cited Markdown findings
 tags: [execution]
 disable-model-invocation: true
 posture: productive

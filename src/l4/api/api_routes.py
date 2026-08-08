@@ -59,6 +59,19 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         "l4.api_handlers.api_handlers_skills.handle_skills_distill_policy_set",
         "Update skill distillation/DPO switches (developer)",
     ),
+    # Skill retrieval/curation pipeline policy (master switches + thresholds)
+    (
+        "GET",
+        "/api/v2/skills/pipeline",
+        "l4.api_handlers.api_handlers_skills.handle_skills_pipeline_get",
+        "Skill retrieval/curation pipeline policy",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/pipeline",
+        "l4.api_handlers.api_handlers_skills.handle_skills_pipeline_set",
+        "Update skill retrieval/curation pipeline knobs (developer)",
+    ),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),
     ("POST", "/api/v2/card/batch", ".submit_batch", "Submit batch cards"),

@@ -1,6 +1,6 @@
 ---
 name: kernel
-description: Kernel primitives — constants governance, sync, gatechain, constitution, discovery
+description: Use when working in the kernel — constants governance, sync primitives, gatechain, constitution, discovery
 tags: [review]
 disable-model-invocation: true
 posture: productive

@@ -212,3 +212,51 @@ def handle_skills_distill_policy_set(body: dict | None = None) -> dict:
         logger.debug("skills: distill policy SettingsCenter mirror skipped", exc_info=True)
     policy["authorized"] = who
     return policy
+
+
+def handle_skills_pipeline_get(body: dict | None = None) -> dict:
+    """GET /api/v2/skills/pipeline — current retrieval/curation pipeline policy."""
+    return {"success": True, "policy": _manager().pipeline_policy()}
+
+
+def handle_skills_pipeline_set(body: dict | None = None) -> dict:
+    """POST /api/v2/skills/pipeline — update retrieval/curation pipeline knobs (developer).
+
+    Body (all optional; only provided fields change):
+      retrieval: bool            — False disables task-similarity ranking
+      curation: bool             — False disables contribution-based curation
+      contrib_min_trials: int    — minimum injections before a verdict counts
+      contrib_min_ratio: float   — useful/injected below this → retire
+      retrieval_min_score: float — similarity floor for skill ranking
+
+    Mirrors the new values into SettingsCenter (L2) so config-driven reads
+    stay in sync; applied atomically on the SkillManager.
+    """
+    b = body or {}
+    agent_id, role = _caller(b)
+    sm = _manager()
+    ok, who = sm.authorize_write(agent_id, role)
+    if not ok:
+        return {"success": False, "error": f"permission denied: {who}"}
+    update: dict = {}
+    for key in ("retrieval", "curation"):
+        if key in b:
+            raw = b[key]
+            update[key] = raw in (True, "true", 1, "1")
+    if "contrib_min_trials" in b and isinstance(b["contrib_min_trials"], int):
+        update["contrib_min_trials"] = b["contrib_min_trials"]
+    if "contrib_min_ratio" in b and isinstance(b["contrib_min_ratio"], (int, float)):
+        update["contrib_min_ratio"] = float(b["contrib_min_ratio"])
+    if "retrieval_min_score" in b and isinstance(b["retrieval_min_score"], (int, float)):
+        update["retrieval_min_score"] = float(b["retrieval_min_score"])
+    policy = sm.set_pipeline_policy(**update, source="api")
+    try:
+        from l3.config.settings_center import get_center
+
+        center = get_center()
+        for key, value in update.items():
+            center.set_l2(f"skill.pipeline.{key}", value)
+    except Exception:
+        logger.debug("skills: pipeline policy SettingsCenter mirror skipped", exc_info=True)
+    policy["authorized"] = who
+    return policy

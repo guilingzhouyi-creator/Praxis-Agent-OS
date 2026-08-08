@@ -1,6 +1,6 @@
 ---
 name: card
-description: Card lifecycle — create, dispatch, execute, review across peer agents
+description: Use when working with cards — create, dispatch, execute, and review card lifecycle across peer agents
 tags: [execution]
 disable-model-invocation: true
 posture: productive

@@ -520,7 +520,19 @@ class SkillFeedbackMixin:
         ``get_evolved_skills`` ordering (most recently loaded first).
         ``tags`` are forwarded as an OR-match filter (card-nature linkage).
         """
-        if not R4_RETRIEVAL_ENABLED or not query:
+        # Runtime policy (SkillManager pipeline policy) overrides the
+        # compile-time defaults — retrieval can be disabled or its similarity
+        # floor tuned per-deployment via API / L2 Shell, not just params.
+        policy = {}
+        try:
+            from l1.kernel.skill import get_skill_manager
+
+            policy = get_skill_manager().pipeline_policy()
+        except Exception:
+            pass
+        retrieval_enabled = bool(policy.get("retrieval", R4_RETRIEVAL_ENABLED))
+        min_score = float(policy.get("retrieval_min_score", R4_RETRIEVAL_MIN_SCORE))
+        if not retrieval_enabled or not query:
             return self.get_evolved_skills(
                 agent_id=agent_id, cell_id=cell_id, limit=limit, graph_diffusion=graph_diffusion, tags=tags
             )
@@ -531,5 +543,5 @@ class SkillFeedbackMixin:
             return []
         from l3.memory.skill_retriever import get_retriever
 
-        ranked = get_retriever().rank(query, base, limit=limit, min_score=R4_RETRIEVAL_MIN_SCORE)
+        ranked = get_retriever().rank(query, base, limit=limit, min_score=min_score)
         return ranked if ranked else base[:limit]

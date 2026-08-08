@@ -1,6 +1,6 @@
 ---
 name: dependency-management
-description: Manage project dependencies — inspect versions, plan upgrades, install safely, and verify the result against the lockfile and the test suite
+description: Use when managing dependencies — inspect, plan upgrades, install safely, verify against lockfile and test suite
 tags: [execution]
 disable-model-invocation: true
 posture: productive

@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Scout investigations — read-only exploration, ring-1 tool usage, findings reporting
+description: Use when scouting — read-only exploration with ring-1 tools, report findings
 tags: [execution]
 disable-model-invocation: true
 posture: productive

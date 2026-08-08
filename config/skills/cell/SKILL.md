@@ -1,6 +1,6 @@
 ---
 name: cell
-description: Cell operations — peer agents, scout pool, health monitoring, lifecycle
+description: Use when operating a Cell — peer agents, scout pool, health monitoring, lifecycle management
 tags: [execution]
 disable-model-invocation: true
 posture: productive

@@ -671,9 +671,16 @@ class SkillEvolutionMixin:
 
         from l1.kernel.skill import get_skill_manager
 
-        if not R4_CURATION_ENABLED:
+        policy = {}
+        try:
+            policy = get_skill_manager().pipeline_policy()
+        except Exception as e:
+            logger.debug("R4Agent: pipeline policy unavailable, using params: %s", e)
+        if not bool(policy.get("curation", R4_CURATION_ENABLED)):
             return 0
         sm = get_skill_manager()
+        min_trials = int(policy.get("contrib_min_trials", R4_CONTRIB_MIN_TRIALS))
+        min_ratio = float(policy.get("contrib_min_ratio", R4_CONTRIB_MIN_RATIO))
         evolved: list[dict] = []
         for s in sm.list_skills(tags=["evolved"], sort_by="loaded_at"):
             tags = s.get("tags", [])
@@ -695,7 +702,7 @@ class SkillEvolutionMixin:
         retired = 0
         # 1. Retire under-performers with enough trials.
         for e in evolved:
-            if e["injected"] >= R4_CONTRIB_MIN_TRIALS and e["contrib"] < R4_CONTRIB_MIN_RATIO:
+            if e["injected"] >= min_trials and e["contrib"] < min_ratio:
                 try:
                     from l3.tools._archive import _cmd_archive_store
 
