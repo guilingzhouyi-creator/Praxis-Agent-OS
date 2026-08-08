@@ -546,7 +546,9 @@ class SkillManager:
         dependency prerequisites are satisfied (in ``completed``).
         """
         if self._guidance_mode == "small":
-            return [n for n in sorted(self._skills) if self._skills[n].get("disclosure", "full") != "none"]
+            with self._lock:
+                items = list(self._skills.items())
+            return sorted(n for n, s in items if s.get("disclosure", "full") != "none")
         completed_set = set(completed or [])
         frontier: list[str] = []
         with self._lock:
