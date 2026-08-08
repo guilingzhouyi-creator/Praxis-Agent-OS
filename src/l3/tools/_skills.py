@@ -52,15 +52,17 @@ def _audience_label(agent_id: str) -> str:
 
 
 def use_skill(args: dict, agent_id: str) -> dict:
-    """Execute a skill by name with optional variable substitution.
+    """Execute a skill by name; returns the structured agent-facing view.
 
     Usage:
       use_skill(name="refactor", function_name="validate", goal="split")
-      → expands $FUNCTION_NAME and $GOAL in the skill's prompt
+      use_skill(name="tdd", structured=true)  → structured view (default)
+      use_skill(name="tdd", full=true)        → full body (write-gated)
 
-    Returns the expanded prompt text. The caller (AgentLoop) should
-    inject it as a system message for the LLM. Audience routing: a skill
-    tagged for another domain is refused.
+    The structured view (rules/procedures/stages as machine-readable items,
+    no markdown body) is the runtime contract; the full body is a privileged
+    read for the human/review layer. Audience routing: a skill tagged for
+    another domain is refused.
     """
     name = args.get("name", "")
     if not name:
@@ -102,7 +104,50 @@ def use_skill(args: dict, agent_id: str) -> dict:
                 f" (nature '{nature}' not allowed by offensive policy)",
             }
 
-    prompt = skill_data.get("prompt", "")
+    # Structured agent-facing view is the default contract (rules/procedures/
+    # stages as machine-readable items — no markdown body). The full body is a
+    # privileged read (full=True, write gate) for the human/review layer.
+    structured = bool(args.get("structured", True))
+    full = bool(args.get("full", False))
+
+    if full:
+        ok, who = sm.authorize_write(args.get("_agent_id", ""), args.get("_role", ""))
+        if not ok:
+            return {"success": False, "error": f"permission denied: {who}"}
+        variables = skill_data.get("variables", [])
+        expanded = skill_data.get("prompt", "")
+        for v in variables or []:
+            val = args.get(v.lower(), "")
+            if val:
+                expanded = expanded.replace(f"${v.upper()}", str(val))
+        sm.bump_usage(name)
+        return {
+            "success": True,
+            "skill": name,
+            "prompt": expanded,
+            "description": skill_data.get("description", "")[:LOG_TRUNC_60],
+            "full": True,
+            "variables": variables or [],
+            "allowed_tools": skill_data.get("allowed_tools") or [],
+        }
+
+    if structured:
+        view = sm.structured_skill(name, agent_id)
+        if not view.get("success"):
+            return {"success": False, "error": view.get("error", "skill unavailable")}
+        sm.bump_usage(name)
+        view["skill"] = name
+        return view
+
+    # Legacy raw mode: current stage instructions for staged skills, else the
+    # full body (explicit opt-out from the structured contract).
+    stage_info: dict = {}
+    if skill_data.get("stages"):
+        stage_info = sm.current_stage(name, agent_id)
+        stage = stage_info.get("stage") or {}
+        prompt = stage.get("instructions") or skill_data.get("prompt", "")
+    else:
+        prompt = skill_data.get("prompt", "")
     variables = skill_data.get("variables", [])
     allowed_tools = skill_data.get("allowed_tools")
 
@@ -117,7 +162,7 @@ def use_skill(args: dict, agent_id: str) -> dict:
     # single lock so concurrent use_skill calls never lose an increment.
     sm.bump_usage(name)
 
-    return {
+    result = {
         "success": True,
         "skill": name,
         "prompt": expanded,
@@ -125,3 +170,9 @@ def use_skill(args: dict, agent_id: str) -> dict:
         "variables": variables or [],
         "allowed_tools": allowed_tools or [],
     }
+    if stage_info:
+        result["staged"] = True
+        result["stage_index"] = stage_info.get("stage_index", 0)
+        result["stage_id"] = (stage_info.get("stage") or {}).get("id", "")
+        result["next_stage"] = stage_info.get("next_stage")
+    return result

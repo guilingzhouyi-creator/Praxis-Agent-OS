@@ -64,7 +64,7 @@ class SkillRetrievalMixin:
             tags.append(agent_id)
         if tool_name:
             tags.append(tool_name)
-        skills = sm.list_skills(tags=tags, limit=limit * 2, sort_by="loaded_at")
+        skills = sm.list_skills(tags=tags, limit=limit * 2, sort_by="loaded_at", include_prompt=True)
         allow = sm.skills_for_cell(cell_id) if cell_id else set()
         result = []
         names = []
@@ -153,7 +153,7 @@ class SkillRetrievalMixin:
                         return evolved[:limit]
             except Exception as e:
                 logger.debug("R4Agent: graph diffusion fallback to linear: %s", e)
-        skills = sm.list_skills(tags=["evolved"], limit=limit * 2, sort_by="loaded_at")
+        skills = sm.list_skills(tags=["evolved"], limit=limit * 2, sort_by="loaded_at", include_prompt=True)
         evolved = []
         for s in skills:
             if agent_id and agent_id not in s.get("tags", []):
@@ -212,6 +212,30 @@ class SkillRetrievalMixin:
         base = self.get_evolved_skills(
             agent_id=agent_id, cell_id=cell_id, limit=limit * 4, graph_diffusion=graph_diffusion, tags=tags
         )
+        if not base:
+            return []
+        # Disclosure depth: skills marked disclosure=none never surface in
+        # task-similarity retrieval (explicit use_skill only).
+        base = [s for s in base if s.get("disclosure", "full") != "none"]
+        if not base:
+            return []
+        # Builtin skills join the task-similarity pool (audience + disclosure
+        # filtered) so retrieval covers the full catalog, not just evolved.
+        try:
+            from l1.kernel.skill import get_skill_manager as _loop_sm
+            from l1.kernel.skill import skill_visible as _sv
+
+            for s in _loop_sm().list_skills(include_prompt=True):
+                if not s.get("builtin"):
+                    continue
+                if s.get("disclosure", "full") == "none":
+                    continue
+                if not _sv(s, agent_id):
+                    continue
+                if s not in base:
+                    base.append(s)
+        except Exception:
+            pass
         if not base:
             return []
         from l3.memory.skill_retriever import get_retriever

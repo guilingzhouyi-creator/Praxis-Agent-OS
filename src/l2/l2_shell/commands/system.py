@@ -91,6 +91,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills retriever set <backend>  → switch retrieval backend at runtime
       /skills pipeline [status]        → retrieval/curation pipeline policy + thresholds
       /skills pipeline set <field> <value> → toggle retrieval|curation, tune contrib_min_trials|contrib_min_ratio|retrieval_min_score
+      /skills disclosure [status]      → progressive-disclosure policy (index/audience/capability)
+      /skills disclosure set <field> <value> → toggle full_index_enabled|audience_filter_enabled|strategy_capability_view, set full_index_limit
 
     The optional ``--role``/``--agent`` flag supplies the caller identity for
     the SkillManager developer gate; omitting it treats the call as a
@@ -223,6 +225,42 @@ def _cmd_skills(args: list[str]) -> dict:
         return {
             "success": False,
             "error": f"unknown pipeline action: {action}",
+            "suggestions": ["status", "set <field> <value>"],
+        }
+
+    if sub == "disclosure":
+        # Progressive-disclosure policy — status public, toggling is a
+        # developer runtime knob (same state as /api/v2/skills/disclosure).
+        action = rest[1] if len(rest) > 1 else "status"
+        if action == "status":
+            return {"success": True, "policy": sm.disclosure_policy()}
+        if action == "set":
+            field = rest[2] if len(rest) > 2 else ""
+            value = rest[3] if len(rest) > 3 else ""
+            if field in ("full_index_enabled", "audience_filter_enabled", "strategy_capability_view") and value in (
+                "on",
+                "off",
+                "true",
+                "false",
+                "1",
+                "0",
+            ):
+                flag = value in ("on", "true", "1")
+                return sm.set_disclosure_policy(**{field: flag}, source="shell")
+            if field == "full_index_limit" and value.isdigit():
+                return sm.set_disclosure_policy(full_index_limit=int(value), source="shell")
+            return {
+                "success": False,
+                "error": f"invalid disclosure field/value: {field} {value}",
+                "suggestions": [
+                    "status",
+                    "set <full_index_enabled|audience_filter_enabled|strategy_capability_view> <on|off>",
+                    "set full_index_limit <number>",
+                ],
+            }
+        return {
+            "success": False,
+            "error": f"unknown disclosure action: {action}",
             "suggestions": ["status", "set <field> <value>"],
         }
 

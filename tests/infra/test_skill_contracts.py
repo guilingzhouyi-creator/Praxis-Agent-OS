@@ -60,14 +60,22 @@ class TestBuiltinSkillCatalog:
                 f"{d.name}: invalid posture {front.get('posture')!r}"
             )
 
-    def test_universal_principles_present(self):
-        """Each built-in skill carries all 12 universal-principle sections."""
-        for d in _builtin_skill_dirs():
-            body = (d / "SKILL.md").read_text(encoding="utf-8")
-            numbered = re.findall(r"^(\d+)\.\s", body, re.MULTILINE)
-            assert len(numbered) >= _PRINCIPLE_COUNT, (
-                f"{d.name}: expected {_PRINCIPLE_COUNT} principles, got {len(numbered)}"
-            )
+    def test_universal_principles_shared_layer(self):
+        """The 12 universal principles live once in the shared layer and are
+        injected into every loaded skill (normalization, not duplication)."""
+        shared = SKILLS_DIR / "_shared" / "principles.md"
+        assert shared.exists(), "missing config/skills/_shared/principles.md"
+        numbered = re.findall(r"^(\d+)\.\s", shared.read_text(encoding="utf-8"), re.MULTILINE)
+        assert len(numbered) >= _PRINCIPLE_COUNT, f"shared principles: expected {_PRINCIPLE_COUNT}, got {len(numbered)}"
+        # The loader injects the shared block into every loaded skill.
+        from l1.kernel.skill import get_skill_manager, reset_skill_manager
+
+        reset_skill_manager()
+        sm = get_skill_manager()
+        sm.load_dir(str(SKILLS_DIR))
+        tdd = sm.get("tdd")
+        reset_skill_manager()
+        assert tdd is not None and "Generalization first" in (tdd.get("prompt") or "")
 
     def test_no_project_specific_paths(self):
         """Skill content must be generalized — no project-specific path literals."""

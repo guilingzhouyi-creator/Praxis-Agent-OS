@@ -11,7 +11,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from l1.kernel.params.system import SKILL_POSTURE_DEFAULT, SKILL_POSTURE_VALID
+from l1.kernel.params.system import (
+    SKILL_DISCLOSURE_DEFAULT,
+    SKILL_POSTURE_DEFAULT,
+    SKILL_POSTURE_VALID,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,9 @@ class SkillPersistMixin:
         dependencies: list[str] | None = None,
         dependency_kind: str = "soft",
         posture: str = SKILL_POSTURE_DEFAULT,
+        disclosure: str = SKILL_DISCLOSURE_DEFAULT,
+        stages: list[dict] | None = None,
+        next_skills: list[str] | None = None,
         scope: str = "",
     ) -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
@@ -80,6 +87,12 @@ class SkillPersistMixin:
             meta["dependency-kind"] = dependency_kind
         if posture != SKILL_POSTURE_DEFAULT:
             meta["posture"] = posture
+        if disclosure != SKILL_DISCLOSURE_DEFAULT:
+            meta["disclosure"] = disclosure
+        if stages:
+            meta["stages"] = [s for s in stages if isinstance(s, dict)]
+        if next_skills:
+            meta["next"] = [n for n in next_skills if isinstance(n, str)]
         if allowed_tools:
             meta["allowed_tools"] = allowed_tools
         if variables:

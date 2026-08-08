@@ -283,6 +283,13 @@ SKILL_TTL_DAYS: Final[int] = 7  # evolved skills unused for this long are marked
 SKILL_TTL_EXTEND_PER_USE: Final[int] = 3600  # each bump_usage extends the effective TTL by this many seconds
 SKILL_LIBRARY_MAX: Final[int] = 50  # hard cap on evolved skills; curation evicts lowest contribution
 SKILL_CATALOG_HOOK_LIMIT: Final[int] = 5  # max skills injected by SkillCatalogHook at session start
+# Progressive disclosure: full skill index appended after the curated slots
+SKILL_CATALOG_FULL_INDEX_ENABLED: Final[bool] = False  # opt-in full catalog list
+SKILL_CATALOG_FULL_INDEX_LIMIT: Final[int] = 50  # max entries in the full index
+# Audience-aware session catalogs (strategy → L3A, execution → peers)
+SKILL_AUDIENCE_FILTER_ENABLED: Final[bool] = True
+# L3A decision layer sees the execution capability list (delegation view)
+SKILL_STRATEGY_CAPABILITY_VIEW: Final[bool] = True
 SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
 # ── Evolved-skill content contract (parity with built-in contract tests) ──
 # Evolved (LLM-generated) skills must pass the same content checks as the
@@ -320,6 +327,9 @@ SKILL_POSTURE_PRODUCTIVE: Final[str] = "productive"  # normal build/dev work (de
 SKILL_POSTURE_OFFENSIVE: Final[str] = "offensive"  # reverse / attack testing
 SKILL_POSTURE_DEFAULT: Final[str] = SKILL_POSTURE_PRODUCTIVE
 SKILL_POSTURE_VALID: Final[tuple[str, ...]] = (SKILL_POSTURE_PRODUCTIVE, SKILL_POSTURE_OFFENSIVE)
+# Skill disclosure depth — full (default) / index (name+desc only) / none (hidden)
+SKILL_DISCLOSURE_DEFAULT: Final[str] = "full"
+SKILL_DISCLOSURE_VALID: Final[tuple[str, ...]] = ("full", "index", "none")
 # Card natures that authorize injecting offensive-posture skills into a
 # session. The L3A decision layer marks a card with one of these natures;
 # AgentLoop derives the session-level authorization flag from it (default-deny
