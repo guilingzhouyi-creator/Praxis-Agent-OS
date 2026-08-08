@@ -43,6 +43,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_200,
     SECONDS_PER_DAY,
     SECONDS_PER_HOUR,
+    SKILL_DISCLOSURE_DEFAULT,
     SKILL_LIBRARY_MAX,
     SKILL_POSTURE_DEFAULT,
     SKILL_POSTURE_VALID,
@@ -130,6 +131,9 @@ class SkillEvolutionMixin:
         dependencies: list[str] | None = None,
         dependency_kind: str = "soft",
         posture: str = SKILL_POSTURE_DEFAULT,
+        disclosure: str = SKILL_DISCLOSURE_DEFAULT,
+        stages: list[dict] | None = None,
+        next_skills: list[str] | None = None,
         scope: str = "",
     ) -> str:
         """Persist a skill as SKILL.md with round-trip frontmatter.
@@ -160,6 +164,12 @@ class SkillEvolutionMixin:
             meta["dependency-kind"] = dependency_kind
         if posture != SKILL_POSTURE_DEFAULT:
             meta["posture"] = posture
+        if disclosure != SKILL_DISCLOSURE_DEFAULT:
+            meta["disclosure"] = disclosure
+        if stages:
+            meta["stages"] = [s for s in stages if isinstance(s, dict)]
+        if next_skills:
+            meta["next"] = [n for n in next_skills if isinstance(n, str)]
         if allowed_tools:
             meta["allowed_tools"] = allowed_tools
         if variables:

@@ -4,6 +4,7 @@ description: Use when debugging hard bugs or regressions — red feedback loop, 
 tags: [execution]
 disable-model-invocation: true
 posture: productive
+next: [tdd]
 allowed-tools: [read_file, write_file, list_dir, grep_search, run_tests, run_shell]
 ---
 

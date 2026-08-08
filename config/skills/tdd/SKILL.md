@@ -4,6 +4,20 @@ description: Use when implementing or fixing — TDD red-green-refactor, one ver
 tags: [execution]
 disable-model-invocation: true
 posture: productive
+next: [code-review]
+stages:
+  - id: red
+    name: RED
+    instructions: Write a failing test for the smallest vertical slice; confirm it fails for the right reason.
+    completion: Test fails with the expected assertion
+  - id: green
+    name: GREEN
+    instructions: Implement the minimum code to make the test pass. Do not refactor yet.
+    completion: Test passes
+  - id: refactor
+    name: REFACTOR
+    instructions: Clean up the implementation while keeping tests green; run the full relevant suite.
+    completion: Full suite passes
 allowed-tools: [read_file, write_file, list_dir, grep_search, run_tests]
 ---
 
