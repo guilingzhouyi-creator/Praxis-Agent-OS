@@ -1,4 +1,4 @@
-"""AgentLoop 鈥?LLM tool calling with loop detection, retry, and parallel tools.
+"""AgentLoop — LLM tool calling with loop detection, retry, and parallel tools.
 
 Architecture:
   AgentLoop reads a Card, calls LLM in a loop, executes tools returned
@@ -10,86 +10,60 @@ Flow per turn:
   2. Call LLM (with tool-use / tool_choice)
   3. Parse tool calls from response
   4. Execute each tool (parallel via ThreadPoolExecutor)
-  5. Collect results 鈫?append to conversation
+  5. Collect results → append to conversation
   6. Self-verification check (verifier.py)
-  7. If not done 鈫?goto 1
+  7. If not done → goto 1
 
 Loop detection (loop_detectors.py):
   - Stagnation: same action repeated without progress
-  - Oscillation: A鈫払鈫扐鈫払 pattern
+  - Oscillation: A→B→A→B pattern
   - Diminishing returns: score not improving
 
 Integration:
-  - Card 鈫?AgentLoop 鈫?tools 鈫?results 鈫?CardRegistry
-  - AgentLoop 鈫?Verifier (self-check) 鈫?correction 鈫?AgentLoop
-  - AgentLoop 鈫?Review (peer-review) 鈫?feedback 鈫?AgentLoop
+  - Card → AgentLoop → tools → results → CardRegistry
+  - AgentLoop → Verifier (self-check) → correction → AgentLoop
+  - AgentLoop → Review (peer-review) → feedback → AgentLoop
+
+This module keeps the class core (state, tool registration, result folding,
+handler wrapping); domain logic lives in sibling mixins: guard
+(agent_loop_guard.py), context (agent_loop_context.py), and run
+(agent_loop_run.py).
 """
 
 from __future__ import annotations
 
 import logging
-import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from l1.kernel.params.agent import (
-    AGENT_LOOP_CONTEXT_TB_LIMIT,
-    AGENT_LOOP_DEFAULT_STEPS,
-    AGENT_LOOP_DEFAULT_TIMEOUT,
-    AGENT_LOOP_FUTURE_TIMEOUT,
-    AGENT_LOOP_MAX_CONTENT,
     AGENT_LOOP_MAX_WORKERS,
-    AGENT_LOOP_UNLIMITED_STEPS,
-    LOOP_CONTEXT_BUDGET_SKILL,
-    LOOP_EVOLVED_SKILL_TRUNC,
-    LOOP_EVOLVED_SKILLS_LIMIT,
     LOOP_FOLD_LIST_PREVIEW,
     LOOP_FOLD_LIST_TRUNCATION,
-    LOOP_LEAN_CASES_LIMIT,
     R4_CARD_SKILL_SIGNAL_MAX,
     R4_CARD_TAG_MAX,
 )
 from l1.kernel.params.kernel import RING_1
 from l1.kernel.params.system import (
     CONTEXT_TRAIL_TRUNC,
-    HASH_TRUNC_SHORT,
-    LOG_TRUNC_40,
-    LOG_TRUNC_100,
     LOG_TRUNC_200,
     LOG_TRUNC_500,
-    MEMORY_IMPORTANCE_DECISION,
-    MEMORY_PROMOTION_THRESHOLD,
-    SKILL_POSTURE_OFFENSIVE,
 )
-from l1.kernel.ports import get_port as _get_port
-from l1.kernel.prompts import get_prompt
 from l3.scheduler.loop_detectors import CoarseRepeatDetector, ToolLoopDetector
 from l3.services.todo_tracker import TodoTracker
 from l3.tool_system.tool_pipeline import get_pipeline
 from l3.tool_system.tool_spec import ParamSpec, ToolSpec
 
+from .agent_loop_context import AgentLoopContextMixin
 from .agent_loop_guard import AgentLoopGuardMixin
-from .session_snapshot import TRUNCATION_RESUME_NUDGE
+from .agent_loop_run import AgentLoopRunMixin
 from .verify_cadence import VerifyCadence
 
 logger = logging.getLogger(__name__)
 
 
-def _inject_enabled(domain: str) -> bool:
-    """Whether the ``prompt.inject.<domain>`` system-prompt injection is on."""
-    from l1.kernel.settings import inject_enabled as _ie
-
-    return _ie(domain)
-
-
-# Max accumulated content length across truncation, correction, and nudge appends
-_AGENT_LOOP_MAX_CONTENT: int = AGENT_LOOP_MAX_CONTENT  # chars (~25K tokens)
-
-
-# extracted to services/todo_tracker.py
-# extracted to services/verify_cadence.py
-class AgentLoop(AgentLoopGuardMixin):
+class AgentLoop(AgentLoopGuardMixin, AgentLoopContextMixin, AgentLoopRunMixin):
     """Tool-calling loop with loop detection, retry, and parallel tools.
 
     Usage:
@@ -124,7 +98,7 @@ class AgentLoop(AgentLoopGuardMixin):
         self._chat_params_hooks: list[Callable] = []
         self._run_count = 0
         self._context_trail: list[dict] | None = None
-        # Cached state for continue_run() 鈥?built once on first run(), reused thereafter.
+        # Cached state for continue_run() — built once on first run(), reused thereafter.
         # Maintaining identical system prompt + tools across calls enables LLM
         # provider prompt caching (Anthropic/DeepSeek) and avoids redundant work.
         self._cached_system: str = ""
@@ -155,217 +129,6 @@ class AgentLoop(AgentLoopGuardMixin):
         """Set the card-derived context tags that bias skill retrieval."""
         if tags:
             self._card_tags = [t for t in tags if isinstance(t, str) and t][:R4_CARD_TAG_MAX]
-
-    def _card_query_boost(self) -> str:
-        """Build the tag-boost fragment appended to the retrieval query."""
-        tags = getattr(self, "_card_tags", []) or []
-        if not tags:
-            return ""
-        return " " + " ".join(tags)
-
-    def _build_run_context(
-        self, max_steps: int, model_config: dict | None, engine: Any
-    ) -> tuple[str, list, list, dict]:
-        """Build system prompt, wrap tools, and prepare model kwargs."""
-        model_kwargs: dict = {}
-        if model_config:
-            for key in ("model", "max_tokens", "temperature", "reasoning_effort", "thinking_budget"):
-                if key in model_config and model_config[key] is not None:
-                    model_kwargs[key] = model_config[key]
-
-        for hook in self._chat_params_hooks:
-            try:
-                override = hook(self.task, self.agent_id, dict(model_kwargs))
-                if isinstance(override, dict):
-                    model_kwargs.update(override)
-            except Exception as e:
-                logger.warning("chat params hook failed: %s", e)
-        self._register_todowrite()
-        todo_reminder = self._todo.reminder()
-
-        if self._system:
-            system = self._system
-        else:
-            pk = self._prompt_key
-            if not pk and self._role:
-                pk = f"agent_loop.system.{self._role}"
-            if not pk:
-                pk = "agent_loop.system"
-            template = get_prompt(pk, get_prompt("agent_loop.system", ""))
-            system = template.format(task=self.task) + get_prompt(
-                "agent_loop.turn_budget", "\nYou have up to {max_steps} tool-calling turns. Use them wisely."
-            ).format(max_steps=max_steps)
-        vc = get_prompt("agent_loop.verification_culture", "")
-        if vc and _inject_enabled("verification"):
-            system = (system + "\n\n" + vc) if system else vc
-        if todo_reminder:
-            system = (system + "\n\n" + todo_reminder) if system else todo_reminder
-
-        try:
-            from l1.kernel.constitution import get_constitution
-
-            if _inject_enabled("constitution"):
-                const_summary = get_constitution().summary(for_agent=self.agent_id)
-                system = (system + "\n\n" + const_summary) if system else const_summary
-        except (ImportError, AttributeError):
-            logger.debug("agent_loop: constitution summary failed")
-
-        wrapped_tools = []
-        read_only_tools = []
-        for t in self._tools:
-            wrapped = ToolSpec(
-                name=t.name,
-                description=t.description,
-                category=t.category,
-                ring=t.ring,
-                danger=t.danger,
-                parameters=t.parameters,
-                handler=self._wrap_handler(t.handler),
-                parallel_safe=t.parallel_safe,
-            )
-            wrapped_tools.append(wrapped)
-            if t.parallel_safe:
-                read_only_tools.append(wrapped)
-        return system, wrapped_tools, read_only_tools, model_kwargs
-
-    def _inject_extra_context(self, system: str) -> str:
-        """Inject R4 lean cases, evolved skills, and cross-cell rules into system prompt.
-
-        Token budget is bounded by ``LOOP_CONTEXT_BUDGET_SKILL`` to avoid
-        overflowing the context window with skill content. Gated by the
-        ``prompt.inject.skills`` setting (user-configurable).
-        """
-        if not _inject_enabled("skills"):
-            return system
-        try:
-            from l3.memory.r4_agent import get_r4_agent
-
-            r4 = get_r4_agent()
-            budget = LOOP_CONTEXT_BUDGET_SKILL
-            lean = r4.get_lean_cases(agent_id=self.agent_id, cell_id=self._cell_id, limit=LOOP_LEAN_CASES_LIMIT)
-            injected: list[str] = []
-            if lean:
-                # All returned lean cases are injected (full or truncated), so
-                # their names ride the same cache — no extra registry scan.
-                injected = list(
-                    r4.get_lean_case_names(agent_id=self.agent_id, cell_id=self._cell_id, limit=LOOP_LEAN_CASES_LIMIT)
-                )
-                lines = "\n".join(f"  {i}. {lc}" for i, lc in enumerate(lean, 1))
-                block = f"\n\n--- Known Failure Patterns ---\n{lines}\n---"
-                if len(block) <= budget:
-                    system += block
-                    budget -= len(block)
-                else:
-                    truncated = "\n".join(f"  {i}. {lc[:LOG_TRUNC_200]}" for i, lc in enumerate(lean, 1))
-                    system += f"\n\n--- Known Failure Patterns (truncated) ---\n{truncated}\n---"
-            # Task-similarity retrieval (tf-idf, zero deps): rank evolved
-            # skills by relevance to the current task before injection;
-            # falls back to loaded_at ordering when disabled or low-score.
-            # getattr guard: tests may construct AgentLoop via __new__ (no
-            # __init__), so task may be absent — empty query = loaded_at order.
-            # Card linkage: card-derived tags (nature/domain) are appended to
-            # the query so the same task text under different card types can
-            # surface different skills (e.g. review vs deploy cards).
-            evolved = r4.retrieve_skills(
-                query=(getattr(self, "task", "") or "") + self._card_query_boost(),
-                agent_id=self.agent_id,
-                cell_id=self._cell_id,
-                limit=LOOP_EVOLVED_SKILLS_LIMIT,
-                tags=getattr(self, "_card_tags", []) or [],
-            )
-            if evolved and budget > 0:
-                for es in evolved:
-                    # Audience routing: user-invoked skills and skills tagged
-                    # for another domain are excluded from automatic context
-                    # injection — they fire only on explicit use within their
-                    # own domain (dynamic supply, not blanket injection).
-                    if es.get("disable_model_invocation"):
-                        continue
-                    from l1.kernel.skill import get_skill_manager as _loop_sm
-                    from l1.kernel.skill import skill_visible
-
-                    if not skill_visible(es, self.agent_id):
-                        continue
-                    # Posture gate (default-deny, runtime policy): offensive
-                    # skills are only injected when the SkillManager
-                    # offensive-policy authorizes the driving card nature
-                    # (L3A decision layer). The gate can be bypassed at
-                    # runtime by disabling the policy (soft control).
-                    if es.get("posture") == SKILL_POSTURE_OFFENSIVE and not _loop_sm().offensive_authorized(
-                        getattr(self, "_card_nature", "")
-                    ):
-                        # P1: record posture-gate injection blocks in StatsCenter.
-                        try:
-                            from l3.tool_system.security_mode import ingest_security_metric
-
-                            ingest_security_metric(
-                                "security.gate.injection.blocked",
-                                tags={"skill": es.get("name", ""), "nature": getattr(self, "_card_nature", "")},
-                            )
-                        except Exception:
-                            pass
-                        continue
-                    prompt_preview = es["prompt"][:LOOP_EVOLVED_SKILL_TRUNC]
-                    block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"
-                    if len(block) <= budget:
-                        system += block
-                        budget -= len(block)
-                        injected.append(es["name"])
-                        # Phase C: record successful offensive-skill injections
-                        # (the allowed counterpart of injection.blocked).
-                        if es.get("posture") == SKILL_POSTURE_OFFENSIVE:
-                            try:
-                                from l3.tool_system.security_mode import ingest_security_metric
-
-                                ingest_security_metric(
-                                    "security.gate.injection.allowed",
-                                    tags={"skill": es.get("name", ""), "nature": getattr(self, "_card_nature", "")},
-                                )
-                            except Exception:
-                                pass
-                        if getattr(self, "_pmu", None):
-                            try:
-                                self._pmu.increment("skills.evolved.injected")
-                            except Exception:
-                                logger.debug("agent_loop: pmu increment failed, skipped", exc_info=True)
-                    else:
-                        # Partial: only include name + description
-                        system += f"\n\n### {es['name']}\n{es['description']}"
-                        injected.append(es["name"])
-                        break
-            # Injection feedback: refresh last_used for every injected skill so
-            # the R4Agent TTL prune never deletes skills that are actively
-            # exposed to agents.  Usage-only update — no write clearance, no
-            # revision bump (the R4Agent injection cache stays hot).  Also
-            # records inject_count — the denominator of the curation
-            # contribution score (useful/injected).
-            if injected:
-                try:
-                    from l1.kernel.skill import get_skill_manager
-
-                    _sm = get_skill_manager()
-                    _now = time.time()
-                    for _name in injected:
-                        _sm.update(_name, {"last_used": _now})
-                        _sm.bump_usage(_name, key="inject_count")
-                        # Card→skill signal: injected skills ride the current
-                        # card's preference attribution (bounded set).
-                        _used = getattr(self, "_card_skills_used", None)
-                        if _used is not None and len(_used) < R4_CARD_SKILL_SIGNAL_MAX:
-                            _used.add(_name)
-                except Exception as e:
-                    logger.debug("agent_loop: skill last_used refresh failed: %s", e)
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
-        try:
-            from l3.cell.peers.l3 import get_coordinator
-
-            coord = get_coordinator()
-            if getattr(coord, "_cross_cell_active", False):
-                system += get_prompt("agent_loop.cross_cell_rules", "")
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
-        return system
 
     def register_chat_params_hook(self, hook: Callable) -> None:
         """Register a hook that modifies LLM call parameters.
@@ -427,34 +190,6 @@ class AgentLoop(AgentLoopGuardMixin):
             executor=executor,
             parallel_safe=is_parallel,
         )
-
-    def _register_todowrite(self) -> None:
-        """Register the todowrite tool for task-list management."""
-
-        def _todowrite_handler(args: dict, agent_id: str = "") -> dict:
-            """Handle a todowrite tool call 鈥?update todo item status."""
-            content = args.get("content", "")
-            status = args.get("status", "in_progress")
-            self._todo.update(content, status)
-            return {"success": True, "message": f"todo '{content[:LOG_TRUNC_40]}' 鈫?{status}"}
-
-        # Only register if not already added
-        if not any(t.name == "todowrite" for t in self._tools):
-            self._tools.append(
-                ToolSpec(
-                    name="todowrite",
-                    description="Update task list status. status: pending|in_progress|completed. Use 'add' for new items.",
-                    category="generic",
-                    ring=RING_1,
-                    danger=0,
-                    parameters=[
-                        ParamSpec("content", "string", required=True, description="Task description"),
-                        ParamSpec("status", "string", required=True, description="pending|in_progress|completed|add"),
-                    ],
-                    handler=_todowrite_handler,
-                    parallel_safe=False,
-                )
-            )
 
     def _truncate_trail(self, keep: int = CONTEXT_TRAIL_TRUNC) -> int:
         """Fold older context_trail messages into a single summary line.
@@ -552,485 +287,3 @@ class AgentLoop(AgentLoopGuardMixin):
 
         wrapped.__name__ = fn.__name__ if hasattr(fn, "__name__") else "wrapped"
         return wrapped
-
-    def _finish(
-        self, result: dict, *, t0: float, turns: int = 0, corrections: int = 0, processed_count: int = 0
-    ) -> dict:
-        """Centralized terminal funnel 鈥?OpenCode-style.
-
-        Called EXACTLY ONCE by every return path in run().
-        Guarantees counter recording, cadence cleanup, and logging.
-        Also injects a summary into the Cell's L2 cache for cross-agent sharing.
-        """
-        elapsed = time.time() - t0
-        try:
-            from l3.services.counter import get_counter
-
-            get_counter().record_loop(
-                agent_id=self._user_id,
-                turns=turns + corrections,
-                steps=processed_count,
-                elapsed=elapsed,
-                side=result.get("side_execution"),
-            )
-        except Exception as e:
-            logger.warning("services/agent_loop: %s", e)
-        try:
-            from l3.services.stats_center import MetricPoint as _Mp3
-            from l3.services.stats_center import get_center as _sc3
-
-            for _k, _v in (result.get("side_execution") or {}).items():
-                if _v:
-                    _sc3().ingest(
-                        _Mp3(
-                            name=f"agent.loop.side.{_k}",
-                            value=float(_v),
-                            tags={"agent": self.agent_id},
-                            timestamp=time.time(),
-                            metric_type="gauge",
-                        )
-                    )
-        except Exception:
-            logger.debug("agent_loop: side timing stats failed")
-        side = result.get("side_execution") or {}
-        if side:
-            try:
-                from l3.bus.monitor_bus import MonitorEvent as _ME3  # noqa: N814
-                from l3.bus.monitor_bus import get_bus as _MB3
-
-                _MB3().emit(
-                    _ME3(
-                        type="stats.loop.side",
-                        source="agent_loop",
-                        severity="info",
-                        message=f"{self.agent_id} side execution: {side}",
-                        agent_id=self.agent_id,
-                        cell_id=self._cell_id,
-                        data={"side": side, "elapsed": round(elapsed, 3)},
-                    )
-                )
-            except Exception:
-                logger.debug("agent_loop: side timing monitor emit failed")
-        self._todo._persist()
-        # ── AutoTestGate: background test regression on card completion ──
-        # Spawned when the loop left unverified edits and async mode is on.
-        # Runs after cadence state is captured but before it is reset.
-        try:
-            from l3.tool_system.auto_test import maybe_trigger
-
-            _unverified = self._cadence.unverified_edits()
-            _card_id = getattr(self, "_last_card_id", "") or ""
-            maybe_trigger(self.agent_id, self._cell_id, self.task, _unverified, card_id=_card_id)
-        except Exception as e:
-            logger.debug("agent_loop: auto_test trigger failed: %s", e)
-        self._cadence.reset()
-
-        # 鈹€鈹€ Cell L2 cache injection 鈹€鈹€
-        if self._cell_id:
-            try:
-                from l3.cell import get_cell as _get_cell
-
-                cell = _get_cell(self._cell_id)
-                answer = result.get("answer", "")
-                # Use fingerprint of full task text for key uniqueness
-                import hashlib as _hl
-
-                task_hash = _hl.sha256(self.task.encode()).hexdigest()[:HASH_TRUNC_SHORT]
-                if result.get("success") and answer:
-                    summary = answer.strip()[:LOG_TRUNC_200]
-                    key = f"agent:{self.agent_id}:{task_hash}:r{self._run_count}"
-                    cell.cache.inject(
-                        key=key,
-                        value=answer,
-                        summary=summary,
-                        agent_id=self.agent_id,
-                        entry_type="decision",
-                        importance=MEMORY_PROMOTION_THRESHOLD,
-                    )
-                elif not result.get("success") and result.get("error"):
-                    error = result["error"][:LOG_TRUNC_200]
-                    key = f"fail:{self.agent_id}:{task_hash}:r{self._run_count}"
-                    cell.cache.inject(
-                        key=key,
-                        value=result.get("error", ""),
-                        summary=f"FAIL [{self.agent_id}]: {error}",
-                        agent_id=self.agent_id,
-                        entry_type="failure",
-                        importance=MEMORY_IMPORTANCE_DECISION,
-                    )
-            except Exception as e:
-                logger.debug("cell cache inject: %s", e)
-
-        # 鈹€鈹€ Snapshot hook 鈹€鈹€
-        try:
-            from l3.agent.agent_persist import append_transcript
-
-            record = {
-                "task": self.task[:LOG_TRUNC_100],
-                "success": result.get("success", False),
-                "steps": result.get("total_steps", 0),
-                "elapsed": round(elapsed, 2),
-                "summary": str(result.get("answer", ""))[:LOG_TRUNC_200],
-            }
-            append_transcript(self._user_id, record)
-        except Exception as e:
-            logger.debug("persist append: %s", e)
-
-        result["total_elapsed"] = round(elapsed, 2)
-        result["total_steps"] = turns + corrections
-
-        # ── Lifecycle hook chain: turn_complete (always) + on_error (on failure) ──
-        try:
-            from l3.services.hook import get_hook_chain as _get_hc
-
-            _get_hc().turn_complete(result, elapsed)
-            if not result.get("success"):
-                _get_hc().on_error(result.get("error", "agent loop failed"))
-        except Exception as e:
-            logger.debug("agent_loop: hook chain emit failed: %s", e)
-
-        return result
-
-    def continue_run(self, task: str, timeout: float | None = None, model_config: dict | None = None) -> dict:
-        """Continue the AgentLoop with a new task, preserving the existing system prompt.
-
-        Used by persistent AgentLoop mode (AgentTerminal._persistent_loop).
-        The system prompt, tools, and constitution context are reused from
-        the initial ``run()`` call.
-
-        Note: this does NOT share LLM conversation context between calls.
-        Each ``continue_run()`` issues a fresh ``engine.tool_use()`` call.
-        For true conversational continuity across cards, enable memory recall
-        via ``memory.build_context()`` in the system prompt.
-        """
-        self.task = task
-        return self.run(
-            max_steps=0,
-            timeout=timeout or AGENT_LOOP_DEFAULT_TIMEOUT,
-            model_config=model_config,
-        )
-
-    def update_card_context(self, tags: list[str] | None = None, nature: str = "") -> None:
-        """Refresh card-derived context for a persistent loop between cards.
-
-        The persistent AgentLoop is reused across cards; skill retrieval
-        must re-bias when the next card has a different nature/domain.
-        """
-        if tags:
-            self.set_card_tags(tags)
-        if nature:
-            self._card_nature = nature
-
-    def _resolve_max_steps(self, max_steps: int) -> int:
-        """Resolve the effective step limit: SettingsCenter >= caller override > default."""
-        if max_steps == 0:
-            try:
-                from l3.config.settings_center import get_center
-
-                max_steps = get_center().get("loop.max_steps", AGENT_LOOP_DEFAULT_STEPS)
-            except (ImportError, KeyError):
-                max_steps = AGENT_LOOP_DEFAULT_STEPS
-        # 0 or negative → unlimited mode (use a large sentinel for LLM max_turns)
-        if max_steps <= 0:
-            max_steps = AGENT_LOOP_UNLIMITED_STEPS
-        return max_steps
-
-    def run(
-        self,
-        max_steps: int = 0,
-        timeout: float = AGENT_LOOP_DEFAULT_TIMEOUT,
-        verifier: Any | None = None,
-        model_config: dict | None = None,
-    ) -> dict:
-        """Run the tool-calling loop.
-
-        Args:
-            max_steps: If 0 (default), queries SettingsCenter for ``loop.max_steps``.
-                       If > 0, overrides SettingsCenter value.
-                       If < 0 (e.g. -1), runs with no step limit (unlimited mode).
-            model_config: Per-call overrides for LLM config.
-                Keys: provider, model, max_tokens, temperature,
-                      reasoning_effort, thinking_budget
-                None = use global LLM engine config.
-        """
-        max_steps = self._resolve_max_steps(max_steps)
-        self._max_steps = max_steps
-        t0 = time.time()
-        side_times: dict[str, float] = {
-            "compression": 0.0,  # pre-send context guard (stub_compact/compact)
-            "parallel_read": 0.0,  # read-only tools parallel re-execution
-            "continuation": 0.0,  # nudges / verifier fixes / steps-exhausted
-            "llm_tools": 0.0,  # tool handler wall time inside LLM engine
-        }
-        self._loop_detector.reset()
-        self._repeat_detector.reset()
-        self._cadence.reset()
-
-        engine = _get_port("llm")
-        if self._cached_system:
-            # continue_run() path: reuse cached system prompt and tools.
-            # The identical system string enables LLM prompt caching across calls.
-            system = self._cached_system
-            wrapped_tools, read_only_tools = self._cached_tools
-            model_kwargs = self._cached_model_kwargs.copy() if self._cached_model_kwargs else {}
-            if model_config:
-                for key in ("model", "max_tokens", "temperature", "reasoning_effort", "thinking_budget"):
-                    if key in model_config and model_config[key] is not None:
-                        model_kwargs[key] = model_config[key]
-            for hook in self._chat_params_hooks:
-                try:
-                    override = hook(self.task, self.agent_id, dict(model_kwargs))
-                    if isinstance(override, dict):
-                        model_kwargs.update(override)
-                except Exception as e:
-                    logger.warning("chat params hook failed: %s", e)
-        else:
-            # First run: build fresh, cache for subsequent calls.
-            system, wrapped_tools, read_only_tools, model_kwargs = self._build_run_context(
-                max_steps, model_config, engine
-            )
-            system = self._inject_extra_context(system)
-            self._cached_system = system
-            self._cached_tools = (wrapped_tools, read_only_tools)
-            self._cached_model_kwargs = dict(model_kwargs)
-        deadline = time.time() + timeout if timeout > 0 else float("inf")
-
-        ctx_window, _guard_finish = self._pre_send_compression_guard(system, engine, side_times, t0)
-        if _guard_finish is not None:
-            return _guard_finish
-
-        # 鈹€鈹€ Main LLM tool_use call 鈹€鈹€
-        from l3.error_bus import error_boundary
-
-        with error_boundary("LLM tool_use failed", component="services", agent_id=self.agent_id):
-            result = engine.tool_use(
-                prompt=self.task,
-                tools=wrapped_tools,
-                system=system,
-                max_turns=max_steps,
-                user_id=self._user_id,
-                context_trail=self._context_trail,
-                **model_kwargs,
-            )
-        side_times["llm_tools"] = float(result.get("tools_elapsed", 0) or 0)
-        if not result:
-            return self._finish(
-                {
-                    "success": False,
-                    "answer": "",
-                    "steps": [],
-                    "error": "LLM call failed",
-                    "verifier_used": False,
-                    "corrections": 0,
-                    "loop_stopped": False,
-                },
-                t0=t0,
-            )
-
-        self._context_trail = result.get("context_trail")
-        # Persist context_trail to snapshot so it survives agent restart.
-        # Only save when we have actual messages and an agent_id to key on.
-        if self._context_trail and self._user_id:
-            try:
-                from .agent_persist import save_snapshot
-
-                save_snapshot(
-                    self._user_id,
-                    {
-                        "context_trail": self._context_trail,
-                    },
-                )
-            except Exception as e:
-                logger.warning("agent_loop: snapshot save failed: %s", e)
-        turns = result.get("turns", 1)
-        tool_results = result.get("tool_call_results", []) or []
-
-        # 鈹€鈹€ Truncation continuation 鈹€鈹€
-        if result.get("finish_reason") == "length":
-            try:
-                cont = engine.generate(
-                    prompt=TRUNCATION_RESUME_NUDGE, system=system, user_id=self._user_id, **model_kwargs
-                )
-                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[
-                    :_AGENT_LOOP_MAX_CONTENT
-                ]
-                turns += 1
-            except Exception as e:
-                logger.warning("truncation continuation failed: %s", e)
-
-        # 鈹€鈹€ Post-tool stub compression guard 鈹€鈹€
-        try:
-            tb = sum(len(str(tc)) for tc in tool_results)
-            if tb > AGENT_LOOP_CONTEXT_TB_LIMIT and ctx_window > 0:
-                from l3.memory.memory import get_memory
-
-                get_memory().stub_compact(self.agent_id)
-        except Exception as e:
-            logger.warning("agent_loop context injection failed: %s", e)
-
-        # 鈹€鈹€ Process each tool result with loop detection + retry + cadence 鈹€鈹€
-        continuation_nudge: str | None = None
-        processed_results, all_passed, corrections, verifier_used = self._process_tool_results(
-            tool_results, result, system, engine, model_kwargs, deadline, verifier, side_times
-        )
-
-        # 鈹€鈹€ Continuation nudges 鈹€鈹€
-        if self._todo._continuation_nudge and self._todo.has_open_items() and processed_results:
-            continuation_nudge = get_prompt("agent_loop.continuation_nudge", "")
-        elif continuation_nudge is None and self._cadence.nudge():
-            continuation_nudge = self._cadence.nudge()
-
-        if continuation_nudge:
-            _t_nudge = time.time()
-            try:
-                cont = engine.generate(prompt=continuation_nudge, system=system, user_id=self._user_id, **model_kwargs)
-                result["content"] = (result.get("content", "") + "\n" + cont.get("content", ""))[
-                    :_AGENT_LOOP_MAX_CONTENT
-                ]
-            except Exception as e:
-                logger.warning("agent_loop continuation nudge failed: %s", e)
-            finally:
-                side_times["continuation"] += time.time() - _t_nudge
-
-        # 鈹€鈹€ Parallel read-only tool execution 鈹€鈹€
-        if read_only_tools and processed_results:
-            _t_pr = time.time()
-            try:
-                fs = {}
-                for rt in read_only_tools:
-                    for sr in processed_results:
-                        if isinstance(sr, dict) and sr.get("name") == rt.name:
-                            fs[self._parallel_executor.submit(rt.handler, sr.get("args", {}), self.agent_id)] = rt.name
-                for f in as_completed(fs):
-                    f.result(timeout=AGENT_LOOP_FUTURE_TIMEOUT)
-            except Exception as e:
-                logger.warning("parallel execution failed: %s", e)
-            finally:
-                side_times["parallel_read"] += time.time() - _t_pr
-
-        # 鈹€鈹€ Consistency check 鈹€鈹€
-        if verifier is not None and len(processed_results) >= 2:
-            cc = verifier.consistency_check(processed_results, self.task)
-            if not cc.get("consistent"):
-                logger.info("consistency issue: %s", cc.get("conflicts", []))
-
-        # 鈹€鈹€ Steps-exhausted auto-continuation 鈹€鈹€
-        if (
-            not all_passed
-            and max_steps < AGENT_LOOP_UNLIMITED_STEPS
-            and result.get("finish_reason") in ("max_turns", "stop")
-        ):
-            from l3.error_bus import error_boundary
-
-            with error_boundary("steps-exhausted continuation failed", component="agent", agent_id=self.agent_id):
-                from l3.config.settings_center import get_center as _get_c
-
-                _sc = _get_c()
-                if not _sc.get("loop.continuation_nudge", True):
-                    return self._finish(
-                        {
-                            "success": all_passed,
-                            "answer": result.get("content", ""),
-                            "steps": [
-                                {"step": i, "action": tc.get("name", "?"), "result": str(tc)[:LOG_TRUNC_200]}
-                                for i, tc in enumerate(processed_results)
-                            ],
-                            "verifier_used": verifier_used,
-                            "corrections": corrections,
-                            "loop_stopped": any(
-                                s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)
-                            ),
-                        },
-                        t0=t0,
-                        turns=turns,
-                        corrections=corrections,
-                        processed_count=len(processed_results),
-                    )
-                _max_attempts = _sc.get_int("loop.max_attempts", 3)
-                for _attempt in range(_max_attempts):
-                    _t_se = time.time()
-                    # 1. Compress context
-                    try:
-                        from .session_snapshot import should_compress as _sc2
-
-                        if ctx_window > 0 and _sc2(_AGENT_LOOP_MAX_CONTENT, ctx_window):
-                            from l3.memory.memory import get_memory
-
-                            get_memory().stub_compact(self.agent_id)
-                    except (ImportError, AttributeError):
-                        logger.debug("agent_loop: steps-exhausted compress failed")
-                    # 2. Save context trail snapshot
-                    if self._context_trail and self._user_id:
-                        try:
-                            from .agent_persist import save_snapshot
-
-                            save_snapshot(
-                                self._user_id,
-                                {
-                                    "context_trail": self._context_trail,
-                                },
-                            )
-                        except (ImportError, AttributeError, OSError):
-                            logger.debug("agent_loop: steps-exhausted snapshot failed")
-                    # 3. Issue steps-exhausted nudge + continue
-                    from .session_snapshot import STEPS_EXHAUSTED_NUDGE as _NUDGE
-
-                    nudge_r = engine.generate(prompt=_NUDGE, system=system, user_id=self._user_id, **model_kwargs)
-                    result["content"] = (result.get("content", "") + "\n" + nudge_r.get("content", ""))[
-                        :_AGENT_LOOP_MAX_CONTENT
-                    ]
-                    # 4. Run next tool-use batch
-                    nr = engine.tool_use(
-                        prompt=self.task,
-                        tools=wrapped_tools,
-                        system=system,
-                        max_turns=max_steps,
-                        user_id=self._user_id,
-                        context_trail=self._context_trail,
-                        **model_kwargs,
-                    )
-                    side_times["continuation"] += time.time() - _t_se
-                    if not nr:
-                        break
-                    self._context_trail = nr.get("context_trail")
-                    nr_turns = nr.get("turns", 0)
-                    turns += nr_turns
-                    # Merge new tool results
-                    nr_tools = nr.get("tool_call_results", [])
-                    for _sr in nr_tools:
-                        processed_results.append(
-                            {
-                                "step": len(processed_results),
-                                "action": (_sr.get("name", "?") if isinstance(_sr, dict) else "?"),
-                                "result": str(_sr)[:LOG_TRUNC_200],
-                            }
-                        )
-                    # 5. Check completion
-                    nr_finish = nr.get("finish_reason", "")
-                    if nr_finish in ("stop", "end_turn"):
-                        all_passed = True
-                        break
-                    if time.time() > deadline:
-                        break
-
-        return self._finish(
-            {
-                "success": all_passed,
-                "answer": result.get("content", ""),
-                "steps": [
-                    {"step": i, "action": tc.get("name", "?"), "result": str(tc)[:LOG_TRUNC_200]}
-                    for i, tc in enumerate(processed_results)
-                ],
-                "reasoning_trail": result.get("reasoning_trail", []) or [],
-                "reasoning_tokens": result.get("reasoning_tokens", 0) or 0,
-                "side_execution": {k: round(v, 3) for k, v in side_times.items()},
-                "verifier_used": verifier_used,
-                "corrections": corrections,
-                "loop_stopped": any(s.get("_loop_stopped") for s in processed_results if isinstance(s, dict)),
-                "awaiting_input": any(isinstance(s, dict) and s.get("_awaiting_input") for s in processed_results),
-            },
-            t0=t0,
-            turns=turns,
-            corrections=corrections,
-            processed_count=len(processed_results),
-        )

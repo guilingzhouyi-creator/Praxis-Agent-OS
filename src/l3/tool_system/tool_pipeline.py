@@ -78,49 +78,37 @@ class ToolPipeline:
     def register_post_execute_hook(self, hook: Callable) -> None:
         """Register a hook called after every tool execution.
 
-        Hook signature: (tool_name: str, agent_id: str, args: dict, result: dict) -> dict
-        The hook can modify the result dict.
+        Hook signature: (tool_name, agent_id, args, result) -> None
+        Called after the tool has executed, before the chain completes.
         """
         if hook not in self._post_execute_hooks:
             self._post_execute_hooks.append(hook)
 
     def register_tool_definition_hook(self, hook: Callable) -> None:
-        """Register a hook that modifies tool specs before execution.
+        """Register a hook that modifies a tool spec before execution.
 
-        Hook signature: (tool_name: str, spec: ToolSpec | None) -> dict | None
-        Returns modified spec fields or None to leave unchanged.
+        Hook signature: (tool_name, spec) -> spec (possibly modified)
+        Called after all gates pass, right before the tool runs.
         """
         if hook not in self._tool_definition_hooks:
             self._tool_definition_hooks.append(hook)
 
     def _run_post_execute_hooks(self, tool_name: str, agent_id: str, args: dict, result: dict) -> dict:
-        """Run all registered post-execute hooks in order."""
-        current = dict(result)
-        for hook in self._post_execute_hooks:
+        """Run all post-execute hooks in registration order, tolerating failures."""
+        for _hook in self._post_execute_hooks:
             try:
-                r = hook(tool_name, agent_id, args, current)
-                if isinstance(r, dict):
-                    current.update(r)
+                _hook(tool_name, agent_id, args, result)
             except Exception as e:
-                logger.warning("post-execute hook failed for %s: %s", tool_name, e)
-        return current
+                logger.debug("tool_pipeline: post-exec hook failed: %s", e)
+        return result
 
     def apply_tool_definition_hooks(self, tool_name: str, spec: Any) -> Any:
-        """Let hooks modify tool spec before execution."""
-        if not self._tool_definition_hooks:
-            return spec
-        for hook in self._tool_definition_hooks:
+        """Apply tool-definition hooks in registration order (modify spec before run)."""
+        for _hook in self._tool_definition_hooks:
             try:
-                r = hook(tool_name, spec)
-                if isinstance(r, dict) and spec is not None:
-                    from .tool_spec import ToolSpec as _ToolSpec
-
-                    if isinstance(spec, _ToolSpec):
-                        for k, v in r.items():
-                            if hasattr(spec, k):
-                                setattr(spec, k, v)
+                spec = _hook(tool_name, spec)
             except Exception as e:
-                logger.warning("tool-definition hook failed for %s: %s", tool_name, e)
+                logger.debug("tool_pipeline: tool-definition hook failed: %s", e)
         return spec
 
     def _record_tool_failure(
@@ -147,61 +135,30 @@ class ToolPipeline:
         except Exception as e:
             logger.debug("tool_pipeline: failure tracking skipped: %s", e)
 
-    def execute(
+    def _preflight_checks(
         self,
+        *,
         tool_name: str,
         agent_id: str,
-        args: dict | None = None,
-        domain: str = "",
-        nature: str = "",
-        _registry: dict | None = None,
-        _executor: Any = None,
-        _parent_call_id: str = "",
-    ) -> dict:
-        """Execute a tool through the pipeline with hierarchical call tracking.
+        args: dict,
+        domain: str,
+        nature: str,
+        _registry: dict | None,
+        _executor: Any,
+        _parent_call_id: str,
+        result: dict,
+        spec: _ToolSpec | None,
+        tool_ring_str: str,
+        token_budget: int,
+        _skip: set[str],
+        _start: float,
+        call_id: str,
+    ) -> dict | None:
+        """Run the gating chain: validate, clearance, approval, rate, constitution, gatechain, sandbox.
 
-        Args:
-            domain: card-level gate scope for GateChain enforcement.
-            nature: driving card's type (card→skill linkage on failure paths).
-            _registry: TOOL_REGISTRY dict (passed by caller)
-            _executor: execute_tool function (passed by caller)
-            _parent_call_id: parent composite tool's call_id for chain tracking
+        Returns a terminal result dict when a gate blocks; ``None`` when all
+        gates pass and execution may proceed.
         """
-        _start = time.time()
-        lock_name = ""
-        chain = get_tool_chain()
-        ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
-        spec_raw = (_registry or {}).get(tool_name) if _registry else None
-        spec = spec_raw if isinstance(spec_raw, _ToolSpec) else None
-        tool_ring_str = spec.ring if spec else _RING_1
-        tool_ring_num = ring_map.get(tool_ring_str, 1)
-
-        tool_danger = spec.danger if spec else 0
-        call_id = chain.start(tool_name, agent_id, ring=tool_ring_num, parent_id=_parent_call_id)
-        # Step tracing toggle — off skips per-phase gate traces on the hot path.
-        record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
-        # Harness mode: governed | semi | minimal (runtime override → config).
-        # Process steps (approval / rate / pool) may be skipped; the safety
-        # bottom line (constitution, gatechain, sandbox, reference-channel
-        # recording) is never skipped.
-        from l3.tool_system.harness import get_harness_mode
-
-        harness_mode = get_harness_mode()
-        if harness_mode not in HARNESS_MODES:
-            harness_mode = HARNESS_MODE_DEFAULT
-        _skip = set(HARNESS_MODE_STEPS[harness_mode])
-        # Token budget read once per execution (used across alloc/free paths).
-        token_budget = get_tool_config("exec_token_budget", TOOL_EXEC_TOKEN_BUDGET)
-        result: dict[str, Any] = {
-            "tool": tool_name,
-            "agent": agent_id,
-            "ring": tool_ring_str,
-            "danger": tool_danger,
-            "steps": [] if record_steps else _DiscardSteps(),
-            "call_id": call_id,
-            "harness_mode": harness_mode,
-        }
-
         # 1. Validate tool exists
         if not _registry and not _executor:
             return {"success": False, "error": _l2_t("core.pipeline_not_initialized")}
@@ -324,24 +281,38 @@ class ToolPipeline:
                 # Sandbox succeeded: record result and skip execute step
                 result["result"] = _sb_r.to_dict()
                 result["success"] = True
-                for _hook in self._post_execute_hooks:
-                    try:
-                        _hook(tool_name, agent_id, args or {}, result)
-                    except Exception:
-                        logger.debug("tool_pipeline: post-exec hook failed")
-                # Release and signal
-                if lock_name:
-                    get_rwlock(lock_name).unlock(agent_id)
-                if tool_ring_str == RING_2_5:
-                    get_semaphore(f"pool:{tool_name}").release(agent_id)
+                result = self._run_post_execute_hooks(tool_name, agent_id, args or {}, result)
                 self.allocator.free(agent_id, "tokens", token_budget)
                 duration = time.time() - _start
-                chain.complete(call_id, success=True, duration=duration)
+                get_tool_chain().complete(call_id, success=True, duration=duration)
                 result["call_id"] = call_id
                 return result
         except Exception as e:
             logger.warning("sandbox gate failed: %s", e)
+        return None
 
+    def _run_tool(
+        self,
+        *,
+        tool_name: str,
+        agent_id: str,
+        args: dict,
+        domain: str,
+        nature: str,
+        _registry: dict | None,
+        _executor: Any,
+        result: dict,
+        spec: _ToolSpec | None,
+        tool_ring_str: str,
+        token_budget: int,
+        _skip: set[str],
+        fpath: str,
+    ) -> dict | None:
+        """Allocate tokens, acquire pool/lock, run the tool, and record failures.
+
+        Returns a terminal result dict when allocation/pool blocks; ``None``
+        when the tool ran and the caller should finalize the chain.
+        """
         # 6. Alloc
         ar = self.allocator.alloc(agent_id, "tokens", token_budget, tool_name)
         result["steps"].append({"phase": "alloc", **ar})
@@ -403,12 +374,26 @@ class ToolPipeline:
         if tool_ring_str == RING_2_5:
             get_semaphore(f"pool:{tool_name}").release(agent_id)
         self.allocator.free(agent_id, "tokens", token_budget)
+        return None
 
+    def _finalize(
+        self,
+        *,
+        tool_name: str,
+        agent_id: str,
+        args: dict,
+        result: dict,
+        call_id: str,
+        _parent_call_id: str,
+        _start: float,
+    ) -> dict:
+        """Run post-execute hooks, complete the chain call, and emit the signal."""
         # 10b. Post-execute hooks (transform result)
         result = self._run_post_execute_hooks(tool_name, agent_id, args or {}, result)
 
         # 10. Complete chain call
         duration = time.time() - _start
+        chain = get_tool_chain()
         link = chain.get(call_id)
         chain.complete(call_id, success=result.get("success", False), error=result.get("error", ""), duration=duration)
         result["call_id"] = call_id
@@ -431,6 +416,112 @@ class ToolPipeline:
             )
         )
         return result
+
+    def execute(
+        self,
+        tool_name: str,
+        agent_id: str,
+        args: dict | None = None,
+        domain: str = "",
+        nature: str = "",
+        _registry: dict | None = None,
+        _executor: Any = None,
+        _parent_call_id: str = "",
+    ) -> dict:
+        """Execute a tool through the pipeline with hierarchical call tracking.
+
+        Args:
+            domain: card-level gate scope for GateChain enforcement.
+            nature: driving card's type (card→skill linkage on failure paths).
+            _registry: TOOL_REGISTRY dict (passed by caller)
+            _executor: execute_tool function (passed by caller)
+            _parent_call_id: parent composite tool's call_id for chain tracking
+        """
+        _start = time.time()
+        chain = get_tool_chain()
+        ring_map = RING_NUM_MAP  # single source: kernel.params.RING_NUM_MAP
+        spec_raw = (_registry or {}).get(tool_name) if _registry else None
+        spec = spec_raw if isinstance(spec_raw, _ToolSpec) else None
+        tool_ring_str = spec.ring if spec else _RING_1
+        tool_ring_num = ring_map.get(tool_ring_str, 1)
+
+        tool_danger = spec.danger if spec else 0
+        call_id = chain.start(tool_name, agent_id, ring=tool_ring_num, parent_id=_parent_call_id)
+        # Step tracing toggle — off skips per-phase gate traces on the hot path.
+        record_steps = bool(get_tool_config("record_steps", TOOL_PIPELINE_RECORD_STEPS))
+        # Harness mode: governed | semi | minimal (runtime override → config).
+        # Process steps (approval / rate / pool) may be skipped; the safety
+        # bottom line (constitution, gatechain, sandbox, reference-channel
+        # recording) is never skipped.
+        from l3.tool_system.harness import get_harness_mode
+
+        harness_mode = get_harness_mode()
+        if harness_mode not in HARNESS_MODES:
+            harness_mode = HARNESS_MODE_DEFAULT
+        _skip = set(HARNESS_MODE_STEPS[harness_mode])
+        # Token budget read once per execution (used across alloc/free paths).
+        token_budget = get_tool_config("exec_token_budget", TOOL_EXEC_TOKEN_BUDGET)
+        result: dict[str, Any] = {
+            "tool": tool_name,
+            "agent": agent_id,
+            "ring": tool_ring_str,
+            "danger": tool_danger,
+            "steps": [] if record_steps else _DiscardSteps(),
+            "call_id": call_id,
+            "harness_mode": harness_mode,
+        }
+
+        # ── Gating chain (validate → clearance → approval → rate → constitution → gatechain → sandbox) ──
+        blocked = self._preflight_checks(
+            tool_name=tool_name,
+            agent_id=agent_id,
+            args=args or {},
+            domain=domain,
+            nature=nature,
+            _registry=_registry,
+            _executor=_executor,
+            _parent_call_id=_parent_call_id,
+            result=result,
+            spec=spec,
+            tool_ring_str=tool_ring_str,
+            token_budget=token_budget,
+            _skip=_skip,
+            _start=_start,
+            call_id=call_id,
+        )
+        if blocked is not None:
+            return blocked
+
+        # ── Execution (alloc → pool → lock → run → failure tracking → release) ──
+        fpath = (args or {}).get("path", "")
+        blocked = self._run_tool(
+            tool_name=tool_name,
+            agent_id=agent_id,
+            args=args or {},
+            domain=domain,
+            nature=nature,
+            _registry=_registry,
+            _executor=_executor,
+            result=result,
+            spec=spec,
+            tool_ring_str=tool_ring_str,
+            token_budget=token_budget,
+            _skip=_skip,
+            fpath=fpath,
+        )
+        if blocked is not None:
+            return blocked
+
+        # ── Finalize (post-execute hooks → chain complete → signal) ──
+        return self._finalize(
+            tool_name=tool_name,
+            agent_id=agent_id,
+            args=args or {},
+            result=result,
+            call_id=call_id,
+            _parent_call_id=_parent_call_id,
+            _start=_start,
+        )
 
 
 _pipeline: ToolPipeline | None = None

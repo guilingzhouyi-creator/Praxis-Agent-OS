@@ -324,8 +324,18 @@ class L3ADaemon:
     def tick(self) -> dict:
         """Run one maintenance pass (PMU, task sync, auto-compress, idle close) and return a summary dict."""
         results: dict[str, Any] = {}
+        self._tick_pmu()
+        self._tick_tasks_sync(results)
+        self._tick_auto_compress(results)
+        self._tick_mer(results)
+        self._tick_idle_close(results)
+        self._tick_governance(results)
+        return results
 
-        # Push PMU snapshot to StatsCenter
+    # ── Tick phases (split for readability; each is a self-contained stage) ──
+
+    def _tick_pmu(self) -> None:
+        """Push the PMU snapshot to StatsCenter."""
         if self._pmu:
             try:
                 self._pmu.snapshot(force=True)
@@ -335,7 +345,8 @@ class L3ADaemon:
                 )
                 logger.debug("l3a: PMU snapshot failed: %s", e)
 
-        # Watcher: reconcile session task tables with CardRegistry
+    def _tick_tasks_sync(self, results: dict[str, Any]) -> None:
+        """Watcher: reconcile session task tables with CardRegistry."""
         synced = 0
         for s in self.manager.list_active():
             sid = s.get("session_id", "")
@@ -354,7 +365,8 @@ class L3ADaemon:
         if synced:
             results["tasks_synced"] = synced
 
-        # Auto-compression monitor: check context pressure per session
+    def _tick_auto_compress(self, results: dict[str, Any]) -> None:
+        """Auto-compression monitor: check context pressure per session."""
         auto_compressed = 0
         for s in self.manager.list_active():
             sid = s.get("session_id", "")
@@ -385,8 +397,11 @@ class L3ADaemon:
         if auto_compressed:
             results["auto_compressed_count"] = auto_compressed
 
-        # Mer bypass: periodically aggregate multi-agent R1-R3 → symbolic Mer graph → controlled entry into R4
-        # (toggled by memory.mer.enabled; bypass failure does not affect the main flow)
+    def _tick_mer(self, results: dict[str, Any]) -> None:
+        """Mer bypass: periodically aggregate multi-agent R1-R3 → symbolic Mer graph → controlled entry into R4.
+
+        Toggled by memory.mer.enabled; bypass failure does not affect the main flow.
+        """
         try:
             from l3.memory.memory_mer import get_mer
 
@@ -400,6 +415,8 @@ class L3ADaemon:
             capture("l3a: mer transform failed", error_code="E_L3A_DAEMON", component="l3a", context={"error": str(e)})
             logger.debug("l3a: mer transform failed: %s", e)
 
+    def _tick_idle_close(self, results: dict[str, Any]) -> None:
+        """Auto-close sessions idle beyond the configured timeout."""
         idle_timeout = _p.IDLE_TIMEOUT_DEFAULT
         try:
             from l3.config.settings_center import get_center
@@ -419,7 +436,8 @@ class L3ADaemon:
                 results.setdefault("auto_closed", []).append(sid)
                 logger.info("L3A daemon: auto-closed idle session %s", sid)
 
-        # Governance metrics: emit summary via MonitorBus
+    def _tick_governance(self, results: dict[str, Any]) -> None:
+        """Governance metrics: emit summary via MonitorBus."""
         active_sessions = self.manager.list_active()
         if active_sessions:
             results["governance"] = {
@@ -443,7 +461,6 @@ class L3ADaemon:
             except Exception:
                 capture("l3a: governance event emit failed", error_code="E_L3A_DAEMON", component="l3a")
                 logger.debug("l3a: governance event emit failed")
-        return results
 
 
 # ── Module-level singleton ──
