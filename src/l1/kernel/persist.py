@@ -31,6 +31,7 @@ import threading
 import time
 
 from .params.system import (
+    PERSIST_COMMIT_BATCH,
     PERSIST_EXPORT_LIMIT,
     PERSIST_QUERY_LIMIT,
 )
@@ -43,6 +44,7 @@ _READ_DBS: list[sqlite3.Connection] = []  # read connection pool (2)
 _READ_IDX: int = 0  # round-robin index
 _DB_LOCK = threading.Lock()
 _DB_PATH: str = ""
+_PENDING = 0  # uncommitted appends awaiting batch commit
 
 
 def _db_path() -> str:
@@ -94,21 +96,37 @@ def _get_read_db() -> sqlite3.Connection:
 # ── Append ──
 
 
+def _flush_pending_locked() -> None:
+    """Commit pending batch appends on the write connection (caller holds _DB_LOCK)."""
+    global _PENDING
+    if _PENDING:
+        _get_write_db().commit()
+        _PENDING = 0
+
+
 def append(event: str, payload: dict | None = None) -> int:
-    """Append an immutable event to the store. Returns sequence number."""
+    """Append an immutable event to the store. Returns sequence number.
+
+    Commits are batched (PERSIST_COMMIT_BATCH); reads flush pending appends
+    first, so callers never observe stale data.
+    """
     db = _get_write_db()
+    global _PENDING
     with _DB_LOCK:
         cur = db.execute(
             "INSERT INTO events (event, payload, ts) VALUES (?, ?, ?)",
             (event, json.dumps(payload or {}, default=str), time.time()),
         )
-        db.commit()
+        _PENDING += 1
+        if _PENDING >= PERSIST_COMMIT_BATCH:
+            _flush_pending_locked()
         return cur.lastrowid if cur.lastrowid is not None else 0
 
 
 def append_many(events: list[tuple[str, dict]]) -> list[int]:
     """Append multiple events atomically. Returns list of sequence numbers."""
     db = _get_write_db()
+    global _PENDING
     seqs: list[int] = []
     with _DB_LOCK:
         for event, payload in events:
@@ -118,6 +136,7 @@ def append_many(events: list[tuple[str, dict]]) -> list[int]:
             )
             seqs.append(cur.lastrowid if cur.lastrowid is not None else 0)
         db.commit()
+        _PENDING = 0
     return seqs
 
 
@@ -128,6 +147,7 @@ def query(event_type: str = "", after_seq: int = 0, limit: int = PERSIST_QUERY_L
     """Query events. Returns list of {seq, event, payload, ts}."""
     db = _get_read_db()
     with _DB_LOCK:
+        _flush_pending_locked()
         if event_type:
             rows = db.execute(
                 "SELECT seq, event, payload, ts FROM events WHERE event = ? AND seq > ? ORDER BY seq LIMIT ?",
@@ -145,6 +165,7 @@ def count(event_type: str = "") -> int:
     """Return the number of persisted events, optionally filtered by *event_type*."""
     db = _get_read_db()
     with _DB_LOCK:
+        _flush_pending_locked()
         if event_type:
             return db.execute("SELECT COUNT(*) FROM events WHERE event = ?", (event_type,)).fetchone()[0]
         return db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
@@ -154,6 +175,7 @@ def last_seq() -> int:
     """Return the highest persisted event sequence number (0 when empty)."""
     db = _get_read_db()
     with _DB_LOCK:
+        _flush_pending_locked()
         r = db.execute("SELECT MAX(seq) FROM events").fetchone()
         return r[0] or 0
 
@@ -178,6 +200,7 @@ def replay() -> dict:
 
     db = _get_read_db()
     with _DB_LOCK:
+        _flush_pending_locked()
         rows = db.execute("SELECT seq, event, payload, ts FROM events ORDER BY seq").fetchall()
 
     for row in rows:

@@ -117,7 +117,7 @@ class ToolHistoryLedger:
 
     def __init__(self, max_entries: int = LEDGER_MAX_ENTRIES):
         self._max = max_entries
-        self._entries: list[LedgerEntry] = []
+        self._entries: deque[LedgerEntry] = deque(maxlen=self._max)
         self._by_agent: dict[str, deque[LedgerEntry]] = {}
         self._by_tool: dict[str, deque[LedgerEntry]] = {}
         self._by_agent_tool: dict[str, deque[LedgerEntry]] = {}
@@ -130,8 +130,6 @@ class ToolHistoryLedger:
         """Append *entry* to the ledger and update its index buckets."""
         with self._lock:
             self._entries.append(entry)
-            if len(self._entries) > self._max:
-                self._entries = self._entries[-self._max :]
             # Update index buckets
             self._by_agent.setdefault(entry.agent_id, deque(maxlen=self._max)).append(entry)
             self._by_tool.setdefault(entry.tool, deque(maxlen=self._max)).append(entry)
@@ -151,7 +149,7 @@ class ToolHistoryLedger:
             if tool:
                 bucket = self._by_tool.get(tool, deque(maxlen=self._max))
                 return list(bucket)[-limit:]
-            return self._entries[-limit:]
+            return list(self._entries)[-limit:]
 
     def count(self, agent_id: str = "", tool: str = "", window: float = LEDGER_COUNT_WINDOW) -> int:
         """Count entries within a time window. Scans only the relevant bucket."""
@@ -165,7 +163,7 @@ class ToolHistoryLedger:
             elif tool:
                 bucket = self._by_tool.get(tool, deque(maxlen=self._max))
             else:
-                bucket = deque(self._entries, maxlen=self._max)
+                bucket = self._entries
             return sum(1 for e in bucket if (now - e.timestamp) <= window)
 
     def clear(self) -> None:

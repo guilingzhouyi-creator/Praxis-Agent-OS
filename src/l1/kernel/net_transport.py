@@ -11,8 +11,8 @@ Architecture:
 
 Usage:
     from l1.kernel.net_transport import TcpAdapter, TransportConfig
-    from l4.adapters.worker_thread import ThreadPoolWorker
-    from l4.adapters.channel_ring import RingChannel
+    from l1.kernel.worker_thread import ThreadPoolWorker
+    from l1.kernel.channel_ring import RingChannel
 
     adapter = TcpAdapter(worker_pool=ThreadPoolWorker(), msg_channel=RingChannel(CHANNEL_RING_CAPACITY))
     adapter.start("node-1", TransportConfig(port=PRAXIS_PORT_DEFAULT))
@@ -29,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .channel_ring import RingChannel
 from .params.api import (
     BROADCAST_INTERVAL,
     DISCOVERY_PORT_DEFAULT,
@@ -53,75 +54,9 @@ from .ports import (
 from .ports import (
     Result as PortResult,
 )
+from .worker_thread import ThreadPoolWorker
 
 logger = logging.getLogger(__name__)
-
-
-# ── Fallback implementations (no L4 dependency) ──────────────────────────────
-
-
-class _FallbackWorker(WorkerPort):
-    """Minimal thread-per-task worker — fallback when l4.adapters unavailable."""
-
-    def __init__(self) -> None:
-        self._threads: list[threading.Thread] = []
-
-    def submit(self, fn: Callable, *args: Any, **kwargs: Any) -> PortResult:
-        """Run *fn* on a fresh daemon thread. Returns a result dict."""
-        t = threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True)
-        t.start()
-        self._threads.append(t)
-        return PortResult.ok(submitted=True)
-
-    def shutdown(self, wait: bool = True, timeout: float | None = None) -> PortResult:
-        """Join all spawned threads if *wait*. Returns a result dict."""
-        if wait:
-            for t in self._threads:
-                t.join(timeout=timeout)
-        return PortResult.ok(shutdown=True)
-
-    def stats(self) -> dict:
-        """Return worker statistics (total and alive thread count)."""
-        alive = sum(1 for t in self._threads if t.is_alive())
-        return {"total": len(self._threads), "alive": alive}
-
-
-class _FallbackChannel(ChannelPort):
-    """Simple deque-based channel — fallback when l4.adapters unavailable."""
-
-    _UNBOUNDED_CAPACITY = 1_000_000
-
-    def __init__(self) -> None:
-        from collections import deque
-
-        self._queue: deque = deque()
-        self._closed = False
-
-    def put(self, item: Any, timeout: float | None = None) -> bool:
-        """Append *item* to the queue; returns False if the channel is closed."""
-        if self._closed:
-            return False
-        self._queue.append(item)
-        return True
-
-    def get(self, timeout: float | None = None) -> Any | None:
-        """Pop the oldest item, or None when the queue is empty."""
-        # Drain remaining items even after close (matches RingChannel semantics)
-        try:
-            return self._queue.popleft()
-        except IndexError:
-            return None
-
-    def size(self) -> int:
-        """Return the current number of buffered items."""
-        return len(self._queue)
-
-    def capacity(self) -> int:
-        return self._UNBOUNDED_CAPACITY
-
-    def close(self) -> None:
-        """Mark the channel closed so put() rejects further items."""
-        self._closed = True
 
 
 # ── TransportConfig ──────────────────────────────────────────────────────────
@@ -159,24 +94,12 @@ class TcpAdapter(TransportPort):
         if worker_pool:
             self._worker: WorkerPort = worker_pool
         else:
-            try:
-                from l4.adapters.worker_thread import ThreadPoolWorker
-
-                self._worker = ThreadPoolWorker()
-            except ImportError:
-                # Fallback: basic thread-per-task worker (no L4 dependency)
-                self._worker = _FallbackWorker()
+            self._worker = ThreadPoolWorker()
 
         if msg_channel:
             self._channel: ChannelPort = msg_channel
         else:
-            try:
-                from l4.adapters.channel_ring import RingChannel
-
-                self._channel = RingChannel()
-            except ImportError:
-                # Fallback: simple deque-based channel (no L4 dependency)
-                self._channel = _FallbackChannel()
+            self._channel = RingChannel()
 
         self._config: TransportConfig | None = None
         self._node_id: str = ""

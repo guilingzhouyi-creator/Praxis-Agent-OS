@@ -16,7 +16,7 @@ import http.client
 import threading
 from urllib.parse import urlparse
 
-__all__ = ["http_post"]
+__all__ = ["http_get", "http_post"]
 
 _MAX_REDIRECTS = 3
 
@@ -45,10 +45,10 @@ def _drop_conn(scheme: str, host: str, port: int) -> None:
         pool.pop((scheme, host, port), None)
 
 
-def http_post(
-    url: str, body: bytes, headers: dict, timeout: float, redirects: int = _MAX_REDIRECTS
+def _request(
+    url: str, method: str, body: bytes | None, headers: dict, timeout: float, redirects: int
 ) -> tuple[int, bytes, dict]:
-    """POST *body* to *url* reusing a persistent per-thread connection.
+    """Send *method* to *url* reusing a persistent per-thread connection.
 
     Returns ``(status, body_bytes, headers_dict)`` with lower-cased response
     header names.  Raises ``OSError``/``TimeoutError``/``http.client.HTTPException``
@@ -63,7 +63,7 @@ def http_post(
         path = f"{path}?{parsed.query}"
     conn = _get_conn(scheme, host, port, timeout)
     try:
-        conn.request("POST", path, body=body, headers=headers)
+        conn.request(method, path, body=body, headers=headers)
         resp = conn.getresponse()
         data = resp.read()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
@@ -76,5 +76,27 @@ def http_post(
         if location:
             if location.startswith("/"):
                 location = f"{scheme}://{host}{location}"
-            return http_post(location, body, headers, timeout, redirects - 1)
+            return _request(location, method, body, headers, timeout, redirects - 1)
     return resp.status, data, resp_headers
+
+
+def http_post(
+    url: str, body: bytes, headers: dict, timeout: float, redirects: int = _MAX_REDIRECTS
+) -> tuple[int, bytes, dict]:
+    """POST *body* to *url* reusing a persistent per-thread connection.
+
+    Returns ``(status, body_bytes, headers_dict)`` with lower-cased response
+    header names.  Raises ``OSError``/``TimeoutError``/``http.client.HTTPException``
+    on connection-level failures (the pooled connection is dropped first).
+    """
+    return _request(url, "POST", body, headers, timeout, redirects)
+
+
+def http_get(url: str, headers: dict, timeout: float, redirects: int = _MAX_REDIRECTS) -> tuple[int, bytes, dict]:
+    """GET *url* reusing a persistent per-thread connection.
+
+    Returns ``(status, body_bytes, headers_dict)`` with lower-cased response
+    header names.  Raises ``OSError``/``TimeoutError``/``http.client.HTTPException``
+    on connection-level failures (the pooled connection is dropped first).
+    """
+    return _request(url, "GET", None, headers, timeout, redirects)

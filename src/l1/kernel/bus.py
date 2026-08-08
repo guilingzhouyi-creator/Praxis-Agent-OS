@@ -120,6 +120,7 @@ class SystemBus:
         self._components: dict[str, Component] = {}
         self._state: dict[str, str] = {}  # comp_name → lifecycle state
         self._handlers: dict[str, list[Callable]] = defaultdict(list)
+        self._wildcard_patterns: list[str] = []
         self._lock = threading.RLock()
         self._wired = False
 
@@ -292,9 +293,9 @@ class SystemBus:
     def _run_handlers(self, event: str, data: Any, source: str) -> None:
         """Run matching handlers for this bus only."""
         handlers = list(self._handlers.get(event, []))
-        for pattern, hlist in list(self._handlers.items()):
+        for pattern in self._wildcard_patterns:
             if pattern != event and _wildcard_match(pattern, event):
-                handlers.extend(hlist)
+                handlers.extend(self._handlers.get(pattern, []))
         for h in handlers:
             try:
                 h({"event": event, "data": data, "source": source, "bus": self.name})
@@ -307,6 +308,8 @@ class SystemBus:
         """
         with self._lock:
             self._handlers[event].append(handler)
+            if "*" in event and event not in self._wildcard_patterns:
+                self._wildcard_patterns.append(event)
 
     # ── 5. Health & stats aggregation ──────────────────────────
 
