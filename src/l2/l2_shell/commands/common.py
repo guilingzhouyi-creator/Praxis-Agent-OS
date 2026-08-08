@@ -9,6 +9,7 @@ from typing import Any
 from l1.kernel.commands import get_handler as _gh
 from l1.kernel.commands import get_registry
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ def preconnect_enhanced(cell_id: str, agent_id: str, message: str = "") -> dict:
                 "reason": f"llm_provider_error: {provider_status.get('error', '')}",
             }
     except ImportError:
-        checks["llm_provider"] = {"status": "error", "error": "llm module not available"}
+        checks["llm_provider"] = {"status": "error", "error": _t("shell.app_error.llm_module_unavailable")}
         return {"allowed": False, "checks": checks, "reason": "llm_module_missing"}
     except AttributeError as e:
         checks["llm_provider"] = {"status": "error", "error": str(e)}

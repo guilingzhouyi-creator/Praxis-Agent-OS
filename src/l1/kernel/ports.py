@@ -248,6 +248,23 @@ class I18nPort(ABC):
         """Translate *key* in the current locale with optional variable substitution."""
         ...
 
+    def t_locale(self, locale: str, key: str, **kwargs: Any) -> str:
+        """Translate *key* for a specific *locale* without switching the active locale.
+
+        Default implementation switches and restores the active locale
+        (racy across threads); adapters with per-locale stores should
+        override with a lock-free lookup. Returns the raw *key* when no
+        translation exists, like ``t()``.
+        """
+        current = self.get_locale()
+        result: str = key
+        try:
+            self.set_locale(locale)
+            result = self.t(key, **kwargs)
+        finally:
+            self.set_locale(current)
+        return result
+
     @abstractmethod
     def set_locale(self, locale: str) -> None:
         """Switch active locale."""

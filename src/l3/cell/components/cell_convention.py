@@ -8,6 +8,7 @@ from typing import Any
 from l1.kernel import EVENT_TASK_ASSIGN, emit_signal
 from l1.kernel.params.agent import SIGNAL_TARGET_L3
 from l1.kernel.params.system import LOG_TRUNC_200, LOG_TRUNC_500
+from l2.i18n import t as _t
 from l3.cell.components.cell_types import MessageType
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def convene(cell: Any, issue_card: Any) -> dict:
     from l3.card.issue import IssueCard, IssueCardStatus, get_table
 
     if not isinstance(issue_card, IssueCard):
-        return {"success": False, "error": "expected IssueCard"}
+        return {"success": False, "error": _t("core.convention_expected_card")}
 
     # Activate deliberation memory policy: Peer Agents share the Cell ring
     try:
@@ -88,7 +89,7 @@ def close_convention(cell: Any, issue_card_id: str) -> dict:
     table = get_table()
     issue_card = table.get(issue_card_id)
     if not issue_card:
-        return {"success": False, "error": "issue card vanished"}
+        return {"success": False, "error": _t("core.convention_issue_vanished")}
 
     exec_card = to_execution_card(issue_card, summary)
 
@@ -169,7 +170,7 @@ def handle_convention_message(cell: Any, agent_id: str, msg_type: MessageType, p
 
     conv = _get_convention(cell, card)
     if not conv:
-        return {"success": False, "error": "no active convention"}
+        return {"success": False, "error": _t("core.convention_none_active")}
 
     if msg_type in (MessageType.REBUT, MessageType.PROPOSE_ISSUE, MessageType.CROSS_EXAMINE):
         _mirror_to_deliberation_ring(cell, card_id, agent_id, msg_type, payload)

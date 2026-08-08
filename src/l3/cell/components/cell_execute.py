@@ -19,6 +19,7 @@ from l1.kernel.params.system import (
     LOG_TRUNC_80,
     SNAPSHOT_CACHE_KEY_LIMIT,
 )
+from l2.i18n import t as _t
 from l3.cell.components.cell_decompose import auto_agent_map as _auto_agent_map
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def execute_card(
             term.boot()
 
     if cell._emergency:
-        return {"success": False, "error": "Cell emergency stopped", "cell_id": cell.cell_id}
+        return {"success": False, "error": _t("core.cell_emergency_stopped"), "cell_id": cell.cell_id}
 
     card_id = card.id if hasattr(card, "id") else f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORT]}"
     _snapshot_and_inject(cell, card_id, card)

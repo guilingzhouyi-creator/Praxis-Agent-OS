@@ -30,6 +30,7 @@ from l1.kernel.params.system import (
     THINK_BUDGET_GLOBAL_DEFAULT,
     THINK_REASONING_DEFAULT,
 )
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ class ThinkQuotaRegistry:
         except Exception:
             defn = None
         if not defn:
-            return {"success": False, "error": f"unknown or disabled strategy: {strategy_name}"}
+            return {"success": False, "error": _t("core.unknown_or_disabled_strategy", strategy_name=strategy_name)}
         keys = {k: v for k, v in defn.items() if k in ("reasoning_effort", "thinking_budget")}
         if scope == "global":
             self.set_global(**keys)
@@ -156,7 +157,7 @@ class ThinkQuotaRegistry:
             cell_id, _, agent_id = name.partition(".")
             self.set_agent(cell_id, agent_id, **keys)
         else:
-            return {"success": False, "error": f"unknown scope: {scope}"}
+            return {"success": False, "error": _t("core.unknown_scope", scope=scope)}
         return {"success": True, "scope": scope, "name": name, "strategy": strategy_name, "applied": list(keys)}
 
     def clear_strategy(self, scope: str, name: str = "") -> dict:
@@ -170,7 +171,7 @@ class ThinkQuotaRegistry:
             cell_id, _, agent_id = name.partition(".")
             self.remove_agent(cell_id, agent_id)
         else:
-            return {"success": False, "error": f"unknown scope: {scope}"}
+            return {"success": False, "error": _t("core.unknown_scope", scope=scope)}
         return {"success": True, "scope": scope, "name": name, "restored": "defaults"}
 
     # ── Resolve ───────────────────────────────────────────────────────────

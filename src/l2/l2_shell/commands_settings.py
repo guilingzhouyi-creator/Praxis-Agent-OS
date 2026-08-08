@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
+
 from .commands.common import _coerce
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,7 @@ def _cmd_settings(args: list[str]) -> dict:
     if scope == "pool" and len(rest) >= 1:
         return _settings_pool(rest[0], rest[1:])
 
-    return {"success": False, "error": "usage: /settings [global|cell <id>|agent <id>|pool scout|pool subagent]"}
+    return {"success": False, "error": _t("shell.app_error.usage_settings")}
 
 
 def _settings_global(args: list[str]) -> dict:
@@ -112,7 +114,7 @@ def _settings_pool(pool_type: str, args: list[str]) -> dict:
         return _settings_scout_pool(*args) if args else _settings_scout_pool()
     if pool_type == "subagent":
         return _settings_subagent_pool(*args) if args else _settings_subagent_pool()
-    return {"success": False, "error": "usage: /settings pool [scout|subagent] [cell_id]"}
+    return {"success": False, "error": _t("shell.app_error.usage_settings_pool")}
 
 
 def _settings_scout_pool(cell_id: str = "") -> dict:

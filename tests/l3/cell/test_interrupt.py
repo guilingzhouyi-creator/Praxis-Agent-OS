@@ -166,10 +166,12 @@ class TestTrigger:
         assert not r["success"]
 
     def test_trigger_masked_dropped(self, irq):
+        from l2.i18n import t as _t
+
         irq.mask(4)
         r = irq.trigger(4)
         assert not r["success"]
-        assert r.get("error") == "masked"
+        assert r.get("error") == _t("core.interrupt_masked")
 
     def test_trigger_increments_counter(self, irq):
         irq.trigger(0)

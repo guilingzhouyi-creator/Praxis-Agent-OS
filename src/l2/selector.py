@@ -25,6 +25,7 @@ from l1.kernel.params.agent import (
     INJECTION_REVIEW_REWARD,
 )
 from l1.kernel.params.system import TLB_DEFAULT_RING
+from l2.i18n import t as _t
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def preselect() -> dict:
         cells = get_cells()
     except Exception as e:
         logger.warning("preselect: get_cells failed: %s", e)
-        return {"agents": [], "cells": [], "total": 0, "error": "cell service unavailable"}
+        return {"agents": [], "cells": [], "total": 0, "error": _t("shell.app_error.cell_service_unavailable")}
 
     for cell_id, cell in cells.items():
         cell_ids.append(cell_id)
@@ -178,7 +179,7 @@ def select(cell_id: str = "", agent_id: str = "", role: str = "", domain: str = 
     if result.get("success"):
         return result
 
-    return {"success": False, "error": "no matching agent found"}
+    return {"success": False, "error": _t("shell.app_error.no_matching_agent")}
 
 
 # ── PreConnect verification ──
@@ -361,7 +362,7 @@ def _select_best(role: str, domain: str) -> dict:
 
     if best:
         return {"success": True, "cell_id": best[0], "agent_id": best[1]}
-    return {"success": False, "error": "no matching agent"}
+    return {"success": False, "error": _t("shell.app_error.no_matching_agent")}
 
 
 def _scan_injection(message: str) -> float:

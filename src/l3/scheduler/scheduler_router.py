@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from l1.kernel.params.agent import REP_DEFAULT_REPUTATION
+from l2.i18n import t as _t
 
 from .scheduler_types import AgentInfo, Task
 
@@ -61,7 +62,7 @@ class L3Router:
                 score += 1.5
             scored.append((score, aid))
         if not scored:
-            return {"success": False, "error": "no agents available"}
+            return {"success": False, "error": _t("core.no_agents_available")}
         scored.sort(reverse=True)
         best = scored[0][1]
         a = agents[best]
@@ -114,7 +115,7 @@ class RequestPool:
                     self._queue.pop(idx)
                     self._queue.append(task)
                     return {"success": True, "evicted": True}
-                return {"success": False, "error": "pool full"}
+                return {"success": False, "error": _t("core.pool_full")}
             self._queue.append(task)
             return {"success": True}
 

@@ -45,12 +45,32 @@ class YamlI18nAdapter(I18nPort):
         """Translate *key* in the current locale, applying {var} substitution."""
         msg = self._lookup(key)
         if msg is None:
-            return key if I18N_FALLBACK_TO_KEY else key
+            return key if I18N_FALLBACK_TO_KEY else ""
         if kwargs:
             try:
                 msg = msg.format(**kwargs)
             except KeyError as e:
                 logger.warning("i18n[%s]: missing format key %s for '%s'", self._locale, e, key)
+        return msg
+
+    def t_locale(self, locale: str, key: str, **kwargs: Any) -> str:
+        """Translate *key* for a specific *locale* without touching the active locale.
+
+        Thread-safe per-locale lookup: lazily loads the target locale's file
+        under the reentrant lock, then reads its flat dict — the active
+        locale is never switched, so concurrent requests keep their own
+        locale for the duration of ``t()``.
+        """
+        with self._lock:
+            self._ensure_loaded(locale)
+            msg = self._translations.get(locale, {}).get(key)
+        if msg is None:
+            return key if I18N_FALLBACK_TO_KEY else ""
+        if kwargs:
+            try:
+                msg = msg.format(**kwargs)
+            except KeyError as e:
+                logger.warning("i18n[%s]: missing format key %s for '%s'", locale, e, key)
         return msg
 
     def set_locale(self, locale: str) -> None:

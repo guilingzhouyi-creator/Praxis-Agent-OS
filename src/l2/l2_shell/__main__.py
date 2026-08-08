@@ -16,6 +16,7 @@ _SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+from l2.i18n import t  # noqa: E402
 from l2.l2_shell import dispatch  # noqa: E402
 
 
@@ -41,16 +42,16 @@ def _render(result) -> None:
             if key not in ("success", "format"):
                 print(f"{key}: {value}")
         return
-    error = result.get("error", "unknown error")
-    print(f"[error] {error}")
+    error = result.get("error", t("shell.render.unknown_error"))
+    print(t("shell.render.error", error=error))
     suggestions = result.get("suggestions")
     if suggestions:
-        print(f"[hint] try: {', '.join(suggestions[:10])}")
+        print(t("shell.render.hint", suggestions=", ".join(suggestions[:10])))
 
 
 def repl() -> None:
     """Run the interactive L2 Shell REPL loop."""
-    print("Praxis L2 Shell — type '/help' for commands, 'exit' to quit")
+    print(t("shell.banner"))
     while True:
         try:
             line = input("l2> ").strip()
@@ -66,7 +67,7 @@ def repl() -> None:
         try:
             result = dispatch(line)
         except Exception as e:
-            print(f"[error] {e}")
+            print(t("shell.render.error", error=str(e)))
             continue
         _render(result)
 

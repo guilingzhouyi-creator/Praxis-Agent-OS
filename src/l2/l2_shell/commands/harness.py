@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,5 +26,5 @@ def _cmd_harness(args: list[str]) -> dict:
         confirm = "--confirm" in args or "-y" in args
         return set_harness_mode(sub, confirmed=confirm, source="shell")
     if sub in ("--confirm", "-y"):
-        return {"success": False, "error": "usage: /harness <governed|semi|minimal> [--confirm]"}
+        return {"success": False, "error": _t("shell.app_error.usage_harness")}
     return {"success": False, "error": f"unknown harness mode: {sub}"}

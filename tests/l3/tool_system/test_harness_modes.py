@@ -131,7 +131,9 @@ class TestBottomLine:
         _spec_obj = _spec()
         r = p.execute("read_file", "agent-http", _registry={}, _executor=lambda *a, **k: {"success": True})
         assert not r["success"]
-        assert "constitution blocked" in r["error"]
+        from l2.i18n import t
+
+        assert r["error"] == t("core.pipeline_constitution_blocked")
 
     def test_gatechain_recording_never_skipped(self, monkeypatch):
         """Reference-channel causal recording stays on in minimal mode."""

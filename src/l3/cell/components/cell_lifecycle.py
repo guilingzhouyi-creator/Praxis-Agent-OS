@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from l1.kernel.params.system import CONTEXT_MAX_REGISTER_TOKENS, MEMORY_RESTORE_RING2_LIMIT
+from l2.i18n import t as _t
 from l3.agent_terminal import get_terminals
 
 if TYPE_CHECKING:
@@ -153,7 +154,7 @@ class CellLifecycleMixin:
         """Reset an agent's working context to combat context pollution."""
         term = get_terminals().get(agent_id)
         if not term:
-            return {"success": False, "error": f"agent {agent_id} not found"}
+            return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
         try:
             term.pause()
         except Exception as e:
@@ -180,7 +181,7 @@ class CellLifecycleMixin:
 
         with self._lock:
             if agent_id not in self._agents:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                return {"success": False, "error": _t("core.agent_not_found", agent_id=agent_id)}
         term = get_terminals().get(agent_id)
         if term:
             term.shutdown()

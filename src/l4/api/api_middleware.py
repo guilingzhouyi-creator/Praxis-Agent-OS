@@ -185,18 +185,33 @@ def _parse_accept_language(header: str) -> str | None:
     return candidates[0][1] if candidates else None
 
 
-_KNOWN_LOCALES = {"en", "zh-CN", "zh", "ja", "ko", "de", "fr", "es"}
+# Canonical locale per base language tag. Any other tag (e.g. "de") may still
+# be accepted for pass-through, but only when the translation layer actually
+# ships a file for it (checked against I18nPort.get_available()).
+_LOCALE_BASES: dict[str, str] = {
+    "en": "en",
+    "zh": "zh-CN",
+    "ja": "ja",
+    "ko": "ko",
+    "de": "de",
+    "fr": "fr",
+    "es": "es",
+}
 
 
 def _normalize_locale(raw: str) -> str:
-    """Normalize a locale string to a known form, falling back to 'en'."""
-    raw = raw.replace("-", "_")
-    if raw in _KNOWN_LOCALES or raw.split("_")[0] in _KNOWN_LOCALES:
-        # Return the canonical form for known locales
-        for known in _KNOWN_LOCALES:
-            if raw.startswith(known.split("-")[0]):
-                return known
-    return "en"
+    """Normalize a raw locale string to its canonical tag; '' if unrecognized.
+
+    Handles case variants and subtag forms:
+      "zh-CN" / "zh_Hans" / "zh-hans" / "zh"  → "zh-CN"
+      "en-US" → "en", "ja-JP" → "ja", "ko" → "ko"
+      "fr" → "fr" (adapter falls back to default if no file exists)
+    """
+    cleaned = raw.strip().lower().replace("_", "-")
+    if not cleaned:
+        return ""
+    base = cleaned.split("-", 1)[0]
+    return _LOCALE_BASES.get(base, "")
 
 
 class LocaleMiddleware(Middleware):
@@ -213,9 +228,21 @@ class LocaleMiddleware(Middleware):
         raw = (
             request.query.get("locale", "") or _parse_accept_language(request.headers.get("Accept-Language", "")) or ""
         )
+        locale = ""
         if raw:
             locale = _normalize_locale(raw)
-        else:
+            # A request locale is only honored when the translation layer
+            # actually ships a file for it; otherwise follow the port default
+            # so request.locale and the applied I18nPort locale never diverge.
+            try:
+                from l1.kernel.ports import get_port as _gp
+
+                available = _gp("i18n").get_available()
+                if available and locale and locale not in available:
+                    locale = ""
+            except Exception:
+                logger.debug("api_middleware: available locales lookup failed")
+        if not locale:
             try:
                 from l1.kernel.ports import get_port as _gp
 

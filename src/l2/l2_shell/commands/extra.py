@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from l1.kernel.params.system import STATS_TIMELINE_LIMIT, STATS_TOP_LIMIT
+from l2.i18n import t as _t
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def _cmd_cluster(args: list[str]) -> dict:
     if sub == "status":
         cells: list[dict] = getattr(coord, "list_cells", lambda: [])()
         return {"success": True, "data": {"cells": cells}}
-    return {"success": False, "error": "usage: /cluster [status]"}
+    return {"success": False, "error": _t("shell.app_error.usage_cluster")}
 
 
 def _cmd_cells(args: list[str]) -> dict:
@@ -40,7 +41,7 @@ def _cmd_cross(args: list[str]) -> dict:
 
 def _cmd_htn(args: list[str]) -> dict:
     if not args:
-        return {"success": False, "error": "usage: /htn [a|b|status]"}
+        return {"success": False, "error": _t("shell.app_error.usage_htn")}
     sub = args[0].lower()
     if sub == "a":
         from l3.bus.htn_a import get_htn_a
@@ -49,7 +50,7 @@ def _cmd_htn(args: list[str]) -> dict:
         return {"success": True, "methods": len(planner._methods) if hasattr(planner, "_methods") else 0}
     if sub == "status":
         return {"success": True}
-    return {"success": False, "error": "unknown htn subcommand"}
+    return {"success": False, "error": _t("shell.app_error.unknown_htn_subcommand")}
 
 
 def _cmd_security(args: list[str]) -> dict:
@@ -86,7 +87,7 @@ def _cmd_mcp(args: list[str]) -> dict:
             return bridge.set_enabled(args[1])
         if sub == "disable" and len(args) >= 2:
             return bridge.set_disabled(args[1])
-        return {"success": False, "error": "usage: /mcp [status|mode <normal|selected|full>|enable|disable]"}
+        return {"success": False, "error": _t("shell.app_error.usage_mcp")}
     except Exception as e:
         capture("extra: cmd failed", error_code="E_CMD", component="l2", context={"error": str(e)})
         return {"success": False, "error": str(e)}
@@ -208,8 +209,7 @@ def _cmd_stats(args: list[str]) -> dict:
 
     return {
         "success": False,
-        "error": "usage: /stats [timeline [n]|api|side|reasoning|graph"
-        "|top <metric>|tools|compression|cell|agent|cells] [1m|5m|1h|all]",
+        "error": _t("shell.app_error.usage_stats"),
     }
 
 
@@ -222,4 +222,4 @@ def _cmd_think(args: list[str]) -> dict:
         return {"success": True, "cells": reg.list_cells()}
     if args[0] == "status":
         return {"success": True, "quotas": reg.all()}
-    return {"success": False, "error": "usage: /think [status]"}
+    return {"success": False, "error": _t("shell.app_error.usage_think")}

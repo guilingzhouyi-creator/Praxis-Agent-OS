@@ -4,26 +4,36 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
+
 logger = logging.getLogger(__name__)
 
 
 def _cmd_status(args: list[str]) -> dict:
     from l1.kernel.healthcheck import safe_system_check as _health
     from l1.kernel.process import get_table
+    from l2.i18n import t
     from l3.agent_terminal import get_terminals
 
     h = _health()
-    print(f"Kernel health: {h.get('status', '?')} ({h.get('module_count', 0)} modules)")
+    print(t("shell.status.kernel_health", status=h.get("status", "?"), modules=h.get("module_count", 0)))
     for name, r in h.get("subsystems", {}).items():
         print(f"  [{r['status']}] {name}")
-    print(f"\nProcesses: {len(get_table().list_processes())}")
-    print(f"Terminals: {len(get_terminals())}")
+    print(f"\n{t('shell.status.processes', count=len(get_table().list_processes()))}")
+    print(t("shell.status.terminals", count=len(get_terminals())))
     try:
         from l1.kernel.lifecycle import get_lifecycle
 
         lc = get_lifecycle()
         rec = lc.load()
-        print(f"Lifecycle: {lc.state().value} (boots={rec.boot_count}, schema={rec.schema_version or 'unset'})")
+        print(
+            t(
+                "shell.status.lifecycle",
+                state=lc.state().value,
+                boots=rec.boot_count,
+                schema=rec.schema_version or "unset",
+            )
+        )
     except Exception:
         logger.debug("system: lifecycle load failed, skipping", exc_info=True)
     # Enrich with shell mode/cell context (agent_id only present in Direct mode)
@@ -118,7 +128,7 @@ def _cmd_skills(args: list[str]) -> dict:
     if sub == "get":
         name = rest[1] if len(rest) > 1 else ""
         if not name:
-            return {"success": False, "error": "usage: /skills get <name>"}
+            return {"success": False, "error": _t("shell.app_error.usage_skills_get")}
         skill = sm.get(name)
         if not skill:
             return {"success": False, "error": f"skill '{name}' not found"}
@@ -143,7 +153,7 @@ def _cmd_skills(args: list[str]) -> dict:
             if field not in valid_fields or value not in ("on", "off", "true", "false", "1", "0"):
                 return {
                     "success": False,
-                    "error": "usage: /skills distill set <distill|dpo_signal|generalize|llm_distill|clustering|sampling> <on|off>",
+                    "error": _t("shell.app_error.usage_skills_distill"),
                 }
             flag = value in ("on", "true", "1")
             if field == "distill":
@@ -169,7 +179,7 @@ def _cmd_skills(args: list[str]) -> dict:
         if action == "set":
             backend = rest[2] if len(rest) > 2 else ""
             if not backend:
-                return {"success": False, "error": "usage: /skills retriever set <tfidf|embedding>"}
+                return {"success": False, "error": _t("shell.app_error.usage_skills_retriever")}
             return set_backend(backend)
         return {
             "success": False,
@@ -180,7 +190,7 @@ def _cmd_skills(args: list[str]) -> dict:
     if sub == "evolve":
         intent = " ".join(rest[1:])
         if not intent:
-            return {"success": False, "error": "usage: /skills evolve <intent>"}
+            return {"success": False, "error": _t("shell.app_error.usage_skills_evolve")}
         # evolve persists a new skill to disk — honor the developer write gate
         # like create/update/delete/reload (see authorize_write in SkillManager).
         ok, who = sm.authorize_write(agent_id, role)
@@ -196,13 +206,13 @@ def _cmd_skills(args: list[str]) -> dict:
     # ── Developer-only mutations ──
     if sub == "create":
         if len(rest) < 4:
-            return {"success": False, "error": "usage: /skills create <name> <desc> <prompt> [--role <role>]"}
+            return {"success": False, "error": _t("shell.app_error.usage_skills_create")}
         name, desc, prompt = rest[1], rest[2], rest[3]
         return sm.create(name, description=desc, prompt=prompt, agent_id=agent_id, role=role)
 
     if sub == "update":
         if len(rest) < 4:
-            return {"success": False, "error": "usage: /skills update <name> <field> <value> [--role <role>]"}
+            return {"success": False, "error": _t("shell.app_error.usage_skills_update")}
         name, field, value = rest[1], rest[2], rest[3]
         if field not in ("description", "prompt", "rules"):
             return {"success": False, "error": f"unsupported field: {field}"}
@@ -212,7 +222,7 @@ def _cmd_skills(args: list[str]) -> dict:
     if sub == "delete":
         name = rest[1] if len(rest) > 1 else ""
         if not name:
-            return {"success": False, "error": "usage: /skills delete <name> [--role <role>]"}
+            return {"success": False, "error": _t("shell.app_error.usage_skills_delete")}
         return sm.delete(name, agent_id=agent_id, role=role)
 
     if sub == "reload":
@@ -333,15 +343,15 @@ def _cmd_help(args: list[str]) -> dict:
         cat = c.get("category", "other")
         groups.setdefault(cat, []).append(c)
     cat_labels = {
-        "session": "Session",
-        "control": "Central Control",
-        "memory": "Memory",
-        "system": "System",
-        "agent": "Agent / Cell",
-        "audit": "Audit / Config",
-        "ext": "Extensions",
+        "session": _t("shell.render.cat_session"),
+        "control": _t("shell.render.cat_control"),
+        "memory": _t("shell.render.cat_memory"),
+        "system": _t("shell.render.cat_system"),
+        "agent": _t("shell.render.cat_agent"),
+        "audit": _t("shell.render.cat_audit"),
+        "ext": _t("shell.render.cat_ext"),
     }
-    lines = ["Available commands:", ""]
+    lines = [_t("shell.render.available"), ""]
     for cat in ["session", "control", "memory", "system", "agent", "audit", "ext"]:
         items = groups.get(cat, [])
         if not items:

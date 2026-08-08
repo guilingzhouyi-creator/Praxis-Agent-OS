@@ -10,6 +10,7 @@ import os
 import shutil
 
 from l1.kernel.params.agent import CELL_HISTORY_RING_SIZE
+from l2.i18n import t as _t
 from l3.cell.components.cell_buffer import CircularBuffer
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ def rollback_card(cell, card_id: str = "") -> dict:
     results["terminals_reset"] = len(terms)
 
     # 5. Store rollback info in ring buffer
-    rollback_msg = f"Card {card_id} was rolled back. {results.get('files_restored', 0)} files restored."
+    rollback_msg = _t("core.rollback_message", card_id=card_id, files=results.get("files_restored", 0))
     cell._rollback_ring.push(rollback_msg)
 
     # 6. Remove from history ring

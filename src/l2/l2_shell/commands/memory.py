@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from l1.kernel.params.agent import DEFAULT_CELL_ID
+from l2.i18n import t as _t
 from l3.error_bus import capture
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ def _cmd_memory(args: list[str]) -> dict:
     scope, scope_id, rest = resolve_scope(args)
     agents = resolve_agents(scope, scope_id)
     if not agents:
-        return {"success": False, "error": "no agents found"}
+        return {"success": False, "error": _t("shell.app_error.no_agents_found")}
     op = rest[0].lower() if rest else "search"
     kwargs: dict[str, object] = {"agent_ids": agents}
     if len(rest) >= 2:
@@ -59,7 +60,7 @@ def _cmd_card(args: list[str]) -> dict:
         return cr.reject(args[1], reason=reason)
     return {
         "success": False,
-        "error": "usage: /card [list|submit <intent>|cancel <id>|approve <id>|reject <id> [reason]]",
+        "error": _t("shell.app_error.usage_card"),
     }
 
 
@@ -77,7 +78,7 @@ def _cmd_spawn(args: list[str]) -> dict:
     from l3.cell import get_cell
 
     if not args:
-        return {"success": False, "error": "usage: /spawn <name> [role]"}
+        return {"success": False, "error": _t("shell.app_error.usage_spawn")}
     name, role = args[0], args[1] if len(args) > 1 else DEFAULT_CELL_INITIAL_ROLES[0]
     cell = get_cell(DEFAULT_CELL_ID)
     return cell.add_agent(name, role=role)
@@ -85,7 +86,7 @@ def _cmd_spawn(args: list[str]) -> dict:
 
 def _cmd_kill(args: list[str]) -> dict:
     if not args:
-        return {"success": False, "error": "usage: /kill <agent_id>"}
+        return {"success": False, "error": _t("shell.app_error.usage_kill")}
     from l3.agent_terminal import get_terminals
 
     terms = get_terminals()
@@ -98,7 +99,7 @@ def _cmd_destroy(args: list[str]) -> dict:
     from l3.cell import reset_cells
 
     reset_cells()
-    return {"success": True, "message": "all cells reset"}
+    return {"success": True, "message": _t("shell.render.cells_reset")}
 
 
 def _cmd_emergency(args: list[str]) -> dict:
@@ -127,7 +128,7 @@ def _cmd_agent_restart(args: list[str]) -> dict:
     from l3.cell import get_cell
 
     if not args:
-        return {"success": False, "error": "usage: /agent-restart <agent_id>"}
+        return {"success": False, "error": _t("shell.app_error.usage_agent_restart")}
     cell = get_cell(DEFAULT_CELL_ID)
     return cell.restart_agent(args[0])
 
@@ -138,7 +139,7 @@ def _cmd_agent_refresh(args: list[str]) -> dict:
     cell = get_cell(DEFAULT_CELL_ID)
     if args:
         return cell.reset_agent_context(args[0])
-    return {"success": False, "error": "agent_id required"}
+    return {"success": False, "error": _t("shell.app_error.agent_id_required")}
 
 
 def _cmd_tokens(args: list[str]) -> dict:

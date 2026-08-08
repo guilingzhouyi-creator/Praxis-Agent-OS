@@ -222,12 +222,23 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             try:
                 vr = hook(agent_id, role, territory, ring)
                 if isinstance(vr, dict) and not vr.get("success", True):
-                    return {"success": False, "error": f"spawn hook vetoed: {vr.get('error', '?')}", "hook_error": vr}
+                    from l2.i18n import t as _t
+
+                    return {
+                        "success": False,
+                        "error": _t("core.spawn_vetoed", reason=vr.get("error", "?")),
+                        "hook_error": vr,
+                    }
             except Exception as e:
                 logger.warning("spawn hook %s raised: %s", hook, e)
         with self._lock:
             if agent_id in self._agents:
-                return {"success": False, "error": f"agent {agent_id} already registered"}
+                from l2.i18n import t as _t
+
+                return {
+                    "success": False,
+                    "error": _t("core.agent_already_registered", agent_id=agent_id),
+                }
             self._agents[agent_id] = info
             self._mailbox[agent_id] = []
         # Warm MMU TLB with the new agent's territory mappings
@@ -247,14 +258,25 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
             try:
                 vr = hook(agent_id)
                 if isinstance(vr, dict) and not vr.get("success", True):
-                    return {"success": False, "error": f"kill hook vetoed: {vr.get('error', '?')}", "hook_error": vr}
+                    from l2.i18n import t as _t
+
+                    return {
+                        "success": False,
+                        "error": _t("core.kill_vetoed", reason=vr.get("error", "?")),
+                        "hook_error": vr,
+                    }
             except Exception as e:
                 logger.warning("kill hook %s raised: %s", hook, e)
         from ..agent_terminal import get_terminals
 
         with self._lock:
             if agent_id not in self._agents:
-                return {"success": False, "error": f"agent {agent_id} not found"}
+                from l2.i18n import t as _t
+
+                return {
+                    "success": False,
+                    "error": _t("core.agent_not_found", agent_id=agent_id),
+                }
             del self._agents[agent_id]
             self._mailbox.pop(agent_id, None)
             self._watchdog.unregister(agent_id)
@@ -427,10 +449,12 @@ class Cell(CellLifecycleMixin, CellMessagingMixin):
         if _is_write:
             review = self._auto_cross_review(target_agent, action, target, card_id)
             if not review.get("approved"):
+                from l2.i18n import t as _t
+
                 return {
                     "success": False,
                     "card_id": card_id,
-                    "error": f"cross-review rejected: {review.get('reason', '')}",
+                    "error": _t("core.cross_review_rejected", reason=review.get("reason", "")),
                     "review": review,
                 }
 

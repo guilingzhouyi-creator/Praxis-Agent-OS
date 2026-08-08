@@ -37,6 +37,7 @@ from enum import IntEnum
 from typing import Any
 
 from l1.kernel.params.system import IRQ_DISPATCH_BATCH, IRQ_TABLE_SIZE
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +171,7 @@ class InterruptController:
             # Masked interrupts are dropped
             if slot.masked:
                 logger.debug("interrupt: IRQ%d %s masked — dropped", slot.irq_num, slot.name)
-                return {"success": False, "error": "masked"}
+                return {"success": False, "error": _t("core.interrupt_masked")}
 
             # Queue for dispatch
             self._pending[slot.priority].append(event)
@@ -214,7 +215,7 @@ class InterruptController:
             if slot is None:
                 return {"success": False, "error": f"unknown irq: {irq_num}"}
             if slot.priority == IrqPriority.NMI:
-                return {"success": False, "error": "cannot mask NMI"}
+                return {"success": False, "error": _t("core.cannot_mask_nmi")}
             slot.masked = True
             return {"success": True}
 

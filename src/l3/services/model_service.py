@@ -22,6 +22,7 @@ import re
 from typing import Any
 
 from l1.kernel.ports import LLMConfig
+from l2.i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +289,7 @@ class ModelService:
             engine = get_engine(config)
             if hasattr(engine._provider, "health"):
                 return engine._provider.health()
-            return {"status": "unknown", "message": "no health() method"}
+            return {"status": "unknown", "message": _t("core.health_no_method")}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from l2.i18n import t as _t
 from l3.card.card_unified import CardSummary, CardUnified, PhaseMode, list_card_types
 from l3.error_bus import capture
 
@@ -167,7 +168,7 @@ def cardwrite_handler(args: dict, agent_id: str = "") -> dict:
             "card_id": card.id,
             "nature": nature,
             "phases": len(phases_data),
-            "message": f"Card {card.id} submitted",
+            "message": _t("core.card_submitted", card_id=card.id),
         }
     except Exception as e:
         return {"success": False, "error": str(e), "card_id": card.id}
@@ -251,7 +252,7 @@ def l3a_convention_handler(args: dict, agent_id: str = "") -> dict:
     """
     issue_id = args.get("issue_id", "")
     if not issue_id:
-        return {"success": False, "error": "issue_id required"}
+        return {"success": False, "error": _t("core.issue_id_required")}
     action = args.get("action", "")
     anchor = args.get("anchor", "")
     agent_filter = args.get("agent", "")
@@ -435,7 +436,7 @@ def l3a_summary_handler(args: dict, agent_id: str = "") -> dict:
     if action == "search":
         query = args.get("query", "")
         if not query:
-            return {"success": False, "error": "query required"}
+            return {"success": False, "error": _t("core.query_required")}
         limit = int(args.get("limit", 5))
         hits = store.search(query, limit=limit)
         return {"success": True, "data": [s.to_dict() for s in hits], "count": len(hits)}
