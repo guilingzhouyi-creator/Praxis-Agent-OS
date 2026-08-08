@@ -22,7 +22,14 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from l1.kernel.params.system import HASH_TRUNC_SHORT, ISSUE_TABLE_AUTO_SAVE, LOG_TRUNC_80, LOG_TRUNC_120, LOG_TRUNC_500
+from l1.kernel.params.system import (
+    HASH_TRUNC_SHORT,
+    HASH_TRUNC_SIX,
+    ISSUE_TABLE_AUTO_SAVE,
+    LOG_TRUNC_80,
+    LOG_TRUNC_120,
+    LOG_TRUNC_500,
+)
 from l1.kernel.paths import get_paths as _gp
 from l3._persistable import PersistableMixin
 
@@ -100,7 +107,7 @@ class IssueCard:
     def add_item(self, question: str, domain: str = "", proposed_by: str = "", assigned_to: str = "") -> str:
         """Add a new issue item to the card and return its id."""
         item = IssueItem(
-            id=f"{self.id}-{uuid.uuid4().hex[:6]}",
+            id=f"{self.id}-{uuid.uuid4().hex[:HASH_TRUNC_SIX]}",
             question=question,
             domain=domain or self.domain,
             proposed_by=proposed_by,

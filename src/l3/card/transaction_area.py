@@ -20,7 +20,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from l1.kernel.discovery import get_service_limit
-from l1.kernel.params.system import LOG_TRUNC_50, LOG_TRUNC_60, TRANSACTION_AREA_AUTO_SAVE, TRANSACTION_AREA_MAX_QUEUE
+from l1.kernel.params.system import (
+    HASH_TRUNC_SIX,
+    LOG_TRUNC_50,
+    LOG_TRUNC_60,
+    TRANSACTION_AREA_AUTO_SAVE,
+    TRANSACTION_AREA_MAX_QUEUE,
+)
 from l1.kernel.paths import get_paths as _gp
 from l3._base import BaseService
 from l3._persistable import PersistableMixin
@@ -187,7 +193,7 @@ class TransactionArea(BaseService, PersistableMixin):
           Medium cards → auto-approve after priority check
           Large cards → always require human approval
         """
-        card_id = f"card-{uuid.uuid4().hex[:6]}"
+        card_id = f"card-{uuid.uuid4().hex[:HASH_TRUNC_SIX]}"
 
         # Determine auto-approval eligibility
         can_auto = auto_approve and size != "large"

@@ -215,6 +215,7 @@ def wipe_disk_state(wipe_config: bool = False) -> dict[str, str]:
     import os as _os
     import shutil as _shutil
 
+    from l1.kernel.params.system import PRAXIS_CONFIG_FILE
     from l1.kernel.paths import get_paths as _gp
 
     results: dict[str, str] = {}
@@ -244,7 +245,7 @@ def wipe_disk_state(wipe_config: bool = False) -> dict[str, str]:
             except Exception as e:
                 results[path] = f"error: {e}"
     if wipe_config:
-        config_path = _gp().config_file if hasattr(_gp(), "config_file") else "config/praxis.yaml"
+        config_path = _gp().config_file if hasattr(_gp(), "config_file") else PRAXIS_CONFIG_FILE
         try:
             _os.remove(config_path)
             results[config_path] = "deleted"

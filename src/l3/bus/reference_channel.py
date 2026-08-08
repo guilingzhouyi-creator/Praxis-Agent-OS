@@ -248,7 +248,7 @@ class ReferenceChannel:
                 "field": field,
                 "old_preview": str(old_value)[:LOG_TRUNC_200],
                 "new_preview": str(new_value)[:LOG_TRUNC_200],
-                "reason": reason[:200],
+                "reason": reason[:LOG_TRUNC_200],
             },
             source="l2_shell",
             trace_id=card_id,

@@ -28,6 +28,7 @@ import time
 from datetime import UTC
 from typing import Any
 
+from l1.kernel.params.system import LOG_TRUNC_150
 from l3.error_bus import capture
 
 from . import api as _api
@@ -143,7 +144,7 @@ def _l3a_memory_render(summaries: list[dict]) -> str:
     lines = ["## L3A memory (recent deliberations)"]
     for s in summaries:
         lines.append(f"- [{s.get('issue_id', '?')}] {s.get('title', '')} (domain={s.get('domain', '')})")
-        lines.append(f"  {s.get('summary', '')[:150]}")
+        lines.append(f"  {s.get('summary', '')[:LOG_TRUNC_150]}")
     return "\n".join(lines)
 
 

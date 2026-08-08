@@ -191,7 +191,7 @@ class ContextAssembler:
         lines = []
         for msg in recent:
             role = msg.get("role", "?")
-            content = (msg.get("content", "") or "")[:200]
+            content = (msg.get("content", "") or "")[:LOG_TRUNC_200]
             lines.append(f"[{role}] {content}")
         content = "\n".join(lines)
         item = ContextItem(

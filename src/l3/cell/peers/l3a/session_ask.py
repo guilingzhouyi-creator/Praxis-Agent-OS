@@ -12,6 +12,8 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from l1.kernel.params.system import HASH_TRUNC_SHORTEST
+
 from . import params as _p
 
 if TYPE_CHECKING:
@@ -99,7 +101,7 @@ class SessionAskMixin:
         block = build_answer_block(st)
         self.history.append(
             _Message(
-                id=f"ask-{uuid.uuid4().hex[:4]}",
+                id=f"ask-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
                 role="user",
                 content=block,
                 metadata={"kind": "ask_answer"},
@@ -125,7 +127,7 @@ class SessionAskMixin:
         answer = result.get("answer", "")
         tool_calls = result.get("tool_calls", [])
         answer_msg = _Message(
-            id=f"asst-{uuid.uuid4().hex[:4]}",
+            id=f"asst-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
             role="assistant",
             content=answer,
             tool_calls=tool_calls,

@@ -14,6 +14,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from l1.kernel.params.system import (
+    HASH_TRUNC_SHORTEST,
     LOG_TRUNC_200,
     LOG_TRUNC_300,
     SESSION_MSG_OVERHEAD,
@@ -183,7 +184,7 @@ class SessionCompressMixin:
 
         with self._lock:
             summary_msg = _Message(
-                id=f"sum-{uuid.uuid4().hex[:4]}",
+                id=f"sum-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
                 role="system",
                 content=f"[SESSION COMPRESSED at turn {self.turn_count}] {summary_text}",
                 metadata={

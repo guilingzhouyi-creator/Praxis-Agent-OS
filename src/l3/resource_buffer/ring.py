@@ -27,6 +27,7 @@ from l1.kernel.params.system import (  # noqa: E402
     RESOURCE_BUFFER_AUTO_EXPAND,
     RESOURCE_BUFFER_CHECKPOINT_FILE,
     RESOURCE_BUFFER_FLUSH_INTERVAL,
+    RESOURCE_BUFFER_FLUSH_LOOP_SLEEP,
     RESOURCE_BUFFER_HIDDEN_DIR,
     RESOURCE_BUFFER_HIDDEN_TTL,
     RESOURCE_BUFFER_JOURNAL_FILE,
@@ -282,7 +283,7 @@ class RingBuffer:
     def _flush_loop(self) -> None:
         """Background: move stale pending slots to _hidden/."""
         while self._running:
-            time.sleep(5)
+            time.sleep(RESOURCE_BUFFER_FLUSH_LOOP_SLEEP)
             try:
                 self._flush_stale_slots()
             except Exception as e:

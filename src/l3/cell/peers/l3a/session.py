@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from l1.kernel.params.system import (
+    HASH_TRUNC_SHORTEST,
     LOG_TRUNC_100,
     LOG_TRUNC_200,
     LOG_TRUNC_300,
@@ -160,7 +161,7 @@ class Session(SessionPromptMixin, SessionAskMixin, SessionCompressMixin):
                 try:
                     inst.history.append(
                         Message(
-                            id=m.get("id", f"r-{uuid.uuid4().hex[:4]}"),
+                            id=m.get("id", f"r-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}"),
                             role=m.get("role", "user"),
                             content=m.get("content", ""),
                             tool_calls=m.get("tool_calls", []),
@@ -194,7 +195,7 @@ class Session(SessionPromptMixin, SessionAskMixin, SessionCompressMixin):
                         if ctx_lines:
                             inst.history.append(
                                 Message(
-                                    id=f"graph-{uuid.uuid4().hex[:4]}",
+                                    id=f"graph-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
                                     role="system",
                                     content=("Related context from memory graph:\n" + "\n".join(ctx_lines)),
                                     metadata={"graph_recall": True},
@@ -353,7 +354,7 @@ class Session(SessionPromptMixin, SessionAskMixin, SessionCompressMixin):
         with self._lock:
             self.history.append(
                 Message(
-                    id=f"card-{uuid.uuid4().hex[:4]}",
+                    id=f"card-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
                     role="system",
                     content=text,
                     metadata={"card_id": card_id, "card_state": state},

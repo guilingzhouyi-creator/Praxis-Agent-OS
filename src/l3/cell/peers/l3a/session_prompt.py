@@ -12,6 +12,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from l1.kernel.params.system import HASH_TRUNC_SHORTEST
 from l3.error_bus import capture
 
 from . import params as _p
@@ -86,7 +87,7 @@ class SessionPromptMixin:
         for c in changes:
             self.history.append(
                 _Message(
-                    id=f"sys-{uuid.uuid4().hex[:4]}",
+                    id=f"sys-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
                     role="system",
                     content=c.text,
                     metadata={"context_key": c.key},
@@ -148,7 +149,7 @@ class SessionPromptMixin:
         except Exception:
             logger.debug("l3a.session: reasoning extraction failed, proceeding without it", exc_info=True)
         answer_msg = _Message(
-            id=f"asst-{uuid.uuid4().hex[:4]}",
+            id=f"asst-{uuid.uuid4().hex[:HASH_TRUNC_SHORTEST]}",
             role="assistant",
             content=answer,
             tool_calls=tool_calls,
