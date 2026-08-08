@@ -104,16 +104,27 @@ def advance_on_stage_todo_verified(todo, sm, content: str, session_key: str = ""
     """Advance a staged skill when its stage TODO reaches 'verified'.
 
     Parses the ``[skill:<name>:<stage_id>]`` prefix out of a verified todo and
-    advances the skill's stage for the session (three-table linkage). No-op
-    for non-stage todos or unverified stages.
+    advances the skill's stage for the session (three-table linkage). Only the
+    CURRENT stage's verified TODO advances (stage-id must match, the skill
+    must be staged, and the last stage has nothing to advance) — stale or
+    future-stage confirmations are no-ops. Small mode (stages inert) never
+    reports an advance.
     """
     if not content.startswith(_STAGE_TODO_PREFIX):
         return {"advanced": 0}
     parts = content[len(_STAGE_TODO_PREFIX) :].split("]", 1)[0].split(":")
-    if len(parts) < 2 or not parts[0]:
+    if len(parts) < 2 or not parts[0] or not parts[1]:
         return {"advanced": 0}
     if todo.status_of(content) != "verified":
         return {"advanced": 0}
-    skill_name = parts[0]
+    skill_name, stage_id = parts[0], parts[1]
+    cur = sm.current_stage(skill_name, session_key)
+    if not cur.get("staged"):
+        return {"advanced": 0}  # small mode / unstaged: stages inert
+    stage = cur.get("stage") or {}
+    if stage.get("id") != stage_id:
+        return {"advanced": 0}  # stale or future stage: chain integrity
+    if cur.get("done"):
+        return {"advanced": 0}  # last stage: nothing left to advance
     result = sm.advance_stage(skill_name, session_key)
     return {"advanced": 1 if result.get("success") else 0, "skill": skill_name, "result": result}

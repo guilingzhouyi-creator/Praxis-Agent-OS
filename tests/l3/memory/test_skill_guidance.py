@@ -141,6 +141,60 @@ class TestStageTodoLinkage:
         )
         assert r["materialized"] is False
 
+    def test_stale_stage_todo_does_not_double_advance(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified, materialize_stage_todo
+        from l3.services.todo_tracker import TodoTracker
+
+        self._staged()
+        sm = get_skill_manager()
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        r = materialize_stage_todo(todo, sm, "quest-x", "sess")
+        todo.update(r["todo"], "verified")
+        assert advance_on_stage_todo_verified(todo, sm, r["todo"], "sess")["advanced"] == 1
+        assert sm.current_stage("quest-x", "sess")["stage"]["id"] == "b"
+        # Re-verifying the STALE stage-a TODO must not double-advance.
+        assert advance_on_stage_todo_verified(todo, sm, r["todo"], "sess")["advanced"] == 0
+        assert sm.current_stage("quest-x", "sess")["stage"]["id"] == "b"
+
+    def test_future_stage_todo_never_advances(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified
+        from l3.services.todo_tracker import TodoTracker
+
+        self._staged()
+        sm = get_skill_manager()
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        future = "[skill:quest-x:b] do B"
+        todo.update(future, "add")
+        todo.update(future, "verified")
+        assert advance_on_stage_todo_verified(todo, sm, future, "sess")["advanced"] == 0
+        assert sm.current_stage("quest-x", "sess")["stage"]["id"] == "a"
+
+    def test_small_mode_todo_verified_reports_no_advance(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified
+        from l3.services.todo_tracker import TodoTracker
+
+        self._staged()
+        sm = get_skill_manager()
+        sm.set_guidance_policy(mode="small")
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        content = "[skill:quest-x:a] do A"
+        todo.update(content, "add")
+        todo.update(content, "verified")
+        assert advance_on_stage_todo_verified(todo, sm, content, "sess")["advanced"] == 0
+
+    def test_last_stage_verification_reports_no_advance(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified
+        from l3.services.todo_tracker import TodoTracker
+
+        self._staged()
+        sm = get_skill_manager()
+        sm.advance_stage("quest-x", "sess")  # now on stage b (last)
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        content = "[skill:quest-x:b] do B"
+        todo.update(content, "add")
+        todo.update(content, "verified")
+        assert advance_on_stage_todo_verified(todo, sm, content, "sess")["advanced"] == 0
+
 
 class TestGuidanceModes:
     """Guidance operating mode: small (fields inert) vs full (atomic chains)."""
