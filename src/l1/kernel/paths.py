@@ -207,6 +207,7 @@ class PraxisPaths:
     pending_queue: str = ""
     issue_table: str = ""
     approval_gate: str = ""
+    capability_gate: str = ""
 
     # ── Serialized state files ──
     mute_state: str = ""
@@ -284,6 +285,7 @@ class PraxisPaths:
         self.pending_queue = os.path.join(dd, "pending_queue.json")
         self.issue_table = os.path.join(dd, "issue_table.json")
         self.approval_gate = os.path.join(dd, "approval_gate.json")
+        self.capability_gate = os.path.join(dd, "capability_gate.json")
         self.mute_state = os.path.join(dd, "mute_state.json")
         self.mode_state = os.path.join(dd, "mode.json")
         self.todo_state = os.path.join(dd, "todo_state.json")
