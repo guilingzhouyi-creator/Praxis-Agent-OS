@@ -98,6 +98,7 @@ shell:
     usage_skills_create: "usage: /skills create <name> <desc> <prompt> [--role <role>]"
     usage_skills_update: "usage: /skills update <name> <field> <value> [--role <role>]"
     usage_skills_delete: "usage: /skills delete <name> [--role <role>]"
+    usage_skills_pipeline_invalid_number: "invalid numeric value"
     usage_settings: "usage: /settings [global|cell <id>|agent <id>|pool scout|pool subagent]"
     usage_settings_pool: "usage: /settings pool [scout|subagent] [cell_id]"
     llm_module_unavailable: "llm module not available"

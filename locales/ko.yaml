@@ -98,6 +98,7 @@ shell:
     usage_skills_create: "사용법: /skills create <name> <desc> <prompt> [--role <role>]"
     usage_skills_update: "사용법: /skills update <name> <field> <value> [--role <role>]"
     usage_skills_delete: "사용법: /skills delete <name> [--role <role>]"
+    usage_skills_pipeline_invalid_number: "잘못된 숫자 값입니다"
     usage_settings: "사용법: /settings [global|cell <id>|agent <id>|pool scout|pool subagent]"
     usage_settings_pool: "사용법: /settings pool [scout|subagent] [cell_id]"
     llm_module_unavailable: "llm 모듈을 사용할 수 없습니다"

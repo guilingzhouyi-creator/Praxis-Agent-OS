@@ -207,7 +207,7 @@ def _cmd_skills(args: list[str]) -> dict:
                 try:
                     fv = float(value)
                 except ValueError:
-                    return {"success": False, "error": "invalid numeric value"}
+                    return {"success": False, "error": _t("shell.app_error.usage_skills_pipeline_invalid_number")}
                 if field == "contrib_min_ratio":
                     return sm.set_pipeline_policy(contrib_min_ratio=fv, source="shell")
                 return sm.set_pipeline_policy(retrieval_min_score=fv, source="shell")
