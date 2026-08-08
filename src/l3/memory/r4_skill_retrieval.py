@@ -225,12 +225,19 @@ class SkillRetrievalMixin:
             from l1.kernel.skill import get_skill_manager as _loop_sm
             from l1.kernel.skill import skill_visible as _sv
 
+            # Full guidance mode: only frontier-unlocked skills enter the
+            # retrieval pool (hard-dep gating); small mode keeps all.
+            _frontier = None
+            if _loop_sm().guidance_policy().get("mode", "full") == "full":
+                _frontier = set(_loop_sm().guided_frontier(completed=[]))
             for s in _loop_sm().list_skills(include_prompt=True):
                 if not s.get("builtin"):
                     continue
                 if s.get("disclosure", "full") == "none":
                     continue
                 if not _sv(s, agent_id):
+                    continue
+                if _frontier is not None and s.get("name") not in _frontier:
                     continue
                 if s not in base:
                     base.append(s)

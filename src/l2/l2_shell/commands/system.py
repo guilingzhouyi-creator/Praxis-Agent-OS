@@ -93,6 +93,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills pipeline set <field> <value> → toggle retrieval|curation, tune contrib_min_trials|contrib_min_ratio|retrieval_min_score
       /skills disclosure [status]      → progressive-disclosure policy (index/audience/capability)
       /skills disclosure set <field> <value> → toggle full_index_enabled|audience_filter_enabled|strategy_capability_view, set full_index_limit
+      /skills guidance [status]        → guidance operating mode (small|full)
+      /skills guidance set <mode>      → switch small|full (small = fields inert)
 
     The optional ``--role``/``--agent`` flag supplies the caller identity for
     the SkillManager developer gate; omitting it treats the call as a
@@ -262,6 +264,21 @@ def _cmd_skills(args: list[str]) -> dict:
             "success": False,
             "error": f"unknown disclosure action: {action}",
             "suggestions": ["status", "set <field> <value>"],
+        }
+
+    if sub == "guidance":
+        # Guidance operating mode — status public, switching is a developer
+        # runtime knob (same state as /api/v2/skills/guidance).
+        action = rest[1] if len(rest) > 1 else "status"
+        if action == "status":
+            return {"success": True, "policy": sm.guidance_policy()}
+        if action == "set":
+            mode = rest[2] if len(rest) > 2 else ""
+            return sm.set_guidance_policy(mode=mode, source="shell")
+        return {
+            "success": False,
+            "error": f"unknown guidance action: {action}",
+            "suggestions": ["status", "set <small|full>"],
         }
 
     if sub == "evolve":

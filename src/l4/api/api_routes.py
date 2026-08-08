@@ -85,6 +85,19 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         "l4.api_handlers.api_handlers_skills.handle_skills_disclosure_set",
         "Update skill progressive-disclosure knobs (developer)",
     ),
+    # Skill guidance operating mode (small|full)
+    (
+        "GET",
+        "/api/v2/skills/guidance",
+        "l4.api_handlers.api_handlers_skills.handle_skills_guidance_get",
+        "Skill guidance operating mode",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/guidance",
+        "l4.api_handlers.api_handlers_skills.handle_skills_guidance_set",
+        "Switch skill guidance mode small|full (developer)",
+    ),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),
     ("POST", "/api/v2/card/batch", ".submit_batch", "Submit batch cards"),

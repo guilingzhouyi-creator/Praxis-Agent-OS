@@ -169,6 +169,18 @@ class TestApiHandlers:
         assert r["retrieval"] is False
         assert handle_skills_pipeline_get()["policy"]["retrieval"] is False
 
+    def test_guidance_get_and_set(self, mocker):
+        from l4.api_handlers.api_handlers_skills import (
+            handle_skills_guidance_get,
+            handle_skills_guidance_set,
+        )
+
+        sm = get_skill_manager()
+        mocker.patch.object(sm, "authorize_write", return_value=(True, "test"))
+        r = handle_skills_guidance_set({"mode": "small", "role": "developer"})
+        assert r["mode"] == "small"
+        assert handle_skills_guidance_get()["policy"]["mode"] == "small"
+
 
 class TestL2ShellControl:
     """L2 Shell: /skills disclosure + pipeline runtime control."""
@@ -187,6 +199,14 @@ class TestL2ShellControl:
         r = _cmd_skills(["pipeline", "set", "retrieval", "off"])
         assert r["success"] and r["retrieval"] is False
         assert _cmd_skills(["pipeline", "status"])["policy"]["retrieval"] is False
+
+    def test_guidance_status_and_set(self):
+        from l2.l2_shell.commands.system import _cmd_skills
+
+        assert _cmd_skills(["guidance", "status"])["policy"]["mode"] == "full"
+        r = _cmd_skills(["guidance", "set", "small"])
+        assert r["mode"] == "small"
+        assert _cmd_skills(["guidance", "status"])["policy"]["mode"] == "small"
 
 
 class TestCardCompletionLinkage:

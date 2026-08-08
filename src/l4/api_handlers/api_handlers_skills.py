@@ -303,3 +303,36 @@ def handle_skills_disclosure_set(body: dict | None = None) -> dict:
         logger.debug("skills: disclosure policy SettingsCenter mirror skipped", exc_info=True)
     policy["authorized"] = who
     return policy
+
+
+def handle_skills_guidance_get(body: dict | None = None) -> dict:
+    """GET /api/v2/skills/guidance — current guidance operating mode."""
+    return {"success": True, "policy": _manager().guidance_policy()}
+
+
+def handle_skills_guidance_set(body: dict | None = None) -> dict:
+    """POST /api/v2/skills/guidance — switch guidance operating mode (developer).
+
+    Body: ``{"mode": "small"|"full"}`` — small treats the guidance fields
+    (stages/next/dependencies) as inert (plain skills); full activates the
+    atomic stage-granularity chains (frontier unlock, stage disclosure, TODO
+    linkage). Mirrors into SettingsCenter (L2).
+    """
+    b = body or {}
+    agent_id, role = _caller(b)
+    sm = _manager()
+    ok, who = sm.authorize_write(agent_id, role)
+    if not ok:
+        return {"success": False, "error": f"permission denied: {who}"}
+    policy = sm.set_guidance_policy(mode=b.get("mode", ""), source="api")
+    if not policy.get("success", True):
+        return policy
+    try:
+        from l3.config.settings_center import get_center
+
+        center = get_center()
+        center.set_l2("skill.guidance.mode", policy.get("mode"))
+    except Exception:
+        logger.debug("skills: guidance policy SettingsCenter mirror skipped", exc_info=True)
+    policy["authorized"] = who
+    return policy

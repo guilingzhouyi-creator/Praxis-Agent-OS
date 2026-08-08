@@ -190,6 +190,17 @@ class AgentLoopContextMixin:
                     # the markdown body stays on the human/review layer.
                     rules_count = es.get("rules") or 0
                     block = f"\n\n### {es['name']}\n{es['description']} ({rules_count} rules)"
+                    # Full guidance mode: annotate the active atomic unit for
+                    # staged skills (quest-log style, e.g. tdd:red).
+                    try:
+                        from l1.kernel.skill import get_skill_manager as _gm
+
+                        if _gm().guidance_policy().get("mode", "full") == "full" and es.get("stages"):
+                            cur = _gm().current_stage(es["name"], self.agent_id)
+                            if cur.get("staged"):
+                                block += f" [unit {es['name']}:{cur['stage'].get('id', '')}]"
+                    except Exception:
+                        pass
                     if len(block) <= budget:
                         system += block
                         budget -= len(block)

@@ -140,3 +140,46 @@ class TestStageTodoLinkage:
             TodoTracker(state_path=str(tmp_path / "todo.json")), get_skill_manager(), "plain-y", "s"
         )
         assert r["materialized"] is False
+
+
+class TestGuidanceModes:
+    """Guidance operating mode: small (fields inert) vs full (atomic chains)."""
+
+    def _staged(self) -> None:
+        _mk(
+            "mode-x",
+            stages=[
+                {"id": "a", "instructions": "A", "completion": "do A"},
+                {"id": "b", "instructions": "B", "completion": "do B"},
+            ],
+        )
+
+    def test_full_mode_default_stage_active(self):
+        self._staged()
+        sm = get_skill_manager()
+        assert sm.guidance_policy()["mode"] == "full"
+        assert sm.current_stage("mode-x", "s")["staged"] is True
+
+    def test_small_mode_stages_inert(self):
+        self._staged()
+        sm = get_skill_manager()
+        sm.set_guidance_policy(mode="small")
+        assert sm.current_stage("mode-x", "s")["staged"] is False
+        assert sm.advance_stage("mode-x", "s")["staged"] is False
+
+    def test_small_mode_frontier_ungated(self):
+        _mk("mode-a", dependencies=["mode-b"], dependency_kind="hard")
+        _mk("mode-b")
+        sm = get_skill_manager()
+        sm.set_guidance_policy(mode="small")
+        assert "mode-a" in sm.guided_frontier(completed=[])  # no gating in small
+
+    def test_full_mode_dep_gates(self):
+        _mk("mode-c", dependencies=["mode-d"])
+        _mk("mode-d")
+        sm = get_skill_manager()
+        assert "mode-c" not in sm.guided_frontier(completed=[])
+        assert "mode-c" in sm.guided_frontier(completed=["mode-d"])
+
+    def test_invalid_mode_rejected(self):
+        assert get_skill_manager().set_guidance_policy(mode="bogus")["success"] is False
