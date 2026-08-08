@@ -290,6 +290,12 @@ SKILL_CATALOG_FULL_INDEX_LIMIT: Final[int] = 50  # max entries in the full index
 SKILL_AUDIENCE_FILTER_ENABLED: Final[bool] = True
 # L3A decision layer sees the execution capability list (delegation view)
 SKILL_STRATEGY_CAPABILITY_VIEW: Final[bool] = True
+# Guidance operating mode — small (plain skills, guidance fields inert) or
+# full (atomic stage-granularity chains: frontier unlock, stage disclosure,
+# TODO linkage). The skill fields always exist in the files; the mode decides
+# whether the guidance machinery activates them at runtime.
+SKILL_GUIDANCE_MODE_DEFAULT: Final[str] = "full"
+SKILL_GUIDANCE_MODES: Final[tuple[str, ...]] = ("small", "full")
 SKILL_AUTO_ACTIVATE_BUILTIN: Final[bool] = True  # inject built-in skills into every session's system prompt
 # ── Evolved-skill content contract (parity with built-in contract tests) ──
 # Evolved (LLM-generated) skills must pass the same content checks as the
@@ -349,6 +355,9 @@ SECURITY_MODE_PRODUCTIVE: Final[str] = "productive"
 SECURITY_MODE_TEST: Final[str] = "security-test"
 SECURITY_MODE_DEFAULT: Final[str] = SECURITY_MODE_PRODUCTIVE
 SECURITY_MODES: Final[tuple[str, ...]] = (SECURITY_MODE_PRODUCTIVE, SECURITY_MODE_TEST)
+# ── Danger-action notification queue (kernel/notify.py) ──────────────────
+# Bounded in-memory broadcast history kept by the default notify adapter.
+NOTIFY_QUEUE_MAX: Final[int] = 50
 # Security-team domain bindings (attack posture): domain → skill white-list.
 # Activate_attack_team() creates one peer agent per domain and binds its
 # skills. Empty by default — security-test mode starts with no attack

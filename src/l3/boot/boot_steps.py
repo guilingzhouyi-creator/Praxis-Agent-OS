@@ -101,7 +101,44 @@ def _load_constitution() -> dict:
         except Exception as e:
             logger.debug("boot: metric sink inject skipped: %s", e)
 
-        # Register the security notification source into RecordCenter so
+        # Inject the harness-mode provider into GateChain — G4 treats a
+        # deliberate harness downgrade (semi/minimal, operator-confirmed) as
+        # explicit authorization and auto-approves high-danger tools there.
+        try:
+            from l3.tool_system.harness import get_harness_mode
+
+            _gc3().set_harness_provider(lambda: str(get_harness_mode())[:64])
+        except Exception as e:
+            logger.debug("boot: gatechain harness provider inject skipped: %s", e)
+
+        # Register the capability gate as the terminal GateChain stage — a
+        # typed deny record (or an expired/spent one-shot) overrides any
+        # earlier auto-approval from G4; no record falls through to the
+        # existing policy gates unchanged.
+        try:
+
+            def _capability_gate(ctx, gc):
+                from l3.services.capability_store import get_capability_store as _store
+
+                decision = _store().check(ctx["agent_id"], f"tool:{ctx['tool']}")
+                steps = ctx["steps"]
+                if decision["decision"] == "deny":
+                    steps.append(
+                        {
+                            "gate": "capability",
+                            "result": "BLOCK",
+                            "reason": f"typed deny record ({','.join(decision['records'])})",
+                        }
+                    )
+                    from l1.kernel.gatechain import GateResult
+
+                    return steps, GateResult.BLOCK
+                steps.append({"gate": "capability", "result": "PASS"})
+                return steps, ctx.get("_overall", GateResult.PASS)
+
+            get_gatechain().register_gate("capability", _capability_gate)
+        except Exception as e:
+            logger.debug("boot: capability gate register skipped: %s", e)
         # query()/stats()/export() can cover the security domain (Phase E).
         try:
             from l3.services.record_center import get_record_center

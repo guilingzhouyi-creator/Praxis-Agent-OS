@@ -43,6 +43,12 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         ".security_mode_notifications",
         "Recent bypass-detection warnings / mode changes (frontend notification)",
     ),
+    (
+        "GET",
+        "/api/v2/security/alerts",
+        ".security_alerts",
+        "Danger-action broadcasts (auto-approved / blocked high-danger calls)",
+    ),
     # Skill retriever backend (tfidf / embedding)
     ("GET", "/api/v2/skills/retriever", ".retriever_backend_get", "Get active skill retriever backend"),
     ("POST", "/api/v2/skills/retriever", ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
@@ -84,6 +90,19 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         "/api/v2/skills/disclosure",
         "l4.api_handlers.api_handlers_skills.handle_skills_disclosure_set",
         "Update skill progressive-disclosure knobs (developer)",
+    ),
+    # Skill guidance operating mode (small|full)
+    (
+        "GET",
+        "/api/v2/skills/guidance",
+        "l4.api_handlers.api_handlers_skills.handle_skills_guidance_get",
+        "Skill guidance operating mode",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/guidance",
+        "l4.api_handlers.api_handlers_skills.handle_skills_guidance_set",
+        "Switch skill guidance mode small|full (developer)",
     ),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),

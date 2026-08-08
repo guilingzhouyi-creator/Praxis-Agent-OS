@@ -6,6 +6,19 @@ disable-model-invocation: true
 posture: productive
 disclosure: full
 next: [scout]
+stages:
+  - id: setup
+    name: SETUP
+    instructions: Prepare the Cell execution environment and bind the required skills.
+    completion: Cell ready with bound skills
+  - id: run
+    name: RUN
+    instructions: Execute the card's intent through the peer agent loop; watch gates and sandbox.
+    completion: Execution finished with review
+  - id: report
+    name: REPORT
+    instructions: Report results back through the channel; archive or escalate as needed.
+    completion: Result reported and recorded
 dependencies: [kernel]
 dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]

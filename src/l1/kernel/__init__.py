@@ -26,6 +26,7 @@ from .event import get_bus as get_event_bus
 from .gatechain import get_gatechain
 from .interrupt import Interrupt, InterruptType, fire
 from .interrupt import get_table as get_interrupt_table
+from .notify import NotifyPort, get_notify, reset_notify
 from .params.agent import (
     EVENT_AGENT_BOOT,
     EVENT_ARCHIVE_ALERT,
@@ -53,6 +54,7 @@ from .resource import ResourceProfile, get_limiter
 from .skill import get_skill_manager
 from .sync import get_barrier, get_condition, get_lock_bus, get_mutex, get_rwlock, get_semaphore
 from .sync import registry_status as sync_status
+from .territory import is_within as territory_is_within
 from .tool_chain import get_tool_chain
 from .vfs import get_vfs
 
@@ -415,6 +417,10 @@ __all__ = [
     "get_device_manager",
     "get_event_bus",
     "get_gatechain",
+    "NotifyPort",
+    "get_notify",
+    "reset_notify",
+    "territory_is_within",
     "get_interrupt_table",
     "get_limiter",
     "get_lock_bus",

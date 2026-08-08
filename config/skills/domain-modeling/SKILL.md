@@ -6,6 +6,19 @@ disable-model-invocation: true
 posture: productive
 disclosure: full
 next: [card]
+stages:
+  - id: extract
+    name: EXTRACT
+    instructions: Identify the core entities, relations and invariants from the requirements.
+    completion: Entity and relation list extracted
+  - id: model
+    name: MODEL
+    instructions: Draft the domain model — entities, boundaries, dependencies — keeping it generalized.
+    completion: Domain model drafted and reviewed
+  - id: validate
+    name: VALIDATE
+    instructions: Check the model against every requirement; resolve gaps before moving on.
+    completion: Model validated against all requirements
 allowed-tools: [read_file, list_dir, write_file, grep_search]
 ---
 

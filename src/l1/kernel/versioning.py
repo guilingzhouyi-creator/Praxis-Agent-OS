@@ -29,6 +29,7 @@ TODO_TABLE_VERSION: int = 1
 TRANSACTION_AREA_VERSION: int = 1
 DIALOGUE_SESSION_VERSION: int = 1
 EXECUTION_RESULT_VERSION: int = 1
+CAPABILITY_GATE_VERSION: int = 1
 
 # ── Migration entries: target_version -> (label, migrator_fn) ──
 # Migrators are registered here. Each takes data dict, returns data dict.
@@ -43,12 +44,15 @@ _TODO_TABLE_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
 _TRANSACTION_AREA_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
 
+_CAPABILITY_GATE_MIGRATIONS: dict[int, tuple[str, Callable]] = {}
+
 _REGISTRY: dict[str, dict] = {
     "snapshot": {"version": SNAPSHOT_VERSION, "migrations": _SNAPSHOT_MIGRATIONS},
     "checkpoint": {"version": CHECKPOINT_VERSION, "migrations": _CHECKPOINT_MIGRATIONS},
     "card_registry": {"version": CARD_REGISTRY_VERSION, "migrations": _CARD_REGISTRY_MIGRATIONS},
     "todo_table": {"version": TODO_TABLE_VERSION, "migrations": _TODO_TABLE_MIGRATIONS},
     "transaction_area": {"version": TRANSACTION_AREA_VERSION, "migrations": _TRANSACTION_AREA_MIGRATIONS},
+    "capability_gate": {"version": CAPABILITY_GATE_VERSION, "migrations": _CAPABILITY_GATE_MIGRATIONS},
 }
 
 

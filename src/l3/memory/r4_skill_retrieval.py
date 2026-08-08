@@ -225,12 +225,23 @@ class SkillRetrievalMixin:
             from l1.kernel.skill import get_skill_manager as _loop_sm
             from l1.kernel.skill import skill_visible as _sv
 
+            # Full guidance mode: skills with *unmet hard dependencies* stay
+            # out of the retrieval pool; soft dependencies are advisory and
+            # never lock a skill (no builtin declares hard deps, so the pool
+            # keeps full coverage by default).
+            _hard_locked = set()
+            if _loop_sm().guidance_policy().get("mode", "full") == "full":
+                for s2 in _loop_sm().list_skills():
+                    if s2.get("dependency_kind", "soft") == "hard" and (s2.get("dependencies") or []):
+                        _hard_locked.add(s2.get("name"))
             for s in _loop_sm().list_skills(include_prompt=True):
                 if not s.get("builtin"):
                     continue
                 if s.get("disclosure", "full") == "none":
                     continue
                 if not _sv(s, agent_id):
+                    continue
+                if s.get("name") in _hard_locked:
                     continue
                 if s not in base:
                     base.append(s)

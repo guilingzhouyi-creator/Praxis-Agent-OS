@@ -120,6 +120,9 @@ from ..api_handlers.api_handlers_security import (
     tool_mode_get,
     tool_mode_set,
 )
+from ..api_handlers.api_handlers_security import (
+    security_alerts as security_alerts,
+)
 from ..api_handlers.api_handlers_session import session_state
 from ..api_handlers.api_handlers_system import (
     bootstrap_apply,

@@ -60,6 +60,19 @@ def security_mode_notifications(body: dict | None = None) -> dict:
     return {"success": True, "count": len(items), "notifications": items}
 
 
+def security_alerts(body: dict | None = None) -> dict:
+    """Danger-action broadcasts (auto-approved / blocked high-danger calls, pull channel)."""
+    from l1.kernel.notify import get_notify
+
+    b = body or {}
+    try:
+        limit = int(b.get("limit", 0))
+    except (TypeError, ValueError):
+        limit = 0
+    items = get_notify().recent(limit=limit)
+    return {"success": True, "count": len(items), "alerts": items}
+
+
 def tool_mode_get(body: dict | None = None) -> dict:
     """Current tool mode."""
     from l3.tool_system.tool_mode import get_mode
