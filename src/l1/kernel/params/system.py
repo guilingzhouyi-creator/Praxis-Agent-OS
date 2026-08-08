@@ -355,6 +355,9 @@ SECURITY_MODE_PRODUCTIVE: Final[str] = "productive"
 SECURITY_MODE_TEST: Final[str] = "security-test"
 SECURITY_MODE_DEFAULT: Final[str] = SECURITY_MODE_PRODUCTIVE
 SECURITY_MODES: Final[tuple[str, ...]] = (SECURITY_MODE_PRODUCTIVE, SECURITY_MODE_TEST)
+# ── Danger-action notification queue (kernel/notify.py) ──────────────────
+# Bounded in-memory broadcast history kept by the default notify adapter.
+NOTIFY_QUEUE_MAX: Final[int] = 50
 # Security-team domain bindings (attack posture): domain → skill white-list.
 # Activate_attack_team() creates one peer agent per domain and binds its
 # skills. Empty by default — security-test mode starts with no attack

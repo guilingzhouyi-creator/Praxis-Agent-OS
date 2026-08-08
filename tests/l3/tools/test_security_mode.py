@@ -128,13 +128,18 @@ class TestConstitutionPostureGate:
 
 
 class TestGateChainPosture:
-    def _g4(self, gc):
+    def _g4(self, gc, **kw):
         from l1.kernel.gatechain import GATECHAIN_ESCALATION_DANGER
 
-        r = gc.check("pwn_tool", "agent-x", danger=GATECHAIN_ESCALATION_DANGER + 1)
+        r = gc.check("pwn_tool", "agent-x", danger=GATECHAIN_ESCALATION_DANGER + 1, **kw)
         return [s["result"] for s in r["steps"] if s["gate"] == "G4"]
 
-    def test_g4_warns_without_full_power(self):
+    def _wire_harness(self, mode: str):
+        from l1.kernel.gatechain import get_gatechain
+
+        get_gatechain().set_harness_provider(lambda: mode)
+
+    def test_g4_blocks_without_full_power(self):
         from l1.kernel.gatechain import get_gatechain
         from l1.kernel.process import get_table
         from l3.tool_system.security_mode import set_security_mode
@@ -145,7 +150,7 @@ class TestGateChainPosture:
         gc.set_territories({})
         _wire_provider()
         set_security_mode("productive", confirmed=True)
-        assert self._g4(gc) == ["WARN"]
+        assert self._g4(gc) == ["BLOCK"]
 
     def test_g4_passes_with_full_power(self):
         from l1.kernel.gatechain import get_gatechain
@@ -159,6 +164,54 @@ class TestGateChainPosture:
         _wire_provider()
         set_security_mode("security-test", confirmed=True)
         assert self._g4(gc) == ["PASS"]
+
+    def test_g4_blocks_in_governed_harness(self):
+        from l1.kernel.gatechain import get_gatechain
+        from l1.kernel.process import get_table
+
+        get_table().spawn("agent-x", role="writer")
+        gc = get_gatechain()
+        gc.register_tools(["pwn_tool"])
+        gc.set_territories({})
+        self._wire_harness("governed")
+        assert self._g4(gc) == ["BLOCK"]
+
+    def test_g4_auto_approves_in_minimal_harness(self):
+        from l1.kernel.gatechain import get_gatechain
+        from l1.kernel.notify import get_notify
+        from l1.kernel.process import get_table
+
+        get_table().spawn("agent-x", role="writer")
+        gc = get_gatechain()
+        gc.register_tools(["pwn_tool"])
+        gc.set_territories({})
+        self._wire_harness("minimal")
+        assert self._g4(gc) == ["PASS"]
+        topics = [a.get("topic") for a in get_notify().recent()]
+        assert "security.gate.g4.auto_approved" in topics
+
+    def test_g4_passes_with_pre_approved(self):
+        from l1.kernel.gatechain import get_gatechain
+        from l1.kernel.process import get_table
+
+        get_table().spawn("agent-x", role="writer")
+        gc = get_gatechain()
+        gc.register_tools(["pwn_tool"])
+        gc.set_territories({})
+        assert self._g4(gc, pre_approved=True) == ["PASS"]
+
+    def test_g4_blocked_broadcasts_alert(self):
+        from l1.kernel.gatechain import get_gatechain
+        from l1.kernel.notify import get_notify
+        from l1.kernel.process import get_table
+
+        get_table().spawn("agent-x", role="writer")
+        gc = get_gatechain()
+        gc.register_tools(["pwn_tool"])
+        gc.set_territories({})
+        self._g4(gc)
+        topics = [a.get("topic") for a in get_notify().recent()]
+        assert "security.gate.g4.blocked" in topics
 
 
 class TestCardwriteWarrant:

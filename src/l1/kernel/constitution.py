@@ -44,6 +44,7 @@ from .params.agent import (
 )
 from .params.system import DEFAULT_TOKEN_BUDGET, SKILL_POSTURE_OFFENSIVE
 from .rule_descriptor import CheckResult, RuleDescriptor, RuleSeverity, str_to_severity
+from .territory import is_within as _territory_is_within
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,7 @@ def _check_territory(
         file_actions = CONSTITUTION_FILE_ACTIONS
     if action not in file_actions or not target:
         return CheckResult.PASS
-    if territory and not any(target.startswith(t) for t in territory):
+    if territory and not _territory_is_within(target, territory):
         return CheckResult.BLOCK if rule.severity == RuleSeverity.MUST else CheckResult.WARN
     return CheckResult.PASS
 
@@ -151,7 +152,7 @@ def _check_sandbox(rule: RuleDescriptor, action: str, agent_id: str, target: str
         if rule.severity == RuleSeverity.MUST and target:
             # Real path check: verify target starts with configured sandbox root
             abs_target = _os.path.abspath(target)
-            return CheckResult.PASS if abs_target.startswith(SANDBOX_ROOT_PATH) else CheckResult.WARN
+            return CheckResult.PASS if _territory_is_within(abs_target, [SANDBOX_ROOT_PATH]) else CheckResult.WARN
         return CheckResult.PASS
     return CheckResult.PASS
 

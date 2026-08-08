@@ -172,6 +172,7 @@ class ToolPipeline:
             return {"success": False, "error": _l2_t("core.pipeline_scout_ring1")}
 
         # 3b. ToolPolicy approval check (skipped in semi/minimal harness modes)
+        pre_approved = False
         if "approval" not in _skip:
             try:
                 if _ToolPolicy.requires_approval(agent_id, tool_name):
@@ -188,6 +189,7 @@ class ToolPipeline:
                             "steps": result["steps"],
                         }
                     result["steps"].append({"phase": "approval", "request_id": ar.id, "status": status})
+                    pre_approved = True
             except Exception as e:
                 logger.warning("approval check failed: %s", e)
 
@@ -222,7 +224,12 @@ class ToolPipeline:
             except Exception:
                 _danger = None
             gcr = _get_gatechain().check(
-                tool_name, agent_id, target=fpath, territory=[territory_str] if territory_str else None, danger=_danger
+                tool_name,
+                agent_id,
+                target=fpath,
+                territory=[territory_str] if territory_str else None,
+                danger=_danger,
+                pre_approved=pre_approved,
             )
             gc_allowed = gcr.get("allowed", True)
             gc_decision = gcr.get("decision", "?")

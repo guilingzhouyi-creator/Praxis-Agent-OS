@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from .params.kernel import (
+    GATECHAIN_AUTO_APPROVAL_HARNESS_MODES,
     GATECHAIN_DANGER_LEVELS,
     GATECHAIN_DANGER_WEIGHT,
     GATECHAIN_DEFAULT_DANGER,
@@ -34,6 +35,8 @@ from .params.kernel import (
     GATECHAIN_FREQ_WEIGHT,
     GATECHAIN_G1_INDEX,
     GATECHAIN_G3_INDEX,
+    GATECHAIN_G4_AUTO_TOPIC,
+    GATECHAIN_G4_BLOCKED_TOPIC,
     GATECHAIN_G5_HISTORY_LIMIT,
     GATECHAIN_HIGH_FREQ_THRESHOLD,
     GATECHAIN_HISTORY_WEIGHT,
@@ -49,6 +52,7 @@ from .params.kernel import (
     LEDGER_MAX_ENTRIES,
     LEDGER_RECENT_LIMIT,
 )
+from .territory import is_within as _territory_is_within
 
 logger = logging.getLogger(__name__)
 
@@ -195,11 +199,20 @@ class GateChain:
         # Metric sink — injected at boot by L3 wiring. Receives
         # (name, value, tags); None when not wired (backward compatible).
         self._metric_sink: Callable[[str, float, dict | None], None] | None = None
+        # Harness provider — injected at boot by L3 wiring (kernel never
+        # imports L3). Returns the effective harness mode ("governed" /
+        # "semi" / "minimal") or None when not wired.
+        self._harness_provider: Callable[[], str | None] | None = None
 
     def set_posture_provider(self, provider: Callable[[], dict | None] | None) -> None:
         """Register the posture provider callback (called at boot from L3 wiring)."""
         with self._lock:
             self._posture_provider = provider
+
+    def set_harness_provider(self, provider: Callable[[], str | None] | None) -> None:
+        """Register the harness-mode provider callback (boot wiring; kernel-agnostic)."""
+        with self._lock:
+            self._harness_provider = provider
 
     def set_metric_sink(self, sink: Callable[[str, float, dict | None], None] | None) -> None:
         """Register the metric sink callback (called at boot from L3 wiring)."""
@@ -234,6 +247,7 @@ class GateChain:
         territory_map: dict[str, list[str]] | None = None,
         reputation: float = -1.0,
         danger: int | None = None,
+        pre_approved: bool = False,
     ) -> dict:
         """Run G1-G5 gate checks.
 
@@ -241,6 +255,9 @@ class GateChain:
             danger: Optional override for the tool's danger level.
                     If None, uses GATECHAIN_DANGER_LEVELS from params.
                     Set by ApprovalPolicy in the tool pipeline.
+            pre_approved: True when an approval chain (human approval gate
+                    request) already cleared this call — G4 treats it like
+                    an explicit authorization and releases the escalation.
         """
         steps: list[dict] = []
         overall = GateResult.PASS
@@ -253,6 +270,7 @@ class GateChain:
             "reputation": reputation,
             "steps": steps,
             "danger_override": danger,
+            "pre_approved": pre_approved,
         }
         for name, fn in self._gates:
             if overall == GateResult.BLOCK:
@@ -339,7 +357,7 @@ def _gate_g3(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
         danger_levels = get_config("gatechain_danger_levels") or GATECHAIN_DANGER_LEVELS
         danger = danger_levels.get(ctx["tool"], GATECHAIN_DEFAULT_DANGER)
     if ctx["target"] and ctx["territory"]:
-        in_territory = any(ctx["target"].startswith(t) for t in ctx["territory"])
+        in_territory = _territory_is_within(ctx["target"], ctx["territory"])
         if not in_territory:
             steps.append(
                 {
@@ -364,41 +382,101 @@ def _gate_g4(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
     steps: list[dict] = ctx["steps"]
     overall: GateResult = ctx.get("_overall", GateResult.PASS)
     danger = ctx.get("_danger", 0)
-    if danger >= GATECHAIN_ESCALATION_DANGER:
-        # full_power (attack posture + detection-bypass confirmed) authorizes
-        # high-danger tools for the execution layer — the escalation WARN is
-        # skipped, but the call is still recorded for the audit trail.
-        full_power = False
-        provider = getattr(gc, "_posture_provider", None)
-        if provider is not None:
-            try:
-                posture = provider() or {}
-                full_power = bool(posture.get("full_power"))
-            except Exception:
-                full_power = False
-        if full_power:
-            steps.append({"gate": "G4", "result": "PASS", "reason": f"danger={danger}, full_power posture authorized"})
-            sink = getattr(gc, "_metric_sink", None)
-            if sink is not None:
-                from contextlib import suppress
-
-                with suppress(Exception):
-                    sink("security.gate.g4.full_power", 1.0, {"tool": ctx["tool"]})
-            return steps, overall
-        from .event import Signal, SignalType, get_bus
-
-        get_bus().emit(
-            Signal(
-                type=SignalType.REVIEW_REQUESTED,
-                sender=GATECHAIN_SENDER,
-                target=GATECHAIN_L3_TARGET,
-                data={"tool": ctx["tool"], "agent_id": ctx["agent_id"], "target": ctx["target"], "danger": danger},
-            )
-        )
-        steps.append({"gate": "G4", "result": "WARN", "reason": f"danger={danger}, L3 notified"})
-    else:
+    if danger < GATECHAIN_ESCALATION_DANGER:
         steps.append({"gate": "G4", "result": "PASS"})
-    return steps, overall
+        return steps, overall
+    # full_power (attack posture + detection-bypass confirmed) authorizes
+    # high-danger tools for the execution layer — recorded for the audit trail.
+    provider = getattr(gc, "_posture_provider", None)
+    full_power = False
+    if provider is not None:
+        try:
+            posture = provider() or {}
+            full_power = bool(posture.get("full_power"))
+        except Exception:
+            full_power = False
+    if full_power:
+        steps.append({"gate": "G4", "result": "PASS", "reason": f"danger={danger}, full_power posture authorized"})
+        _emit_g4_metric(gc, ctx["tool"], "security.gate.g4.full_power")
+        return steps, overall
+    # Explicit authorization paths: an approval chain already cleared the
+    # call (pre_approved) or the operator deliberately downgraded the gate
+    # matrix to a harness mode that auto-approves (user-owned responsibility).
+    harness_provider = getattr(gc, "_harness_provider", None)
+    auto_approved = False
+    if harness_provider is not None:
+        try:
+            harness_mode = harness_provider() or ""
+            auto_approved = harness_mode in GATECHAIN_AUTO_APPROVAL_HARNESS_MODES
+        except Exception:
+            auto_approved = False
+    if auto_approved or ctx.get("pre_approved"):
+        steps.append(
+            {
+                "gate": "G4",
+                "result": "PASS",
+                "reason": f"danger={danger}, explicit authorization "
+                f"(pre_approved={ctx.get('pre_approved')}, harness_auto={auto_approved})",
+            }
+        )
+        _emit_g4_metric(gc, ctx["tool"], "security.gate.g4.auto_approved")
+        _broadcast_danger(
+            GATECHAIN_G4_AUTO_TOPIC,
+            {
+                "tool": ctx["tool"],
+                "agent_id": ctx["agent_id"],
+                "target": ctx["target"],
+                "danger": danger,
+                "auto_approved": auto_approved,
+            },
+        )
+        return steps, overall
+    from .event import Signal, SignalType, get_bus
+
+    get_bus().emit(
+        Signal(
+            type=SignalType.REVIEW_REQUESTED,
+            sender=GATECHAIN_SENDER,
+            target=GATECHAIN_L3_TARGET,
+            data={"tool": ctx["tool"], "agent_id": ctx["agent_id"], "target": ctx["target"], "danger": danger},
+        )
+    )
+    steps.append({"gate": "G4", "result": "BLOCK", "reason": f"danger={danger}, no approval chain — blocked"})
+    _emit_g4_metric(gc, ctx["tool"], "security.gate.g4.blocked")
+    _broadcast_danger(
+        GATECHAIN_G4_BLOCKED_TOPIC,
+        {
+            "tool": ctx["tool"],
+            "agent_id": ctx["agent_id"],
+            "target": ctx["target"],
+            "danger": danger,
+        },
+    )
+    return steps, GateResult.BLOCK
+
+
+def _emit_g4_metric(gc: GateChain, tool: str, metric: str) -> None:
+    """Best-effort G4 decision metric emission (never breaks the gate)."""
+    sink = getattr(gc, "_metric_sink", None)
+    if sink is None:
+        return
+    try:
+        from contextlib import suppress
+
+        with suppress(Exception):
+            sink(metric, 1.0, {"tool": tool})
+    except Exception:
+        pass
+
+
+def _broadcast_danger(topic: str, payload: dict) -> None:
+    """Broadcast a danger action through the NotifyPort (best-effort)."""
+    try:
+        from .notify import get_notify
+
+        get_notify().broadcast(topic, payload)
+    except Exception:
+        pass
 
 
 def _gate_g5(ctx: dict, gc: GateChain) -> tuple[list[dict], GateResult]:
