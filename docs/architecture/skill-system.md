@@ -6,45 +6,37 @@ registry (L1), an evolution engine (L3 memory), retrieval/ranking (L3), three
 injection consumers (L3 agent loop, L3 hook, L3 tool), and governance
 surfaces (L2 shell, L4 API, VFS).
 
+```mermaid
+flowchart TB
+    subgraph L1["L1 SkillManager — registry, single truth"]
+        SM["registry + revision counter"]
+        WG["write gate (ring/role)"]
+        PG["posture gate (offensive default-deny)"]
+        DP["disclosure policy (full|index|none)"]
+        PP["pipeline policy (retrieval/curation knobs)"]
+        GP["guidance mode (small|full)"]
+        SM --- WG
+        SM --- PG
+        SM --- DP
+        SM --- PP
+        SM --- GP
+    end
+    PER["Persistence<br/>config/skills (builtin, RO) · evolved · lean"]
+    RT["Retrieval (L3)<br/>tf-idf/embedding rank · audience routing"]
+    R4["L3 R4Agent (evolution)<br/>DPO signal · lean cases · distill · prune/curate"]
+    CON["Consumers<br/>① per-turn injection ② session catalog ③ use_skill"]
+    R4 -->|register / persist| SM
+    PER -->|SKILL.md round-trip| SM
+    SM -->|read| RT
+    RT -->|top-K candidates| CON
+    R4 -->|inject (budgeted)| CON
 ```
-                       ┌──────────────────────────────────────────────┐
-                       │  L1 SkillManager (registry, single truth)     │
-                       │  register/create/update/delete (write gate)   │
-                       │  cell_skill_map (per-Cell whitelist)          │
-                       │  offensive_policy (posture gate)              │
-                       │  distill_policy (master + sub switches)       │
-                       │  revision counter (cache invalidation)        │
-                       └───────▲──────────────────────────┬───────────┘
-                               │ register/persist          │ read
-                ┌──────────────┴───────────────┐   ┌───────▼──────────────────┐
-                │  Persistence                 │   │  Retrieval (L3)           │
-                │  config/skills/ (builtin,RO) │   │  TfIdf / embedding rank   │
-                │  .praxis/skills/evolved/     │   │  card:<nature> tag filter │
-                │  .praxis/skills/lean/        │   │  audience routing          │
-                │  SKILL.md frontmatter round- │   │  posture gate              │
-                │  trip (name/desc/tags/tools/ │   └───────▲──────────────────┘
-                │  variables/posture)          │           │ candidates
-                └──────────────┬───────────────┘           │
-                               │                           │
-                ┌──────────────▼───────────────────────────▼──────────────┐
-                │  L3 R4Agent (evolution engine, tick-driven)              │
-                │  card→skill signal → rule preference (DPO)              │
-                │  _process_failure_traces → lean_case (structured kn)    │
-                │  _cluster_lean_cases (shingle) + _sample_digest (curric)│
-                │  _distill_lessons_skill (rejection sampling + verifier) │
-                │  _generalize_lean_cases (≥5/tool, keep verified rules)  │
-                │  _prune_stale_skills (TTL) / _curate_skills (contrib)   │
-                │  reflect_failure (Reflexion) / graph linkage (R5)       │
-                └──────────────┬───────────────────────────────────────────┘
-                               │ inject (token-budgeted)
-                ┌──────────────▼───────────────────────────────────────────┐
-                │  Consumers (3 paths)                                     │
-                │  ① AgentLoop._inject_extra_context → system prompt       │
-                │  ② SkillCatalogHook.session_start → session catalog      │
-                │  ③ use_skill tool → expanded $VARIABLES message          │
-                │  + manual surfaces: VFS /skills, worker_pool boot manual │
-                └──────────────────────────────────────────────────────────┘
-```
+
+The SkillManager registry is the single truth; the five runtime policies — write gate,
+posture gate, disclosure depth, pipeline knobs and guidance mode — gate every
+operation. Persistence (builtin / evolved / lean SKILL.md) round-trips through the
+registry; retrieval ranks candidates for the three injection consumers; R4Agent
+evolution writes back under the write gate.
 
 ## 1. Registry (L1, `src/l1/kernel/skill.py`)
 
@@ -253,6 +245,30 @@ of `$VARIABLES`. Refuses offensive skills without authorized card nature.
 - **L3A `agents_md`**: handbook generation evolves a reusable skill via
   `evolve_generic_skill` (global scope, rule-based fallback).
 
+### 5.5 Content-push decision chain
+
+```mermaid
+flowchart TB
+    T["current task text"]
+    RT["task-similarity retrieval (tf-idf top-K)"]
+    GF["full mode: frontier / hard-dep unlock filter"]
+    CAT["Level 0 · session catalog: name + 60-char desc"]
+    INJ["Level 1 · per-turn injection: name + desc + rules count + [unit skill:stage]"]
+    US["Level 2 · use_skill (pulled): structured rules/procedures + current stage"]
+    T --> RT
+    RT --> GF
+    GF --> CAT
+    GF --> INJ
+    US -.->|explicit call| GF
+```
+
+The system pushes pointers and summaries — never raw bodies. The current task
+text drives retrieval (tf-idf top-K); full guidance mode narrows the pool to
+frontier-unlocked skills (hard-dependency locks only). Level 0 (catalog) and
+Level 1 (per-turn injection, token-budgeted) are pushed automatically; the
+structured body — rules/procedures and the active atomic unit
+(`skill:stage_id`) — is pulled by the model via `use_skill`.
+
 ## 6. Governance surfaces
 
 - **L2 shell `/skills`**: list/lean/get (public); create/update/delete/
@@ -303,6 +319,30 @@ inject (5.1) → inject_count++, last_used refresh
     → TTL prune / curation retire (archived) → loop
 ```
 
+The three-table linkage (TODO × skill × card) closes the loop at stage
+granularity:
+
+```mermaid
+sequenceDiagram
+    participant M as Model / AgentLoop
+    participant T as TodoTracker
+    participant S as SkillManager
+    participant C as CardRegistry
+    M->>S: use_skill(staged) → current stage + completion
+    M->>T: todowrite [skill:name:stage_id] add (materialize)
+    M->>T: todowrite [skill:name:stage_id] verified
+    T->>S: advance_on_stage_todo_verified (stage-id must match current)
+    S-->>T: advance_stage → next stage (no-op on last / small mode)
+    C->>S: on_card_complete → advance card-session stages
+    S-->>M: frontier unlocks the next skill's first stage (full mode)
+```
+
+Every stage advances only when its OWN completion criterion is verified — the
+todo content carries `[skill:<name>:<stage_id>]`, and the bridge refuses stale
+or future-stage confirmations (review-hardened). Card completion advances the
+same session-scoped stage state, and the guidance frontier then unlocks the
+next skill's first atomic unit.
+
 ## 8. Key invariants
 
 1. Round-trip integrity: frontmatter ↔ registry fields stay in sync.
@@ -317,6 +357,16 @@ inject (5.1) → inject_count++, last_used refresh
    → grouping, sampling → flat, llm_distill → baseline) under its switch.
 9. Rule preference metadata is runtime-only: SKILL.md persists rule text,
    DPO counters are rebuilt from card signals on the next distillation.
+10. Stage integrity: only the CURRENT stage's verified TODO advances — the
+    stage id in `[skill:<name>:<stage_id>]` must match the active stage;
+    stale or future-stage confirmations are no-ops and the last stage has
+    nothing to advance.
+11. Soft dependencies are advisory: `dependency-kind: soft` never locks a
+    skill out of the retrieval pool or the guidance frontier; only hard
+    dependencies gate progression.
+12. Guidance mode gates every consumer consistently: small mode makes the
+    guidance fields (stages/next/dependencies) inert across use_skill,
+    guided_frontier, the TODO linkage and the retrieval pool.
 
 ## 9. Skill file format (normalized contract)
 
@@ -395,6 +445,20 @@ surface as existence-only hints.
   `guided_path(target)` reverse-chains prerequisites, `validate_guidance_graph`
   fails on cycles.
 
+In full guidance mode the chain progresses at ATOMIC granularity — each stage
+acts as a skill unit (`skill:stage_id`), unlocking the next one as stages are
+completed; completing a skill's last stage unlocks the next skill's first
+stage via its dependencies:
+
+```mermaid
+flowchart LR
+    G1["grill-me:INTAKE"] --> G2["grill-me:REFINE"] --> G3["grill-me:CONCLUDE"]
+    G3 -->|skill done| D1["domain-modeling:EXTRACT"] --> D2["domain-modeling:MODEL"] --> D3["domain-modeling:VALIDATE"]
+    D3 -->|skill done| C1["card:DRAFT"] --> C2["card:APPROVE"] --> C3["card:DISPATCH"]
+    C3 -->|skill done| E1["cell:SETUP"] --> E2["cell:RUN"] --> E3["cell:REPORT"]
+    E3 -->|skill done| S1["scout:SCAN"] --> S2["scout:REPORT"] --> S3["scout:RECOMMEND"]
+```
+
 ### 9.5 Runtime views (human vs agent)
 
 | surface | content | layer |
@@ -413,3 +477,38 @@ Loader (`_load_markdown`) ↔ persister (`_persist_skill_md` / `evolve_skill`) �
 `TestSchemaRoundTrip`. The builtin catalog is immutable at runtime (write gate
 rejects mutations; only R4Agent evolution/pruning with `internal=True` writes
 to the evolved layer).
+
+## 10. Guidance operating mode (small | full)
+
+The guidance fields (stages / next / dependencies) always exist in the skill
+files — the **minimal dependency architecture**. A runtime policy decides
+whether the guidance machinery activates them:
+
+```mermaid
+flowchart TB
+    G["guidance_mode (API / L2 shell)"] --> SM
+    G --> FM
+    subgraph SM["small mode — lean & precise (fields inert)"]
+        A1["use_skill: full rules/procedures, no stage"]
+        A2["guided_frontier: all skills (ungated)"]
+        A3["TODO linkage: no-op (advanced = 0)"]
+        A4["retrieval pool: all builtins"]
+    end
+    subgraph FM["full mode — comprehensive (atomic chains)"]
+        B1["use_skill: current stage unit only"]
+        B2["guided_frontier: dependency gating"]
+        B3["TODO linkage: verified → advance (stage-id validated)"]
+        B4["retrieval pool: hard-dependency locks"]
+    end
+```
+
+- **small** treats the guidance fields as inert: skills execute as plain
+  skills (no stage view, no unlock gating, no stage linkage, no hard-dep
+  locks in retrieval).
+- **full** (default) activates the atomic stage-granularity chains: stage
+  disclosure, frontier unlocking, TODO-verified stage advancement and
+  hard-dependency locks in the retrieval pool.
+
+Switch at runtime: `POST /api/v2/skills/guidance` (`{"mode": "small"|"full"}`)
+or `/skills guidance set small|full`; the current mode is readable via
+`GET /api/v2/skills/guidance` / `/skills guidance status`.
