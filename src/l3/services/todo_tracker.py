@@ -220,6 +220,11 @@ class TodoTracker:
         """Return whether any task is still pending/in-progress/verifying/escalated."""
         return any(t["status"] in ("pending", "in_progress", "verifying", "escalated") for t in self._items)
 
+    def status_of(self, content: str) -> str:
+        """Return a task's current status by content ("" when untracked)."""
+        task = self._find(content)
+        return task["status"] if task else ""
+
     def reminder(self) -> str | None:
         """Build a progress reminder/next-action prompt, or None when idle."""
         if self._status == "closed" or not self._items:

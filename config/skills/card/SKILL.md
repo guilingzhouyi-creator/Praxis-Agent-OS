@@ -6,6 +6,19 @@ disable-model-invocation: true
 posture: productive
 disclosure: full
 next: [cell]
+stages:
+  - id: draft
+    name: DRAFT
+    instructions: Write the card — intent, domain, nature, acceptance criteria — in one concise block.
+    completion: Card drafted with intent and acceptance criteria
+  - id: approve
+    name: APPROVE
+    instructions: Route the card through approval; address any gate feedback.
+    completion: Card approved and queued
+  - id: dispatch
+    name: DISPATCH
+    instructions: Dispatch the card to the Cell for execution and monitor its lifecycle.
+    completion: Card dispatched and tracked
 dependencies: [tool-pipeline]
 dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, review_code, list_functions]

@@ -51,6 +51,8 @@ from l1.kernel.params.system import (
     SKILL_CONTRACT_FORBIDDEN_PATTERNS,
     SKILL_DISCLOSURE_DEFAULT,
     SKILL_DISCLOSURE_VALID,
+    SKILL_GUIDANCE_MODE_DEFAULT,
+    SKILL_GUIDANCE_MODES,
     SKILL_OFFENSIVE_AUTHORIZED_NATURES,
     SKILL_OFFENSIVE_ENABLED,
     SKILL_POSTURE_DEFAULT,
@@ -246,6 +248,11 @@ class SkillManager:
         self._strategy_capability_view: bool = SKILL_STRATEGY_CAPABILITY_VIEW
         self._disclosure_updated: float = 0.0
         self._disclosure_source: str = "params"
+        # Guidance operating mode: small (fields inert, plain skills) or full
+        # (atomic stage-granularity chains active).
+        self._guidance_mode: str = SKILL_GUIDANCE_MODE_DEFAULT
+        self._guidance_updated: float = 0.0
+        self._guidance_source: str = "params"
         # Quest-style staged skills: (skill, session_key) → active stage index.
         self._stage_state: dict[tuple[str, str], int] = {}
         # Universal principles normalized into a single shared layer
@@ -409,6 +416,35 @@ class SkillManager:
 
     # ── Quest-style staged skills (per-session stage state) ──
 
+    def set_guidance_policy(self, mode: str | None = None, source: str = "runtime") -> dict:
+        """Override the guidance operating mode (small|full) at runtime.
+
+        ``small`` treats the guidance fields (stages/next/dependencies) as
+        inert — skills execute as plain skills; ``full`` activates the atomic
+        stage-granularity chains (frontier unlock, stage disclosure, TODO
+        linkage). A None mode leaves the current mode untouched.
+        """
+        with self._lock:
+            if mode is not None:
+                if mode not in SKILL_GUIDANCE_MODES:
+                    return {
+                        "success": False,
+                        "error": f"invalid guidance mode '{mode}' (expected {SKILL_GUIDANCE_MODES})",
+                    }
+                self._guidance_mode = mode
+            self._guidance_updated = time.time()
+            self._guidance_source = source
+            return self.guidance_policy()
+
+    def guidance_policy(self) -> dict:
+        """Return the current guidance operating mode (small|full)."""
+        with self._lock:
+            return {
+                "mode": self._guidance_mode,
+                "updated": self._guidance_updated,
+                "source": self._guidance_source,
+            }
+
     def current_stage(self, name: str, session_key: str = "") -> dict:
         """Return the active stage of a staged skill for a session.
 
@@ -418,7 +454,7 @@ class SkillManager:
         """
         skill = self._skills.get(name)
         stages = skill.get("stages") if skill else None
-        if not stages:
+        if self._guidance_mode == "small" or not stages:
             return {"skill": name, "staged": False, "stage": None}
         with self._lock:
             idx = self._stage_state.get((name, session_key), 0)
@@ -443,7 +479,7 @@ class SkillManager:
         """Advance a staged skill to its next stage for a session."""
         skill = self._skills.get(name)
         stages = skill.get("stages") if skill else None
-        if not stages:
+        if self._guidance_mode == "small" or not stages:
             return {"success": True, "skill": name, "staged": False}
         with self._lock:
             idx = self._stage_state.get((name, session_key), 0)
@@ -505,9 +541,12 @@ class SkillManager:
     def guided_frontier(self, completed: list[str] | None = None) -> list[str]:
         """Return the currently unlocked skills (quest-log frontier).
 
-        ``completed`` = skill names whose prerequisites are satisfied. Skills
-        with unsatisfied (missing or incomplete) dependencies are excluded.
+        In small guidance mode every visible skill is unlocked (guidance
+        fields inert). In full mode a skill is unlocked when all its
+        dependency prerequisites are satisfied (in ``completed``).
         """
+        if self._guidance_mode == "small":
+            return [n for n in sorted(self._skills) if self._skills[n].get("disclosure", "full") != "none"]
         completed_set = set(completed or [])
         frontier: list[str] = []
         with self._lock:
@@ -548,6 +587,8 @@ class SkillManager:
         session key. Returns the number of stages advanced.
         """
         if state and state.upper() not in ("COMPLETED", "DONE"):
+            return {"advanced": 0}
+        if self._guidance_mode == "small":
             return {"advanced": 0}
         session_key = f"card:{card_id}"
         advanced = 0

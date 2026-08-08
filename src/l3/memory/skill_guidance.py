@@ -56,3 +56,64 @@ def reset_guidance() -> None:
     """Reset the registration flag (test isolation)."""
     global _registered
     _registered = False
+
+
+# ── Stage ↔ TODO linkage (three-table closure: TODO verified → stage) ──
+# The todowrite handler parses the ``[skill:<name>:<stage_id>]`` prefix out of
+# a verified TODO and advances the skill's stage for the session. Materializing
+# the completion criterion as a TODO is the quest-log step the loop tracks.
+
+_STAGE_TODO_PREFIX = "[skill:"
+
+
+def stage_todo_content(sm, skill_name: str, session_key: str = "") -> str:
+    """Canonical TODO content for a staged skill's active stage.
+
+    ``[skill:<name>:<stage_id>] <completion>`` — the prefix is the linkage key
+    the todowrite bridge parses to advance the stage on 'verified'. Empty when
+    the skill is unstaged or the stage has no completion criterion.
+    """
+    st = sm.current_stage(skill_name, session_key)
+    if not st.get("staged"):
+        return ""
+    stage = st.get("stage") or {}
+    completion = stage.get("completion") or ""
+    stage_id = stage.get("id") or ""
+    if not completion:
+        return ""
+    return f"[skill:{skill_name}:{stage_id}] {completion}"
+
+
+def materialize_stage_todo(todo, sm, skill_name: str, session_key: str = "") -> dict:
+    """Track a staged skill's active-stage completion as a TODO (quest-log).
+
+    Idempotent: re-materializing the same stage is a no-op. Returns the
+    tracked content (or a not-materialized marker for unstaged skills).
+    """
+    content = stage_todo_content(sm, skill_name, session_key)
+    if not content:
+        return {"materialized": False, "todo": ""}
+    status = todo.status_of(content)
+    if not status:
+        todo.update(content, "add")
+        status = "pending"
+    return {"materialized": True, "todo": content, "status": status}
+
+
+def advance_on_stage_todo_verified(todo, sm, content: str, session_key: str = "") -> dict:
+    """Advance a staged skill when its stage TODO reaches 'verified'.
+
+    Parses the ``[skill:<name>:<stage_id>]`` prefix out of a verified todo and
+    advances the skill's stage for the session (three-table linkage). No-op
+    for non-stage todos or unverified stages.
+    """
+    if not content.startswith(_STAGE_TODO_PREFIX):
+        return {"advanced": 0}
+    parts = content[len(_STAGE_TODO_PREFIX) :].split("]", 1)[0].split(":")
+    if len(parts) < 2 or not parts[0]:
+        return {"advanced": 0}
+    if todo.status_of(content) != "verified":
+        return {"advanced": 0}
+    skill_name = parts[0]
+    result = sm.advance_stage(skill_name, session_key)
+    return {"advanced": 1 if result.get("success") else 0, "skill": skill_name, "result": result}

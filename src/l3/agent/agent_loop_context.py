@@ -190,6 +190,17 @@ class AgentLoopContextMixin:
                     # the markdown body stays on the human/review layer.
                     rules_count = es.get("rules") or 0
                     block = f"\n\n### {es['name']}\n{es['description']} ({rules_count} rules)"
+                    # Full guidance mode: annotate the active atomic unit for
+                    # staged skills (quest-log style, e.g. tdd:red).
+                    try:
+                        from l1.kernel.skill import get_skill_manager as _gm
+
+                        if _gm().guidance_policy().get("mode", "full") == "full" and es.get("stages"):
+                            cur = _gm().current_stage(es["name"], self.agent_id)
+                            if cur.get("staged"):
+                                block += f" [unit {es['name']}:{cur['stage'].get('id', '')}]"
+                    except Exception:
+                        pass
                     if len(block) <= budget:
                         system += block
                         budget -= len(block)
@@ -254,11 +265,29 @@ class AgentLoopContextMixin:
         """Register the todowrite tool for task-list management."""
 
         def _todowrite_handler(args: dict, agent_id: str = "") -> dict:
-            """Handle a todowrite tool call — update todo item status."""
+            """Handle a todowrite tool call — update todo item status.
+
+            Three-table linkage: a stage TODO ('[skill:<name>:<stage_id>] …')
+            reaching 'verified' advances the skill's stage for this session.
+            """
             content = args.get("content", "")
             status = args.get("status", "in_progress")
             self._todo.update(content, status)
-            return {"success": True, "message": f"todo '{content[:LOG_TRUNC_40]}' → {status}"}
+            advanced = 0
+            if status == "verified" and content.startswith("[skill:"):
+                try:
+                    from l1.kernel.skill import get_skill_manager
+                    from l3.memory.skill_guidance import advance_on_stage_todo_verified
+
+                    advanced = advance_on_stage_todo_verified(
+                        self._todo, get_skill_manager(), content, session_key=agent_id
+                    ).get("advanced", 0)
+                except Exception as e:
+                    logger.debug("skill stage advance skipped: %s", e)
+            message = f"todo '{content[:LOG_TRUNC_40]}' → {status}"
+            if advanced:
+                message += " (skill stage advanced)"
+            return {"success": True, "message": message}
 
         # Only register if not already added
         if not any(t.name == "todowrite" for t in self._tools):
