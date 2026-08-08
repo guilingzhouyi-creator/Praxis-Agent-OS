@@ -53,22 +53,26 @@ class TestModuleImports:
         assert r.get("allowed", True)
 
     def test_all_command_handlers_accessible(self):
-        """Verify each _cmd_* handler for registered commands exists in the modules namespace"""
+        """Verify every registered command resolves to a handler via the registry.
+
+        Handlers live in per-command sub-modules (l2_shell.commands.*) and are
+        registered into the kernel registry at import time; dash aliases
+        (agent-refresh) resolve to their underscore handlers. The registry is
+        the runtime source of truth — namespace probing was invalidated when
+        the monolithic commands.py was split into sub-modules.
+        """
+        from l1.kernel.commands import get_handler as _get_handler
         from l1.kernel.commands import list_commands as _list_defs
 
         cmds = _list_defs()
         assert len(cmds) >= 20, f"only {len(cmds)} commands registered"
-        handler_names = []
-        for c in cmds:
-            name = c["name"]
-            handler_names.append(f"_cmd_{name}")
-        # Check if handlers exist in commands module (not all required, but most should exist)
         from l2.l2_shell import commands as _cmds
 
-        missing = [h for h in handler_names if not hasattr(_cmds, h)]
-        # At least 80% of handlers should be accessible
-        accessible = len(handler_names) - len(missing)
-        assert accessible >= len(handler_names) * 0.8, f"{len(missing)} handlers missing: {missing[:5]}..."
+        assert _cmds is not None
+        missing = [c["name"] for c in cmds if _get_handler(c["name"]) is None]
+        # At least 80% of handlers should be resolvable
+        accessible = len(cmds) - len(missing)
+        assert accessible >= len(cmds) * 0.8, f"{len(missing)} handlers missing: {missing[:5]}..."
 
 
 class TestCommandContent:
