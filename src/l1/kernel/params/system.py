@@ -437,7 +437,11 @@ TOOL_LSP_SYMBOL_LIMIT: Final[int] = 50
 
 # ── Hash display truncation limits ──
 HASH_TRUNC_SHORT: Final[int] = 8
+# Ultra-short hash display length (in-memory message ids)
+HASH_TRUNC_SHORTEST: Final[int] = 4
 HASH_TRUNC_MEDIUM: Final[int] = 12
+# Shortish hash display length (persisted ids)
+HASH_TRUNC_SIX: Final[int] = 6
 # Long-form hash display length
 HASH_TRUNC_LONG: Final[int] = 16
 
@@ -516,7 +520,7 @@ SESSION_TIMEOUT: Final[float] = 3600.0
 
 
 # ── Version ──
-KERNEL_VERSION: Final[str] = "0.4.1"
+KERNEL_VERSION: Final[str] = "0.4.2"
 PRAXIS_CODENAME: Final[str] = "Aether"
 
 

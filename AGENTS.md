@@ -1,4 +1,4 @@
-# Praxis — Agent OS (v0.4.1 "Aether")
+# Praxis — Agent OS (v0.4.2 "Aether")
 
 Python 3.11+ Agent OS for orchestrating LLM-based agents. Five-layer architecture from bare-metal kernel to user CLI.
 
@@ -33,9 +33,9 @@ python -m pytest tests/infra/test_hardcoded_fixes_regression.py -x -q       # re
 ## Architecture
 
 ```
-src/l5/ — User layer: cli.py (~330 lines), agent_runtime.py
+src/l5/ — User layer: cli.py (~360 lines), agent_runtime.py
 src/l4/ — Bridge: API gateway, LLM engine+providers, sandbox, MCP, search, LSP, vault
-src/l3/ — Cell layer (~55K lines): agents, memory, cards, scheduler, tool pipeline, discussion
+src/l3/ — Cell layer (~59K lines): agents, memory, cards, scheduler, tool pipeline, discussion
 src/l3/cell/peers/l3a/ — L3A orchestration daemon: session system, subagent pool, context epoch
 src/l3/cell/peers/l3.py — CentralController: L3A sessions + L3B routing + CardRegistry lifecycle
 src/l2/ — Shell: 49 YAML commands + code-registered `_cmd_*` handlers, i18n, agent selector
@@ -167,7 +167,7 @@ Key conventions:
 
 - **Dual remotes**: `origin` = GitCode (`gitcode.com/Aplese/PraxisAgentOS`, canonical source of truth); `github` = GitHub mirror (`guilingzhouyi-creator/Praxis-Agent-OS`, CI carrier).
 - **Every push to main MUST go to BOTH remotes**: `git push origin main; git push github main`. Pushing only to GitCode silently skips CI.
-- **CI runs on GitHub Actions** via `.github/workflows/test.yml` (native GitHub format, matrix 3.11/3.12/3.13, full L1–L5 coverage incl. L3 root + L5 + memory R4 + API endpoint manifest; infra/L1/L5 steps pin `-n 0`, directory steps use pyproject `-n auto` — Linux fork makes xdist profitable there).
+- **CI runs on GitHub Actions** via `.github/workflows/test.yml` (native GitHub format, matrix 3.11/3.12/3.13, full L1–L5 coverage incl. L3 root + L5 + memory R4 + API endpoint manifest; infra/L1/L5 steps pin `-n 0`, directory steps use pyproject `-n auto` — Linux fork makes xdist profitable there). Siblings: `ci.yml` (changed-file ruff gate), `codeql.yml`, `docker.yml`, `benchmark.yml`, `nightly.yml` (full-tree ruff).
 - GitCode's AtomGit Action (`.gitcode/workflows/test.yml`) is still in gray release (no Pipeline tab even on public repos) — keep the file, it activates once the platform rolls it out.
 
 ## Dependency management
@@ -283,6 +283,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 | `config/skills/` | Builtin skills (read-only; loaded by `SkillManager.load_builtin`) |
 | `.praxis/skills/` | Runtime skill artifacts: `evolved/` (project-scope evolved skills) + `lean/` (failure-trace cases) |
 | `.github/agents/` | GitHub Agents definition (`assistant.agent.md`) — companion to `.github/workflows/`, not a build input |
+| `docs/` | Architecture/config/design/workflow docs — entry points: `docs/configuration/overview.md`, `docs/workflow/branching.md` |
 
 ## Key files
 
@@ -294,7 +295,7 @@ Default: `ollama` / `qwen2.5-coder:7b` at `localhost:11434`. Configure via `conf
 - `src/l3/card/card_registry.py` — Card lifecycle management
 - `src/l3/boot/boot.py` — 7-step system bootstrap
 - `src/l3/boot/lifecycle.py` — Factory reset, singleton reset, disk wipe
-- `src/l3/cell/peers/l3a/` — **L3A session system (19 modules):** `__init__` (daemon+singleton), `session` (Session/History/Manager), `session_ask` (ask-state), `session_compress` (transcript compression), `session_prompt` (prompt assembly), `subagent` (L3ASubAgentPool), `summaries` (summary+R4 glue), `context` (ContextEpoch/Registry), `inbox` (PromptInbox), `model` (L3AModelConfig), `archive` (R4 store/restore), `pipeline` (ManagedToolOutput), `task_table` (task monitor), `helpers` (cardwrite/convergence), `api` (L2 routing), `agents_md` (AGENTS.md generator), `types` (enums/dataclasses), `params` (constants), `ask` (clarification state machine)
+- `src/l3/cell/peers/l3a/` — **L3A session system (20 modules):** `__init__` (daemon+singleton), `session` (Session/Manager), `session_history` (Page/Message/SessionHistory model), `session_ask` (ask-state), `session_compress` (transcript compression), `session_prompt` (prompt assembly), `subagent` (L3ASubAgentPool), `summaries` (summary+R4 glue), `context` (ContextEpoch/Registry), `inbox` (PromptInbox), `model` (L3AModelConfig), `archive` (R4 store/restore), `pipeline` (ManagedToolOutput), `task_table` (task monitor), `helpers` (cardwrite/convergence), `api` (L2 routing), `agents_md` (AGENTS.md generator), `types` (enums/dataclasses), `params` (constants), `ask` (clarification state machine)
 - `src/l3/cell/peers/l3.py` — CentralController (L3A+L3B+CardRegistry)
 
 ## Sandbox / Structured Diff System

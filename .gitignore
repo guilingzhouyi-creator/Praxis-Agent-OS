@@ -103,3 +103,7 @@ skills/evolved/
 
 # Vault runtime salt (auto-generated)
 .praxis_vault_salt
+
+# ── Archived docs (intentionally NOT tracked) ──
+# Policy: moving a file into docs/design/archive/ stops git recording it.
+/docs/design/archive/

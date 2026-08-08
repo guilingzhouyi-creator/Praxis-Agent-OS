@@ -1,7 +1,7 @@
 # Praxis 地基缺口施工规划
 
-> **依据:** `docs/foundation-audit.md`（2026-08-05 审查报告，6 处缺口均已代码复核确认）
-> **项目版本:** v0.4.1 "Aether"
+> **依据:** `docs/design/archive/reviews/foundation-audit.md`（2026-08-05 审查报告，6 处缺口均已代码复核确认）
+> **项目版本:** v0.4.2 "Aether"
 > **协作模型:** AGENTS.md 七域并行协作 + feature 分支 + 双绿合并
 > **状态:** 规划阶段（未开工）
 
