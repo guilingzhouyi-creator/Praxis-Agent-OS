@@ -361,6 +361,8 @@ DEFAULT_TOKEN_BUDGET: Final[int] = 73000
 # ── Persistence ──
 PERSIST_QUERY_LIMIT: Final[int] = 100
 PERSIST_EXPORT_LIMIT: Final[int] = 500
+# Uncommitted appends before the event store batches a commit
+PERSIST_COMMIT_BATCH: Final[int] = 32
 # Max interrupt records exported at once
 PERSIST_EXPORT_INTERRUPT_LIMIT: Final[int] = 50
 
@@ -668,6 +670,8 @@ RESOURCE_BUFFER_SLOT_GLOB: Final[str] = "slot_*.dat"
 RESOURCE_BUFFER_AUTO_EXPAND: Final[bool] = True
 # Seconds between pending-to-slot flushes
 RESOURCE_BUFFER_FLUSH_INTERVAL: Final[float] = 30.0
+# Sleep between flush-loop polling rounds
+RESOURCE_BUFFER_FLUSH_LOOP_SLEEP: Final[float] = 5.0
 # Seconds a hidden file stays before cleanup
 RESOURCE_BUFFER_HIDDEN_TTL: Final[float] = 300.0
 # Subdirectory holding pending writes
@@ -740,6 +744,8 @@ PATCH_JSON_FILE: Final[str] = "{patch_id}.json"
 # ── Config file path templates (for discovery / fallback) ──
 TOOLS_CONFIG_PATH: Final[str] = "config/tools.yaml"
 COMMANDS_CONFIG_PATH: Final[str] = "config/commands.yaml"
+# Main deployment config file name (used as fallback when paths unavailable)
+PRAXIS_CONFIG_FILE: Final[str] = "config/praxis.yaml"
 
 
 # ── Memory subdirectory names ──
