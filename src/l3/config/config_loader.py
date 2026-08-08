@@ -4,6 +4,16 @@ Config precedence (lowest to highest):
   1. kernel/params.py defaults
   2. .praxis_settings.json (user runtime overrides)
   3. praxis.yaml (project configuration file)
+
+Section handlers vs. L2-flat convention:
+  Sections with side effects (kernel, llm, api, ...) are processed by
+  ``register_config_handler``. Settings-only sections (``ci:``,
+  ``user_profile:``, ``prompt:``) intentionally have NO handler: they are
+  consumed by consumers via ``get_settings().get("ci.review.*")`` /
+  ``"user_profile.enabled"`` / ``"prompt.inject.*"``, which read the L2
+  layer that ``apply()`` populates by flattening the whole praxis.yaml.
+  Do not add handlers for these sections — it would duplicate the flat
+  mechanism. Keep this list in sync with ``boot.py``'s early L2 load.
 """
 
 from __future__ import annotations
