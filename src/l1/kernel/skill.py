@@ -404,6 +404,12 @@ class SkillManager:
             return {"skill": name, "staged": False, "stage": None}
         with self._lock:
             idx = self._stage_state.get((name, session_key), 0)
+            # Register only card-scoped sessions: on_card_complete consumes
+            # "card:" keys exclusively, so registering bare agent ids here
+            # would grow _stage_state forever without ever being advanced
+            # (unbounded singleton growth + dead entries).
+            if session_key.startswith("card:"):
+                self._stage_state.setdefault((name, session_key), 0)
         idx = max(0, min(idx, len(stages) - 1))
         stage = stages[idx]
         return {
