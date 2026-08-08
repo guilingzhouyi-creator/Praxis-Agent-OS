@@ -82,7 +82,7 @@ class TestConfigGet:
         r = handle_config_get({"key": "KERNEL_VERSION"})
         assert r["success"]
         assert r["key"] == "KERNEL_VERSION"
-        assert r["value"] == "0.4.1"
+        assert r["value"] == "0.4.2"
 
     def test_get_unknown(self):
         from l4.api_handlers.api_handlers_config import handle_config_get
