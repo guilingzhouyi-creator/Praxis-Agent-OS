@@ -6,6 +6,19 @@ disable-model-invocation: true
 posture: productive
 disclosure: full
 next: [domain-modeling]
+stages:
+  - id: intake
+    name: INTAKE
+    instructions: Collect the user's stated goal, constraints and context in one focused pass; list open questions.
+    completion: Goal stated and open questions enumerated
+  - id: refine
+    name: REFINE
+    instructions: Ask the open questions one at a time, converging on decisions; record each answer.
+    completion: Every open question answered or explicitly deferred
+  - id: conclude
+    name: CONCLUDE
+    instructions: Summarize the agreed scope and next steps; hand off to domain-modeling.
+    completion: Scope summary written and next skill identified
 allowed-tools: [read_file, list_dir, grep_search]
 ---
 

@@ -87,3 +87,56 @@ class TestGuidanceGraph:
         assert get_skill_manager().guided_path("f-two") == ["f-two"]
         r = get_skill_manager().validate_guidance_graph()
         assert r["acyclic"] is True
+
+
+class TestStageTodoLinkage:
+    """Stage ↔ TODO linkage: materialize, verified → advance, no-ops."""
+
+    def _staged(self) -> None:
+        _mk(
+            "quest-x",
+            stages=[
+                {"id": "a", "instructions": "A", "completion": "do A"},
+                {"id": "b", "instructions": "B", "completion": "do B"},
+            ],
+        )
+
+    def test_materialize_and_advance_on_verified(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified, materialize_stage_todo
+        from l3.services.todo_tracker import TodoTracker
+
+        self._staged()
+        sm = get_skill_manager()
+        # Isolated state file: an empty state_path would fall back to the
+        # global data_dir/todo_state.json and restore cross-run state.
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        r = materialize_stage_todo(todo, sm, "quest-x", "sess")
+        assert r["materialized"] and r["status"] == "pending"
+        assert r["todo"].startswith("[skill:quest-x:a]")
+        # Idempotent re-materialization.
+        assert materialize_stage_todo(todo, sm, "quest-x", "sess")["status"] == "pending"
+        # Not yet verified → no advance.
+        assert advance_on_stage_todo_verified(todo, sm, r["todo"], "sess")["advanced"] == 0
+        todo.update(r["todo"], "verified")
+        adv = advance_on_stage_todo_verified(todo, sm, r["todo"], "sess")
+        assert adv["advanced"] == 1
+        assert sm.current_stage("quest-x", "sess")["stage"]["id"] == "b"
+
+    def test_non_stage_todo_never_advances(self, tmp_path):
+        from l3.memory.skill_guidance import advance_on_stage_todo_verified
+        from l3.services.todo_tracker import TodoTracker
+
+        todo = TodoTracker(state_path=str(tmp_path / "todo.json"))
+        todo.update("plain task", "add")
+        todo.update("plain task", "verified")
+        assert advance_on_stage_todo_verified(todo, get_skill_manager(), "plain task", "s")["advanced"] == 0
+
+    def test_unstaged_skill_not_materialized(self, tmp_path):
+        from l3.memory.skill_guidance import materialize_stage_todo
+        from l3.services.todo_tracker import TodoTracker
+
+        _mk("plain-y")
+        r = materialize_stage_todo(
+            TodoTracker(state_path=str(tmp_path / "todo.json")), get_skill_manager(), "plain-y", "s"
+        )
+        assert r["materialized"] is False

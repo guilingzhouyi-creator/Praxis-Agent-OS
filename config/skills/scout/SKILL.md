@@ -5,6 +5,19 @@ tags: [execution]
 disable-model-invocation: true
 posture: productive
 disclosure: full
+stages:
+  - id: scan
+    name: SCAN
+    instructions: Scan the target area for facts — structure, dependencies, constants, patterns.
+    completion: Scan notes collected
+  - id: report
+    name: REPORT
+    instructions: Summarize findings with file paths and evidence; rank what matters.
+    completion: Findings report written
+  - id: recommend
+    name: RECOMMEND
+    instructions: Recommend next actions grounded in the findings; identify owners.
+    completion: Recommendations listed with owners
 dependencies: [kernel]
 dependency-kind: soft
 allowed-tools: [read_file, list_dir, grep_search, symbol_search, list_functions]
