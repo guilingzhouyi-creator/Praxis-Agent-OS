@@ -35,6 +35,13 @@ GATECHAIN_FREQ_MULTIPLIER: Final[float] = 0.5
 GATECHAIN_RISK_WARN_THRESHOLD: Final[float] = 6.0
 # Danger level at/above which G4 escalates the call to L3 review
 GATECHAIN_ESCALATION_DANGER: Final[int] = 4
+# Harness modes that count as explicit user authorization for auto-approval:
+# downgrading the gate matrix is a deliberate operator decision, so high
+# danger calls pass there — but they MUST hit the danger broadcast channel.
+GATECHAIN_AUTO_APPROVAL_HARNESS_MODES: Final[tuple[str, ...]] = ("semi", "minimal")
+# Broadcast topics emitted by G4 for high-danger tool calls
+GATECHAIN_G4_AUTO_TOPIC: Final[str] = "security.gate.g4.auto_approved"
+GATECHAIN_G4_BLOCKED_TOPIC: Final[str] = "security.gate.g4.blocked"
 # Sender identity used for gatechain-originated signals
 GATECHAIN_SENDER: Final[str] = "gatechain"
 # Target agent for gatechain escalation/review signals

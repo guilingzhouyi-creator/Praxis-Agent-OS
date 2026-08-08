@@ -43,6 +43,12 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         ".security_mode_notifications",
         "Recent bypass-detection warnings / mode changes (frontend notification)",
     ),
+    (
+        "GET",
+        "/api/v2/security/alerts",
+        ".security_alerts",
+        "Danger-action broadcasts (auto-approved / blocked high-danger calls)",
+    ),
     # Skill retriever backend (tfidf / embedding)
     ("GET", "/api/v2/skills/retriever", ".retriever_backend_get", "Get active skill retriever backend"),
     ("POST", "/api/v2/skills/retriever", ".retriever_backend_set", "Switch skill retriever backend (tfidf|embedding)"),
