@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document so another agent can continue the work without context loss
+description: Use when handing off — compact the conversation into a handoff doc so another agent continues without context loss
 tags: [strategy]
 disable-model-invocation: true
 posture: productive

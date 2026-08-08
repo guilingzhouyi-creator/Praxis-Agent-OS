@@ -89,6 +89,8 @@ def _cmd_skills(args: list[str]) -> dict:
       /skills distill set <field> <on|off>  → toggle distill|dpo_signal|generalize|llm_distill|clustering|sampling
       /skills retriever [status]       → active retrieval backend (tfidf|embedding)
       /skills retriever set <backend>  → switch retrieval backend at runtime
+      /skills pipeline [status]        → retrieval/curation pipeline policy + thresholds
+      /skills pipeline set <field> <value> → toggle retrieval|curation, tune contrib_min_trials|contrib_min_ratio|retrieval_min_score
 
     The optional ``--role``/``--agent`` flag supplies the caller identity for
     the SkillManager developer gate; omitting it treats the call as a
@@ -185,6 +187,43 @@ def _cmd_skills(args: list[str]) -> dict:
             "success": False,
             "error": f"unknown retriever action: {action}",
             "suggestions": ["status", "set <tfidf|embedding>"],
+        }
+
+    if sub == "pipeline":
+        # Retrieval/curation pipeline policy — status public, toggling is a
+        # developer runtime knob (same state as /api/v2/skills/pipeline).
+        action = rest[1] if len(rest) > 1 else "status"
+        if action == "status":
+            return {"success": True, "policy": sm.pipeline_policy()}
+        if action == "set":
+            field = rest[2] if len(rest) > 2 else ""
+            value = rest[3] if len(rest) > 3 else ""
+            if field in ("retrieval", "curation") and value in ("on", "off", "true", "false", "1", "0"):
+                flag = value in ("on", "true", "1")
+                return sm.set_pipeline_policy(**{field: flag}, source="shell")
+            if field == "contrib_min_trials" and value.isdigit():
+                return sm.set_pipeline_policy(contrib_min_trials=int(value), source="shell")
+            if field in ("contrib_min_ratio", "retrieval_min_score"):
+                try:
+                    fv = float(value)
+                except ValueError:
+                    return {"success": False, "error": _t("shell.app_error.usage_skills_pipeline_invalid_number")}
+                if field == "contrib_min_ratio":
+                    return sm.set_pipeline_policy(contrib_min_ratio=fv, source="shell")
+                return sm.set_pipeline_policy(retrieval_min_score=fv, source="shell")
+            return {
+                "success": False,
+                "error": f"invalid pipeline field/value: {field} {value}",
+                "suggestions": [
+                    "status",
+                    "set <retrieval|curation> <on|off>",
+                    "set <contrib_min_trials|contrib_min_ratio|retrieval_min_score> <number>",
+                ],
+            }
+        return {
+            "success": False,
+            "error": f"unknown pipeline action: {action}",
+            "suggestions": ["status", "set <field> <value>"],
         }
 
     if sub == "evolve":

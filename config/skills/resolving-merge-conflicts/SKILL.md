@@ -1,6 +1,6 @@
 ---
 name: resolving-merge-conflicts
-description: Work through an in-progress git merge or rebase conflict hunk by hunk, resolving by intent traced to each side's primary source, then finish the operation — never --abort
+description: Use when resolving git conflicts — resolve each hunk by intent traced to both sides, then finish — never --abort
 tags: [execution]
 disable-model-invocation: true
 posture: productive

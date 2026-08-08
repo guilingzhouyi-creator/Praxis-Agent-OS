@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: Architecture review — layer constraints, dependency analysis, module boundaries
+description: Use when reviewing code structure — map files to layers, verify import direction, constants governance, module boundaries
 tags: [review]
 disable-model-invocation: true
 posture: productive

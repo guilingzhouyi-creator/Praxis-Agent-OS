@@ -11,7 +11,7 @@ import threading
 import time
 
 from l1.kernel.bus import Component, ComponentMeta, SystemBus
-from l1.kernel.params.system import THREAD_JOIN_TIMEOUT
+from l1.kernel.params.system import PMU_SNAPSHOT_INTERVAL, THREAD_JOIN_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class StatsCenterComponent(Component):
                     self._bus.emit("stats.heartbeat", {"ts": time.time()})
             except Exception as e:
                 logger.warning("stats heartbeat: %s", e)
-            time.sleep(60.0)
+            time.sleep(PMU_SNAPSHOT_INTERVAL)
 
     @staticmethod
     def _snapshot_all_pmus() -> None:

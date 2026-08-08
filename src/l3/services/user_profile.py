@@ -36,6 +36,7 @@ from typing import Any
 from l1.kernel.params.system import (
     HASH_TRUNC_MEDIUM,
     LOG_TRUNC_60,
+    LOG_TRUNC_200,
     PROFILE_DECAY_CONFIDENCE,
     PROFILE_DECAY_INTERVAL,
     PROFILE_EMIT_EVENT,
@@ -355,7 +356,7 @@ class UserProfileService(BaseService):
                         source=SRC_APPROVAL,
                         context={
                             "req_id": data.get("req_id", ""),
-                            "response": str(data.get("response", ""))[:200],
+                            "response": str(data.get("response", ""))[:LOG_TRUNC_200],
                             "status": data.get("status", ""),
                         },
                     )

@@ -15,8 +15,6 @@ LAYER_ORDER = {"l1": 0, "l2": 1, "l3": 2, "l4": 3, "l5": 4}
 # Rebuilt from the actual src/ import graph — every entry is a real (file, module)
 # pair; add a line here when introducing a new cross-layer import.
 ALLOWLIST = {
-    ("l1/kernel/net_transport.py", "l4.adapters.channel_ring"),
-    ("l1/kernel/net_transport.py", "l4.adapters.worker_thread"),
     ("l1/kernel/settings.py", "l3.config.settings_adapter"),
     ("l2/i18n.py", "l4.adapters.i18n_yaml"),
     ("l2/l2_shell/__init__.py", "l3.cell"),

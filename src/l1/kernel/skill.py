@@ -26,12 +26,17 @@ from typing import Any, Final
 
 from l1.kernel.params.agent import (
     AGENT_CLEARANCE,
+    R4_CONTRIB_MIN_RATIO,
+    R4_CONTRIB_MIN_TRIALS,
+    R4_CURATION_ENABLED,
     R4_DISTILL_ENABLED,
     R4_DISTILL_SUB_CLUSTERING,
     R4_DISTILL_SUB_GENERALIZE,
     R4_DISTILL_SUB_LLM,
     R4_DISTILL_SUB_SAMPLING,
     R4_DPO_SIGNAL_ENABLED,
+    R4_RETRIEVAL_ENABLED,
+    R4_RETRIEVAL_MIN_SCORE,
 )
 from l1.kernel.params.system import (
     LOG_TRUNC_50,
@@ -201,6 +206,17 @@ class SkillManager:
         }
         self._distill_updated: float = 0.0
         self._distill_source: str = "params"
+        # Retrieval/curation pipeline policy — runtime knobs for the R4
+        # pipeline stages (task-similarity ranking, contribution curation and
+        # their scoring thresholds). Overridable via set_pipeline_policy();
+        # params provide the compile-time defaults.
+        self._retrieval_enabled: bool = R4_RETRIEVAL_ENABLED
+        self._curation_enabled: bool = R4_CURATION_ENABLED
+        self._contrib_min_trials: int = R4_CONTRIB_MIN_TRIALS
+        self._contrib_min_ratio: float = R4_CONTRIB_MIN_RATIO
+        self._retrieval_min_score: float = R4_RETRIEVAL_MIN_SCORE
+        self._pipeline_updated: float = 0.0
+        self._pipeline_source: str = "params"
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
@@ -252,6 +268,60 @@ class SkillManager:
                 "sub": dict(self._distill_sub),
                 "updated": self._distill_updated,
                 "source": self._distill_source,
+            }
+
+    def set_pipeline_policy(
+        self,
+        retrieval: bool | None = None,
+        curation: bool | None = None,
+        contrib_min_trials: int | None = None,
+        contrib_min_ratio: float | None = None,
+        retrieval_min_score: float | None = None,
+        source: str = "runtime",
+    ) -> dict:
+        """Override the retrieval/curation pipeline knobs at runtime (API/config).
+
+        ``retrieval=False`` disables task-similarity ranking (falls back to
+        deterministic ordering); ``curation=False`` disables contribution-based
+        retirement/eviction; the threshold fields tune scoring granularity.
+        None fields are left untouched. ``source`` records who changed the
+        policy for auditability.
+        """
+        with self._lock:
+            if retrieval is not None:
+                self._retrieval_enabled = bool(retrieval)
+            if curation is not None:
+                self._curation_enabled = bool(curation)
+            if contrib_min_trials is not None:
+                self._contrib_min_trials = int(contrib_min_trials)
+            if contrib_min_ratio is not None:
+                self._contrib_min_ratio = float(contrib_min_ratio)
+            if retrieval_min_score is not None:
+                self._retrieval_min_score = float(retrieval_min_score)
+            self._pipeline_updated = time.time()
+            self._pipeline_source = source
+            return {
+                "success": True,
+                "retrieval": self._retrieval_enabled,
+                "curation": self._curation_enabled,
+                "contrib_min_trials": self._contrib_min_trials,
+                "contrib_min_ratio": self._contrib_min_ratio,
+                "retrieval_min_score": self._retrieval_min_score,
+                "updated": self._pipeline_updated,
+                "source": self._pipeline_source,
+            }
+
+    def pipeline_policy(self) -> dict:
+        """Return the current retrieval/curation pipeline policy."""
+        with self._lock:
+            return {
+                "retrieval": self._retrieval_enabled,
+                "curation": self._curation_enabled,
+                "contrib_min_trials": self._contrib_min_trials,
+                "contrib_min_ratio": self._contrib_min_ratio,
+                "retrieval_min_score": self._retrieval_min_score,
+                "updated": self._pipeline_updated,
+                "source": self._pipeline_source,
             }
 
     # ── Per-Cell skill binding (回灌到 Cell) ──

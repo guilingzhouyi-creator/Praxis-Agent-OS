@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Disciplined diagnosis loop for hard bugs and performance regressions — build a red feedback loop, minimise, hypothesise, instrument, fix, regression-test
+description: Use when debugging hard bugs or regressions — red feedback loop, minimise, hypothesise, instrument, fix, regression-test
 tags: [execution]
 disable-model-invocation: true
 posture: productive

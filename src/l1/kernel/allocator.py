@@ -25,6 +25,7 @@ from .params.kernel import (
     ALLOCATOR_PCB_FLUSH_SIZE,
     ALLOCATOR_PCT_PRECISION,
     ALLOCATOR_PRESSURE_THRESHOLD,
+    ALLOCATOR_PRESSURE_TTL,
     ALLOCATOR_SWAP_COUNT,
     ALLOCATOR_SWAP_SOURCE,
     ALLOCATOR_SWAP_TARGET,
@@ -71,8 +72,8 @@ class Allocator:
         """O(1) cumulative usage counter — agent_id → {resource: used_amount}.
         Avoids O(N) sum() scan over all allocations on every alloc() call."""
         self._lock = threading.RLock()
-        self._pressure_cache: tuple[float, dict] | None = None
-        """Cached pressure result — invalidated on alloc/free, TTL-bound."""
+        self._pressure_cache: tuple[float, dict, float] | None = None
+        """Cached pressure result — (threshold, result, cached_at), TTL-bound."""
 
     def set_limit(self, agent_id: str, resource: str, limit: int) -> dict:
         """Override an agent's resource limit for a specific resource type."""
@@ -122,7 +123,6 @@ class Allocator:
     ) -> dict:
         """Allocate a resource amount for an agent. Triggers reclamation or OOM kill when limits are exceeded."""
         with self._lock:
-            self._pressure_cache = None
             limits = self._limits.setdefault(agent_id, dict(self.DEFAULTS))
             allocs = self._allocations.setdefault(agent_id, [])
             counter = self._usage_counter.setdefault(agent_id, {})
@@ -167,7 +167,6 @@ class Allocator:
     def free(self, agent_id: str, resource: str, amount: int = ALLOCATOR_DEFAULT_AMOUNT) -> dict:
         """Release a resource amount back to the agent's pool."""
         with self._lock:
-            self._pressure_cache = None
             allocs = self._allocations.get(agent_id, [])
             counter = self._usage_counter.setdefault(agent_id, {})
             freed = 0
@@ -202,11 +201,16 @@ class Allocator:
     def pressure(self, threshold: float = ALLOCATOR_PRESSURE_THRESHOLD) -> dict:
         """Check which agents are above the pressure threshold across all resources.
 
-        Uses a dirty-flag cache invalidated by alloc/free to skip O(N×M) full scan
-        when no allocations have changed since the last check.
+        Uses a TTL-bound cache (ALLOCATOR_PRESSURE_TTL) to skip the O(N×M) full
+        scan between checks; alloc/free do not invalidate it, so high-frequency
+        allocation still benefits from the cached result.
         """
         with self._lock:
-            if self._pressure_cache is not None and self._pressure_cache[0] == threshold:
+            if (
+                self._pressure_cache is not None
+                and self._pressure_cache[0] == threshold
+                and time.time() - self._pressure_cache[2] < ALLOCATOR_PRESSURE_TTL
+            ):
                 return self._pressure_cache[1]
         agents_under_pressure = []
         for agent_id in self._limits:
@@ -220,7 +224,7 @@ class Allocator:
             "count": len(agents_under_pressure),
         }
         with self._lock:
-            self._pressure_cache = (threshold, result)
+            self._pressure_cache = (threshold, result, time.time())
         return result
 
     def _reclaim_locked(self, agent_id: str, resource: str, needed: int) -> int:
@@ -280,11 +284,14 @@ class Allocator:
             allocs = self._allocations.get(victim, [])
             victim_counter = self._usage_counter.setdefault(victim, {})
             freed = 0
-            for a in list(allocs):
+            kept: list[Allocation] = []
+            for a in allocs:
                 if a.resource == resource and freed < reclaim:
-                    allocs.remove(a)
                     freed += a.amount
+                else:
+                    kept.append(a)
             if freed:
+                allocs[:] = kept
                 prev = victim_counter.get(resource, 0)
                 victim_counter[resource] = max(0, prev - freed)
 

@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 from l1.kernel.params.agent import MAX_SELF_HEAL
-from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_1000
+from l1.kernel.params.system import LOG_TRUNC_100, LOG_TRUNC_200, LOG_TRUNC_1000, LOG_TRUNC_2000
 from l1.kernel.prompts import get_prompt
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class Verifier:
         """
         self._stats["checks"] += 1
         prompt = get_prompt("verifier.self_check").format(
-            goal=goal[:LOG_TRUNC_1000], result=str(result.get("output", ""))[:2000]
+            goal=goal[:LOG_TRUNC_1000], result=str(result.get("output", ""))[:LOG_TRUNC_2000]
         )
 
         if self._llm_call:

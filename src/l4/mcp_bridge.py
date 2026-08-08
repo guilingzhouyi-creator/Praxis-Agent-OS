@@ -37,6 +37,7 @@ from l1.kernel.params.api import (
 )
 from l1.kernel.params.system import MCP_STATE_FILENAME, MCP_STATUS_OK
 from l3.tool_system.tool_spec import ToolRing, ToolSpec, list_tools, register
+from l4.llm.http_pool import http_get, http_post
 
 logger = logging.getLogger(__name__)
 
@@ -455,13 +456,14 @@ class MCPBridge:
             client = self._imported_servers.get(server_name)
             if client:
                 try:
-                    import urllib.request as _req
-
-                    wk = _req.urlopen(
-                        _req.Request(f"{client.endpoint}/.well-known/oauth-authorization-server", method="GET"),
-                        timeout=MCP_BRIDGE_TIMEOUT,
+                    wk_status, wk_bytes, _ = http_get(
+                        f"{client.endpoint}/.well-known/oauth-authorization-server",
+                        {},
+                        MCP_BRIDGE_TIMEOUT,
                     )
-                    wk_data = json.loads(wk.read())
+                    if wk_status >= 400:
+                        raise OSError(f"well-known endpoint returned HTTP {wk_status}")
+                    wk_data = json.loads(wk_bytes)
                     token_url = wk_data.get("token_endpoint", "")
                 except Exception:
                     logger.debug("mcp_bridge: token endpoint parse failed")
@@ -470,8 +472,6 @@ class MCPBridge:
             return {"success": False, "error": "token_url not found. Set via set_oauth_token_url()"}
 
         try:
-            import urllib.request as _req
-
             body = json.dumps(
                 {
                     "grant_type": "authorization_code",
@@ -480,11 +480,15 @@ class MCPBridge:
                     "client_id": auth_data.get("client_id", ""),
                 }
             ).encode()
-            r = _req.urlopen(
-                _req.Request(token_url, data=body, headers={"Content-Type": "application/json"}, method="POST"),
-                timeout=MCP_BRIDGE_TIMEOUT,
+            token_status, token_bytes, _ = http_post(
+                token_url,
+                body,
+                {"Content-Type": "application/json"},
+                MCP_BRIDGE_TIMEOUT,
             )
-            token_data = json.loads(r.read())
+            if token_status >= 400:
+                raise OSError(f"token endpoint returned HTTP {token_status}")
+            token_data = json.loads(token_bytes)
         except Exception as e:
             return {"success": False, "error": f"token exchange failed: {e}"}
 
@@ -561,11 +565,11 @@ class MCPBridge:
         if not client:
             return {"success": False, "error": f"server '{server_name}' not imported"}
         try:
-            import urllib.request as _req
-
             url = f"{client.endpoint}/prompts/list"
-            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"), timeout=client.timeout)
-            data = json.loads(r.read())
+            status, resp_bytes, _ = http_get(url, client._headers, client.timeout)
+            if status >= 400:
+                raise OSError(f"prompts/list returned HTTP {status}")
+            data = json.loads(resp_bytes)
             return {"success": True, "prompts": data.get("prompts", []), "server": server_name}
         except Exception as e:
             return {"success": False, "error": str(e), "server": server_name}
@@ -578,11 +582,11 @@ class MCPBridge:
         if not client:
             return {"success": False, "error": f"server '{server_name}' not imported"}
         try:
-            import urllib.request as _req
-
             url = f"{client.endpoint}/resources/list"
-            r = _req.urlopen(_req.Request(url, headers=client._headers, method="GET"), timeout=client.timeout)
-            data = json.loads(r.read())
+            status, resp_bytes, _ = http_get(url, client._headers, client.timeout)
+            if status >= 400:
+                raise OSError(f"resources/list returned HTTP {status}")
+            data = json.loads(resp_bytes)
             return {"success": True, "resources": data.get("resources", []), "server": server_name}
         except Exception as e:
             return {"success": False, "error": str(e), "server": server_name}

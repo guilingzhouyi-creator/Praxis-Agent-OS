@@ -98,6 +98,7 @@ shell:
     usage_skills_create: "使い方: /skills create <name> <desc> <prompt> [--role <role>]"
     usage_skills_update: "使い方: /skills update <name> <field> <value> [--role <role>]"
     usage_skills_delete: "使い方: /skills delete <name> [--role <role>]"
+    usage_skills_pipeline_invalid_number: "数値が不正です"
     usage_settings: "使い方: /settings [global|cell <id>|agent <id>|pool scout|pool subagent]"
     usage_settings_pool: "使い方: /settings pool [scout|subagent] [cell_id]"
     llm_module_unavailable: "llm モジュールが利用できません"

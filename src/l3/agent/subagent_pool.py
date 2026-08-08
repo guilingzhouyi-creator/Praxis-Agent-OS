@@ -32,7 +32,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from l1.kernel.params.agent import SUBAGENT_SESSION_TTL
 from l1.kernel.params.api import SUBAGENT_POOL_EXECUTE_WORKERS, SUBAGENT_POOL_EXPLORE_WORKERS, SUBAGENT_RUN_TIMEOUT
-from l1.kernel.params.system import LOG_TRUNC_100
+from l1.kernel.params.system import LOG_TRUNC_100, POLL_INTERVAL_DEFAULT
 
 from .subagent_spec import BUILTIN_SUBAGENTS, SubAgentSpec, load_specs
 from .subagent_task import SubAgentTask
@@ -175,7 +175,7 @@ class SubAgentPool:
                     with self._lock:
                         self._session_history[task.session_id] = task
                 return r
-            time.sleep(0.1)
+            time.sleep(POLL_INTERVAL_DEFAULT)
         return {
             "success": False,
             "task_id": task_id,
@@ -202,7 +202,7 @@ class SubAgentPool:
                     done.add(tid)
             remaining -= done
             if remaining:
-                time.sleep(0.1)
+                time.sleep(POLL_INTERVAL_DEFAULT)
         for tid in remaining:
             results.append({"task_id": tid, "error": "timeout"})
         return {

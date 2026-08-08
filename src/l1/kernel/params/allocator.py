@@ -25,6 +25,8 @@ ALLOCATOR_DEFAULTS: Final = AllocatorDefaults()
 ALLOCATOR_FALLBACK_LIMIT: Final[int] = 100
 # Usage percent above which pressure is reported
 ALLOCATOR_PRESSURE_THRESHOLD: Final[float] = 80.0
+# Seconds a pressure() result is cached before recomputation
+ALLOCATOR_PRESSURE_TTL: Final[float] = 1.0
 # Purpose marking observational (non-greedy) allocations
 ALLOCATOR_OBSERVE_PURPOSE: Final[str] = "observe"
 # Units granted when no amount is requested

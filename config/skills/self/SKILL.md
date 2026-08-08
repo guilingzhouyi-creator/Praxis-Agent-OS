@@ -1,6 +1,6 @@
 ---
 name: self
-description: Self-diagnostics — system health, audit trails, memory rings, stats, observability
+description: Use when checking system state — health, audit trails, memory rings, stats, observability
 tags: [review]
 disable-model-invocation: true
 posture: productive

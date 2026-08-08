@@ -232,9 +232,25 @@ class SkillCatalogHook(LifecycleHooks):
             # is enabled. Disabling the policy (soft bypass) advertises them.
             if sm.offensive_policy().get("enabled", True):
                 skills = [s for s in skills if s.get("posture") != SKILL_POSTURE_OFFENSIVE]
+            # Contribution-aware ordering: built-in (read-only) skills keep
+            # priority when auto-activation is on, then usage (useful_count /
+            # last_used) instead of the plain loaded_at tie-break — high-value
+            # skills hold stable exposure in the limited catalog slots.
             if auto_builtin:
-                # Built-in (read-only) skills take priority in the catalog.
-                skills.sort(key=lambda s: (not s.get("builtin"), s.get("loaded_at", 0.0)))
+                skills.sort(
+                    key=lambda s: (
+                        0 if s.get("builtin") else 1,
+                        -(int(s.get("useful_count", 0) or 0)),
+                        -float(s.get("last_used", 0.0) or 0.0),
+                    )
+                )
+            else:
+                skills.sort(
+                    key=lambda s: (
+                        -(int(s.get("useful_count", 0) or 0)),
+                        -float(s.get("last_used", 0.0) or 0.0),
+                    )
+                )
             # E2: constitutional gate at session-injection time — a skill
             # whose use is blocked by the constitution is not injected
             # (defensive layer on top of the load-time check). When the
@@ -256,6 +272,31 @@ class SkillCatalogHook(LifecycleHooks):
                 skills = allowed_skills
             except Exception as e:
                 logger.debug("SkillCatalogHook: constitution filter skipped: %s", e)
+            # R5 domain matching: re-rank the filtered candidates by task-text
+            # relevance (tf-idf — the same retriever used for per-turn evolved
+            # injection), so a session whose task belongs to a skill's domain
+            # surfaces those skills first. Non-matching tasks keep the
+            # contribution order (the retriever returns [] below the floor).
+            if task.strip():
+                try:
+                    from l3.memory.skill_retriever import get_retriever
+
+                    retriever = get_retriever()
+                    groups = (
+                        ([s for s in skills if s.get("builtin")], [s for s in skills if not s.get("builtin")])
+                        if auto_builtin
+                        else (skills,)
+                    )
+                    ranked: list[dict] = []
+                    for group in groups:
+                        if not group:
+                            continue
+                        r = retriever.rank(task, group, limit=len(group))
+                        ranked.extend(r if r else group)
+                    if ranked:
+                        skills = ranked
+                except Exception as e:
+                    logger.debug("SkillCatalogHook: relevance ranking skipped: %s", e)
             skills = skills[:SKILL_CATALOG_HOOK_LIMIT]
             if skills:
                 lines = ["\nAvailable skills (use_skill to invoke):"]

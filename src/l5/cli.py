@@ -103,6 +103,7 @@ def cmd_card(args) -> dict:
 
 def cmd_tools(args) -> dict:
     """List an agent's tools (or all terminals) with ring, danger and description."""
+    from l1.kernel.params.system import LOG_TRUNC_50
     from l3.agent_terminal import get_terminals
 
     agent_id = args[0] if args else ""
@@ -115,7 +116,7 @@ def cmd_tools(args) -> dict:
         tools = term.list_tools()
         print(f"Tools for {agent_id} (ring {term.ring}): {len(tools)}")
         for t in tools:
-            print(f"  [{t['ring']:8s}] {t['name']:25s} danger={t['danger']}  {t.get('description', '')[:50]}")
+            print(f"  [{t['ring']:8s}] {t['name']:25s} danger={t['danger']}  {t.get('description', '')[:LOG_TRUNC_50]}")
         return {"tools": tools, "agent": agent_id}
     for aid, term in sorted(terms.items()):
         tools = term.list_tools()
@@ -163,6 +164,7 @@ def cmd_chain(args) -> dict:
 def cmd_interrupts(args) -> dict:
     """Show interrupt counts and the most recent interrupt records."""
     from l1.kernel.interrupt import get_table
+    from l1.kernel.params.system import LOG_TRUNC_60
 
     t = get_table()
     counts = t.counts()
@@ -174,7 +176,7 @@ def cmd_interrupts(args) -> dict:
     if recent:
         print(f"\nRecent (last {len(recent)}):")
         for r in recent:
-            print(f"  [{r['type']}] {r['agent']} — {r['reason'][:60]}")
+            print(f"  [{r['type']}] {r['agent']} — {r['reason'][:LOG_TRUNC_60]}")
     return {"counts": counts, "recent": recent}
 
 
@@ -300,6 +302,7 @@ def cmd_setting(args) -> dict:
 
 def cmd_card_list(args) -> dict:
     """List recent cards from the registry, printing a summary table."""
+    from l1.kernel.params.system import LOG_TRUNC_40
     from l3.card.card_registry import get_registry
 
     cr = get_registry()
@@ -310,7 +313,9 @@ def cmd_card_list(args) -> dict:
     print(f"{'ID':20s} {'STATE':12s} {'PRI':>3} {'ELAPSED':>8} {'INTENT'}")
     print("-" * 80)
     for c in cards[:20]:
-        print(f"{c['id']:20s} {c['state']:12s} {c['priority']:>3} {str(c.get('elapsed', '')):>8}s {c['intent'][:40]}")
+        print(
+            f"{c['id']:20s} {c['state']:12s} {c['priority']:>3} {str(c.get('elapsed', '')):>8}s {c['intent'][:LOG_TRUNC_40]}"
+        )
     return {"cards": cards}
 
 

@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development with a red-green-refactor loop — build features or fix bugs one vertical slice at a time
+description: Use when implementing or fixing — TDD red-green-refactor, one vertical slice at a time
 tags: [execution]
 disable-model-invocation: true
 posture: productive

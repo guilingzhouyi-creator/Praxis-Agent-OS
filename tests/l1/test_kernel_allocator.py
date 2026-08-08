@@ -560,9 +560,13 @@ class TestAllocatorIntegration:
         u = a.usage("cycle")
         assert u["tokens"]["used"] == 30
 
-    def test_pressure_relief_after_free(self):
+    def test_pressure_relief_after_free(self, monkeypatch):
+        from l1.kernel import allocator as allocator_mod
         from l1.kernel.allocator import get_allocator, reset_allocator
 
+        # Negative TTL disables the TTL-bound pressure cache — this test
+        # targets the pressure computation itself, not cache expiry timing.
+        monkeypatch.setattr(allocator_mod, "ALLOCATOR_PRESSURE_TTL", -1.0)
         reset_allocator()
         a = get_allocator()
         a.set_limit("relief", "tokens", 100)

@@ -2,8 +2,9 @@
 """Atomic contract version bump for Praxis.
 
 Per AGENTS.md "Contract versioning": version bumps are atomic — pyproject.toml
-version + AGENTS.md header + docs/ SOC references must change in one commit.
-This script performs that three-way update in one pass.
+version + AGENTS.md header + KERNEL_VERSION constant + its test assertions +
+docs/ SOC references must change in one commit. This script performs that
+update in one pass.
 
 Usage:
     python scripts/bump-version.py 0.4.2           # bump to 0.4.2
@@ -28,7 +29,23 @@ ROOT = Path(__file__).resolve().parent.parent
 # Files updated by the atomic bump.
 PYPROJECT = ROOT / "pyproject.toml"
 AGENTS = ROOT / "AGENTS.md"
+KERNEL = ROOT / "src/l1/kernel/params/system.py"
 DOCS = ROOT / "docs"
+
+# Tests whose version assertions must follow KERNEL_VERSION (one match each).
+VERSION_ASSERT_FILES = [
+    (
+        ROOT / "tests/infra/test_params_integrity.py",
+        r'^\s*(assert KERNEL_VERSION == ")\d+\.\d+\.\d+(")',
+        "params_integrity assertion",
+    ),
+    (
+        ROOT / "tests/l4/test_api_handlers_config.py",
+        r'^\s*(assert r\["value"\] == ")\d+\.\d+\.\d+(")',
+        "api_handlers_config assertion",
+    ),
+]
+KERNEL_VERSION_RE = re.compile(r'^(KERNEL_VERSION: Final\[str\] = ")\d+\.\d+\.\d+(")', re.MULTILINE)
 
 # SOC header lines in docs carry the project version. Pattern tolerates both
 # `**项目版本:**` and `**项目版本**:` spellings seen in the tree.
@@ -61,7 +78,7 @@ def bump(version: str, dry_run: bool) -> list[str]:
 
     # 1. pyproject.toml
     text = PYPROJECT.read_text(encoding="utf-8")
-    new_text, n = PYPROJECT_VERSION_RE.subn(rf'\g<1>{version}\g<2>', text)
+    new_text, n = PYPROJECT_VERSION_RE.subn(rf"\g<1>{version}\g<2>", text)
     if n != 1:
         raise RuntimeError("unexpected pyproject.toml version match count")
     if not dry_run:
@@ -77,7 +94,25 @@ def bump(version: str, dry_run: bool) -> list[str]:
         AGENTS.write_text(new_text, encoding="utf-8")
     changes.append(f"AGENTS.md: header v{old} -> v{version}")
 
-    # 3. docs/ SOC references (all *.md under docs/)
+    # 3. KERNEL_VERSION constant + version assertions in tests
+    text = KERNEL.read_text(encoding="utf-8")
+    new_text, n = KERNEL_VERSION_RE.subn(rf"\g<1>{version}\g<2>", text)
+    if n != 1:
+        raise RuntimeError("unexpected KERNEL_VERSION match count")
+    if not dry_run:
+        KERNEL.write_text(new_text, encoding="utf-8")
+    changes.append(f"src/l1/kernel/params/system.py: KERNEL_VERSION -> {version}")
+
+    for path, pattern, label in VERSION_ASSERT_FILES:
+        text = path.read_text(encoding="utf-8")
+        new_text, n = re.subn(pattern, rf"\g<1>{version}\g<2>", text, flags=re.MULTILINE)
+        if n != 1:
+            raise RuntimeError(f"unexpected {label} match count")
+        if not dry_run:
+            path.write_text(new_text, encoding="utf-8")
+        changes.append(f"{path.relative_to(ROOT)}: {label} -> {version}")
+
+    # 4. docs/ SOC references (all *.md under docs/)
     hit = 0
     for path in sorted(DOCS.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
@@ -111,7 +146,7 @@ def main() -> int:
         print(f"  - {line}")
     if not dry_run:
         print("[bump-version] commit these together (atomic per AGENTS.md):")
-        print("  git add pyproject.toml AGENTS.md docs/ && git commit")
+        print("  git add pyproject.toml AGENTS.md docs/ src/l1/kernel/params/system.py tests/ && git commit")
     return 0
 
 
