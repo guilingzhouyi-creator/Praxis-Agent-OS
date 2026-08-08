@@ -80,7 +80,7 @@ ALLOWLIST = {
     ("l3/boot/wiring.py", "l4.adapters.i18n_yaml"),
     ("l3/boot/wiring.py", "l4.adapters.monitor_bus"),
     ("l3/boot/wiring.py", "l4.adapters.worker_thread"),
-    ("l3/card/card_registry.py", "l4.llm.llm"),
+    ("l3/card/card_dispatch.py", "l4.llm.llm"),
     ("l3/cell/components/cell_events.py", "l4.sandbox.cell_sandbox"),
     ("l3/cell/components/cell_cross_review.py", "l4.sandbox"),
     ("l3/cell/peers/l3a/agents_md.py", "l4.sandbox"),

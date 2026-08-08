@@ -233,6 +233,40 @@ class CellSandbox:
             Dict with ``success``, ``sandbox_path``, ``entry`` (full SandboxEntry),
             and optional ``conflict`` details.
         """
+        prep = self._write_prepare(rel_path, agent_id)
+        if isinstance(prep, dict):  # error dict
+            return prep
+        safe_rel, target, rw = prep
+        try:
+            # 1. Get old content for diff
+            old_content, old_source = self._get_old_content(rel_path, agent_id, depends_on)
+            # 2-5. Compute diff, detect conflicts, write, register entry
+            entry = self._record_write(
+                safe_rel, target, old_content, old_source, content, agent_id, tool_name, task_id, depends_on
+            )
+            # 6. Emit FILE_CHANGED event via EventBus
+            self._emit_file_changed(safe_rel, agent_id, tool_name, task_id, entry, old_source)
+            return {
+                "success": True,
+                "sandbox_path": str(target),
+                "source": "sandbox",
+                "entry": entry.to_serializable(),
+                "conflict": entry.conflict_level,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        finally:
+            rw.unlock(agent_id)
+
+    # ── Write pipeline stages (split for readability; behavior unchanged) ──
+
+    def _write_prepare(self, rel_path: str, agent_id: str) -> tuple | dict:
+        """Sanitize the path, acquire the sandbox lock, and verify escape.
+
+        Returns ``(safe_rel, target, rwlock)`` on success, or an error dict.
+        Unlocks on the escape-violation path so the caller's finally never
+        double-unlocks a lock that was never acquired.
+        """
         safe_rel = self._sanitize_rel_path(rel_path)
         if safe_rel is None:
             return {"success": False, "error": f"invalid rel_path: {rel_path!r}"}
@@ -241,91 +275,99 @@ class CellSandbox:
         r = rw.write_lock(agent_id)
         if not r["success"]:
             return {"success": False, "error": "lock failed"}
-
+        target = self._agent_path(agent_id) / safe_rel
         try:
-            target = self._agent_path(agent_id) / safe_rel
-            try:
-                target.resolve().relative_to(self.sandbox_root.resolve())
-            except ValueError:
-                return {"success": False, "error": "target escapes sandbox root"}
-
-            # 1. Get old content for diff
-            old_content, old_source = self._get_old_content(rel_path, agent_id, depends_on)
-
-            # 2. Compute structured diff with agent/tool attribution
-            now = time.time()
-            hunks = compute_hunks(old_content, content, agent_id=agent_id, tool_name=tool_name, timestamp=now)
-            additions = sum(len(h["added_lines"]) for h in hunks)
-            deletions = sum(len(h["removed_lines"]) for h in hunks)
-            stats = {"additions": additions, "deletions": deletions, "hunks": len(hunks)}
-
-            # 3. Conflict detection (other agents' pending entries)
-            with self._lock:
-                conflict = check_conflict(safe_rel, agent_id, self._path_index, self._entries)
-
-            # 4. Write to sandbox disk
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
-
-            # 5. Build entry with full metadata
-            old_hash = hashlib.sha256(old_content.encode("utf-8")).hexdigest()[:HASH_TRUNC_LONG] if old_content else ""
-            entry = SandboxEntry(
-                path=safe_rel,
-                sandbox_path=str(target),
-                agent_id=agent_id,
-                tool_name=tool_name,
-                status="pending",
-                original_hash=old_hash,
-                hunks=hunks,
-                stats=stats,
-                task_id=task_id,
-                depends_on=list(depends_on or []),
-                conflict_level=conflict,
-            )
-            with self._lock:
-                self._entries[f"{safe_rel}::{agent_id}"] = entry
-                self._path_index.setdefault(safe_rel, []).append(f"{safe_rel}::{agent_id}")
-                self._summary_cache.pop(safe_rel, None)  # invalidate L2
-                self._persist_state()
-
-            # 6. Emit FILE_CHANGED event via EventBus
-            try:
-                from l1.kernel.event import Signal, SignalType
-                from l1.kernel.event import get_bus as _get_ebus
-
-                ebus = _get_ebus()
-                ebus.emit(
-                    Signal(
-                        type=SignalType.FILE_CHANGED,
-                        sender=f"sandbox:{self.cell_id}",
-                        target=agent_id,
-                        data={
-                            "path": safe_rel,
-                            "agent_id": agent_id,
-                            "tool_name": tool_name,
-                            "cell_id": self.cell_id,
-                            "task_id": task_id,
-                            "stats": stats,
-                            "conflict_level": conflict,
-                            "old_source": old_source,
-                            "hunks_count": len(hunks),
-                        },
-                    )
-                )
-            except Exception:
-                logger.debug("sandbox: FILE_CHANGED emit failed")
-
-            return {
-                "success": True,
-                "sandbox_path": str(target),
-                "source": "sandbox",
-                "entry": entry.to_serializable(),
-                "conflict": conflict,
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-        finally:
+            target.resolve().relative_to(self.sandbox_root.resolve())
+        except ValueError:
             rw.unlock(agent_id)
+            return {"success": False, "error": "target escapes sandbox root"}
+        return safe_rel, target, rw
+
+    def _record_write(
+        self,
+        safe_rel: str,
+        target: Path,
+        old_content: str,
+        old_source: str,
+        content: str,
+        agent_id: str,
+        tool_name: str,
+        task_id: str,
+        depends_on: list[str] | None,
+    ) -> SandboxEntry:
+        """Compute the structured diff, detect conflicts, write to disk, and register the entry."""
+        # 2. Compute structured diff with agent/tool attribution
+        now = time.time()
+        hunks = compute_hunks(old_content, content, agent_id=agent_id, tool_name=tool_name, timestamp=now)
+        additions = sum(len(h["added_lines"]) for h in hunks)
+        deletions = sum(len(h["removed_lines"]) for h in hunks)
+        stats = {"additions": additions, "deletions": deletions, "hunks": len(hunks)}
+
+        # 3. Conflict detection (other agents' pending entries)
+        with self._lock:
+            conflict = check_conflict(safe_rel, agent_id, self._path_index, self._entries)
+
+        # 4. Write to sandbox disk
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+        # 5. Build entry with full metadata
+        old_hash = hashlib.sha256(old_content.encode("utf-8")).hexdigest()[:HASH_TRUNC_LONG] if old_content else ""
+        entry = SandboxEntry(
+            path=safe_rel,
+            sandbox_path=str(target),
+            agent_id=agent_id,
+            tool_name=tool_name,
+            status="pending",
+            original_hash=old_hash,
+            hunks=hunks,
+            stats=stats,
+            task_id=task_id,
+            depends_on=list(depends_on or []),
+            conflict_level=conflict,
+        )
+        with self._lock:
+            self._entries[f"{safe_rel}::{agent_id}"] = entry
+            self._path_index.setdefault(safe_rel, []).append(f"{safe_rel}::{agent_id}")
+            self._summary_cache.pop(safe_rel, None)  # invalidate L2
+            self._persist_state()
+        return entry
+
+    def _emit_file_changed(
+        self,
+        safe_rel: str,
+        agent_id: str,
+        tool_name: str,
+        task_id: str,
+        entry: SandboxEntry,
+        old_source: str,
+    ) -> None:
+        """Emit the FILE_CHANGED event for a registered write."""
+        try:
+            from l1.kernel.event import Signal, SignalType
+            from l1.kernel.event import get_bus as _get_ebus
+
+            ebus = _get_ebus()
+            ebus.emit(
+                Signal(
+                    type=SignalType.FILE_CHANGED,
+                    sender=f"sandbox:{self.cell_id}",
+                    target=agent_id,
+                    data={
+                        "path": safe_rel,
+                        "agent_id": agent_id,
+                        "tool_name": tool_name,
+                        "cell_id": self.cell_id,
+                        "task_id": task_id,
+                        "stats": entry.stats,
+                        "conflict_level": entry.conflict_level,
+                        "old_source": old_source,
+                        "hunks_count": len(entry.hunks),
+                    },
+                )
+            )
+        except Exception:
+            logger.debug("sandbox: FILE_CHANGED emit failed")
 
     def stage(self, agent_id: str) -> dict:
         """Mark all pending entries of an agent as staged."""
