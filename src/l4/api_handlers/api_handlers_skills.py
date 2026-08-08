@@ -260,3 +260,46 @@ def handle_skills_pipeline_set(body: dict | None = None) -> dict:
         logger.debug("skills: pipeline policy SettingsCenter mirror skipped", exc_info=True)
     policy["authorized"] = who
     return policy
+
+
+def handle_skills_disclosure_get(body: dict | None = None) -> dict:
+    """GET /api/v2/skills/disclosure — current progressive-disclosure policy."""
+    return {"success": True, "policy": _manager().disclosure_policy()}
+
+
+def handle_skills_disclosure_set(body: dict | None = None) -> dict:
+    """POST /api/v2/skills/disclosure — update progressive-disclosure knobs (developer).
+
+    Body (all optional; only provided fields change):
+      full_index_enabled: bool       — append the full skill index after curated slots
+      full_index_limit: int          — max entries in the full index
+      audience_filter_enabled: bool  — strategy/execution audience routing
+      strategy_capability_view: bool — L3A read-only view of execution capabilities
+
+    Mirrors the new values into SettingsCenter (L2); applied atomically on
+    the SkillManager.
+    """
+    b = body or {}
+    agent_id, role = _caller(b)
+    sm = _manager()
+    ok, who = sm.authorize_write(agent_id, role)
+    if not ok:
+        return {"success": False, "error": f"permission denied: {who}"}
+    update: dict = {}
+    for key in ("full_index_enabled", "audience_filter_enabled", "strategy_capability_view"):
+        if key in b:
+            raw = b[key]
+            update[key] = raw in (True, "true", 1, "1")
+    if "full_index_limit" in b and isinstance(b["full_index_limit"], int):
+        update["full_index_limit"] = b["full_index_limit"]
+    policy = sm.set_disclosure_policy(**update, source="api")
+    try:
+        from l3.config.settings_center import get_center
+
+        center = get_center()
+        for key, value in update.items():
+            center.set_l2(f"skill.disclosure.{key}", value)
+    except Exception:
+        logger.debug("skills: disclosure policy SettingsCenter mirror skipped", exc_info=True)
+    policy["authorized"] = who
+    return policy

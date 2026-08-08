@@ -72,6 +72,19 @@ API_ROUTES: list[tuple[str, str, str, str]] = [
         "l4.api_handlers.api_handlers_skills.handle_skills_pipeline_set",
         "Update skill retrieval/curation pipeline knobs (developer)",
     ),
+    # Skill progressive-disclosure policy (two-level index, audience, capability view)
+    (
+        "GET",
+        "/api/v2/skills/disclosure",
+        "l4.api_handlers.api_handlers_skills.handle_skills_disclosure_get",
+        "Skill progressive-disclosure policy",
+    ),
+    (
+        "POST",
+        "/api/v2/skills/disclosure",
+        "l4.api_handlers.api_handlers_skills.handle_skills_disclosure_set",
+        "Update skill progressive-disclosure knobs (developer)",
+    ),
     # Cards
     ("POST", "/api/v2/card", ".submit_card", "Submit a card"),
     ("POST", "/api/v2/card/batch", ".submit_batch", "Submit batch cards"),

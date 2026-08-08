@@ -216,7 +216,7 @@ class SkillCatalogHook(LifecycleHooks):
                 SKILL_CATALOG_HOOK_LIMIT,
                 SKILL_POSTURE_OFFENSIVE,
             )
-            from l1.kernel.skill import get_skill_manager
+            from l1.kernel.skill import audience_of, get_skill_manager, skill_visible
 
             sm = get_skill_manager()
             auto_builtin = SKILL_AUTO_ACTIVATE_BUILTIN
@@ -232,6 +232,17 @@ class SkillCatalogHook(LifecycleHooks):
             # is enabled. Disabling the policy (soft bypass) advertises them.
             if sm.offensive_policy().get("enabled", True):
                 skills = [s for s in skills if s.get("posture") != SKILL_POSTURE_OFFENSIVE]
+            # Audience routing: strategy skills surface only for the L3A
+            # decision layer, execution skills for Cell peer agents
+            # (untagged skills are universal). Toggleable via disclosure policy.
+            disclosure = sm.disclosure_policy()
+            if not isinstance(disclosure, dict):
+                disclosure = {}
+            if disclosure.get("audience_filter_enabled", True):
+                skills = [s for s in skills if skill_visible(s, agent_id)]
+            # Disclosure depth: none → hidden from every surface; index →
+            # name+desc only (content loads on explicit use_skill).
+            skills = [s for s in skills if s.get("disclosure", "full") != "none"]
             # Contribution-aware ordering: built-in (read-only) skills keep
             # priority when auto-activation is on, then usage (useful_count /
             # last_used) instead of the plain loaded_at tie-break — high-value
@@ -297,14 +308,33 @@ class SkillCatalogHook(LifecycleHooks):
                         skills = ranked
                 except Exception as e:
                     logger.debug("SkillCatalogHook: relevance ranking skipped: %s", e)
-            skills = skills[:SKILL_CATALOG_HOOK_LIMIT]
-            if skills:
+            # Two-level index (progressive disclosure): curated slots first,
+            # then the full skill index when the disclosure policy enables it.
+            curated = skills[:SKILL_CATALOG_HOOK_LIMIT]
+            if curated:
                 lines = ["\nAvailable skills (use_skill to invoke):"]
-                for s in skills:
+                for s in curated:
                     marker = " [builtin]" if s.get("builtin") else ""
                     desc = (s.get("description", "") or "")[:LOG_TRUNC_60]
                     lines.append(f"  {s['name']}{marker}: {desc}")
+                if disclosure.get("full_index_enabled"):
+                    full_limit = int(disclosure.get("full_index_limit") or SKILL_CATALOG_HOOK_LIMIT)
+                    for s in skills[SKILL_CATALOG_HOOK_LIMIT:full_limit]:
+                        desc = (s.get("description", "") or "")[:LOG_TRUNC_60]
+                        lines.append(f"  {s['name']}: {desc}")
                 task += "\n".join(lines)
+            # L3A decision layer: read-only capability view of execution
+            # skills (what Cell peers can do) — delegation support.
+            if disclosure.get("strategy_capability_view") and audience_of(agent_id) == "strategy":
+                try:
+                    cap_lines = ["\nPeer capabilities (execution skills — delegate via cards):"]
+                    for s in sm.list_skills():
+                        if "execution" in (s.get("tags") or []) and s.get("disclosure", "full") != "none":
+                            desc = (s.get("description", "") or "")[:LOG_TRUNC_60]
+                            cap_lines.append(f"  [peer-capability] {s['name']}: {desc}")
+                    task += "\n".join(cap_lines)
+                except Exception as e:
+                    logger.debug("SkillCatalogHook: capability view skipped: %s", e)
         except Exception as e:
             logger.debug("SkillCatalogHook: %s", e)
         return task

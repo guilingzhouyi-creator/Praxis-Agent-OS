@@ -43,12 +43,18 @@ from l1.kernel.params.system import (
     LOG_TRUNC_60,
     LOG_TRUNC_200,
     LOG_TRUNC_2000,
+    SKILL_AUDIENCE_FILTER_ENABLED,
+    SKILL_CATALOG_FULL_INDEX_ENABLED,
+    SKILL_CATALOG_FULL_INDEX_LIMIT,
     SKILL_CONTRACT_FORBIDDEN_PATHS,
     SKILL_CONTRACT_FORBIDDEN_PATTERNS,
+    SKILL_DISCLOSURE_DEFAULT,
+    SKILL_DISCLOSURE_VALID,
     SKILL_OFFENSIVE_AUTHORIZED_NATURES,
     SKILL_OFFENSIVE_ENABLED,
     SKILL_POSTURE_DEFAULT,
     SKILL_POSTURE_VALID,
+    SKILL_STRATEGY_CAPABILITY_VIEW,
     SKILL_WRITE_MIN_RING,
     SKILL_WRITE_ROLES,
 )
@@ -217,6 +223,16 @@ class SkillManager:
         self._retrieval_min_score: float = R4_RETRIEVAL_MIN_SCORE
         self._pipeline_updated: float = 0.0
         self._pipeline_source: str = "params"
+        # Progressive-disclosure policy — runtime knobs for the session
+        # catalog (two-level index, audience filter, L3A capability view).
+        self._full_index_enabled: bool = SKILL_CATALOG_FULL_INDEX_ENABLED
+        self._full_index_limit: int = SKILL_CATALOG_FULL_INDEX_LIMIT
+        self._audience_filter_enabled: bool = SKILL_AUDIENCE_FILTER_ENABLED
+        self._strategy_capability_view: bool = SKILL_STRATEGY_CAPABILITY_VIEW
+        self._disclosure_updated: float = 0.0
+        self._disclosure_source: str = "params"
+        # Quest-style staged skills: (skill, session_key) → active stage index.
+        self._stage_state: dict[tuple[str, str], int] = {}
         # Structural-mutation revision — R4Agent injection caches compare this
         # to decide whether their derived skill lists are stale.
         self._revision = 0
@@ -323,6 +339,204 @@ class SkillManager:
                 "updated": self._pipeline_updated,
                 "source": self._pipeline_source,
             }
+
+    def set_disclosure_policy(
+        self,
+        full_index_enabled: bool | None = None,
+        full_index_limit: int | None = None,
+        audience_filter_enabled: bool | None = None,
+        strategy_capability_view: bool | None = None,
+        source: str = "runtime",
+    ) -> dict:
+        """Override the progressive-disclosure knobs at runtime (API/config).
+
+        ``full_index_enabled`` appends the full skill index after the curated
+        catalog slots; ``audience_filter_enabled`` toggles strategy/execution
+        audience routing; ``strategy_capability_view`` gives the L3A decision
+        layer a read-only view of execution capabilities. None fields are
+        left untouched; ``source`` records who changed the policy.
+        """
+        with self._lock:
+            if full_index_enabled is not None:
+                self._full_index_enabled = bool(full_index_enabled)
+            if full_index_limit is not None:
+                self._full_index_limit = int(full_index_limit)
+            if audience_filter_enabled is not None:
+                self._audience_filter_enabled = bool(audience_filter_enabled)
+            if strategy_capability_view is not None:
+                self._strategy_capability_view = bool(strategy_capability_view)
+            self._disclosure_updated = time.time()
+            self._disclosure_source = source
+            return {
+                "success": True,
+                "full_index_enabled": self._full_index_enabled,
+                "full_index_limit": self._full_index_limit,
+                "audience_filter_enabled": self._audience_filter_enabled,
+                "strategy_capability_view": self._strategy_capability_view,
+                "updated": self._disclosure_updated,
+                "source": self._disclosure_source,
+            }
+
+    def disclosure_policy(self) -> dict:
+        """Return the current progressive-disclosure policy."""
+        with self._lock:
+            return {
+                "full_index_enabled": self._full_index_enabled,
+                "full_index_limit": self._full_index_limit,
+                "audience_filter_enabled": self._audience_filter_enabled,
+                "strategy_capability_view": self._strategy_capability_view,
+                "updated": self._disclosure_updated,
+                "source": self._disclosure_source,
+            }
+
+    # ── Quest-style staged skills (per-session stage state) ──
+
+    def current_stage(self, name: str, session_key: str = "") -> dict:
+        """Return the active stage of a staged skill for a session.
+
+        Unstaged skills return ``staged: False``. The stage index is
+        per-session (session_key, typically the agent/card id) so parallel
+        sessions never interfere.
+        """
+        skill = self._skills.get(name)
+        stages = skill.get("stages") if skill else None
+        if not stages:
+            return {"skill": name, "staged": False, "stage": None}
+        with self._lock:
+            idx = self._stage_state.get((name, session_key), 0)
+        idx = max(0, min(idx, len(stages) - 1))
+        stage = stages[idx]
+        return {
+            "skill": name,
+            "staged": True,
+            "stage_index": idx,
+            "stage": stage,
+            "next_stage": stages[idx + 1].get("id") if idx + 1 < len(stages) else None,
+            "done": idx >= len(stages) - 1,
+        }
+
+    def advance_stage(self, name: str, session_key: str = "") -> dict:
+        """Advance a staged skill to its next stage for a session."""
+        skill = self._skills.get(name)
+        stages = skill.get("stages") if skill else None
+        if not stages:
+            return {"success": True, "skill": name, "staged": False}
+        with self._lock:
+            idx = self._stage_state.get((name, session_key), 0)
+            if idx < len(stages) - 1:
+                idx += 1
+                self._stage_state[(name, session_key)] = idx
+            return {
+                "success": True,
+                "skill": name,
+                "stage_index": idx,
+                "done": idx >= len(stages) - 1,
+            }
+
+    # ── Guided-path engine (quest-style skill chain) ──
+
+    def _guidance_graph(self) -> dict[str, set[str]]:
+        """Build the skill guidance DAG: skill → set of skills it unlocks.
+
+        Edges come from both directions: a skill's ``dependencies`` (prereq
+        skills that must be satisfied) and ``next`` (forward guidance). The
+        graph is rebuilt lazily per call — the registry is small.
+        """
+        graph: dict[str, set[str]] = {}
+        with self._lock:
+            for name, skill in self._skills.items():
+                deps = [d for d in (skill.get("dependencies") or []) if isinstance(d, str)]
+                for d in deps:
+                    graph.setdefault(d, set()).add(name)
+                nxt = [n for n in (skill.get("next") or []) if isinstance(n, str)]
+                for n in nxt:
+                    graph.setdefault(name, set()).add(n)
+        return graph
+
+    def validate_guidance_graph(self) -> dict:
+        """Detect cycles in the skill guidance DAG (fail-fast on edits)."""
+        graph = self._guidance_graph()
+        white, gray, black = 0, 1, 2
+        color: dict[str, int] = {}
+        stack: list[str] = []
+        cycles: list[list[str]] = []
+
+        def dfs(node: str) -> None:
+            color[node] = gray
+            stack.append(node)
+            for nxt in graph.get(node, ()):
+                if color.get(nxt, white) == white:
+                    dfs(nxt)
+                elif color.get(nxt) == gray:
+                    idx = stack.index(nxt) if nxt in stack else 0
+                    cycles.append(stack[idx:] + [nxt])
+            stack.pop()
+            color[node] = black
+
+        for node in graph:
+            if color.get(node, white) == white:
+                dfs(node)
+        return {"acyclic": not cycles, "cycles": cycles, "nodes": len(graph)}
+
+    def guided_frontier(self, completed: list[str] | None = None) -> list[str]:
+        """Return the currently unlocked skills (quest-log frontier).
+
+        ``completed`` = skill names whose prerequisites are satisfied. Skills
+        with unsatisfied (missing or incomplete) dependencies are excluded.
+        """
+        completed_set = set(completed or [])
+        frontier: list[str] = []
+        with self._lock:
+            for name, skill in self._skills.items():
+                if skill.get("disclosure", "full") == "none":
+                    continue
+                deps = [d for d in (skill.get("dependencies") or []) if isinstance(d, str)]
+                if all(d in completed_set for d in deps):
+                    frontier.append(name)
+        frontier.sort()
+        return frontier
+
+    def guided_path(self, target: str) -> list[str]:
+        """Reverse-chain the prerequisite path to *target* (BFS over deps)."""
+        with self._lock:
+            deps_of = {
+                name: [d for d in (skill.get("dependencies") or []) if isinstance(d, str)]
+                for name, skill in self._skills.items()
+            }
+        chain: list[str] = []
+        seen: set[str] = set()
+        queue: list[str] = [target]
+        while queue:
+            node = queue.pop(0)
+            if node in seen or node not in self._skills:
+                continue
+            seen.add(node)
+            chain.append(node)
+            queue.extend(deps_of.get(node, []))
+        chain.reverse()
+        return chain
+
+    def on_card_complete(self, card_id: str, state: str = "", result: dict | None = None) -> dict:
+        """Advance staged skills bound to a card session (three-table linkage).
+
+        Called by the card completion listener (see l3.memory.skill_guidance);
+        advances the stage state of every staged skill used under this card's
+        session key. Returns the number of stages advanced.
+        """
+        if state and state.upper() not in ("COMPLETED", "DONE"):
+            return {"advanced": 0}
+        session_key = f"card:{card_id}"
+        advanced = 0
+        with self._lock:
+            for (name, key), idx in list(self._stage_state.items()):
+                if key != session_key:
+                    continue
+                skill = self._skills.get(name)
+                stages = skill.get("stages") if skill else None
+                if stages and idx < len(stages) - 1:
+                    self._stage_state[(name, key)] = idx + 1
+                    advanced += 1
+        return {"advanced": advanced, "session_key": session_key}
 
     # ── Per-Cell skill binding (回灌到 Cell) ──
 
@@ -558,6 +772,9 @@ class SkillManager:
         dependencies: list[str] | None = None,
         dependency_kind: str = "soft",
         posture: str = SKILL_POSTURE_DEFAULT,
+        disclosure: str = SKILL_DISCLOSURE_DEFAULT,
+        stages: list[dict] | None = None,
+        next_skills: list[str] | None = None,
         knowledge: dict | None = None,
         agent_id: str = "",
         role: str = "",
@@ -583,6 +800,9 @@ class SkillManager:
             "dependencies": dependencies or [],
             "dependency_kind": dependency_kind if dependency_kind in ("hard", "soft") else "soft",
             "posture": self._normalize_posture(posture),
+            "disclosure": self._normalize_disclosure(disclosure),
+            "stages": [s for s in (stages or []) if isinstance(s, dict)],
+            "next": [n for n in (next_skills or []) if isinstance(n, str)],
             "source": "evolved",
             "loaded_at": __import__("time").time(),
             "useful_count": 0,
@@ -621,6 +841,9 @@ class SkillManager:
                     "source": s.get("source", ""),
                     "builtin": bool(s.get("builtin")),
                     "posture": s.get("posture", SKILL_POSTURE_DEFAULT),
+                    "disclosure": s.get("disclosure", SKILL_DISCLOSURE_DEFAULT),
+                    "stages": len(s.get("stages") or []),
+                    "next": s.get("next") or [],
                     "loaded_at": s.get("loaded_at", 0.0),
                     "last_used": s.get("last_used", 0.0),
                     "disable_model_invocation": bool(s.get("disable_model_invocation")),
@@ -838,6 +1061,13 @@ class SkillManager:
             # testing). Invalid values fall back to the safe default so a
             # malformed frontmatter never escalates a skill's posture.
             "posture": self._normalize_posture(meta.get("posture")),
+            "disclosure": self._normalize_disclosure(meta.get("disclosure")),
+            # Quest-style staged skills: ordered stages, each with
+            # id/name/instructions/completion — progressive disclosure reveals
+            # only the active stage (see current_stage/advance_stage).
+            "stages": [s for s in (meta.get("stages") or []) if isinstance(s, dict)],
+            # Forward guidance (quest-style): skills this skill suggests next.
+            "next": [n for n in (meta.get("next") or []) if isinstance(n, str)],
             # Matt-Pocock-style invocation model: user-invoked skills
             # (disable-model-invocation: true) are excluded from automatic
             # context injection; they only fire on explicit use.
@@ -878,6 +1108,18 @@ class SkillManager:
         if isinstance(value, str) and value in SKILL_POSTURE_VALID:
             return value
         return SKILL_POSTURE_DEFAULT
+
+    @staticmethod
+    def _normalize_disclosure(value: Any) -> str:
+        """Normalize a disclosure value to full|index|none, defaulting to full.
+
+        Invalid values (or missing) fall back to the safe default so a
+        malformed frontmatter never hides a skill by accident — full means
+        the skill participates in all progressive-disclosure levels.
+        """
+        if isinstance(value, str) and value in SKILL_DISCLOSURE_VALID:
+            return value
+        return SKILL_DISCLOSURE_DEFAULT
 
     def _extract_rules(self, body: str) -> list[str]:
         """Extract DO/DON'T rules from markdown body.

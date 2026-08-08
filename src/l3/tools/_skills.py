@@ -102,7 +102,15 @@ def use_skill(args: dict, agent_id: str) -> dict:
                 f" (nature '{nature}' not allowed by offensive policy)",
             }
 
-    prompt = skill_data.get("prompt", "")
+    # Quest-style staged skills: disclose only the active stage's
+    # instructions (progressive per-stage disclosure), not the whole body.
+    stage_info: dict = {}
+    if skill_data.get("stages"):
+        stage_info = sm.current_stage(name, agent_id)
+        stage = stage_info.get("stage") or {}
+        prompt = stage.get("instructions") or skill_data.get("prompt", "")
+    else:
+        prompt = skill_data.get("prompt", "")
     variables = skill_data.get("variables", [])
     allowed_tools = skill_data.get("allowed_tools")
 
@@ -117,7 +125,7 @@ def use_skill(args: dict, agent_id: str) -> dict:
     # single lock so concurrent use_skill calls never lose an increment.
     sm.bump_usage(name)
 
-    return {
+    result = {
         "success": True,
         "skill": name,
         "prompt": expanded,
@@ -125,3 +133,9 @@ def use_skill(args: dict, agent_id: str) -> dict:
         "variables": variables or [],
         "allowed_tools": allowed_tools or [],
     }
+    if stage_info:
+        result["staged"] = True
+        result["stage_index"] = stage_info.get("stage_index", 0)
+        result["stage_id"] = (stage_info.get("stage") or {}).get("id", "")
+        result["next_stage"] = stage_info.get("next_stage")
+    return result

@@ -541,6 +541,30 @@ class SkillFeedbackMixin:
         )
         if not base:
             return []
+        # Disclosure depth: skills marked disclosure=none never surface in
+        # task-similarity retrieval (explicit use_skill only).
+        base = [s for s in base if s.get("disclosure", "full") != "none"]
+        if not base:
+            return []
+        # Builtin skills join the task-similarity pool (audience + disclosure
+        # filtered) so retrieval covers the full catalog, not just evolved.
+        try:
+            from l1.kernel.skill import get_skill_manager as _loop_sm
+            from l1.kernel.skill import skill_visible as _sv
+
+            for s in _loop_sm().list_skills():
+                if not s.get("builtin"):
+                    continue
+                if s.get("disclosure", "full") == "none":
+                    continue
+                if not _sv(s, agent_id):
+                    continue
+                if s not in base:
+                    base.append(s)
+        except Exception:
+            pass
+        if not base:
+            return []
         from l3.memory.skill_retriever import get_retriever
 
         ranked = get_retriever().rank(query, base, limit=limit, min_score=min_score)
