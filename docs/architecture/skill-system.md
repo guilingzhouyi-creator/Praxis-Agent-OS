@@ -317,3 +317,99 @@ inject (5.1) → inject_count++, last_used refresh
    → grouping, sampling → flat, llm_distill → baseline) under its switch.
 9. Rule preference metadata is runtime-only: SKILL.md persists rule text,
    DPO counters are rebuilt from card signals on the next distillation.
+
+## 9. Skill file format (normalized contract)
+
+`SKILL.md` is the **human-readable canonical document**; the loader projects it
+into a structured runtime view. The format is enforced by
+`tests/infra/test_skill_schema.py` (fields / enums / references / body layout /
+round-trip) and `tests/infra/test_skill_contracts.py` (shared-principles layer).
+
+### 9.1 Frontmatter schema
+
+```yaml
+---
+name: <kebab-case, must match the directory>
+description: "Use when <trigger> — <value>"   # trigger-oriented; the first ~60
+                                              # chars surface in session catalogs
+tags: [strategy | execution | review, ...]    # strategy/execution are AUDIENCE tags
+disable-model-invocation: true                # user-invoked only (all builtins)
+posture: productive | offensive               # offensive = default-deny injection
+disclosure: full | index | none               # progressive-disclosure depth
+allowed-tools: [tool, ...]                    # tool whitelist
+dependencies: [skill, ...]                    # prerequisite skills (guidance DAG)
+dependency-kind: soft | hard
+next: [skill, ...]                            # forward guidance (quest-style chain)
+stages:                                       # quest-style staged skills (optional)
+  - id: red
+    name: RED
+    instructions: <active-stage prompt>
+    completion: <verifiable completion criterion>
+---
+```
+
+**Required fields** (schema gate): `name`, `description`, `tags`,
+`disable-model-invocation`, `posture`, `allowed-tools`, `disclosure`.
+**Enums**: `posture ∈ {productive, offensive}`,
+`disclosure ∈ {full, index, none}`; at most one audience tag per skill.
+`next` / `dependencies` must reference skills that exist (dangling references
+fail the gate); the guidance graph must stay **acyclic**
+(`validate_guidance_graph`).
+
+### 9.2 Body layout contract
+
+```
+<intro paragraph>
+## Constitution Binding     # MUST — constitutional sections this skill operates under
+## Rules                    # MUST — `- **DO**: ...` / `- **DON'T**: ...` items
+## Procedures               # MUST — `- **N**: <desc>` items
+```
+
+- The 12 universal principles do **not** live in per-skill files — they are
+  normalized into `config/skills/_shared/principles.md` and injected by the
+  loader at load time (`_strip_universal_principles` + shared-layer injection).
+  Editing a principle touches one file, not 21.
+- `rules` are parsed by `_extract_rules` (DO/DON'T); `procedures` by
+  `_extract_procedures` (`{step, description}` — symmetric with the LLM
+  SkillArchitect contract `{step, action, description}`).
+
+### 9.3 Disclosure depth (`disclosure`)
+
+| value | Level 0 index (catalog) | Level 1 content (inject) | explicit use_skill |
+|-------|:---:|:---:|:---:|
+| `full` (default) | ✓ | ✓ | ✓ |
+| `index` | ✓ (name+desc only) | ✗ | ✓ |
+| `none` | ✗ | ✗ | ✓ (known name) |
+
+Session catalogs and task-similarity retrieval filter `none`; `index` skills
+surface as existence-only hints.
+
+### 9.4 Staged skills + guidance engine
+
+- `stages` make a skill quest-style: `current_stage(name, session)` /
+  `advance_stage(name, session)` track **per-session** progression;
+  `use_skill` discloses only the active stage; stage `completion` feeds the
+  card/TODO linkage (`on_card_complete` advances the card session's stage).
+- `dependencies` (prerequisites) + `next` (forward guidance) build the
+  guidance DAG: `guided_frontier(completed)` returns the unlocked quest-log,
+  `guided_path(target)` reverse-chains prerequisites, `validate_guidance_graph`
+  fails on cycles.
+
+### 9.5 Runtime views (human vs agent)
+
+| surface | content | layer |
+|---------|---------|-------|
+| `SkillManager.get()` / API / L2 `get` / R4Agent | full markdown | human/review + evolution |
+| `SkillManager.structured_skill(name, session)` | rules/procedures/stages/allowed-tools/deps/next — **no body** | agent runtime |
+| `list_skills()` (external surfaces) | slim catalog — `prompt` dropped unless `include_prompt=True` | agent runtime |
+| `use_skill` default | structured view (`structured=true`) | agent runtime |
+| `use_skill(full=true)` | raw body — **write-gated** (privileged read) | human/review |
+
+### 9.6 Round-trip invariants
+
+Loader (`_load_markdown`) ↔ persister (`_persist_skill_md` / `evolve_skill`) ↔
+`list_skills` output must keep every persisted field in sync
+(`disclosure` / `stages` / `next` included) — enforced by
+`TestSchemaRoundTrip`. The builtin catalog is immutable at runtime (write gate
+rejects mutations; only R4Agent evolution/pruning with `internal=True` writes
+to the evolved layer).

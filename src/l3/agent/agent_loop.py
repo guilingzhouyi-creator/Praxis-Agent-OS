@@ -42,7 +42,6 @@ from l1.kernel.params.agent import (
     AGENT_LOOP_MAX_WORKERS,
     AGENT_LOOP_UNLIMITED_STEPS,
     LOOP_CONTEXT_BUDGET_SKILL,
-    LOOP_EVOLVED_SKILL_TRUNC,
     LOOP_EVOLVED_SKILLS_LIMIT,
     LOOP_FOLD_LIST_PREVIEW,
     LOOP_FOLD_LIST_TRUNCATION,
@@ -305,8 +304,10 @@ class AgentLoop(AgentLoopGuardMixin):
                         except Exception:
                             pass
                         continue
-                    prompt_preview = es["prompt"][:LOOP_EVOLVED_SKILL_TRUNC]
-                    block = f"\n\n### {es['name']}\n{es['description']}\n{prompt_preview}"
+                    # Structured injection: name + description + rule count —
+                    # the markdown body stays on the human/review layer.
+                    rules_count = es.get("rules") or 0
+                    block = f"\n\n### {es['name']}\n{es['description']} ({rules_count} rules)"
                     if len(block) <= budget:
                         system += block
                         budget -= len(block)

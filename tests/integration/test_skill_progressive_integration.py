@@ -104,22 +104,23 @@ class TestStagedUseSkillIntegration:
 
         sm = get_skill_manager()
         r = use_skill({"name": "tdd"}, "agent-writer")
-        assert r["success"] and r["staged"] and r["stage_id"] == "red"
-        assert "failing test" in r["prompt"].lower()
+        assert r["success"] and r["stage"]["stage_index"] == 0
+        assert r["stage"]["stage"]["id"] == "red"
+        assert "failing test" in r["stage"]["stage"]["instructions"].lower()
 
         sm.advance_stage("tdd", "agent-writer")
         r2 = use_skill({"name": "tdd"}, "agent-writer")
-        assert r2["stage_id"] == "green"
+        assert r2["stage"]["stage"]["id"] == "green"
 
         sm.advance_stage("tdd", "agent-writer")
         r3 = use_skill({"name": "tdd"}, "agent-writer")
-        assert r3["stage_id"] == "refactor" and r3["next_stage"] is None
+        assert r3["stage"]["stage"]["id"] == "refactor" and r3["stage"]["next_stage"] is None
 
-    def test_unstaged_skill_returns_full_prompt(self):
+    def test_unstaged_skill_structured_view(self):
         from l3.tools._skills import use_skill
 
         r = use_skill({"name": "kernel"}, "agent-writer")
-        assert r["success"] and not r.get("staged") and r["prompt"]
+        assert r["success"] and "rules" in r and "procedures" in r and "prompt" not in r
 
 
 class TestGuidanceEngineOnBuiltins:
@@ -216,17 +217,18 @@ class TestDisclosureBoundaries:
         sm.create(name="hidden-skill", description="d", prompt="secret instructions", disclosure="none", internal=True)
         assert "hidden-skill" not in _session("do the thing", "agent-writer")
         r = use_skill({"name": "hidden-skill"}, "agent-writer")
-        assert r["success"] and "secret" in r["prompt"]
+        assert r["success"] and r["name"] == "hidden-skill" and "prompt" not in r
 
-    def test_index_skill_listed_but_content_loaded_on_demand(self):
+    def test_index_skill_full_content_via_gated_mode(self, mocker):
         from l3.tools._skills import use_skill
 
         sm = get_skill_manager()
+        mocker.patch.object(sm, "authorize_write", return_value=(True, "test"))
         sm.create(name="indexed-skill", description="indexed", prompt="full body", disclosure="index", internal=True)
         sm.set_disclosure_policy(full_index_enabled=True, full_index_limit=50)
         assert "indexed-skill" in _session("do the thing", "agent-writer")
-        r = use_skill({"name": "indexed-skill"}, "agent-writer")
-        assert r["success"] and "full body" in r["prompt"]
+        r = use_skill({"name": "indexed-skill", "full": True}, "agent-writer")
+        assert r["success"] and r["full"] and "full body" in r["prompt"]
 
     def test_invalid_disclosure_falls_back_full(self):
         sm = get_skill_manager()
