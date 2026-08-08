@@ -19,7 +19,7 @@ class TestLedgerInit:
     def test_default_entries(self):
         ledger = ToolHistoryLedger(max_entries=100)
         assert ledger._max == 100
-        assert ledger._entries == []
+        assert len(ledger._entries) == 0
 
     def test_recent_empty(self):
         ledger = ToolHistoryLedger()
@@ -105,7 +105,7 @@ class TestLedgerClear:
         ledger = ToolHistoryLedger()
         ledger.record(LedgerEntry(agent_id="a", tool="t", target="/x", result=GateResult.PASS))
         ledger.clear()
-        assert ledger._entries == []
+        assert len(ledger._entries) == 0
         assert ledger._by_agent == {}
         assert ledger._by_tool == {}
         assert ledger._by_agent_tool == {}
